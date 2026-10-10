@@ -1,8 +1,9 @@
 name: CI
 
 # Every pull request runs every check; so does every push to main, which then deploys klipstack.com
-# when app code changed. The browser tests are the exception: they run only when something they
-# run changed (`scripts/needs-e2e`), and `e2e result` reports on them either way.
+# when app code changed. The unit and browser tests are the exception: each runs only when something
+# it reads changed (`scripts/ci-needs`). A skipped `unit` counts as passed; `e2e result` reports on
+# the browser tests either way.
 # `scripts/ci-local` runs the same checks on a developer's machine. Change both together.
 #
 # Pull requests from forks get a read-only token and no secrets. Only a push to main can reach the
@@ -51,6 +52,9 @@ jobs:
       - run: bash -n scripts/image-smoke
 
   unit:
+    needs: changes
+    # Runs unless `changes` found nothing it reads: when `changes` itself failed, it runs.
+    if: ${{ !cancelled() && needs.changes.outputs.unit != 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     services:
@@ -160,14 +164,15 @@ jobs:
           [ "$CHANGES" = success ] || exit 1
           if [ "$NEEDED" = false ]; then [ "$E2E" = skipped ]; else [ "$E2E" = success ]; fi
 
-  # What the push or pull request changed: whether the browser tests must run, and on main, whether
-  # to deploy.
+  # What the push or pull request changed: whether the unit and browser tests must run, and on
+  # main, whether to deploy.
   changes:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
       deploy: ${{ steps.diff.outputs.deploy }}
       e2e: ${{ steps.diff.outputs.e2e }}
+      unit: ${{ steps.diff.outputs.unit }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -187,15 +192,17 @@ jobs:
         run: |
           deploy=false
           e2e=true
+          unit=true
           if [ "$EVENT" = pull_request ]; then
             # The checkout is the merge commit: its first parent is the base it merges into.
             changed=$(git diff --name-only HEAD^1 HEAD)
-            scripts/needs-e2e <<<"$changed" || e2e=false
+            scripts/ci-needs e2e <<<"$changed" || e2e=false
+            scripts/ci-needs unit <<<"$changed" || unit=false
           elif [ "$EVENT" = push ] && [ "$REF" = refs/heads/main ]; then
             # Skip the deploy when the live commit has the same app code. Runs on main are
             # serialized, so the live version is final by now. Unknown live version: deploy. Re-runs
-            # always deploy. Skip the browser tests only when the live commit, which passed them,
-            # has the same code they run, and never when deploying: what deploys passed them here.
+            # always deploy. Skip a test job only when the live commit, which passed it, has the
+            # same code it reads, and never when deploying: what deploys passed every job here.
             deploy=true
             live=$(curl -sf --retry 3 --max-time 10 https://klipstack.com/version | jq -r '.version // empty' || true)
             if [ "$RUN_ATTEMPT" = 1 ] && [ -n "$live" ] && git cat-file -e "$live^{commit}" 2>/dev/null; then
@@ -203,16 +210,18 @@ jobs:
               app=$(printf '%s\n' "$changed" | grep -Ev "$NOT_APP" || true)
               [ -n "$app" ] || deploy=false
               printf 'App changes since %s:\n%s\n' "$live" "${app:-(none)}"
-              [ "$deploy" = true ] || scripts/needs-e2e <<<"$changed" || e2e=false
+              if [ "$deploy" = false ]; then
+                scripts/ci-needs e2e <<<"$changed" || e2e=false
+                scripts/ci-needs unit <<<"$changed" || unit=false
+              fi
             fi
             echo "live=${live:-unknown}"
           fi
-          echo "deploy=$deploy e2e=$e2e"
-          echo "deploy=$deploy" >> "$GITHUB_OUTPUT"
-          echo "e2e=$e2e" >> "$GITHUB_OUTPUT"
+          echo "deploy=$deploy e2e=$e2e unit=$unit"
+          printf 'deploy=%s\ne2e=%s\nunit=%s\n' "$deploy" "$e2e" "$unit" >> "$GITHUB_OUTPUT"
 
   deploy:
-    # The shards themselves, not `e2e result`: a deploy always has them run (see `changes`).
+    # The test jobs themselves, not `e2e result`: a deploy always has them run (see `changes`).
     needs: [static, unit, e2e, changes]
     # Said here as well as in `changes`: no other event may ever reach the deploy.
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.deploy == 'true'

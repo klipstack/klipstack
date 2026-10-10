@@ -10,9 +10,10 @@ description: Release a branch of this repository. Pushes it, opens a pull reques
 ## How it works
 
 - Every change reaches `main` through a pull request. CI runs every check on it: lint, typecheck,
-  the unit tests, the production build and the browser tests. The browser tests are skipped when
-  nothing they run changed (`scripts/needs-e2e`: Markdown, docs, agent tooling, unit tests and the
-  like); `e2e result` passes then, and is the check that counts.
+  the unit tests, the production build and the browser tests. The unit and browser tests are
+  skipped when nothing they read changed (`scripts/ci-needs`: Markdown, docs, agent tooling and
+  the like). A skipped check counts as passed; for the browser tests, `e2e result` is the check
+  that counts.
 - Merging squashes the pull request into one commit on `main`. That push runs CI again and, when
   app code changed, deploys klipstack.com.
 - CI skips `apps/mobile`. `pnpm ci:local` checks it on this machine.
