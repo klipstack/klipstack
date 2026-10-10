@@ -8,13 +8,14 @@ export default {
 		viewFeeds: "Ver feeds",
 		time: {
 			title: "¿Cuánto tiempo tienes?",
-			label: "Tiempo para leer",
+			any: "Cualquiera",
 			choice: "{{count}} min",
 			choice_one: "{{count}} min",
 			choice_other: "{{count}} min",
-			none: "Nada en tu biblioteca cabe en {{count}} minutos. Prueba con más tiempo.",
-			none_one: "Nada en tu biblioteca cabe en {{count}} minuto. Prueba con más tiempo.",
-			none_other: "Nada en tu biblioteca cabe en {{count}} minutos. Prueba con más tiempo.",
+			none: "Nada en tu biblioteca cabe en {{count}} minutos.",
+			none_one: "Nada en tu biblioteca cabe en {{count}} minuto.",
+			none_other: "Nada en tu biblioteca cabe en {{count}} minutos.",
+			showAll: "Mostrar todo",
 		},
 		rediscover: {
 			title: "De hace un tiempo",

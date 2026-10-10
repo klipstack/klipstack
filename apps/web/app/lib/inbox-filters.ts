@@ -2,7 +2,6 @@
 import {
 	ARCHIVE_FILTERS,
 	type ArchiveFilter,
-	DEFAULT_TIME,
 	INBOX_FILTERS,
 	type InboxFilter,
 	LIST_SORTS,
@@ -15,7 +14,6 @@ import {
 export {
 	ARCHIVE_FILTERS,
 	type ArchiveFilter,
-	DEFAULT_TIME,
 	INBOX_FILTERS,
 	type InboxFilter,
 	LIST_SORTS,
@@ -33,12 +31,6 @@ export function filtersFor(view: FilterableView): readonly ListFilter[] {
 
 /** Quick reads take at most this many minutes. */
 export const QUICK_MAX_MINUTES = 10
-
-/** A time choice from the URL (`?time=30`); anything else is the default. */
-export function parseTime(value: string | null): number {
-	const minutes = Number(value)
-	return (TIME_CHOICES as readonly number[]).includes(minutes) ? minutes : DEFAULT_TIME
-}
 
 /** Long reads take at least this many minutes. */
 export const LONG_MIN_MINUTES = 30

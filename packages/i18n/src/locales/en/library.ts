@@ -9,13 +9,14 @@ export default {
 		viewFeeds: "View feeds",
 		time: {
 			title: "How much time do you have?",
-			label: "Time to read",
+			any: "Any",
 			choice: "{{count}} min",
 			choice_one: "{{count}} min",
 			choice_other: "{{count}} min",
-			none: "Nothing in your library fits in {{count}} minutes. Try a longer time.",
-			none_one: "Nothing in your library fits in {{count}} minute. Try a longer time.",
-			none_other: "Nothing in your library fits in {{count}} minutes. Try a longer time.",
+			none: "Nothing in your library fits in {{count}} minutes.",
+			none_one: "Nothing in your library fits in {{count}} minute.",
+			none_other: "Nothing in your library fits in {{count}} minutes.",
+			showAll: "Show everything",
 		},
 		rediscover: {
 			title: "From a while ago",

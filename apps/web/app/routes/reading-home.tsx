@@ -1,21 +1,16 @@
 import { BookOpen, CircleAlert, Clock3, Search } from "lucide-react"
-import { useEffect } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link, useNavigate } from "react-router"
 import { FeedArticle } from "~/components/feed-article"
 import { HomeArticle } from "~/components/home-article"
 import { HomeGreeting } from "~/components/home-greeting"
 import { SaveLinkDialog } from "~/components/save-link-dialog"
-import { buttonVariants } from "~/components/ui/button"
+import { Button, buttonVariants } from "~/components/ui/button"
 import { useFeedReader } from "~/hooks/use-feed-reader"
+import { homeShelves } from "~/lib/home-shelves"
 import { getInstance } from "~/lib/i18n.server"
-import {
-	DEFAULT_TIME,
-	listSearch,
-	parseTime,
-	REDISCOVER_AFTER_DAYS,
-	TIME_CHOICES,
-} from "~/lib/inbox-filters"
+import { listSearch, REDISCOVER_AFTER_DAYS, TIME_CHOICES } from "~/lib/inbox-filters"
 import { warmOffline } from "~/lib/offline.client"
 import type { PageBarHandle } from "~/lib/page-bar"
 import { requireUser } from "~/lib/session.server"
@@ -27,8 +22,7 @@ import type { Route } from "./+types/reading-home"
 export async function loader({ context, request }: Route.LoaderArgs) {
 	const user = requireUser(context, request)
 	const t = getInstance(context).getFixedT(null, "library")
-	const minutes = parseTime(new URL(request.url).searchParams.get("time"))
-	return { ...(await readingHome(user.id, { minutes })), title: `${t("home.title")} · Klipstack` }
+	return { ...(await readingHome(user.id)), title: `${t("home.title")} · Klipstack` }
 }
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -45,11 +39,19 @@ export const handle: PageBarHandle = {
 }
 
 export default function ReadingHome({
-	loaderData: { reading, recent, rediscover, fits, feed, emptyState },
+	loaderData: { candidates, timeChoice, feed, emptyState },
 }: Route.ComponentProps) {
 	const { t } = useTranslation(["library", "feed"])
 	const navigate = useNavigate()
 	const { onRead, readingId } = useFeedReader("/home")
+	// Minutes to read, or null for any length. Chosen here, from what the page already has.
+	const [minutes, setMinutes] = useState<number | null>(null)
+	const { reading, recent, rediscover } = useMemo(
+		() => homeShelves(candidates, timeChoice ? minutes : null),
+		[candidates, timeChoice, minutes],
+	)
+	const timed = timeChoice && minutes !== null
+	const nothingFits = timed && !reading.length && !recent.length && !rediscover.length
 	const featured = reading[0]
 	// Without Continue reading, the newest save takes its big card.
 	const lead = featured ? undefined : recent[0]
@@ -63,9 +65,9 @@ export default function ReadingHome({
 	useEffect(() => {
 		warmOffline(
 			["/home", "/library"],
-			[...reading, ...recent, ...rediscover, ...(fits?.items ?? [])].map((d) => `/read/${d.id}`),
+			[...reading, ...recent, ...rediscover].map((d) => `/read/${d.id}`),
 		)
-	}, [reading, recent, rediscover, fits])
+	}, [reading, recent, rediscover])
 	useEffect(() => {
 		const onKey = (e: KeyboardEvent) => {
 			if (!isSearchShortcut(e)) return
@@ -94,6 +96,7 @@ export default function ReadingHome({
 					<SaveLinkDialog />
 				</div>
 			</header>
+			{timeChoice ? <TimeChoice minutes={minutes} onChoose={setMinutes} /> : null}
 			<div className="space-y-10">
 				{featured ? (
 					<section aria-labelledby="home-reading">
@@ -131,40 +134,6 @@ export default function ReadingHome({
 						) : null}
 					</section>
 				) : null}
-				{fits ? (
-					<section aria-labelledby="home-time" data-testid="home-time">
-						<h2 id="home-time" className="mb-4 text-lg font-medium">
-							{t("home.time.title")}
-						</h2>
-						<nav aria-label={t("home.time.label")} className="-mt-1 mb-5 flex flex-wrap gap-2">
-							{TIME_CHOICES.map((minutes) => (
-								<Link
-									key={minutes}
-									to={{ search: minutes === DEFAULT_TIME ? "" : `?time=${minutes}` }}
-									replace
-									preventScrollReset
-									aria-current={minutes === fits.minutes ? "true" : undefined}
-									className="rounded-full border border-border px-3 py-1 text-sm text-muted-fg hover:bg-muted hover:text-fg aria-[current]:border-selected aria-[current]:bg-selected aria-[current]:text-selected-fg"
-								>
-									{t("home.time.choice", { count: minutes })}
-								</Link>
-							))}
-						</nav>
-						{fits.items.length ? (
-							<ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-								{fits.items.map((doc) => (
-									<li key={doc.id} className="min-w-0">
-										<HomeArticle doc={doc} compact />
-									</li>
-								))}
-							</ul>
-						) : (
-							<p className="text-sm text-muted-fg">
-								{t("home.time.none", { count: fits.minutes })}
-							</p>
-						)}
-					</section>
-				) : null}
 				{rediscover.length ? (
 					<section aria-labelledby="home-rediscover" data-testid="home-rediscover">
 						<SectionHeading
@@ -184,7 +153,16 @@ export default function ReadingHome({
 						</ul>
 					</section>
 				) : null}
-				{feed.length ? (
+				{nothingFits ? (
+					<div className="flex flex-col items-center gap-4 py-10 text-center">
+						<p className="text-sm text-muted-fg">{t("home.time.none", { count: minutes! })}</p>
+						<Button variant="secondary" onClick={() => setMinutes(null)}>
+							{t("home.time.showAll")}
+						</Button>
+					</div>
+				) : null}
+				{/* Feed posts have no reading time to choose by. */}
+				{feed.length && !timed ? (
 					<section aria-labelledby="home-feed" data-testid="home-feed">
 						<SectionHeading
 							id="home-feed"
@@ -222,6 +200,44 @@ export default function ReadingHome({
 				) : null}
 			</div>
 		</main>
+	)
+}
+
+/** How much time there is: narrows every section to what fits, without asking the server. */
+function TimeChoice({
+	minutes,
+	onChoose,
+}: {
+	minutes: number | null
+	onChoose: (minutes: number | null) => void
+}) {
+	const { t } = useTranslation("library")
+	const choice = (value: number | null) => (
+		<button
+			key={value ?? "any"}
+			type="button"
+			aria-pressed={value === minutes}
+			onClick={() => onChoose(value)}
+			className="rounded-full border border-border px-3 py-1 text-sm text-muted-fg hover:bg-muted hover:text-fg aria-pressed:border-selected aria-pressed:bg-selected aria-pressed:text-selected-fg"
+		>
+			{value === null ? t("home.time.any") : t("home.time.choice", { count: value })}
+		</button>
+	)
+	return (
+		<div
+			role="group"
+			aria-labelledby="home-time"
+			data-testid="home-time"
+			className="mb-9 flex flex-wrap items-center gap-x-3 gap-y-2"
+		>
+			<h2 id="home-time" className="text-sm text-muted-fg">
+				{t("home.time.title")}
+			</h2>
+			<div className="flex flex-wrap gap-2">
+				{choice(null)}
+				{TIME_CHOICES.map(choice)}
+			</div>
+		</div>
 	)
 }
 

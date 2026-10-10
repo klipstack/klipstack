@@ -1,6 +1,13 @@
 import { db, documents, eq, user } from "@klipstack/db"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
-import { documentsThatFit, rediscoverDocuments } from "./reading-suggestions.server"
+import { homeShelves } from "~/lib/home-shelves"
+import { TIME_CHOICES } from "~/lib/inbox-filters"
+import {
+	countUnfinished,
+	documentsThatFit,
+	homeCandidates,
+	rediscoverDocuments,
+} from "./reading-suggestions.server"
 
 const userId = `test-suggest-${Date.now()}`
 const otherId = `${userId}-other`
@@ -116,5 +123,54 @@ describe("documentsThatFit", () => {
 		expect(hour).not.toContain("Ten, archived")
 		expect(hour).not.toContain("Someone else's")
 		expect(hour.slice(0, 2)).toEqual(["Two weeks", "Old 0"])
+	})
+})
+
+describe("homeCandidates", () => {
+	const ownerId = `${userId}-home`
+	// Newest first: a mix of lengths, so each time choice reaches back a different way.
+	const lengths = [70, 50, 25, 40, 4, 55, 12, 35, 3, 50, 28, 9, 45, 2, 60, 14, 33, 5, 80, 20]
+	beforeAll(async () => {
+		await db.insert(user).values({ id: ownerId, name: "Reader", email: `${ownerId}@example.com` })
+		await save(
+			ownerId,
+			lengths.map((readingMinutes, i) => ({
+				title: `Unread ${i}`,
+				readingMinutes,
+				createdAt: new Date(now.getTime() - (i + 1) * 3_600_000),
+			})),
+		)
+	})
+	afterAll(async () => {
+		await db.delete(user).where(eq(user.id, ownerId))
+	})
+
+	it("has what each time choice shows, as if it had everything", async () => {
+		const { recent } = await homeCandidates(ownerId, { now })
+		const everything = lengths.map((minutesLeft, i) => ({ id: `Unread ${i}`, minutesLeft }))
+		const byTitle = (docs: { id: string }[]) => docs.map((d) => d.id)
+		for (const minutes of [null, ...TIME_CHOICES]) {
+			const fromCandidates = homeShelves(
+				{ reading: [], recent: recent.map((d) => ({ ...d, id: d.title! })), rediscover: [] },
+				minutes,
+			).recent
+			const fromAll = homeShelves(
+				{ reading: [], recent: everything, rediscover: [] },
+				minutes,
+			).recent
+			expect(byTitle(fromCandidates)).toEqual(byTitle(fromAll))
+			expect(fromCandidates).toHaveLength(4)
+		}
+		// Far fewer than the library: only what some choice needs.
+		expect(recent.length).toBeLessThan(lengths.length)
+	})
+
+	it("counts no time for posts and articles without a length", async () => {
+		const { recent } = await homeCandidates(userId, { now })
+		const minutes = Object.fromEntries(recent.map((d) => [d.title, d.minutesLeft]))
+		expect(minutes["Ten, a post"]).toBeNull()
+		expect(minutes["No length"]).toBeNull()
+		expect(minutes.Twelve).toBe(12)
+		expect(await countUnfinished(userId)).toBeGreaterThan(0)
 	})
 })

@@ -351,7 +351,9 @@ test("without reading in progress, the newest save takes the big card", async ({
 	await expect(recent.filter({ hasText: "Start reading" })).toHaveCount(0)
 })
 
-test("Home brings back older saves and suggests what fits the time chosen", async ({ page }) => {
+test("Home brings back older saves and narrows to the time chosen, without asking again", async ({
+	page,
+}) => {
 	const email = uniqueEmail("home-time")
 	await page.goto("/signup")
 	await page.getByLabel("Invite code").fill(await createInviteCode())
@@ -363,12 +365,13 @@ test("Home brings back older saves and suggests what fits the time chosen", asyn
 	const owner = (await db.query.user.findFirst({ where: eq(user.email, email) }))!
 	const day = 86_400_000
 	const saves = [
-		// The four newest fill the big card and Recently saved.
-		...[1, 2, 3, 4].map((n) => ({ title: `Fresh ${n}`, minutes: 4, age: n })),
+		{ title: "Half read, ten left", minutes: 20, age: 1, progress: 0.5 },
+		{ title: "Fresh and long", minutes: 45, age: 1 },
+		{ title: "Fresh and short", minutes: 4, age: 2 },
+		{ title: "Fresh, twelve minutes", minutes: 12, age: 3 },
+		...Array.from({ length: 8 }, (_, n) => ({ title: `Middling ${n}`, minutes: 25, age: 4 + n })),
 		{ title: "Saved last month", minutes: 50, age: 30 },
-		{ title: "A twelve-minute read", minutes: 12, age: 5 },
-		{ title: "A three-minute read", minutes: 3, age: 6 },
-		{ title: "A forty-minute read", minutes: 40, age: 7 },
+		{ title: "Short, from last month", minutes: 3, age: 31 },
 	]
 	await db.insert(documents).values(
 		saves.map((s) => {
@@ -380,6 +383,8 @@ test("Home brings back older saves and suggests what fits the time chosen", asyn
 				title: s.title,
 				status: "ready" as const,
 				readingMinutes: s.minutes,
+				readingProgress: s.progress ?? 0,
+				firstOpenedAt: s.progress ? new Date() : null,
 				createdAt: new Date(Date.now() - s.age * day),
 			}
 		}),
@@ -389,36 +394,51 @@ test("Home brings back older saves and suggests what fits the time chosen", asyn
 
 	const older = page.getByTestId("home-rediscover")
 	await expect(older.getByRole("heading", { name: "From a while ago" })).toBeVisible()
-	await expect(older.getByTestId("home-article")).toHaveText([/Saved last month/])
+	await expect(older.getByTestId("home-article")).toHaveText([/./, /./])
 	await expect(
 		older.getByRole("link", { name: "View all: From a while ago", exact: true }),
 	).toHaveAttribute("href", "/library?show=unread&sort=oldest")
 
+	// Fourteen unfinished articles, more than Home shows: the time choice leads the page.
 	const time = page.getByTestId("home-time")
+	const choice = (name: string) => time.getByRole("button", { name, exact: true })
 	await expect(time.getByRole("heading", { name: "How much time do you have?" })).toBeVisible()
-	const fits = time.getByTestId("home-article")
-	// Fifteen minutes to start: the closest fit first.
-	await expect(time.getByRole("link", { name: "15 min", exact: true })).toHaveAttribute("aria-current", "true")
-	await expect(fits).toHaveText([/A twelve-minute read/, /A three-minute read/])
-	await time.getByRole("link", { name: "5 min", exact: true }).click()
-	await expect(page).toHaveURL(/\/home\?time=5$/)
-	await expect(fits).toHaveText([/A three-minute read/])
-	await time.getByRole("link", { name: "60 min", exact: true }).click()
-	await expect(fits).toHaveText([
-		/A forty-minute read/,
-		/A twelve-minute read/,
-		/A three-minute read/,
+	await expect(choice("Any")).toHaveAttribute("aria-pressed", "true")
+	const articles = page.getByTestId("home-article")
+	await expect(articles).toHaveCount(6)
+
+	const requests: string[] = []
+	page.on("request", (r) => {
+		if (r.resourceType() === "fetch" || r.resourceType() === "document") requests.push(r.url())
+	})
+	await choice("5 min").click()
+	await expect(choice("5 min")).toHaveAttribute("aria-pressed", "true")
+	await expect(articles).toHaveText([/Fresh and short/, /Short, from last month/])
+	await choice("15 min").click()
+	await expect(articles).toHaveText([
+		/Half read, ten left/,
+		/Fresh and short/,
+		/Fresh, twelve minutes/,
+		/Short, from last month/,
 	])
-	await expect(time.getByRole("link", { name: "60 min", exact: true })).toHaveAttribute("aria-current", "true")
+	expect(requests).toEqual([])
 	await page.screenshot({ path: "test-results/home-time.png", fullPage: true })
 
-	// Finishing the short ones leaves nothing for five minutes; the choices stay.
+	// Nothing fits: say so, and offer everything again.
 	await db
 		.update(documents)
 		.set({ readAt: new Date(), firstOpenedAt: new Date() })
-		.where(eq(documents.title, "A three-minute read"))
-	await page.goto("/home?time=5")
+		.where(eq(documents.title, "Fresh and short"))
+	await db
+		.update(documents)
+		.set({ readAt: new Date(), firstOpenedAt: new Date() })
+		.where(eq(documents.title, "Short, from last month"))
+	await page.reload()
 	await waitForHydration(page)
-	await expect(fits).toHaveCount(0)
-	await expect(time.getByText("Nothing in your library fits in 5 minutes.")).toBeVisible()
+	await choice("5 min").click()
+	await expect(articles).toHaveCount(0)
+	await expect(page.getByText("Nothing in your library fits in 5 minutes.")).toBeVisible()
+	await page.getByRole("button", { name: "Show everything" }).click()
+	await expect(choice("Any")).toHaveAttribute("aria-pressed", "true")
+	await expect(articles).not.toHaveCount(0)
 })
