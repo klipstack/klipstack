@@ -12,6 +12,7 @@ import {
 	type RemovedItem,
 	removeItem,
 	restoreItem,
+	setEditionNote,
 	snoozeNudge,
 	unpublishEdition,
 	updateEdition,
@@ -71,6 +72,17 @@ export async function createEdition(userId: string, input: { locale: string; tim
 	const edition = await insertEdition(userId, input)
 	await addShortlist(userId, edition.id)
 	return edition
+}
+
+const EditionNote = z.object({ note: text.nullable() })
+
+/**
+ * What to tell an edition's readers about an article, written at its end while reading. Blank or
+ * null clears it. The article's editions to come start with it included.
+ */
+export async function setArticleEditionNote(userId: string, documentId: string, input: unknown) {
+	const { note } = parseInput(EditionNote, input)
+	return { editionNote: await setEditionNote(userId, documentId, note) }
 }
 
 /** "Not now" on the nudge for a new edition: none for a week. */

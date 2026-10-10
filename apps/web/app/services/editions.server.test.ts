@@ -38,6 +38,7 @@ import {
 	removeItem,
 	pickerDocuments,
 	restoreItem,
+	setEditionNote,
 	unpublishEdition,
 	updateEdition,
 	updateItem,
@@ -781,7 +782,8 @@ describe("refreshItem", () => {
 		await deleteHighlight(userId, quoteIds["Bravo four five."]!)
 		const { items } = await getEdition(userId, edition.id)
 		const item = await refreshItem(userId, edition.id, items[0]!.id)
-		expect(item).toMatchObject({ title: "Main, revised", note: "A new note.", includeNote: true })
+		// Included before, but the new private note is text the user has not let out yet.
+		expect(item).toMatchObject({ title: "Main, revised", note: "A new note.", includeNote: false })
 		expect(item.highlights.map((h) => [h.exact, h.included])).toEqual([
 			["Alpha one two three.", true],
 			["Echo eight.", true],
@@ -798,6 +800,73 @@ describe("refreshItem", () => {
 		const after = (await getEdition(userId, edition.id)).items.find((i) => i.id === notedItem.id)
 		expect(after).toMatchObject({ documentId: null, title: "Noted", url: "https://n.example/" })
 		expect(await code(refreshItem(userId, edition.id, notedItem.id))).toBe("document_gone")
+	})
+})
+
+describe("the note for editions", () => {
+	it("is written while reading, and an edition starts with it included instead of the private note", async () => {
+		const doc = await addDocument({
+			sourceUrl: "https://why.example/",
+			title: "Why",
+			note: "Private thoughts.",
+			shortlistedAt: new Date(),
+		})
+		expect(
+			await setEditionNote(
+				userId,
+				doc.id,
+				"  Read it for [the third part](https://why.example/#3).\r\n ",
+			),
+		).toBe("Read it for [the third part](https://why.example/#3).")
+		expect((await listShortlist(userId)).find((entry) => entry.id === doc.id)).toMatchObject({
+			editionNote: "Read it for [the third part](https://why.example/#3).",
+		})
+		const own = await insertEdition(userId, { locale: "en", timeZone })
+		const item = await addItem(userId, own.id, doc.id)
+		expect(item).toMatchObject({
+			note: "Read it for [the third part](https://why.example/#3).",
+			includeNote: true,
+		})
+		expect(JSON.stringify(item)).not.toContain("Private thoughts.")
+		expect((await pickerDocuments(userId, own.id)).shortlist).toContainEqual(
+			expect.objectContaining({ id: doc.id, note: true }),
+		)
+
+		// Cleared, a refresh brings the private note, left out.
+		expect(await setEditionNote(userId, doc.id, " ")).toBeNull()
+		expect(await refreshItem(userId, own.id, item.id)).toMatchObject({
+			note: "Private thoughts.",
+			includeNote: false,
+		})
+		await setEditionNote(userId, doc.id, "Back again.")
+		expect(await refreshItem(userId, own.id, item.id)).toMatchObject({
+			note: "Back again.",
+			includeNote: true,
+		})
+		await deleteEdition(userId, own.id)
+		await mark([[doc.id, null]])
+	})
+
+	it("lets the editor write a note for an article that had none", async () => {
+		const doc = await addDocument({ sourceUrl: "https://bare.example/", title: "Bare" })
+		const own = await insertEdition(userId, { locale: "en", timeZone })
+		const item = await addItem(userId, own.id, doc.id)
+		expect(item).toMatchObject({ note: null, includeNote: false })
+		await updateItem(userId, own.id, item.id, { includeNote: true, note: "Written here." })
+		const { items } = await getEdition(userId, own.id)
+		expect(items[0]).toMatchObject({ note: "Written here.", includeNote: true })
+		await deleteEdition(userId, own.id)
+	})
+
+	it("refuses another user's article, one in the trash, and a note past the limit", async () => {
+		const other = await addDocument({ sourceUrl: "https://mine.example/" })
+		expect(await code(setEditionNote(otherId, other.id, "Mine?"))).toBe("not_found")
+		expect(await code(setEditionNote(userId, trashed.id, "Gone"))).toBe("not_found")
+		expect(await code(setEditionNote(userId, missingId, "Missing"))).toBe("not_found")
+		expect(await code(setEditionNote(userId, "nope", "Bad id"))).toBe("not_found")
+		expect(await code(setEditionNote(userId, other.id, "x".repeat(100_001)))).toBe("invalid_note")
+		const [row] = await db.select().from(documents).where(eq(documents.id, other.id))
+		expect(row!.editionNote).toBeNull()
 	})
 })
 

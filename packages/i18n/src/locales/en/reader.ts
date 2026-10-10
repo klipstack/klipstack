@@ -68,6 +68,17 @@ export default {
 		starred: "Starred",
 		shortlist: "Share in next edition",
 		shortlisted: "In next edition",
+		/** Under the mark, once marked: marking is all it takes. */
+		added: "Added to your next edition",
+		/** Written for the edition's readers, not the private note. */
+		editionNote: "A note for your readers",
+		editionNotePlaceholder:
+			"Optional: a rough note for your readers on why it's worth reading. You can polish it later.",
+		editionNoteAutosave: "Saves as you type",
+		editionNoteSaving: "Saving…",
+		editionNoteSaved: "Saved",
+		editionNoteFailed: "Not saved. Check your connection.",
+		done: "Done",
 		toastArchived: "Finished and archived",
 		toastFinished: "Marked as finished",
 	},

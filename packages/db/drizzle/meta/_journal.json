@@ -260,6 +260,13 @@
 			"when": 1791602797275,
 			"tag": "0036_ai_briefs",
 			"breakpoints": true
+		},
+		{
+			"idx": 37,
+			"version": "7",
+			"when": 1791662649694,
+			"tag": "0037_documents_edition_note",
+			"breakpoints": true
 		}
 	]
 }

@@ -473,6 +473,9 @@ function Reader({ loaderData }: Route.ComponentProps) {
 					}
 					footer={
 						<ReaderEnd
+							key={doc.id}
+							documentId={doc.id}
+							editionNote={doc.editionNote}
 							state={ending.state}
 							archived={state.archived}
 							starred={state.starred}
@@ -481,6 +484,7 @@ function Reader({ loaderData }: Route.ComponentProps) {
 							onChange={change}
 							onKeep={ending.keep}
 							onFinish={ending.finish}
+							back={back}
 						/>
 					}
 				/>

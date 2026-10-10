@@ -82,6 +82,8 @@ export interface ExportedDocument {
 	/** The note on the whole article. */
 	note: string | null
 	noteUpdatedAt: string | null
+	/** The note written for the edition's readers, at the end of the article. */
+	editionNote: string | null
 	/** Tag names, by name. */
 	tags: string[]
 	highlights: ExportedHighlight[]
@@ -257,6 +259,7 @@ async function exportDocument(
 		markdown,
 		note: d.note,
 		noteUpdatedAt: d.noteUpdatedAt?.toISOString() ?? null,
+		editionNote: d.editionNote,
 		tags: tagNames,
 		highlights: hls.map((h) => ({
 			id: h.id,

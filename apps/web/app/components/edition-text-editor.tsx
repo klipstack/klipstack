@@ -13,6 +13,7 @@ import { useInsertionEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { usePaletteHint } from "~/lib/commands"
 import { normalizeHref, type RichDoc, toEditionText, toRichDoc } from "~/lib/edition-rich-text"
+import { isSubmitShortcut } from "~/lib/shortcuts"
 import { cn } from "~/lib/utils"
 import { tooltip } from "./tooltip-host"
 import { Button } from "./ui/button"
@@ -21,6 +22,8 @@ export interface EditionTextEditorProps {
 	value: string
 	onChange: (text: string) => void
 	onBlur?: () => void
+	/** ⌘↵ / Ctrl+Enter: done with the field. Without it, the key does what it always does. */
+	onSubmit?: () => void
 	placeholder?: string
 	maxLength?: number
 	id?: string
@@ -56,6 +59,7 @@ export default function EditionTextEditor({
 	value,
 	onChange,
 	onBlur,
+	onSubmit,
 	placeholder,
 	maxLength = Number.POSITIVE_INFINITY,
 	id,
@@ -64,10 +68,10 @@ export default function EditionTextEditor({
 	className,
 }: EditionTextEditorProps) {
 	// The editor is created once; its handlers read the current values through refs.
-	const latest = useRef({ onChange, onBlur, addLink: () => {} })
+	const latest = useRef({ onChange, onBlur, onSubmit, addLink: () => {} })
 	const [adding, setAdding] = useState(false)
 	useInsertionEffect(() => {
-		latest.current = { onChange, onBlur, addLink: () => setAdding(true) }
+		latest.current = { onChange, onBlur, onSubmit, addLink: () => setAdding(true) }
 	})
 	// The text is read once: the editor owns the document from then on.
 	const [initial] = useState(() => toRichDoc(value))
@@ -115,9 +119,15 @@ export default function EditionTextEditor({
 					className,
 				),
 			},
-			// ⌘K links the selected words, or edits the link under the caret. With neither, it is
+			// ⌘↵ is done with the field, when the caller says what that does. ⌘K links the selected words, or edits the link under the caret. With neither, it is
 			// the command palette's, as everywhere else.
 			handleKeyDown: (view, event) => {
+				const submit = latest.current.onSubmit
+				if (submit && isSubmitShortcut(event)) {
+					event.preventDefault()
+					submit()
+					return true
+				}
 				if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return false
 				if (event.key.toLowerCase() !== "k") return false
 				const inLink = view.state.selection.$from.marks().some((m) => m.type.name === "link")

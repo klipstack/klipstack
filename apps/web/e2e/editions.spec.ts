@@ -309,3 +309,79 @@ test("three marked articles nudge for a new edition, until Not now", async ({ pa
 	await expect(page.getByTestId("editions-nav-dot")).toHaveCount(0)
 	await expect(page.getByRole("button", { name: "New edition" })).toBeVisible()
 })
+
+test("a note written at the end of an article goes into the next edition, in the author's voice", async ({
+	page,
+	browser,
+}) => {
+	test.setTimeout(150_000)
+	await signupUser(page, "Ana Writer")
+	const res = await page.request.post("/api/documents", {
+		data: { url: FIXTURE_URL, html: readFileSync(FIXTURE, "utf8") },
+	})
+	const { id } = ((await res.json()) as { article: { id: string } }).article
+	const stored = () => db.query.documents.findFirst({ where: eq(documents.id, id) })
+	await expect.poll(async () => (await stored())?.status, { timeout: 60_000 }).toBe("ready")
+	// A private note too, which the edition leaves out.
+	await page.request.post(`/documents/${id}/note`, { data: { note: "Only for me." } })
+
+	// At the end: no note to write until the article is marked.
+	await page.goto(`/read/${id}`)
+	await waitForHydration(page)
+	const end = page.getByTestId("reader-end")
+	await expect(end).toBeAttached()
+	await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+	const field = end.getByTestId("reader-end-edition-note")
+	await expect(field).toHaveCount(0)
+	await end.getByRole("button", { name: "Share in next edition" }).click()
+	// What marking opened below the window scrolls into view, and says there is nothing to submit.
+	await expect(field).toBeInViewport({ ratio: 1 })
+	await expect(field).toContainText("Added to your next edition")
+	await expect(field).toContainText("Saves as you type")
+	const WHY = "One meeting can cost a maker a whole afternoon."
+	const editor = field.getByRole("textbox", { name: "A note for your readers" })
+	await editor.click()
+	await Promise.all([
+		page.waitForResponse((r) => r.url().endsWith(`/documents/${id}/edition-note`) && r.ok()),
+		page.keyboard.type(WHY),
+	])
+	await expect.poll(async () => (await stored())?.editionNote).toBe(WHY)
+	await expect(field).toContainText("Saved")
+	if (process.env.SHOT_DIR)
+		await end.screenshot({ path: `${process.env.SHOT_DIR}/reader-end-edition-note.png` })
+	// Done leaves the article, as the back button does; ⌘↵ in the note does the same.
+	await expect(field.getByRole("link", { name: "Done" })).toHaveAttribute("href", "/library")
+	await editor.press("ControlOrMeta+Enter")
+	await expect(page).toHaveURL(/\/library$/)
+	await waitForSidebarPrefetch(page)
+
+	// Waiting for the edition, with what was written for it.
+	await page.goto("/editions")
+	await waitForHydration(page)
+	await expect(page.getByTestId("shortlist-note")).toHaveText(WHY)
+
+	// The new edition starts with it included, in the preview in its author's voice.
+	await page.getByRole("button", { name: "New edition" }).click()
+	await expect(page).toHaveURL(/\/editions\/[0-9a-f-]{36}$/)
+	const editionId = page.url().split("/").pop()!
+	await waitForHydration(page)
+	const item = page.getByTestId("edition-item")
+	await expect(item.getByRole("checkbox", { name: "Include my note" })).toBeChecked()
+	const pane = page.getByRole("complementary", { name: "Preview" })
+	await expect(pane.getByTestId("edition-item-note")).toContainText(WHY)
+	await expect(pane).not.toContainText("Only for me.")
+	if (process.env.SHOT_DIR)
+		await pane.screenshot({ path: `${process.env.SHOT_DIR}/edition-preview-note.png` })
+
+	await Promise.all([
+		editorAction(page, editionId),
+		page.getByRole("button", { name: "Publish", exact: true }).click(),
+	])
+	const link = page.getByTestId("edition-public-link")
+	await expect(link).toBeVisible()
+	const visitor = await (await browser.newContext()).newPage()
+	await visitor.goto(new URL((await link.getAttribute("href"))!).pathname)
+	const note = visitor.getByTestId("edition-item-note")
+	await expect(note).toContainText(WHY)
+	await expect(visitor.getByText("Only for me.")).toHaveCount(0)
+})

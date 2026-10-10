@@ -58,9 +58,11 @@ export default {
 		remove: "Remove",
 		refresh: "Refresh from library",
 		refreshConfirm:
-			"Copy this article from your library again? Its note here is replaced by the library's note.",
+			"Copy this article from your library again? Its note here is replaced by your note for readers, or else by your private note, which stays out until you include it.",
 		refreshGone: "This article is no longer in your library.",
 		includeNote: "Include my note",
+		/** For an article with no note: one written here, for this edition only. */
+		addNote: "Add a note",
 		noteLabel: "Your note, as the page shows it",
 		highlights: "Highlights",
 		noHighlights: "No highlights on this article.",
@@ -79,7 +81,7 @@ export default {
 		more_one: "1 more article is marked for your next edition.",
 		more_other: "{{count}} more articles are marked for your next edition.",
 		listDetail:
-			"Articles you marked while reading. A new edition starts with them; publishing one takes its articles off this list.",
+			"Articles you marked while reading, with the notes you wrote for your readers. A new edition starts with them; publishing one takes its articles off this list.",
 		empty: "Nothing marked yet. While you read, “Add to next edition” (N) keeps an article here.",
 		remove: "Remove “{{title}}” from your next edition",
 	},

@@ -89,6 +89,14 @@ export function isChatShortcut(e: KeyboardEvent): boolean {
  */
 export const COPY_HINT = "⌘C"
 
+/** ⌘↵ / Ctrl+Enter in a text field: done with it, as its Done button. */
+export const SUBMIT_HINT = "⌘↵"
+
+/** ⌘↵ / Ctrl+Enter, without other modifiers. */
+export function isSubmitShortcut(e: KeyboardEvent): boolean {
+	return (e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && !e.isComposing && e.key === "Enter"
+}
+
 export function isCopyShortcut(e: KeyboardEvent): boolean {
 	if (!(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey || e.isComposing || e.defaultPrevented)
 		return false

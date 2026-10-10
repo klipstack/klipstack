@@ -8,6 +8,39 @@ import { CurrentMarker } from "./edition-current-marker"
 /** Links out of a public page: no endorsement for search engines, no handle on this window. */
 const OUTBOUND = "nofollow ugc noopener"
 
+/** Each note leans its own way, as paper stuck on by hand does. */
+const TILTS = ["-rotate-[1.4deg]", "rotate-[1deg]", "-rotate-[0.6deg]", "rotate-[1.6deg]"]
+
+/**
+ * The author speaking, on paper taped to the page: the intro, signed at its end, and each article's
+ * note. One look for all of it, unlike the articles' own words and the quotes from them. A note
+ * leans square, as paper notes are: as wide as its words up to a point, and at least as tall as
+ * wide; a long one grows taller.
+ */
+function PostIt({
+	tilt,
+	className,
+	children,
+	...props
+}: { tilt: number; className?: string; children: ReactNode } & React.ComponentProps<"div">) {
+	return (
+		<div
+			{...props}
+			className={cn(
+				"relative bg-note px-5 pt-6 pb-5 font-serif text-note-fg italic shadow-[0_1px_1px_rgb(0_0_0/0.08),0_12px_24px_-12px_rgb(0_0_0/0.4)]",
+				TILTS[tilt % TILTS.length],
+				className,
+			)}
+		>
+			<span
+				aria-hidden="true"
+				className="absolute -top-3 left-1/2 h-6 w-20 -translate-x-1/2 rotate-[-3deg] bg-note-tape shadow-[0_1px_2px_rgb(0_0_0/0.12)]"
+			/>
+			{children}
+		</div>
+	)
+}
+
 /**
  * A published edition, or the preview of a working copy. Server-rendered and readable without
  * JavaScript: plain links and text. Script adds only the marker beside the article in the middle
@@ -53,20 +86,33 @@ export function EditionPage({
 						) : null}
 					</p>
 					{view.intro ? (
-						<EditionText
-							text={view.intro}
-							anchors={view.anchors}
-							newTab={newTab}
-							className="mt-6 text-lg leading-relaxed"
-						/>
+						<PostIt
+							data-testid="edition-intro"
+							tilt={0}
+							className="mt-10 aspect-[2/1] w-fit max-w-[30rem] min-w-[16rem]"
+						>
+							<EditionText
+								text={view.intro}
+								anchors={view.anchors}
+								newTab={newTab}
+								className="text-lg leading-relaxed"
+							/>
+							<p className="mt-3 text-right text-base">— {view.authorName}</p>
+						</PostIt>
 					) : null}
 				</header>
 				<div ref={list} className="relative">
 					{/* First, so the lead image covers it rather than the other way round. */}
 					<CurrentMarker list={list} />
 					<ol className="list-none divide-y divide-border">
-						{view.items.map((item) => (
-							<Item key={item.anchor} item={item} anchors={view.anchors} newTab={newTab} />
+						{view.items.map((item, i) => (
+							<Item
+								key={item.anchor}
+								item={item}
+								index={i}
+								anchors={view.anchors}
+								newTab={newTab}
+							/>
 						))}
 					</ol>
 				</div>
@@ -113,10 +159,12 @@ export function EditionPage({
 
 function Item({
 	item,
+	index,
 	anchors,
 	newTab,
 }: {
 	item: EditionItemView
+	index: number
 	anchors: Record<string, string>
 	newTab: boolean
 }) {
@@ -181,15 +229,16 @@ function Item({
 					{image ? (
 						<Picture src={image} className="mb-7 aspect-[1.91/1] rounded-xl @4xl:-mx-20" />
 					) : null}
-					{kicker}
-					<h2 className="font-serif text-[1.75rem] leading-tight tracking-tight text-balance @xl:text-[2.25rem]">
-						{title}
-					</h2>
-					{meta}
-					{item.description ? (
-						<p className="mt-4 text-lg leading-relaxed text-muted-fg">{item.description}</p>
-					) : null}
-					<Commentary item={item} anchors={anchors} newTab={newTab} />
+					<Commentary item={item} index={index} anchors={anchors} newTab={newTab}>
+						{kicker}
+						<h2 className="font-serif text-[1.75rem] leading-tight tracking-tight text-balance @xl:text-[2.25rem]">
+							{title}
+						</h2>
+						{meta}
+						{item.description ? (
+							<p className="mt-4 text-lg leading-relaxed text-muted-fg">{item.description}</p>
+						) : null}
+					</Commentary>
 				</article>
 			</li>
 		)
@@ -197,26 +246,27 @@ function Item({
 	return (
 		<li id={item.anchor} className="scroll-mt-6 py-12">
 			<article data-edition-item>
-				{/* A phone puts the image first, full width; a wider page, beside the title. */}
-				<div className="flex flex-col-reverse gap-5 @xl:flex-row @xl:items-start @xl:gap-6">
-					<div className="min-w-0 flex-1">
-						{kicker}
-						<h2 className="font-serif text-2xl leading-tight text-balance @xl:text-[1.75rem]">
-							{title}
-						</h2>
-						{meta}
-						{item.description ? (
-							<p className="mt-3 leading-relaxed text-muted-fg">{item.description}</p>
+				<Commentary item={item} index={index} anchors={anchors} newTab={newTab}>
+					{/* A phone puts the image first, full width; a wider page, beside the title. */}
+					<div className="flex flex-col-reverse gap-5 @xl:flex-row @xl:items-start @xl:gap-6">
+						<div className="min-w-0 flex-1">
+							{kicker}
+							<h2 className="font-serif text-2xl leading-tight text-balance @xl:text-[1.75rem]">
+								{title}
+							</h2>
+							{meta}
+							{item.description ? (
+								<p className="mt-3 leading-relaxed text-muted-fg">{item.description}</p>
+							) : null}
+						</div>
+						{image ? (
+							<Picture
+								src={image}
+								className="aspect-[1.91/1] rounded-lg @xl:mt-6 @xl:aspect-[4/3] @xl:w-52"
+							/>
 						) : null}
 					</div>
-					{image ? (
-						<Picture
-							src={image}
-							className="aspect-[1.91/1] rounded-lg @xl:mt-6 @xl:aspect-[4/3] @xl:w-52"
-						/>
-					) : null}
-				</div>
-				<Commentary item={item} anchors={anchors} newTab={newTab} />
+				</Commentary>
 			</article>
 		</li>
 	)
@@ -241,63 +291,91 @@ function Picture({ src, className }: { src: string; className: string }) {
 	)
 }
 
-/** The author's words on an item: the note, then the quotes. A short first quote stands out. */
+/**
+ * An item's words: the article's own (`children`), then the author's: the note, then the quotes. A
+ * short first quote stands out.
+ */
 function Commentary({
 	item,
+	index,
 	anchors,
 	newTab,
+	children,
 }: {
 	item: EditionItemView
+	index: number
 	anchors: Record<string, string>
 	newTab: boolean
+	/** The article's own words: its title, what it is about. */
+	children: ReactNode
 }) {
 	return (
-		<>
+		// With a note and room beside the page, the note goes in the right margin, beside the rest:
+		// a long one makes the item taller, never runs into the next. The last row takes what it adds,
+		// so the quotes stay under the article's words.
+		<div
+			className={cn(
+				item.note &&
+					"@6xl:-mr-[15.5rem] @6xl:grid @6xl:grid-cols-[minmax(0,1fr)_13rem] @6xl:grid-rows-[auto_auto_1fr] @6xl:gap-x-10",
+			)}
+		>
+			<div className="@6xl:col-start-1 @6xl:row-start-1">{children}</div>
 			{item.note ? (
-				<EditionText
-					text={item.note}
-					anchors={anchors}
-					newTab={newTab}
-					className="mt-5 text-[1.0625rem] leading-relaxed"
-				/>
+				<PostIt
+					data-testid="edition-item-note"
+					tilt={index + 1}
+					className="mt-10 aspect-square w-fit max-w-[16rem] min-w-[11rem] self-start @6xl:col-start-2 @6xl:row-span-3 @6xl:row-start-1 @6xl:mt-1 @6xl:w-full @6xl:max-w-none @6xl:min-w-0"
+				>
+					<EditionText
+						text={item.note}
+						anchors={anchors}
+						newTab={newTab}
+						className="text-[1.0625rem] leading-relaxed @6xl:text-base"
+					/>
+				</PostIt>
 			) : null}
-			{item.highlights.map((highlight, i) => {
-				const pull = i === 0 && item.pullQuote
-				return (
-					// oxlint-disable-next-line react/no-array-index-key -- quotes have no identity of their own
-					<figure key={i} className={pull ? "mt-8" : "mt-5"}>
-						{pull ? (
-							<div aria-hidden="true" className="h-6 font-serif text-5xl leading-none text-accent">
-								“
-							</div>
-						) : null}
-						<blockquote
-							className={cn(
-								"font-serif whitespace-pre-wrap break-words",
-								pull
-									? "text-lg leading-snug text-pretty @xl:text-xl"
-									: "border-l-2 border-accent/30 pl-4 text-[1.0625rem] leading-relaxed",
-							)}
-						>
-							{highlight.exact}
-						</blockquote>
-						{highlight.note ? (
-							<figcaption>
-								<EditionText
-									text={highlight.note}
-									anchors={anchors}
-									newTab={newTab}
-									className={cn(
-										"text-sm leading-relaxed text-muted-fg",
-										pull ? "mt-3" : "mt-2 pl-4.5",
-									)}
-								/>
-							</figcaption>
-						) : null}
-					</figure>
-				)
-			})}
-		</>
+			<div className="@6xl:col-start-1 @6xl:row-start-2">
+				{item.highlights.map((highlight, i) => {
+					const pull = i === 0 && item.pullQuote
+					return (
+						// oxlint-disable-next-line react/no-array-index-key -- quotes have no identity of their own
+						<figure key={i} className={pull ? "mt-8" : "mt-5"}>
+							{pull ? (
+								<div
+									aria-hidden="true"
+									className="h-6 font-serif text-5xl leading-none text-accent"
+								>
+									“
+								</div>
+							) : null}
+							<blockquote
+								className={cn(
+									"font-serif whitespace-pre-wrap break-words",
+									pull
+										? "text-lg leading-snug text-pretty @xl:text-xl"
+										: "border-l-2 border-accent/30 pl-4 text-[1.0625rem] leading-relaxed",
+								)}
+							>
+								{highlight.exact}
+							</blockquote>
+							{highlight.note ? (
+								<figcaption>
+									<EditionText
+										text={highlight.note}
+										anchors={anchors}
+										newTab={newTab}
+										className={cn(
+											"text-sm leading-relaxed text-muted-fg",
+											pull ? "mt-3" : "mt-2 pl-4.5",
+										)}
+									/>
+								</figcaption>
+							) : null}
+						</figure>
+					)
+				})}
+			</div>
+		</div>
 	)
 }
 

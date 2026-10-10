@@ -1,18 +1,29 @@
+import { NOTE_MAX } from "@klipstack/api-contract/names"
 import type { EndState } from "@klipstack/api-contract/reading"
 import { Check, Newspaper, Star } from "lucide-react"
 import { useEffect, useRef } from "react"
 import { useTranslation } from "react-i18next"
+import { Link, useNavigate } from "react-router"
+import { EditionTextField } from "~/components/edition-text-field"
 import { tooltip } from "~/components/tooltip-host"
+import { useAutosaveText } from "~/hooks/use-autosave-text"
 import type { StateIntent } from "~/hooks/use-document-state"
-import { SHORTCUT_HINTS } from "~/lib/shortcuts"
+import { SHORTCUT_HINTS, SUBMIT_HINT } from "~/lib/shortcuts"
 import { cn } from "~/lib/utils"
+
+/** Browsers cap keepalive request bodies at 64 KiB; longer notes go out as a normal request. */
+const KEEPALIVE_MAX = 60_000
 
 /**
  * The end of the article, in the page after its last paragraph: whether leaving finishes it, a way
- * to keep it as it is, and the star and the mark for the next edition, with their names.
- * `onReached` once it comes into view.
+ * to keep it as it is, and the star and the mark for the next edition, with their names. Marked,
+ * it says so, and offers a rough note for the edition's readers while the article is fresh in mind,
+ * and Done, to leave; marked with its button here, the page scrolls to them. `onReached` once it comes into view. Give
+ * it a `key` per article: the note is read once.
  */
 export function ReaderEnd({
+	documentId,
+	editionNote,
 	state,
 	archived,
 	starred,
@@ -21,7 +32,11 @@ export function ReaderEnd({
 	onChange,
 	onKeep,
 	onFinish,
+	back,
 }: {
+	documentId: string
+	/** What the user wrote for the edition's readers so far. */
+	editionNote: string | null
 	state: EndState
 	/** In the archive already: leaving only marks it finished. */
 	archived: boolean
@@ -32,6 +47,8 @@ export function ReaderEnd({
 	onChange: (intent: StateIntent) => void
 	onKeep: (keep: boolean) => void
 	onFinish: () => void
+	/** Where Done goes: back where the reader came from, as the back button does. */
+	back: { to: string; state: unknown }
 }) {
 	const { t } = useTranslation("reader")
 	const ref = useRef<HTMLElement>(null)
@@ -51,6 +68,36 @@ export function ReaderEnd({
 		observer.observe(el)
 		return () => observer.disconnect()
 	}, [])
+
+	// Kept while unmarked, so marking again shows what was typed.
+	const note = useAutosaveText(editionNote ?? "", async (text, { keepalive }) => {
+		const body = JSON.stringify({ note: text })
+		const res = await fetch(`/documents/${documentId}/edition-note`, {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body,
+			keepalive: keepalive && body.length < KEEPALIVE_MAX,
+		})
+		if (!res.ok) throw new Error(`edition note save failed: ${res.status}`)
+	})
+
+	// ⌘↵ in the note is Done: the note goes out on the way back, as with the link.
+	const navigate = useNavigate()
+	const leave = () => {
+		note.flush()
+		void navigate(back.to, { state: back.state })
+	}
+
+	// Marked with the button below: what it opened scrolls into view, rather than wait below the
+	// window.
+	const marked = useRef<HTMLDivElement>(null)
+	const scrollToMarked = useRef(false)
+	useEffect(() => {
+		if (!shortlisted || !scrollToMarked.current) return
+		scrollToMarked.current = false
+		const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+		marked.current?.scrollIntoView({ block: "nearest", behavior: still ? "auto" : "smooth" })
+	}, [shortlisted])
 
 	const done = state === "finished" || state === "finishing"
 	const link =
@@ -114,7 +161,10 @@ export function ReaderEnd({
 				<button
 					type="button"
 					data-testid="reader-end-shortlist"
-					onClick={() => onChange(shortlisted ? "unshortlist" : "shortlist")}
+					onClick={() => {
+						scrollToMarked.current = !shortlisted
+						onChange(shortlisted ? "unshortlist" : "shortlist")
+					}}
 					{...tooltip(
 						shortlisted ? t("actions.unshortlist") : t("actions.shortlist"),
 						SHORTCUT_HINTS.shortlist,
@@ -131,6 +181,56 @@ export function ReaderEnd({
 					{shortlisted ? t("end.shortlisted") : t("end.shortlist")}
 				</button>
 			</div>
+			{shortlisted ? (
+				<div
+					ref={marked}
+					data-testid="reader-end-edition-note"
+					className="grid max-w-xl scroll-mb-8 gap-3 rounded-xl border border-border bg-card p-4"
+				>
+					<p id="edition-note-label" className="flex items-center gap-2 text-sm font-medium">
+						<span className="grid size-5 shrink-0 place-items-center rounded-full bg-accent text-accent-fg">
+							<Check className="size-3" strokeWidth={3} aria-hidden />
+						</span>
+						{t("end.added")}
+					</p>
+					<EditionTextField
+						aria-label={t("end.editionNote")}
+						value={note.value}
+						placeholder={t("end.editionNotePlaceholder")}
+						maxLength={NOTE_MAX}
+						onChange={note.change}
+						onBlur={note.flush}
+						onSubmit={leave}
+						className="min-h-[5.5rem] w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+					/>
+					<div className="flex items-center justify-between gap-3">
+						<p role="status" className="text-xs text-muted-fg">
+							{note.status === "error" ? (
+								<span className="text-danger">{t("end.editionNoteFailed")}</span>
+							) : (
+								t(
+									note.status === "saving"
+										? "end.editionNoteSaving"
+										: note.status === "saved"
+											? "end.editionNoteSaved"
+											: "end.editionNoteAutosave",
+								)
+							)}
+						</p>
+						{/* Saving needs no button. Done is for leaving: the note goes out on the way. */}
+						<Link
+							to={back.to}
+							state={back.state}
+							data-testid="reader-end-done"
+							onClick={note.flush}
+							{...tooltip(t("end.done"), SUBMIT_HINT)}
+							className="rounded-full bg-accent px-4 py-1.5 text-sm font-medium text-accent-fg"
+						>
+							{t("end.done")}
+						</Link>
+					</div>
+				</div>
+			) : null}
 		</section>
 	)
 }
