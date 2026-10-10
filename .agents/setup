@@ -130,21 +130,40 @@ if [ ! -f "$deps_marker" ]; then
 fi
 done_step
 
-# --- Notes for agents working in the orb.
+# --- The demo account (docs/development/demo-account.md), so `pnpm orb:app` finds it in place. The
+# capture reads public pages: one that fails is left out, and a failed step does not stop setup
+# (`pnpm orb:app` tries again).
+step "Demo account"
+pnpm demo:capture >/tmp/klipstack-demo-capture.log 2>&1 ||
+	echo "    some pages were not captured: /tmp/klipstack-demo-capture.log"
+pnpm demo:capture-feeds >/tmp/klipstack-demo-feeds.log 2>&1 ||
+	echo "    some feeds were not captured: /tmp/klipstack-demo-feeds.log"
+pnpm demo:seed >/tmp/klipstack-demo-seed.log 2>&1 ||
+	echo "    seeding failed: /tmp/klipstack-demo-seed.log"
+done_step
+
+# --- Notes for agents working in the orb, rewritten each run: drop the earlier block (from its
+# heading to the next one) and the blank lines it leaves at the end.
 mkdir -p "$HOME/.config/amp"
-notes_marker="## Klipstack orb"
-if ! grep -Fqx "$notes_marker" "$HOME/.config/amp/AGENTS.md" 2>/dev/null; then
-	cat >>"$HOME/.config/amp/AGENTS.md" <<'EOF'
+notes="$HOME/.config/amp/AGENTS.md"
+touch "$notes"
+awk '$0 == "## Klipstack orb" { skip = 1; next } skip && /^## / { skip = 0 } !skip' "$notes" |
+	sed -e :a -e '/^\n*$/{$d;N;ba' -e '}' >"$notes.tmp"
+mv "$notes.tmp" "$notes"
+cat >>"$notes" <<'EOF'
 
 ## Klipstack orb
 
 - `.agents/setup` prepared this orb: Node 22 (in `~/.local/bin`, ahead of the orb's newer Node),
-  the dependencies, `.env` from `.env.example`, the Playwright browsers, and migrations.
+  the dependencies, `.env` from `.env.example`, the Playwright browsers, migrations, and the demo
+  account.
 - PostgreSQL 17 runs natively under systemd on port 5433 (`postgresql@17-klipstack`), with the
   user, password and database of `docker-compose.yml`. Do not run `pnpm db:up`: the port is taken.
   `psql postgres://klipstack:klipstack@localhost:5433/klipstack` connects.
 - Docker starts on first use (socket activation), for the `image` step of `pnpm ci:local`.
+- To run the app for the user to try, run `pnpm orb:app` (again after changing code) and share the
+  portal address and one-time sign-in link it prints. The demo account is
+  `reader@demo.klipstack.test`, password `local-reader-only`.
 EOF
-fi
 
 printf '\nSetup finished in %ss\n' "$SECONDS"

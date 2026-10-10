@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { assertLocal, assertOwned, EMAIL, newState } from "./local"
+import { assertLocal, assertOwned, EMAIL, loginLinkUrl, newState } from "./local"
 
 describe("local ownership boundary", () => {
 	const env = {
@@ -23,5 +23,15 @@ describe("local ownership boundary", () => {
 		expect(() => assertOwned(state, [{ id: "someone", email: EMAIL }])).toThrow()
 		expect(() => assertOwned(state, [{ id: state.userId, email: "changed@example.com" }])).toThrow()
 		expect(() => assertOwned(state, [{ id: state.userId, email: EMAIL }])).not.toThrow()
+	})
+	it("links to better-auth's magic-link check on the app's own address", () => {
+		const link = new URL(loginLinkUrl("https://demo.example.com/", "t0k"))
+		expect(link.origin).toBe("https://demo.example.com")
+		expect(link.pathname).toBe("/api/auth/magic-link/verify")
+		expect(Object.fromEntries(link.searchParams)).toEqual({
+			token: "t0k",
+			callbackURL: "/home",
+			errorCallbackURL: "/login",
+		})
 	})
 })

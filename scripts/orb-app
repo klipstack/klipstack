@@ -1,0 +1,122 @@
+#!/usr/bin/env bash
+# Run Klipstack in an Amp orb for a person to try, signed in to the demo account: `pnpm orb:app`.
+# Run it again after changing code: it rebuilds and restarts the app at the same address.
+set -euo pipefail
+
+usage() {
+  cat <<'HELP'
+Usage: pnpm orb:app [--reset]
+
+In an Amp orb, starts Klipstack behind a portal with the demo account in place
+(docs/development/demo-account.md):
+
+  1. the demo account: created when missing, from the article captures .agents/setup made
+     (captured here when there are none)
+  2. a production build of the web app. The dev server is slow to load through a portal and can
+     leave a page unresponsive when Vite re-bundles.
+  3. the web app as the orb service `klipstack-web` on port 5190, behind a portal, with APP_URL
+     set to the portal address (sign-in checks it); the worker as `klipstack-worker`
+  4. the portal address, the account's email and password, and a one-time sign-in link
+
+  --reset   rebuild the demo account from today's date (pnpm demo:reset): its reading history and
+            new feed posts start fresh. Removes changes made to the account.
+
+Logs: amp orb service logs klipstack-web | klipstack-worker. Stop: amp orb service stop NAME.
+HELP
+}
+
+reset=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --reset) reset=1; shift ;;
+    -h | --help | help) usage; exit 0 ;;
+    *) echo "unknown argument: $1" >&2; usage >&2; exit 2 ;;
+  esac
+done
+
+if [ -z "${AMP_ORB:-}" ]; then
+  echo "pnpm orb:app runs in an Amp orb. Elsewhere, run pnpm dev (README.md)." >&2
+  exit 1
+fi
+
+unset npm_config_reporter
+root=$(git rev-parse --show-toplevel)
+cd "$root"
+logs=$(mktemp -d "${TMPDIR:-/tmp}/klipstack-orb-app.XXXXXX")
+
+step() { printf '\n==> %s\n' "$1"; }
+# run NAME COMMAND…: its output goes to a log, whose end is printed when it fails.
+run() {
+  local name=$1
+  shift
+  if ! "$@" >"$logs/$name.log" 2>&1; then
+    tail -n 30 "$logs/$name.log" >&2
+    echo "$name failed; full log: $logs/$name.log" >&2
+    return 1
+  fi
+}
+
+# missing | incomplete | ready, from the demo ownership record (scripts/demo/local.ts). The orb
+# has one database, so one record.
+demo_state() {
+  node -e '
+    const fs = require("node:fs")
+    const files = fs.existsSync(".demo.local")
+      ? fs.readdirSync(".demo.local").filter((f) => /^reader-[0-9a-f]+\.json$/.test(f))
+      : []
+    const state = files.length
+      ? JSON.parse(fs.readFileSync(`.demo.local/${files[0]}`, "utf8"))
+      : null
+    const entries = state ? [...Object.values(state.documents), ...Object.values(state.feeds)] : []
+    console.log(!state ? "missing" : entries.every((e) => e.complete) ? "ready" : "incomplete")
+  '
+}
+
+step "Demo account"
+if [ -z "$(ls -A .demo.local/captures 2>/dev/null)" ]; then
+  echo "Capturing the demo articles (about two minutes)…"
+  # A page that fails is reported and left out; the others make the account.
+  run capture pnpm demo:capture || true
+  run capture-feeds pnpm demo:capture-feeds || true
+fi
+if [ -n "$reset" ]; then
+  echo "Rebuilding it from today's date (about two minutes)…"
+  run reset pnpm demo:reset --date "$(date -u +%F)"
+elif [ "$(demo_state)" != ready ]; then
+  echo "Creating it (about two minutes)…"
+  run seed pnpm demo:seed
+else
+  echo "In place."
+fi
+
+step "Build"
+run build pnpm --filter @klipstack/web build
+echo "Built."
+
+step "Web app and worker"
+# server.js listens on $PORT; the portal proxy is its only client (TRUST_PROXY=loopback).
+web_out=$(amp orb service start klipstack-web --port 5190 --portal --title Klipstack \
+  --description "Sign in as reader@demo.klipstack.test, password local-reader-only" \
+  --command 'cd apps/web && APP_URL="$PUBLIC_URL" NODE_ENV=production exec node server.js' 2>&1) || {
+  echo "$web_out" >&2
+  exit 1
+}
+url=$(printf '%s\n' "$web_out" | grep -Eo 'https://[^[:space:]]+' | tail -n 1)
+[ -n "$url" ] || { echo "$web_out" >&2; echo "No portal address in that output" >&2; exit 1; }
+# Without a portal, the worker gets an unused $PORT. Its links (e.g. in emails) use APP_URL too.
+worker_out=$(amp orb service start klipstack-worker \
+  --command "cd apps/worker && APP_URL='$url' exec pnpm start" 2>&1) || {
+  echo "$worker_out" >&2
+  exit 1
+}
+echo "Running."
+
+link=$(pnpm --silent demo:login-link --url "$url")
+
+cat <<EOF
+
+Klipstack:       $url
+Sign in:         reader@demo.klipstack.test / local-reader-only
+One-time link:   $link
+                 (signs in without the form; valid 24 hours. New one: pnpm demo:login-link --url $url)
+EOF

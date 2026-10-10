@@ -95,3 +95,12 @@ export function assertOwned(state: State | null, rows: Array<{ id: string; email
 	)
 		throw new Error("Existing account is not owned by this demo record; refusing to change it")
 }
+
+/** better-auth's magic-link check; a used or expired link opens the password form. */
+export function loginLinkUrl(baseUrl: string, token: string): string {
+	const url = new URL("/api/auth/magic-link/verify", baseUrl)
+	url.searchParams.set("token", token)
+	url.searchParams.set("callbackURL", "/home")
+	url.searchParams.set("errorCallbackURL", "/login")
+	return url.href
+}

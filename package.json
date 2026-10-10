@@ -21,7 +21,9 @@
 		"demo:capture": "pnpm --filter @klipstack/web demo capture",
 		"demo:seed": "pnpm --filter @klipstack/web demo seed",
 		"demo:reset": "pnpm --filter @klipstack/web demo reset",
-		"demo:verify": "pnpm --filter @klipstack/web demo verify"
+		"demo:verify": "pnpm --filter @klipstack/web demo verify",
+		"demo:login-link": "pnpm --filter @klipstack/web demo login-link",
+		"orb:app": "scripts/orb-app"
 	},
 	"devDependencies": {
 		"oxfmt": "0.71.0",

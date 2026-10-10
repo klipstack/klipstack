@@ -17,6 +17,33 @@ Sign in as **reader@demo.klipstack.test**, password **local-reader-only**. The a
 reader named Alex Morgan. It has no admin privileges. Creation uses Better Auth's password format
 without sending email or changing invite settings.
 
+## In an Amp orb
+
+```sh
+pnpm orb:app            # again after changing code: rebuilds and restarts
+pnpm orb:app --reset    # rebuild the account from today's date, dropping changes made to it
+```
+
+`.agents/setup` captures the corpus and seeds the account when the orb's snapshot is made, so a new
+orb has it already. `orb:app` creates it if it is missing or incomplete, builds the web app for
+production, and starts two orb services: `klipstack-web` on port 5190 behind a portal, with
+`APP_URL` set to the portal address (sign-in checks it), and `klipstack-worker`. It prints the
+portal address, the account's email and password, and a one-time sign-in link. The portal's
+description in Amp's Portals tab shows the email and password too. The production build is used
+because the dev server is slow to load through a portal, and Vite's re-bundling can leave an open
+page unresponsive.
+
+## Sign-in link
+
+`pnpm demo:login-link [--url https://…]` prints a link that signs in to the demo account without
+the form, for 24 hours, once. `--url` is the app's address as the browser reaches it, by default
+`APP_URL`. The link is a magic-link token, written as better-auth's magic-link plugin writes one,
+without sending email. Opening it runs the plugin's normal check: there is no sign-in route of our
+own. A used or expired link opens the login form. It gives no more access than the published
+password, and like the other database commands it refuses a production or remote target and an
+account that the ownership record does not match. It also refuses when the account's email is
+unverified: opening a magic link would then remove the password.
+
 ## Capture
 
 `demo:capture` reads the tracked `apps/web/scripts/demo/reader-urls.txt`: one HTTP(S) URL per
@@ -143,8 +170,8 @@ scope. Keep the ownership record with the corresponding database and storage dir
 
 ## Implementation and checks
 
-The CLI is `apps/web/scripts/demo.ts`; cache, profile, replay, and verification code is beside it
-in `scripts/demo/`. This is development tooling, with no schema changes or production demo routes.
+The CLI is `apps/web/scripts/demo.ts`; cache, profile, replay, verification, and sign-in link code
+is beside it in `scripts/demo/`. `scripts/orb-app` is the orb command. This is development tooling, with no schema changes or production demo routes.
 The worker's publication transaction was extracted into `apps/worker/src/publish.ts` so replay
 cannot drift from how real captures populate the database.
 
