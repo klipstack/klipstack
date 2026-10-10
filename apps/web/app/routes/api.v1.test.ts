@@ -512,6 +512,48 @@ const json = (body: unknown) => ({
 	body: JSON.stringify(body),
 })
 
+describe("suggestions", () => {
+	it("suggests old unread saves and what fits in some minutes, from the caller's library", async () => {
+		const me = await users.create("API Suggestions")
+		const other = await otherUser()
+		const old = new Date(Date.now() - 30 * 86_400_000)
+		const rows = await db
+			.insert(documents)
+			.values(
+				[
+					{ userId: me.id, title: "Old", readingMinutes: 40, createdAt: old },
+					{ userId: me.id, title: "New", readingMinutes: 12 },
+					{ userId: me.id, title: "Short", readingMinutes: 3 },
+					{ userId: other, title: "Theirs", readingMinutes: 12, createdAt: old },
+				].map((doc) => {
+					const url = `https://example.com/suggest-${newId()}`
+					return { ...doc, sourceUrl: url, urlHash: urlHash(url), status: "ready" as const }
+				}),
+			)
+			.returning({ id: documents.id, title: documents.title })
+		const id = (title: string) => rows.find((r) => r.title === title)!.id
+
+		const rediscover = await me.client.articles.suggest({ kind: "rediscover" })
+		expect(rediscover.items.map((a) => a.id)).toEqual([id("Old")])
+		expect(rediscover.items[0]).toMatchObject({ location: "inbox", opened: false })
+		const fits = await me.client.articles.suggest({ kind: "fits", minutes: 15, limit: 5 })
+		expect(fits.items.map((a) => a.id)).toEqual([id("New"), id("Short")])
+
+		// `fits` needs the time there is.
+		await expect(me.client.articles.suggest({ kind: "fits" })).rejects.toBeInstanceOf(
+			KlipstackInputError,
+		)
+		const noMinutes = await request("/api/v1/articles/suggestions?kind=fits", { token: me.key })
+		expect(noMinutes.status).toBe(400)
+		expect(await noMinutes.json()).toMatchObject({
+			error: {
+				code: "invalid_request",
+				details: { where: "query", issues: [expect.objectContaining({ path: ["minutes"] })] },
+			},
+		})
+	})
+})
+
 describe("writes", () => {
 	it(
 		"save, triage, tags, saved searches, rename, trash and restore",

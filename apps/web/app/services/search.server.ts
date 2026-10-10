@@ -32,9 +32,9 @@ import {
 } from "@klipstack/db"
 import { isTimeZone } from "~/lib/date-groups"
 import {
-	documentTagNames,
 	finished,
 	INBOX_FILTER_WHERE,
+	libraryCardColumns as cardColumns,
 	type LibraryCard,
 	long,
 	quick,
@@ -45,30 +45,6 @@ import { articleHasTag, tagArticleCount } from "./tags.server"
 export const SEARCH_LIMIT = 30
 /** Matches in the trash shown under the results. */
 const TRASH_GROUP_LIMIT = 5
-
-const cardColumns = {
-	id: documents.id,
-	title: documents.title,
-	siteName: documents.siteName,
-	author: documents.author,
-	sourceUrl: documents.sourceUrl,
-	description: documents.description,
-	readingMinutes: documents.readingMinutes,
-	status: documents.status,
-	failureReason: documents.failureReason,
-	leadImageUrl: documents.leadImageUrl,
-	leadImageAssetId: documents.leadImageAssetId,
-	archivedAt: documents.archivedAt,
-	starredAt: documents.starredAt,
-	shortlistedAt: documents.shortlistedAt,
-	readAt: documents.readAt,
-	readingProgress: documents.readingProgress,
-	createdAt: documents.createdAt,
-	publishedAt: documents.publishedAt,
-	deletedAt: documents.deletedAt,
-	firstOpenedAt: documents.firstOpenedAt,
-	tags: documentTagNames,
-}
 
 /** What the link menu offers before anything is typed: last read, then last saved. */
 export async function recentDocuments({

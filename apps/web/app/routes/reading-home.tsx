@@ -9,7 +9,13 @@ import { SaveLinkDialog } from "~/components/save-link-dialog"
 import { buttonVariants } from "~/components/ui/button"
 import { useFeedReader } from "~/hooks/use-feed-reader"
 import { getInstance } from "~/lib/i18n.server"
-import { QUICK_MAX_MINUTES } from "~/lib/inbox-filters"
+import {
+	DEFAULT_TIME,
+	listSearch,
+	parseTime,
+	REDISCOVER_AFTER_DAYS,
+	TIME_CHOICES,
+} from "~/lib/inbox-filters"
 import { warmOffline } from "~/lib/offline.client"
 import type { PageBarHandle } from "~/lib/page-bar"
 import { requireUser } from "~/lib/session.server"
@@ -21,7 +27,8 @@ import type { Route } from "./+types/reading-home"
 export async function loader({ context, request }: Route.LoaderArgs) {
 	const user = requireUser(context, request)
 	const t = getInstance(context).getFixedT(null, "library")
-	return { ...(await readingHome(user.id)), title: `${t("home.title")} · Klipstack` }
+	const minutes = parseTime(new URL(request.url).searchParams.get("time"))
+	return { ...(await readingHome(user.id, { minutes })), title: `${t("home.title")} · Klipstack` }
 }
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -38,7 +45,7 @@ export const handle: PageBarHandle = {
 }
 
 export default function ReadingHome({
-	loaderData: { reading, recent, quick, feed, emptyState },
+	loaderData: { reading, recent, rediscover, fits, feed, emptyState },
 }: Route.ComponentProps) {
 	const { t } = useTranslation(["library", "feed"])
 	const navigate = useNavigate()
@@ -56,9 +63,9 @@ export default function ReadingHome({
 	useEffect(() => {
 		warmOffline(
 			["/home", "/library"],
-			[...reading, ...recent, ...quick].map((d) => `/read/${d.id}`),
+			[...reading, ...recent, ...rediscover, ...(fits?.items ?? [])].map((d) => `/read/${d.id}`),
 		)
-	}, [reading, recent, quick])
+	}, [reading, recent, rediscover, fits])
 	useEffect(() => {
 		const onKey = (e: KeyboardEvent) => {
 			if (!isSearchShortcut(e)) return
@@ -124,6 +131,59 @@ export default function ReadingHome({
 						) : null}
 					</section>
 				) : null}
+				{fits ? (
+					<section aria-labelledby="home-time" data-testid="home-time">
+						<h2 id="home-time" className="mb-4 text-lg font-medium">
+							{t("home.time.title")}
+						</h2>
+						<nav aria-label={t("home.time.label")} className="-mt-1 mb-5 flex flex-wrap gap-2">
+							{TIME_CHOICES.map((minutes) => (
+								<Link
+									key={minutes}
+									to={{ search: minutes === DEFAULT_TIME ? "" : `?time=${minutes}` }}
+									replace
+									preventScrollReset
+									aria-current={minutes === fits.minutes ? "true" : undefined}
+									className="rounded-full border border-border px-3 py-1 text-sm text-muted-fg hover:bg-muted hover:text-fg aria-[current]:border-selected aria-[current]:bg-selected aria-[current]:text-selected-fg"
+								>
+									{t("home.time.choice", { count: minutes })}
+								</Link>
+							))}
+						</nav>
+						{fits.items.length ? (
+							<ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+								{fits.items.map((doc) => (
+									<li key={doc.id} className="min-w-0">
+										<HomeArticle doc={doc} compact />
+									</li>
+								))}
+							</ul>
+						) : (
+							<p className="text-sm text-muted-fg">
+								{t("home.time.none", { count: fits.minutes })}
+							</p>
+						)}
+					</section>
+				) : null}
+				{rediscover.length ? (
+					<section aria-labelledby="home-rediscover" data-testid="home-rediscover">
+						<SectionHeading
+							id="home-rediscover"
+							title={t("home.rediscover.title")}
+							to={`/library${listSearch("unread", "oldest")}`}
+						/>
+						<p className="-mt-2 mb-5 text-sm text-muted-fg">
+							{t("home.rediscover.description", { count: REDISCOVER_AFTER_DAYS })}
+						</p>
+						<ul className="grid gap-x-6 gap-y-7 sm:grid-cols-2 lg:grid-cols-3">
+							{rediscover.map((doc) => (
+								<li key={doc.id} className="min-w-0">
+									<HomeArticle doc={doc} />
+								</li>
+							))}
+						</ul>
+					</section>
+				) : null}
 				{feed.length ? (
 					<section aria-labelledby="home-feed" data-testid="home-feed">
 						<SectionHeading
@@ -144,21 +204,6 @@ export default function ReadingHome({
 									reading={readingId === item.id}
 									from="/home"
 								/>
-							))}
-						</ul>
-					</section>
-				) : null}
-				{quick.length ? (
-					<section aria-labelledby="home-quick">
-						<SectionHeading id="home-quick" title={t("home.quick")} to="/library?show=quick" />
-						<p className="-mt-2 mb-5 text-sm text-muted-fg">
-							{t("home.quickDescription", { count: QUICK_MAX_MINUTES })}
-						</p>
-						<ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-							{quick.map((doc) => (
-								<li key={doc.id} className="min-w-0">
-									<HomeArticle doc={doc} compact />
-								</li>
 							))}
 						</ul>
 					</section>

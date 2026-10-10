@@ -20,6 +20,7 @@ import {
 	lookupArticles,
 	previewLink,
 	searchArticles,
+	suggestArticles,
 } from "./endpoints/articles"
 import {
 	exportLibrary,
@@ -66,6 +67,7 @@ export const endpoints = {
 	"me.get": getMe,
 	"articles.list": listArticles,
 	"articles.search": searchArticles,
+	"articles.suggest": suggestArticles,
 	"articles.lookup": lookupArticles,
 	"links.preview": previewLink,
 	"articles.get": getArticle,

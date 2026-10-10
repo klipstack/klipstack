@@ -1,6 +1,13 @@
 import { z } from "zod"
 import { defineEndpoint, json, text } from "../endpoint"
-import { ARCHIVE_FILTERS, INBOX_FILTERS, LIST_FILTERS, LIST_SORTS, VIEWS } from "../enums"
+import {
+	ARCHIVE_FILTERS,
+	INBOX_FILTERS,
+	LIST_FILTERS,
+	LIST_SORTS,
+	SUGGESTION_KINDS,
+	VIEWS,
+} from "../enums"
 import { ArticleDetails, ArticleSummary, BATCH_MAX, Id, LinkPreview, page } from "../schemas"
 import { QUERY_MAX, SEARCH_LIMIT_MAX, SEARCH_OFFSET_MAX } from "../search-query"
 
@@ -30,6 +37,28 @@ export const listArticles = defineEndpoint({
 			path: ["filter"],
 		}),
 	response: json(page(ArticleSummary)),
+	errors: [],
+})
+
+export const suggestArticles = defineEndpoint({
+	id: "articles.suggest",
+	method: "GET",
+	path: "/articles/suggestions",
+	scope: "read",
+	summary:
+		"What to read next from the library, as Home suggests it: ready articles that are not archived. `rediscover`: unread saves from more than two weeks ago, a different few each day (UTC). `fits`: unfinished articles whose time left fits in `minutes`, the closest fit first.",
+	query: z
+		.object({
+			kind: z.enum(SUGGESTION_KINDS),
+			/** For `fits`: the time there is to read. */
+			minutes: z.coerce.number().int().min(1).max(600).optional(),
+			limit: z.coerce.number().int().min(1).max(50).default(10),
+		})
+		.refine((q) => q.kind !== "fits" || q.minutes !== undefined, {
+			message: "`fits` takes `minutes`: the time there is to read.",
+			path: ["minutes"],
+		}),
+	response: json(z.object({ items: z.array(ArticleSummary) })),
 	errors: [],
 })
 

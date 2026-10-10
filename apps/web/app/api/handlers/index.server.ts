@@ -11,6 +11,7 @@ export const handlers: HandlerTable<Endpoints> = {
 	"me.get": me,
 	"articles.list": articles.list,
 	"articles.search": articles.search,
+	"articles.suggest": articles.suggest,
 	"articles.lookup": articles.lookup,
 	"links.preview": articles.preview,
 	"articles.get": articles.get,

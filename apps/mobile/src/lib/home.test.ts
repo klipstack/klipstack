@@ -6,21 +6,29 @@ const article = (id: string, status: ArticleSummary["status"] = "ready") =>
 	({ id, status }) as ArticleSummary
 const ids = (items: ArticleSummary[]) => items.map((a) => a.id)
 
+const none = { reading: [], unread: [], rediscover: [], fits: [] }
+
 describe("homeSections", () => {
 	it("puts the article read last in the big card, then the rest of each list", () => {
-		const home = homeSections({
-			reading: [article("r1"), article("r2")],
-			unread: [article("u1"), article("u2")],
-			quick: [article("q1")],
-		})
+		const home = homeSections(
+			{
+				reading: [article("r1"), article("r2")],
+				unread: [article("u1"), article("u2")],
+				rediscover: [article("o1")],
+				fits: [article("f1")],
+			},
+			{ minutes: 30 },
+		)
 		expect(home.hero?.id).toBe("r1")
 		expect(ids(home.reading)).toEqual(["r2"])
 		expect(ids(home.recent)).toEqual(["u1", "u2"])
-		expect(ids(home.quick)).toEqual(["q1"])
+		expect(ids(home.rediscover)).toEqual(["o1"])
+		expect(home.fits?.minutes).toBe(30)
+		expect(ids(home.fits!.items)).toEqual(["f1"])
 	})
 
 	it("gives the big card to the newest save when nothing is in progress", () => {
-		const home = homeSections({ reading: [], unread: [article("u1"), article("u2")], quick: [] })
+		const home = homeSections({ ...none, unread: [article("u1"), article("u2")] })
 		expect(home.hero?.id).toBe("u1")
 		expect(ids(home.recent)).toEqual(["u2"])
 	})
@@ -29,23 +37,36 @@ describe("homeSections", () => {
 		const home = homeSections({
 			reading: [article("a")],
 			unread: [article("a"), article("b"), article("p", "processing")],
-			quick: [article("b"), article("c"), article("f", "failed")],
+			rediscover: [article("b"), article("c")],
+			fits: [article("b"), article("c"), article("d"), article("f", "failed")],
 		})
 		expect(ids(home.recent)).toEqual(["b"])
-		expect(ids(home.quick)).toEqual(["c"])
+		expect(ids(home.rediscover)).toEqual(["c"])
+		expect(ids(home.fits!.items)).toEqual(["d"])
 	})
 
 	it("fills a shelf up to its size", () => {
-		const many = Array.from({ length: 12 }, (_, i) => article(`q${i}`))
-		expect(homeSections({ reading: [], unread: [], quick: many }).quick).toHaveLength(8)
+		const many = Array.from({ length: 12 }, (_, i) => article(`f${i}`))
+		expect(homeSections({ ...none, fits: many }).fits?.items).toHaveLength(8)
+	})
+
+	it("keeps the time choices while the longest time has something not shown above", () => {
+		expect(homeSections({ ...none, fits: [] }).fits).toBeNull()
+		const shown = { ...none, unread: [article("u1")] }
+		expect(homeSections({ ...shown, longest: [article("u1")] }).fits).toBeNull()
+		expect(homeSections({ ...shown, longest: [article("long")] }, { minutes: 5 }).fits).toEqual({
+			minutes: 5,
+			items: [],
+		})
 	})
 
 	it("has nothing for an empty library", () => {
-		expect(homeSections({ reading: [], unread: [], quick: [] })).toEqual({
+		expect(homeSections(none)).toEqual({
 			hero: null,
 			reading: [],
 			recent: [],
-			quick: [],
+			rediscover: [],
+			fits: null,
 		})
 	})
 })
@@ -73,7 +94,8 @@ describe("withChanges", () => {
 		hero: inbox("h"),
 		reading: [inbox("r")],
 		recent: [inbox("a"), inbox("b")],
-		quick: [inbox("q")],
+		rediscover: [inbox("o")],
+		fits: { minutes: 15, items: [inbox("f")] },
 	}
 
 	it("shows a change where the article is", () => {
@@ -88,9 +110,13 @@ describe("withChanges", () => {
 			new Map([
 				["h", inbox("h", { location: "archive" })],
 				["b", inbox("b", { trashedAt: "2026-09-27T10:00:00.000Z" })],
+				["f", inbox("f", { location: "archive" })],
 			]),
 		)
 		expect(next.hero).toBeNull()
+		// The time choices stay, with nothing in them until Home loads again.
+		expect(next.fits).toEqual({ minutes: 15, items: [] })
+		expect(ids(next.rediscover)).toEqual(["o"])
 		expect(ids(next.recent)).toEqual(["a"])
 		expect(ids(next.reading)).toEqual(["r"])
 	})
