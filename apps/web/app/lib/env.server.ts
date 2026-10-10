@@ -40,7 +40,15 @@ const schema = z.object({
 			"Set a randomly generated auth secret in production",
 		)
 		.default(isProd ? "" : "dev-secret-not-for-production"),
-	APP_URL: z.string().url().default("http://localhost:5180"),
+	/**
+	 * Without a trailing slash, whatever was set: code appends paths to it, and the OAuth issuer
+	 * (`<APP_URL>/api/auth`) must match the tokens' exactly.
+	 */
+	APP_URL: z
+		.string()
+		.url()
+		.default("http://localhost:5180")
+		.transform((url) => url.replace(/\/+$/, "")),
 	/** The commit this image was built from; "dev" outside a build. */
 	APP_VERSION: z.string().default("dev"),
 	/** `waitlist`: invite-only, and the public can ask for an invite (`/request-invite`). */

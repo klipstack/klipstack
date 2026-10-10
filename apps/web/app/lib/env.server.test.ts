@@ -16,3 +16,13 @@ it.each([
 	const { invitesRequired } = await import("./env.server")
 	expect(invitesRequired).toBe(required)
 })
+
+it.each(["https://example.com/", "https://example.com//", "https://example.com"])(
+	"APP_URL=%s is read without a trailing slash",
+	async (url) => {
+		vi.stubEnv("APP_URL", url)
+		vi.resetModules()
+		const { env } = await import("./env.server")
+		expect(env.APP_URL).toBe("https://example.com")
+	},
+)
