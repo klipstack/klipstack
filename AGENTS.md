@@ -63,6 +63,12 @@ pnpm dev         # Start web (localhost:5180) and worker
   minutes), on an empty database of its own. Stop `pnpm dev` first. `--only static,unit` runs a
   part. Change it and `ci.yml` together. CI skips `apps/mobile`; run this when a change touches it.
 - `pnpm --filter @klipstack/extension dev`: develop the extension separately.
+- `pnpm orb:app` (Amp orbs only): runs the app for a person to try, behind a portal, with the
+  demo account (`reader@demo.klipstack.test`, password `local-reader-only`) in place. It prints
+  the address and a one-time sign-in link to share. Run it again after changing code.
+  `docs/development/demo-account.md` describes the account.
+- When the user asks to run, open, try, see or demo the app or a change ("let me try it", "give
+  me a link"), follow `.claude/skills/run-app/SKILL.md`.
 
 ## Coding Style & Naming Conventions
 

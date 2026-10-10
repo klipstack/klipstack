@@ -81,9 +81,11 @@ pnpm demo:capture   # Cache the built-in reader article list
 pnpm demo:seed      # Create the account offline, or resume an interrupted seed
 pnpm demo:reset     # Restore its initial reading history from the cache
 pnpm demo:verify    # Check data, images, highlights, search, and the profile fingerprint
+pnpm demo:login-link # Print a one-time link that signs in to it
 ```
 
-Sign in as `reader@demo.klipstack.test` with password `local-reader-only`.
+Sign in as `reader@demo.klipstack.test` with password `local-reader-only`. In an Amp orb,
+`pnpm orb:app` builds and starts the app behind a portal with this account in place.
 See [the demo account guide](docs/development/demo-account.md) for options and reset scope.
 
 ### Administration

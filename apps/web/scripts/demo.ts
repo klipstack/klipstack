@@ -9,7 +9,7 @@ import { assertLocal, checkDate } from "./demo/local"
 
 const root = fileURLToPath(new URL("../../../", import.meta.url))
 config({ path: resolve(root, ".env"), quiet: true })
-const usage = `Usage: pnpm demo:capture|demo:capture-feeds|demo:seed|demo:reset|demo:verify [options]
+const usage = `Usage: pnpm demo:capture|demo:capture-feeds|demo:seed|demo:reset|demo:verify|demo:login-link [options]
   --urls PATH       URL list, relative to repo root (default: apps/web/scripts/demo/reader-urls.txt)
   --feeds PATH      Feed URL list (default: apps/web/scripts/demo/feed-urls.txt)
   --cache PATH      Local corpus and ownership records (default: .demo.local)
@@ -19,6 +19,7 @@ const usage = `Usage: pnpm demo:capture|demo:capture-feeds|demo:seed|demo:reset|
   --refresh         Capture: refetch successful pages and images too
   --limit N         Capture: process only the first N URLs
   --dry-run         Show intended scope without changing files or database
+  --url URL         Login link: the app's address (default: APP_URL)
 `
 async function main() {
 	const { values, positionals } = parseArgs({
@@ -32,6 +33,7 @@ async function main() {
 			date: { type: "string" },
 			refresh: { type: "boolean" },
 			limit: { type: "string" },
+			url: { type: "string" },
 			"dry-run": { type: "boolean" },
 			help: { type: "boolean", short: "h" },
 		},
@@ -43,12 +45,12 @@ async function main() {
 	const command = positionals[0]
 	if (
 		positionals.length !== 1 ||
-		!["capture", "capture-feeds", "seed", "reset", "verify"].includes(command ?? "")
+		!["capture", "capture-feeds", "seed", "reset", "verify", "login-link"].includes(command ?? "")
 	)
 		throw new Error(usage)
 	if (values.profile !== "reader") throw new Error("Only --profile reader is supported")
 	if (
-		(command === "capture" || command === "capture-feeds" || command === "verify") &&
+		["capture", "capture-feeds", "verify", "login-link"].includes(command ?? "") &&
 		(values.date || values.seed)
 	)
 		throw new Error("--date and --seed apply only to seed and reset")
@@ -56,7 +58,25 @@ async function main() {
 	if (values.seed !== undefined && !values.seed.trim()) throw new Error("--seed must not be blank")
 	if (!command?.startsWith("capture") && (values.refresh || values.limit))
 		throw new Error("--refresh and --limit apply only to capture commands")
+	if (command !== "login-link" && values.url) throw new Error("--url applies only to login-link")
 	const cache = resolve(root, values.cache)
+	if (command === "login-link") {
+		const database = assertLocal(process.env)
+		const storage = resolve(root, process.env.STORAGE_FS_ROOT ?? "./storage")
+		const baseUrl = new URL(values.url ?? process.env.APP_URL ?? "http://localhost:5180").href
+		if (values["dry-run"]) {
+			console.log(`Create a one-time sign-in link at ${baseUrl}`)
+			return
+		}
+		const { createLoginLink } = await import("./demo/login-link")
+		const { pool } = await import("@klipstack/db")
+		try {
+			console.log(await createLoginLink({ cache, database, storage, baseUrl }))
+		} finally {
+			await pool.end()
+		}
+		return
+	}
 	const feedUrls =
 		command === "verify" || command === "capture"
 			? []
