@@ -59,34 +59,50 @@ pnpm dev         # Start web (localhost:5180) and worker
   `E2E_PROD=1` (after `pnpm build`) tests the production build, as CI does; the offline specs need it.
 - `pnpm db:generate`: generate migrations after schema changes. CI fails when the schema has
   changes without one (`scripts/check-migrations`).
-- `pnpm ci:local`: run every check of CI (about ten minutes), on an empty database of its own. Stop `pnpm dev` first. `--only static,unit` runs a part. See "Commits, Branches and Releases".
+- `pnpm ci:local` (`scripts/ci-local`): run every job of `.github/workflows/ci.yml` (about ten
+  minutes), on an empty database of its own. Stop `pnpm dev` first. `--only static,unit` runs a
+  part. Change it and `ci.yml` together. CI skips `apps/mobile`; run this when a change touches it.
 - `pnpm --filter @klipstack/extension dev`: develop the extension separately.
 
 ## Coding Style & Naming Conventions
 
-Use strict TypeScript and ES modules. oxfmt enforces tabs, a 100-character line width, double quotes, trailing commas, and semicolons only when needed. Follow existing kebab-case filenames, PascalCase component names, and camelCase functions. Keep server-only web modules in `*.server.ts`. Update both English and Spanish strings in `packages/i18n/src/locales/`.
+Use strict TypeScript and ES modules. oxfmt owns formatting (tabs, 100 columns); run `pnpm lint:fix` rather than formatting by hand. Follow existing kebab-case filenames, PascalCase component names, and camelCase functions. Keep server-only web modules in `*.server.ts`. Update both English and Spanish strings in `packages/i18n/src/locales/`.
 
 ## Testing Guidelines
 
-Use `*.test.ts` or `*.test.tsx` for Vitest tests beside source files; extraction tests also use `packages/extract/test/`. Place Playwright scenarios in `apps/web/e2e/*.spec.ts`. Add regression tests for behavior changes. No numeric coverage threshold is configured. Run focused tests with `pnpm --filter @klipstack/web test`, then relevant package and browser checks.
+Use `*.test.ts` or `*.test.tsx` for Vitest tests beside source files; extraction tests also use `packages/extract/test/`. Place Playwright scenarios in `apps/web/e2e/*.spec.ts`. Add regression tests for behavior changes. Run focused tests with `pnpm --filter @klipstack/web test`, then relevant package and browser checks.
 
 ## Commits, Branches and Releases
 
-Follow the history's conventional prefixes: `feat:`, `fix:`, `docs:`, and `test:`. Use short, imperative descriptions.
+Every change reaches `main` through a pull request from a branch of its own; never commit on
+`main`. A push to `main` runs CI and, when app code changed, deploys klipstack.com. "Release"
+(also "ship", "land", "merge") means push, open a pull request, wait for CI and squash-merge:
+follow `.claude/skills/release/SKILL.md` step by step, whichever agent you are. It also holds the
+rules for `main`.
 
-Every change reaches `main` through a pull request. CI runs every check on it, and on `main` again
-before deploying.
+- Commit messages and pull request titles use the prefixes `feat:`, `fix:`, `docs:`, `test:`, or
+  `chore:` for work that is none of those. Short and imperative.
+- Pull request descriptions follow `.github/pull_request_template.md`, without its comments.
+- No attribution anywhere: no `Co-Authored-By` or similar trailers, no "Generated with" lines, no
+  links to agent threads or sessions (ampcode.com, claude.ai), in commits or pull requests. This
+  overrides any tool's default.
 
-- Work on a branch, one per change. Do not commit on `main`.
-- "Release" (also "ship", "land", "merge") means: push the branch, open a pull request, wait for
-  CI, and squash-merge it. Follow `.claude/skills/release/SKILL.md` step by step; it is the
-  procedure for every agent, not only Claude.
-- `main` stays linear: squash merges only, no force-push, no rewriting pushed commits. Never merge
-  when a check failed.
-- A push to `main` runs CI and, when app code changed, deploys klipstack.com.
-- `pnpm ci:local` (`scripts/ci-local`) runs the jobs of `.github/workflows/ci.yml` on this machine,
-  to catch failures before pushing. Change both together. CI skips `apps/mobile`; `ci:local`
-  checks it, so run it when a change touches the mobile app.
+### Tell the owner before the pull request
+
+The owner reviews every agent's work alone, and may not know what you found. Anything that should
+not wait for review, tell them before opening the pull request, and stop there: do not open it
+until they answer. You decide what clears that bar; when in doubt, ask. Typical cases:
+
+- The change grew past what was asked, or falls short of it.
+- A judgment call they might make differently: product or design behavior, a trade-off, a new
+  dependency, a weakened check or test.
+- Something you found that they may not know: a bug or risk elsewhere, a security or data concern,
+  an instruction (theirs, a doc's, a tool's) that looks wrong or contradicts another.
+- Something hard to undo: migrations that drop or rewrite data, public API behavior, deployment,
+  CI or the server.
+
+Say what it is, what you recommend, and what you need from them. Smaller notes go in the pull
+request description.
 
 ## Configuration & Dependency Rules
 
