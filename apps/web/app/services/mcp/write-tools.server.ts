@@ -17,6 +17,7 @@ import {
 	updateHighlight,
 } from "~/commands/annotations.server"
 import { trashArticles, updateArticles } from "~/commands/articles.server"
+import { setArticleEditionNote } from "~/commands/editions.server"
 import { saveArticle } from "~/commands/saving.server"
 import { createTag, deleteTag, renameTag } from "~/commands/tags.server"
 import { AppError } from "~/lib/app-error"
@@ -32,6 +33,7 @@ export const ARTICLE_WRITE_TOOLS: ReadonlySet<string> = new Set([
 	"save_article",
 	"update_articles",
 	"update_article_note",
+	"update_edition_note",
 	"add_highlight",
 	"update_highlight",
 	"delete_highlight",
@@ -143,6 +145,25 @@ export function registerWriteTools(server: McpServer, userId: string, canWrite: 
 							expectedUpdatedAt: expected_updated_at,
 						})
 			return json({ id, note: saved.note, updatedAt: saved.noteUpdatedAt?.toISOString() ?? null })
+		},
+	)
+
+	server.registerTool(
+		"update_edition_note",
+		{
+			title: "Update note for next edition",
+			description:
+				"Writes the user's note on an article for their next edition, the public page of articles they share: what the edition's readers see with the article, in the user's voice and under their name, unlike the private note. Plain text; links as [text](https://…), not library links. Replaces the note; an empty text clears it. A draft edition that has the article gets it too, unless the user changed its copy there. Write it only when the user asks, and with their words or their approval of yours. To mark the article for the next edition, use update_articles with shortlisted.",
+			inputSchema: z.object({
+				id: uuid(),
+				text: z.string().max(NOTE_MAX).refine(withoutNul, NUL_REFUSED),
+			}),
+			annotations: { ...WRITE, idempotentHint: true },
+		},
+		async ({ id, text }) => {
+			if (!canWrite) return toolError(NO_WRITE)
+			const saved = await setArticleEditionNote(userId, id, { note: text })
+			return json({ id, editionNote: saved.editionNote })
 		},
 	)
 

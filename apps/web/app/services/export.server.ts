@@ -323,10 +323,12 @@ export function documentMarkdown(d: ExportedDocument, resolve: ResolveLink = kee
 	const via = d.via.map((v) => `${viaMarkdown(v)}\n\n`).join("")
 	const body = `# ${d.title ?? d.url}\n\n${via}${d.markdown}`
 	const articleNote = d.note ? `\n\n## Note\n\n${rewriteNoteLinks(d.note, resolve)}` : ""
+	// For other readers, under the user's name; plain text with web links, no library links.
+	const editionNote = d.editionNote ? `\n\n## Note for my next edition\n\n${d.editionNote}` : ""
 	const hl = d.highlights.length
 		? `\n\n## Highlights\n\n${highlightsMarkdown(d.highlights, resolve)}\n`
 		: "\n"
-	return `${front}\n\n${body}${articleNote}${hl}`
+	return `${front}\n\n${body}${articleNote}${editionNote}${hl}`
 }
 
 /** A post the article was saved through, quoted, with who shared it and a link to it. */

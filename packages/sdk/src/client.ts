@@ -67,6 +67,9 @@ export function createClient(options: ClientOptions) {
 		) => call("articles.setNote", { params: { id }, body: { note, expectedUpdatedAt } }),
 		appendNote: (id: string, text: string) =>
 			call("articles.appendNote", { params: { id }, body: { text } }),
+		/** Replaces the note for the user's next edition (null clears it). */
+		setEditionNote: (id: string, note: string | null) =>
+			call("articles.setEditionNote", { params: { id }, body: { note } }),
 	}
 
 	const links = {
@@ -180,6 +183,7 @@ export const FACADE: Record<EndpointId, string> = {
 	"articles.setPosition": "articles.setPosition",
 	"articles.setNote": "articles.setNote",
 	"articles.appendNote": "articles.appendNote",
+	"articles.setEditionNote": "articles.setEditionNote",
 	"assets.get": "assets.download",
 	"highlights.list": "highlights.list",
 	"highlights.create": "highlights.create",

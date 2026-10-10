@@ -27,6 +27,7 @@ export const handlers: HandlerTable<Endpoints> = {
 	"articles.setPosition": writes.position,
 	"articles.setNote": writes.replaceNote,
 	"articles.appendNote": writes.append,
+	"articles.setEditionNote": writes.replaceEditionNote,
 	"assets.get": library.asset,
 	"highlights.list": library.highlights,
 	"highlights.create": writes.addHighlight,

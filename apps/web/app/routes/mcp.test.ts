@@ -52,6 +52,7 @@ const WRITE_TOOLS = [
 	"update_articles",
 	"unfollow_feed",
 	"update_article_note",
+	"update_edition_note",
 	"update_highlight",
 ]
 
@@ -325,6 +326,18 @@ describe("MCP with an API key", () => {
 		expect(
 			await call(mcp, "update_article_note", { id, text: "From the assistant." }),
 		).toMatchObject({ note: "Mine.\n\nFrom the assistant." })
+
+		// The note for the next edition: replaced, apart from the note, and shown by get_article.
+		expect(await call(mcp, "update_edition_note", { id, text: "For my readers." })).toEqual({
+			id,
+			editionNote: "For my readers.",
+		})
+		const read = text(await mcp.callTool({ name: "get_article", arguments: { id } }))
+		expect(read).toContain("## Note for my next edition\n\nFor my readers.")
+		expect(await call(mcp, "update_edition_note", { id, text: "" })).toEqual({
+			id,
+			editionNote: null,
+		})
 
 		// Highlights: a repeated passage needs an occurrence; Markdown in the quote is tolerated.
 		const repeated = await callError(mcp, "add_highlight", { article_id: id, quote: QUOTE })

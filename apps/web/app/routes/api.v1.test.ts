@@ -773,6 +773,29 @@ describe("writes", () => {
 		},
 	)
 
+	it("the note for the next edition, apart from the private note", async () => {
+		const { id: owner, key, client } = await users.create("API Edition Note")
+		const article = await insertArticle(owner, "Shared", "<p>Worth reading.</p>")
+		expect((await client.articles.get(article)).editionNote).toBeNull()
+		expect(await client.articles.setEditionNote(article, "  Read the second half.  ")).toEqual({
+			editionNote: "Read the second half.",
+		})
+		expect(await client.articles.get(article)).toMatchObject({
+			editionNote: "Read the second half.",
+			note: null,
+		})
+		expect(await client.articles.setEditionNote(article, "")).toEqual({ editionNote: null })
+		expect(await errorOf(client.articles.setEditionNote(MISSING, "x"))).toMatchObject({
+			status: 404,
+		})
+		const long = await request(`/api/v1/articles/${article}/edition-note`, {
+			method: "PUT",
+			token: key,
+			...json({ note: "x".repeat(100_001) }),
+		})
+		expect(long.status).toBe(400)
+	})
+
 	it("notes with conflict checks, and highlights by quote", { timeout: 30_000 }, async () => {
 		const { id: owner, key, client } = await users.create("API Notes")
 		const joel = await captured(owner, JOEL)
