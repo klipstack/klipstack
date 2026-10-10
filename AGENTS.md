@@ -67,6 +67,8 @@ pnpm dev         # Start web (localhost:5180) and worker
   demo account (`reader@demo.klipstack.test`, password `local-reader-only`) in place. It prints
   the address and a one-time sign-in link to share. Run it again after changing code.
   `docs/development/demo-account.md` describes the account.
+- When the user asks to run, open, try, see or demo the app or a change ("let me try it", "give
+  me a link"), follow `.claude/skills/run-app/SKILL.md`.
 
 ## Coding Style & Naming Conventions
 
