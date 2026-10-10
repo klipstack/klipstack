@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Do these changes need a CI job? `scripts/ci-needs e2e|unit` reads changed paths on stdin, one per
+# line. Exits 0 and prints the paths that need the job, or exits 1 when no path reaches what it
+# runs. Used by ci.yml and scripts/ci-local.
+#
+#   e2e   the browser tests: the production build of every workspace but the mobile app, the
+#         server and worker it starts, the tests and their fixtures.
+#   unit  the unit tests, the production build and a boot of the server bundle.
+#
+# The lists below name what a job does not read. Anything not in them needs the job, new paths
+# included: add a path only when nothing the job runs reads it.
+set -euo pipefail
+
+# Read by neither job: Markdown and docs/, agent tooling (Amp orb setup, Claude skills), the mobile
+# app (CI neither builds nor tests it), lint and format config, the Docker image (built and booted
+# by the deploy job only), and scripts neither runs.
+inert='\.md$|^(docs|\.agents|\.claude|apps/mobile)/|(^|/)\.gitignore$|^(LICENSE|NOTICE|\.oxlintrc\.json|\.oxfmtrc\.json|Dockerfile|\.dockerignore|docker-compose\.yml)$|^scripts/(ci-local|check-migrations|image-smoke|orb-app)$'
+
+case "${1:-}" in
+  # Unit tests and their config. Playwright runs every *.spec.ts and *.test.ts in apps/web/e2e/:
+  # nothing there is inert for it.
+  e2e) inert+='|\.test\.tsx?$|(^|/)vitest\.config\.ts$'; always='^apps/web/e2e/' ;;
+  # The browser tests and their config: no unit test or build reads them.
+  unit) inert+='|^apps/web/e2e/|(^|/)playwright\.config\.ts$'; always='^$' ;;
+  *) echo "usage: scripts/ci-needs e2e|unit < changed-paths" >&2; exit 2 ;;
+esac
+
+paths=$(cat)
+needed=$(
+  {
+    printf '%s\n' "$paths" | grep -E "$always" || true
+    printf '%s\n' "$paths" | grep -Ev "$inert" || true
+  } | grep -v '^$' | sort -u || true
+)
+[ -n "$needed" ] || exit 1
+printf '%s\n' "$needed"

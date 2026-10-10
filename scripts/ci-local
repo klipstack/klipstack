@@ -16,6 +16,9 @@ Runs the checks of .github/workflows/ci.yml, stopping at the first failure:
   build     the production build, and a boot of the server bundle
   e2e       Playwright, every project, against the production build (one retry, as in CI)
   unit      pnpm test
+
+  As in CI, unit and build run only when something they read changed, and e2e only when
+  something it reads changed (scripts/ci-needs), unless named in --only.
   image     build the Docker image and boot it (scripts/image-smoke), as the deploy job does
             before it pushes. Slow, so it runs when named in --only, or when something the image
             installs or copies file by file changed: the Dockerfile, a dependency, the worker,
@@ -115,9 +118,30 @@ fi
 echo "Local CI for $(git rev-parse --abbrev-ref HEAD) @ $(git rev-parse --short HEAD), compared with $base"
 [ -z "$(git status --porcelain)" ] || echo "  note: uncommitted changes are part of what runs, but not of what a merge takes"
 
+# The unit and browser tests, as in CI: only when something they read changed (scripts/ci-needs),
+# or when named in --only. The build is part of CI's unit job, and e2e tests it.
+needs() {
+  if [ -n "$only" ]; then
+    wanted "$1"
+  elif [ -z "$changed" ] || scripts/ci-needs "$1" <<<"$changed" >/dev/null; then
+    return 0
+  else
+    echo "  note: nothing $1 reads changed (scripts/ci-needs): skipped, as in CI"
+    return 1
+  fi
+}
+e2e=false unit=false build=false
+needs e2e && e2e=true
+needs unit && unit=true
+if [ -n "$only" ]; then
+  wanted build && build=true
+elif [ "$unit" = true ] || [ "$e2e" = true ]; then
+  build=true
+fi
+
 if wanted install; then
   run "install: dependencies" pnpm install --frozen-lockfile
-  if wanted e2e; then
+  if [ "$e2e" = true ]; then
     run "install: browsers" pnpm --filter @klipstack/web exec playwright install chromium webkit
   fi
 fi
@@ -150,7 +174,7 @@ boot_server_bundle() {
 # CI starts every job on an empty database. The development one keeps old rows and queued jobs:
 # they hide some failures (the first signing key of an empty database) and cause others (a worker
 # that starts late, busy with a backlog).
-if wanted build || wanted e2e || wanted unit || { [ -n "$only" ] && wanted image; }; then
+if [ "$build" = true ] || [ "$e2e" = true ] || [ "$unit" = true ] || { [ -n "$only" ] && wanted image; }; then
   [ -f .env ] || { echo "No .env here: copy the main checkout's." >&2; exit 1; }
   admin_url=${DATABASE_URL:-$(grep -E '^DATABASE_URL=' .env | head -n 1 | cut -d= -f2- | tr -d "\"'")}
   admin_url=${admin_url%%\?*}
@@ -165,17 +189,17 @@ if wanted build || wanted e2e || wanted unit || { [ -n "$only" ] && wanted image
   run "database: collation" pnpm db:check-collation
 fi
 
-if wanted build; then
+if [ "$build" = true ]; then
   if port_in_use 3999; then echo "Port 3999 is taken: the boot check needs it." >&2; exit 1; fi
   run "build: production build" pnpm build
   run "build: boot the server bundle" boot_server_bundle
 fi
 
-if wanted e2e; then
+if [ "$e2e" = true ]; then
   # Playwright reuses whatever answers on 5180: it would test `pnpm dev`, not the build.
   if port_in_use 5180; then echo "Port 5180 is taken: stop \`pnpm dev\` (or another e2e run) first." >&2; exit 1; fi
   if pgrep -f "playwright test" >/dev/null; then echo "Another Playwright run is active: they share port 5180 and test-results." >&2; exit 1; fi
-  wanted build || echo "  note: e2e tests the last \`pnpm build\`, which --only skipped"
+  [ "$build" = true ] || echo "  note: e2e tests the last \`pnpm build\`, which --only skipped"
   # Before the unit tests: those leave jobs in the queue, and the e2e worker would start by
   # working through them, late for the tests that wait on it.
   # --forbid-only as CI (which sets CI): a stray test.only would pass here running only itself.
@@ -186,7 +210,7 @@ if wanted e2e; then
   fi
 fi
 
-if wanted unit; then
+if [ "$unit" = true ]; then
   # CI=1 as on GitHub: Vitest then refuses a stray .only instead of running just that test.
   run "unit: tests" env CI=1 pnpm test
 fi
