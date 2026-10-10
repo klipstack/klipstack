@@ -1,8 +1,9 @@
 name: CI
 
 # Every pull request runs every check; so does every push to main, which then deploys klipstack.com
-# when app code changed. `scripts/ci-local` runs the same checks on a developer's machine.
-# Change both together.
+# when app code changed. The browser tests are the exception: they run only when something they
+# run changed (`scripts/needs-e2e`), and `e2e result` reports on them either way.
+# `scripts/ci-local` runs the same checks on a developer's machine. Change both together.
 #
 # Pull requests from forks get a read-only token and no secrets. Only a push to main can reach the
 # deploy job, and its secrets live in the `production` environment, which only main may use.
@@ -96,6 +97,8 @@ jobs:
   # runner of their own, the only one that installs WebKit. Firefox is not tested.
   e2e:
     name: e2e (${{ matrix.name }})
+    needs: changes
+    if: needs.changes.outputs.e2e == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
@@ -137,38 +140,79 @@ jobs:
           path: apps/web/playwright-report
           retention-days: 7
 
+  # The branch rules require this, not the shards above: a skipped matrix job reports no check
+  # under its shards' names, so requiring those would block every pull request that skips them.
+  # Passes when every shard passed, or when `changes` found nothing they test.
+  e2e-result:
+    name: e2e result
+    needs: [changes, e2e]
+    # Even when a job before it failed or the run was cancelled: then it fails, and so blocks.
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - env:
+          CHANGES: ${{ needs.changes.result }}
+          NEEDED: ${{ needs.changes.outputs.e2e }}
+          E2E: ${{ needs.e2e.result }}
+        run: |
+          echo "changes=$CHANGES e2e needed=$NEEDED e2e=$E2E"
+          [ "$CHANGES" = success ] || exit 1
+          if [ "$NEEDED" = false ]; then [ "$E2E" = skipped ]; else [ "$E2E" = success ]; fi
+
+  # What the push or pull request changed: whether the browser tests must run, and on main, whether
+  # to deploy.
   changes:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
       deploy: ${{ steps.diff.outputs.deploy }}
+      e2e: ${{ steps.diff.outputs.e2e }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          fetch-depth: 0
-      - name: Compare with the live version
+          # A pull request needs only its merge commit and the base under it; main needs the live
+          # version, which may be any commit back.
+          fetch-depth: ${{ github.event_name == 'pull_request' && 2 || 0 }}
+      - name: Compare with the base, or on main with the live version
         id: diff
         env:
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
           RUN_ATTEMPT: ${{ github.run_attempt }}
           # Paths that do not go into the running app: docs, tests, the extension, the CLI and the
           # SDK (the server uses only the contract), the mobile app, CI, agent tooling (Amp orb
           # setup, Claude skills), and .gitignore files.
           NOT_APP: '^(docs/|\.github/|\.agents/|\.claude/|apps/extension/|apps/cli/|apps/mobile/|packages/sdk/|apps/web/e2e/|packages/[^/]+/test/)|\.md$|\.test\.tsx?$|(^|/)(vitest|playwright)\.config\.ts$|(^|/)\.gitignore$'
         run: |
-          # Skip the deploy when the live commit has the same app code. Runs on main are serialized,
-          # so the live version is final by now. Unknown live version: deploy. Re-runs always deploy.
-          deploy=true
-          live=$(curl -sf --retry 3 --max-time 10 https://klipstack.com/version | jq -r '.version // empty' || true)
-          if [ "$RUN_ATTEMPT" = 1 ] && [ -n "$live" ] && git cat-file -e "$live^{commit}" 2>/dev/null; then
-            app=$(git diff --name-only "$live" "$GITHUB_SHA" | grep -Ev "$NOT_APP" || true)
-            [ -n "$app" ] || deploy=false
-            printf 'App changes since %s:\n%s\n' "$live" "${app:-(none)}"
+          deploy=false
+          e2e=true
+          if [ "$EVENT" = pull_request ]; then
+            # The checkout is the merge commit: its first parent is the base it merges into.
+            changed=$(git diff --name-only HEAD^1 HEAD)
+            scripts/needs-e2e <<<"$changed" || e2e=false
+          elif [ "$EVENT" = push ] && [ "$REF" = refs/heads/main ]; then
+            # Skip the deploy when the live commit has the same app code. Runs on main are
+            # serialized, so the live version is final by now. Unknown live version: deploy. Re-runs
+            # always deploy. Skip the browser tests only when the live commit, which passed them,
+            # has the same code they run, and never when deploying: what deploys passed them here.
+            deploy=true
+            live=$(curl -sf --retry 3 --max-time 10 https://klipstack.com/version | jq -r '.version // empty' || true)
+            if [ "$RUN_ATTEMPT" = 1 ] && [ -n "$live" ] && git cat-file -e "$live^{commit}" 2>/dev/null; then
+              changed=$(git diff --name-only "$live" "$GITHUB_SHA")
+              app=$(printf '%s\n' "$changed" | grep -Ev "$NOT_APP" || true)
+              [ -n "$app" ] || deploy=false
+              printf 'App changes since %s:\n%s\n' "$live" "${app:-(none)}"
+              [ "$deploy" = true ] || scripts/needs-e2e <<<"$changed" || e2e=false
+            fi
+            echo "live=${live:-unknown}"
           fi
-          echo "live=${live:-unknown} deploy=$deploy"
+          echo "deploy=$deploy e2e=$e2e"
           echo "deploy=$deploy" >> "$GITHUB_OUTPUT"
+          echo "e2e=$e2e" >> "$GITHUB_OUTPUT"
 
   deploy:
+    # The shards themselves, not `e2e result`: a deploy always has them run (see `changes`).
     needs: [static, unit, e2e, changes]
     # Said here as well as in `changes`: no other event may ever reach the deploy.
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.deploy == 'true'

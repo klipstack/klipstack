@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Do these changes need the browser tests? Reads changed paths on stdin, one per line. Exits 0 and
+# prints the paths that need them, or exits 1 when no path reaches what those tests run: the
+# production build of every workspace but the mobile app, the server and worker it starts, the
+# tests and their fixtures, and the CI that sets them up. Used by ci.yml and scripts/ci-local.
+#
+# The list below names what none of that reads. Anything not in it needs the tests, new paths
+# included: add a path here only when nothing they run reads it.
+set -euo pipefail
+
+# Markdown and docs/, agent tooling (Amp orb setup, Claude skills), the mobile app (no build or
+# test of its own in CI), unit tests and their config, lint and format config, the Docker image
+# (built and booted by the deploy job, never by the tests), and scripts no e2e job runs.
+inert='\.md$|^(docs|\.agents|\.claude|apps/mobile)/|\.test\.tsx?$|(^|/)vitest\.config\.ts$|(^|/)\.gitignore$|^(LICENSE|NOTICE|\.oxlintrc\.json|\.oxfmtrc\.json|Dockerfile|\.dockerignore|docker-compose\.yml)$|^scripts/(ci-local|check-migrations|image-smoke|orb-app)$'
+
+paths=$(cat)
+# Playwright runs every *.spec.ts and *.test.ts in apps/web/e2e/: nothing there is inert.
+needed=$(printf '%s\n' "$paths" | grep -E '^apps/web/e2e/' || true)
+needed+=$'\n'$(printf '%s\n' "$paths" | grep -Ev "$inert" || true)
+needed=$(printf '%s\n' "$needed" | grep -v '^$' | sort -u || true)
+[ -n "$needed" ] || exit 1
+printf '%s\n' "$needed"

@@ -14,7 +14,9 @@ Runs the checks of .github/workflows/ci.yml, stopping at the first failure:
   install   pnpm install --frozen-lockfile, and the Playwright browsers
   static    pnpm audit, lint, typecheck, migrations matching the schema
   build     the production build, and a boot of the server bundle
-  e2e       Playwright, every project, against the production build (one retry, as in CI)
+  e2e       Playwright, every project, against the production build (one retry, as in CI). As in
+            CI, only when something the tests run changed (scripts/needs-e2e), or when named in
+            --only.
   unit      pnpm test
   image     build the Docker image and boot it (scripts/image-smoke), as the deploy job does
             before it pushes. Slow, so it runs when named in --only, or when something the image
@@ -115,9 +117,19 @@ fi
 echo "Local CI for $(git rev-parse --abbrev-ref HEAD) @ $(git rev-parse --short HEAD), compared with $base"
 [ -z "$(git status --porcelain)" ] || echo "  note: uncommitted changes are part of what runs, but not of what a merge takes"
 
+# The browser tests, as in CI: only when something they run changed, or when named in --only.
+e2e=false
+if [ -n "$only" ]; then
+  wanted e2e && e2e=true
+elif [ -z "$changed" ] || scripts/needs-e2e <<<"$changed" >/dev/null; then
+  e2e=true
+else
+  echo "  note: nothing the browser tests run changed (scripts/needs-e2e): e2e skipped, as in CI"
+fi
+
 if wanted install; then
   run "install: dependencies" pnpm install --frozen-lockfile
-  if wanted e2e; then
+  if [ "$e2e" = true ]; then
     run "install: browsers" pnpm --filter @klipstack/web exec playwright install chromium webkit
   fi
 fi
@@ -150,7 +162,7 @@ boot_server_bundle() {
 # CI starts every job on an empty database. The development one keeps old rows and queued jobs:
 # they hide some failures (the first signing key of an empty database) and cause others (a worker
 # that starts late, busy with a backlog).
-if wanted build || wanted e2e || wanted unit || { [ -n "$only" ] && wanted image; }; then
+if wanted build || [ "$e2e" = true ] || wanted unit || { [ -n "$only" ] && wanted image; }; then
   [ -f .env ] || { echo "No .env here: copy the main checkout's." >&2; exit 1; }
   admin_url=${DATABASE_URL:-$(grep -E '^DATABASE_URL=' .env | head -n 1 | cut -d= -f2- | tr -d "\"'")}
   admin_url=${admin_url%%\?*}
@@ -171,7 +183,7 @@ if wanted build; then
   run "build: boot the server bundle" boot_server_bundle
 fi
 
-if wanted e2e; then
+if [ "$e2e" = true ]; then
   # Playwright reuses whatever answers on 5180: it would test `pnpm dev`, not the build.
   if port_in_use 5180; then echo "Port 5180 is taken: stop \`pnpm dev\` (or another e2e run) first." >&2; exit 1; fi
   if pgrep -f "playwright test" >/dev/null; then echo "Another Playwright run is active: they share port 5180 and test-results." >&2; exit 1; fi
