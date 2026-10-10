@@ -31,6 +31,9 @@ const minutesLeft = sql<
 	number | null
 >`case when ${documents.type} = 'article' and ${documents.readingMinutes} is not null then greatest(1, ceil(${documents.readingMinutes} * (1 - ${documents.readingProgress})))::int end`
 
+/** Fits in `t` minutes and takes at least half of them: `fillsTime` in `~/lib/home-shelves`. */
+const fills = (t: number) => sql`(${minutesLeft} <= ${t} and ${minutesLeft} * 2 > ${t})`
+
 /** Ready articles in the library, without those already shown elsewhere on the page. */
 function suggestable(userId: string, excludeIds: string[]) {
 	return and(
@@ -111,8 +114,9 @@ export type HomeCard = LibraryCard & { minutesLeft: number | null }
 
 /**
  * Home's candidates for its sections, so the page can choose a time without asking again: for each
- * section, in its order, the first `keep` articles of any length and the first `keep` that fit each
- * time choice. One query each, ranking with running counts.
+ * section, in its order, the first `keep` articles of any length, and for each time choice the
+ * first `keep` that fit it and the first `keep` that fill at least half of it (`homeShelves`). One
+ * query each, ranking with running counts.
  */
 async function candidates(userId: string, where: SQL, order: SQL[], keep: number) {
 	const over = sql`over (order by ${sql.join(order, sql`, `)} rows between unbounded preceding and current row)`
@@ -121,16 +125,19 @@ async function candidates(userId: string, where: SQL, order: SQL[], keep: number
 			id: documents.id,
 			rank: sql<number>`row_number() ${over}`.as("rank"),
 			...Object.fromEntries(
-				TIME_CHOICES.map((t) => [
-					`fits${t}`,
-					sql<number>`count(*) filter (where ${minutesLeft} <= ${t}) ${over}`.as(`fits${t}`),
+				TIME_CHOICES.flatMap((t) => [
+					[
+						`fits${t}`,
+						sql<number>`count(*) filter (where ${minutesLeft} <= ${t}) ${over}`.as(`fits${t}`),
+					],
+					[`fills${t}`, sql<number>`count(*) filter (where ${fills(t)}) ${over}`.as(`fills${t}`)],
 				]),
 			),
 		})
 		.from(documents)
 		.where(and(suggestable(userId, []), where))
 		.as("ranked")
-	const fitsColumn = (t: number) => (ranked as unknown as Record<string, SQL>)[`fits${t}`]!
+	const column = (name: string) => (ranked as unknown as Record<string, SQL>)[name]!
 	return db
 		.select({ ...libraryCardColumns, minutesLeft })
 		.from(documents)
@@ -138,7 +145,10 @@ async function candidates(userId: string, where: SQL, order: SQL[], keep: number
 		.where(
 			or(
 				lte(ranked.rank, keep),
-				...TIME_CHOICES.map((t) => and(lte(minutesLeft, t), lte(fitsColumn(t), keep))),
+				...TIME_CHOICES.flatMap((t) => [
+					and(lte(minutesLeft, t), lte(column(`fits${t}`), keep)),
+					and(fills(t), lte(column(`fills${t}`), keep)),
+				]),
 			),
 		)
 		.orderBy(ranked.rank)

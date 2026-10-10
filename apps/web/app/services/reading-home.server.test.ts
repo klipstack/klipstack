@@ -114,14 +114,17 @@ describe("home selections", () => {
 		expect(titles(any.reading)).toEqual(["Half of forty"])
 		expect(titles(any.recent)).toEqual(["Saved 5", "Saved 4", "Saved 3"])
 		const five = await shelves(id, 5)
-		expect(five.reading).toEqual([])
-		// Nothing in progress fits: the newest save that fits takes the big card, with three more.
+		// Half of forty can't be finished in five minutes, but it was read last: it stays first.
+		expect(titles(five.reading)).toEqual(["Half of forty"])
 		expect(titles(five.recent)).toEqual(["Saved 4", "Saved 0"])
+		// What fills at least half the time first, then the rest that fits, newest first in each.
 		const fifteen = await shelves(id, 15)
-		expect(titles(fifteen.recent)).toEqual(["Saved 4", "Saved 2", "Saved 0"])
+		expect(titles(fifteen.recent)).toEqual(["Saved 2", "Saved 4", "Saved 0"])
 		const half = await shelves(id, 30)
 		expect(titles(half.reading)).toEqual(["Half of forty"])
 		expect(titles(half.recent)).toEqual(["Saved 4", "Saved 2", "Saved 0"])
+		const hour = await shelves(id, 60)
+		expect(titles(hour.recent)).toEqual(["Saved 3", "Saved 1", "Saved 4"])
 	})
 
 	it("gives the newest save the big card, and three more, when nothing is in progress", async () => {

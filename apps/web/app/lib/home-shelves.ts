@@ -19,9 +19,21 @@ export function fitsIn(doc: Timed, minutes: number | null) {
 	return minutes === null || (doc.minutesLeft !== null && doc.minutesLeft <= minutes)
 }
 
+/** Takes at least half the time chosen: with more time, longer articles come first. */
+export function fillsTime(doc: Timed, minutes: number) {
+	return fitsIn(doc, minutes) && doc.minutesLeft! * 2 > minutes
+}
+
 /**
- * The sections for a time choice (null: any length), each in its own order and each article once.
- * With nothing in progress, the recent saves get a fourth article: the newest takes the big card.
+ * The sections for a time choice (null: any length), each article once. Without a choice, each
+ * section keeps its order. With one, time left counts, not length:
+ *
+ * - Continue reading shows what can be finished in the time, read last first. When nothing can, it
+ *   still shows the article read last: finishing what was started comes before starting more.
+ * - The unread sections show what fits, those that fill at least half the time first, so more time
+ *   brings longer articles; each group in the section's order.
+ *
+ * With nothing in progress, the recent saves get a fourth article: the first takes the big card.
  */
 export function homeShelves<T extends Timed>(
 	candidates: { reading: T[]; recent: T[]; rediscover: T[] },
@@ -38,8 +50,20 @@ export function homeShelves<T extends Timed>(
 		}
 		return out
 	}
+	const fillingFirst = (items: T[]) =>
+		minutes === null
+			? items
+			: [
+					...items.filter((d) => fillsTime(d, minutes)),
+					...items.filter((d) => !fillsTime(d, minutes)),
+				]
 	const reading = take(candidates.reading, HOME_SHELF.reading)
-	const recent = take(candidates.recent, HOME_SHELF.recent - (reading.length ? 1 : 0))
-	const rediscover = take(candidates.rediscover, HOME_SHELF.rediscover)
+	const readLast = candidates.reading[0]
+	if (!reading.length && readLast) {
+		shown.add(readLast.id)
+		reading.push(readLast)
+	}
+	const recent = take(fillingFirst(candidates.recent), HOME_SHELF.recent - (reading.length ? 1 : 0))
+	const rediscover = take(fillingFirst(candidates.rediscover), HOME_SHELF.rediscover)
 	return { reading, recent, rediscover }
 }

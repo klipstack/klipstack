@@ -412,15 +412,30 @@ test("Home brings back older saves and narrows to the time chosen, without askin
 	page.on("request", (r) => {
 		if (r.resourceType() === "fetch" || r.resourceType() === "document") requests.push(r.url())
 	})
+	// Ten minutes left can't fit in five, but finishing what was started still comes first.
 	await choice("5 min").click()
 	await expect(choice("5 min")).toHaveAttribute("aria-current", "true")
-	await expect(articles).toHaveText([/Fresh and short/, /Short, from last month/])
-	await expect(page).toHaveURL(/\/home\?time=5$/)
-	await choice("15 min").click()
 	await expect(articles).toHaveText([
 		/Half read, ten left/,
 		/Fresh and short/,
+		/Short, from last month/,
+	])
+	await expect(page).toHaveURL(/\/home\?time=5$/)
+	await choice("15 min").click()
+	// What fills at least half the time comes first.
+	await expect(articles).toHaveText([
+		/Half read, ten left/,
 		/Fresh, twelve minutes/,
+		/Fresh and short/,
+		/Short, from last month/,
+	])
+	// With an hour, the long ones lead.
+	await choice("60 min").click()
+	await expect(articles).toHaveText([
+		/Half read, ten left/,
+		/Fresh and long/,
+		/Saved last month/,
+		/Fresh and short/,
 		/Short, from last month/,
 	])
 	expect(requests).toEqual([])
@@ -435,6 +450,7 @@ test("Home brings back older saves and narrows to the time chosen, without askin
 	await plain.getByTestId("home-time").getByRole("link", { name: "5 min", exact: true }).click()
 	await expect(plain).toHaveURL(/\/home\?time=5$/)
 	await expect(plain.getByTestId("home-article")).toHaveText([
+		/Half read, ten left/,
 		/Fresh and short/,
 		/Short, from last month/,
 	])
@@ -442,6 +458,10 @@ test("Home brings back older saves and narrows to the time chosen, without askin
 	await page.screenshot({ path: "test-results/home-time.png", fullPage: true })
 
 	// Nothing fits: say so, and offer everything again.
+	await db
+		.update(documents)
+		.set({ readAt: new Date() })
+		.where(eq(documents.title, "Half read, ten left"))
 	await db
 		.update(documents)
 		.set({ readAt: new Date(), firstOpenedAt: new Date() })
