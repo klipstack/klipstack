@@ -25,8 +25,6 @@ export function createClient(options: ClientOptions) {
 		/** Every article of a view, page after page. */
 		all: (query: Omit<QueryOf<"articles.list">, "cursor"> = {}) =>
 			paginate((cursor) => call("articles.list", { query: { ...query, cursor } })),
-		/** Home's suggestions: unread saves from a while ago, or what fits in some minutes. */
-		suggest: (query: QueryOf<"articles.suggest">) => call("articles.suggest", { query }),
 		search: (q: string, query: Omit<QueryOf<"articles.search">, "q"> = {}) =>
 			call("articles.search", { query: { ...query, q } }),
 		/** Saved articles by original URL; `id` is null for URLs not in the library. */
@@ -168,7 +166,6 @@ export type KlipstackClient = ReturnType<typeof createClient>
 export const FACADE: Record<EndpointId, string> = {
 	"me.get": "me",
 	"articles.list": "articles.list",
-	"articles.suggest": "articles.suggest",
 	"articles.search": "articles.search",
 	"articles.lookup": "articles.lookup",
 	"links.preview": "links.preview",

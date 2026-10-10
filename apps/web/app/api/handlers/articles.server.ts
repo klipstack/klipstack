@@ -6,7 +6,6 @@ import type {
 	lookupArticles,
 	previewLink,
 	searchArticles,
-	suggestArticles,
 } from "@klipstack/api-contract"
 import { parse } from "~/lib/note-links"
 import { rateLimit } from "~/lib/rate-limit.server"
@@ -23,7 +22,6 @@ import {
 	listBacklinks,
 	listContentLinks,
 } from "~/services/links.server"
-import { documentsThatFit, rediscoverDocuments } from "~/services/reading-suggestions.server"
 import { searchDocuments } from "~/services/search.server"
 import { articleCursor } from "../cursors.server"
 import { ApiError, notFound, rateLimited } from "../errors.server"
@@ -42,14 +40,6 @@ export const list: Handler<typeof listArticles> = async ({ userId, query }) => {
 		cursor: articleCursor(query.cursor),
 	})
 	return { items: page.items.map(articleSummary), nextCursor: page.nextCursor }
-}
-
-export const suggest: Handler<typeof suggestArticles> = async ({ userId, query }) => {
-	const items =
-		query.kind === "rediscover"
-			? await rediscoverDocuments({ userId, limit: query.limit })
-			: await documentsThatFit({ userId, minutes: query.minutes ?? 0, limit: query.limit })
-	return { items: items.map(articleSummary) }
 }
 
 export const search: Handler<typeof searchArticles> = async ({ userId, query }) => {

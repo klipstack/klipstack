@@ -1,7 +1,6 @@
 import {
 	and,
 	db,
-	desc,
 	documents,
 	eq,
 	isNotNull,
@@ -9,7 +8,6 @@ import {
 	lt,
 	lte,
 	not,
-	notInArray,
 	or,
 	type SQL,
 	type SQLWrapper,
@@ -17,14 +15,14 @@ import {
 } from "@klipstack/db"
 import { HOME_SHELF } from "~/lib/home-shelves"
 import { REDISCOVER_AFTER_DAYS, TIME_CHOICES } from "~/lib/inbox-filters"
-
-type TimeChoice = (typeof TIME_CHOICES)[number]
 import {
 	finished,
 	INBOX_FILTER_WHERE,
 	type LibraryCard,
 	libraryCardColumns,
 } from "./documents.server"
+
+type TimeChoice = (typeof TIME_CHOICES)[number]
 
 /**
  * Minutes left: at least one, and what Home's cards show. Null for posts, which are a glance, and
@@ -39,14 +37,16 @@ const minutesLeft = sql<
 /** Fits in `t` minutes and takes at least half of them: `fillsTime` in `~/lib/home-shelves`. */
 const fills = (left: SQLWrapper, t: number) => sql`(${left} <= ${t} and ${left} * 2 >= ${t})`
 
-/** Ready articles in the library, without those already shown elsewhere on the page. */
-function suggestable(userId: string, excludeIds: string[]) {
+/** Never opened, and not marked finished either (imports can bring read articles never opened). */
+const unread = and(INBOX_FILTER_WHERE.unread, not(finished)) as SQL
+
+/** Ready articles in the reader's library. */
+function suggestable(userId: string) {
 	return and(
 		eq(documents.userId, userId),
 		isNull(documents.deletedAt),
 		isNull(documents.archivedAt),
 		eq(documents.status, "ready"),
-		excludeIds.length ? notInArray(documents.id, excludeIds) : undefined,
 	)
 }
 
@@ -60,61 +60,9 @@ function rediscover(now: Date) {
 	const savedBefore = new Date(Date.parse(day) - REDISCOVER_AFTER_DAYS * 86_400_000)
 	return {
 		savedBefore,
-		where: and(INBOX_FILTER_WHERE.unread, lt(documents.createdAt, savedBefore)) as SQL,
+		where: and(unread, lt(documents.createdAt, savedBefore)) as SQL,
 		order: { key: sql`md5(${documents.id}::text || ${day})`, desc: false },
 	}
-}
-
-export async function rediscoverDocuments({
-	userId,
-	limit,
-	excludeIds = [],
-	now = new Date(),
-}: {
-	userId: string
-	limit: number
-	excludeIds?: string[]
-	now?: Date
-}): Promise<LibraryCard[]> {
-	const { where, order } = rediscover(now)
-	return db
-		.select(libraryCardColumns)
-		.from(documents)
-		.where(and(suggestable(userId, excludeIds), where))
-		.orderBy(order.key, documents.id)
-		.limit(limit)
-}
-
-/**
- * Unfinished articles whose time left fits in `minutes`, the closest fit first: the time goes to
- * an article that fills it, not to the shortest ones. Articles only, as quick reads: posts are a
- * glance.
- */
-export async function documentsThatFit({
-	userId,
-	minutes,
-	limit,
-	excludeIds = [],
-}: {
-	userId: string
-	minutes: number
-	limit: number
-	excludeIds?: string[]
-}): Promise<LibraryCard[]> {
-	return db
-		.select(libraryCardColumns)
-		.from(documents)
-		.where(
-			and(
-				suggestable(userId, excludeIds),
-				eq(documents.type, "article"),
-				isNotNull(documents.readingMinutes),
-				not(finished),
-				lte(minutesLeft, minutes),
-			),
-		)
-		.orderBy(desc(minutesLeft), desc(documents.createdAt), desc(documents.id))
-		.limit(limit)
 }
 
 export type HomeCard = LibraryCard & { minutesLeft: number | null }
@@ -160,7 +108,7 @@ async function candidates(
 			...counts,
 		})
 		.from(documents)
-		.where(and(suggestable(userId, []), where))
+		.where(and(suggestable(userId), where))
 		.as("ranked")
 	// Chosen and bounded before the join, so the database reads only those articles, by id.
 	const picked = db
@@ -211,12 +159,7 @@ export async function homeCandidates(
 			},
 			keep.reading,
 		),
-		candidates(
-			userId,
-			INBOX_FILTER_WHERE.unread,
-			{ key: sql`${documents.createdAt}`, desc: true },
-			keep.recent,
-		),
+		candidates(userId, unread, { key: sql`${documents.createdAt}`, desc: true }, keep.recent),
 		candidates(userId, older.where, older.order, keep.rediscover),
 	])
 	return { reading, recent, rediscover: rediscovered, recentSince: older.savedBefore }
@@ -227,6 +170,6 @@ export async function countUnfinished(userId: string) {
 	const [row] = await db
 		.select({ count: sql<number>`count(*)::int` })
 		.from(documents)
-		.where(and(suggestable(userId, []), not(finished), isNotNull(minutesLeft)))
+		.where(and(suggestable(userId), not(finished), isNotNull(minutesLeft)))
 	return row?.count ?? 0
 }

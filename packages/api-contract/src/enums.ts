@@ -26,15 +26,6 @@ export const LIST_FILTERS = [
 ] as const
 export type ListFilter = (typeof LIST_FILTERS)[number]
 
-/** Reading suggestions (`GET /articles/suggestions`), as Home shows them. */
-export const SUGGESTION_KINDS = ["rediscover", "fits"] as const
-export type SuggestionKind = (typeof SUGGESTION_KINDS)[number]
-/** `rediscover` suggests unread saves older than this many days. */
-export const REDISCOVER_AFTER_DAYS = 14
-/** Home's "How much time do you have?" choices, in minutes, and the one it starts with. */
-export const TIME_CHOICES = [5, 15, 30, 60] as const
-export const DEFAULT_TIME = 15
-
 const SAVED_SORTS = ["newest", "oldest", "shortest", "longest"] as const
 export const LIST_SORTS = ["recent", ...SAVED_SORTS] as const
 export type ListSort = (typeof LIST_SORTS)[number]

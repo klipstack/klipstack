@@ -1,5 +1,4 @@
-import { DEFAULT_TIME, REDISCOVER_AFTER_DAYS, TIME_CHOICES } from "@klipstack/api-contract/enums"
-import { type ArticleSummary, KlipstackApiError } from "@klipstack/sdk"
+import type { ArticleSummary } from "@klipstack/sdk"
 import { router, useFocusEffect } from "expo-router"
 import { SymbolView } from "expo-symbols"
 import { useCallback, useMemo, useRef, useState } from "react"
@@ -38,9 +37,8 @@ import { type Colors, useColors } from "@/lib/theme"
 
 /**
  * The home page, as the web's: a big card to continue reading (or, with nothing in progress, to
- * start the newest save), then shelves of more in progress, recent saves, what fits in the time
- * the reader has, and saves from a while ago. A long press on an article opens its menu, as in the
- * library.
+ * start the newest save), then shelves of more in progress, recent saves and short reads. A long
+ * press on an article opens its menu, as in the library.
  */
 export default function Home() {
 	const { state } = useAuth()
@@ -50,77 +48,55 @@ export default function Home() {
 	const [home, setHome] = useState<HomeSections | null>(null)
 	const [error, setError] = useState<string | null>(null)
 	const [refreshing, setRefreshing] = useState(false)
-	const [minutes, setMinutes] = useState<number>(DEFAULT_TIME)
 	const generation = useRef(0)
 
 	const load = useCallback(async () => {
 		if (!client) return
 		const mine = ++generation.current
-		const fitsList = `home-fits-${minutes}` as const
-		const longest = Math.max(...TIME_CHOICES)
 		try {
 			// After a closing reader's change lands (src/lib/article-changes.ts).
 			await settled()
 			// More than a shelf shows: the sections drop what isn't ready or shows above.
-			const [reading, unread, rediscover, fits] = await Promise.all([
+			const [reading, unread, quick] = await Promise.all([
 				client.articles.list({ view: "inbox", filter: "progress", limit: 12 }),
 				client.articles.list({ view: "inbox", filter: "unread", sort: "newest", limit: 20 }),
-				client.articles.suggest({ kind: "rediscover", limit: 20 }).catch(noSuggestions),
-				client.articles.suggest({ kind: "fits", minutes, limit: 30 }).catch(noSuggestions),
+				client.articles.list({ view: "inbox", filter: "quick", limit: 30 }),
 			])
-			const lists = {
+			if (mine !== generation.current) return
+			const sections = homeSections({
 				reading: reading.items,
 				unread: unread.items,
-				rediscover: rediscover.items,
-				fits: fits.items,
-			}
-			let sections = homeSections(lists, { minutes })
-			// Nothing fits this time: the choices stay while a longer time has something.
-			if (!sections.fits && minutes < longest) {
-				const more = await client.articles
-					.suggest({ kind: "fits", minutes: longest, limit: 30 })
-					.catch(noSuggestions)
-				sections = homeSections({ ...lists, longest: more.items }, { minutes })
-			}
-			if (mine !== generation.current) return
+				quick: quick.items,
+			})
 			setHome(sections)
 			setError(null)
 			// Kept for offline reading, with Inbox's and Starred's first pages (src/lib/offline.ts).
 			saveList("home-reading", reading.items)
 			saveList("home-unread", unread.items)
-			saveList("home-rediscover", rediscover.items)
-			saveList(fitsList, fits.items)
+			saveList("home-quick", quick.items)
 			void downloadAhead(client, "home", [
 				...(sections.hero ? [sections.hero] : []),
 				...sections.reading,
 				...sections.recent,
-				...(sections.fits?.items ?? []),
-				...sections.rediscover,
+				...sections.quick,
 			])
 			keepLibraryLists(client)
 		} catch (e) {
 			if (mine !== generation.current) return
 			if (canUseOffline(e)) {
-				const [reading, unread] = [loadList("home-reading"), loadList("home-unread")]
-				if (reading && unread) {
-					const rediscover = loadList("home-rediscover") ?? []
-					const kept = homeSections(
-						{ reading, unread, rediscover, fits: loadList(fitsList) ?? [] },
-						{ minutes },
-					)
-					// A time the phone didn't keep shows nothing, and the choices stay to go back.
-					setHome((shown) =>
-						shown?.fits?.minutes === minutes
-							? shown
-							: { ...kept, fits: kept.fits ?? (shown?.fits ? { minutes, items: [] } : null) },
-					)
-				}
+				const [reading, unread, quick] = [
+					loadList("home-reading"),
+					loadList("home-unread"),
+					loadList("home-quick"),
+				]
+				if (reading && unread && quick)
+					setHome((shown) => shown ?? homeSections({ reading, unread, quick }))
 				setError(OFFLINE_NOTE)
 				return
 			}
 			setError(e instanceof Error ? e.message : String(e))
 		}
-	}, [client, minutes])
+	}, [client])
 
 	// Again on each return to the tab and to the app: reading moves articles between sections.
 	useFocusEffect(
@@ -162,7 +138,7 @@ export default function Home() {
 		setRefreshing(false)
 	}
 
-	const empty = home && !home.hero && !home.rediscover.length && !home.fits
+	const empty = home && !home.hero && !home.quick.length
 	return (
 		<ScrollView
 			contentInsetAdjustmentBehavior="automatic"
@@ -209,25 +185,10 @@ export default function Home() {
 							<Shelf items={home.recent} colors={colors} headers={headers} menu={menu} />
 						</Section>
 					) : null}
-					{home.fits ? (
-						<Section title="How much time do you have?" colors={colors}>
-							<TimeChoices minutes={minutes} onChoose={setMinutes} colors={colors} />
-							{home.fits.items.length ? (
-								<Shelf items={home.fits.items} colors={colors} headers={headers} menu={menu} />
-							) : (
-								<Text style={[styles.inset, styles.note, { color: colors.mutedFg }]}>
-									Nothing in your library fits in {home.fits.minutes} minutes. Try a longer time.
-								</Text>
-							)}
-						</Section>
-					) : null}
-					{home.rediscover.length ? (
-						<Section
-							title="From a while ago"
-							note={`Saved more than ${REDISCOVER_AFTER_DAYS} days ago. A different few each day.`}
-							colors={colors}
-						>
-							<Shelf items={home.rediscover} colors={colors} headers={headers} menu={menu} />
+					{home.quick.length ? (
+						// QUICK_MAX_MINUTES in apps/web/app/lib/inbox-filters.ts.
+						<Section title="A few minutes to read" note="Ten minutes or less." colors={colors}>
+							<Shelf items={home.quick} colors={colors} headers={headers} menu={menu} />
 						</Section>
 					) : null}
 				</>
@@ -236,12 +197,6 @@ export default function Home() {
 			{tags.sheet}
 		</ScrollView>
 	)
-}
-
-/** A server older than suggestions has none to give: Home shows the rest. */
-function noSuggestions(e: unknown): { items: ArticleSummary[] } {
-	if (e instanceof KlipstackApiError && e.status === 404) return { items: [] }
-	throw e
 }
 
 function Section({
@@ -276,45 +231,6 @@ function Section({
 				{note ? <Text style={[styles.note, { color: colors.mutedFg }]}>{note}</Text> : null}
 			</View>
 			{children}
-		</View>
-	)
-}
-
-/** The times to choose from, as the web's chips: the one chosen is filled. */
-function TimeChoices({
-	minutes,
-	onChoose,
-	colors,
-}: {
-	minutes: number
-	onChoose: (minutes: number) => void
-	colors: Colors
-}) {
-	return (
-		<View style={[styles.inset, styles.choices]} accessibilityRole="radiogroup">
-			{TIME_CHOICES.map((choice) => {
-				const chosen = choice === minutes
-				return (
-					<Pressable
-						key={choice}
-						accessibilityRole="radio"
-						accessibilityState={{ checked: chosen }}
-						accessibilityLabel={`${choice} minutes`}
-						onPress={() => onChoose(choice)}
-						style={({ pressed }) => [
-							styles.choice,
-							chosen
-								? { backgroundColor: colors.accent, borderColor: colors.accent }
-								: { borderColor: colors.border },
-							pressed && styles.pressed,
-						]}
-					>
-						<Text style={[styles.choiceText, { color: chosen ? colors.accentFg : colors.fg }]}>
-							{choice} min
-						</Text>
-					</Pressable>
-				)
-			})}
 		</View>
 	)
 }
@@ -420,9 +336,6 @@ const styles = StyleSheet.create({
 	heading: { flexDirection: "row", alignItems: "center", gap: 6 },
 	sectionTitle: { fontSize: 22, fontWeight: "700" },
 	note: { fontSize: 14, marginTop: 2 },
-	choices: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-	choice: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6 },
-	choiceText: { fontSize: 15 },
 	// Room for the lifted card's edge above and below its content; the layout doesn't move.
 	hero: { gap: 8, paddingVertical: 8, marginTop: -8, borderRadius: 24 },
 	heroTitle: { fontFamily: "Iowan Old Style", fontSize: 24, lineHeight: 29, fontWeight: "600" },

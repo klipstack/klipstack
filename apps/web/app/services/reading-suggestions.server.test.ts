@@ -2,12 +2,7 @@ import { db, documents, eq, user } from "@klipstack/db"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import { homeShelves } from "~/lib/home-shelves"
 import { TIME_CHOICES } from "~/lib/inbox-filters"
-import {
-	countUnfinished,
-	documentsThatFit,
-	homeCandidates,
-	rediscoverDocuments,
-} from "./reading-suggestions.server"
+import { countUnfinished, homeCandidates } from "./reading-suggestions.server"
 
 const userId = `test-suggest-${Date.now()}`
 const otherId = `${userId}-other`
@@ -71,58 +66,44 @@ afterAll(async () => {
 	for (const id of [userId, otherId]) await db.delete(user).where(eq(user.id, id))
 })
 
-describe("rediscoverDocuments", () => {
-	const old = Array.from({ length: 8 }, (_, i) => `Old ${i}`)
+const everything = { reading: 1e6, recent: 1e6, rediscover: 1e6 }
 
-	it("picks unread library saves from more than two weeks ago", async () => {
-		const all = await rediscoverDocuments({ userId, limit: 50, now })
-		expect(titles(all).sort()).toEqual(old)
+describe("From a while ago", () => {
+	const old = Array.from({ length: 8 }, (_, i) => `Old ${i}`)
+	const pick = async (at: Date) =>
+		titles((await homeCandidates(userId, { now: at })).rediscover.slice(0, 3))
+
+	it("has the unread library saves from before the last two weeks", async () => {
+		const { rediscover } = await homeCandidates(userId, { now, keep: everything })
+		expect(titles(rediscover).sort()).toEqual(old)
 	})
 
 	it("holds its pick through the day and changes it from day to day", async () => {
-		const morning = await rediscoverDocuments({ userId, limit: 3, now })
-		const evening = await rediscoverDocuments({
-			userId,
-			limit: 3,
-			now: new Date("2026-10-10T23:00:00Z"),
-		})
-		expect(titles(evening)).toEqual(titles(morning))
+		const morning = await pick(new Date("2026-10-10T00:30:00Z"))
+		expect(await pick(new Date("2026-10-10T23:30:00Z"))).toEqual(morning)
 		const picks = new Set<string>()
-		for (let day = 11; day <= 20; day++) {
-			const later = new Date(`2026-10-${day}T12:00:00Z`)
-			picks.add(titles(await rediscoverDocuments({ userId, limit: 3, now: later })).join())
-		}
+		for (let day = 11; day <= 20; day++)
+			picks.add((await pick(new Date(`2026-10-${day}T12:00:00Z`))).join())
 		expect(picks.size).toBeGreaterThan(1)
-	})
-
-	it("leaves out the articles shown elsewhere", async () => {
-		const first = await rediscoverDocuments({ userId, limit: 3, now })
-		const rest = await rediscoverDocuments({
-			userId,
-			limit: 50,
-			now,
-			excludeIds: first.map((d) => d.id),
-		})
-		expect(rest).toHaveLength(5)
-		expect(titles(rest)).not.toContain(first[0]!.title)
 	})
 })
 
-describe("documentsThatFit", () => {
-	it("gives the closest fit first, counting the time left of articles in progress", async () => {
-		const fits = await documentsThatFit({ userId, minutes: 15, limit: 50 })
-		expect(titles(fits)).toEqual(["Fifteen", "Fifteen, older", "Forty, half read", "Twelve"])
-	})
-
-	it("leaves out finished articles, posts, articles without a length and other libraries", async () => {
-		const fits = await documentsThatFit({ userId, minutes: 11, limit: 50 })
-		expect(titles(fits)).toEqual([])
-		const hour = titles(await documentsThatFit({ userId, minutes: 60, limit: 50 }))
-		for (const title of ["Ten, finished", "Ten, scrolled", "Ten, a post", "No length"])
-			expect(hour).not.toContain(title)
-		expect(hour).not.toContain("Ten, archived")
-		expect(hour).not.toContain("Someone else's")
-		expect(hour.slice(0, 2)).toEqual(["Two weeks", "Old 0"])
+describe("what Home chooses from", () => {
+	it("leaves out finished, archived, trashed and unready articles, and other libraries", async () => {
+		const all = await homeCandidates(userId, { now, keep: everything })
+		const shown = titles([...all.reading, ...all.recent, ...all.rediscover])
+		for (const title of [
+			"Ten, finished",
+			"Ten, scrolled",
+			"Ten, archived",
+			"Old, archived",
+			"Old, trashed",
+			"Old, failed",
+			"Old, processing",
+			"Someone else's",
+		])
+			expect(shown).not.toContain(title)
+		expect(titles(all.reading)).toEqual(expect.arrayContaining(["Old, opened", "Forty, half read"]))
 	})
 })
 
@@ -170,7 +151,6 @@ describe("homeCandidates", () => {
 	}
 
 	it("has what every time choice shows in every section, as if it had everything", async () => {
-		const everything = { reading: 1e6, recent: 1e6, rediscover: 1e6 }
 		for (const seed of [1, 2, 3, 4, 5, 6]) {
 			const id = await randomLibrary(seed)
 			const some = await homeCandidates(id, { now })

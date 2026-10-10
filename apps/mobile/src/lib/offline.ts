@@ -25,14 +25,8 @@ export type StoredHtml = Awaited<ReturnType<KlipstackClient["articles"]["html"]>
 /** What the reader needs to open an article without the server. */
 export type OfflineArticle = { details: ArticleDetails; stored: StoredHtml; savedAt: number }
 
-/** The lists kept: Home's, and the first page of Inbox and Starred. */
-export type OfflineList =
-	| "home-reading"
-	| "home-unread"
-	| "home-rediscover"
-	| `home-fits-${number}`
-	| "inbox"
-	| "starred"
+/** The lists kept: Home's three, and the first page of Inbox and Starred. */
+export type OfflineList = "home-reading" | "home-unread" | "home-quick" | "inbox" | "starred"
 
 /** What a kept list says when it shows what the phone kept. */
 export const OFFLINE_NOTE = "Can't reach Klipstack. Articles kept on this phone still open."

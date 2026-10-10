@@ -1,4 +1,3 @@
-import { DEFAULT_TIME } from "@klipstack/api-contract/enums"
 import type { ArticleSummary } from "@klipstack/sdk"
 import { retagged } from "./article-tags"
 
@@ -8,28 +7,18 @@ export type HomeSections = {
 	/** More articles in progress. */
 	reading: ArticleSummary[]
 	recent: ArticleSummary[]
-	/** Unread saves from a while ago, a different few each day. */
-	rediscover: ArticleSummary[]
-	/** What fits in the time chosen; null while no time choice has anything to offer. */
-	fits: { minutes: number; items: ArticleSummary[] } | null
+	quick: ArticleSummary[]
 }
 
 /**
- * The home page from library lists, as the web builds it (reading-home.server.ts): articles in
- * progress (most recently read first), unread saves (newest first), unread saves from a while ago
- * and what fits in the time chosen. Only ready articles, and each article once, in that order of
- * sections. With nothing in progress, the newest save takes the big card. `longest`, what fits in
- * the longest time, keeps the time choices when the one chosen has nothing.
+ * The home page from three library lists, as the web builds it (reading-home.server.ts): articles
+ * in progress (most recently read first), unread saves (newest first) and short ones. Only ready
+ * articles, and each article once, in that order of sections. With nothing in progress, the
+ * newest save takes the big card.
  */
 export function homeSections(
-	lists: {
-		reading: ArticleSummary[]
-		unread: ArticleSummary[]
-		rediscover: ArticleSummary[]
-		fits: ArticleSummary[]
-		longest?: ArticleSummary[]
-	},
-	{ perShelf = 8, minutes = DEFAULT_TIME } = {},
+	lists: { reading: ArticleSummary[]; unread: ArticleSummary[]; quick: ArticleSummary[] },
+	{ perShelf = 8 } = {},
 ): HomeSections {
 	const shown = new Set<string>()
 	const take = (items: ArticleSummary[], max: number) => {
@@ -45,15 +34,11 @@ export function homeSections(
 	const reading = take(lists.reading, perShelf + 1)
 	const recent = take(lists.unread, reading.length ? perShelf : perShelf + 1)
 	const hero = reading[0] ?? recent[0] ?? null
-	const rediscover = take(lists.rediscover, perShelf)
-	const fits = take(lists.fits, perShelf)
-	const fitsAny = fits.length > 0 || take(lists.longest ?? [], 1).length > 0
 	return {
 		hero,
 		reading: reading.slice(1),
 		recent: reading.length ? recent : recent.slice(1),
-		rediscover,
-		fits: fitsAny ? { minutes, items: fits } : null,
+		quick: take(lists.quick, perShelf),
 	}
 }
 
@@ -75,8 +60,7 @@ export function withChanges(
 		hero: home.hero && kept(home.hero),
 		reading: shelf(home.reading),
 		recent: shelf(home.recent),
-		rediscover: shelf(home.rediscover),
-		fits: home.fits && { ...home.fits, items: shelf(home.fits.items) },
+		quick: shelf(home.quick),
 	}
 }
 
@@ -87,8 +71,7 @@ export function withTags(home: HomeSections, tags: Map<string, string[]>): HomeS
 		hero: home.hero && retagged(home.hero, tags),
 		reading: shelf(home.reading),
 		recent: shelf(home.recent),
-		rediscover: shelf(home.rediscover),
-		fits: home.fits && { ...home.fits, items: shelf(home.fits.items) },
+		quick: shelf(home.quick),
 	}
 }
 
