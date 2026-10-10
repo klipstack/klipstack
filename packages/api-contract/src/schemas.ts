@@ -313,6 +313,12 @@ export const ArticleDetails = z
 		/** Null until the note is first saved; pass it back as `expectedUpdatedAt`. */
 		noteUpdatedAt: Time.nullable(),
 		/**
+		 * What the user wrote for the readers of their next edition: unlike `note`, for others to read,
+		 * under the user's name. Null when none. Optional because servers before 2026-10-11 don't send
+		 * it.
+		 */
+		editionNote: z.string().nullable().optional(),
+		/**
 		 * Where the reader last was, 0–1 (`progress` is the furthest point). Optional, with
 		 * `readingCycle`, because servers before 2026-09-26 don't send them.
 		 */
@@ -441,6 +447,14 @@ export const Reading = z
 	})
 	.meta({ id: "Reading" })
 export type Reading = z.infer<typeof Reading>
+
+export const EditionNote = z
+	.object({
+		/** Null when none. */
+		editionNote: z.string().nullable(),
+	})
+	.meta({ id: "EditionNote" })
+export type EditionNote = z.infer<typeof EditionNote>
 
 export const Note = z
 	.object({

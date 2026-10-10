@@ -19,6 +19,7 @@ import {
 	type restoreArticles,
 	type saveArticle,
 	type saveFeedItems,
+	type setEditionNote,
 	type setNote,
 	type setPosition,
 	type trashArticles,
@@ -46,6 +47,7 @@ import {
 	undoChanges,
 	updateArticle,
 } from "~/commands/articles.server"
+import { setArticleEditionNote } from "~/commands/editions.server"
 import {
 	dismissFeedItems as dismissFeedItemsCommand,
 	followFeed as followFeedCommand,
@@ -165,6 +167,9 @@ export const replaceNote: Handler<typeof setNote> = async ({ userId, params, bod
 /** Adds a paragraph, as MCP's append mode does. */
 export const append: Handler<typeof appendNote> = async ({ userId, params, body }) =>
 	noteBody(await appendArticleNote(userId, params.id, body.text))
+
+export const replaceEditionNote: Handler<typeof setEditionNote> = ({ userId, params, body }) =>
+	setArticleEditionNote(userId, params.id, body)
 
 // ---- highlights ----
 

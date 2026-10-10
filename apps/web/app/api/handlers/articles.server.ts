@@ -111,6 +111,7 @@ export const get: Handler<typeof getArticle> = async ({ userId, params }) => {
 		...articleSummary(doc),
 		note: doc.note,
 		noteUpdatedAt: doc.noteUpdatedAt?.toISOString() ?? null,
+		editionNote: doc.editionNote,
 		position: doc.readingPosition,
 		readingCycle: doc.readingCycle,
 		language: doc.language,

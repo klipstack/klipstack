@@ -6,6 +6,7 @@ import {
 	ArticleSummary,
 	ArticleTitle,
 	BATCH_MAX,
+	EditionNote,
 	FollowedFeed,
 	HIGHLIGHT_NOTE_MAX,
 	Highlight,
@@ -239,6 +240,21 @@ export const appendNote = defineEndpoint({
 	response: json(Note),
 	/** `note_too_long`: the note would exceed NOTE_MAX characters with the paragraph. */
 	errors: ["not_found", "note_changed", "note_too_long"],
+})
+
+export const setEditionNote = defineEndpoint({
+	id: "articles.setEditionNote",
+	method: "PUT",
+	path: "/articles/:id/edition-note",
+	scope: "write",
+	summary:
+		"Replaces the article's note for the user's next edition (null or blank clears it): what the edition's readers see with the article, under the user's name. A draft edition with the article gets it too, unless its copy was changed there.",
+	params,
+	body: z.object({
+		note: z.string().max(NOTE_MAX).refine(withoutNul, NUL_REFUSED).nullable(),
+	}),
+	response: json(EditionNote),
+	errors: ["not_found"],
 })
 
 const Color = z.enum(HIGHLIGHT_COLORS)

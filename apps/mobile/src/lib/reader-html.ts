@@ -309,6 +309,20 @@ html.hl-dragging, html.hl-dragging * { -webkit-user-select: none; user-select: n
 .end-choice.starred svg { fill: var(--favorite); color: var(--favorite); }
 #klip-end .end-choice.on { background: var(--selected); color: var(--selected-fg); }
 .end-choice.on svg { color: currentColor; }
+/* Marked: the note for the edition's readers, which the app's sheet edits. */
+.end-edition {
+	display: grid; gap: 12px; padding: 14px; border: 1px solid var(--border); border-radius: 14px;
+	scroll-margin-bottom: 24px;
+}
+.end-edition-title { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.end-edition .end-check { width: 20px; height: 20px; }
+.end-edition .end-check svg { width: 12px; height: 12px; }
+#klip-end .end-edition-note {
+	display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 6; overflow: hidden;
+	min-height: 84px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px;
+	background: var(--bg); text-align: left; white-space: pre-wrap; overflow-wrap: anywhere;
+}
+#klip-end .end-edition-note.empty { color: var(--muted-fg); }
 /* The sentence being read aloud. */
 ::highlight(klip-speaking) { background-color: var(--speaking); }
 `

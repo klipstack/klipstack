@@ -196,7 +196,7 @@ export function registerReadTools(server: McpServer, userId: string) {
 		"get_article",
 		{
 			title: "Read article",
-			description: `Returns one saved article as Markdown: metadata, the text, the user's note on it, their highlights (with notes), its links to and from other saved articles, and its images. Links come in two kinds, under separate headings: note links, which the user wrote in notes, and content links, which the authors wrote in the articles' content. Images Klipstack stores are marked "Image N" in the text and listed at the end; view_images shows them. Long articles come in parts of ${ARTICLE_CHARS} characters; pass offset to continue. For highlight ids, use list_highlights with article_id.`,
+			description: `Returns one saved article as Markdown: metadata, the text, the user's note on it, their note for their next edition (for others to read), their highlights (with notes), its links to and from other saved articles, and its images. Links come in two kinds, under separate headings: note links, which the user wrote in notes, and content links, which the authors wrote in the articles' content. Images Klipstack stores are marked "Image N" in the text and listed at the end; view_images shows them. Long articles come in parts of ${ARTICLE_CHARS} characters; pass offset to continue. For highlight ids, use list_highlights with article_id.`,
 			inputSchema: z.object({
 				id: uuid().describe("Article id from another tool"),
 				offset: z.number().int().min(0).default(0).describe("Character to start from"),

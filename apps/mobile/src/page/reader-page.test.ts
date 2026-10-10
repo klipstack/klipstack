@@ -251,4 +251,54 @@ describe("the reader page: reading and links", () => {
 		expect(end.querySelector('[data-end="finish"]')?.textContent).toBe("Mark as Finished")
 		expect(end.textContent).toContain("Starred")
 	})
+
+	it("offers the note for the next edition once marked, as the user wrote it, and taps open it", () => {
+		const { window, messages } = openPage("<p>Text.</p>")
+		const page = window as unknown as { klipEnd: (end: unknown) => void }
+		const end = window.document.getElementById("klip-end")!
+		const base = { state: "kept", archived: false, starred: false }
+		page.klipEnd({ ...base, shortlisted: false, editionNote: "Hidden." })
+		expect(end.querySelector(".end-edition")).toBeNull()
+
+		page.klipEnd({ ...base, shortlisted: true, editionNote: null })
+		expect(end.querySelector(".end-edition-title")?.textContent).toBe("Added to your next edition")
+		const empty = end.querySelector('[data-end="edition-note"]')!
+		expect(empty.className).toContain("empty")
+		expect(empty.textContent).toMatch(/^Optional: a rough note/)
+
+		// Written: its text, links as their words, nothing of it as markup.
+		page.klipEnd({
+			...base,
+			shortlisted: true,
+			editionNote: 'Read <b>this</b> & [the chart](https://a.example/c) "now"',
+		})
+		const written = end.querySelector('[data-end="edition-note"]')!
+		expect(written.className).not.toContain("empty")
+		expect(written.textContent).toBe('Read <b>this</b> & the chart "now"')
+		expect(written.querySelector("b")).toBeNull()
+
+		messages.length = 0
+		written.dispatchEvent(new window.MouseEvent("click", { bubbles: true }))
+		expect(messages).toEqual([{ type: "end", action: "edition-note" }])
+	})
+
+	it("scrolls what marking opened into view, only when marked with its button", () => {
+		const { window } = openPage("<p>Text.</p>")
+		const page = window as unknown as { klipEnd: (end: unknown) => void }
+		const end = window.document.getElementById("klip-end")!
+		const scrolled: Element[] = []
+		window.Element.prototype.scrollIntoView = function (this: Element) {
+			scrolled.push(this)
+		}
+		const base = { state: "kept", archived: false, starred: false }
+		page.klipEnd({ ...base, shortlisted: false })
+		end
+			.querySelector('[data-end="shortlist"]')!
+			.dispatchEvent(new window.MouseEvent("click", { bubbles: true }))
+		page.klipEnd({ ...base, shortlisted: true })
+		expect(scrolled.map((el) => el.className)).toEqual(["end-edition"])
+		// Drawn again (the note changed), or marked elsewhere: no scroll.
+		page.klipEnd({ ...base, shortlisted: true, editionNote: "Why." })
+		expect(scrolled).toHaveLength(1)
+	})
 })
