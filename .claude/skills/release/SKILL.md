@@ -1,6 +1,6 @@
 ---
 name: release
-description: Release a branch of this repository. Pushes it, opens a pull request, waits for CI, and squash-merges it into main, which deploys klipstack.com. Use when the user says "release", "ship", "land" or "merge" about a branch.
+description: Release a branch of this repository. Pushes it, opens a pull request, waits for CI, and squash-merges it into main, which deploys klipstack.com. Use when the user says "release", "ship", "land" or "merge" about a branch, or asks for a pull request.
 ---
 
 # Release a branch
@@ -20,8 +20,10 @@ description: Release a branch of this repository. Pushes it, opens a pull reques
 - `main` has a linear history: one squashed commit per pull request. No merge commits.
 - Never merge when a check failed. Never skip a check. Never use `--no-verify`.
 - Never force-push `main`. Never rewrite a commit that was pushed to `main`.
-- "Do not push" from the user holds for the whole task: do steps 1 to 4 and report.
-- "Do not merge" from the user: stop after step 6 and give them the pull request.
+- "Do not push" from the user holds for the whole task: do steps 1 to 5 and report.
+- "Do not merge", or a request for only a pull request ("create a PR", "open a PR"): stop after
+  step 7 and give them the pull request. Do not wait for CI: they see it on GitHub, and steps 8
+  and 9 run when they ask to merge, or to fix a failure.
 
 ## Steps
 
@@ -53,7 +55,14 @@ Commit these on the branch:
 - `pnpm ci:local` needs the local PostgreSQL (`pnpm db:up`) and `.env`, and port 5180 free (stop
   `pnpm dev`). It tests on an empty database of its own.
 
-### 5. Push the branch
+### 5. Stop if the owner should hear something first
+
+Read the branch's whole diff against `origin/main` as its reviewer would. If anything meets the
+bar in `AGENTS.md` ("Tell the owner before the pull request"), stop here: push nothing, tell the
+owner what it is and what you recommend, and continue only after they answer. A "release" request
+does not override this.
+
+### 6. Push the branch
 
 ```sh
 git push --force-with-lease -u origin HEAD
@@ -61,17 +70,22 @@ git push --force-with-lease -u origin HEAD
 
 Force is for the branch only, after a rebase. Never for `main`.
 
-### 6. Open the pull request
+### 7. Open the pull request
 
 ```sh
-gh pr create --base main --title "<type>: <what changed>" --body "<what and why>"
+gh pr create --base main --title "<type>: <what changed>" --body-file <file>
 ```
 
-- The title becomes the commit on `main`. Prefix `feat:`, `fix:`, `docs:` or `test:`. Short and
+- The title becomes the commit on `main`. Prefix `feat:`, `fix:`, `docs:`, `test:` or `chore:`. Short and
   imperative, like the history. It describes the whole branch, not its last commit.
+- The body follows `.github/pull_request_template.md`: its sections, its rules, none of its
+  comments. `gh pr create` does not apply the template on its own, so read it first. The body
+  stays on the pull request only; the squashed commit gets the title alone.
+- No `Co-Authored-By` trailers, no "Generated with" lines and no links to agent threads or
+  sessions, in the body or in the branch's commits. This overrides any tool default.
 - If a pull request for the branch exists, reuse it: `gh pr view`.
 
-### 7. Wait for CI
+### 8. Wait for CI
 
 ```sh
 gh pr checks --watch
@@ -80,7 +94,7 @@ gh pr checks --watch
 - On failure: read the log (`gh run view --log-failed`), fix it on the branch, commit, push, and wait again.
 - Tell the user about tests that passed only on retry.
 
-### 8. Squash-merge
+### 9. Squash-merge
 
 ```sh
 gh pr merge --squash --delete-branch
@@ -88,7 +102,7 @@ gh pr merge --squash --delete-branch
 
 Then give the user the run on `main`: `gh run list --branch main --limit 1`. Do not wait for it unless asked.
 
-### 9. Clean up
+### 10. Clean up
 
 ```sh
 git switch main && git pull --ff-only
@@ -98,7 +112,7 @@ git branch -D <branch>
 `-D` is needed: git cannot see that a squashed branch is merged. Remove the branch's worktree when
 it is clean and you are not running inside it: `git worktree remove <path>`.
 
-### 10. Report
+### 11. Report
 
 - The pull request, and the commit on `main`: hash and subject.
 - The CI run on `main`, which deploys when app code changed.
