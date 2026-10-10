@@ -24,6 +24,7 @@ import type {
 	WebViewMessageEvent,
 } from "react-native-webview/lib/WebViewTypes"
 import { AppearanceSheet } from "@/components/appearance-sheet"
+import { EditionNoteSheet } from "@/components/edition-note-sheet"
 import { HighlightCard } from "@/components/highlight-card"
 import { LinkCard, type TappedLink } from "@/components/link-card"
 import { ListenBar } from "@/components/listen-bar"
@@ -105,6 +106,12 @@ export default function Reader() {
 	const [noteStatus, setNoteStatus] = useState<NoteSaveStatus>("idle")
 	const noteSave = useRef<ReturnType<typeof createNoteAutosave> | null>(null)
 	const flushNote = () => void noteSave.current?.flush()
+	// The note for the next edition's readers, from the end block: saved the same way.
+	const [editionOpen, setEditionOpen] = useState(false)
+	const [editionNote, setEditionNote] = useState("")
+	const [editionStatus, setEditionStatus] = useState<NoteSaveStatus>("idle")
+	const editionSave = useRef<ReturnType<typeof createNoteAutosave> | null>(null)
+	const flushEditionNote = () => void editionSave.current?.flush()
 	// Where the reader is, kept in the library as the web reader keeps it; set up once it's ready.
 	const reading = useRef<ReturnType<typeof createReadingSync> | null>(null)
 	// Finishing on the way out: the end came into view, after long enough on the page for what was
@@ -137,6 +144,7 @@ export default function Reader() {
 		const sub = AppState.addEventListener("change", (appState) => {
 			if (appState !== "active") {
 				void noteSave.current?.flush()
+				void editionSave.current?.flush()
 				reading.current?.flush()
 			}
 		})
@@ -144,6 +152,8 @@ export default function Reader() {
 			sub.remove()
 			void noteSave.current?.flush()
 			noteSave.current?.dispose()
+			void editionSave.current?.flush()
+			editionSave.current?.dispose()
 			reading.current?.flush()
 			reading.current?.dispose()
 		}
@@ -184,6 +194,7 @@ export default function Reader() {
 					archived: article.location === "archive",
 					starred: article.starred,
 					shortlisted: article.shortlisted,
+					editionNote: editionNote.trim() ? editionNote : null,
 				}
 			: null
 	const endJson = end ? JSON.stringify(end) : null
@@ -290,6 +301,15 @@ export default function Reader() {
 					onStatus: setNoteStatus,
 					save: async (text) => {
 						await client.articles.setNote(id, text.trim() ? text : null)
+					},
+				})
+				setEditionNote(details.editionNote ?? "")
+				editionSave.current?.dispose()
+				editionSave.current = createNoteAutosave({
+					initial: details.editionNote ?? "",
+					onStatus: setEditionStatus,
+					save: async (text) => {
+						await client.articles.setEditionNote(id, text.trim() ? text : null)
 					},
 				})
 				if (details.status !== "ready" || !stored) return
@@ -486,6 +506,8 @@ export default function Reader() {
 				return setKept(action === "keep")
 			case "finish":
 				return void update({ finished: true })
+			case "edition-note":
+				return setEditionOpen(true)
 		}
 	}
 
@@ -863,6 +885,26 @@ export default function Reader() {
 					onSelect={showHighlight}
 					linking={linking}
 					backlinks={article.noteLinks.from}
+					colors={colors}
+				/>
+			) : null}
+			{article ? (
+				<EditionNoteSheet
+					visible={editionOpen}
+					onClose={() => {
+						setEditionOpen(false)
+						flushEditionNote()
+					}}
+					onDismiss={flushEditionNote}
+					note={{
+						value: editionNote,
+						status: editionStatus,
+						onChange: (text) => {
+							setEditionNote(text)
+							editionSave.current?.change(text)
+						},
+						onFlush: flushEditionNote,
+					}}
 					colors={colors}
 				/>
 			) : null}

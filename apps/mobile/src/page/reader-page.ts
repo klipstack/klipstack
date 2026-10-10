@@ -6,6 +6,7 @@ import {
 	selectorFor,
 	walkTextNodes,
 } from "@klipstack/anchor"
+import { EDITION_NOTE_PLACEHOLDER } from "../lib/edition-note"
 import { controlsStep } from "./controls"
 import { type Box, lineBoxes } from "./line-boxes"
 import type {
@@ -437,14 +438,24 @@ export function startReaderPage(): void {
 	// ---- the end of the article ----
 
 	const endBlock = document.getElementById("klip-end")
+	// Marked with its button here: what that opens below scrolls into view once the app says so.
+	let showEdition = false
 	page.klipEnd = (end) => {
-		if (endBlock) endBlock.innerHTML = endHtml(end)
+		if (!endBlock) return
+		endBlock.innerHTML = endHtml(end)
+		if (!end.shortlisted) return
+		const card = showEdition ? endBlock.querySelector(".end-edition") : null
+		showEdition = false
+		const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+		card?.scrollIntoView({ block: "nearest", behavior: still ? "auto" : "smooth" })
 	}
 	endBlock?.addEventListener("click", (event) => {
 		const button =
 			event.target instanceof Element ? event.target.closest<HTMLElement>("[data-end]") : null
 		const action = button?.dataset.end as EndAction | undefined
-		if (action) post({ type: "end", action })
+		if (!action) return
+		if (action === "shortlist") showEdition = button?.getAttribute("aria-pressed") !== "true"
+		post({ type: "end", action })
 	})
 
 	// ---- reading ----
@@ -648,6 +659,13 @@ const SHARE =
 const EDITION =
 	'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h13v14H6a2 2 0 01-2-2zM17 9h3v8a2 2 0 01-2 2M8 9h5M8 13h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>'
 
+/** Text in HTML: what the user wrote never becomes markup. */
+const escapeText = (text: string) =>
+	text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+
+/** Links (`[text](https://…)`) as their text, as the note reads. */
+const linkText = (text: string) => text.replace(/\[([^\]\n]*)\]\((https?:\/\/[^\s)]+)\)/g, "$1")
+
 /** The end block's content: the web reader's (apps/web/app/components/reader-end.tsx). */
 export function endHtml(end: PageEnd): string {
 	const done = end.state === "finished" || end.state === "finishing"
@@ -665,7 +683,12 @@ export function endHtml(end: PageEnd): string {
 	const star = `<button type="button" class="end-choice${end.starred ? " starred" : ""}" data-end="star" aria-pressed="${end.starred}">${STAR}${end.starred ? "Starred" : "Star"}</button>`
 	const share = `<button type="button" class="end-choice" data-end="share">${SHARE}Share</button>`
 	const edition = `<button type="button" class="end-choice wide${end.shortlisted ? " on" : ""}" data-end="shortlist" aria-pressed="${end.shortlisted}">${EDITION}${end.shortlisted ? "In Next Edition" : "Share in Next Edition"}</button>`
-	return `${heading}${note}${finish}<div class="end-choices">${star}${share}${edition}</div>`
+	// Marked: it says so, and offers the note for the edition's readers, which the app edits.
+	const written = end.editionNote?.trim() ? linkText(end.editionNote) : null
+	const card = end.shortlisted
+		? `<div class="end-edition"><div class="end-edition-title"><span class="end-check">${CHECK}</span>Added to your next edition</div><button type="button" class="end-edition-note${written ? "" : " empty"}" data-end="edition-note">${escapeText(written ?? EDITION_NOTE_PLACEHOLDER)}</button></div>`
+		: ""
+	return `${heading}${note}${finish}<div class="end-choices">${star}${share}${edition}</div>${card}`
 }
 
 function readConfig(): PageConfig {

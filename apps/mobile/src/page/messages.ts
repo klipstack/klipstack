@@ -51,10 +51,22 @@ export type PageEnd = {
 	archived: boolean
 	starred: boolean
 	shortlisted: boolean
+	/** What the user wrote for the next edition's readers, shown once marked; null for none. */
+	editionNote?: string | null
 }
 
-/** A tap in the end block: star, share, mark; keep it as it is, finish on the way out again, or now. */
-export type EndAction = "star" | "share" | "shortlist" | "keep" | "unkeep" | "finish"
+/**
+ * A tap in the end block: star, share, mark; keep it as it is, finish on the way out again, or now;
+ * write the note for the next edition.
+ */
+export type EndAction =
+	| "star"
+	| "share"
+	| "shortlist"
+	| "keep"
+	| "unkeep"
+	| "finish"
+	| "edition-note"
 
 export type PageMessage =
 	| { type: "selection"; selection: PageSelection | null }
