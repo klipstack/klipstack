@@ -15,6 +15,9 @@ export default {
 			none: "Nada en tu biblioteca cabe en {{count}} minutos.",
 			none_one: "Nada en tu biblioteca cabe en {{count}} minuto.",
 			none_other: "Nada en tu biblioteca cabe en {{count}} minutos.",
+			pickUp: "No cabe en {{count}} minutos, pero es donde lo dejaste.",
+			pickUp_one: "No cabe en {{count}} minuto, pero es donde lo dejaste.",
+			pickUp_other: "No cabe en {{count}} minutos, pero es donde lo dejaste.",
 			showAll: "Mostrar todo",
 		},
 		rediscover: {

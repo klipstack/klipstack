@@ -16,6 +16,9 @@ export default {
 			none: "Nothing in your library fits in {{count}} minutes.",
 			none_one: "Nothing in your library fits in {{count}} minute.",
 			none_other: "Nothing in your library fits in {{count}} minutes.",
+			pickUp: "Doesn't fit in {{count}} minutes, but it's where you left off.",
+			pickUp_one: "Doesn't fit in {{count}} minute, but it's where you left off.",
+			pickUp_other: "Doesn't fit in {{count}} minutes, but it's where you left off.",
 			showAll: "Show everything",
 		},
 		rediscover: {

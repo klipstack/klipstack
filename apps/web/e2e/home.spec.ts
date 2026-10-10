@@ -421,6 +421,9 @@ test("Home brings back older saves and narrows to the time chosen, without askin
 		/Short, from last month/,
 	])
 	await expect(page).toHaveURL(/\/home\?time=5$/)
+	await expect(
+		page.getByText("Doesn't fit in 5 minutes, but it's where you left off."),
+	).toBeVisible()
 	await choice("15 min").click()
 	// What fills at least half the time comes first.
 	await expect(articles).toHaveText([
@@ -429,13 +432,21 @@ test("Home brings back older saves and narrows to the time chosen, without askin
 		/Fresh and short/,
 		/Short, from last month/,
 	])
-	// With an hour, the long ones lead.
+	// Tapping the time already chosen changes nothing.
+	await choice("15 min").click()
+	await expect(page).toHaveURL(/\/home\?time=15$/)
+	// With an hour, the long ones lead; the one from last month stays under From a while ago.
 	await choice("60 min").click()
 	await expect(articles).toHaveText([
 		/Half read, ten left/,
 		/Fresh and long/,
-		/Saved last month/,
 		/Fresh and short/,
+		/Fresh, twelve minutes/,
+		/Saved last month/,
+		/Short, from last month/,
+	])
+	await expect(page.getByTestId("home-rediscover").getByTestId("home-article")).toHaveText([
+		/Saved last month/,
 		/Short, from last month/,
 	])
 	expect(requests).toEqual([])

@@ -12,10 +12,13 @@ import {
 	notInArray,
 	or,
 	type SQL,
+	type SQLWrapper,
 	sql,
 } from "@klipstack/db"
 import { HOME_SHELF } from "~/lib/home-shelves"
 import { REDISCOVER_AFTER_DAYS, TIME_CHOICES } from "~/lib/inbox-filters"
+
+type TimeChoice = (typeof TIME_CHOICES)[number]
 import {
 	finished,
 	INBOX_FILTER_WHERE,
@@ -24,15 +27,17 @@ import {
 } from "./documents.server"
 
 /**
- * Minutes left, as the cards count them (`HomeArticle`): at least one. Null for posts, which are a
- * glance, and for articles without a length.
+ * Minutes left: at least one, and what Home's cards show. Null for posts, which are a glance, and
+ * for articles without a length. Progress is a `real`, so 0.9 is stored as 0.8999999762: the
+ * thousandth of a minute taken off keeps a 50-minute article at 0.9 at 5 minutes left, not 6.
+ * Plain floats: Home's queries count this nine times an article.
  */
 const minutesLeft = sql<
 	number | null
->`case when ${documents.type} = 'article' and ${documents.readingMinutes} is not null then greatest(1, ceil(${documents.readingMinutes} * (1 - ${documents.readingProgress})))::int end`
+>`case when ${documents.type} = 'article' and ${documents.readingMinutes} > 0 then greatest(1, ceil(${documents.readingMinutes} * (1 - ${documents.readingProgress}::float8) - 0.001))::int end`
 
 /** Fits in `t` minutes and takes at least half of them: `fillsTime` in `~/lib/home-shelves`. */
-const fills = (t: number) => sql`(${minutesLeft} <= ${t} and ${minutesLeft} * 2 > ${t})`
+const fills = (left: SQLWrapper, t: number) => sql`(${left} <= ${t} and ${left} * 2 >= ${t})`
 
 /** Ready articles in the library, without those already shown elsewhere on the page. */
 function suggestable(userId: string, excludeIds: string[]) {
@@ -47,14 +52,16 @@ function suggestable(userId: string, excludeIds: string[]) {
 
 /**
  * Unread saves from a while ago, so older ones come back instead of sinking under newer ones. The
- * pick changes each day (UTC) and holds through the day: reloading Home doesn't shuffle it.
+ * pick changes each day (UTC) and holds through the day: reloading Home doesn't shuffle it, and the
+ * cutoff moves a day at a time, at the start of the day.
  */
 function rediscover(now: Date) {
 	const day = now.toISOString().slice(0, 10)
-	const savedBefore = new Date(now.getTime() - REDISCOVER_AFTER_DAYS * 86_400_000)
+	const savedBefore = new Date(Date.parse(day) - REDISCOVER_AFTER_DAYS * 86_400_000)
 	return {
+		savedBefore,
 		where: and(INBOX_FILTER_WHERE.unread, lt(documents.createdAt, savedBefore)) as SQL,
-		order: [sql`md5(${documents.id}::text || ${day})`, sql`${documents.id}`],
+		order: { key: sql`md5(${documents.id}::text || ${day})`, desc: false },
 	}
 }
 
@@ -74,7 +81,7 @@ export async function rediscoverDocuments({
 		.select(libraryCardColumns)
 		.from(documents)
 		.where(and(suggestable(userId, excludeIds), where))
-		.orderBy(...order)
+		.orderBy(order.key, documents.id)
 		.limit(limit)
 }
 
@@ -113,78 +120,106 @@ export async function documentsThatFit({
 export type HomeCard = LibraryCard & { minutesLeft: number | null }
 
 /**
- * Home's candidates for its sections, so the page can choose a time without asking again: for each
- * section, in its order, the first `keep` articles of any length, and for each time choice the
- * first `keep` that fit it and the first `keep` that fill at least half of it (`homeShelves`). One
- * query each, ranking with running counts.
+ * How many of each kind `candidates` keeps per section: Home's shelf sizes, and for the older saves
+ * room for those Recently saved already shows.
  */
-async function candidates(userId: string, where: SQL, order: SQL[], keep: number) {
-	const over = sql`over (order by ${sql.join(order, sql`, `)} rows between unbounded preceding and current row)`
+const KEEP: Record<"reading" | "recent" | "rediscover", number> = {
+	reading: HOME_SHELF.reading,
+	recent: HOME_SHELF.recent,
+	rediscover: HOME_SHELF.recent + HOME_SHELF.rediscover,
+}
+
+/**
+ * Home's candidates for a section, so the page can choose a time without asking again: in the
+ * section's order (`key`, then id, in one direction), the first `keep` articles of any length, and for each time choice the first
+ * `keep` that fit it and the first `keep` that fill at least half of it (`homeShelves`). One query,
+ * ranking with running counts.
+ */
+async function candidates(
+	userId: string,
+	where: SQL,
+	order: { key: SQL; desc: boolean },
+	keep: number,
+) {
+	const dir = sql.raw(order.desc ? "desc" : "asc")
+	const over = sql`over (order by ${order.key} ${dir}, ${documents.id} ${dir} rows between unbounded preceding and current row)`
+	const counts = {} as Record<`${"fits" | "fills"}${TimeChoice}`, SQL.Aliased<number>>
+	for (const t of TIME_CHOICES) {
+		counts[`fits${t}`] = sql<number>`count(*) filter (where ${minutesLeft} <= ${t}) ${over}`.as(
+			`fits${t}`,
+		)
+		counts[`fills${t}`] = sql<number>`count(*) filter (where ${fills(minutesLeft, t)}) ${over}`.as(
+			`fills${t}`,
+		)
+	}
 	const ranked = db
 		.select({
 			id: documents.id,
+			left: minutesLeft.as("left"),
 			rank: sql<number>`row_number() ${over}`.as("rank"),
-			...Object.fromEntries(
-				TIME_CHOICES.flatMap((t) => [
-					[
-						`fits${t}`,
-						sql<number>`count(*) filter (where ${minutesLeft} <= ${t}) ${over}`.as(`fits${t}`),
-					],
-					[`fills${t}`, sql<number>`count(*) filter (where ${fills(t)}) ${over}`.as(`fills${t}`)],
-				]),
-			),
+			...counts,
 		})
 		.from(documents)
 		.where(and(suggestable(userId, []), where))
 		.as("ranked")
-	const column = (name: string) => (ranked as unknown as Record<string, SQL>)[name]!
-	return db
-		.select({ ...libraryCardColumns, minutesLeft })
-		.from(documents)
-		.innerJoin(ranked, eq(ranked.id, documents.id))
+	// Chosen and bounded before the join, so the database reads only those articles, by id.
+	const picked = db
+		.select({ id: ranked.id, left: ranked.left, rank: ranked.rank })
+		.from(ranked)
 		.where(
 			or(
 				lte(ranked.rank, keep),
 				...TIME_CHOICES.flatMap((t) => [
-					and(lte(minutesLeft, t), lte(column(`fits${t}`), keep)),
-					and(fills(t), lte(column(`fills${t}`), keep)),
+					and(lte(ranked.left, t), lte(ranked[`fits${t}`], keep)),
+					and(fills(ranked.left, t), lte(ranked[`fills${t}`], keep)),
 				]),
 			),
 		)
 		.orderBy(ranked.rank)
+		.limit(keep * (1 + 2 * TIME_CHOICES.length))
+		.as("picked")
+	return db
+		.select({ ...libraryCardColumns, minutesLeft: picked.left })
+		.from(documents)
+		.innerJoin(picked, eq(picked.id, documents.id))
+		.orderBy(picked.rank)
 }
 
 /**
  * The articles in progress (read last first), the unread saves (newest first) and the unread
- * saves from a while ago (the day's pick) Home chooses from. The last has room for those the
- * recent saves already show.
+ * saves from a while ago (the day's pick) Home chooses from, and when "a while ago" starts: with a
+ * time chosen, Recently saved keeps to the saves after it. `keep` is for tests, to compare with
+ * everything.
  */
 export async function homeCandidates(
 	userId: string,
-	{ now = new Date() }: { now?: Date } = {},
-): Promise<{ reading: HomeCard[]; recent: HomeCard[]; rediscover: HomeCard[] }> {
+	{ now = new Date(), keep = KEEP }: { now?: Date; keep?: typeof KEEP } = {},
+): Promise<{
+	reading: HomeCard[]
+	recent: HomeCard[]
+	rediscover: HomeCard[]
+	recentSince: Date
+}> {
 	const older = rediscover(now)
 	const [reading, recent, rediscovered] = await Promise.all([
 		candidates(
 			userId,
 			INBOX_FILTER_WHERE.progress,
-			[
-				desc(
-					sql`coalesce(${documents.lastReadAt}, ${documents.firstOpenedAt}, ${documents.createdAt})`,
-				),
-				desc(documents.id),
-			],
-			HOME_SHELF.reading,
+			{
+				key: sql`coalesce(${documents.lastReadAt}, ${documents.firstOpenedAt}, ${documents.createdAt})`,
+				desc: true,
+			},
+			keep.reading,
 		),
 		candidates(
 			userId,
 			INBOX_FILTER_WHERE.unread,
-			[desc(documents.createdAt), desc(documents.id)],
-			HOME_SHELF.recent,
+			{ key: sql`${documents.createdAt}`, desc: true },
+			keep.recent,
 		),
-		candidates(userId, older.where, older.order, HOME_SHELF.recent + HOME_SHELF.rediscover),
+		candidates(userId, older.where, older.order, keep.rediscover),
 	])
-	return { reading, recent, rediscover: rediscovered }
+	return { reading, recent, rediscover: rediscovered, recentSince: older.savedBefore }
 }
 
 /** Unfinished articles with a reading time: what a time choice narrows down. */

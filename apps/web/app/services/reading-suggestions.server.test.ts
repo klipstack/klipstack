@@ -127,42 +127,78 @@ describe("documentsThatFit", () => {
 })
 
 describe("homeCandidates", () => {
-	const ownerId = `${userId}-home`
-	// Newest first: a mix of lengths, so each time choice reaches back a different way.
-	const lengths = [70, 50, 25, 40, 4, 55, 12, 35, 3, 50, 28, 9, 45, 2, 60, 14, 33, 5, 80, 20]
-	beforeAll(async () => {
-		await db.insert(user).values({ id: ownerId, name: "Reader", email: `${ownerId}@example.com` })
-		await save(
-			ownerId,
-			lengths.map((readingMinutes, i) => ({
-				title: `Unread ${i}`,
-				readingMinutes,
-				createdAt: new Date(now.getTime() - (i + 1) * 3_600_000),
-			})),
-		)
-	})
+	const owners: string[] = []
 	afterAll(async () => {
-		await db.delete(user).where(eq(user.id, ownerId))
+		for (const id of owners) await db.delete(user).where(eq(user.id, id))
 	})
 
-	it("has what each time choice shows, as if it had everything", async () => {
-		const { recent } = await homeCandidates(ownerId, { now })
-		const everything = lengths.map((minutesLeft, i) => ({ id: `Unread ${i}`, minutesLeft }))
-		const byTitle = (docs: { id: string }[]) => docs.map((d) => d.id)
-		for (const minutes of [null, ...TIME_CHOICES]) {
-			const fromCandidates = homeShelves(
-				{ reading: [], recent: recent.map((d) => ({ ...d, id: d.title! })), rediscover: [] },
-				minutes,
-			).recent
-			const fromAll = homeShelves(
-				{ reading: [], recent: everything, rediscover: [] },
-				minutes,
-			).recent
-			expect(byTitle(fromCandidates)).toEqual(byTitle(fromAll))
-			expect(fromCandidates).toHaveLength(4)
+	/** Repeatable random numbers (mulberry32), so a failing library can be rebuilt. */
+	function random(seed: number) {
+		return () => {
+			seed = (seed + 0x6d2b79f5) | 0
+			let t = Math.imul(seed ^ (seed >>> 15), 1 | seed)
+			t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+			return ((t ^ (t >>> 14)) >>> 0) / 4294967296
 		}
-		// Far fewer than the library: only what some choice needs.
-		expect(recent.length).toBeLessThan(lengths.length)
+	}
+
+	/** In progress, unread lately and long ago, finished, posts and articles without a length. */
+	async function randomLibrary(seed: number) {
+		const next = random(seed)
+		const pick = <T>(items: T[]) => items[Math.floor(next() * items.length)]!
+		const id = `${userId}-library-${seed}`
+		owners.push(id)
+		await db.insert(user).values({ id, name: "Reader", email: `${id}@example.com` })
+		await save(
+			id,
+			Array.from({ length: 60 }, (_, i) => {
+				const kind = pick(["reading", "unread", "unread", "unread", "finished"])
+				const opened = kind !== "unread"
+				return {
+					title: `${seed}-${i}`,
+					type: next() < 0.1 ? ("post" as const) : ("article" as const),
+					readingMinutes: next() < 0.1 ? null : 1 + Math.floor(next() * 90),
+					createdAt: daysAgo(next() * 40),
+					firstOpenedAt: opened ? daysAgo(next() * 5) : null,
+					lastReadAt: opened ? daysAgo(next() * 5) : null,
+					readingProgress: kind === "reading" ? next() * 0.9 : 0,
+					readAt: kind === "finished" ? daysAgo(1) : null,
+				}
+			}),
+		)
+		return id
+	}
+
+	it("has what every time choice shows in every section, as if it had everything", async () => {
+		const everything = { reading: 1e6, recent: 1e6, rediscover: 1e6 }
+		for (const seed of [1, 2, 3, 4, 5, 6]) {
+			const id = await randomLibrary(seed)
+			const some = await homeCandidates(id, { now })
+			const all = await homeCandidates(id, { now, keep: everything })
+			for (const minutes of [null, ...TIME_CHOICES]) {
+				const ids = (shelves: Record<string, { title: string | null }[]>) =>
+					Object.values(shelves).map((docs) => docs.map((d) => d.title))
+				expect(ids(homeShelves(some, minutes)), `seed ${seed}, ${minutes} min`).toEqual(
+					ids(homeShelves(all, minutes)),
+				)
+			}
+			// Only what some choice needs, not the library.
+			const sent = some.reading.length + some.recent.length + some.rediscover.length
+			expect(sent).toBeLessThan(all.reading.length + all.recent.length + all.rediscover.length)
+		}
+	})
+
+	it("counts the minutes left as the cards show them", async () => {
+		const id = `${userId}-rounding`
+		owners.push(id)
+		await db.insert(user).values({ id, name: "Reader", email: `${id}@example.com` })
+		await save(id, [
+			{ title: "Fifty at 0.9", readingMinutes: 50, readingProgress: 0.9, firstOpenedAt: now },
+			{ title: "Zero minutes", readingMinutes: 0 },
+		])
+		const { reading, recent } = await homeCandidates(id, { now })
+		expect(reading.map((d) => d.minutesLeft)).toEqual([5])
+		expect(recent.map((d) => d.minutesLeft)).toEqual([null])
 	})
 
 	it("counts no time for posts and articles without a length", async () => {

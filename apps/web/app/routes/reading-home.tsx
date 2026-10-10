@@ -8,7 +8,7 @@ import { HomeGreeting } from "~/components/home-greeting"
 import { SaveLinkDialog } from "~/components/save-link-dialog"
 import { buttonVariants } from "~/components/ui/button"
 import { useFeedReader } from "~/hooks/use-feed-reader"
-import { homeShelves } from "~/lib/home-shelves"
+import { fitsIn, homeShelves } from "~/lib/home-shelves"
 import { getInstance } from "~/lib/i18n.server"
 import { listSearch, parseTime, REDISCOVER_AFTER_DAYS, TIME_CHOICES } from "~/lib/inbox-filters"
 import { warmOffline } from "~/lib/offline.client"
@@ -72,7 +72,9 @@ export default function ReadingHome({
 		[candidates, timeChoice, minutes],
 	)
 	const timed = timeChoice && minutes !== null
-	const nothingFits = timed && !reading.length && !recent.length && !rediscover.length
+	// The article read last shows even when it doesn't fit: it says so, and doesn't count as a fit.
+	const nothingFits =
+		timed && ![...reading, ...recent, ...rediscover].some((doc) => fitsIn(doc, minutes))
 	const featured = reading[0]
 	// Without Continue reading, the newest save takes its big card.
 	const lead = featured ? undefined : recent[0]
@@ -127,6 +129,11 @@ export default function ReadingHome({
 							to="/library?show=progress"
 						/>
 						<HomeArticle doc={featured} featured />
+						{timed && !fitsIn(featured, minutes) ? (
+							<p className="mt-3 text-sm text-muted-fg">
+								{t("home.time.pickUp", { count: minutes! })}
+							</p>
+						) : null}
 						{reading.length > 1 ? (
 							<ul className="mt-5 grid gap-5 sm:grid-cols-2">
 								{reading.slice(1).map((doc) => (
@@ -239,6 +246,10 @@ function TimeChoice({ minutes }: { minutes: number | null }) {
 			replace
 			preventScrollReset
 			aria-current={value === minutes ? "true" : undefined}
+			// Already chosen: nothing to load or pick again.
+			onClick={(e) => {
+				if (value === minutes) e.preventDefault()
+			}}
 			className="rounded-full border border-border px-3 py-1 text-sm text-muted-fg hover:bg-muted hover:text-fg aria-[current]:border-selected aria-[current]:bg-selected aria-[current]:text-selected-fg"
 		>
 			{value === null ? t("home.time.any") : t("home.time.choice", { count: value })}
@@ -246,7 +257,7 @@ function TimeChoice({ minutes }: { minutes: number | null }) {
 	)
 	return (
 		<div
-			role="navigation"
+			role="group"
 			aria-labelledby="home-time"
 			data-testid="home-time"
 			className="mb-9 flex flex-wrap items-center gap-x-3 gap-y-2"

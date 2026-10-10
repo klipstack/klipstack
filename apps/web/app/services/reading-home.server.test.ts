@@ -151,7 +151,7 @@ describe("home selections", () => {
 
 	it("shrinks for sparse and empty libraries without borrowing another user's articles", async () => {
 		expect(await readingHome(emptyId)).toEqual({
-			candidates: { reading: [], recent: [], rediscover: [] },
+			candidates: { reading: [], recent: [], rediscover: [], recentSince: expect.any(Date) },
 			timeChoice: false,
 			feed: [],
 			emptyState: { kind: "new", to: "/add" },
@@ -203,7 +203,7 @@ describe("home selections", () => {
 			})),
 		)
 		expect(await readingHome(id)).toEqual({
-			candidates: { reading: [], recent: [], rediscover: [] },
+			candidates: { reading: [], recent: [], rediscover: [], recentSince: expect.any(Date) },
 			timeChoice: false,
 			feed: [],
 			emptyState: expected,

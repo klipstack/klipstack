@@ -46,7 +46,7 @@ export const suggestArticles = defineEndpoint({
 	path: "/articles/suggestions",
 	scope: "read",
 	summary:
-		"What to read next from the library, as Home suggests it: ready articles that are not archived. `rediscover`: unread saves from more than two weeks ago, a different few each day (UTC). `fits`: unfinished articles whose time left fits in `minutes`, the closest fit first.",
+		"What to read next from the library: ready articles that are not archived. `rediscover`: unread saves from before the last two weeks (counted from the start of the day, UTC), a different few each day. `fits`: unfinished articles whose time left fits in `minutes`, the closest fit first.",
 	query: z
 		.object({
 			kind: z.enum(SUGGESTION_KINDS),
