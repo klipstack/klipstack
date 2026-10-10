@@ -8,11 +8,9 @@ import { EditionTextField } from "~/components/edition-text-field"
 import { tooltip } from "~/components/tooltip-host"
 import { useAutosaveText } from "~/hooks/use-autosave-text"
 import type { StateIntent } from "~/hooks/use-document-state"
+import { fitsKeepalive } from "~/lib/keepalive"
 import { SHORTCUT_HINTS, SUBMIT_HINT } from "~/lib/shortcuts"
 import { cn } from "~/lib/utils"
-
-/** Browsers cap keepalive request bodies at 64 KiB; longer notes go out as a normal request. */
-const KEEPALIVE_MAX = 60_000
 
 /**
  * The end of the article, in the page after its last paragraph: whether leaving finishes it, a way
@@ -76,7 +74,7 @@ export function ReaderEnd({
 			method: "POST",
 			headers: { "content-type": "application/json" },
 			body,
-			keepalive: keepalive && body.length < KEEPALIVE_MAX,
+			keepalive: keepalive && fitsKeepalive(body),
 		})
 		if (!res.ok) throw new Error(`edition note save failed: ${res.status}`)
 	})
@@ -187,7 +185,7 @@ export function ReaderEnd({
 					data-testid="reader-end-edition-note"
 					className="grid max-w-xl scroll-mb-8 gap-3 rounded-xl border border-border bg-card p-4"
 				>
-					<p id="edition-note-label" className="flex items-center gap-2 text-sm font-medium">
+					<p className="flex items-center gap-2 text-sm font-medium">
 						<span className="grid size-5 shrink-0 place-items-center rounded-full bg-accent text-accent-fg">
 							<Check className="size-3" strokeWidth={3} aria-hidden />
 						</span>
@@ -204,19 +202,22 @@ export function ReaderEnd({
 						className="min-h-[5.5rem] w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 					/>
 					<div className="flex items-center justify-between gap-3">
-						<p role="status" className="text-xs text-muted-fg">
-							{note.status === "error" ? (
-								<span className="text-danger">{t("end.editionNoteFailed")}</span>
-							) : (
-								t(
+						{/* Saving is shown, not announced: a screen reader hears only a failure. */}
+						{note.status === "error" ? (
+							<p role="alert" className="text-xs text-danger">
+								{t("end.editionNoteFailed")}
+							</p>
+						) : (
+							<p className="text-xs text-muted-fg">
+								{t(
 									note.status === "saving"
 										? "end.editionNoteSaving"
 										: note.status === "saved"
 											? "end.editionNoteSaved"
 											: "end.editionNoteAutosave",
-								)
-							)}
-						</p>
+								)}
+							</p>
+						)}
 						{/* Saving needs no button. Done is for leaving: the note goes out on the way. */}
 						<Link
 							to={back.to}

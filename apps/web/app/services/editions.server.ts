@@ -446,8 +446,10 @@ export async function listShortlist(userId: string): Promise<ShortlistEntry[]> {
 }
 
 /**
- * The article's note for editions, written while reading. Blank clears it. Editions that have the
- * article already keep their copy, as with every library change.
+ * The article's note for editions, written while reading. Blank clears it. A draft that has the
+ * article already gets it too, unless the user changed the draft's copy there: a copy still as
+ * adding made it becomes what adding would make now. Published editions keep their copy, as with
+ * every library change.
  */
 export async function setEditionNote(
 	userId: string,
@@ -456,15 +458,63 @@ export async function setEditionNote(
 ): Promise<string | null> {
 	const note = cleanText(raw, NOTE_MAX, "note")
 	checkId(documentId)
-	const [row] = await db
-		.update(documents)
-		.set({ editionNote: note })
-		.where(
-			and(eq(documents.id, documentId), eq(documents.userId, userId), isNull(documents.deletedAt)),
-		)
-		.returning({ editionNote: documents.editionNote })
-	if (!row) throw refuse("not_found")
-	return row.editionNote
+	return db.transaction(async (tx) => {
+		// The drafts first, then the article: the order every other change takes its locks in.
+		const drafts = await tx
+			.select({ id: editions.id })
+			.from(editions)
+			.where(
+				and(
+					eq(editions.userId, userId),
+					isNull(editions.publishedAt),
+					sql`exists (
+						select 1 from edition_items i
+						where i.edition_id = ${editions.id} and i.document_id = ${documentId}
+					)`,
+				),
+			)
+			.orderBy(asc(editions.id))
+			.for("update")
+		const [doc] = await tx
+			.select({ note: documents.note, editionNote: documents.editionNote })
+			.from(documents)
+			.where(
+				and(
+					eq(documents.id, documentId),
+					eq(documents.userId, userId),
+					isNull(documents.deletedAt),
+				),
+			)
+			.for("update")
+		if (!doc) throw refuse("not_found")
+		if (doc.editionNote === note) return note
+		await tx.update(documents).set({ editionNote: note }).where(eq(documents.id, documentId))
+		if (drafts.length === 0) return note
+		// What adding gave an item before this change, and what it gives now (`copyItem`).
+		const rewrite = await noteLinkRewriter(userId, [doc.editionNote, doc.note, note])
+		const before = {
+			note: rewrite(doc.editionNote ?? doc.note),
+			included: doc.editionNote !== null,
+		}
+		const after = { note: rewrite(note ?? doc.note), includeNote: note !== null }
+		const changed = await tx
+			.update(editionItems)
+			.set(after)
+			.where(
+				and(
+					inArray(
+						editionItems.editionId,
+						drafts.map((draft) => draft.id),
+					),
+					eq(editionItems.documentId, documentId),
+					before.note === null ? isNull(editionItems.note) : eq(editionItems.note, before.note),
+					eq(editionItems.includeNote, before.included),
+				),
+			)
+			.returning({ editionId: editionItems.editionId })
+		for (const editionId of new Set(changed.map((row) => row.editionId))) await touch(tx, editionId)
+		return note
+	})
 }
 
 /**
@@ -862,7 +912,7 @@ export async function restoreItem(
 /**
  * Copies the article again. Selected highlights that still exist stay selected. The note copy is
  * replaced by the current note, edits and all, included as adding would: only the note for
- * editions is.
+ * editions is, and not when the user had left out this same text.
  */
 export async function refreshItem(
 	userId: string,
@@ -884,8 +934,9 @@ export async function refreshItem(
 			.update(editionItems)
 			.set({
 				...copy,
-				// A private note is new text the user has not let out yet, whatever they included before.
-				includeNote: copy.includeNote,
+				// The note for editions is included, unless the user left out this very text. A private
+				// note is new text the user has not let out yet, whatever they included before.
+				includeNote: copy.includeNote && (item.includeNote || item.note !== copy.note),
 				highlights: copy.highlights.map((h) => ({ ...h, included: selected.has(h.highlightId) })),
 			})
 			.where(eq(editionItems.id, itemId))

@@ -858,6 +858,75 @@ describe("the note for editions", () => {
 		await deleteEdition(userId, own.id)
 	})
 
+	it("reaches a draft that has the article, unless its copy was changed there", async () => {
+		const doc = await addDocument({
+			sourceUrl: "https://later.example/",
+			title: "Later",
+			note: "Private.",
+		})
+		const draft = await insertEdition(userId, { locale: "en", timeZone })
+		const edited = await insertEdition(userId, { locale: "en", timeZone })
+		const unticked = await insertEdition(userId, { locale: "en", timeZone })
+		const published = await insertEdition(userId, { locale: "en", timeZone })
+		const items = {
+			draft: await addItem(userId, draft.id, doc.id),
+			edited: await addItem(userId, edited.id, doc.id),
+			unticked: await addItem(userId, unticked.id, doc.id),
+			published: await addItem(userId, published.id, doc.id),
+		}
+		// Added before any note for editions: the private note, left out.
+		expect(items.draft).toMatchObject({ note: "Private.", includeNote: false })
+		await updateItem(userId, edited.id, items.edited.id, { note: "Words for this edition." })
+		await updateItem(userId, unticked.id, items.unticked.id, { includeNote: true })
+		await db.update(editions).set({ publishedAt: new Date() }).where(eq(editions.id, published.id))
+		const itemOf = async (editionId: string) => (await getEdition(userId, editionId)).items[0]!
+		const before = (await getEdition(userId, draft.id)).edition.updatedAt
+
+		await setEditionNote(userId, doc.id, "Worth it.")
+		expect(await itemOf(draft.id)).toMatchObject({ note: "Worth it.", includeNote: true })
+		expect((await getEdition(userId, draft.id)).edition.updatedAt > before).toBe(true)
+		// Changed there, or published: their copies stay.
+		expect(await itemOf(edited.id)).toMatchObject({ note: "Words for this edition." })
+		expect(await itemOf(unticked.id)).toMatchObject({ note: "Private.", includeNote: true })
+		expect(await itemOf(published.id)).toMatchObject({ note: "Private.", includeNote: false })
+
+		// Rewritten, the draft follows; cleared, it goes back to the private note, left out.
+		await setEditionNote(userId, doc.id, "Worth it, twice.")
+		expect(await itemOf(draft.id)).toMatchObject({ note: "Worth it, twice.", includeNote: true })
+		await setEditionNote(userId, doc.id, null)
+		expect(await itemOf(draft.id)).toMatchObject({ note: "Private.", includeNote: false })
+
+		// Left out in the draft by the user: a new text does not put it back.
+		await setEditionNote(userId, doc.id, "Third.")
+		await updateItem(userId, draft.id, items.draft.id, { includeNote: false })
+		await setEditionNote(userId, doc.id, "Fourth.")
+		expect(await itemOf(draft.id)).toMatchObject({ note: "Third.", includeNote: false })
+
+		const exported = (await buildExport(userId)).documents.find((d) => d.id === doc.id)
+		expect(exported).toMatchObject({ note: "Private.", editionNote: "Fourth." })
+		for (const edition of [draft, edited, unticked, published])
+			await deleteEdition(userId, edition.id)
+	})
+
+	it("is left out again by a refresh when the user had left out the same text", async () => {
+		const doc = await addDocument({ sourceUrl: "https://again.example/", title: "Again" })
+		await setEditionNote(userId, doc.id, "Same words.")
+		const own = await insertEdition(userId, { locale: "en", timeZone })
+		const item = await addItem(userId, own.id, doc.id)
+		await updateItem(userId, own.id, item.id, { includeNote: false })
+		expect(await refreshItem(userId, own.id, item.id)).toMatchObject({
+			note: "Same words.",
+			includeNote: false,
+		})
+		// New words are a new choice: included, as adding would.
+		await setEditionNote(userId, doc.id, "New words.")
+		expect(await refreshItem(userId, own.id, item.id)).toMatchObject({
+			note: "New words.",
+			includeNote: true,
+		})
+		await deleteEdition(userId, own.id)
+	})
+
 	it("refuses another user's article, one in the trash, and a note past the limit", async () => {
 		const other = await addDocument({ sourceUrl: "https://mine.example/" })
 		expect(await code(setEditionNote(otherId, other.id, "Mine?"))).toBe("not_found")

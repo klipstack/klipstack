@@ -131,6 +131,7 @@
 	--k-warn: oklch(0.58 0.15 65);
 	--k-note: oklch(0.4 0.05 85);
 	--k-note-fg: oklch(0.95 0.025 90);
+	--k-note-tape: oklch(1 0 0 / 0.15);
 	--k-ring: oklch(0.74 0.1 255);
 	color-scheme: dark;
 }

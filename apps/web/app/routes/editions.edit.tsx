@@ -29,6 +29,7 @@ import {
 } from "~/lib/editions"
 import { env } from "~/lib/env.server"
 import { getInstance } from "~/lib/i18n.server"
+import { fitsKeepalive } from "~/lib/keepalive"
 import type { PageBarHandle } from "~/lib/page-bar"
 import { readFields } from "~/lib/request-body.server"
 import { requireUser } from "~/lib/session.server"
@@ -115,8 +116,7 @@ function useEditionSave(editionId: string): EditionSave {
 				method: "POST",
 				headers: { "content-type": "application/json" },
 				body: json,
-				// Browsers cap keepalive bodies at 64 KiB.
-				keepalive: keepalive && json.length < 60_000,
+				keepalive: keepalive && fitsKeepalive(json),
 			})
 			if (!res.ok) throw new Error(`edition save failed: ${res.status}`)
 			if (!keepalive) void revalidate()

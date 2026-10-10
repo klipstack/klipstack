@@ -89,6 +89,7 @@ describe("EditionPage", () => {
 		// Once: inline, or in the margin when there is room, by CSS alone.
 		const notes = html.match(/<div data-testid="edition-item-note"[^>]*>/g) ?? []
 		expect(notes).toHaveLength(1)
+		expect(html.match(/Links to /g)).toHaveLength(1)
 		for (const el of [`<div ${intro}`, ...notes])
 			expect(el.match(/class="([^"]*)"/)?.[1]).toContain("bg-note")
 		expect(html.match(/— Ada Reader/g)).toHaveLength(1)

@@ -89,7 +89,7 @@ export function EditionPage({
 						<PostIt
 							data-testid="edition-intro"
 							tilt={0}
-							className="mt-10 aspect-[2/1] w-fit max-w-[30rem] min-w-[16rem]"
+							className="mt-10 aspect-[2/1] w-fit max-w-[30rem] min-w-[min(16rem,100%)]"
 						>
 							<EditionText
 								text={view.intro}
@@ -324,7 +324,7 @@ function Commentary({
 				<PostIt
 					data-testid="edition-item-note"
 					tilt={index + 1}
-					className="mt-10 aspect-square w-fit max-w-[16rem] min-w-[11rem] self-start @6xl:col-start-2 @6xl:row-span-3 @6xl:row-start-1 @6xl:mt-1 @6xl:w-full @6xl:max-w-none @6xl:min-w-0"
+					className="mt-10 aspect-square w-fit max-w-[16rem] min-w-[min(11rem,100%)] self-start @6xl:col-start-2 @6xl:row-span-3 @6xl:row-start-1 @6xl:mt-1 @6xl:w-full @6xl:max-w-none @6xl:min-w-0"
 				>
 					<EditionText
 						text={item.note}
