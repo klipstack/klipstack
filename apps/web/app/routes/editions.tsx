@@ -6,6 +6,7 @@ import { createEdition, snoozeEditionNudge } from "~/commands/editions.server"
 import { tooltip } from "~/components/tooltip-host"
 import { Button } from "~/components/ui/button"
 import { timeZoneFromCookie } from "~/lib/date-groups"
+import { plainEditionText } from "~/lib/edition-text"
 import { editionState, formatEditionDate, hasUnpublishedChanges } from "~/lib/editions"
 import type { PageBarHandle } from "~/lib/page-bar"
 import { pageTitle } from "~/lib/page-title"
@@ -228,7 +229,7 @@ function ShortlistRow({ entry }: { entry: ShortlistEntry }) {
 	const title = entry.title?.trim() || entry.url
 	const label = t("shortlist.remove", { title })
 	return (
-		<li className="flex items-center gap-3 py-2">
+		<li className="flex items-start gap-3 py-2">
 			<div className="min-w-0 flex-1">
 				<Link
 					to={`/read/${entry.id}`}
@@ -237,6 +238,12 @@ function ShortlistRow({ entry }: { entry: ShortlistEntry }) {
 					{title}
 				</Link>
 				{entry.siteName ? <p className="truncate text-xs text-muted-fg">{entry.siteName}</p> : null}
+				{/* What the user wrote at its end, for the edition: ready before the edition is. */}
+				{entry.editionNote ? (
+					<p data-testid="shortlist-note" className="mt-1 line-clamp-2 text-sm text-fg/80">
+						{plainEditionText(entry.editionNote)}
+					</p>
+				) : null}
 			</div>
 			<fetcher.Form method="post" action={`/documents/${entry.id}/state`}>
 				<input type="hidden" name="intent" value="unshortlist" />

@@ -50,6 +50,7 @@ const doc = (over: Partial<ExportedDocument> = {}): ExportedDocument => ({
 	markdown: "Body.",
 	note: null,
 	noteUpdatedAt: null,
+	editionNote: null,
 	tags: [],
 	highlights: [],
 	via: [],

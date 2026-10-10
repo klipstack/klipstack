@@ -76,6 +76,7 @@ export default [
 	route("documents/:id/highlights", "routes/documents.highlights.ts"),
 	route("documents/:id/ai", "routes/documents.ai.ts"),
 	route("documents/:id/note", "routes/documents.note.ts"),
+	route("documents/:id/edition-note", "routes/documents.edition-note.ts"),
 	route("documents/:id/tags", "routes/documents.tags.ts"),
 	route("documents/:id/backlinks", "routes/documents.backlinks.ts"),
 	route("feed/opml", "routes/feed.opml.ts"),

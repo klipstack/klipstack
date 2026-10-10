@@ -306,7 +306,7 @@ export async function pickerDocuments(userId: string, editionId: string): Promis
 			(
 				select count(*)::int from highlights h where h.document_id = d.id and h.deleted_at is null
 			) as highlights,
-			d.note is not null as note,
+			(d.note is not null or d.edition_note is not null) as note,
 			exists (
 				select 1 from edition_items i where i.edition_id = ${editionId} and i.document_id = d.id
 			) as added,
@@ -358,6 +358,8 @@ export interface ShortlistEntry {
 	siteName: string | null
 	url: string
 	shortlistedAt: Date
+	/** What the user wrote for the edition while reading; null for nothing yet. */
+	editionNote: string | null
 }
 
 /** What the nudge for a new edition goes by, and its verdict (`nudgeReason`). */
@@ -429,6 +431,7 @@ export async function listShortlist(userId: string): Promise<ShortlistEntry[]> {
 			siteName: documents.siteName,
 			url: sql<string>`coalesce(${documents.canonicalUrl}, ${documents.sourceUrl})`,
 			shortlistedAt: documents.shortlistedAt,
+			editionNote: documents.editionNote,
 		})
 		.from(documents)
 		.where(
@@ -440,6 +443,78 @@ export async function listShortlist(userId: string): Promise<ShortlistEntry[]> {
 		)
 		.orderBy(desc(documents.shortlistedAt), desc(documents.id))
 	return rows.map((row) => ({ ...row, shortlistedAt: row.shortlistedAt! }))
+}
+
+/**
+ * The article's note for editions, written while reading. Blank clears it. A draft that has the
+ * article already gets it too, unless the user changed the draft's copy there: a copy still as
+ * adding made it becomes what adding would make now. Published editions keep their copy, as with
+ * every library change.
+ */
+export async function setEditionNote(
+	userId: string,
+	documentId: string,
+	raw: string | null,
+): Promise<string | null> {
+	const note = cleanText(raw, NOTE_MAX, "note")
+	checkId(documentId)
+	return db.transaction(async (tx) => {
+		// The drafts first, then the article: the order every other change takes its locks in.
+		const drafts = await tx
+			.select({ id: editions.id })
+			.from(editions)
+			.where(
+				and(
+					eq(editions.userId, userId),
+					isNull(editions.publishedAt),
+					sql`exists (
+						select 1 from edition_items i
+						where i.edition_id = ${editions.id} and i.document_id = ${documentId}
+					)`,
+				),
+			)
+			.orderBy(asc(editions.id))
+			.for("update")
+		const [doc] = await tx
+			.select({ note: documents.note, editionNote: documents.editionNote })
+			.from(documents)
+			.where(
+				and(
+					eq(documents.id, documentId),
+					eq(documents.userId, userId),
+					isNull(documents.deletedAt),
+				),
+			)
+			.for("update")
+		if (!doc) throw refuse("not_found")
+		if (doc.editionNote === note) return note
+		await tx.update(documents).set({ editionNote: note }).where(eq(documents.id, documentId))
+		if (drafts.length === 0) return note
+		// What adding gave an item before this change, and what it gives now (`copyItem`).
+		const rewrite = await noteLinkRewriter(userId, [doc.editionNote, doc.note, note])
+		const before = {
+			note: rewrite(doc.editionNote ?? doc.note),
+			included: doc.editionNote !== null,
+		}
+		const after = { note: rewrite(note ?? doc.note), includeNote: note !== null }
+		const changed = await tx
+			.update(editionItems)
+			.set(after)
+			.where(
+				and(
+					inArray(
+						editionItems.editionId,
+						drafts.map((draft) => draft.id),
+					),
+					eq(editionItems.documentId, documentId),
+					before.note === null ? isNull(editionItems.note) : eq(editionItems.note, before.note),
+					eq(editionItems.includeNote, before.included),
+				),
+			)
+			.returning({ editionId: editionItems.editionId })
+		for (const editionId of new Set(changed.map((row) => row.editionId))) await touch(tx, editionId)
+		return note
+	})
 }
 
 /**
@@ -514,11 +589,13 @@ export async function updateEdition(
 type ItemCopy = Omit<
 	typeof editionItems.$inferInsert,
 	"id" | "editionId" | "documentId" | "position" | "includeNote"
-> & { highlights: EditionItemHighlight[] }
+> & { highlights: EditionItemHighlight[]; includeNote: boolean }
 
 /**
- * What an edition keeps of an article: metadata, the note and the highlights, nothing of its
- * content. "Add" and "Refresh from library" both copy with this. The article must be live.
+ * What an edition keeps of an article: metadata, a note and the highlights, nothing of its
+ * content. The note is the one written for editions, included; else the private note, left out
+ * until the user includes it. "Add" and "Refresh from library" both copy with this. The article
+ * must be live.
  */
 async function copyItem(
 	userId: string,
@@ -538,6 +615,7 @@ async function copyItem(
 			readingMinutes: documents.readingMinutes,
 			wordCount: documents.wordCount,
 			note: documents.note,
+			editionNote: documents.editionNote,
 			// The last time it was finished. Plain SQL for the columns: Drizzle leaves the table out
 			// of them here.
 			readOn: sql<string | null>`coalesce(
@@ -556,7 +634,8 @@ async function copyItem(
 	const url = [doc.canonicalUrl, doc.sourceUrl].find(isHttpUrl)
 	if (!url) throw refuse("no_url")
 	const kept = (await listDocumentHighlights(userId, documentId)).filter((h) => !h.orphaned)
-	const rewrite = await noteLinkRewriter(userId, [doc.note, ...kept.map((h) => h.note)])
+	const note = doc.editionNote ?? doc.note
+	const rewrite = await noteLinkRewriter(userId, [note, ...kept.map((h) => h.note)])
 	return {
 		url,
 		title: doc.title?.trim() || url,
@@ -567,7 +646,8 @@ async function copyItem(
 		readingMinutes: doc.readingMinutes,
 		wordCount: doc.wordCount,
 		readOn: doc.readOn,
-		note: rewrite(doc.note),
+		note: rewrite(note),
+		includeNote: doc.editionNote !== null,
 		highlights: kept.map((h) => ({
 			highlightId: h.id,
 			exact: h.exact,
@@ -606,7 +686,10 @@ async function noteLinkRewriter(userId: string, texts: Array<string | null>) {
 		text === null ? null : rewriteNoteLinks(text, (id) => urls.get(id) ?? null)
 }
 
-/** Copies the article to the end of the edition. Nothing is included until the user says so. */
+/**
+ * Copies the article to the end of the edition. Only its note for editions is included; nothing
+ * else is until the user says so.
+ */
 export async function addItem(
 	userId: string,
 	editionId: string,
@@ -828,7 +911,8 @@ export async function restoreItem(
 
 /**
  * Copies the article again. Selected highlights that still exist stay selected. The note copy is
- * replaced by the current note, edits and all.
+ * replaced by the current note, edits and all, included as adding would: only the note for
+ * editions is, and not when the user had left out this same text.
  */
 export async function refreshItem(
 	userId: string,
@@ -850,7 +934,9 @@ export async function refreshItem(
 			.update(editionItems)
 			.set({
 				...copy,
-				includeNote: item.includeNote && copy.note !== null,
+				// The note for editions is included, unless the user left out this very text. A private
+				// note is new text the user has not let out yet, whatever they included before.
+				includeNote: copy.includeNote && (item.includeNote || item.note !== copy.note),
 				highlights: copy.highlights.map((h) => ({ ...h, included: selected.has(h.highlightId) })),
 			})
 			.where(eq(editionItems.id, itemId))

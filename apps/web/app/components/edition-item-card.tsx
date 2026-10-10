@@ -207,35 +207,34 @@ export function EditionItemCard({
 				</div>
 			</div>
 
-			{item.note !== null ? (
-				<div className="mt-4 border-t border-border pt-3">
-					<label className="flex items-center gap-2 text-sm font-medium">
-						<input
-							type="checkbox"
-							checked={includeNote}
-							onChange={(e) => {
-								chooseIncludeNote(e.target.checked)
-								void noteChoice.submit(
-									{ intent: "update-item", itemId: item.id, includeNote: e.target.checked },
-									post(editionId),
-								)
-							}}
-							className="size-4 accent-accent"
-						/>
-						{t("item.includeNote")}
-					</label>
-					{includeNote ? (
-						<ItemNote
-							key={copy}
-							initial={item.note}
-							label={t("item.noteLabel")}
-							save={async (text, keepalive) => {
-								await save({ intent: "update-item", itemId: item.id, note: text }, keepalive)
-							}}
-						/>
-					) : null}
-				</div>
-			) : null}
+			{/* Without a note from the library, one can be written here. */}
+			<div className="mt-4 border-t border-border pt-3">
+				<label className="flex items-center gap-2 text-sm font-medium">
+					<input
+						type="checkbox"
+						checked={includeNote}
+						onChange={(e) => {
+							chooseIncludeNote(e.target.checked)
+							void noteChoice.submit(
+								{ intent: "update-item", itemId: item.id, includeNote: e.target.checked },
+								post(editionId),
+							)
+						}}
+						className="size-4 accent-accent"
+					/>
+					{item.note !== null ? t("item.includeNote") : t("item.addNote")}
+				</label>
+				{includeNote ? (
+					<ItemNote
+						key={copy}
+						initial={item.note}
+						label={t("item.noteLabel")}
+						save={async (text, keepalive) => {
+							await save({ intent: "update-item", itemId: item.id, note: text }, keepalive)
+						}}
+					/>
+				) : null}
+			</div>
 
 			<div className="mt-4 border-t border-border pt-3">
 				<div className="flex flex-wrap items-baseline justify-between gap-2">

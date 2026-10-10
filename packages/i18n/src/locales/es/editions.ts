@@ -60,9 +60,10 @@ export default {
 		remove: "Quitar",
 		refresh: "Actualizar desde la biblioteca",
 		refreshConfirm:
-			"¿Copiar de nuevo este artículo desde tu biblioteca? Su nota aquí se sustituye por la nota de la biblioteca.",
+			"¿Copiar de nuevo este artículo desde tu biblioteca? Su nota aquí se sustituye por tu nota para lectores o, si no hay, por tu nota privada, que no se incluye hasta que la incluyas.",
 		refreshGone: "Este artículo ya no está en tu biblioteca.",
 		includeNote: "Incluir mi nota",
+		addNote: "Añadir una nota",
 		noteLabel: "Tu nota, tal como la muestra la página",
 		highlights: "Subrayados",
 		noHighlights: "Este artículo no tiene subrayados.",
@@ -81,7 +82,7 @@ export default {
 		more_one: "Hay 1 artículo más marcado para tu próxima edición.",
 		more_other: "Hay {{count}} artículos más marcados para tu próxima edición.",
 		listDetail:
-			"Los artículos que marcaste al leer. Una edición nueva empieza con ellos; al publicarla, sus artículos salen de esta lista.",
+			"Los artículos que marcaste al leer, con las notas que escribiste para tus lectores. Una edición nueva empieza con ellos; al publicarla, sus artículos salen de esta lista.",
 		empty:
 			"Aún no marcaste nada. Al leer, «Añadir a la próxima edición» (N) guarda el artículo aquí.",
 		remove: "Quitar «{{title}}» de tu próxima edición",

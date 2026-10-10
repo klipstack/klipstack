@@ -87,6 +87,11 @@ export const documents = pgTable(
 		note: text("note"),
 		noteUpdatedAt: timestamp("note_updated_at", { withTimezone: true }),
 		/**
+		 * What to tell an edition's readers about the article, written for them while reading, unlike
+		 * the private `note`. An edition that adds the article starts with it included.
+		 */
+		editionNote: text("edition_note"),
+		/**
 		 * A post that only shares a link Klipstack couldn't open: that link, and its hash. Saving the
 		 * linked article later (from the browser) moves the post onto it.
 		 */

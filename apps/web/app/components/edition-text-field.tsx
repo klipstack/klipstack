@@ -1,4 +1,5 @@
 import { Component, lazy, type ReactNode, Suspense } from "react"
+import { isSubmitShortcut } from "~/lib/shortcuts"
 import { cn } from "~/lib/utils"
 import { EditionText } from "./edition-page"
 import type { EditionTextEditorProps } from "./edition-text-editor"
@@ -40,6 +41,7 @@ function Textarea({
 	value,
 	onChange,
 	onBlur,
+	onSubmit,
 	placeholder,
 	maxLength,
 	id,
@@ -56,6 +58,11 @@ function Textarea({
 			maxLength={maxLength}
 			onChange={(e) => onChange(e.target.value)}
 			onBlur={onBlur}
+			onKeyDown={(e) => {
+				if (!onSubmit || !isSubmitShortcut(e.nativeEvent)) return
+				e.preventDefault()
+				onSubmit()
+			}}
 			placeholder={placeholder}
 			className={cn("block w-full resize-y [field-sizing:content]", className)}
 		/>

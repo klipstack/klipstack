@@ -1,8 +1,6 @@
 import { createNoteAutosave, type NoteSaveStatus } from "@klipstack/sdk/note-autosave"
 import { useCallback, useEffect, useMemo, useState } from "react"
-
-/** Browsers cap keepalive request bodies at 64 KiB; longer notes go out as a normal request. */
-const KEEPALIVE_MAX = 60_000
+import { fitsKeepalive } from "~/lib/keepalive"
 
 /**
  * The article note's text and save status. Saves while typing (debounced), on `flush`, when the page
@@ -30,7 +28,7 @@ export function useNoteAutosave(documentId: string, initial: string | null) {
 						method: "POST",
 						headers: { "content-type": "application/json" },
 						body,
-						keepalive: keepalive && body.length < KEEPALIVE_MAX,
+						keepalive: keepalive && fitsKeepalive(body),
 					})
 					if (!res.ok) throw new Error(`note save failed: ${res.status}`)
 				},

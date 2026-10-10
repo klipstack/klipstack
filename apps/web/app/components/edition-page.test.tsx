@@ -82,6 +82,19 @@ describe("EditionPage", () => {
 		expect(html).not.toMatch(/sign ?up|signup|regístrate/i)
 	})
 
+	it("puts the intro and the notes on the author's paper, and signs the intro only", () => {
+		const intro = html.slice(html.indexOf('data-testid="edition-intro"'), html.indexOf("</header>"))
+		expect(intro).toContain("Lo que leí.")
+		expect(intro).toContain("— Ada Reader")
+		// Once: inline, or in the margin when there is room, by CSS alone.
+		const notes = html.match(/<div data-testid="edition-item-note"[^>]*>/g) ?? []
+		expect(notes).toHaveLength(1)
+		expect(html.match(/Links to /g)).toHaveLength(1)
+		for (const el of [`<div ${intro}`, ...notes])
+			expect(el.match(/class="([^"]*)"/)?.[1]).toContain("bg-note")
+		expect(html.match(/— Ada Reader/g)).toHaveLength(1)
+	})
+
 	it("shows no numbers before the items", () => {
 		expect(html).not.toMatch(/>\s*1\.\s*</)
 	})

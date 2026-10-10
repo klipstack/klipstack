@@ -38,6 +38,7 @@ import {
 	removeItem,
 	pickerDocuments,
 	restoreItem,
+	setEditionNote,
 	unpublishEdition,
 	updateEdition,
 	updateItem,
@@ -781,7 +782,8 @@ describe("refreshItem", () => {
 		await deleteHighlight(userId, quoteIds["Bravo four five."]!)
 		const { items } = await getEdition(userId, edition.id)
 		const item = await refreshItem(userId, edition.id, items[0]!.id)
-		expect(item).toMatchObject({ title: "Main, revised", note: "A new note.", includeNote: true })
+		// Included before, but the new private note is text the user has not let out yet.
+		expect(item).toMatchObject({ title: "Main, revised", note: "A new note.", includeNote: false })
 		expect(item.highlights.map((h) => [h.exact, h.included])).toEqual([
 			["Alpha one two three.", true],
 			["Echo eight.", true],
@@ -798,6 +800,142 @@ describe("refreshItem", () => {
 		const after = (await getEdition(userId, edition.id)).items.find((i) => i.id === notedItem.id)
 		expect(after).toMatchObject({ documentId: null, title: "Noted", url: "https://n.example/" })
 		expect(await code(refreshItem(userId, edition.id, notedItem.id))).toBe("document_gone")
+	})
+})
+
+describe("the note for editions", () => {
+	it("is written while reading, and an edition starts with it included instead of the private note", async () => {
+		const doc = await addDocument({
+			sourceUrl: "https://why.example/",
+			title: "Why",
+			note: "Private thoughts.",
+			shortlistedAt: new Date(),
+		})
+		expect(
+			await setEditionNote(
+				userId,
+				doc.id,
+				"  Read it for [the third part](https://why.example/#3).\r\n ",
+			),
+		).toBe("Read it for [the third part](https://why.example/#3).")
+		expect((await listShortlist(userId)).find((entry) => entry.id === doc.id)).toMatchObject({
+			editionNote: "Read it for [the third part](https://why.example/#3).",
+		})
+		const own = await insertEdition(userId, { locale: "en", timeZone })
+		const item = await addItem(userId, own.id, doc.id)
+		expect(item).toMatchObject({
+			note: "Read it for [the third part](https://why.example/#3).",
+			includeNote: true,
+		})
+		expect(JSON.stringify(item)).not.toContain("Private thoughts.")
+		expect((await pickerDocuments(userId, own.id)).shortlist).toContainEqual(
+			expect.objectContaining({ id: doc.id, note: true }),
+		)
+
+		// Cleared, a refresh brings the private note, left out.
+		expect(await setEditionNote(userId, doc.id, " ")).toBeNull()
+		expect(await refreshItem(userId, own.id, item.id)).toMatchObject({
+			note: "Private thoughts.",
+			includeNote: false,
+		})
+		await setEditionNote(userId, doc.id, "Back again.")
+		expect(await refreshItem(userId, own.id, item.id)).toMatchObject({
+			note: "Back again.",
+			includeNote: true,
+		})
+		await deleteEdition(userId, own.id)
+		await mark([[doc.id, null]])
+	})
+
+	it("lets the editor write a note for an article that had none", async () => {
+		const doc = await addDocument({ sourceUrl: "https://bare.example/", title: "Bare" })
+		const own = await insertEdition(userId, { locale: "en", timeZone })
+		const item = await addItem(userId, own.id, doc.id)
+		expect(item).toMatchObject({ note: null, includeNote: false })
+		await updateItem(userId, own.id, item.id, { includeNote: true, note: "Written here." })
+		const { items } = await getEdition(userId, own.id)
+		expect(items[0]).toMatchObject({ note: "Written here.", includeNote: true })
+		await deleteEdition(userId, own.id)
+	})
+
+	it("reaches a draft that has the article, unless its copy was changed there", async () => {
+		const doc = await addDocument({
+			sourceUrl: "https://later.example/",
+			title: "Later",
+			note: "Private.",
+		})
+		const draft = await insertEdition(userId, { locale: "en", timeZone })
+		const edited = await insertEdition(userId, { locale: "en", timeZone })
+		const unticked = await insertEdition(userId, { locale: "en", timeZone })
+		const published = await insertEdition(userId, { locale: "en", timeZone })
+		const items = {
+			draft: await addItem(userId, draft.id, doc.id),
+			edited: await addItem(userId, edited.id, doc.id),
+			unticked: await addItem(userId, unticked.id, doc.id),
+			published: await addItem(userId, published.id, doc.id),
+		}
+		// Added before any note for editions: the private note, left out.
+		expect(items.draft).toMatchObject({ note: "Private.", includeNote: false })
+		await updateItem(userId, edited.id, items.edited.id, { note: "Words for this edition." })
+		await updateItem(userId, unticked.id, items.unticked.id, { includeNote: true })
+		await db.update(editions).set({ publishedAt: new Date() }).where(eq(editions.id, published.id))
+		const itemOf = async (editionId: string) => (await getEdition(userId, editionId)).items[0]!
+		const before = (await getEdition(userId, draft.id)).edition.updatedAt
+
+		await setEditionNote(userId, doc.id, "Worth it.")
+		expect(await itemOf(draft.id)).toMatchObject({ note: "Worth it.", includeNote: true })
+		expect((await getEdition(userId, draft.id)).edition.updatedAt > before).toBe(true)
+		// Changed there, or published: their copies stay.
+		expect(await itemOf(edited.id)).toMatchObject({ note: "Words for this edition." })
+		expect(await itemOf(unticked.id)).toMatchObject({ note: "Private.", includeNote: true })
+		expect(await itemOf(published.id)).toMatchObject({ note: "Private.", includeNote: false })
+
+		// Rewritten, the draft follows; cleared, it goes back to the private note, left out.
+		await setEditionNote(userId, doc.id, "Worth it, twice.")
+		expect(await itemOf(draft.id)).toMatchObject({ note: "Worth it, twice.", includeNote: true })
+		await setEditionNote(userId, doc.id, null)
+		expect(await itemOf(draft.id)).toMatchObject({ note: "Private.", includeNote: false })
+
+		// Left out in the draft by the user: a new text does not put it back.
+		await setEditionNote(userId, doc.id, "Third.")
+		await updateItem(userId, draft.id, items.draft.id, { includeNote: false })
+		await setEditionNote(userId, doc.id, "Fourth.")
+		expect(await itemOf(draft.id)).toMatchObject({ note: "Third.", includeNote: false })
+
+		const exported = (await buildExport(userId)).documents.find((d) => d.id === doc.id)
+		expect(exported).toMatchObject({ note: "Private.", editionNote: "Fourth." })
+		for (const edition of [draft, edited, unticked, published])
+			await deleteEdition(userId, edition.id)
+	})
+
+	it("is left out again by a refresh when the user had left out the same text", async () => {
+		const doc = await addDocument({ sourceUrl: "https://again.example/", title: "Again" })
+		await setEditionNote(userId, doc.id, "Same words.")
+		const own = await insertEdition(userId, { locale: "en", timeZone })
+		const item = await addItem(userId, own.id, doc.id)
+		await updateItem(userId, own.id, item.id, { includeNote: false })
+		expect(await refreshItem(userId, own.id, item.id)).toMatchObject({
+			note: "Same words.",
+			includeNote: false,
+		})
+		// New words are a new choice: included, as adding would.
+		await setEditionNote(userId, doc.id, "New words.")
+		expect(await refreshItem(userId, own.id, item.id)).toMatchObject({
+			note: "New words.",
+			includeNote: true,
+		})
+		await deleteEdition(userId, own.id)
+	})
+
+	it("refuses another user's article, one in the trash, and a note past the limit", async () => {
+		const other = await addDocument({ sourceUrl: "https://mine.example/" })
+		expect(await code(setEditionNote(otherId, other.id, "Mine?"))).toBe("not_found")
+		expect(await code(setEditionNote(userId, trashed.id, "Gone"))).toBe("not_found")
+		expect(await code(setEditionNote(userId, missingId, "Missing"))).toBe("not_found")
+		expect(await code(setEditionNote(userId, "nope", "Bad id"))).toBe("not_found")
+		expect(await code(setEditionNote(userId, other.id, "x".repeat(100_001)))).toBe("invalid_note")
+		const [row] = await db.select().from(documents).where(eq(documents.id, other.id))
+		expect(row!.editionNote).toBeNull()
 	})
 })
 
