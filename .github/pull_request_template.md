@@ -5,7 +5,7 @@ How to write this description (people and agents alike):
 - No list of changed files, no restating the diff, no summary of the summary, no filler
   ("This PR…", "comprehensive", "robust", "seamlessly").
 - No links to agent threads or sessions (ampcode.com, claude.ai), no "Generated with…" lines,
-  no Co-Authored-By trailers.
+  no agent credited as author or co-author. Crediting humans is fine.
 - Aim for under 150 words. A one-line fix can be one line under Why.
 - Delete these comments.
 -->

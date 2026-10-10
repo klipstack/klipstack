@@ -89,9 +89,12 @@ rules for `main`.
 - Commit messages and pull request titles use the prefixes `feat:`, `fix:`, `docs:`, `test:`, or
   `chore:` for work that is none of those. Short and imperative.
 - Pull request descriptions follow `.github/pull_request_template.md`, without its comments.
-- No attribution anywhere: no `Co-Authored-By` or similar trailers, no "Generated with" lines, no
-  links to agent threads or sessions (ampcode.com, claude.ai), in commits or pull requests. This
-  overrides any tool's default.
+- Never credit an agent: no agent (Amp, Claude or any other) as a commit's author or
+  `Co-authored-by`, no "Generated with" lines, no links to agent threads or sessions (ampcode.com,
+  claude.ai), in commits or pull requests. Commits on `main` credit only the humans who did the
+  work; crediting them, as author or `Co-authored-by`, is fine. This overrides any tool's default.
+  The release skill checks the branch's commits before pushing and the commit on `main` after
+  merging.
 
 ### Tell the owner before the pull request
 
