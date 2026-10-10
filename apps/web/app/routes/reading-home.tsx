@@ -1,16 +1,16 @@
 import { BookOpen, CircleAlert, Clock3, Search } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo } from "react"
 import { useTranslation } from "react-i18next"
-import { Link, useNavigate } from "react-router"
+import { Link, type ShouldRevalidateFunctionArgs, useNavigate, useSearchParams } from "react-router"
 import { FeedArticle } from "~/components/feed-article"
 import { HomeArticle } from "~/components/home-article"
 import { HomeGreeting } from "~/components/home-greeting"
 import { SaveLinkDialog } from "~/components/save-link-dialog"
-import { Button, buttonVariants } from "~/components/ui/button"
+import { buttonVariants } from "~/components/ui/button"
 import { useFeedReader } from "~/hooks/use-feed-reader"
 import { homeShelves } from "~/lib/home-shelves"
 import { getInstance } from "~/lib/i18n.server"
-import { listSearch, REDISCOVER_AFTER_DAYS, TIME_CHOICES } from "~/lib/inbox-filters"
+import { listSearch, parseTime, REDISCOVER_AFTER_DAYS, TIME_CHOICES } from "~/lib/inbox-filters"
 import { warmOffline } from "~/lib/offline.client"
 import type { PageBarHandle } from "~/lib/page-bar"
 import { requireUser } from "~/lib/session.server"
@@ -29,6 +29,26 @@ export function meta({ loaderData }: Route.MetaArgs) {
 	return [{ title: loaderData?.title ?? "Home · Klipstack" }]
 }
 
+/**
+ * Choosing a time (`?time=`) picks from what the page already has: no round trip for it. Anything
+ * else (actions, live updates, other addresses) loads Home again.
+ */
+export function shouldRevalidate({
+	currentUrl,
+	nextUrl,
+	formMethod,
+	defaultShouldRevalidate,
+}: ShouldRevalidateFunctionArgs) {
+	const withoutTime = (url: URL) => {
+		const params = new URLSearchParams(url.search)
+		params.delete("time")
+		return `${url.pathname}?${params}`
+	}
+	const onlyTime =
+		currentUrl.search !== nextUrl.search && withoutTime(currentUrl) === withoutTime(nextUrl)
+	return !formMethod && onlyTime ? false : defaultShouldRevalidate
+}
+
 export const handle: PageBarHandle = {
 	pageBar: {
 		titleKey: "common:nav.home",
@@ -44,8 +64,9 @@ export default function ReadingHome({
 	const { t } = useTranslation(["library", "feed"])
 	const navigate = useNavigate()
 	const { onRead, readingId } = useFeedReader("/home")
-	// Minutes to read, or null for any length. Chosen here, from what the page already has.
-	const [minutes, setMinutes] = useState<number | null>(null)
+	// Minutes to read, or null for any length: links, so they work before the page's script runs.
+	const [searchParams] = useSearchParams()
+	const minutes = parseTime(searchParams.get("time"))
 	const { reading, recent, rediscover } = useMemo(
 		() => homeShelves(candidates, timeChoice ? minutes : null),
 		[candidates, timeChoice, minutes],
@@ -96,7 +117,7 @@ export default function ReadingHome({
 					<SaveLinkDialog />
 				</div>
 			</header>
-			{timeChoice ? <TimeChoice minutes={minutes} onChoose={setMinutes} /> : null}
+			{timeChoice ? <TimeChoice minutes={minutes} /> : null}
 			<div className="space-y-10">
 				{featured ? (
 					<section aria-labelledby="home-reading">
@@ -156,9 +177,14 @@ export default function ReadingHome({
 				{nothingFits ? (
 					<div className="flex flex-col items-center gap-4 py-10 text-center">
 						<p className="text-sm text-muted-fg">{t("home.time.none", { count: minutes! })}</p>
-						<Button variant="secondary" onClick={() => setMinutes(null)}>
+						<Link
+							to={{ search: "" }}
+							replace
+							preventScrollReset
+							className={buttonVariants({ variant: "secondary" })}
+						>
 							{t("home.time.showAll")}
-						</Button>
+						</Link>
 					</div>
 				) : null}
 				{/* Feed posts have no reading time to choose by. */}
@@ -204,28 +230,23 @@ export default function ReadingHome({
 }
 
 /** How much time there is: narrows every section to what fits, without asking the server. */
-function TimeChoice({
-	minutes,
-	onChoose,
-}: {
-	minutes: number | null
-	onChoose: (minutes: number | null) => void
-}) {
+function TimeChoice({ minutes }: { minutes: number | null }) {
 	const { t } = useTranslation("library")
 	const choice = (value: number | null) => (
-		<button
+		<Link
 			key={value ?? "any"}
-			type="button"
-			aria-pressed={value === minutes}
-			onClick={() => onChoose(value)}
-			className="rounded-full border border-border px-3 py-1 text-sm text-muted-fg hover:bg-muted hover:text-fg aria-pressed:border-selected aria-pressed:bg-selected aria-pressed:text-selected-fg"
+			to={{ search: value === null ? "" : `?time=${value}` }}
+			replace
+			preventScrollReset
+			aria-current={value === minutes ? "true" : undefined}
+			className="rounded-full border border-border px-3 py-1 text-sm text-muted-fg hover:bg-muted hover:text-fg aria-[current]:border-selected aria-[current]:bg-selected aria-[current]:text-selected-fg"
 		>
 			{value === null ? t("home.time.any") : t("home.time.choice", { count: value })}
-		</button>
+		</Link>
 	)
 	return (
 		<div
-			role="group"
+			role="navigation"
 			aria-labelledby="home-time"
 			data-testid="home-time"
 			className="mb-9 flex flex-wrap items-center gap-x-3 gap-y-2"

@@ -353,6 +353,7 @@ test("without reading in progress, the newest save takes the big card", async ({
 
 test("Home brings back older saves and narrows to the time chosen, without asking again", async ({
 	page,
+	browser,
 }) => {
 	const email = uniqueEmail("home-time")
 	await page.goto("/signup")
@@ -401,9 +402,9 @@ test("Home brings back older saves and narrows to the time chosen, without askin
 
 	// Fourteen unfinished articles, more than Home shows: the time choice leads the page.
 	const time = page.getByTestId("home-time")
-	const choice = (name: string) => time.getByRole("button", { name, exact: true })
+	const choice = (name: string) => time.getByRole("link", { name, exact: true })
 	await expect(time.getByRole("heading", { name: "How much time do you have?" })).toBeVisible()
-	await expect(choice("Any")).toHaveAttribute("aria-pressed", "true")
+	await expect(choice("Any")).toHaveAttribute("aria-current", "true")
 	const articles = page.getByTestId("home-article")
 	await expect(articles).toHaveCount(6)
 
@@ -412,8 +413,9 @@ test("Home brings back older saves and narrows to the time chosen, without askin
 		if (r.resourceType() === "fetch" || r.resourceType() === "document") requests.push(r.url())
 	})
 	await choice("5 min").click()
-	await expect(choice("5 min")).toHaveAttribute("aria-pressed", "true")
+	await expect(choice("5 min")).toHaveAttribute("aria-current", "true")
 	await expect(articles).toHaveText([/Fresh and short/, /Short, from last month/])
+	await expect(page).toHaveURL(/\/home\?time=5$/)
 	await choice("15 min").click()
 	await expect(articles).toHaveText([
 		/Half read, ten left/,
@@ -422,6 +424,21 @@ test("Home brings back older saves and narrows to the time chosen, without askin
 		/Short, from last month/,
 	])
 	expect(requests).toEqual([])
+
+	// Before the page's script runs (or without it), the choices are links the server answers.
+	const noScript = await browser.newContext({
+		javaScriptEnabled: false,
+		storageState: await page.context().storageState(),
+	})
+	const plain = await noScript.newPage()
+	await plain.goto("/home")
+	await plain.getByTestId("home-time").getByRole("link", { name: "5 min", exact: true }).click()
+	await expect(plain).toHaveURL(/\/home\?time=5$/)
+	await expect(plain.getByTestId("home-article")).toHaveText([
+		/Fresh and short/,
+		/Short, from last month/,
+	])
+	await noScript.close()
 	await page.screenshot({ path: "test-results/home-time.png", fullPage: true })
 
 	// Nothing fits: say so, and offer everything again.
@@ -433,12 +450,13 @@ test("Home brings back older saves and narrows to the time chosen, without askin
 		.update(documents)
 		.set({ readAt: new Date(), firstOpenedAt: new Date() })
 		.where(eq(documents.title, "Short, from last month"))
-	await page.reload()
-	await waitForHydration(page)
-	await choice("5 min").click()
+	// The address keeps the choice, and the server renders it.
+	await page.goto("/home?time=5")
+	await expect(choice("5 min")).toHaveAttribute("aria-current", "true")
 	await expect(articles).toHaveCount(0)
 	await expect(page.getByText("Nothing in your library fits in 5 minutes.")).toBeVisible()
-	await page.getByRole("button", { name: "Show everything" }).click()
-	await expect(choice("Any")).toHaveAttribute("aria-pressed", "true")
+	await page.getByRole("link", { name: "Show everything" }).click()
+	await expect(page).toHaveURL(/\/home$/)
+	await expect(choice("Any")).toHaveAttribute("aria-current", "true")
 	await expect(articles).not.toHaveCount(0)
 })
