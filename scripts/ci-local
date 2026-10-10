@@ -1,0 +1,206 @@
+#!/usr/bin/env bash
+# Run on this machine every job of .github/workflows/ci.yml: `pnpm ci:local`. CI runs them all on
+# every pull request; this finds a failure before the push. Keep it in step with ci.yml: a check
+# added there belongs here too. One difference on purpose: CI leaves out the mobile app (its
+# install, typecheck and tests, which double the install); here it is checked with the rest.
+set -euo pipefail
+
+usage() {
+  cat <<'HELP'
+Usage: pnpm ci:local [--base REF] [--only STEP[,STEP…]]
+
+Runs the checks of .github/workflows/ci.yml, stopping at the first failure:
+
+  install   pnpm install --frozen-lockfile, and the Playwright browsers
+  static    pnpm audit, lint, typecheck, migrations matching the schema
+  build     the production build, and a boot of the server bundle
+  e2e       Playwright, every project, against the production build (one retry, as in CI)
+  unit      pnpm test
+  image     build the Docker image and boot it (scripts/image-smoke), as the deploy job does
+            before it pushes. Slow, so it runs when named in --only, or when something the image
+            installs or copies file by file changed: the Dockerfile, a dependency, the worker,
+            the server entry, the admin CLI.
+
+  --base REF   what the work is compared with (default: main). When every file changed since REF
+               is Markdown or under docs/, nothing runs: no check reads them.
+  --only LIST  run only these steps, e.g. --only static,unit
+
+Each step writes to a log file; a failure prints the end of it. Needs the local PostgreSQL
+(`pnpm db:up`) and `.env`. Nothing else may hold port 5180 (`pnpm dev`) or run Playwright.
+
+As in CI, build, e2e and unit use an empty database: `klipstack_ci_<pid>`, created and migrated
+here, dropped at the end. The development database is not touched.
+HELP
+}
+
+base=main
+only=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --base) base=${2:?--base needs a ref}; shift 2 ;;
+    --base=*) base=${1#--base=}; shift ;;
+    --only) only=${2:?--only needs a list}; shift 2 ;;
+    --only=*) only=${1#--only=}; shift ;;
+    -h | --help | help) usage; exit 0 ;;
+    *) echo "unknown argument: $1" >&2; usage >&2; exit 2 ;;
+  esac
+done
+
+# `pnpm -s ci:local` would silence the pnpm commands below too, and leave the logs empty.
+unset npm_config_reporter
+
+root=$(git rev-parse --show-toplevel)
+cd "$root"
+logs=$(mktemp -d "${TMPDIR:-/tmp}/klipstack-ci-local.XXXXXX")
+boot_pid=""
+ci_db=""
+admin_url=""
+
+# database create|drop NAME, through the server that .env names.
+database() {
+  (cd packages/db && node -e '
+    const { Client } = require("pg")
+    const [url, action, name] = process.argv.slice(1)
+    // The builtin collation provider, as in CI and production, whatever the server default is.
+    // Quoted names, not string literals: this script sits in single quotes.
+    const create = `create database "${name}" template template0 encoding UTF8 locale_provider builtin builtin_locale "C.UTF-8" locale "C.UTF-8"`
+    const sql = action === "create" ? create : `drop database if exists "${name}" with (force)`
+    const client = new Client({ connectionString: url })
+    client.connect().then(() => client.query(sql)).then(() => client.end()).catch((error) => {
+      console.error(error.message)
+      process.exit(1)
+    })
+  ' "$admin_url" "$1" "$2")
+}
+
+cleanup() {
+  # By PID only: another session may run a server of its own.
+  if [ -n "$boot_pid" ] && kill -0 "$boot_pid" 2>/dev/null; then kill "$boot_pid" 2>/dev/null || true; fi
+  if [ -n "$ci_db" ]; then database drop "$ci_db" >/dev/null 2>&1 || echo "  note: could not drop the database $ci_db" >&2; fi
+}
+trap cleanup EXIT
+trap 'exit 130' INT TERM
+
+wanted() {
+  [ -z "$only" ] && return 0
+  case ",$only," in *",$1,"*) return 0 ;; *) return 1 ;; esac
+}
+
+# run NAME COMMAND…: quiet on success; on failure, the end of the log and where the rest is.
+run() {
+  local name=$1 log started
+  shift
+  log="$logs/$(printf '%s' "$name" | tr -c 'A-Za-z0-9' '-').log"
+  started=$SECONDS
+  printf '  %-34s' "$name"
+  if "$@" >"$log" 2>&1; then
+    printf 'ok    %4ss\n' "$((SECONDS - started))"
+  else
+    printf 'FAIL  %4ss\n\n' "$((SECONDS - started))"
+    tail -n 60 "$log"
+    printf '\nFull log: %s\n' "$log"
+    exit 1
+  fi
+}
+
+port_in_use() { lsof -nP -iTCP:"$1" -sTCP:LISTEN >/dev/null 2>&1; }
+
+# No check reads Markdown or docs/: a change of only those has nothing to check.
+changed=$({ git diff --name-only "$base"...HEAD; git diff --name-only HEAD; git ls-files --others --exclude-standard; } | sort -u)
+if [ -n "$changed" ] && ! printf '%s\n' "$changed" | grep -Ev '^docs/|\.md$' >/dev/null; then
+  echo "Only Markdown and docs/ changed since $base. Nothing to check."
+  exit 0
+fi
+
+echo "Local CI for $(git rev-parse --abbrev-ref HEAD) @ $(git rev-parse --short HEAD), compared with $base"
+[ -z "$(git status --porcelain)" ] || echo "  note: uncommitted changes are part of what runs, but not of what a merge takes"
+
+if wanted install; then
+  run "install: dependencies" pnpm install --frozen-lockfile
+  if wanted e2e; then
+    run "install: browsers" pnpm --filter @klipstack/web exec playwright install chromium webkit
+  fi
+fi
+
+if wanted static; then
+  run "static: audit" pnpm audit --audit-level moderate
+  run "static: lint" pnpm lint
+  run "static: typecheck" pnpm typecheck
+  run "static: migrations match schema" scripts/check-migrations
+fi
+
+boot_server_bundle() {
+  local code
+  (cd apps/web && PORT=3999 NODE_ENV=production exec node server.js) &
+  boot_pid=$!
+  for _ in $(seq 1 30); do
+    if curl -sf http://localhost:3999/healthcheck >/dev/null; then break; fi
+    sleep 1
+  done
+  curl -sf http://localhost:3999/healthcheck >/dev/null || { echo "server bundle did not start"; return 1; }
+  # Behind the TLS-terminating proxy: a same-origin form post must pass the CSRF check (not 400).
+  code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Host: example.test' \
+    -H 'Origin: https://example.test' -H 'X-Forwarded-Proto: https' http://localhost:3999/logout.data)
+  [ "$code" = "202" ] || { echo "proxied form post returned $code"; return 1; }
+  kill "$boot_pid"
+  wait "$boot_pid" 2>/dev/null || true
+  boot_pid=""
+}
+
+# CI starts every job on an empty database. The development one keeps old rows and queued jobs:
+# they hide some failures (the first signing key of an empty database) and cause others (a worker
+# that starts late, busy with a backlog).
+if wanted build || wanted e2e || wanted unit || { [ -n "$only" ] && wanted image; }; then
+  [ -f .env ] || { echo "No .env here: copy the main checkout's." >&2; exit 1; }
+  admin_url=${DATABASE_URL:-$(grep -E '^DATABASE_URL=' .env | head -n 1 | cut -d= -f2- | tr -d "\"'")}
+  admin_url=${admin_url%%\?*}
+  if ! printf '%s' "$admin_url" | grep -E '@(localhost|127\.0\.0\.1)(:[0-9]+)?/' >/dev/null; then
+    echo "DATABASE_URL must name a local PostgreSQL: the checks create and drop a database there." >&2
+    exit 1
+  fi
+  ci_db="klipstack_ci_$$"
+  run "database: create (empty)" database create "$ci_db"
+  export DATABASE_URL="${admin_url%/*}/$ci_db"
+  run "database: migrations" pnpm db:migrate
+  run "database: collation" pnpm db:check-collation
+fi
+
+if wanted build; then
+  if port_in_use 3999; then echo "Port 3999 is taken: the boot check needs it." >&2; exit 1; fi
+  run "build: production build" pnpm build
+  run "build: boot the server bundle" boot_server_bundle
+fi
+
+if wanted e2e; then
+  # Playwright reuses whatever answers on 5180: it would test `pnpm dev`, not the build.
+  if port_in_use 5180; then echo "Port 5180 is taken: stop \`pnpm dev\` (or another e2e run) first." >&2; exit 1; fi
+  if pgrep -f "playwright test" >/dev/null; then echo "Another Playwright run is active: they share port 5180 and test-results." >&2; exit 1; fi
+  wanted build || echo "  note: e2e tests the last \`pnpm build\`, which --only skipped"
+  # Before the unit tests: those leave jobs in the queue, and the e2e worker would start by
+  # working through them, late for the tests that wait on it.
+  # --forbid-only as CI (which sets CI): a stray test.only would pass here running only itself.
+  run "e2e: all projects" env E2E_PROD=1 pnpm --filter @klipstack/web exec playwright test --retries=1 --forbid-only
+  if grep -E '^[[:space:]]+[0-9]+ flaky' "$logs/e2e--all-projects.log" >/dev/null; then
+    echo "  note: flaky tests passed on retry:"
+    grep -E '^[[:space:]]+\[[a-z-]+\] › ' "$logs/e2e--all-projects.log" | sort -u | sed 's/^/  /'
+  fi
+fi
+
+if wanted unit; then
+  # CI=1 as on GitHub: Vitest then refuses a stray .only instead of running just that test.
+  run "unit: tests" env CI=1 pnpm test
+fi
+
+# The image boots against the empty database above, which it migrates itself. Its containers
+# reach this machine's PostgreSQL through Docker's host gateway. CI builds it on every deploy; a
+# change it would break on must not wait for that.
+image_inputs='^(Dockerfile|\.dockerignore|package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|(apps|packages)/[^/]+/package\.json|apps/worker/|apps/web/(server|security-middleware)\.js|apps/web/scripts/admin\.ts|apps/web/app/services/admin-(roles|audit)\.server\.ts|apps/web/app/lib/app-error\.ts|scripts/image-smoke)'
+if { [ -n "$only" ] && wanted image; } ||
+  { [ -z "$only" ] && printf '%s\n' "$changed" | grep -Eq "$image_inputs"; }; then
+  run "image: build" docker build --build-arg APP_VERSION=ci-local -t "klipstack-ci-local:$$" .
+  image_db_url=$(printf '%s' "$DATABASE_URL" | sed -E 's#@(localhost|127\.0\.0\.1)([:/])#@host.docker.internal\2#')
+  run "image: boot" env DATABASE_URL="$image_db_url" SMOKE_NETWORK=bridge scripts/image-smoke "klipstack-ci-local:$$"
+  docker image rm "klipstack-ci-local:$$" >/dev/null 2>&1 || true
+fi
+
+echo "All checks passed. Logs: $logs"

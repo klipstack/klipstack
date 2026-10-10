@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# Build the release app and install it on the connected iPhone: `pnpm ios:device`.
+#
+# With a free Personal Team, the signing profiles last 7 days and the app then stops opening: run
+# this again to renew them. `expo run:ios` can't: Xcode creates and renews profiles (and registers
+# a new phone) only with -allowProvisioningUpdates, which it doesn't pass. Needs APPLE_TEAM_ID in
+# .env.local, and the phone paired and in Developer Mode. The first time: connect it by data cable,
+# unlock it and tap Trust; `xcrun devicectl manage pair --device <id>`; on the phone, Settings →
+# Privacy & Security → Developer Mode, restart; after the install, trust the developer in
+# Settings → General → VPN & Device Management.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+
+# The paired iPhone: IOS_DEVICE (a UDID) when several are, otherwise the only one.
+udid=${IOS_DEVICE:-}
+if [ -z "$udid" ]; then
+  devices=$(mktemp)
+  trap 'rm -f "$devices"' EXIT
+  xcrun devicectl list devices --json-output "$devices" >/dev/null
+  udid=$(node -e '
+    const { result } = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"))
+    const phones = result.devices.filter(
+      (d) =>
+        d.hardwareProperties?.platform === "iOS" &&
+        d.hardwareProperties?.reality === "physical" &&
+        d.connectionProperties?.pairingState === "paired",
+    )
+    if (phones.length > 1) {
+      console.error("Several paired iPhones; pick one with IOS_DEVICE=<udid>:")
+      for (const d of phones) console.error(`  ${d.hardwareProperties.udid}  ${d.deviceProperties?.name}`)
+      process.exit(1)
+    }
+    const phone = phones[0]
+    // Paired but out of reach (unplugged, or a charge-only cable): no tunnel can open.
+    if (phone?.connectionProperties.tunnelState === "unavailable") {
+      console.error(`${phone.deviceProperties?.name} is paired but not reachable: connect it with a data cable and unlock it.`)
+      process.exit(1)
+    }
+    console.log(phone?.hardwareProperties.udid ?? "")
+  ' "$devices")
+fi
+if [ -z "$udid" ]; then
+  echo "No paired iPhone. Connect it with a data cable, unlock it and tap Trust." >&2
+  exit 1
+fi
+
+if ! grep -qE '^APPLE_TEAM_ID=.+' .env.local 2>/dev/null; then
+  echo "No APPLE_TEAM_ID in apps/mobile/.env.local: device builds need a signing team." >&2
+  exit 1
+fi
+
+log=$(mktemp -t klipstack-ios-device)
+step() {
+  local name=$1
+  shift
+  printf '  %-28s' "$name"
+  if "$@" >>"$log" 2>&1; then
+    echo ok
+  else
+    printf 'FAIL\n\n'
+    tail -n 40 "$log"
+    printf '\nFull log: %s\n' "$log"
+    exit 1
+  fi
+}
+
+echo "Installing on $udid"
+# From app.json, app.config.ts and targets/, which may have changed since the last build.
+step "native project" pnpm expo prebuild -p ios
+# ios/build is ignored and survives between runs, so later builds are incremental.
+step "release build (signing)" xcodebuild -quiet -workspace ios/Klipstack.xcworkspace \
+  -scheme Klipstack -configuration Release -destination "id=$udid" -derivedDataPath ios/build \
+  -allowProvisioningUpdates -allowProvisioningDeviceRegistration build
+step "install" xcrun devicectl device install app --device "$udid" \
+  ios/build/Build/Products/Release-iphoneos/Klipstack.app
+# Launching fails while the phone is locked; the app is installed either way.
+if xcrun devicectl device process launch --device "$udid" com.klipstack.app >>"$log" 2>&1; then
+  echo "  launched"
+else
+  echo "  installed; unlock the phone and open Klipstack"
+fi

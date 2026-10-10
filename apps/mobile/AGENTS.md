@@ -1,0 +1,91 @@
+# Klipstack mobile app
+
+Expo (React Native) app for iOS. The repository's root `AGENTS.md` applies too.
+
+## Expo has changed — do not trust your training data
+
+Expo ships breaking changes every SDK release. Before writing code that touches an Expo or React
+Native API:
+
+1. Read the major version of `expo` in `package.json`.
+2. Fetch the matching docs: `https://docs.expo.dev/versions/v<major>.0.0/`.
+3. For anything else, start at https://docs.expo.dev/llms.txt. Never answer from memory.
+
+## Commands
+
+Run from `apps/mobile`. Metro runs on port 8082, leaving 8081 free for other React Native projects.
+Never set `CI=1` for Metro: it turns off file watching, and the app keeps running old code.
+The app's `console.log` output shows in Metro's output.
+
+```sh
+pnpm expo install <package>  # Always: it picks versions that match the SDK
+pnpm ios                     # Prebuild, build and run in the iOS simulator
+pnpm ios:release             # A release build in the simulator
+pnpm ios:device              # A release build on the connected iPhone; renews its 7-day signing
+pnpm start                   # Metro only, for an app that is already installed
+pnpm typecheck
+pnpm test                    # Vitest, for the pure code in src/lib and src/page (no React Native imports)
+pnpm build:page              # Bundle src/page into src/lib/reader-page.generated.ts, after changing it
+pnpm dlx expo-doctor         # Diagnose dependency and config problems
+```
+
+## Layout
+
+- `src/app/`: Expo Router screens. Every file is a route. Keep other code outside.
+  - `(tabs)/`: the native tab bar (`unstable-native-tabs` in SDK 57). Each tab is a folder with
+    its own stack (`_layout.tsx`, via `TabStack`); Home is the `(home)` group, so it is `/`.
+    `library/` holds the places (`index.tsx`) and each place's list (Inbox, Starred, Archive,
+    Trash, `tags/`, `saved/`); the tab opens on Inbox, pushed by `index.tsx` onto its own stack.
+  - `read/[id].tsx`: the reader, on the root stack over the tabs.
+  - `save.tsx`: the sheet to save a link, from the + button on Home and Inbox.
+- `src/components/`: pieces shared by screens (the article row, a library list, the tab stack).
+- `src/lib/`: auth, API client, storage, and the reader's pure code (tested with Vitest).
+- `src/page/`: the reader page's script, which runs in the WebView, not in React Native: DOM
+  code with `@klipstack/anchor`, tested in jsdom. `pnpm build:page` bundles it into
+  `src/lib/reader-page.generated.ts` (committed; never edit it). A test fails while the bundle is
+  stale. `messages.ts` holds what the app and the page tell each other.
+- `modules/`: local native modules: `klip-lookup` (the dictionary sheet), `klip-pasteboard`
+  (whether the clipboard holds a link, without reading it, and the system's Paste button) and `klip-speech` (reading aloud;
+  see its README).
+- `targets/share/`: the iOS share extension, in Swift. `@bacons/apple-targets` links it into
+  the Xcode project at prebuild.
+- `ios/` and `android/` are generated (`expo prebuild`) and ignored. Never edit them. Change
+  `app.json`, a config plugin, or `targets/` instead, then run `pnpm ios` again.
+  After a release build (`pnpm ios:device`), a development build can fail to link
+  (`RCTPackagerConnection` not found): delete `ios/` and run `pnpm ios` again.
+- `expo-build-properties` sets `ios.enableSceneSupport` in `app.json`: iOS 27 stops an app built
+  with Xcode 27 at launch unless it uses the scene life cycle. SDK 58 does this by default; drop
+  the setting then.
+- `app.config.ts` adds what must stay out of the repo to `app.json`: the Apple team that signs
+  device builds, from `APPLE_TEAM_ID` in `apps/mobile/.env.local` (ignored). Simulator builds
+  need none.
+
+## Which server
+
+- **Development builds** (`pnpm ios`) talk to the local dev server, `http://localhost:5180`, and
+  load their JavaScript from Metro.
+- **Release builds** (`pnpm ios:release`) talk to `https://klipstack.com` and carry their
+  JavaScript: no Metro, no Mac needed. The phone runs these.
+- `EXPO_PUBLIC_API_URL` overrides both (`src/lib/config.ts`). A stored session for a different
+  server is dropped at launch, so switching builds means signing in again.
+
+## Signing in without a password (development)
+
+A development build can skip the OAuth sign-in: put an API key for a dev-server account in
+`.env.local` as `EXPO_PUBLIC_API_TOKEN`, then restart Metro.
+
+```sh
+pnpm --filter @klipstack/web api-key <email> mobile-simulator   # prints klip_…
+```
+
+The app stores it as the session (so the share extension has it too) and never refreshes it.
+Release builds ignore it. Agents need this to use the simulator: they can't type passwords.
+
+## Sign-in and the share extension
+
+- The app signs in with OAuth (authorization code + PKCE) as the first-party client
+  `klipstack-mobile`, like the CLI does.
+- It keeps the session (API URL, tokens) as one JSON keychain item in the app group
+  `group.com.klipstack.app`. The share extension reads and refreshes the same item.
+- Every API request sends `X-Klipstack-Client: ios/<version>`. The server answers `426` when the
+  version is too old; the app and the extension then ask the user to update.

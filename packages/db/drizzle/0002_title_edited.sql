@@ -1,0 +1,1 @@
+ALTER TABLE "documents" ADD COLUMN "title_edited" boolean DEFAULT false NOT NULL;

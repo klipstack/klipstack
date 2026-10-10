@@ -1,0 +1,164 @@
+import { type Browser, browser } from "wxt/browser"
+import { defineBackground } from "wxt/utils/define-background"
+import {
+	capturePage,
+	isCapturableUrl,
+	isServerCapturedUrl,
+	savePage as sendPage,
+	saveToKlipstack,
+} from "../lib/capture"
+import { forgetApiKey, getSettings } from "../lib/settings"
+import { showToast, type ToastOptions } from "../lib/toast"
+
+const BADGE_RESET_MS = 2500
+
+type SaveOutcome = {
+	ok: boolean
+	status: number
+	id?: string
+	readUrl?: string
+	error?: string
+	limit?: string
+}
+
+export default defineBackground(() => {
+	browser.runtime.onInstalled.addListener(() => {
+		void forgetApiKey()
+		browser.contextMenus.create({
+			id: "save-link",
+			title: browser.i18n.getMessage("saveLink"),
+			contexts: ["link"],
+		})
+		browser.contextMenus.create({
+			id: "save-page",
+			title: browser.i18n.getMessage("savePage"),
+			contexts: ["page"],
+		})
+	})
+
+	browser.action.onClicked.addListener((tab) => {
+		void savePage(tab)
+	})
+
+	browser.contextMenus.onClicked.addListener((info, tab) => {
+		if (info.menuItemId === "save-page" && tab) void savePage(tab)
+		if (info.menuItemId === "save-link" && info.linkUrl && tab?.id !== undefined)
+			void saveUrlOnly(info.linkUrl, tab.id)
+	})
+
+	// Messages from extension pages (options, tests). Always answers, even on failure.
+	browser.runtime.onMessage.addListener(
+		(message: { type?: string; tabId?: number }, _sender, sendResponse) => {
+			const respond = (work: Promise<SaveOutcome>) => {
+				work
+					.catch((error): SaveOutcome => ({
+						ok: false,
+						status: 0,
+						error: error instanceof Error ? error.message : String(error),
+					}))
+					.then(sendResponse)
+				return true
+			}
+			if (message?.type === "save-current") {
+				return respond(
+					browser.tabs
+						.query({ active: true, currentWindow: true })
+						.then(([tab]) => (tab ? savePage(tab) : { ok: false, status: 0, error: "no_tab" })),
+				)
+			}
+			if (message?.type === "save-tab" && typeof message.tabId === "number") {
+				return respond(browser.tabs.get(message.tabId).then((tab) => savePage(tab)))
+			}
+			return false
+		},
+	)
+})
+
+async function savePage(tab: Browser.tabs.Tab): Promise<SaveOutcome> {
+	if (tab.id === undefined || !isCapturableUrl(tab.url)) {
+		await flash(tab.id, "!", "#b91c1c")
+		return { ok: false, status: 0, error: "not_capturable" }
+	}
+	await setBadge(tab.id, "…", "#243f6c")
+	const settings = await getSettings()
+	const captured = isServerCapturedUrl(tab.url) ? null : await captureTab(tab.id)
+	const payload = captured ? { url: captured.url, html: captured.html } : { url: tab.url }
+	void toast(tab.id, { kind: "saving", title: msg("toastSaving") })
+	const result = await sendPage(settings.appUrl, payload)
+	await flash(tab.id, result.ok ? "✓" : "!", result.ok ? "#15803d" : "#b91c1c")
+	await toast(tab.id, outcomeToast(result, settings.appUrl))
+	return result
+}
+
+async function captureTab(tabId: number): Promise<ReturnType<typeof capturePage> | null> {
+	try {
+		const [result] = await browser.scripting.executeScript({
+			target: { tabId },
+			func: capturePage,
+		})
+		return (result?.result as ReturnType<typeof capturePage> | undefined) ?? null
+	} catch {
+		return null
+	}
+}
+
+async function saveUrlOnly(url: string, tabId: number) {
+	if (!isCapturableUrl(url)) return
+	await setBadge(tabId, "…", "#243f6c")
+	const settings = await getSettings()
+	void toast(tabId, { kind: "saving", title: msg("toastSaving") })
+	const result = await saveToKlipstack(settings.appUrl, { url })
+	await flash(tabId, result.ok ? "✓" : "!", result.ok ? "#15803d" : "#b91c1c")
+	await toast(tabId, outcomeToast(result, settings.appUrl))
+}
+
+type MessageKey = Parameters<typeof browser.i18n.getMessage>[0]
+const msg = (key: MessageKey, ...subs: string[]) => browser.i18n.getMessage(key, subs) || key
+
+function outcomeToast(result: SaveOutcome, appUrl: string): ToastOptions {
+	if (result.ok) {
+		const link = result.readUrl ? { label: msg("toastOpen"), href: result.readUrl } : undefined
+		return { kind: "saved", title: msg("toastSaved"), link }
+	}
+	// A 403 for a cap is no sign-in problem: say which cap, and where usage shows.
+	if (result.error === "limit_reached")
+		return {
+			kind: "error",
+			title: msg(result.limit === "storage" ? "toastLibraryFull" : "toastSaveLimit"),
+			link: { label: msg("toastUsage"), href: `${appUrl}/settings/usage` },
+			ms: 8000,
+		}
+	if (result.status === 401 || result.status === 403)
+		return {
+			kind: "error",
+			title: msg("toastLogin"),
+			link: { label: msg("toastLoginAction"), href: `${appUrl}/login` },
+			ms: 8000,
+		}
+	if (result.status === 0) return { kind: "error", title: msg("toastUnreachable"), ms: 6000 }
+	return { kind: "error", title: msg("toastFailed", String(result.status)), ms: 6000 }
+}
+
+/** Show the in-page notice; pages we cannot script (browser UI, stores) just keep the badge. */
+async function toast(tabId: number, opts: ToastOptions) {
+	try {
+		await browser.scripting.executeScript({ target: { tabId }, func: showToast, args: [opts] })
+	} catch {
+		// not injectable here
+	}
+}
+
+async function setBadge(tabId: number | undefined, text: string, color: string) {
+	if (tabId === undefined) return
+	try {
+		await browser.action.setBadgeBackgroundColor({ tabId, color })
+		await browser.action.setBadgeText({ tabId, text })
+	} catch {
+		// tab may be gone; the badge is cosmetic
+	}
+}
+
+async function flash(tabId: number | undefined, text: string, color: string) {
+	await setBadge(tabId, text, color)
+	setTimeout(() => void setBadge(tabId, "", color), BADGE_RESET_MS)
+}

@@ -1,0 +1,2 @@
+# drizzle-kit schema snapshots: needed to generate the next migration, not for review.
+packages/db/drizzle/meta/*.json linguist-generated=true

@@ -1,0 +1,22 @@
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: klipstack
+      POSTGRES_PASSWORD: klipstack
+      POSTGRES_DB: klipstack
+      # Text sorts by Unicode code point, defined by Postgres itself: an OS update in the image can
+      # not reorder it and corrupt indexes. Only a new volume picks this up (see
+      # docs/self-hosting/postgres-collation.md).
+      POSTGRES_INITDB_ARGS: "--locale-provider=builtin --builtin-locale=C.UTF-8 --locale=C.UTF-8"
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U klipstack"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+volumes:
+  pgdata:

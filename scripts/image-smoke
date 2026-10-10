@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# Boot a built image the way production runs it, before it is pushed: migrations, the web server
+# (its health check, which queries the database) and the worker (still running after 20 seconds).
+# The Dockerfile copies files one by one and installs production dependencies only; a file or a
+# package missing from the image fails here instead of in production, after the release hook.
+#
+# Usage: scripts/image-smoke IMAGE
+#   DATABASE_URL    an empty database, as the containers reach it
+#   SMOKE_NETWORK   the Docker network for the containers (default: host)
+set -euo pipefail
+image=${1:?usage: scripts/image-smoke IMAGE}
+: "${DATABASE_URL:?DATABASE_URL must name an empty database the containers can reach}"
+network=${SMOKE_NETWORK:-host}
+name="klipstack-smoke-$$"
+web_port=3998
+
+cleanup() { docker rm -f "$name-web" "$name-worker" >/dev/null 2>&1 || true; }
+trap cleanup EXIT
+
+# What the app needs to start in production, with nothing real in it.
+settings=(
+  --network "$network"
+  -e DATABASE_URL
+  -e NODE_ENV=production
+  -e BETTER_AUTH_SECRET=image-smoke-secret-image-smoke-secret
+  -e APP_URL="http://localhost:$web_port"
+  -e PORT="$web_port"
+  -e STORAGE_DRIVER=fs
+)
+
+echo "migrations"
+docker run --rm "${settings[@]}" "$image" pnpm --filter @klipstack/db migrate
+
+echo "web and worker"
+# The commands of docs/self-hosting/compose.yml, as production runs them.
+docker run -d --name "$name-web" "${settings[@]}" "$image" >/dev/null
+docker run -d --name "$name-worker" "${settings[@]}" -w /app/apps/worker "$image" \
+  node --import tsx src/main.ts >/dev/null
+
+healthy=""
+for _ in $(seq 1 30); do
+  if docker exec "$name-web" node -e \
+    "fetch('http://localhost:$web_port/healthcheck').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"; then
+    healthy=1
+    break
+  fi
+  sleep 1
+done
+if [ -z "$healthy" ]; then
+  echo "The web server did not answer its health check:" >&2
+  docker logs "$name-web" 2>&1 | tail -n 40 >&2
+  exit 1
+fi
+echo "web healthy"
+
+sleep 20
+if [ "$(docker inspect -f '{{.State.Running}}' "$name-worker")" != true ]; then
+  echo "The worker stopped:" >&2
+  docker logs "$name-worker" 2>&1 | tail -n 40 >&2
+  exit 1
+fi
+# Read the logs whole first: `grep -q` stops at the first match, and under pipefail the write docker
+# then makes into the closed pipe fails the check.
+worker_logs=$(docker logs "$name-worker" 2>&1)
+if ! grep -q "worker started" <<<"$worker_logs"; then
+  echo "The worker is running but never started its queues:" >&2
+  docker logs "$name-worker" 2>&1 | tail -n 40 >&2
+  exit 1
+fi
+echo "worker running"
+echo "Image smoke test passed"

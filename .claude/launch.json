@@ -1,0 +1,18 @@
+{
+	"version": "0.0.1",
+	"configurations": [
+		{
+			"name": "dev",
+			"runtimeExecutable": "sh",
+			"runtimeArgs": ["-c", "APP_URL=http://localhost:$PORT exec pnpm dev --port $PORT"],
+			"port": 5180,
+			"autoPort": true
+		},
+		{
+			"name": "mobile",
+			"runtimeExecutable": "sh",
+			"runtimeArgs": ["-c", "cd apps/mobile && LANG=en_US.UTF-8 exec pnpm start"],
+			"port": 8082
+		}
+	]
+}

@@ -1,0 +1,150 @@
+#!/usr/bin/env bash
+# Prepares an Amp orb (a Debian 12 sandbox) to build, test and run Klipstack: Node 22, the
+# workspace dependencies, PostgreSQL 17 on port 5433 as `pnpm db:up` would give, the Playwright
+# browsers, and `.env`. Amp snapshots the result, and runs this again on an older snapshot, so
+# every step checks what is already there. See https://ampcode.com/docs/orbs/customizing.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+export DEBIAN_FRONTEND=noninteractive
+
+step() {
+	printf '\n==> %s\n' "$1"
+	step_started=$SECONDS
+}
+done_step() { printf '    (%ss)\n' "$((SECONDS - step_started))"; }
+
+apt_updated=""
+apt_install() {
+	[ -n "$apt_updated" ] || { sudo apt-get update -qq; apt_updated=1; }
+	sudo apt-get install -y -qq --no-install-recommends "$@"
+}
+
+# --- Node 22 (.nvmrc), as CI and the production image use. The orb's /usr/local/bin/node is newer.
+# Linked into ~/.local/bin, which comes before /usr/local/bin on the agent's PATH; the profile
+# block below does the same for login shells (orb services).
+step "Node $(cat .nvmrc)"
+node_major=$(cat .nvmrc)
+node_home="$HOME/.local/share/node-$node_major"
+if [ "$("$node_home/bin/node" -p 'process.versions.node.split(".")[0]' 2>/dev/null)" != "$node_major" ]; then
+	version=$(curl -fsSL https://nodejs.org/dist/index.json |
+		node -e 'const m = process.argv[1]; let s = ""; process.stdin.on("data", (d) => (s += d)).on("end", () => console.log(JSON.parse(s).find((r) => r.version.startsWith(`v${m}.`)).version))' "$node_major")
+	rm -rf "$node_home"
+	mkdir -p "$node_home"
+	curl -fsSL "https://nodejs.org/dist/$version/node-$version-linux-x64.tar.xz" |
+		tar -xJ -C "$node_home" --strip-components=1
+fi
+mkdir -p "$HOME/.local/bin"
+for bin in node npm npx corepack; do ln -sfn "$node_home/bin/$bin" "$HOME/.local/bin/$bin"; done
+profile_marker="# klipstack: Node $node_major from ~/.local/bin"
+if ! grep -Fqx "$profile_marker" "$HOME/.bash_profile" 2>/dev/null; then
+	cat >>"$HOME/.bash_profile" <<'EOF'
+
+# klipstack: Node 22 from ~/.local/bin
+case ":$PATH:" in
+	*":$HOME/.local/bin:"*) ;;
+	*) export PATH="$HOME/.local/bin:$PATH" ;;
+esac
+EOF
+fi
+export PATH="$HOME/.local/bin:$PATH"
+node --version
+done_step
+
+# --- PostgreSQL 17, the version of docker-compose.yml and production. Native, run by systemd, in
+# place of `pnpm db:up`: the orb has no Docker daemon running, and systemd restarts it on wake.
+step "PostgreSQL 17"
+if ! dpkg -s postgresql-17 >/dev/null 2>&1; then
+	sudo install -d /usr/share/postgresql-common/pgdg
+	sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+		https://www.postgresql.org/media/keys/ACCC4CF8.asc
+	echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" |
+		sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+	# Our own cluster below, on 5433 with the builtin collation; not Debian's default one on 5432.
+	sudo install -d /etc/postgresql-common
+	echo "create_main_cluster = false" | sudo tee /etc/postgresql-common/createcluster.conf >/dev/null
+	apt_updated=""
+	apt_install postgresql-17 postgresql-client-17
+fi
+if ! pg_lsclusters -h | awk '$1 == 17 && $2 == "klipstack"' | grep -q .; then
+	# As POSTGRES_INITDB_ARGS in docker-compose.yml: text sorts by code point.
+	sudo pg_createcluster 17 klipstack --port 5433 --encoding UTF8 -- \
+		--locale-provider=builtin --builtin-locale=C.UTF-8 --locale=C.UTF-8
+fi
+sudo systemctl enable --now postgresql@17-klipstack >/dev/null 2>&1
+for _ in $(seq 1 30); do pg_isready -q -h localhost -p 5433 && break; sleep 1; done
+pg_isready -h localhost -p 5433
+# The user and database of docker-compose.yml. A superuser, as there: `pnpm ci:local` creates and
+# drops databases.
+sudo -u postgres psql -p 5433 -qAt -v ON_ERROR_STOP=1 <<'EOF'
+SELECT 'CREATE ROLE klipstack LOGIN SUPERUSER PASSWORD ''klipstack'''
+WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'klipstack') \gexec
+SELECT 'CREATE DATABASE klipstack OWNER klipstack'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'klipstack') \gexec
+-- A throwaway sandbox: speed over durability.
+ALTER SYSTEM SET fsync = off;
+ALTER SYSTEM SET synchronous_commit = off;
+ALTER SYSTEM SET full_page_writes = off;
+SELECT pg_reload_conf() \g /dev/null
+EOF
+done_step
+
+# --- Docker, for the `image` step of `pnpm ci:local`. Installed in the orb but off: start it on
+# first use, and let the user reach its socket without sudo.
+step "Docker (socket-activated)"
+sudo install -d /etc/systemd/system/docker.socket.d
+printf '[Socket]\nSocketGroup=%s\n' "$(id -gn)" |
+	sudo tee /etc/systemd/system/docker.socket.d/orb.conf >/dev/null
+sudo systemctl daemon-reload
+sudo systemctl enable docker.socket >/dev/null 2>&1
+sudo systemctl restart docker.socket
+done_step
+
+# --- Dependencies: every workspace, the mobile app too, as `pnpm ci:local` installs them.
+step "pnpm install"
+CI=true pnpm install --frozen-lockfile # CI: no prompt to rebuild node_modules
+done_step
+
+step ".env"
+# With a real secret: the production build (`pnpm ci:local`, E2E_PROD=1) refuses the placeholder.
+if [ ! -f .env ]; then
+	secret=$(openssl rand -base64 48 | tr -d '\n/+=')
+	sed "s|^BETTER_AUTH_SECRET=.*|BETTER_AUTH_SECRET=$secret|" .env.example >.env
+fi
+done_step
+
+step "Database migrations"
+pnpm db:migrate
+done_step
+
+# --- Playwright: the browsers `pnpm ci:local` tests with (Chromium, WebKit), and their system
+# libraries. The libraries are checked first: `install-deps` would run apt-get update each time.
+step "Playwright browsers"
+playwright() { pnpm --filter @klipstack/web exec playwright "$@"; }
+playwright install chromium webkit
+pw_version=$(playwright --version | awk '{print $2}')
+deps_marker="$HOME/.cache/ms-playwright/.klipstack-deps-$pw_version"
+if [ ! -f "$deps_marker" ]; then
+	playwright install-deps chromium webkit
+	touch "$deps_marker"
+fi
+done_step
+
+# --- Notes for agents working in the orb.
+mkdir -p "$HOME/.config/amp"
+notes_marker="## Klipstack orb"
+if ! grep -Fqx "$notes_marker" "$HOME/.config/amp/AGENTS.md" 2>/dev/null; then
+	cat >>"$HOME/.config/amp/AGENTS.md" <<'EOF'
+
+## Klipstack orb
+
+- `.agents/setup` prepared this orb: Node 22 (in `~/.local/bin`, ahead of the orb's newer Node),
+  the dependencies, `.env` from `.env.example`, the Playwright browsers, and migrations.
+- PostgreSQL 17 runs natively under systemd on port 5433 (`postgresql@17-klipstack`), with the
+  user, password and database of `docker-compose.yml`. Do not run `pnpm db:up`: the port is taken.
+  `psql postgres://klipstack:klipstack@localhost:5433/klipstack` connects.
+- Docker starts on first use (socket activation), for the `image` step of `pnpm ci:local`.
+EOF
+fi
+
+printf '\nSetup finished in %ss\n' "$SECONDS"

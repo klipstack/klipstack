@@ -1,0 +1,2 @@
+ALTER TABLE "documents" ADD COLUMN "shortlisted_at" timestamp with time zone;--> statement-breakpoint
+CREATE INDEX "documents_user_shortlisted_idx" ON "documents" USING btree ("user_id","shortlisted_at") WHERE "documents"."shortlisted_at" is not null;

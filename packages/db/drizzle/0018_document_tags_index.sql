@@ -1,0 +1,1 @@
+CREATE INDEX "document_tags_tag_idx" ON "document_tags" USING btree ("tag_id");

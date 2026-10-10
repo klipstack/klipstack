@@ -1,0 +1,70 @@
+{
+	"name": {
+		"message": "Klipstack"
+	},
+	"description": {
+		"message": "Save the page you are reading to Klipstack, exactly as you see it."
+	},
+	"actionTitle": {
+		"message": "Save to Klipstack"
+	},
+	"savePage": {
+		"message": "Save page to Klipstack"
+	},
+	"saveLink": {
+		"message": "Save link to Klipstack"
+	},
+	"optionsIntro": {
+		"message": "The extension saves to the Klipstack account you are signed in to in this browser. If a save asks you to log in, sign in to Klipstack in this browser and try again."
+	},
+	"optionsAppUrl": {
+		"message": "Klipstack address"
+	},
+	"optionsAppUrlHint": {
+		"message": "Change it only if you run your own Klipstack server."
+	},
+	"optionsSave": {
+		"message": "Save"
+	},
+	"optionsSaved": {
+		"message": "Saved."
+	},
+	"toastSaving": {
+		"message": "Saving to Klipstack…"
+	},
+	"toastSaved": {
+		"message": "Saved to Klipstack"
+	},
+	"toastOpen": {
+		"message": "Open"
+	},
+	"toastLogin": {
+		"message": "Log in to Klipstack to save"
+	},
+	"toastLoginAction": {
+		"message": "Log in"
+	},
+	"toastUnreachable": {
+		"message": "Can't reach Klipstack"
+	},
+	"toastFailed": {
+		"message": "Couldn't save (HTTP $STATUS$)",
+		"placeholders": {
+			"status": {
+				"content": "$1"
+			}
+		}
+	},
+	"toastSaveLimit": {
+		"message": "You saved as many articles this month as an account can"
+	},
+	"toastLibraryFull": {
+		"message": "Your Klipstack library is full"
+	},
+	"toastUsage": {
+		"message": "See usage"
+	},
+	"toastNotCapturable": {
+		"message": "This page can't be saved"
+	}
+}

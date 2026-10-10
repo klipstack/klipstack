@@ -1,0 +1,95 @@
+# Klipstack with Docker Compose: the web server, the worker and PostgreSQL 17.
+# Put this file and a .env file (see README.md in this directory) in one directory, then:
+#
+#   docker compose up -d postgres
+#   docker compose run --rm migrate    # the first time, and after every upgrade
+#   docker compose up -d
+#
+# The web server listens on 127.0.0.1:3000. Put a TLS reverse proxy in front of it.
+
+x-app: &app
+  # Pin a commit tag (ghcr.io/klipstack/klipstack:<sha>) in .env, so that web, worker and migrate
+  # always run the same image. `latest` is the newest image that passed its deploy.
+  image: ${KLIPSTACK_IMAGE:-ghcr.io/klipstack/klipstack:latest}
+  env_file: .env
+  environment:
+    DATABASE_URL: postgres://klipstack:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/klipstack
+  restart: unless-stopped
+  init: true
+  depends_on:
+    postgres:
+      condition: service_healthy
+
+services:
+  # Web and worker run under node directly, not pnpm: pnpm's shell does not pass docker stop's
+  # SIGTERM on, so they would be killed instead of shutting down cleanly.
+  web:
+    <<: *app
+    # No command: the image's own, `node server.js`, in /app/apps/web.
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      # Images, with STORAGE_DRIVER=fs. Unused with STORAGE_DRIVER=s3.
+      - storage:/app/storage
+    healthcheck:
+      # /healthcheck also queries the database.
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:3000/healthcheck').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  worker:
+    <<: *app
+    working_dir: /app/apps/worker
+    command: ["node", "--import", "tsx", "src/main.ts"]
+    volumes:
+      - storage:/app/storage
+    # Extraction and image processing share this; apps/worker/src/images.ts sizes its work to fit.
+    mem_limit: 1200m
+
+  # A one-off: `docker compose run --rm migrate`. The profile keeps `up` from starting it.
+  migrate:
+    <<: *app
+    restart: "no"
+    command: ["pnpm", "--filter", "@klipstack/db", "migrate"]
+    profiles: [tools]
+
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: klipstack
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: klipstack
+      # Text sorts by Unicode code point, defined by PostgreSQL itself: an OS update in the image
+      # cannot reorder it and corrupt indexes. Applies only when the volume is first created; see
+      # postgres-collation.md.
+      POSTGRES_INITDB_ARGS: "--locale-provider=builtin --builtin-locale=C.UTF-8 --locale=C.UTF-8"
+    shm_size: 256mb
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U klipstack -d klipstack"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  default:
+    # A fixed subnet, so the reverse proxy keeps the address TRUST_PROXY names. A proxy on the host
+    # reaches the web container from the gateway, 172.30.57.1. Change both if the subnet is taken.
+    ipam:
+      config:
+        - subnet: 172.30.57.0/24
+          gateway: 172.30.57.1
+
+volumes:
+  pgdata:
+  storage:

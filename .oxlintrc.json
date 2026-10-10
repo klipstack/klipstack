@@ -1,0 +1,143 @@
+{
+	"$schema": "./node_modules/oxlint/configuration_schema.json",
+	"plugins": ["typescript", "unicorn", "oxc", "react", "jsx-a11y", "import", "vitest"],
+	"categories": {
+		"correctness": "error"
+	},
+	"rules": {
+		"array-callback-return": "error",
+		"default-case-last": "error",
+		"eqeqeq": [
+			"error",
+			"always",
+			{
+				"null": "ignore"
+			}
+		],
+		"jsx-a11y/anchor-ambiguous-text": "error",
+		"jsx-a11y/no-autofocus": [
+			"error",
+			{
+				"ignoreNonDOM": true
+			}
+		],
+		"jsx-a11y/no-noninteractive-element-interactions": "off",
+		"jsx-a11y/prefer-tag-over-role": "off",
+		"no-array-constructor": "error",
+		"no-case-declarations": "error",
+		"no-constructor-return": "error",
+		"no-extra-label": "error",
+		"no-fallthrough": "error",
+		"no-inner-declarations": "error",
+		"no-label-var": "error",
+		"no-labels": "error",
+		"no-lone-blocks": "error",
+		"no-proto": "error",
+		"no-prototype-builtins": "error",
+		"no-regex-spaces": "error",
+		"no-self-compare": "error",
+		"no-sequences": "error",
+		"no-template-curly-in-string": "error",
+		"no-unneeded-ternary": "error",
+		"no-use-before-define": [
+			"error",
+			{
+				"functions": false,
+				"classes": false,
+				"variables": false,
+				"typedefs": false,
+				"ignoreTypeReferences": true
+			}
+		],
+		"no-useless-constructor": "error",
+		"oxc/approx-constant": "error",
+		"oxc/misrefactored-assign-op": "error",
+		"oxc/no-accumulating-spread": "error",
+		"oxc/no-const-enum": "error",
+		"prefer-arrow-callback": "error",
+		"prefer-const": "error",
+		"prefer-exponentiation-operator": "error",
+		"prefer-numeric-literals": "error",
+		"prefer-object-has-own": "error",
+		"prefer-regex-literals": "error",
+		"prefer-rest-params": "error",
+		"prefer-template": "error",
+		"radix": "error",
+		"react/button-has-type": "error",
+		"react/jsx-no-comment-textnodes": "error",
+		"react/jsx-no-script-url": "error",
+		"react/jsx-no-target-blank": "error",
+		"react/jsx-no-useless-fragment": "error",
+		"react/no-array-index-key": "error",
+		"react/no-danger": "error",
+		"react/rules-of-hooks": "error",
+		"typescript/adjacent-overload-signatures": "error",
+		"typescript/ban-ts-comment": "error",
+		"typescript/ban-types": "error",
+		"typescript/consistent-type-exports": "error",
+		"typescript/consistent-type-imports": [
+			"error",
+			{
+				"disallowTypeAnnotations": false,
+				"fixStyle": "inline-type-imports"
+			}
+		],
+		"typescript/dot-notation": "error",
+		"typescript/no-empty-interface": "error",
+		"typescript/no-explicit-any": "warn",
+		"typescript/no-extraneous-class": "error",
+		"typescript/no-invalid-void-type": "error",
+		"typescript/no-unnecessary-type-constraint": "error",
+		"typescript/prefer-function-type": "error",
+		"typescript/prefer-literal-enum-member": "error",
+		"typescript/prefer-optional-chain": "error",
+		"unicorn/new-for-builtins": "error",
+		"unicorn/no-document-cookie": "error",
+		"unicorn/no-instanceof-array": "error",
+		"unicorn/no-static-only-class": "error",
+		"unicorn/no-useless-switch-case": "error",
+		"unicorn/prefer-array-flat-map": "error",
+		"unicorn/prefer-array-index-of": "error",
+		"unicorn/prefer-date-now": "error",
+		"unicorn/prefer-node-protocol": "error",
+		"unicorn/prefer-number-properties": "error",
+		"vitest/no-focused-tests": "error",
+		"vitest/no-conditional-expect": "off",
+		"vitest/no-standalone-expect": "off",
+		"vitest/require-mock-type-parameters": "off",
+		"vitest/require-to-throw-message": "off",
+		"vitest/valid-expect": "off",
+		"vitest/valid-title": "off"
+	},
+	"ignorePatterns": [
+		"**/.react-router",
+		"**/build",
+		"**/dist",
+		"**/.output",
+		"**/.wxt",
+		"**/fixtures",
+		"**/__snapshots__",
+		"apps/web/public",
+		"apps/mobile/.expo",
+		"apps/mobile/ios",
+		"apps/mobile/android",
+		"apps/mobile/src/lib/reader-page.generated.ts"
+	],
+	"overrides": [
+		{
+			"files": ["apps/mobile/src/page/**"],
+			"rules": {
+				"no-redeclare": "error",
+				"no-var": "error"
+			}
+		},
+		{
+			"files": ["apps/web/app/components/reader-article.tsx"],
+			"rules": {
+				"jsx-a11y/no-static-element-interactions": "off",
+				"jsx-a11y/click-events-have-key-events": "off",
+				"react/no-danger": "off"
+			}
+		}
+	]
+}

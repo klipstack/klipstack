@@ -1,0 +1,314 @@
+import { HIGHLIGHT_COLORS, type HighlightColor } from "@klipstack/api-contract/enums"
+import type { PageConfig, PageHighlight } from "@/page/messages"
+import { pageScript, pageScriptHash } from "./reader-page.generated"
+
+/** A highlight as the API gives it: where it is, and its quote with the text around it. */
+export type ReaderHighlight = {
+	id: string
+	quote: string
+	color: HighlightColor
+	prefix?: string
+	suffix?: string
+	start: number
+	end: number
+}
+
+export type ReaderPage = {
+	title: string
+	/** Site, author and reading time, already joined. */
+	byline: string
+	/**
+	 * The posts the article was saved through (`via` in the details), shown under the byline: who
+	 * shared it and what they said. Their HTML is sanitized on the server.
+	 */
+	via?: ReadonlyArray<{ author: string | null; siteName: string | null; html: string }>
+	/** The article's stored HTML (`GET /articles/{id}/html`), its images made local (`localImages`). */
+	html: string
+	highlights: ReadonlyArray<ReaderHighlight>
+	/** The text size as a factor of the default (the chosen size times iOS Dynamic Type); 1 when unset. */
+	fontScale?: number
+	/** Sans-serif body text instead of serif. */
+	sans?: boolean
+	/** The saved reading position, 0–1, to open at; the top when unset. */
+	position?: number
+	/** A highlight to open at instead (its id), from the Highlights tab; the position when not found. */
+	highlight?: string
+	/**
+	 * Points at the top of the screen the app's controls cover when they show: the page runs under
+	 * them, so its text starts below. 0 when unset.
+	 */
+	top?: number
+}
+
+/**
+ * The reader's page for the WebView: the web reader's type and colors (apps/web/app/app.css),
+ * following the system's light or dark mode, around the article's stored HTML, as the web reader
+ * shows it. The script (`src/page/reader-page.ts`, bundled) paints the highlights and reports what
+ * happens; it holds no token and calls nothing. The page's policy runs only that script and loads
+ * only images: the HTML is sanitized on the server, and this keeps it inert if it ever isn't.
+ */
+export function readerHtml(page: ReaderPage): string {
+	const config: PageConfig = {
+		top: topOf(page),
+		highlights: pageHighlights(page.highlights),
+		position: restorable(page.position),
+		highlight: page.highlight ?? null,
+	}
+	return `<!doctype html>
+<html${page.sans ? ' class="sans"' : ""}>
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="${POLICY}">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>${css}html { font-size: ${16 * clampScale(page.fontScale)}px; } :root { --top: ${topOf(page)}px; }</style>
+</head>
+<body>
+<header>
+<h1>${escapeHtml(page.title)}</h1>
+${page.byline ? `<p class="byline">${escapeHtml(page.byline)}</p>` : ""}
+${(page.via ?? []).map(viaHtml).join("")}
+</header>
+<article>${page.html}</article>
+<section id="klip-end"></section>
+<script type="application/json" id="klip-config">${scriptJson(config)}</script>
+<script>${pageScript}</script>
+</body>
+</html>`
+}
+
+/** A post the article was saved through, as the web reader shows it above the article. */
+function viaHtml(via: NonNullable<ReaderPage["via"]>[number]): string {
+	const who = via.author ? `Shared by ${via.author}` : "Shared in a post"
+	const line = [who, via.siteName].filter(Boolean).join(" · ")
+	return `<aside class="via"><p class="via-by">${escapeHtml(line)}</p>${via.html}</aside>`
+}
+
+/** Only the page's own script; images from its folder and the web; styles in the page. */
+const POLICY = [
+	"default-src 'none'",
+	`script-src '${pageScriptHash}'`,
+	"style-src 'unsafe-inline'",
+	"img-src file: https: data:",
+	"base-uri 'none'",
+	"form-action 'none'",
+].join("; ")
+
+/** JSON safe inside a script element: "<" escaped, so no text in it can close the element. */
+function scriptJson(value: unknown): string {
+	return JSON.stringify(value).replace(/</g, "\\u003c")
+}
+
+function topOf(page: ReaderPage): number {
+	return Math.max(0, Math.round(page.top ?? 0))
+}
+
+function pageHighlights(highlights: ReadonlyArray<ReaderHighlight>): PageHighlight[] {
+	return highlights.map((h) => ({
+		id: h.id,
+		color: HIGHLIGHT_COLORS.indexOf(h.color),
+		quote: h.quote,
+		prefix: h.prefix ?? "",
+		suffix: h.suffix ?? "",
+		start: h.start,
+		end: h.end,
+	}))
+}
+
+/** Highlights for `window.klipHighlights`, as the app injects them to repaint. */
+export function highlightsJson(highlights: ReadonlyArray<ReaderHighlight>): string {
+	return scriptJson(pageHighlights(highlights))
+}
+
+/** The article's words, for guessing its language: its HTML without tags, up to 5,000 characters. */
+export function sampleText(html: string): string {
+	return html
+		.replace(/<[^>]*>/g, " ")
+		.replace(/\s+/g, " ")
+		.trim()
+		.slice(0, 5000)
+}
+
+/** A stored image's size in pixels, from the article's details; null when unknown. */
+export type ImageSize = { width: number | null; height: number | null }
+
+/**
+ * Stored images need the app's token, which the page never gets. So their `<img>`s start empty,
+ * marked with the asset id (`data-asset`); the app downloads each into the page's folder and
+ * sets its `src` through `window.klipAsset(id, fileName)`. Matched by path (`/assets/<id>`), as
+ * the API says clients should. Returns the ids in order, each once.
+ *
+ * An image whose size is known takes its place at once (as wide as it will be, and its shape), so
+ * the text doesn't move as images land: opening at the saved position needs a steady page.
+ */
+export function localImages(
+	html: string,
+	sizes: ReadonlyMap<string, ImageSize> = new Map(),
+): { html: string; ids: string[] } {
+	const ids = new Set<string>()
+	const out = html.replace(
+		/<img([^>]*?)\ssrc="[^"]*\/assets\/([0-9a-f-]{36})"/g,
+		(_, before: string, id: string) => {
+			ids.add(id)
+			const size = sizes.get(id)
+			const style =
+				size?.width && size.height
+					? ` style="width: min(100%, ${size.width}px); aspect-ratio: ${size.width} / ${size.height}"`
+					: ""
+			return `<img${before} data-asset="${id}"${style}`
+		},
+	)
+	return { html: out, ids: [...ids] }
+}
+
+/** A position worth opening at; others open at the top, as on the web. */
+function restorable(position = 0): number {
+	return Number.isFinite(position) && position >= 0.05 && position <= 0.95 ? position : 0
+}
+
+/** Dynamic Type goes from 0.82 (xSmall) to 3.12 (accessibility XXXL); keep the text readable. */
+export function clampScale(scale = 1): number {
+	return Math.min(Math.max(Number.isFinite(scale) ? scale : 1, 0.85), 2.5)
+}
+
+export function escapeHtml(text: string): string {
+	return text.replace(
+		/[&<>"']/g,
+		(c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
+	)
+}
+
+const css = `
+:root {
+	color-scheme: light dark;
+	--bg: oklch(0.985 0.004 85); --fg: oklch(0.23 0.012 260); --muted-fg: oklch(0.5 0.014 260);
+	--muted: oklch(0.955 0.006 90); --border: oklch(0.9 0.008 90); --link: oklch(0.48 0.16 257);
+	--hl-0: oklch(0.93 0.16 95 / 0.55); --hl-1: oklch(0.9 0.14 145 / 0.5);
+	--hl-2: oklch(0.9 0.1 240 / 0.55); --hl-3: oklch(0.9 0.12 350 / 0.55);
+	--hl-4: oklch(0.9 0.14 55 / 0.55);
+	--hl-0-solid: oklch(0.9 0.17 95); --hl-1-solid: oklch(0.85 0.16 145);
+	--hl-2-solid: oklch(0.85 0.12 240); --hl-3-solid: oklch(0.85 0.14 350);
+	--hl-4-solid: oklch(0.85 0.16 55);
+	--speaking: oklch(0.48 0.16 257 / 0.13);
+	--accent: oklch(0.37 0.085 260); --accent-fg: oklch(0.99 0 0); --favorite: oklch(0.58 0.12 78);
+	--selected: oklch(0.838517 0.042484 255.026856); --selected-fg: oklch(0.362349 0.098058 256.863103);
+	--serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+	--sans: ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+	:root {
+		--bg: oklch(0.19 0.012 260); --fg: oklch(0.93 0.006 90); --muted-fg: oklch(0.7 0.015 260);
+		--muted: oklch(0.265 0.015 260); --border: oklch(0.33 0.015 260); --link: oklch(0.78 0.105 250);
+		--hl-0: oklch(0.7 0.14 95 / 0.4); --hl-1: oklch(0.65 0.13 145 / 0.4);
+		--hl-2: oklch(0.65 0.1 240 / 0.45); --hl-3: oklch(0.65 0.12 350 / 0.45);
+		--hl-4: oklch(0.65 0.14 55 / 0.45);
+		--speaking: oklch(0.78 0.105 250 / 0.2);
+		--accent: oklch(0.74 0.1 255); --accent-fg: oklch(0.19 0.025 260); --favorite: oklch(0.78 0.12 80);
+		--selected: oklch(0.364043 0.071354 255.403282); --selected-fg: oklch(0.875271 0.061525 257.523997);
+	}
+}
+html { -webkit-text-size-adjust: 100%; }
+html.sans body { font-family: var(--sans); }
+body {
+	margin: 0 auto; max-width: 42rem;
+	/* Room for the controls at the top, and for the status line at the bottom. */
+	padding: calc(16px + var(--top, 0px)) 20px calc(56px + env(safe-area-inset-bottom));
+	background: var(--bg); color: var(--fg);
+	font-family: var(--serif); font-size: 1.1875rem; line-height: 1.65;
+	hyphens: auto; -webkit-hyphens: auto; overflow-wrap: break-word;
+}
+header h1 { font-family: var(--sans); font-size: 1.875rem; line-height: 1.2; margin: 8px 0 8px; }
+.byline { font-family: var(--sans); font-size: 0.9375rem; color: var(--muted-fg); margin: 0 0 24px; }
+.via { font-family: var(--sans); font-size: 0.9375rem; line-height: 1.5; margin: -8px 0 24px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; }
+.via p, .via blockquote { margin: 0 0 0.5em; }
+.via > :last-child { margin-bottom: 0; }
+.via .via-by { font-size: 0.8125rem; color: var(--muted-fg); margin-bottom: 4px; }
+h2, h3, h4, h5, h6 { font-family: var(--sans); line-height: 1.3; margin: 1.6em 0 0.6em; }
+h2 { font-size: 1.3em; } h3 { font-size: 1.15em; } h4, h5, h6 { font-size: 1em; }
+p, ul, ol, blockquote, pre, figure, table { margin: 0 0 1.1em; }
+a { color: var(--link); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+img { display: block; max-width: 100%; height: auto; margin: 0 auto; border-radius: 8px; }
+figure { margin-inline: 0; }
+figcaption { font-family: var(--sans); font-size: 0.875rem; color: var(--muted-fg); margin-top: 6px; }
+blockquote { margin-inline: 0; padding-left: 16px; border-left: 3px solid var(--border); }
+pre { background: var(--muted); padding: 12px; border-radius: 8px; overflow-x: auto; font-size: 0.85em; }
+code { font-size: 0.9em; }
+pre code { font-size: inherit; }
+table { display: block; overflow-x: auto; border-collapse: collapse; font-size: 0.9em; }
+th, td { border: 1px solid var(--border); padding: 6px 10px; }
+hr { border: 0; border-top: 1px solid var(--border); margin: 2em 0; }
+img[data-asset]:not([src]) { width: 100%; aspect-ratio: 3 / 2; background: var(--muted); }
+::highlight(klip-c0) { background-color: var(--hl-0); }
+::highlight(klip-c1) { background-color: var(--hl-1); }
+::highlight(klip-c2) { background-color: var(--hl-2); }
+::highlight(klip-c3) { background-color: var(--hl-3); }
+::highlight(klip-c4) { background-color: var(--hl-4); }
+/* A highlight's card is open: the text and the other highlights fade; it shows in its own color,
+   with full-strength text, and a line of its color around it (.hl-pop). As the web reader. */
+article[data-focus], article[data-focus] * { color: color-mix(in oklch, var(--fg) 55%, transparent); text-decoration-color: currentColor; }
+article[data-focus] ::highlight(klip-active) { color: var(--fg); }
+article[data-focus] ::highlight(klip-c0) { background-color: color-mix(in oklch, var(--hl-0) 25%, transparent); }
+article[data-focus] ::highlight(klip-c1) { background-color: color-mix(in oklch, var(--hl-1) 25%, transparent); }
+article[data-focus] ::highlight(klip-c2) { background-color: color-mix(in oklch, var(--hl-2) 25%, transparent); }
+article[data-focus] ::highlight(klip-c3) { background-color: color-mix(in oklch, var(--hl-3) 25%, transparent); }
+article[data-focus] ::highlight(klip-c4) { background-color: color-mix(in oklch, var(--hl-4) 25%, transparent); }
+article[data-focus="0"] ::highlight(klip-active) { background-color: var(--hl-0); }
+article[data-focus="1"] ::highlight(klip-active) { background-color: var(--hl-1); }
+article[data-focus="2"] ::highlight(klip-active) { background-color: var(--hl-2); }
+article[data-focus="3"] ::highlight(klip-active) { background-color: var(--hl-3); }
+article[data-focus="4"] ::highlight(klip-active) { background-color: var(--hl-4); }
+.hl-layer { position: absolute; top: 0; left: 0; pointer-events: none; }
+.hl-pop {
+	position: absolute; border-radius: 3px;
+	box-shadow: 0 0 0 1.5px var(--hl-solid), 0 3px 8px -3px oklch(0.2 0.05 262 / 0.35);
+}
+.hl-layer[data-color="0"] { --hl-solid: var(--hl-0-solid); }
+.hl-layer[data-color="1"] { --hl-solid: var(--hl-1-solid); }
+.hl-layer[data-color="2"] { --hl-solid: var(--hl-2-solid); }
+.hl-layer[data-color="3"] { --hl-solid: var(--hl-3-solid); }
+.hl-layer[data-color="4"] { --hl-solid: var(--hl-4-solid); }
+/* Its ends' handles: a bar the height of the line, with a knob above the start and below the end;
+   each a finger wide, and taller than its line. */
+.hl-handle {
+	position: absolute; width: 44px; margin: -14px 0 0 -22px; padding: 14px 0;
+	pointer-events: auto; touch-action: none; -webkit-user-select: none; -webkit-touch-callout: none;
+	--handle: color-mix(in oklch, var(--hl-solid) 65%, var(--fg));
+}
+.hl-handle::before { content: ""; position: absolute; left: 21px; width: 2px; top: 14px; bottom: 14px; background: var(--handle); border-radius: 1px; }
+.hl-handle::after { content: ""; position: absolute; left: 17px; width: 10px; height: 10px; border-radius: 50%; background: var(--handle); }
+.hl-start::after { top: 5px; }
+.hl-end::after { bottom: 5px; }
+html.hl-dragging, html.hl-dragging * { -webkit-user-select: none; user-select: none; }
+.hl-in { animation: hl-pop 0.16s ease-out; }
+@keyframes hl-pop { from { opacity: 0; transform: translateY(1px); } }
+@media (prefers-reduced-motion: reduce) { .hl-in { animation: none; } }
+/* The end of the article (src/page/reader-page.ts, endHtml): as the web reader's. */
+#klip-end:empty { display: none; }
+#klip-end {
+	margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border);
+	display: grid; gap: 14px; font-family: var(--sans); font-size: 0.9375rem; line-height: 1.4;
+	-webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+}
+#klip-end button { font: inherit; color: inherit; border: 0; background: none; padding: 0; cursor: pointer; }
+#klip-end svg { width: 18px; height: 18px; flex: none; }
+.end-heading { display: flex; align-items: center; gap: 8px; font-size: 1.0625rem; font-weight: 600; }
+.end-check { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: var(--accent-fg); }
+.end-check svg { width: 14px; height: 14px; }
+.end-note { margin: 0; color: var(--muted-fg); }
+#klip-end .end-link { color: var(--fg); font-weight: 600; text-decoration: underline; text-decoration-color: var(--border); text-underline-offset: 3px; }
+#klip-end .end-finish {
+	justify-self: start; display: inline-flex; align-items: center; gap: 8px;
+	padding: 10px 18px; border-radius: 999px; background: var(--accent); color: var(--accent-fg); font-weight: 600;
+}
+.end-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+#klip-end .end-choice {
+	display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px;
+	padding: 10px 8px; border-radius: 14px; background: var(--muted);
+}
+.end-choice.wide { grid-column: 1 / -1; }
+.end-choice svg { fill: none; color: var(--muted-fg); }
+.end-choice.starred svg { fill: var(--favorite); color: var(--favorite); }
+#klip-end .end-choice.on { background: var(--selected); color: var(--selected-fg); }
+.end-choice.on svg { color: currentColor; }
+/* The sentence being read aloud. */
+::highlight(klip-speaking) { background-color: var(--speaking); }
+`

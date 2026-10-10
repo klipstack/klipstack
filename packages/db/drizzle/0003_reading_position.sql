@@ -1,0 +1,1 @@
+ALTER TABLE "documents" ADD COLUMN "reading_position" real DEFAULT 0 NOT NULL;

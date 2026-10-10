@@ -1,0 +1,442 @@
+{
+  "theguardian-cancer.html": {
+    "title": "At 31, I have just weeks to live. Here's what I want to pass on",
+    "author": "Elliot Dallen",
+    "siteName": "the Guardian",
+    "language": "en",
+    "publishedAt": "2020-09-07",
+    "leadImage": true,
+    "wordCount": 2000,
+    "extractor": "defuddle",
+    "candidates": [
+      {
+        "name": "defuddle",
+        "textLength": 10765,
+        "junkLength": 13
+      },
+      {
+        "name": "readability",
+        "textLength": 10393,
+        "junkLength": 0
+      }
+    ]
+  },
+  "nathanbarry-good-things.html": {
+    "title": "Good things come to those who write",
+    "author": null,
+    "siteName": "Nathan Barry",
+    "language": "en",
+    "publishedAt": "2019-03-11",
+    "leadImage": true,
+    "wordCount": 900,
+    "extractor": "defuddle",
+    "candidates": [
+      {
+        "name": "defuddle",
+        "textLength": 4820,
+        "junkLength": 0
+      },
+      {
+        "name": "readability",
+        "textLength": 4820,
+        "junkLength": 0
+      }
+    ]
+  },
+  "waitbutwhy-tail-end.html": {
+    "title": "The Tail End",
+    "author": "Tim Urban",
+    "siteName": "Wait But Why",
+    "language": "en",
+    "publishedAt": "2015-12-11",
+    "leadImage": true,
+    "wordCount": 1200,
+    "extractor": "defuddle",
+    "candidates": [
+      {
+        "name": "defuddle",
+        "textLength": 5946,
+        "junkLength": 151
+      },
+      {
+        "name": "readability",
+        "textLength": 5941,
+        "junkLength": 146
+      }
+    ]
+  },
+  "collabfund-hard.html": {
+    "title": "It’s Supposed To Be Hard",
+    "author": "Morgan Housel",
+    "siteName": "Collab Fund",
+    "language": "en",
+    "publishedAt": "2022-09-09",
+    "leadImage": true,
+    "wordCount": 700,
+    "extractor": "defuddle",
+    "candidates": [
+      {
+        "name": "defuddle",
+        "textLength": 3935,
+        "junkLength": 0
+      },
+      {
+        "name": "readability",
+        "textLength": 3935,
+        "junkLength": 0
+      }
+    ]
+  },
+  "staysaasy-high-performers.html": {
+    "title": "Managing High Performers",
+    "author": null,
+    "siteName": "Stay SaaSy",
+    "language": "en",
+    "publishedAt": "2024-05-08",
+    "leadImage": true,
+    "wordCount": 1700,
+    "extractor": "defuddle",
+    "candidates": [
+      {
+        "name": "defuddle",
+        "textLength": 9739,
+        "junkLength": 0
+      },
+      {
+        "name": "readability",
+        "textLength": 9739,
+        "junkLength": 0
+      }
+    ]
+  },
+  "fullmoon-tal.html": {
+    "title": "Ragged Trousered Philosopher",
+    "author": null,
+    "siteName": "fullmoon.nu",
+    "language": null,
+    "publishedAt": null,
+    "leadImage": false,
+    "wordCount": 5700,
+    "extractor": "defuddle",
+    "candidates": [
+      {
+        "name": "defuddle",
+        "textLength": 33029,
+        "junkLength": 213
+      },
+      {
+        "name": "readability",
+        "textLength": 32144,
+        "junkLength": 0
+      }
+    ]
+  },
+  "psyche-listening.html": {
+    "title": "Why listening well can make disagreements less damaging",
+    "author": "Guy Itzchakov",
+    "siteName": "Psyche",
+    "language": "en",
+    "publishedAt": "2024-02-19",
+    "leadImage": true,
+    "wordCount": 1600,
+    "extractor": "readability",
+    "candidates": [
+      {
+        "name": "defuddle",
+        "textLength": 0,
+        "junkLength": 0
+      },
+      {
+        "name": "readability",
+        "textLength": 10925,
+        "junkLength": 0
+      }
+    ]
+  },
+  "geoffreylitt-llm.html": {
+    "title": "Malleable software in the age of LLMs",
+    "author": null,
+    "siteName": "geoffreylitt.com",
+    "language": null,
+    "publishedAt": "2023-03-25",
+    "leadImage": true,
+    "wordCount": 4800,
+    "extractor": "defuddle",
+    "candidates": [
+      {
+        "name": "defuddle",
+        "textLength": 29113,
+        "junkLength": 309
+      },
+      {
+        "name": "readability",
+        "textLength": 29060,
+        "junkLength": 309
+      }
+    ]
+  },
+  "readtheprofile-couples.html": {
+    "title": "100 Couples Share Their Secrets to a Successful Relationship",
+    "author": "Polina Pompliano",
+    "siteName": "readtheprofile.com",
+    "language": "en",
+    "publishedAt": "2020-07-16",
+    "leadImage": true,
+    "wordCount": 4700,
+    "extractor": "defuddle",
+    "candidates": [
+      {
+        "name": "defuddle",
+        "textLength": 26671,
+        "junkLength": 0
+      },
+      {
+        "name": "readability",
+        "textLength": 25705,
+        "junkLength": 0
+      }
+    ]
+  },
+  "wikipedia-readability.html": {
+    "title": "Readability",
+    "author": "Wikipedia",
+    "siteName": "en.wikipedia.org",
+    "language": "en",
+    "publishedAt": "2003-11-02",
+    "leadImage": false,
+    "wordCount": 7900,
+    "extractor": "defuddle",
+    "candidates": [
+      {
+        "name": "defuddle",
+        "textLength": 49062,
+        "junkLength": 240
+      },
+      {
+        "name": "readability",
+        "textLength": 50391,
+        "junkLength": 683
+      }
+    ]
+  },
+  "paulgraham-makers.html": {
+    "title": "Maker's Schedule, Manager's Schedule",
+    "author": null,
+    "siteName": "paulgraham.com",
+    "language": null,
+    "publishedAt": null,
+    "leadImage": false,
+    "wordCount": 1100,
+    "extractor": "defuddle",
+    "candidates": [
+      {
+        "name": "defuddle",
+        "textLength": 6359,
+        "junkLength": 0
+      },
+      {
+        "name": "readability",
+        "textLength": 6013,
+        "junkLength": 0
+      }
+    ]
+  },
+  "joelonsoftware-joel-test.html": {
+    "title": "The Joel Test: 12 Steps to Better Code",
+    "author": "Joel Spolsky",
+    "siteName": "Joel on Software",
+    "language": "en",
+    "publishedAt": "2000-08-09",
+    "leadImage": true,
+    "wordCount": 3600,
+    "extractor": "defuddle",
+    "candidates": [
+      {
+        "name": "defuddle",
+        "textLength": 19965,
+        "junkLength": 92
+      },
+      {
+        "name": "readability",
+        "textLength": 20017,
+        "junkLength": 92
+      }
+    ]
+  },
+  "overreacted-useeffect.html": {
+    "title": "A Complete Guide to useEffect",
+    "author": null,
+    "siteName": "overreacted.io",
+    "language": "en",
+    "publishedAt": "2019-03-09",
+    "leadImage": true,
+    "wordCount": 9500,
+    "extractor": "defuddle",
+    "candidates": [
+      {
+        "name": "defuddle",
+        "textLength": 60261,
+        "junkLength": 45
+      },
+      {
+        "name": "readability",
+        "textLength": 60260,
+        "junkLength": 45
+      }
+    ]
+  },
+  "mdn-highlight-api.html": {
+    "title": "CSS Custom Highlight API - Web APIs",
+    "author": "MozDevNet",
+    "siteName": "MDN Web Docs",
+    "language": "en",
+    "publishedAt": "2026-08-12",
+    "leadImage": true,
+    "wordCount": 1100,
+    "extractor": "defuddle",
+    "candidates": [
+      {
+        "name": "defuddle",
+        "textLength": 7515,
+        "junkLength": 97
+      },
+      {
+        "name": "readability",
+        "textLength": 7172,
+        "junkLength": 65
+      }
+    ]
+  },
+  "kentcdodds-context.html": {
+    "title": "How to use React Context effectively",
+    "author": "kentcdodds",
+    "siteName": "kentcdodds.com",
+    "language": "en",
+    "publishedAt": null,
+    "leadImage": true,
+    "wordCount": 1900,
+    "extractor": "defuddle",
+    "candidates": [
+      {
+        "name": "defuddle",
+        "textLength": 12825,
+        "junkLength": 57
+      },
+      {
+        "name": "readability",
+        "textLength": 12825,
+        "junkLength": 57
+      }
+    ]
+  },
+  "lenny-pmf.html": {
+    "title": "How to know if you've got product-market fit",
+    "author": "Lenny Rachitsky",
+    "siteName": "lennysnewsletter.com",
+    "language": "en",
+    "publishedAt": "2020-01-28",
+    "leadImage": true,
+    "wordCount": 1700,
+    "extractor": "defuddle",
+    "candidates": [
+      {
+        "name": "defuddle",
+        "textLength": 9444,
+        "junkLength": 694
+      },
+      {
+        "name": "readability",
+        "textLength": 9030,
+        "junkLength": 694
+      }
+    ]
+  },
+  "github-defuddle.html": {
+    "title": "kepano/defuddle: Get the main content of any page as Markdown.",
+    "author": "kepano",
+    "siteName": "GitHub",
+    "language": "en",
+    "publishedAt": null,
+    "leadImage": true,
+    "wordCount": 1700,
+    "extractor": "defuddle",
+    "candidates": [
+      {
+        "name": "defuddle",
+        "textLength": 11220,
+        "junkLength": 0
+      },
+      {
+        "name": "readability",
+        "textLength": 11233,
+        "junkLength": 0
+      }
+    ]
+  },
+  "bbc-teens.html": {
+    "title": "Why teenagers aren't what they used to be",
+    "author": "Richard Fisher",
+    "siteName": "bbc.com",
+    "language": "en",
+    "publishedAt": "2022-02-02",
+    "leadImage": true,
+    "wordCount": 2200,
+    "extractor": "defuddle",
+    "candidates": [
+      {
+        "name": "defuddle",
+        "textLength": 13232,
+        "junkLength": 114
+      },
+      {
+        "name": "readability",
+        "textLength": 12564,
+        "junkLength": 0
+      }
+    ]
+  },
+  "aeon-friends.html": {
+    "title": "Treasure your friends, the top of your love hierarchy",
+    "author": "Anna Machin",
+    "siteName": "aeon.co",
+    "language": "en",
+    "publishedAt": "2021-06-04",
+    "leadImage": true,
+    "wordCount": 4000,
+    "extractor": "defuddle",
+    "candidates": [
+      {
+        "name": "defuddle",
+        "textLength": 23340,
+        "junkLength": 0
+      },
+      {
+        "name": "readability",
+        "textLength": 23329,
+        "junkLength": 0
+      }
+    ]
+  },
+  "nautilus-bar.html": {
+    "title": "Ha! How Comedy Can Fight Science Misinformation",
+    "author": "Sarah Adelman",
+    "siteName": "nautil.us",
+    "language": "en",
+    "publishedAt": "2024-05-09",
+    "leadImage": true,
+    "wordCount": 1700,
+    "extractor": "defuddle",
+    "candidates": [
+      {
+        "name": "defuddle",
+        "textLength": 10402,
+        "junkLength": 0
+      },
+      {
+        "name": "readability",
+        "textLength": 10416,
+        "junkLength": 0
+      }
+    ]
+  }
+}

@@ -1,0 +1,186 @@
+import { CONTROLLER, type Policy, PRIVACY_CONTACT } from "./types"
+
+export default {
+	title: "Política de privacidad",
+	updated: "Última actualización: 9 de octubre de 2026",
+	summary:
+		"Klipstack guarda lo que guardas para que puedas leerlo. No vende tus datos, no muestra anuncios y no te rastrea. Esta página explica qué recopilamos, para qué, quién nos ayuda a operar el servicio y qué puedes hacer al respecto.",
+	contentsLabel: "En esta página",
+	email: PRIVACY_CONTACT,
+	sections: [
+		{
+			id: "who",
+			title: "Quiénes somos",
+			blocks: [
+				`Klipstack es propiedad de ${CONTROLLER} ("nosotros"), una empresa chilena, que también lo opera. Decidimos cómo se usan tus datos y respondemos por ello.`,
+				`Preguntas, solicitudes o reclamos: ${PRIVACY_CONTACT}.`,
+			],
+		},
+		{
+			id: "collect",
+			title: "Qué recopilamos",
+			blocks: [
+				{
+					list: [
+						"Tu cuenta: nombre, correo y tu contraseña como un hash irreversible, nunca la contraseña misma. Tu idioma y tus ajustes de lectura.",
+						"Si inicias sesión con Google o GitHub: el nombre, el correo y la foto de perfil que nos envían. No guardamos sus tokens de acceso.",
+						"Lo que guardas: cada enlace, el texto y las imágenes de la página, una copia de la página tal como se guardó y la hora en que la guardaste.",
+						"Lo que añades: subrayados, notas, etiquetas, búsquedas guardadas, los feeds que sigues, tu avance de lectura y lo que terminaste.",
+						"Si preguntas sobre lo que lees (Explicar, Definir, Preguntar): el pasaje, tus preguntas y las respuestas.",
+						"Inicios de sesión: para cada dispositivo con sesión abierta, su dirección IP y la descripción que el navegador da de sí mismo (user agent). Los guardamos con la sesión, para proteger tu cuenta. Una sesión termina 30 días después de su último uso.",
+						"Si pides una invitación: tu correo, la nota que escribas y tu idioma. Solo los ven quienes operan Klipstack.",
+						"Si denuncias una página pública: el motivo, lo que escribas, tu correo si lo das y tu idioma. Solo los ven quienes operan Klipstack. Quien publicó la página nunca ve tu denuncia ni tu correo.",
+						"Límites contra el abuso: en los intentos de inicio de sesión, las solicitudes de invitación y las denuncias, una forma cifrada (hash) de la dirección IP y del correo. Los borramos en cerca de un día.",
+						"Registros del servidor: qué página se pidió, el resultado y cuánto tardó. No incluyen tu dirección IP ni tu cuenta. Los registros de guardado pueden nombrar el número de un artículo o el nombre de un sitio web.",
+					],
+				},
+				"No usamos analítica, anuncios, rastreadores, scripts ni fuentes de terceros, ni servicios de reporte de errores.",
+			],
+		},
+		{
+			id: "use",
+			title: "Cómo lo usamos",
+			blocks: [
+				{
+					list: [
+						"Para operar Klipstack: guardar, limpiar, almacenar, mostrar y buscar lo que guardas.",
+						"Para enviar correos de tu cuenta: enlaces de inicio de sesión, verificación de correo y cambio de contraseña. No enviamos boletines ni publicidad.",
+						"Para responder a una solicitud de invitación. Solo te escribimos si te enviamos una.",
+						"Para decidir sobre una denuncia de una página pública, y escribirte la decisión si diste un correo. Si retiramos una página, le decimos a quien la publicó por qué, sin decir quién la denunció.",
+						"Para mantener el servicio seguro y frenar el abuso.",
+						"Para responder preguntas sobre lo que lees, cuando las haces. Mira «Preguntas sobre lo que lees» más abajo.",
+						"Para resolver problemas.",
+					],
+				},
+				"No vendemos tus datos. No los usamos para publicidad ni para entrenar modelos de IA.",
+				"Las personas que operan Klipstack pueden acceder a la base de datos para mantenerla. Miramos tu contenido solo para resolver un problema que nos reportes, para mantener el servicio seguro o cuando la ley lo exige.",
+			],
+		},
+		{
+			id: "fetching",
+			title: "Cuando Klipstack descarga páginas por ti",
+			blocks: [
+				{
+					list: [
+						"Cuando guardas un enlace, nuestro servidor descarga la página y sus imágenes. El sitio web ve nuestro servidor, no a ti.",
+						"La extensión del navegador envía la página tal como la muestra tu navegador, incluso páginas que requieren iniciar sesión o suscripción. Guarda páginas privadas con cuidado: lo que envía la extensión queda en tu biblioteca.",
+						"Nuestro servidor revisa los feeds que sigues en busca de publicaciones nuevas, y lee el título y el resumen de una página para mostrar la vista previa de un enlace. Las vistas previas se guardan 15 minutos, solo en memoria.",
+						"Para guardar una publicación de X (Twitter), nuestro servidor se la pide a FxTwitter, usando su dirección.",
+						"Algunas imágenes de las listas se cargan directamente desde el sitio original. Tu navegador las pide sin decir de qué página vienes.",
+					],
+				},
+			],
+		},
+		{
+			id: "providers",
+			title: "Quién más maneja tus datos",
+			blocks: [
+				"Algunas empresas nos ayudan a operar Klipstack. Manejan tus datos solo para prestarnos su servicio.",
+				{
+					list: [
+						"Hetzner Online aloja nuestros servidores y la base de datos.",
+						"Cloudflare guarda las imágenes de las páginas que guardas y nuestras copias de seguridad cifradas de la base de datos (R2).",
+						"Resend envía nuestros correos. Recibe tu dirección de correo y el mensaje.",
+						"Better Stack comprueba desde fuera que Klipstack funciona. No ve datos de cuentas.",
+						"Google o GitHub, solo si eliges iniciar sesión con ellos.",
+						"FxTwitter, solo cuando guardas una publicación de X.",
+						"Anthropic responde preguntas sobre lo que lees, solo cuando haces una.",
+					],
+				},
+				"No compartimos tus datos con nadie más, salvo que la ley lo exija. Si ocurre, te avisamos, salvo que la ley lo prohíba.",
+			],
+		},
+		{
+			id: "ai",
+			title: "Preguntas sobre lo que lees",
+			blocks: [
+				"En el lector puedes preguntar sobre un pasaje: que te lo explique, que defina una palabra o hacer una pregunta. Solo entonces nuestro servidor le envía a Anthropic el texto del artículo, el pasaje y tu pregunta, y te muestra su respuesta. No se envía nada si no preguntas.",
+				"Anthropic los usa solo para responder, según sus condiciones comerciales, y no entrena sus modelos con ellos.",
+				"Guardamos tus preguntas y las respuestas con el artículo, para que puedas volver a leerlas, hasta que las borres o borres el artículo. Los registros del servidor anotan que se respondió una pregunta y su tamaño, nunca lo que decía.",
+			],
+		},
+		{
+			id: "cookies",
+			title: "Cookies y almacenamiento en tu dispositivo",
+			blocks: [
+				"Cada cookie que usamos es necesaria para que Klipstack funcione o para recordar tus ajustes. Ninguna es para publicidad ni rastreo, así que no hay aviso de cookies.",
+				{
+					list: [
+						"klip.session_token mantiene tu sesión abierta, hasta 30 días.",
+						"klip.state protege un inicio de sesión con Google o GitHub, durante 5 minutos.",
+						"lng guarda tu idioma, durante un año.",
+						"klip_tz, klip_layout, klip_sidebar y klip_hl_view guardan tu zona horaria y cómo prefieres ver las listas, durante un año. Al cerrar sesión se borran las tres últimas.",
+					],
+				},
+				"Tu navegador también guarda copias de tus artículos recientes para abrirlos sin conexión. Al cerrar sesión se borran.",
+			],
+		},
+		{
+			id: "apps",
+			title: "Apps, la extensión y asistentes de IA",
+			blocks: [
+				{
+					list: [
+						"La extensión del navegador actúa solo cuando haces clic en ella o usas su menú. Quita los scripts y los campos ocultos de formularios antes de enviar una página. Pide acceso a todos los sitios para poder guardar la página que elijas.",
+						"La app para iPhone, en pruebas, guarda tu sesión en el llavero (Keychain) del iPhone y copias de los artículos para abrirlos sin conexión. Lee en voz alta en el propio teléfono: el texto nunca sale de él. Sus archivos de voz se descargan una vez, desde Hugging Face y GitHub. Lee el portapapeles solo cuando tocas Pegar. No tiene analítica ni reportes de fallos.",
+						"Puedes conectar otras apps y asistentes de IA a tu biblioteca (claves de API, MCP). Solo acceden a lo que permites, y puedes quitarlos en Ajustes cuando quieras. Lo que hagan con los datos depende de ellos y de sus propias políticas de privacidad.",
+					],
+				},
+			],
+		},
+		{
+			id: "retention",
+			title: "Cuánto tiempo lo guardamos",
+			blocks: [
+				{
+					list: [
+						"Tu biblioteca se guarda mientras exista tu cuenta.",
+						"Lo que está en la papelera se borra a los 30 días. Los guardados fallidos se borran 7 días después de que los muevas a la papelera.",
+						"Una solicitud de invitación se borra cuando la respondemos, con una invitación o sin ella. Si te enviamos una invitación, la invitación conserva tu correo.",
+						"Una denuncia, con tu correo, se borra cuando decidimos sobre ella. El registro de la decisión no guarda nada de la denuncia.",
+						"Cuando eliminas tu cuenta, borramos tus datos e imágenes de inmediato. Las copias de seguridad cifradas conservan una copia hasta 30 días, y luego desaparece. El servidor además guarda sus propias copias durante 3 días.",
+						"Los registros del servidor se sobrescriben a medida que crecen y empiezan de cero con cada actualización.",
+						"Los registros de acciones administrativas no guardan contenido. Cuando eliminas tu cuenta dejan de apuntar a ti, y se borran a los 90 días.",
+					],
+				},
+			],
+		},
+		{
+			id: "rights",
+			title: "Tus opciones y derechos",
+			blocks: [
+				{
+					list: [
+						"Obtener una copia: exporta toda tu biblioteca, con subrayados y notas, en Markdown y JSON desde Ajustes. Tus feeds se exportan en OPML.",
+						`Corregir: cambia tu nombre en Ajustes. Para cambiar tu correo, escribe a ${PRIVACY_CONTACT}.`,
+						"Eliminar: elimina tu cuenta en Ajustes.",
+						`Cualquier otra cosa, como saber qué datos tenemos sobre ti u oponerte a un uso: escribe a ${PRIVACY_CONTACT}. Respondemos en un plazo de 30 días.`,
+					],
+				},
+				"También puedes reclamar ante la autoridad de protección de datos de tu país.",
+			],
+		},
+		{
+			id: "security",
+			title: "Cómo lo protegemos",
+			blocks: [
+				"Todo el tráfico va cifrado (HTTPS). Las contraseñas y las claves de API se guardan solo como hashes. Las imágenes de tus páginas guardadas son privadas y solo llegan a tu cuenta. Las copias de seguridad están cifradas, y la clave para leerlas se guarda fuera de línea. Solo las personas que operan Klipstack pueden acceder a los servidores.",
+				"Ningún sistema es totalmente seguro. Si una filtración pone en riesgo tus datos, te avisaremos a ti y a las autoridades, como exige la ley.",
+			],
+		},
+		{
+			id: "children",
+			title: "Menores",
+			blocks: [
+				"Klipstack no está pensado para menores de 16 años. No recopilamos sus datos a sabiendas.",
+			],
+		},
+		{
+			id: "changes",
+			title: "Cambios en esta política",
+			blocks: [
+				"Cuando esta política cambia, actualizamos la fecha de arriba. Si un cambio afecta cómo usamos tus datos, te escribimos antes de que se aplique.",
+			],
+		},
+	],
+} satisfies Policy

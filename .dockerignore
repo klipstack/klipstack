@@ -1,0 +1,16 @@
+node_modules
+**/node_modules
+**/build
+**/dist
+**/.react-router
+**/.output
+**/.wxt
+.git
+.env
+.env.*
+!.env.example
+storage
+playwright-report
+test-results
+coverage
+apps/mobile

@@ -1,0 +1,24 @@
+{
+	"name": "@klipstack/ai",
+	"version": "0.0.0",
+	"private": true,
+	"license": "AGPL-3.0-only",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"typecheck": "tsc -p tsconfig.json",
+		"test": "vitest run"
+	},
+	"dependencies": {
+		"@ai-sdk/anthropic": "4.0.63",
+		"ai": "7.0.114"
+	},
+	"devDependencies": {
+		"@ai-sdk/provider": "4.0.18",
+		"@types/node": "^22",
+		"typescript": "^5.9.3",
+		"vitest": "^5.0.0"
+	}
+}

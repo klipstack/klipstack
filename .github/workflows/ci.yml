@@ -1,0 +1,244 @@
+name: CI
+
+# Every pull request runs every check; so does every push to main, which then deploys klipstack.com
+# when app code changed. `scripts/ci-local` runs the same checks on a developer's machine.
+# Change both together.
+#
+# Pull requests from forks get a read-only token and no secrets. Only a push to main can reach the
+# deploy job, and its secrets live in the `production` environment, which only main may use.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  # A newer push to a pull request replaces its running checks. Never cancel a run on main: it may
+  # be mid-deploy (after migrations, before the restart). Runs queue; a newer push replaces a queued one.
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# The token every job gets: it can read the code, nothing more. The deploy job adds what it needs.
+# Actions are pinned to a commit: a moved tag can't change what runs here. To update one, pin the
+# commit of its new release, and keep the version in the comment.
+permissions:
+  contents: read
+
+# What the tests and the production build read. No job here has a real secret in these names.
+env:
+  DATABASE_URL: postgres://klipstack:klipstack@localhost:5433/klipstack
+  BETTER_AUTH_SECRET: ci-secret-ci-secret-ci-secret-ci-secret
+  APP_URL: http://localhost:5180
+  SIGNUP_MODE: invite
+  CI: "true"
+
+jobs:
+  static:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: ./.github/actions/setup
+      - run: pnpm audit --audit-level moderate
+      - run: pnpm lint
+      # Every workspace but the mobile app, whose dependencies the setup leaves out (and the root,
+      # whose own `typecheck` would check it again). `scripts/ci-local` checks the mobile app too.
+      - run: pnpm -r --filter '!klipstack' --filter '!@klipstack/mobile' typecheck
+      - run: scripts/check-migrations
+      - run: bash -n scripts/image-smoke
+
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: klipstack
+          POSTGRES_PASSWORD: klipstack
+          POSTGRES_DB: klipstack
+          POSTGRES_INITDB_ARGS: "--locale-provider=builtin --builtin-locale=C.UTF-8 --locale=C.UTF-8"
+        ports: ["5433:5432"]
+        options: >-
+          --health-cmd "pg_isready -U klipstack"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: ./.github/actions/setup
+      - run: pnpm db:migrate
+      # Fails if the database sorts text with the OS's collation again (POSTGRES_INITDB_ARGS above).
+      - run: pnpm db:check-collation
+      # Not the mobile app's tests: the setup leaves its dependencies out (see the static job).
+      - run: pnpm -r --filter '!klipstack' --filter '!@klipstack/mobile' test
+      - run: pnpm build
+      - name: Boot the production server bundle
+        run: |
+          cd apps/web
+          PORT=3999 NODE_ENV=production pnpm start &
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3999/healthcheck; then break; fi
+            sleep 1
+          done
+          curl -sf http://localhost:3999/healthcheck || { echo "server bundle did not start"; exit 1; }
+          # Behind the TLS-terminating proxy: a same-origin form post must pass the CSRF check (not 400).
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Host: example.test' \
+            -H 'Origin: https://example.test' -H 'X-Forwarded-Proto: https' http://localhost:3999/logout.data)
+          [ "$code" = "202" ] || { echo "proxied form post returned $code"; exit 1; }
+
+  # The browser tests run one at a time against one server and database, so they are split over
+  # several runners, each with its own. Playwright shards by file and by test count, not by time.
+  # Only what depends on the browser engine runs in WebKit too (`ENGINE_SPECS` in
+  # playwright.config.ts: highlight resizing, the search field's painted text): those tests get a
+  # runner of their own, the only one that installs WebKit. Firefox is not tested.
+  e2e:
+    name: e2e (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      # A failure in one part says nothing about the others: let them all report.
+      fail-fast: false
+      matrix:
+        include:
+          - { name: chromium-1, browsers: chromium, args: --project=chromium --shard=1/4 }
+          - { name: chromium-2, browsers: chromium, args: --project=chromium --shard=2/4 }
+          - { name: chromium-3, browsers: chromium, args: --project=chromium --shard=3/4 }
+          - { name: chromium-4, browsers: chromium, args: --project=chromium --shard=4/4 }
+          - { name: webkit, browsers: webkit, args: --project=webkit-resize }
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: klipstack
+          POSTGRES_PASSWORD: klipstack
+          POSTGRES_DB: klipstack
+          POSTGRES_INITDB_ARGS: "--locale-provider=builtin --builtin-locale=C.UTF-8 --locale=C.UTF-8"
+        ports: ["5433:5432"]
+        options: >-
+          --health-cmd "pg_isready -U klipstack"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: ./.github/actions/setup
+      - run: pnpm db:migrate
+      - run: pnpm build
+      - name: Install Playwright browsers
+        run: pnpm --filter @klipstack/web exec playwright install --with-deps ${{ matrix.browsers }}
+      - run: pnpm --filter @klipstack/web exec playwright test ${{ matrix.args }}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: failure()
+        with:
+          name: playwright-report-${{ matrix.name }}
+          path: apps/web/playwright-report
+          retention-days: 7
+
+  changes:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      deploy: ${{ steps.diff.outputs.deploy }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+      - name: Compare with the live version
+        id: diff
+        env:
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          # Paths that do not go into the running app: docs, tests, the extension, the CLI and the
+          # SDK (the server uses only the contract), the mobile app, CI, agent tooling (Amp orb
+          # setup, Claude skills), and .gitignore files.
+          NOT_APP: '^(docs/|\.github/|\.agents/|\.claude/|apps/extension/|apps/cli/|apps/mobile/|packages/sdk/|apps/web/e2e/|packages/[^/]+/test/)|\.md$|\.test\.tsx?$|(^|/)(vitest|playwright)\.config\.ts$|(^|/)\.gitignore$'
+        run: |
+          # Skip the deploy when the live commit has the same app code. Runs on main are serialized,
+          # so the live version is final by now. Unknown live version: deploy. Re-runs always deploy.
+          deploy=true
+          live=$(curl -sf --retry 3 --max-time 10 https://klipstack.com/version | jq -r '.version // empty' || true)
+          if [ "$RUN_ATTEMPT" = 1 ] && [ -n "$live" ] && git cat-file -e "$live^{commit}" 2>/dev/null; then
+            app=$(git diff --name-only "$live" "$GITHUB_SHA" | grep -Ev "$NOT_APP" || true)
+            [ -n "$app" ] || deploy=false
+            printf 'App changes since %s:\n%s\n' "$live" "${app:-(none)}"
+          fi
+          echo "live=${live:-unknown} deploy=$deploy"
+          echo "deploy=$deploy" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    needs: [static, unit, e2e, changes]
+    # Said here as well as in `changes`: no other event may ever reach the deploy.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.deploy == 'true'
+    # Holds DEPLOY_SSH_KEY, DEPLOY_KNOWN_HOSTS and DEPLOY_HOST. Its branch policy allows only main.
+    environment: production
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    # For the image's boot test: an empty database, like the other jobs'.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: klipstack
+          POSTGRES_PASSWORD: klipstack
+          POSTGRES_DB: klipstack
+          POSTGRES_INITDB_ARGS: "--locale-provider=builtin --builtin-locale=C.UTF-8 --locale=C.UTF-8"
+        ports: ["5433:5432"]
+        options: >-
+          --health-cmd "pg_isready -U klipstack"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # Built into the runner's Docker, not pushed: the image is booted first.
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          build-args: |
+            APP_VERSION=${{ github.sha }}
+          platforms: linux/amd64
+          # The source label links the GHCR package to this repository.
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.licenses=AGPL-3.0-only
+          load: true
+          tags: ghcr.io/klipstack/klipstack:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Boot the image as production runs it
+        env:
+          SMOKE_NETWORK: host
+        run: scripts/image-smoke "ghcr.io/klipstack/klipstack:$GITHUB_SHA"
+      - name: Push the image
+        run: docker push "ghcr.io/klipstack/klipstack:$GITHUB_SHA"
+      - name: Deploy
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy && chmod 600 ~/.ssh/deploy
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          # The restricted account accepts one request; the short-lived token travels on stdin.
+          # Root's fixed deployment runner handles login, migrations, and health checks.
+          printf '%s\n' "$GHCR_TOKEN" | ssh -T -o BatchMode=yes -o IdentitiesOnly=yes \
+            -i ~/.ssh/deploy "deploy@$HOST" "deploy-klipstack $GITHUB_SHA $GITHUB_ACTOR"
+      # Only a healthy deployment becomes `latest`, which the recovery runbook deploys.
+      - name: Mark the deployed image as latest
+        run: |
+          docker buildx imagetools create --tag ghcr.io/klipstack/klipstack:latest \
+            "ghcr.io/klipstack/klipstack:$GITHUB_SHA"

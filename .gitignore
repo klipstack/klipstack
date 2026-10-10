@@ -1,0 +1,21 @@
+node_modules
+dist
+build
+.react-router
+.wxt
+.output
+*.local
+.env
+.env.*
+!.env.example
+coverage
+playwright-report
+test-results
+.DS_Store
+*.log
+/storage/
+apps/*/storage/
+# `pnpm auth:generate` output, for diffing against packages/db/src/schema by hand
+packages/db/src/schema/auth.generated.ts
+# Amp orb portal registrations (written by `amp orb portal`)
+.amp/portals/*

@@ -1,0 +1,36 @@
+{
+	"name": "@klipstack/worker",
+	"version": "0.0.0",
+	"private": true,
+	"license": "AGPL-3.0-only",
+	"type": "module",
+	"scripts": {
+		"dev": "tsx watch src/main.ts",
+		"invite-digest": "tsx scripts/invite-digest-now.ts",
+		"outlinks": "tsx scripts/backfill-outlinks.ts",
+		"purge": "tsx scripts/purge-now.ts",
+		"start": "tsx src/main.ts",
+		"test": "vitest run --passWithNoTests",
+		"typecheck": "tsc -p tsconfig.json"
+	},
+	"dependencies": {
+		"@klipstack/anchor": "workspace:*",
+		"@klipstack/api-contract": "workspace:*",
+		"@klipstack/db": "workspace:*",
+		"@klipstack/email": "workspace:*",
+		"@klipstack/extract": "workspace:*",
+		"@klipstack/log": "workspace:*",
+		"@klipstack/queue": "workspace:*",
+		"@klipstack/storage": "workspace:*",
+		"jsdom": "^30.0.1",
+		"pg-boss": "^12.35.1",
+		"sharp": "^0.35.5",
+		"tsx": "^4.23.15"
+	},
+	"devDependencies": {
+		"@types/jsdom": "^30.0.0",
+		"@types/node": "^22.20.4",
+		"typescript": "^5.9.3",
+		"vitest": "^5.0.3"
+	}
+}

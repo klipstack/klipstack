@@ -1,0 +1,15 @@
+name: Set up the workspace
+description: Install pnpm, Node and the workspace dependencies. Needs the repository checked out.
+
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      with:
+        node-version-file: .nvmrc
+        cache: pnpm
+    # Not the mobile app: Expo and React Native double the install, and nothing in CI builds it.
+    # `scripts/ci-local` installs and checks it on the developer's machine instead.
+    - run: pnpm install --frozen-lockfile --filter '!@klipstack/mobile'
+      shell: bash

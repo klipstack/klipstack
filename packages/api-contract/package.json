@@ -1,0 +1,29 @@
+{
+	"name": "@klipstack/api-contract",
+	"version": "0.0.0",
+	"private": true,
+	"license": "MIT",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts",
+		"./enums": "./src/enums.ts",
+		"./auth": "./src/auth.ts",
+		"./client": "./src/client.ts",
+		"./names": "./src/names.ts",
+		"./note-links": "./src/note-links.ts",
+		"./search-query": "./src/search-query.ts",
+		"./search-suggest": "./src/search-suggest.ts",
+		"./reading": "./src/reading.ts"
+	},
+	"scripts": {
+		"typecheck": "tsc -p tsconfig.json",
+		"test": "vitest run"
+	},
+	"dependencies": {
+		"zod": "^4.6.5"
+	},
+	"devDependencies": {
+		"typescript": "^5.9.3",
+		"vitest": "^5.0.3"
+	}
+}

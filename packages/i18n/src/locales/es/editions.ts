@@ -1,0 +1,238 @@
+export default {
+	description:
+		"Una página con artículos que vale la pena compartir, con las notas y los subrayados que elijas. Cada una tiene un enlace para compartir.",
+	empty: "Aún no hay ediciones.",
+	untitled: "Sin título",
+	create: "Nueva edición",
+	state: {
+		draft: "Borrador",
+		live: "Publicada",
+		unpublished: "Retirada",
+	},
+	articles_one: "{{count}} artículo",
+	articles_other: "{{count}} artículos",
+	changes: "Cambios sin publicar",
+	editor: {
+		back: "Ediciones",
+		titleLabel: "Título",
+		titlePlaceholder: "Lo que he leído últimamente",
+		titleHint: "Opcional. Si lo dejas vacío, la página usa la fecha como título.",
+		publishedOn: "Publicada el {{date}}",
+		introLabel: "Introducción",
+		introPlaceholder: "Unas palabras sobre estos artículos. Opcional.",
+		language: "Idioma de la página",
+		languageHint:
+			"Para las fechas y los rótulos de la página, como «5 min de lectura». Tu texto no se traduce.",
+		saving: "Guardando…",
+		saved: "Guardado",
+		saveError: "No se ha guardado. Revisa tu conexión.",
+		preview: "Vista previa",
+		publish: "Publicar",
+		update: "Actualizar",
+		publishAgain: "Volver a publicar",
+		unpublish: "Retirar",
+		delete: "Eliminar",
+		deleteConfirm:
+			"¿Eliminar esta edición? Su enlace público dejará de funcionar. No se puede deshacer.",
+		unpublishConfirm:
+			"¿Retirar esta edición? Su enlace dirá que la página se retiró. Los sitios que ya muestran una vista previa pueden conservarla un tiempo.",
+		publicLink: "Enlace público",
+		copyLink: "Copiar enlace",
+		copied: "Enlace copiado",
+		changesDetail:
+			"La página pública muestra la última versión publicada. Actualiza para mostrar estos cambios.",
+		unpublishedDetail: "Nadie puede abrir el enlace público. Vuelve a publicar para recuperarlo.",
+		problems: "Corrige esto para publicar:",
+		noItems:
+			"Aún no hay artículos. Añade alguno que marcaste, que leíste últimamente o de tu biblioteca.",
+	},
+	problems: {
+		no_items: "Añade al menos un artículo.",
+		url: "«{{title}}» no tiene dirección web.",
+		quotes: "«{{title}}» cita más de lo permitido.",
+	},
+	item: {
+		removed: "Quitado de esta edición",
+		removedUnmarked: "Quitado, y desmarcado para tu próxima edición",
+		undo: "Deshacer",
+		up: "Subir",
+		down: "Bajar",
+		remove: "Quitar",
+		refresh: "Actualizar desde la biblioteca",
+		refreshConfirm:
+			"¿Copiar de nuevo este artículo desde tu biblioteca? Su nota aquí se sustituye por la nota de la biblioteca.",
+		refreshGone: "Este artículo ya no está en tu biblioteca.",
+		includeNote: "Incluir mi nota",
+		noteLabel: "Tu nota, tal como la muestra la página",
+		highlights: "Subrayados",
+		noHighlights: "Este artículo no tiene subrayados.",
+		wordsQuoted: "{{words}} / {{limit}} palabras citadas",
+		highlightNoteLabel: "Nota sobre este subrayado",
+		"too-many": "Hasta 3 subrayados por artículo.",
+		"too-long": "Citaría más de lo que permite el artículo.",
+	},
+	/** Artículos marcados «Añadir a la próxima edición» al leer. */
+	shortlist: {
+		heading: "Próxima edición",
+		detail: "Los artículos que marcaste para ella.",
+		badge: "Marcado",
+		addAll_one: "Añadirlo",
+		addAll_other: "Añadir los {{count}}",
+		more_one: "Hay 1 artículo más marcado para tu próxima edición.",
+		more_other: "Hay {{count}} artículos más marcados para tu próxima edición.",
+		listDetail:
+			"Los artículos que marcaste al leer. Una edición nueva empieza con ellos; al publicarla, sus artículos salen de esta lista.",
+		empty:
+			"Aún no marcaste nada. Al leer, «Añadir a la próxima edición» (N) guarda el artículo aquí.",
+		remove: "Quitar «{{title}}» de tu próxima edición",
+	},
+	/** Por qué toca una edición nueva: el punto de la barra lateral lleva aquí. */
+	nudge: {
+		title: "¿Toca una edición nueva?",
+		last: "Tu última edición salió {{ago}}.",
+		marked_one: "Hay {{count}} artículo marcado para la próxima.",
+		marked_other: "Hay {{count}} artículos marcados para la próxima.",
+		read_one: "Terminaste {{count}} artículo desde entonces.",
+		read_other: "Terminaste {{count}} artículos desde entonces.",
+		later: "Ahora no",
+	},
+	/** La elección de la cuenta: las ediciones públicas se enlazan entre sí. */
+	linking: {
+		title: "Enlazar mis ediciones",
+		label: "Cada edición pública enlaza a la anterior y a la siguiente",
+		detail:
+			"Desactivado, cada edición va sola: su enlace no muestra nada más de lo que publicaste. Activado, quien tenga un enlace puede encontrar las demás. Las ediciones retiradas nunca se enlazan.",
+	},
+	lately: {
+		heading: "Leído últimamente",
+		detail: "Terminado hace poco, y aún en ninguna edición.",
+	},
+	suggested: {
+		empty: "Nada marcado ni terminado últimamente. Busca en tu biblioteca.",
+		add: "Añadir",
+		added: "Añadido",
+		finished: "Terminado",
+		starred: "Destacado",
+		highlights_one: "{{count}} subrayado",
+		highlights_other: "{{count}} subrayados",
+		note: "Nota",
+	},
+	picker: {
+		open: "Añadir artículos",
+		title: "Añadir artículos",
+		placeholder: "Busca en tu biblioteca: título, sitio o autor",
+		library: "Tu biblioteca",
+		adding: "Añadiendo…",
+		empty: "Ningún artículo coincide.",
+	},
+	errors: {
+		generic: "No ha funcionado. Inténtalo de nuevo.",
+		already_added: "Ese artículo ya está en esta edición.",
+		no_url: "Ese artículo no tiene una dirección web a la que enlazar.",
+		document_gone: "Este artículo ya no está en tu biblioteca.",
+		not_found: "Esta edición o este artículo ya no existen.",
+		invalid_title: "Un título tiene hasta 200 caracteres.",
+		invalid_intro: "La introducción tiene hasta 5000 caracteres.",
+		invalid_note: "Esa nota es demasiado larga.",
+		limit_reached:
+			"Este mes publicaste tantas ediciones nuevas como permite una cuenta. Podrás publicar de nuevo el mes que viene.",
+		edition_removed:
+			"Un admin retiró esta edición tras una denuncia. No se puede volver a publicar.",
+	},
+	report: {
+		title: "Denunciar esta página",
+		description:
+			"Cuéntanos qué está mal en «{{title}}». Una persona lee cada denuncia; una denuncia sola no retira nada.",
+		reason: "¿Qué está mal?",
+		reasons: {
+			spam: "Spam o engañoso",
+			illegal: "Contenido ilegal",
+			copyright: "Copia el trabajo de alguien sin permiso",
+			abuse: "Acoso u odio",
+			other: "Otra cosa",
+		},
+		details: "Detalles",
+		detailsHint: "¿Cuál es el problema, y en qué parte de la página?",
+		email: "Tu email (opcional)",
+		emailHint:
+			"Solo para contarte qué decidimos. Lo borramos con tu denuncia cuando decidimos, y no lo verificamos.",
+		submit: "Enviar denuncia",
+		receivedTitle: "Gracias",
+		received: "Recibimos tu denuncia. Una persona la va a revisar.",
+		back: "Volver a la página",
+		expired: "Este formulario es demasiado antiguo. Envíalo de nuevo.",
+		full: "Ahora no podemos recibir más denuncias. Inténtalo más tarde.",
+		trap: "Deja esto vacío",
+		errors: {
+			reason: "Elige qué está mal.",
+			details: "Cuéntanos cuál es el problema.",
+			detailsTooLong: "Escribe {{max}} caracteres como máximo.",
+		},
+		outcome: {
+			removedSubject: "Retiramos una página que denunciaste",
+			removedBody:
+				"Denunciaste «{{title}}» en Klipstack. La revisamos y la retiramos. Gracias por avisarnos.",
+			keptSubject: "Revisamos una página que denunciaste",
+			keptBody:
+				"Denunciaste «{{title}}» en Klipstack. La revisamos y no encontramos motivos para retirarla. Gracias por avisarnos.",
+			footer: "Recibes este email porque diste esta dirección al denunciar la página.",
+		},
+	},
+	removal: {
+		notice:
+			"Un admin retiró esta edición el {{date}} tras una denuncia ({{ground}}). No se puede volver a publicar.",
+		note: "Lo que escribió: {{note}}",
+		email: {
+			subject: "Retiramos tu edición «{{title}}»",
+			body: "Retiramos tu edición «{{title}}» de su dirección pública tras una denuncia. Motivo: {{ground}}.",
+			note: "Por qué: {{note}}",
+			facts:
+				"Lo decidió una persona después de leer la denuncia; nada se decidió de forma automática. La edición sigue en tu cuenta, pero no se puede volver a publicar.",
+			terms: "Lo que una edición pública no puede contener: {{url}}",
+			contest: "Si crees que es un error, escribe a {{contact}}.",
+			footer: "Recibes este email porque publicaste esta edición en Klipstack.",
+		},
+		grounds: {
+			spam: "spam o engañoso",
+			illegal: "contenido ilegal",
+			copyright: "copiar el trabajo de alguien sin permiso",
+			abuse: "acoso u odio",
+			other: "no cumplir las reglas de Klipstack",
+		},
+	},
+	preview: {
+		banner: "Vista previa. Sin publicar.",
+		back: "Volver al editor",
+		pane: "Vista previa",
+		paneDetail: "Sin publicar. Sigue tus cambios a medida que se guardan.",
+		desktop: "Ancho de escritorio",
+		phone: "Ancho de teléfono",
+		fullPage: "Abrir la vista previa completa",
+	},
+	/** Links in the intro and the notes. */
+	textEditor: {
+		add: "Enlazar",
+		address: "Dirección del enlace",
+		placeholder: "Pega o escribe una dirección y pulsa Intro",
+		open: "Abrir el enlace en una pestaña nueva",
+		remove: "Quitar el enlace",
+	},
+	/** The public page. It uses the edition's language, whoever visits. */
+	public: {
+		updated: "Actualizado el {{date}}",
+		minutes: "{{count}} min de lectura",
+		minutes_one: "{{count}} min de lectura",
+		minutes_other: "{{count}} min de lectura",
+		articles_one: "{{count}} artículo",
+		articles_other: "{{count}} artículos",
+		/** On the link preview's picture, under the first articles. */
+		cardMore_one: "+ {{count}} más",
+		cardMore_other: "+ {{count}} más",
+		madeWith: "Hecho con Klipstack",
+		previous: "Edición anterior",
+		next: "Edición siguiente",
+		report: "Denunciar esta página",
+		terms: "Términos",
+		privacy: "Privacidad",
+	},
+}

@@ -1,0 +1,36 @@
+{
+	"name": "klipstack",
+	"private": true,
+	"license": "AGPL-3.0-only",
+	"type": "module",
+	"scripts": {
+		"dev": "pnpm -r --parallel --filter ./apps/web --filter ./apps/worker dev",
+		"build": "pnpm -r build",
+		"ci:local": "scripts/ci-local",
+		"typecheck": "pnpm -r typecheck",
+		"lint": "oxlint --report-unused-disable-directives && oxfmt --check",
+		"lint:fix": "oxlint --report-unused-disable-directives --fix && oxfmt",
+		"test": "pnpm -r test",
+		"test:e2e": "pnpm --filter @klipstack/web test:e2e",
+		"db:up": "docker compose up -d db",
+		"db:generate": "pnpm --filter @klipstack/db generate",
+		"db:migrate": "pnpm --filter @klipstack/db migrate",
+		"db:check-collation": "pnpm --filter @klipstack/db check-collation",
+		"db:studio": "pnpm --filter @klipstack/db studio",
+		"demo:capture-feeds": "pnpm --filter @klipstack/web demo capture-feeds",
+		"demo:capture": "pnpm --filter @klipstack/web demo capture",
+		"demo:seed": "pnpm --filter @klipstack/web demo seed",
+		"demo:reset": "pnpm --filter @klipstack/web demo reset",
+		"demo:verify": "pnpm --filter @klipstack/web demo verify"
+	},
+	"devDependencies": {
+		"oxfmt": "0.71.0",
+		"oxlint": "1.86.0",
+		"typescript": "^5.9.3"
+	},
+	"engines": {
+		"node": ">=22",
+		"pnpm": ">=10"
+	},
+	"packageManager": "pnpm@10.28.1"
+}

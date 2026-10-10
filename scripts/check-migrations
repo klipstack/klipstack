@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Fails when the Drizzle schema (packages/db/src/schema) has changes that no migration records:
+# `pnpm db:generate` would write one. Without this, such a change passes every check, and the
+# production database never gets it.
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+drizzle=packages/db/drizzle
+before=$(git status --porcelain --untracked-files=all -- "$drizzle")
+# No terminal: a question from drizzle-kit (was this column renamed?) ends it instead of waiting.
+if ! output=$(pnpm --filter @klipstack/db exec drizzle-kit generate < /dev/null 2>&1); then
+  printf '%s\n' "$output" >&2
+  echo "drizzle-kit generate failed: the schema likely has changes that need \`pnpm db:generate\`." >&2
+  exit 1
+fi
+after=$(git status --porcelain --untracked-files=all -- "$drizzle")
+if [ "$before" != "$after" ]; then
+  printf '%s\n' "$output"
+  echo "The schema has changes without a migration. drizzle-kit wrote these files:" >&2
+  diff <(printf '%s\n' "$before") <(printf '%s\n' "$after") | grep '^>' >&2 || true
+  echo "Review them, run \`pnpm lint:fix\` (it formats the snapshot) and commit them, or undo the schema change." >&2
+  exit 1
+fi
+echo "Schema and migrations match."

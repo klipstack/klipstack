@@ -1,0 +1,70 @@
+{
+	"name": {
+		"message": "Klipstack"
+	},
+	"description": {
+		"message": "Guarda la página que estás leyendo en Klipstack, tal como la ves."
+	},
+	"actionTitle": {
+		"message": "Guardar en Klipstack"
+	},
+	"savePage": {
+		"message": "Guardar página en Klipstack"
+	},
+	"saveLink": {
+		"message": "Guardar enlace en Klipstack"
+	},
+	"optionsIntro": {
+		"message": "La extensión guarda en la cuenta de Klipstack con la que hayas iniciado sesión en este navegador. Si al guardar te pide iniciar sesión, entra en Klipstack en este navegador y vuelve a intentarlo."
+	},
+	"optionsAppUrl": {
+		"message": "Dirección de Klipstack"
+	},
+	"optionsAppUrlHint": {
+		"message": "Cámbiala solo si usas tu propio servidor de Klipstack."
+	},
+	"optionsSave": {
+		"message": "Guardar"
+	},
+	"optionsSaved": {
+		"message": "Guardado."
+	},
+	"toastSaving": {
+		"message": "Guardando en Klipstack…"
+	},
+	"toastSaved": {
+		"message": "Guardado en Klipstack"
+	},
+	"toastOpen": {
+		"message": "Abrir"
+	},
+	"toastLogin": {
+		"message": "Inicia sesión en Klipstack para guardar"
+	},
+	"toastLoginAction": {
+		"message": "Iniciar sesión"
+	},
+	"toastUnreachable": {
+		"message": "No se puede conectar con Klipstack"
+	},
+	"toastFailed": {
+		"message": "No se pudo guardar (HTTP $STATUS$)",
+		"placeholders": {
+			"status": {
+				"content": "$1"
+			}
+		}
+	},
+	"toastSaveLimit": {
+		"message": "Este mes guardaste tantos artículos como permite una cuenta"
+	},
+	"toastLibraryFull": {
+		"message": "Tu biblioteca de Klipstack está llena"
+	},
+	"toastUsage": {
+		"message": "Ver uso"
+	},
+	"toastNotCapturable": {
+		"message": "Esta página no se puede guardar"
+	}
+}

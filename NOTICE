@@ -1,0 +1,34 @@
+Klipstack
+Copyright (C) 2026 Ernesto García
+
+The service at klipstack.com is operated by Klipstack SpA.
+
+Klipstack is free software: you can redistribute it and/or modify it under the terms of the GNU
+Affero General Public License, version 3, as published by the Free Software Foundation (see
+LICENSE). The exceptions below keep their own terms.
+
+Packages under the MIT License
+  packages/sdk and packages/api-contract, so programs that call the Klipstack API can use them
+  under any license. See the LICENSE file in each.
+
+Third-party code and data
+  apps/mobile/modules/klip-speech: text processing copied from FluidAudio (Apache-2.0, see
+    ios/Phonemes/LICENSE-FluidAudio), and models and dictionaries listed in its README.md, each
+    under its own license.
+  brand/fonts: Newsreader, by The Newsreader Project Authors, under the SIL Open Font License 1.1
+    (brand/fonts/Newsreader-OFL.txt).
+
+Test fixtures
+  packages/extract/test/fixtures holds copies of web pages and posts published by others. They
+  belong to their authors and publishers, are not covered by this repository's licenses, and are
+  kept only to test article extraction. To have one removed, open an issue or write to
+  hello@klipstack.com.
+
+Name and logo
+  The licenses above cover the code, not the Klipstack name, logo or icons (brand/ and the app
+  icons). You may say that your work is based on Klipstack, but do not use the name or logo for
+  your own instance, fork or app in a way that suggests it is Klipstack or is endorsed by it.
+
+Legal texts
+  The privacy policy and terms in apps/web/app/lib/privacy-policy and apps/web/app/lib/terms
+  describe the service at klipstack.com and are not a template for other instances.

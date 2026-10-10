@@ -1,0 +1,23 @@
+{
+	"name": "@klipstack/sdk",
+	"version": "0.0.0",
+	"private": true,
+	"license": "MIT",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts",
+		"./note-autosave": "./src/note-autosave.ts"
+	},
+	"scripts": {
+		"typecheck": "tsc -p tsconfig.json",
+		"test": "vitest run"
+	},
+	"dependencies": {
+		"@klipstack/api-contract": "workspace:*",
+		"zod": "^4.6.5"
+	},
+	"devDependencies": {
+		"typescript": "^5.9.3",
+		"vitest": "^5.0.3"
+	}
+}

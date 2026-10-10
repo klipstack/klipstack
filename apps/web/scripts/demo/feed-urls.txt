@@ -1,0 +1,6 @@
+# Public blogs used by the local reader demo.
+https://apiad.substack.com/feed
+https://simonwillison.net/
+https://overreacted.io/
+https://seldo.com/
+https://ernesto.dev/

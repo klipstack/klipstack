@@ -1,0 +1,352 @@
+import { createHash } from "node:crypto"
+import {
+	db,
+	documents,
+	documentVersions,
+	eq,
+	feeds,
+	feedItems,
+	subscriptions,
+	notifyDocumentEvent,
+	user,
+} from "@klipstack/db"
+import { expect, test } from "@playwright/test"
+import { createInviteCode, uniqueEmail, waitForHydration } from "./helpers"
+
+test("home adapts to the library, opens articles and returns after finishing", async ({ page }) => {
+	test.setTimeout(60_000)
+	const email = uniqueEmail("home")
+	await page.goto("/signup")
+	await page.getByLabel("Invite code").fill(await createInviteCode())
+	await page.getByLabel("Name").fill("Home Reader")
+	await page.getByLabel("Email").fill(email)
+	await page.getByLabel("Password").fill("password123")
+	await page.getByRole("button", { name: "Create account" }).click()
+	await expect(page).toHaveURL(/\/home$/)
+	const owner = await db.query.user.findFirst({ where: eq(user.email, email) })
+	if (!owner) throw new Error("Missing home test user")
+	await expect(page.getByRole("heading", { name: "Your next read starts here" })).toBeVisible()
+	await expect(page.getByRole("link", { name: "Save link", exact: true })).toHaveAttribute(
+		"href",
+		"/add",
+	)
+	await expect(page.getByTestId("home-article")).toHaveCount(0)
+	const [doc] = await db
+		.insert(documents)
+		.values({
+			userId: owner.id,
+			sourceUrl: "https://example.com/home-story",
+			urlHash: owner.id,
+			title: "A story worth returning to",
+			status: "processing",
+			readingMinutes: 8,
+			firstOpenedAt: new Date(),
+			lastReadAt: new Date(),
+			readingProgress: 0.4,
+			readingPosition: 0.4,
+		})
+		.returning()
+	await page.reload()
+	await waitForHydration(page)
+	await expect(page.getByRole("heading", { name: "Your next read is on its way" })).toBeVisible()
+	await expect(page.getByRole("link", { name: "View library", exact: true })).toHaveAttribute(
+		"href",
+		"/library",
+	)
+	await db.update(documents).set({ status: "failed" }).where(eq(documents.id, doc!.id))
+	await page.reload()
+	await waitForHydration(page)
+	await expect(
+		page.getByRole("heading", { name: "Some articles couldn't be prepared" }),
+	).toBeVisible()
+	const [version] = await db
+		.insert(documentVersions)
+		.values({
+			documentId: doc!.id,
+			version: 1,
+			html: "<p>A short story to test the reading journey.</p>",
+			text: "A short story to test the reading journey.",
+			textHash: "home-story",
+			extractor: "test",
+			extractorVersion: "1",
+		})
+		.returning()
+	await db
+		.update(documents)
+		.set({ currentVersionId: version!.id, status: "ready" })
+		.where(eq(documents.id, doc!.id))
+	// A finished extraction replaces the empty state without navigating or refreshing the page.
+	await expect(async () => {
+		await notifyDocumentEvent({ userId: owner.id, documentId: doc!.id, kind: "ready" })
+		await expect(page.getByTestId("home-article")).toHaveCount(1, { timeout: 2000 })
+	}).toPass({ timeout: 10_000 })
+	await expect(page.getByRole("link", { name: "View library", exact: true })).toHaveCount(0)
+	await expect(page.getByRole("heading", { name: "Recently saved" })).toHaveCount(0)
+	await page.getByRole("link", { name: "View all: Continue reading", exact: true }).click()
+	await expect(page.getByRole("button", { name: "Sort: Recently read" })).toBeVisible()
+	await page.getByRole("button", { name: "Sort: Recently read" }).click()
+	await page.getByRole("menuitem", { name: "Newest first" }).click()
+	await expect(page).toHaveURL(/show=progress&sort=newest/)
+	await page.goto("/home")
+	await waitForHydration(page)
+	await page.setViewportSize({ width: 390, height: 844 })
+	await expect(page.getByRole("heading", { name: "Welcome back, Home", exact: true })).toBeVisible()
+	await expect
+		.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
+		.toBe(true)
+	await page.getByTestId("home-article").click()
+	await expect(page).toHaveURL(new RegExp(`/read/${doc!.id}$`))
+	await waitForHydration(page)
+	await expect(page.getByRole("heading", { name: doc!.title!, exact: true })).toBeVisible()
+	await page.getByRole("button", { name: "Mark as finished", exact: true }).click()
+	await expect(page).toHaveURL(/\/home$/)
+	await expect(page.getByTestId("home-article")).toHaveCount(0)
+	await expect(page.getByRole("heading", { name: "Ready for your next read" })).toBeVisible()
+	await page.getByRole("link", { name: "Revisit saved articles", exact: true }).click()
+	await expect(page).toHaveURL(/\/archive$/)
+	await expect(page.getByRole("heading", { name: doc!.title!, exact: true })).toBeVisible()
+})
+
+test("Home discovers new feed posts and returns here after save and read", async ({
+	page,
+	context,
+}) => {
+	const email = uniqueEmail("home-feeds")
+	await page.goto("/signup")
+	await page.getByLabel("Invite code").fill(await createInviteCode())
+	await page.getByLabel("Name").fill("Feed Reader")
+	await page.getByLabel("Email").fill(email)
+	await page.getByLabel("Password").fill("password123")
+	await page.getByRole("button", { name: "Create account" }).click()
+	await expect(page).toHaveURL(/\/home$/)
+	const owner = (await db.query.user.findFirst({ where: eq(user.email, email) }))!
+	const url = `https://home-${Date.now()}.example.com/feed`
+	const hash = (input: string) => createHash("sha256").update(input).digest("hex")
+	const [feed] = await db
+		.insert(feeds)
+		.values({ url, urlHash: hash(url), title: "Home blog" })
+		.returning()
+	await db.insert(subscriptions).values({ userId: owner.id, feedId: feed!.id })
+	const posts = await db
+		.insert(feedItems)
+		.values(
+			[1, 2, 3].map((n) => ({
+				feedId: feed!.id,
+				guid: `${n}`,
+				title: `Home post ${n}`,
+				url: `${url}/${n}`,
+				urlHash: hash(`${url}/${n}`),
+				excerpt: `An interesting post ${n}.`,
+				sortAt: new Date(Date.now() - n * 3_600_000),
+			})),
+		)
+		.returning()
+	// Timers the test can fast-forward: waiting out a timer that must not fire takes no real time.
+	await page.clock.install()
+	await page.goto("/home")
+	await waitForHydration(page)
+	const discovery = page.getByTestId("home-feed")
+	await expect(discovery.getByTestId("feed-item")).toHaveCount(3)
+	await expect(page.getByRole("heading", { name: "Your next read starts here" })).toHaveCount(0)
+	await page.clock.runFor(3_500)
+	await expect(discovery.getByTestId("feed-new-dot")).toHaveCount(3)
+	await discovery.getByRole("link", { name: "View feeds" }).click()
+	await expect(page).toHaveURL(/\/feed$/)
+	await page.getByRole("link", { name: "Home", exact: true }).click()
+	await expect(discovery.getByTestId("feed-new-dot")).toHaveCount(3)
+
+	await discovery.getByRole("button", { name: "Home post 1", exact: true }).click()
+	const dialog = page.getByRole("dialog", { name: "Post actions" })
+	await context.route(`${url}/**`, (route) =>
+		route.fulfill({ contentType: "text/html", body: "<p>Original</p>" }),
+	)
+	const opening = page.waitForEvent("popup")
+	await dialog.getByRole("link", { name: "Open original" }).click()
+	const original = await opening
+	await expect(original).toHaveURL(`${url}/1`)
+	await original.close()
+	await expect(discovery.getByTestId("feed-item")).toHaveCount(2)
+	await expect(discovery.getByRole("button", { name: "Home post 1", exact: true })).toHaveCount(0)
+
+	const second = discovery.getByTestId("feed-item").filter({ hasText: "Home post 2" })
+	await second.hover()
+	await second.getByRole("button", { name: "Dismiss", exact: true }).click()
+	await expect(discovery.getByTestId("feed-item")).toHaveCount(1)
+	await page.getByRole("status").getByRole("button", { name: "Undo" }).click()
+	await expect(discovery.getByTestId("feed-item")).toHaveCount(2)
+
+	// Ready copies saved elsewhere since this page loaded exercise deduplication without fetching.
+	const readyArticle = async (title: string) => {
+		const post = posts.find((post) => post.title === title)!
+		const [doc] = await db
+			.insert(documents)
+			.values({
+				userId: owner.id,
+				sourceUrl: post.url,
+				urlHash: post.urlHash,
+				title,
+				status: "ready",
+			})
+			.returning()
+		const [version] = await db
+			.insert(documentVersions)
+			.values({
+				documentId: doc!.id,
+				version: 1,
+				html: "<p>A short feed story.</p>",
+				text: "A short feed story.",
+				textHash: "home-feed-story",
+				extractor: "test",
+				extractorVersion: "1",
+			})
+			.returning()
+		await db
+			.update(documents)
+			.set({ currentVersionId: version!.id })
+			.where(eq(documents.id, doc!.id))
+		return doc!
+	}
+	const saved = await readyArticle("Home post 3")
+	const third = discovery.getByTestId("feed-item").filter({ hasText: "Home post 3" })
+	await third.hover()
+	await third.getByRole("button", { name: "Save", exact: true }).click()
+	await expect(discovery.getByTestId("feed-item")).toHaveCount(1)
+	await expect(page).toHaveURL(/\/home$/)
+	expect(await db.query.documents.findFirst({ where: eq(documents.id, saved.id) })).toMatchObject({
+		firstOpenedAt: null,
+		readAt: null,
+	})
+	await page.setViewportSize({ width: 390, height: 844 })
+	await expect
+		.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
+		.toBe(true)
+	const read = await readyArticle("Home post 2")
+	// The saved post's big card pushes this one below a phone's fold. Scroll first: the menu closes
+	// on scroll, and a scroll-into-view lands a frame after the click.
+	const post = second.getByRole("button", { name: "Home post 2", exact: true })
+	await post.scrollIntoViewIfNeeded()
+	await page.evaluate(
+		() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))),
+	)
+	await post.click()
+	await dialog.getByRole("button", { name: "Save and read", exact: true }).click()
+	await expect(page).toHaveURL(new RegExp(`/read/${read.id}$`))
+	await waitForHydration(page)
+	await page.getByRole("button", { name: "Mark as finished", exact: true }).click()
+	await expect(page).toHaveURL(/\/home$/)
+	await expect(discovery).toHaveCount(0)
+	await expect(page.getByRole("heading", { name: "Recently saved" })).toBeVisible()
+	await expect(page.getByTestId("feed-nav-dot")).toHaveCount(0)
+})
+
+test("home cards keep the image box without an image, so titles in a row line up", async ({
+	page,
+}) => {
+	const email = uniqueEmail("home-images")
+	await page.goto("/signup")
+	await page.getByLabel("Invite code").fill(await createInviteCode())
+	await page.getByLabel("Name").fill("Image Reader")
+	await page.getByLabel("Email").fill(email)
+	await page.getByLabel("Password").fill("password123")
+	await page.getByRole("button", { name: "Create account" }).click()
+	await expect(page).toHaveURL(/\/home$/)
+	const owner = await db.query.user.findFirst({ where: eq(user.email, email) })
+	if (!owner) throw new Error("Missing home test user")
+	// An inline image: nothing to fetch.
+	const image =
+		"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='10'><rect width='16' height='10' fill='teal'/></svg>"
+	const article = (n: number, title: string) => ({
+		userId: owner.id,
+		status: "ready" as const,
+		readingMinutes: 20,
+		title,
+		sourceUrl: `https://example.com/${email}/${n}`,
+		urlHash: `${email}/${n}`,
+		createdAt: new Date(Date.now() - n * 1000),
+	})
+	await db.insert(documents).values([
+		{ ...article(1, "Saved with an image"), leadImageUrl: image },
+		article(2, "Saved without an image"),
+		{
+			...article(3, "Being read, without an image"),
+			firstOpenedAt: new Date(),
+			readingProgress: 0.4,
+			readingPosition: 0.4,
+		},
+	])
+	await page.goto("/home")
+	await waitForHydration(page)
+
+	const recent = page.locator("section[aria-labelledby=home-recent]").getByTestId("home-article")
+	await expect(recent).toHaveCount(2)
+	await expect(recent.getByTestId("article-image-placeholder")).toHaveCount(1)
+	const tops = await recent
+		.locator("h3")
+		.evaluateAll((titles) => titles.map((h) => Math.round(h.getBoundingClientRect().top)))
+	expect(tops[1]).toBe(tops[0])
+	// The article being read gets the same placeholder.
+	const reading = page.locator("section[aria-labelledby=home-reading]")
+	await expect(reading.getByTestId("article-image-placeholder")).toHaveCount(1)
+	if (process.env.SHOT_DIR)
+		await page.screenshot({
+			path: `${process.env.SHOT_DIR}/home-image-placeholder.png`,
+			fullPage: true,
+		})
+})
+
+test("without reading in progress, the newest save takes the big card", async ({ page }) => {
+	const email = uniqueEmail("home-lead")
+	await page.goto("/signup")
+	await page.getByLabel("Invite code").fill(await createInviteCode())
+	await page.getByLabel("Name").fill("Lead Reader")
+	await page.getByLabel("Email").fill(email)
+	await page.getByLabel("Password").fill("password123")
+	await page.getByRole("button", { name: "Create account" }).click()
+	await expect(page).toHaveURL(/\/home$/)
+	const owner = (await db.query.user.findFirst({ where: eq(user.email, email) }))!
+	const saves = await db
+		.insert(documents)
+		.values(
+			[1, 2, 3, 4, 5].map((n) => ({
+				userId: owner.id,
+				status: "ready" as const,
+				readingMinutes: 20,
+				title: `Saved ${n}`,
+				sourceUrl: `https://example.com/${email}/${n}`,
+				urlHash: `${email}/${n}`,
+				createdAt: new Date(Date.now() - n * 1000),
+			})),
+		)
+		.returning()
+	await page.goto("/home")
+	await waitForHydration(page)
+
+	await expect(page.getByRole("heading", { name: "Continue reading" })).toHaveCount(0)
+	const recent = page.locator("section[aria-labelledby=home-recent]").getByTestId("home-article")
+	await expect(recent).toHaveCount(4)
+	await expect(recent.first()).toContainText("Saved 1")
+	await expect(recent.first()).toContainText("Start reading")
+	await expect(recent.filter({ hasText: "Start reading" })).toHaveCount(1)
+	// The big card spans the section, the other three share the row below it.
+	const boxes = await recent.evaluateAll((cards) =>
+		cards.map((card) => {
+			const box = card.getBoundingClientRect()
+			return { top: Math.round(box.top), width: Math.round(box.width) }
+		}),
+	)
+	expect(boxes[0]!.width).toBeGreaterThan(boxes[1]!.width * 2)
+	expect(new Set(boxes.slice(1).map((box) => box.top)).size).toBe(1)
+	if (process.env.SHOT_DIR)
+		await page.screenshot({ path: `${process.env.SHOT_DIR}/home-lead.png`, fullPage: true })
+
+	// Once one is in progress, Continue reading has the big card again, and recent saves go back to three.
+	await db
+		.update(documents)
+		.set({ firstOpenedAt: new Date(), lastReadAt: new Date(), readingProgress: 0.3 })
+		.where(eq(documents.id, saves[4]!.id))
+	await page.reload()
+	await waitForHydration(page)
+	await expect(page.getByRole("heading", { name: "Continue reading" })).toBeVisible()
+	await expect(recent).toHaveCount(3)
+	await expect(recent.filter({ hasText: "Start reading" })).toHaveCount(0)
+})

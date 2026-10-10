@@ -1,0 +1,26 @@
+{
+	"$schema": "./node_modules/oxfmt/configuration_schema.json",
+	"useTabs": true,
+	"printWidth": 100,
+	"semi": false,
+	"sortImports": {
+		"newlinesBetween": false
+	},
+	"ignorePatterns": [
+		"**/.react-router",
+		"**/build",
+		"**/dist",
+		"**/.output",
+		"**/.wxt",
+		"**/fixtures",
+		"**/__snapshots__",
+		"apps/web/public",
+		"apps/mobile/.expo",
+		"apps/mobile/ios",
+		"apps/mobile/android",
+		"apps/mobile/src/lib/reader-page.generated.ts",
+		"**/*.md",
+		"**/*.yml",
+		"**/*.yaml"
+	]
+}
