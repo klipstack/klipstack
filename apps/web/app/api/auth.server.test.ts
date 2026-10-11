@@ -177,6 +177,12 @@ describe("authenticateApiRequest", () => {
 			status: 401,
 			message: "The user disconnected this app.",
 		})
+		// The missing consent alone is enough: the grant the delete took with it, back in place.
+		await db.insert(oauthGrants).values({ userId, clientId, generation })
+		await expect(authenticateApiRequest(request(token))).rejects.toMatchObject({
+			status: 401,
+			message: "The user disconnected this app.",
+		})
 	})
 
 	it("rejects a token from a revoked grant even after the client receives new consent", async () => {
@@ -277,11 +283,13 @@ describe("authenticateApiRequest", () => {
 			await expect(authenticateApiRequest(from(unknownKey))).rejects.toMatchObject({
 				status: 401,
 			})
-		// Even the good token is refused now: the address is turned away before it is looked at.
-		await expect(authenticateApiRequest(from(good))).rejects.toMatchObject({
-			status: 429,
-			code: "rate_limited",
-		})
+		// The address is turned away before its token is looked at: a token with a made-up key gets
+		// 429, where the key lookup would answer 401, and so does a good one.
+		for (const token of [unknownKey, good])
+			await expect(authenticateApiRequest(from(token))).rejects.toMatchObject({
+				status: 429,
+				code: "rate_limited",
+			})
 		// Another address still gets its answer.
 		await expect(authenticateApiRequest(request(good))).resolves.toMatchObject({ userId })
 	})
