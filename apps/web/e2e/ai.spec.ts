@@ -1,7 +1,9 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
+import { db, eq, user } from "@klipstack/db"
 import { expect, type Page, test } from "@playwright/test"
 import { signupUser } from "./helpers"
+import { insertArticle } from "./seed"
 
 const FIXTURE = join(
 	import.meta.dirname,
@@ -92,8 +94,10 @@ test("a question about a passage streams its answer, with a citation, and is kep
 })
 
 test("without the feature, nothing is asked", async ({ page }) => {
-	await signupUser(page, "NoAI")
-	const id = await saveArticle(page)
+	const email = await signupUser(page, "NoAI")
+	const owner = await db.query.user.findFirst({ where: eq(user.email, email) })
+	// Refused before anything reads the article: it need not be extracted.
+	const id = await insertArticle(owner!.id, "No AI", `<p>${PASSAGE}.</p>`)
 	const res = await page.request.post(`/documents/${id}/ai`, {
 		data: { intent: "ask", action: "explain", exact: PASSAGE },
 	})

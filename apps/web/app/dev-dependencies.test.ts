@@ -17,7 +17,7 @@ const browserSource = (file: string) =>
 	file.startsWith(REPO) &&
 	!file.includes("/node_modules/") &&
 	!/\.(test|server)\.tsx?$/.test(file) &&
-	!file.includes("/test/") &&
+	!relative(REPO, file).split("/").includes("test") &&
 	file !== join(APP, "routes.ts")
 
 /** The app's modules the browser can load. */

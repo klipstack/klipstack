@@ -297,6 +297,8 @@ test("highlight → persists → note → sidebar → highlights page → delete
 	await page.goto("/highlights?q=zzzznotthere")
 	await expect(page.getByText("No highlights match that search.")).toBeVisible()
 	await page.goto("/highlights")
+	// Hydrated, the delete stays on the page; before, it would post the form and leave.
+	await waitForHydration(page)
 	const noted = page.getByRole("listitem").filter({ hasText: "Makers need long blocks." })
 	await Promise.all([
 		page.waitForResponse((r) => r.url().includes("/highlights") && r.request().method() === "POST"),
@@ -307,6 +309,8 @@ test("highlight → persists → note → sidebar → highlights page → delete
 })
 
 test("the highlight popover scrolls with its highlight", async ({ page }) => {
+	// Up to a minute for the extraction it highlights in.
+	test.setTimeout(90_000)
 	await signupAndSave(page)
 	await highlight(page, () => selectText(page, QUOTE))
 	const popover = page.getByRole("dialog", { name: "Edit highlight" })
@@ -333,6 +337,8 @@ test("the highlight popover scrolls with its highlight", async ({ page }) => {
 test("a copied highlight reads as the page shows it: paragraphs apart, wrapped lines joined", async ({
 	page,
 }) => {
+	// Up to a minute for the extraction whose paragraphs it copies.
+	test.setTimeout(90_000)
 	await signupAndSave(page)
 	await page.context().grantPermissions(["clipboard-read", "clipboard-write"])
 	// The source wraps its lines and separates paragraphs with two <br>s; the stored text keeps
