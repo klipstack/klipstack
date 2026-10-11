@@ -15,6 +15,7 @@ import type { JobWithMetadata } from "pg-boss"
 import { log } from "../log"
 import { publishExtraction } from "../publish"
 import { absorbSharedPosts, notifyJoined, saveSharedArticle } from "../shared-via"
+import { queueTopicsAfterSave } from "./topics"
 
 /** Errors that will not get better by retrying. */
 const PERMANENT: ReadonlySet<ExtractErrorCode> = new Set([
@@ -126,6 +127,7 @@ export async function handleExtract(job: JobWithMetadata<JobPayloads["extract"]>
 
 		await notifyDocumentEvent({ userId: doc.userId, documentId, kind: "ready" })
 		await notifyJoined(doc.userId, published.absorbed, documentId)
+		await queueTopicsAfterSave(doc.userId)
 		log.info("extract: ready", {
 			documentId,
 			extractor: article.extractor.name,

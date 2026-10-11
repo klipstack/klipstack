@@ -1,7 +1,9 @@
 import { estimateCostUsd, type TokenCounts } from "@klipstack/ai"
 import {
+	addUsage,
 	and,
 	db,
+	monthOf,
 	eq,
 	type SQL,
 	sql,
@@ -59,15 +61,7 @@ export function defaultLimits(): Limits {
 	}
 }
 
-/** The month a count goes to (its first day, UTC), and when the next one starts. */
-export function monthOf(now = new Date()): { month: string; resetsAt: Date } {
-	const year = now.getUTCFullYear()
-	const month = now.getUTCMonth()
-	return {
-		month: new Date(Date.UTC(year, month, 1)).toISOString().slice(0, 10),
-		resetsAt: new Date(Date.UTC(year, month + 1, 1)),
-	}
-}
+export { monthOf } from "@klipstack/db"
 
 const day = (date: Date) => date.toISOString().slice(0, 10)
 const megabytes = (bytes: number) => Math.round(bytes / (1024 * 1024))
@@ -92,23 +86,13 @@ export function limitReached(limit: LimitName, max: number, resetsAt?: Date): Ap
 	})
 }
 
-async function bump(
+const bump = (
 	runner: Pick<Tx, "insert">,
 	userId: string,
 	metric: UsageMetric,
 	month = monthOf().month,
 	by = 1,
-) {
-	const [row] = await runner
-		.insert(usageCounts)
-		.values({ userId, metric, month, count: by })
-		.onConflictDoUpdate({
-			target: [usageCounts.userId, usageCounts.metric, usageCounts.month],
-			set: { count: sql`${usageCounts.count} + ${by}` },
-		})
-		.returning({ count: usageCounts.count })
-	return row!.count
-}
+) => addUsage(runner, userId, metric, by, month)
 
 /**
  * One more refusal by a cap this month, for admins (`/admin/usage`). Outside the refused work's

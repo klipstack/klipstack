@@ -281,6 +281,13 @@
 			"when": 1791733702120,
 			"tag": "0039_edition_items_included",
 			"breakpoints": true
+		},
+		{
+			"idx": 40,
+			"version": "7",
+			"when": 1791762102812,
+			"tag": "0040_eager_power_pack",
+			"breakpoints": true
 		}
 	]
 }

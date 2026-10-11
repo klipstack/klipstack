@@ -410,6 +410,9 @@ importers:
 
   apps/worker:
     dependencies:
+      '@klipstack/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
       '@klipstack/anchor':
         specifier: workspace:*
         version: link:../../packages/anchor

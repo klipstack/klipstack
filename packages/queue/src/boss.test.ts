@@ -17,4 +17,10 @@ describe("ensureQueues", () => {
 			retryLimit: QUEUE_OPTIONS.extract.retryLimit,
 		})
 	})
+
+	it("creates the topics queue stately, and keeps it so when started again", async () => {
+		const boss = await getBoss()
+		await ensureQueues(boss)
+		expect(await boss.getQueue(QUEUES.topics)).toMatchObject({ policy: "stately" })
+	})
 })
