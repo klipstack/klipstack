@@ -2,6 +2,9 @@ import { describe, expect, it, vi } from "vitest"
 import { rateLimit, SAVE_LIMIT } from "~/lib/rate-limit.server"
 import { action, loader, sharedUrl } from "./add"
 
+// Stands in for the save itself: the document row and the extraction job that fetches the URL
+// (commands/saving.server.test.ts covers those). These tests only need to see whether the route
+// got that far, and the session below names a user with no row for the real one to save under.
 const saved = vi.fn().mockResolvedValue({ document: { id: "document" }, created: true })
 vi.mock("~/services/documents.server", async (original) => ({
 	...(await original<typeof import("~/services/documents.server")>()),

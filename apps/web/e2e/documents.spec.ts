@@ -106,15 +106,12 @@ test("save via API with captured html → extracted → readable → archive", a
 		const el = document.documentElement
 		window.scrollTo(0, (el.scrollHeight - el.clientHeight) * 0.5)
 	})
-	await Promise.all([
-		page.waitForResponse(
-			(r) =>
-				r.url().includes("/state") &&
-				r.request().method() === "POST" &&
-				(r.request().postData() ?? "").includes("progress"),
-		),
-		page.waitForTimeout(0),
-	])
+	await page.waitForResponse(
+		(r) =>
+			r.url().includes("/state") &&
+			r.request().method() === "POST" &&
+			(r.request().postData() ?? "").includes("progress"),
+	)
 	await expect.poll(scaleOf).toBeGreaterThan(0.4)
 	await page.goto(`/read/${body.id}`)
 	await expect(page.locator(".reader-content")).toContainText("There are two types of schedule")

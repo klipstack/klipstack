@@ -1,43 +1,87 @@
-import { createHmac } from "node:crypto"
-import { APIError } from "better-auth/api"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { createHmac, randomUUID } from "node:crypto"
+import {
+	db,
+	eq,
+	inArray,
+	newId,
+	oauthClient,
+	oauthConsent,
+	oauthGrants,
+	user as userTable,
+} from "@klipstack/db"
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest"
 
-const verify = vi.fn()
-const consented = vi.fn()
-const knownKey = vi.fn()
-const grant = vi.fn()
-vi.mock("~/lib/credential-policy.server", () => ({
-	validGrant: (...args: unknown[]) => grant(...args),
-}))
-
-vi.mock("better-auth/oauth2", async (original) => ({
-	...(await original<typeof import("better-auth/oauth2")>()),
-	verifyAccessTokenRequest: (...args: unknown[]) => verify(...args),
-}))
-vi.mock("~/lib/auth.server", () => ({ API_RESOURCE: "http://localhost:5180/api" }))
-vi.mock("~/lib/signing-keys.server", () => ({
-	namesKnownSigningKey: (token: string) => knownKey(token),
-}))
-vi.mock("~/services/oauth-apps.server", async (original) => ({
-	...(await original<typeof import("~/services/oauth-apps.server")>()),
-	consentedScopes: (...args: unknown[]) => consented(...args),
-}))
-
+const { auth, API_RESOURCE, MCP_RESOURCE } = await import("~/lib/auth.server")
 const { authenticateApiRequest } = await import("./auth.server")
-const { env } = await import("~/lib/env.server")
+const { ApiError } = await import("./errors.server")
+const { env, selfUrl } = await import("~/lib/env.server")
 const { BAD_BEARER_LIMIT } = await import("~/lib/rate-limit.server")
+
+// The verifier fetches our key set over HTTP from the app's own address, where no server listens
+// in a unit test. This stands in for that network hop: the same request goes to the auth handler
+// in-process, so tokens are checked against the real keys. `jwksDown` answers 503 instead.
+const jwksUrl = `${selfUrl}/api/auth/jwks`
+let jwksDown = false
+const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+	const request = new Request(input, init)
+	if (request.url !== jwksUrl) throw new Error(`Unexpected fetch: ${request.url}`)
+	if (jwksDown) return new Response("", { status: 503, statusText: "Service Unavailable" })
+	return auth.handler(request)
+})
+
+const tag = randomUUID()
+const userId = `test-api-auth-${tag}`
+const clientIds: string[] = []
+
+beforeAll(async () => {
+	await db
+		.insert(userTable)
+		.values({ id: userId, name: "API auth", email: `${userId}@example.com`, emailVerified: true })
+})
+
+afterEach(() => {
+	jwksDown = false
+	vi.useRealTimers()
+})
+
+afterAll(async () => {
+	if (clientIds.length) await db.delete(oauthClient).where(inArray(oauthClient.clientId, clientIds))
+	await db.delete(userTable).where(eq(userTable.id, userId))
+})
+
+/** An app of its own, connected with these scopes: its consent row and its grant. */
+async function connectApp(scopes: string[]) {
+	const clientId = `test-client-${randomUUID()}`
+	clientIds.push(clientId)
+	await db.insert(oauthClient).values({
+		id: newId(),
+		clientId,
+		name: "Test client",
+		redirectUris: ["http://127.0.0.1/callback"],
+	})
+	const consentId = newId()
+	await db.insert(oauthConsent).values({ id: consentId, clientId, userId, scopes })
+	const generation = newId()
+	await db.insert(oauthGrants).values({ userId, clientId, generation })
+	return { clientId, consentId, generation }
+}
+
+/** An access token signed with our real key, shaped like the ones the OAuth provider issues. */
+async function accessToken(claims: Record<string, unknown>) {
+	const { token } = await auth.api.signJWT({
+		body: {
+			payload: { sub: userId, iss: `${env.APP_URL}/api/auth`, aud: API_RESOURCE, ...claims },
+		},
+	})
+	return token
+}
+
+const encode = (part: object) => Buffer.from(JSON.stringify(part)).toString("base64url")
 
 const request = (token?: string) =>
 	new Request("http://localhost:5180/api/v1/me", {
 		headers: token ? { authorization: `Bearer ${token}` } : {},
 	})
-
-beforeEach(() => {
-	verify.mockReset()
-	consented.mockReset()
-	knownKey.mockReset().mockResolvedValue(true)
-	grant.mockReset().mockResolvedValue(true)
-})
 
 describe("authenticateApiRequest", () => {
 	it("challenges requests without a bearer token", async () => {
@@ -47,64 +91,173 @@ describe("authenticateApiRequest", () => {
 		})
 	})
 
-	it("refuses tokens naming unknown keys without verifying them", async () => {
-		knownKey.mockResolvedValue(false)
-		await expect(authenticateApiRequest(request("a.b.c"))).rejects.toMatchObject({ status: 401 })
-		expect(verify).not.toHaveBeenCalled()
-	})
-
-	it("turns verification failures into 401, and anything else into an error of ours", async () => {
-		verify.mockRejectedValueOnce(new APIError("UNAUTHORIZED", { message: "token expired" }))
-		await expect(authenticateApiRequest(request("a.b.c"))).rejects.toMatchObject({
+	it("refuses tokens naming unknown keys without fetching the key set", async () => {
+		const forged = `${encode({ alg: "EdDSA", kid: `unknown-${randomUUID()}` })}.${encode({ sub: userId })}.c2ln`
+		fetchSpy.mockClear()
+		await expect(authenticateApiRequest(request(forged))).rejects.toMatchObject({
 			status: 401,
 			code: "unauthorized",
 		})
-		const outage = new Error("Jwks failed: Service Unavailable")
-		verify.mockRejectedValueOnce(outage)
-		await expect(authenticateApiRequest(request("a.b.c"))).rejects.toBe(outage)
+		expect(fetchSpy).not.toHaveBeenCalled()
+	})
+
+	it("turns verification failures into 401, and anything else into an error of ours", async () => {
+		const { clientId, generation } = await connectApp(["library:read"])
+		const claims = { azp: clientId, scope: "library:read", klip_grant: generation }
+		// The control: the same claims, signed and addressed correctly, are accepted.
+		await expect(authenticateApiRequest(request(await accessToken(claims)))).resolves.toMatchObject(
+			{ userId, clientId },
+		)
+
+		const refused = [
+			await accessToken({ ...claims, exp: Math.floor(Date.now() / 1000) - 60 }),
+			// A token for the MCP server is not one for the API.
+			await accessToken({ ...claims, aud: MCP_RESOURCE }),
+			await accessToken({ ...claims, iss: "https://elsewhere.example.com/api/auth" }),
+		]
+		// Our own signature over a payload of someone else's choosing.
+		const [header, , signature] = (await accessToken(claims)).split(".")
+		refused.push(`${header}.${encode({ ...claims, sub: "someone-else" })}.${signature}`)
+		for (const token of refused)
+			await expect(authenticateApiRequest(request(token))).rejects.toMatchObject({
+				status: 401,
+				code: "unauthorized",
+				message: "Invalid or expired access token.",
+			})
+
+		// Past the verifier's cache of our key set (five minutes), it fetches the set again.
+		vi.useFakeTimers({ toFake: ["Date"], now: Date.now() + 10 * 60 * 1000 })
+		const token = await accessToken(claims)
+		jwksDown = true
+		const outage = await authenticateApiRequest(request(token)).catch((error: unknown) => error)
+		expect(outage).toBeInstanceOf(Error)
+		expect(outage).not.toBeInstanceOf(ApiError)
+		expect((outage as Error).message).toBe("Jwks failed: Service Unavailable")
 	})
 
 	it("uses only the token's scopes the consent still holds", async () => {
-		verify.mockResolvedValue({
-			sub: "user-1",
-			azp: "klipstack-cli",
+		const { clientId, consentId, generation } = await connectApp([
+			"openid",
+			"library:read",
+			"library:write",
+		])
+		const token = await accessToken({
+			azp: clientId,
 			scope: "openid library:read library:write",
+			klip_grant: generation,
 		})
-		consented.mockResolvedValue(["openid", "library:read", "library:write"])
-		expect(await authenticateApiRequest(request("a.b.c"))).toEqual({
-			userId: "user-1",
+		expect(await authenticateApiRequest(request(token))).toEqual({
+			userId,
 			access: "write",
 			via: "oauth",
-			clientId: "klipstack-cli",
+			clientId,
 		})
-		expect(consented).toHaveBeenCalledWith("user-1", "klipstack-cli")
 
-		consented.mockResolvedValue(["openid", "library:read"])
-		expect(await authenticateApiRequest(request("a.b.c"))).toMatchObject({ access: "read" })
+		// A token granted read alone stays read, whatever the consent holds.
+		const readToken = await accessToken({
+			azp: clientId,
+			scope: "openid library:read",
+			klip_grant: generation,
+		})
+		expect(await authenticateApiRequest(request(readToken))).toMatchObject({ access: "read" })
 
-		consented.mockResolvedValue(["openid"])
-		await expect(authenticateApiRequest(request("a.b.c"))).rejects.toMatchObject({
+		const consent = (scopes: string[]) =>
+			db.update(oauthConsent).set({ scopes }).where(eq(oauthConsent.id, consentId))
+		await consent(["openid", "library:read"])
+		expect(await authenticateApiRequest(request(token))).toMatchObject({ access: "read" })
+
+		await consent(["openid"])
+		await expect(authenticateApiRequest(request(token))).rejects.toMatchObject({
 			status: 403,
 			code: "insufficient_scope",
 		})
 
-		consented.mockResolvedValue(null)
-		await expect(authenticateApiRequest(request("a.b.c"))).rejects.toMatchObject({
+		await db.delete(oauthConsent).where(eq(oauthConsent.id, consentId))
+		await expect(authenticateApiRequest(request(token))).rejects.toMatchObject({
+			status: 401,
+			message: "The user disconnected this app.",
+		})
+		// The missing consent alone is enough: the grant the delete took with it, back in place.
+		await db.insert(oauthGrants).values({ userId, clientId, generation })
+		await expect(authenticateApiRequest(request(token))).rejects.toMatchObject({
 			status: 401,
 			message: "The user disconnected this app.",
 		})
 	})
+
 	it("rejects a token from a revoked grant even after the client receives new consent", async () => {
-		verify.mockResolvedValue({
-			sub: "user-1",
-			client_id: "client",
+		const { clientId, consentId, generation } = await connectApp(["library:read"])
+		// `client_id` alone, without `azp`, names the app too.
+		const old = await accessToken({
+			client_id: clientId,
 			scope: "library:read",
-			klip_grant: "old",
+			klip_grant: generation,
 		})
-		consented.mockResolvedValue(["library:read"])
-		grant.mockResolvedValue(false)
-		await expect(authenticateApiRequest(request("a.b.c"))).rejects.toMatchObject({ status: 401 })
-		expect(grant).toHaveBeenCalledWith("user-1", "client", "old")
+		await expect(authenticateApiRequest(request(old))).resolves.toMatchObject({ userId, clientId })
+
+		// Disconnecting deletes the consent, and with it the grant (migration 0014). Connecting
+		// again makes a new grant reference and a new consent.
+		await db.delete(oauthConsent).where(eq(oauthConsent.id, consentId))
+		expect(await db.select().from(oauthGrants).where(eq(oauthGrants.clientId, clientId))).toEqual(
+			[],
+		)
+		const renewed = newId()
+		await db.insert(oauthGrants).values({ userId, clientId, generation: renewed })
+		await db
+			.insert(oauthConsent)
+			.values({ id: newId(), clientId, userId, scopes: ["library:read"] })
+
+		await expect(authenticateApiRequest(request(old))).rejects.toMatchObject({
+			status: 401,
+			message: "The user disconnected this app.",
+		})
+		const unbound = await accessToken({ client_id: clientId, scope: "library:read" })
+		await expect(authenticateApiRequest(request(unbound))).rejects.toMatchObject({ status: 401 })
+		const fresh = await accessToken({
+			client_id: clientId,
+			scope: "library:read",
+			klip_grant: renewed,
+		})
+		await expect(authenticateApiRequest(request(fresh))).resolves.toMatchObject({
+			userId,
+			clientId,
+		})
+	})
+
+	it("refuses a token for an account whose email is not verified", async () => {
+		const { clientId, generation } = await connectApp(["library:read"])
+		const token = await accessToken({
+			azp: clientId,
+			scope: "library:read",
+			klip_grant: generation,
+		})
+		await expect(authenticateApiRequest(request(token))).resolves.toMatchObject({ userId })
+
+		const unverified = `${userId}-unverified`
+		await db.insert(userTable).values({
+			id: unverified,
+			name: "Unverified",
+			email: `${unverified}@example.com`,
+			emailVerified: false,
+		})
+		try {
+			await db
+				.insert(oauthConsent)
+				.values({ id: newId(), clientId, userId: unverified, scopes: ["library:read"] })
+			await db.insert(oauthGrants).values({ userId: unverified, clientId, generation })
+			const theirs = await accessToken({
+				sub: unverified,
+				azp: clientId,
+				scope: "library:read",
+				klip_grant: generation,
+			})
+			await expect(authenticateApiRequest(request(theirs))).rejects.toMatchObject({
+				status: 401,
+				message: "The user disconnected this app.",
+			})
+		} finally {
+			await db.delete(userTable).where(eq(userTable.id, unverified))
+		}
 	})
 
 	it("refuses an address before any lookup once too many of its tokens were refused", async () => {
@@ -119,24 +272,25 @@ describe("authenticateApiRequest", () => {
 					"x-klipstack-client-signature": signature,
 				},
 			})
+		const { clientId, generation } = await connectApp(["library:read"])
+		const good = await accessToken({ azp: clientId, scope: "library:read", klip_grant: generation })
 		// Accepted tokens never count, however many.
-		verify.mockResolvedValue({ sub: "user-1", azp: "cli", scope: "library:read" })
-		consented.mockResolvedValue(["library:read"])
 		for (let i = 0; i < BAD_BEARER_LIMIT.limit + 10; i++)
-			await expect(authenticateApiRequest(from("a.b.c"))).resolves.toMatchObject({
-				userId: "user-1",
-			})
+			await expect(authenticateApiRequest(from(good))).resolves.toMatchObject({ userId })
 
-		knownKey.mockResolvedValue(false)
+		const unknownKey = `${encode({ alg: "EdDSA", kid: `unknown-${randomUUID()}` })}.e30.c2ln`
 		for (let i = 0; i < BAD_BEARER_LIMIT.limit; i++)
-			await expect(authenticateApiRequest(from("x.y.z"))).rejects.toMatchObject({ status: 401 })
-		knownKey.mockClear()
-		await expect(authenticateApiRequest(from("x.y.z"))).rejects.toMatchObject({
-			status: 429,
-			code: "rate_limited",
-		})
-		expect(knownKey).not.toHaveBeenCalled()
+			await expect(authenticateApiRequest(from(unknownKey))).rejects.toMatchObject({
+				status: 401,
+			})
+		// The address is turned away before its token is looked at: a token with a made-up key gets
+		// 429, where the key lookup would answer 401, and so does a good one.
+		for (const token of [unknownKey, good])
+			await expect(authenticateApiRequest(from(token))).rejects.toMatchObject({
+				status: 429,
+				code: "rate_limited",
+			})
 		// Another address still gets its answer.
-		await expect(authenticateApiRequest(request("x.y.z"))).rejects.toMatchObject({ status: 401 })
+		await expect(authenticateApiRequest(request(good))).resolves.toMatchObject({ userId })
 	})
 })
