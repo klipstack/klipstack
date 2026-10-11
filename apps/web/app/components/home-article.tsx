@@ -12,7 +12,8 @@ export function HomeArticle({
 	featured = false,
 	compact = false,
 }: {
-	doc: LibraryCard
+	/** `minutesLeft` from the server, when it counted them: what Home's time choice goes by. */
+	doc: LibraryCard & { minutesLeft?: number | null }
 	featured?: boolean
 	compact?: boolean
 }) {
@@ -20,9 +21,11 @@ export function HomeArticle({
 	const image = doc.leadImageAssetId ? `/assets/${doc.leadImageAssetId}` : doc.leadImageUrl
 	const started = Boolean(doc.firstOpenedAt)
 	const progress = Math.round(doc.readingProgress * 100)
-	const remaining = doc.readingMinutes
-		? Math.max(1, Math.ceil(doc.readingMinutes * (1 - doc.readingProgress)))
-		: null
+	const remaining =
+		doc.minutesLeft ??
+		(doc.readingMinutes
+			? Math.max(1, Math.ceil(doc.readingMinutes * (1 - doc.readingProgress)))
+			: null)
 	return (
 		<Link
 			to={`/read/${doc.id}`}

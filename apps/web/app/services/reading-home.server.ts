@@ -1,27 +1,24 @@
 import { and, count, db, documents, eq, isNull, sql } from "@klipstack/db"
-import { listDocuments } from "./documents.server"
+import { homeShelves, TIME_FILTER_MIN } from "~/lib/home-shelves"
 import { homeFeedItems } from "./feeds.server"
+import { countUnfinished, homeCandidates } from "./reading-suggestions.server"
 
-/** Small selections from Library and new feed posts. Filtering precedes each query's limit. */
-export async function readingHome(userId: string) {
-	const base = { userId, view: "inbox" as const, readyOnly: true, limit: 3 }
-	const [reading, latest, feed] = await Promise.all([
-		listDocuments({ ...base, filter: "progress" }),
-		listDocuments({ ...base, filter: "unread", sort: "newest", limit: 4 }),
+/**
+ * Home: candidates for its sections (`homeShelves` picks from them, for any time choice), whether
+ * to offer the time choice, and new feed posts.
+ */
+export async function readingHome(userId: string, { now = new Date() }: { now?: Date } = {}) {
+	const [candidates, unfinished, feed] = await Promise.all([
+		homeCandidates(userId, { now }),
+		countUnfinished(userId),
 		homeFeedItems(userId),
 	])
-	// With nothing in progress, the newest save takes the big card, above three more.
-	const recent = reading.items.length ? latest.items.slice(0, 3) : latest.items
-	const quick = await listDocuments({
-		...base,
-		filter: "quick",
-		excludeIds: [...reading.items, ...recent].map((doc) => doc.id),
-	})
+	const shelves = homeShelves(candidates, null)
 	const emptyState =
-		reading.items.length || recent.length || quick.items.length || feed.length
+		shelves.reading.length || shelves.recent.length || shelves.rediscover.length || feed.length
 			? null
 			: await homeEmptyState(userId)
-	return { reading: reading.items, recent, quick: quick.items, feed, emptyState }
+	return { candidates, timeChoice: unfinished > TIME_FILTER_MIN, feed, emptyState }
 }
 
 /** Only queried when there is nothing to feature. Archived and trashed saves are not pending work. */

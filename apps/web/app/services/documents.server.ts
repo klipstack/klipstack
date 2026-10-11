@@ -241,6 +241,31 @@ export const documentTagNames = sql<
 	string[]
 >`coalesce((select array_agg(t.name order by ${byName(sql`t.name`)}) from document_tags dt inner join tags t on t.id = dt.tag_id where dt.document_id = "documents"."id"), '{}'::text[])`
 
+/** A `LibraryCard`'s columns, for every query that lists cards. */
+export const libraryCardColumns = {
+	id: documents.id,
+	title: documents.title,
+	siteName: documents.siteName,
+	author: documents.author,
+	sourceUrl: documents.sourceUrl,
+	description: documents.description,
+	readingMinutes: documents.readingMinutes,
+	status: documents.status,
+	failureReason: documents.failureReason,
+	leadImageUrl: documents.leadImageUrl,
+	leadImageAssetId: documents.leadImageAssetId,
+	archivedAt: documents.archivedAt,
+	starredAt: documents.starredAt,
+	shortlistedAt: documents.shortlistedAt,
+	readAt: documents.readAt,
+	readingProgress: documents.readingProgress,
+	createdAt: documents.createdAt,
+	publishedAt: documents.publishedAt,
+	deletedAt: documents.deletedAt,
+	firstOpenedAt: documents.firstOpenedAt,
+	tags: documentTagNames,
+}
+
 /** Where the last card of a page sat in the sort order. `t` is created_at to the microsecond. */
 export interface Cursor {
 	k: number | null
@@ -364,27 +389,7 @@ export async function listDocuments({
 		: undefined
 	const rows = await db
 		.select({
-			id: documents.id,
-			title: documents.title,
-			siteName: documents.siteName,
-			author: documents.author,
-			sourceUrl: documents.sourceUrl,
-			description: documents.description,
-			readingMinutes: documents.readingMinutes,
-			status: documents.status,
-			failureReason: documents.failureReason,
-			leadImageUrl: documents.leadImageUrl,
-			leadImageAssetId: documents.leadImageAssetId,
-			archivedAt: documents.archivedAt,
-			starredAt: documents.starredAt,
-			shortlistedAt: documents.shortlistedAt,
-			readAt: documents.readAt,
-			readingProgress: documents.readingProgress,
-			createdAt: documents.createdAt,
-			publishedAt: documents.publishedAt,
-			deletedAt: documents.deletedAt,
-			firstOpenedAt: documents.firstOpenedAt,
-			tags: documentTagNames,
+			...libraryCardColumns,
 			sortKey: key ? sql<number>`${key}` : sql<null>`null`,
 			timeExact: sql<string>`to_char(${time} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
 		})

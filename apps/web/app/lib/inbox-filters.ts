@@ -27,6 +27,19 @@ export function filtersFor(view: FilterableView): readonly ListFilter[] {
 
 /** Quick reads take at most this many minutes. */
 export const QUICK_MAX_MINUTES = 10
+
+/** Home's "How much time do you have?" choices, in minutes. */
+export const TIME_CHOICES = [5, 15, 30, 60] as const
+
+/** Unread saves from before this many days come back on Home, a few at a time. */
+export const REDISCOVER_AFTER_DAYS = 14
+
+/** Home's time choice from the URL (`?time=15`): minutes, or null for any length. */
+export function parseTime(value: string | null): number | null {
+	const minutes = Number(value)
+	return (TIME_CHOICES as readonly number[]).includes(minutes) ? minutes : null
+}
+
 /** Long reads take at least this many minutes. */
 export const LONG_MIN_MINUTES = 30
 /** Scrolled this far (0..1), an article counts as read even if never marked finished. */

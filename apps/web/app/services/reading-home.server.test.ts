@@ -1,5 +1,6 @@
 import { db, documents, eq, feeds, feedItems, subscriptions, user } from "@klipstack/db"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
+import { homeShelves } from "~/lib/home-shelves"
 import { dismissFeedItem, markFeedItemViewed, markFeedViewed } from "./feeds.server"
 import { readingHome } from "./reading-home.server"
 
@@ -7,6 +8,11 @@ const userId = `test-home-${Date.now()}`
 const emptyId = `${userId}-empty`
 const sparseId = `${userId}-sparse`
 const accountIds = [userId, emptyId, sparseId]
+// The test articles were saved in September 2026: more than two weeks before this.
+const now = new Date("2026-10-10T12:00:00Z")
+const titles = (docs: { title: string | null }[]) => docs.map((d) => d.title)
+const shelves = async (id: string, minutes: number | null = null) =>
+	homeShelves((await readingHome(id, { now })).candidates, minutes)
 
 beforeAll(async () => {
 	await db
@@ -62,13 +68,63 @@ afterAll(async () => {
 
 describe("home selections", () => {
 	it("shows distinct ready inbox articles, with recent reading first", async () => {
-		const home = await readingHome(userId)
+		const home = await readingHome(userId, { now })
 		expect(home.emptyState).toBeNull()
-		expect(home.reading.map((d) => d.title)).toEqual(["Article 3", "Article 2", "Article 1"])
-		expect(home.recent.map((d) => d.title)).toEqual(["Article 11", "Article 10", "Article 9"])
-		expect(home.quick.map((d) => d.title)).toEqual(["Article 8", "Article 7", "Article 6"])
-		const all = [...home.reading, ...home.recent, ...home.quick]
+		// Twelve unfinished articles: more than Home shows at once.
+		expect(home.timeChoice).toBe(true)
+		const { reading, recent, rediscover } = homeShelves(home.candidates, null)
+		expect(titles(reading)).toEqual(["Article 3", "Article 2", "Article 1"])
+		expect(titles(recent)).toEqual(["Article 11", "Article 10", "Article 9"])
+		// Three of the older unread saves, in the day's order.
+		const older = ["Article 4", "Article 5", "Article 6", "Article 7", "Article 8"]
+		expect(rediscover).toHaveLength(3)
+		expect(older).toEqual(expect.arrayContaining(titles(rediscover)))
+		const all = [...reading, ...recent, ...rediscover]
 		expect(new Set(all.map((d) => d.id)).size).toBe(9)
+	})
+
+	it("narrows every section to the time chosen, from what it already has", async () => {
+		const id = `${userId}-${crypto.randomUUID()}`
+		accountIds.push(id)
+		await db.insert(user).values({ id, name: "Reader", email: `${id}@example.com` })
+		await db.insert(documents).values(
+			[3, 40, 12, 40, 4, 90].map((readingMinutes, i) => ({
+				userId: id,
+				title: `Saved ${i}`,
+				sourceUrl: `https://example.com/timed/${i}`,
+				urlHash: `${id}-${i}`,
+				status: "ready" as const,
+				readingMinutes,
+				createdAt: new Date(2026, 9, 9, i),
+			})),
+		)
+		await db.insert(documents).values({
+			userId: id,
+			title: "Half of forty",
+			sourceUrl: "https://example.com/timed/half",
+			urlHash: `${id}-half`,
+			status: "ready",
+			readingMinutes: 40,
+			readingProgress: 0.5,
+			firstOpenedAt: new Date(2026, 9, 9),
+		})
+		// Seven unfinished articles: Home shows them all, so there is nothing to choose.
+		expect((await readingHome(id, { now })).timeChoice).toBe(false)
+		const any = await shelves(id)
+		expect(titles(any.reading)).toEqual(["Half of forty"])
+		expect(titles(any.recent)).toEqual(["Saved 5", "Saved 4", "Saved 3"])
+		const five = await shelves(id, 5)
+		// Half of forty can't be finished in five minutes, but it was read last: it stays first.
+		expect(titles(five.reading)).toEqual(["Half of forty"])
+		expect(titles(five.recent)).toEqual(["Saved 4", "Saved 0"])
+		// What fills at least half the time first, then the rest that fits, newest first in each.
+		const fifteen = await shelves(id, 15)
+		expect(titles(fifteen.recent)).toEqual(["Saved 2", "Saved 4", "Saved 0"])
+		const half = await shelves(id, 30)
+		expect(titles(half.reading)).toEqual(["Half of forty"])
+		expect(titles(half.recent)).toEqual(["Saved 4", "Saved 2", "Saved 0"])
+		const hour = await shelves(id, 60)
+		expect(titles(hour.recent)).toEqual(["Saved 3", "Saved 1", "Saved 4"])
 	})
 
 	it("gives the newest save the big card, and three more, when nothing is in progress", async () => {
@@ -86,30 +142,25 @@ describe("home selections", () => {
 				createdAt: new Date(2026, 8, i + 1),
 			})),
 		)
-		const home = await readingHome(id)
+		const home = await shelves(id)
 		expect(home.reading).toEqual([])
-		expect(home.recent.map((d) => d.title)).toEqual([
-			"Unread 5",
-			"Unread 4",
-			"Unread 3",
-			"Unread 2",
-		])
-		expect(home.quick.map((d) => d.title)).toEqual(["Unread 1", "Unread 0"])
+		expect(titles(home.recent)).toEqual(["Unread 5", "Unread 4", "Unread 3", "Unread 2"])
+		// The older saves the recent ones don't already show.
+		expect(titles(home.rediscover).sort()).toEqual(["Unread 0", "Unread 1"])
 	})
 
 	it("shrinks for sparse and empty libraries without borrowing another user's articles", async () => {
 		expect(await readingHome(emptyId)).toEqual({
-			reading: [],
-			recent: [],
-			quick: [],
+			candidates: { reading: [], recent: [], rediscover: [], recentSince: expect.any(Date) },
+			timeChoice: false,
 			feed: [],
 			emptyState: { kind: "new", to: "/add" },
 		})
-		const sparse = await readingHome(sparseId)
-		expect(sparse.emptyState).toBeNull()
+		expect((await readingHome(sparseId)).emptyState).toBeNull()
+		const sparse = await shelves(sparseId)
 		expect(sparse.reading).toEqual([])
-		expect(sparse.quick).toEqual([])
-		expect(sparse.recent.map((d) => d.title)).toEqual(["Only article"])
+		expect(sparse.rediscover).toEqual([])
+		expect(titles(sparse.recent)).toEqual(["Only article"])
 	})
 
 	it.each([
@@ -152,9 +203,8 @@ describe("home selections", () => {
 			})),
 		)
 		expect(await readingHome(id)).toEqual({
-			reading: [],
-			recent: [],
-			quick: [],
+			candidates: { reading: [], recent: [], rediscover: [], recentSince: expect.any(Date) },
+			timeChoice: false,
 			feed: [],
 			emptyState: expected,
 		})
@@ -249,7 +299,7 @@ describe("Home feed discovery", () => {
 		expect(home.feed.map(({ source }) => source)).toEqual(["Busy", "My renamed blog", "Quiet"])
 		expect(new Set(home.feed.map(({ item }) => item.url)).size).toBe(3)
 		expect(home.emptyState).toBeNull()
-		expect(home.recent).toEqual([])
+		expect(home.candidates.recent).toEqual([])
 		expect((await readingHome(emptyId)).feed).toEqual([])
 	})
 	it("can use one active source without showing saved, opened, dismissed, or expired posts", async () => {
