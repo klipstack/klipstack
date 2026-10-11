@@ -1,13 +1,21 @@
 import { type AiLanguage, type AnswerEvent, AI_ACTIONS, AiError, type Turn } from "@klipstack/ai"
 import { resolveSelector } from "@klipstack/anchor"
 import { Id, NUL_REFUSED, QUOTE_MAX, withoutNul } from "@klipstack/api-contract"
-import { type AiBrief, type AiMessage, type AiThread, type AiThreadAction, db } from "@klipstack/db"
+import {
+	type AiBrief,
+	type AiMessage,
+	type AiThread,
+	type AiThreadAction,
+	db,
+	type Tx,
+} from "@klipstack/db"
 import { safeFields } from "@klipstack/log"
 import { z } from "zod"
+import type { AiAllowance } from "~/lib/ai-threads"
 import { AI_RATE_LIMIT, ai } from "~/lib/ai.server"
 import { AppError, notFound, parseInput, rateLimited } from "~/lib/app-error"
 import { hasFeature } from "~/lib/features.server"
-import { countMonthly } from "~/lib/limits.server"
+import { countMonthly, recordAiSpend } from "~/lib/limits.server"
 import { rateLimit } from "~/lib/rate-limit.server"
 import {
 	deleteMessage,
@@ -90,6 +98,14 @@ export interface Asked {
 	events: AsyncIterable<AnswerEvent>
 	/** The answer as saved, `failed` included. Settles once `events` is read to its end. */
 	answer: Promise<AiMessage>
+	/** Where the account stands with this question counted. */
+	allowance: AiAllowance
+}
+
+/** Counts a question against the monthly cap, and says where the account stands after it. */
+async function countQuestion(tx: Tx, userId: string): Promise<AiAllowance> {
+	const { used, max, resetsAt } = await countMonthly(tx, userId, "ai")
+	return { used, max, resetsAt: resetsAt.toISOString() }
 }
 
 /** The checks every question goes through, in order: the feature, the server, the pace. */
@@ -130,8 +146,8 @@ export async function askAboutPassage(
 			const highlight = await getHighlight(userId, highlightId)
 			if (highlight?.documentId !== documentId) throw notFound("No highlight with that id.")
 		}
-		const { thread, turn } = await db.transaction(async (tx) => {
-			await countMonthly(tx, userId, "ai")
+		const { thread, turn, allowance } = await db.transaction(async (tx) => {
+			const allowance = await countQuestion(tx, userId)
 			const thread = await insertThread(tx, {
 				userId,
 				documentId,
@@ -147,9 +163,9 @@ export async function askAboutPassage(
 				role: "user",
 				text: question?.trim() ?? "",
 			})
-			return { thread, turn }
+			return { thread, turn, allowance }
 		})
-		return answerThread({ ...thread, messages: [turn] }, turn, { doc, version }, options)
+		return answerThread({ ...thread, messages: [turn] }, turn, { doc, version }, options, allowance)
 	} catch (error) {
 		limited.refund()
 		throw error
@@ -182,7 +198,7 @@ export async function askArticle(
 			// Another tab may be starting it right now: the second waits, then continues the first's.
 			await lockChat(tx, documentId)
 			if (await getChat(userId, documentId, tx)) return null
-			await countMonthly(tx, userId, "ai")
+			const allowance = await countQuestion(tx, userId)
 			const thread = await insertThread(tx, {
 				userId,
 				documentId,
@@ -193,14 +209,14 @@ export async function askArticle(
 				action: "chat",
 			})
 			const turn = await insertMessage(tx, { threadId: thread.id, role: "user", text: question })
-			return { thread, turn }
+			return { thread, turn, allowance }
 		})
 		if (!started) {
 			limited.refund()
 			return askArticle(userId, articleId, text, options)
 		}
-		const { thread, turn } = started
-		return answerThread({ ...thread, messages: [turn] }, turn, { doc, version }, options)
+		const { thread, turn, allowance } = started
+		return answerThread({ ...thread, messages: [turn] }, turn, { doc, version }, options, allowance)
 	} catch (error) {
 		limited.refund()
 		throw error
@@ -221,11 +237,18 @@ export async function followUp(
 	const article = await articleOf(userId, thread)
 	const limited = await mayAsk(userId)
 	try {
-		const turn = await db.transaction(async (tx) => {
-			await countMonthly(tx, userId, "ai")
-			return insertMessage(tx, { threadId: thread.id, role: "user", text: question })
+		const { turn, allowance } = await db.transaction(async (tx) => {
+			const allowance = await countQuestion(tx, userId)
+			const turn = await insertMessage(tx, { threadId: thread.id, role: "user", text: question })
+			return { turn, allowance }
 		})
-		return answerThread({ ...thread, messages: [...thread.messages, turn] }, turn, article, options)
+		return answerThread(
+			{ ...thread, messages: [...thread.messages, turn] },
+			turn,
+			article,
+			options,
+			allowance,
+		)
 	} catch (error) {
 		limited.refund()
 		throw error
@@ -250,11 +273,12 @@ export async function retryAnswer(
 	const limited = await mayAsk(userId)
 	try {
 		// Counted, and the old answer gone, together: a refusal keeps the answer.
-		await db.transaction(async (tx) => {
-			await countMonthly(tx, userId, "ai")
+		const allowance = await db.transaction(async (tx) => {
+			const allowance = await countQuestion(tx, userId)
 			if (last?.role === "assistant") await deleteMessage(last.id, tx)
+			return allowance
 		})
-		return answerThread({ ...thread, messages }, question, article, options)
+		return answerThread({ ...thread, messages }, question, article, options, allowance)
 	} catch (error) {
 		limited.refund()
 		throw error
@@ -282,6 +306,8 @@ async function answerable(userId: string, id: string): Promise<ThreadWithMessage
 export interface Briefing {
 	events: AsyncIterable<AnswerEvent>
 	brief: Promise<AiBrief | null>
+	/** Where the account stands with this brief counted. */
+	allowance: AiAllowance
 }
 
 /**
@@ -306,8 +332,9 @@ export async function briefArticle(
 		throw new AppError("already_pending", "The brief is still being written.")
 	mayRead(version.text)
 	const limited = await mayAsk(userId)
+	let allowance: AiAllowance
 	try {
-		await db.transaction((tx) => countMonthly(tx, userId, "ai"))
+		allowance = await db.transaction((tx) => countQuestion(tx, userId))
 	} catch (error) {
 		limited.refund()
 		throw error
@@ -324,8 +351,9 @@ export async function briefArticle(
 		language,
 	})
 	const saved = brief.done.then(
-		(result) => {
+		async (result) => {
 			log({ documentId, model: result.model, status: result.status, ...result.usage }, "brief")
+			await recordAiSpend(userId, result.model, result.usage)
 			if (result.status !== "done" || !result.text.trim()) return null
 			return insertBrief({
 				userId,
@@ -346,7 +374,7 @@ export async function briefArticle(
 		},
 	)
 	void saved.finally(() => writingBriefs.delete(version.id))
-	return { events: brief.events, brief: saved }
+	return { events: brief.events, brief: saved, allowance }
 }
 
 /** Versions whose brief is being written, in this server process (one web process serves the app). */
@@ -391,6 +419,7 @@ function answerThread(
 	question: AiMessage,
 	{ doc, version }: Article,
 	{ language, signal }: AskOptions,
+	allowance: AiAllowance,
 ): Asked {
 	const turns: Turn[] = thread.messages
 		.filter((m) => m.role === "user" || m.status !== "failed")
@@ -414,6 +443,7 @@ function answerThread(
 	const saved = answer.done.then(
 		async (result) => {
 			log({ threadId: thread.id, model: result.model, status: result.status, ...result.usage })
+			await recordAiSpend(thread.userId, result.model, result.usage)
 			return insertMessage(db, {
 				threadId: thread.id,
 				role: "assistant",
@@ -437,7 +467,7 @@ function answerThread(
 			})
 		},
 	)
-	return { thread, question, events: answer.events, answer: saved }
+	return { thread, question, events: answer.events, answer: saved, allowance }
 }
 
 /** Ids, the model and token counts: never the article or the question. */

@@ -16,6 +16,7 @@ import {
 
 export { citationRange } from "./citations"
 export { FAKE_FAIL, FAKE_REFUSE } from "./fake"
+export { estimateCostUsd, type TokenCounts } from "./cost"
 export { type AiConfig, TIERS } from "./models"
 export { briefMessages, briefSystemPrompt, buildMessages, systemPrompt } from "./prompt"
 export * from "./types"

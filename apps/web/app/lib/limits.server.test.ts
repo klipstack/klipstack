@@ -1,7 +1,7 @@
 import { db, eq, user as userTable } from "@klipstack/db"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import { env } from "./env.server"
-import { countMonthly, monthOf, usageOf } from "./limits.server"
+import { aiAllowance, countMonthly, limitsFor, monthOf, usageOf } from "./limits.server"
 
 const userId = `test-limits-${Date.now()}`
 
@@ -44,5 +44,42 @@ describe("countMonthly", () => {
 		} finally {
 			env.LIMIT_EDITIONS_PER_MONTH = before
 		}
+	})
+})
+
+describe("limitsFor", () => {
+	it("gives admins their own AI cap, and everyone else the default one", async () => {
+		const adminId = `${userId}-admin`
+		await db
+			.insert(userTable)
+			.values({ id: adminId, name: "Admin", email: `${adminId}@example.com`, role: "admin" })
+		try {
+			expect((await limitsFor(userId)).ai).toBe(env.LIMIT_AI_PER_MONTH)
+			expect((await limitsFor(adminId)).ai).toBe(env.LIMIT_AI_PER_MONTH_ADMIN)
+			// Only the AI cap differs.
+			expect({ ...(await limitsFor(adminId)), ai: 0 }).toEqual({
+				...(await limitsFor(userId)),
+				ai: 0,
+			})
+		} finally {
+			await db.delete(userTable).where(eq(userTable.id, adminId))
+		}
+	})
+})
+
+describe("aiAllowance", () => {
+	it("is this month's AI questions against the account's cap, and when they start over", async () => {
+		const before = await aiAllowance(userId)
+		expect(before).toEqual({
+			used: expect.any(Number),
+			max: env.LIMIT_AI_PER_MONTH,
+			resetsAt: monthOf().resetsAt.toISOString(),
+		})
+		expect(await db.transaction((tx) => countMonthly(tx, userId, "ai"))).toEqual({
+			used: before.used + 1,
+			max: env.LIMIT_AI_PER_MONTH,
+			resetsAt: monthOf().resetsAt,
+		})
+		expect((await aiAllowance(userId)).used).toBe(before.used + 1)
 	})
 })

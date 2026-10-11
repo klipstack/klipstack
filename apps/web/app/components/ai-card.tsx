@@ -11,9 +11,11 @@ import {
 	RotateCcw,
 	Trash2,
 } from "lucide-react"
-import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { useContext, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { AiResetsOnContext, useQuestionsLeft } from "~/hooks/use-ai-allowance"
 import { type AnswerStore, type AiCard as Card, useWritten } from "~/hooks/use-ai-threads"
+import type { AiFailure } from "~/lib/ai-stream.client"
 import { cn } from "~/lib/utils"
 import { AiAnswer, plainAnswer } from "./ai-answer"
 import { tooltip } from "./tooltip-host"
@@ -121,6 +123,8 @@ function OpenCard({
 	const busy = !!card.streaming
 	const last = card.messages.at(-1)
 	const lastAnswer = card.messages.findLast((m) => m.role === "assistant" && m.status === "done")
+	// None left this month: no Retry, no follow-up, and `QuestionsLeft` says why.
+	const { none } = useQuestionsLeft()
 
 	// Escape closes it, and so does a press outside it.
 	useEffect(() => {
@@ -229,21 +233,24 @@ function OpenCard({
 						</p>
 					)
 				) : null}
-				{card.failure ? <Failure code={card.failure.code} /> : null}
+				{card.failure ? <Failure {...card.failure} /> : null}
 			</div>
 			{card.draft ? (
-				<QuestionField
-					initial={card.draft.question}
-					placeholder={t("ai.askPlaceholder")}
-					onSend={onSend}
-					onEscape={onClose}
-				/>
+				<>
+					<QuestionField
+						initial={card.draft.question}
+						placeholder={t("ai.askPlaceholder")}
+						onSend={onSend}
+						onEscape={onClose}
+					/>
+					<QuestionsLeft />
+				</>
 			) : (
 				<>
 					{busy ? null : (
 						<div className="mt-2 flex items-center gap-0.5">
 							{/* After an answer, or a question left without one (the answer was lost). */}
-							{last || card.failure ? (
+							{(last || card.failure) && !none ? (
 								<button
 									type="button"
 									onClick={onRetry}
@@ -276,7 +283,7 @@ function OpenCard({
 							</button>
 						</div>
 					)}
-					{card.orphaned || busy || last?.role === "user" ? null : (
+					{card.orphaned || busy || last?.role === "user" || none ? null : (
 						<QuestionField
 							placeholder={t("ai.followUpPlaceholder")}
 							onSend={onSend}
@@ -284,14 +291,31 @@ function OpenCard({
 							autoFocus={false}
 						/>
 					)}
+					{card.orphaned || busy ? null : (
+						<QuestionsLeft failed={card.failure?.code === "limit_reached"} />
+					)}
 				</>
 			)}
 		</div>
 	)
 }
 
-export function Failure({ code }: { code: string }) {
+/** The cap's message, with the day it starts over (`AiResetsOnContext`). */
+function useLimitMessage(): string | null {
 	const { t } = useTranslation("reader")
+	const resetsOn = useContext(AiResetsOnContext)
+	return resetsOn ? t("ai.errors.limit_reached_on", { date: resetsOn }) : null
+}
+
+export function Failure({ code }: Pick<AiFailure, "code">) {
+	const { t } = useTranslation("reader")
+	const limit = useLimitMessage()
+	if (code === "limit_reached" && limit)
+		return (
+			<p role="alert" className="text-danger">
+				{limit}
+			</p>
+		)
 	const known = [
 		"limit_reached",
 		"rate_limited",
@@ -305,6 +329,24 @@ export function Failure({ code }: { code: string }) {
 	return (
 		<p role="alert" className="text-danger">
 			{t(`ai.errors.${known.includes(code) ? code : "other"}` as "ai.errors.other")}
+		</p>
+	)
+}
+
+/**
+ * Where the next question would go: the questions left when few are, or, when none are, why there
+ * is no field (`failed`: a refusal already says so).
+ */
+export function QuestionsLeft({ failed }: { failed?: boolean }) {
+	const { t } = useTranslation("reader")
+	const { left, few, none } = useQuestionsLeft()
+	// Not an error: the last one was used. A refusal (`failed`) already says it, in red.
+	const limit = useLimitMessage()
+	if (none) return failed || !limit ? null : <p className="mt-2 text-xs text-muted-fg">{limit}</p>
+	if (!few) return null
+	return (
+		<p className="mt-2 text-xs text-muted-fg" data-testid="questions-left">
+			{t("ai.left", { count: left })}
 		</p>
 	)
 }

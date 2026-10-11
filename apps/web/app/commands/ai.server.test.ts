@@ -2,11 +2,13 @@ import { createHash } from "node:crypto"
 import { FAKE_FAIL, FAKE_REFUSE } from "@klipstack/ai"
 import {
 	aiThreads,
+	and,
 	db,
 	documents,
 	documentVersions,
 	eq,
 	user as userTable,
+	usageCounts,
 	userFeatures,
 } from "@klipstack/db"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
@@ -16,7 +18,22 @@ vi.hoisted(() => {
 })
 
 const { env } = await import("~/lib/env.server")
-const { usageOf } = await import("~/lib/limits.server")
+const { monthOf, usageOf } = await import("~/lib/limits.server")
+
+/** What the account's AI answers cost this month, in millionths of a dollar. */
+async function spent() {
+	const [row] = await db
+		.select({ count: usageCounts.count })
+		.from(usageCounts)
+		.where(
+			and(
+				eq(usageCounts.userId, userId),
+				eq(usageCounts.metric, "ai_spend"),
+				eq(usageCounts.month, monthOf().month),
+			),
+		)
+	return row?.count ?? 0
+}
 const { listDocumentThreads } = await import("~/services/ai-threads.server")
 const {
 	AI_TEXT_MAX,
@@ -101,6 +118,7 @@ describe("askAboutPassage", () => {
 	it("streams an answer citing the article, saves it, and counts the question", async () => {
 		const id = await article()
 		const before = (await usageOf(userId)).ai.used
+		const spentBefore = await spent()
 		const asked = await askAboutPassage(
 			userId,
 			id,
@@ -126,6 +144,14 @@ describe("askAboutPassage", () => {
 			inputTokens: 100,
 		})
 		expect((await usageOf(userId)).ai.used).toBe(before + 1)
+		// Where the account stands, for the card's "questions left".
+		expect(asked.allowance).toEqual({
+			used: before + 1,
+			max: env.LIMIT_AI_PER_MONTH,
+			resetsAt: monthOf().resetsAt.toISOString(),
+		})
+		// What it cost, when it was paid for: the fake model's 100 tokens in and 20 out at $1 a million.
+		expect(await spent()).toBe(spentBefore + 120)
 	})
 
 	it("takes one word, and needs a question to Ask", async () => {
@@ -252,6 +278,17 @@ describe("follow-ups, retries and refusals", () => {
 		expect(thread!.messages.map((m) => m.status)).toEqual(["done", "failed"])
 	})
 
+	it("keeps what an answer cost after Retry replaces it, and after its thread is deleted", async () => {
+		const id = await article()
+		const before = await spent()
+		const asked = await askAboutPassage(userId, id, { action: "explain", exact: "Makers" }, en)
+		await read(asked)
+		await read(await retryAnswer(userId, asked.thread.id, en))
+		await deleteThread(userId, asked.thread.id)
+		// Two answers paid for: the first is gone, its cost is not.
+		expect(await spent()).toBe(before + 240)
+	})
+
 	it("says when the model declines", async () => {
 		const id = await article()
 		const asked = await askAboutPassage(
@@ -306,6 +343,7 @@ describe("briefArticle", () => {
 	it("writes a cited brief once per version, and counts it once", async () => {
 		const id = await article()
 		const before = (await usageOf(userId)).ai.used
+		const spentBefore = await spent()
 		const first = await briefArticle(userId, id, en)
 		if (!("events" in first)) throw new Error("expected a new brief")
 		const events = []
@@ -318,11 +356,16 @@ describe("briefArticle", () => {
 		})
 		expect(events.some((e) => e.type === "citation")).toBe(true)
 		expect((await usageOf(userId)).ai.used).toBe(before + 1)
+		expect(first.allowance).toMatchObject({ used: before + 1, max: env.LIMIT_AI_PER_MONTH })
+
+		// Priced once written: the fake brief's 100 tokens in and 30 out at $1 a million.
+		expect(await spent()).toBe(spentBefore + 130)
 
 		// Kept: the same brief, at no cost.
 		const again = await briefArticle(userId, id, en)
 		expect(again).toMatchObject({ id: brief!.id })
 		expect((await usageOf(userId)).ai.used).toBe(before + 1)
+		expect(await spent()).toBe(spentBefore + 130)
 
 		// A new version of the article needs a new one.
 		await newVersion(id, `Preface. ${TEXT}`, 2)

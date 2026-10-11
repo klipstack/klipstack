@@ -5,6 +5,7 @@ import { Button } from "~/components/ui/button"
 import { Label } from "~/components/ui/label"
 import { isUsageOrder, USAGE_ORDERS, USAGE_TOP, type UsageOrder } from "~/lib/admin-constants"
 import { requireAdmin } from "~/lib/admin.server"
+import { getLocale } from "~/lib/i18n.server"
 import { cn } from "~/lib/utils"
 import { listUsage } from "~/services/admin-usage.server"
 import type { Route } from "./+types/admin.usage"
@@ -15,16 +16,23 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 	const ctx = await requireAdmin(context, request)
 	const raw = new URL(request.url).searchParams.get("by")
 	const by: UsageOrder = isUsageOrder(raw) ? raw : "refused"
-	const { rows, limits, month } = await listUsage(ctx, by)
+	const { rows, limits, month, aiCostUsd } = await listUsage(ctx, by)
+	// Money is formatted here, as numbers are in Settings: the server's Intl and the browser's may
+	// differ. Cents an account spends show as less than one cent, not as nothing.
+	const usd = new Intl.NumberFormat(getLocale(context), { style: "currency", currency: "USD" })
+	const dollars = (amount: number) =>
+		amount > 0 && amount < 0.01 ? { under: usd.format(0.01) } : { amount: usd.format(amount) }
 	return {
 		by,
 		// Whole numbers only, so the server and the browser show them alike.
-		rows: rows.map(({ storageBytes, ...row }) => ({
+		rows: rows.map(({ storageBytes, aiCostUsd, ...row }) => ({
 			...row,
 			storageMb: Math.round(storageBytes / MB),
+			aiCost: dollars(aiCostUsd),
 		})),
 		limits: { ...limits, storage: Math.round(limits.storage / MB) },
 		month: month.slice(0, 7),
+		aiCostTotal: dollars(aiCostUsd),
 	}
 }
 
@@ -91,6 +99,8 @@ export default function AdminUsage({ loaderData }: Route.ComponentProps) {
 						t("usage.saves"),
 						t("usage.feeds"),
 						t("usage.editions"),
+						t("usage.ai"),
+						t("usage.aiCost"),
 					]}
 				>
 					{loaderData.rows.map((row) => (
@@ -120,6 +130,14 @@ export default function AdminUsage({ loaderData }: Route.ComponentProps) {
 							<td>
 								<Against used={row.editions} max={limits.editions} />
 							</td>
+							<td>
+								<Against used={row.ai} max={row.aiMax} />
+							</td>
+							<td className="tabular-nums">
+								{"under" in row.aiCost
+									? t("usage.aiCostUnder", { amount: row.aiCost.under })
+									: row.aiCost.amount}
+							</td>
 						</tr>
 					))}
 				</Table>
@@ -127,6 +145,15 @@ export default function AdminUsage({ loaderData }: Route.ComponentProps) {
 				<Empty>{t("usage.empty")}</Empty>
 			)}
 			<p className="mt-4 text-sm text-muted-fg">{t("usage.month", { month: loaderData.month })}</p>
+			<p className="mt-4 text-sm font-medium" data-testid="ai-cost-total">
+				{t("usage.aiCostTotal", {
+					amount:
+						"under" in loaderData.aiCostTotal
+							? t("usage.aiCostUnder", { amount: loaderData.aiCostTotal.under })
+							: loaderData.aiCostTotal.amount,
+				})}
+			</p>
+			<p className="mt-1 text-sm text-muted-fg">{t("usage.aiCostNote")}</p>
 		</>
 	)
 }

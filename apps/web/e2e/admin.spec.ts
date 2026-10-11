@@ -1,5 +1,14 @@
 import { randomUUID } from "node:crypto"
-import { adminAuditEvents, db, documents, eq, invites, session, user } from "@klipstack/db"
+import {
+	adminAuditEvents,
+	db,
+	documents,
+	eq,
+	invites,
+	session,
+	usageCounts,
+	user,
+} from "@klipstack/db"
 import { devices, expect, type Page, test } from "@playwright/test"
 import { lastEmailTo, login, PASSWORD, signupAdmin, signupUser, waitForHydration } from "./helpers"
 import { insertArticle } from "./seed"
@@ -409,4 +418,31 @@ test.describe("on a phone", () => {
 		await page.getByRole("link", { name: "Audit" }).click()
 		await expect(page).toHaveURL(/\/admin\/audit$/)
 	})
+})
+
+test("the usage page ranks by AI questions, against each account's cap, with the cost", async ({
+	page,
+}) => {
+	const email = await signupAdmin(page, "AI Spender")
+	const admin = await userByEmail(email)
+	const month = `${new Date().toISOString().slice(0, 7)}-01`
+	await db.insert(usageCounts).values([
+		// Far past any other test account's count, so this one leads the ranking.
+		{ userId: admin.id, metric: "ai", month, count: 1_000_000 },
+		// $1.50 this month, in millionths of a dollar.
+		{ userId: admin.id, metric: "ai_spend", month, count: 1_500_000 },
+	])
+
+	await page.goto("/admin/usage")
+	await waitForHydration(page)
+	await page.getByLabel("Rank by").selectOption({ label: "AI questions this month" })
+	await expect(page).toHaveURL(/\/admin\/usage\?by=ai$/)
+	const first = page.getByRole("row").nth(1)
+	await expect(first).toContainText(email)
+	// Admins have their own cap: the default, LIMIT_AI_PER_MONTH_ADMIN.
+	await expect(first).toContainText("1000000 / 500")
+	await expect(first).toContainText("$1.50")
+	// The month's total, every account's: at least this one's.
+	const total = await page.getByTestId("ai-cost-total").textContent()
+	expect(Number(total?.match(/\$([\d,.]+)/)?.[1]?.replace(/,/g, ""))).toBeGreaterThanOrEqual(1.5)
 })

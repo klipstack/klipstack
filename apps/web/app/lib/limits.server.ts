@@ -1,3 +1,4 @@
+import { estimateCostUsd, type TokenCounts } from "@klipstack/ai"
 import {
 	and,
 	db,
@@ -7,15 +8,19 @@ import {
 	subscriptions,
 	type Tx,
 	type UsageMetric,
+	type UserRole,
 	usageCounts,
+	user,
 } from "@klipstack/db"
+import { logError } from "@klipstack/log"
+import type { AiAllowance } from "./ai-threads"
 import { AppError } from "./app-error"
 import { env } from "./env.server"
 
 /**
  * Per-account caps. Unlike the rate limits, they are counted in the database, so they hold across
- * deploys and machines. Every account has the same numbers today; a plan, or an exception for an
- * import, is `limitsFor` answering other ones.
+ * deploys and machines. Every account has the same numbers, except admins' AI cap; a plan, or an
+ * exception for an import, is `limitsFor` answering other ones.
  */
 export interface Limits {
 	/** New articles a calendar month (UTC), however they were saved. */
@@ -32,8 +37,15 @@ export interface Limits {
 
 export type LimitName = keyof Limits
 
-export async function limitsFor(_userId: string): Promise<Limits> {
-	return defaultLimits()
+export async function limitsFor(userId: string): Promise<Limits> {
+	const [account] = await db.select({ role: user.role }).from(user).where(eq(user.id, userId))
+	return limitsForRole(account?.role ?? "user")
+}
+
+/** The caps of an account with that role: admins ask the AI more, everything else is the same. */
+export function limitsForRole(role: UserRole): Limits {
+	const limits = defaultLimits()
+	return role === "admin" ? { ...limits, ai: env.LIMIT_AI_PER_MONTH_ADMIN } : limits
 }
 
 /** The caps of an account with nothing special about it: the env's numbers. */
@@ -80,13 +92,19 @@ export function limitReached(limit: LimitName, max: number, resetsAt?: Date): Ap
 	})
 }
 
-async function bump(runner: Pick<Tx, "insert">, userId: string, metric: UsageMetric) {
+async function bump(
+	runner: Pick<Tx, "insert">,
+	userId: string,
+	metric: UsageMetric,
+	month = monthOf().month,
+	by = 1,
+) {
 	const [row] = await runner
 		.insert(usageCounts)
-		.values({ userId, metric, month: monthOf().month, count: 1 })
+		.values({ userId, metric, month, count: by })
 		.onConflictDoUpdate({
 			target: [usageCounts.userId, usageCounts.metric, usageCounts.month],
-			set: { count: sql`${usageCounts.count} + 1` },
+			set: { count: sql`${usageCounts.count} + ${by}` },
 		})
 		.returning({ count: usageCounts.count })
 	return row!.count
@@ -100,6 +118,22 @@ export async function countRefusal(userId: string) {
 	await bump(db, userId, "refused")
 }
 
+/**
+ * What an AI answer or brief cost, estimated from its tokens, added to the account's month for
+ * `/admin/usage` when the provider finishes it: a retry or a delete later keeps it. One cut off
+ * (the reader left, the provider failed) comes with no token counts, and is not priced.
+ */
+export async function recordAiSpend(userId: string, model: string, tokens: TokenCounts) {
+	const micros = Math.round(estimateCostUsd(model, tokens) * 1_000_000)
+	if (micros <= 0) return
+	try {
+		await bump(db, userId, "ai_spend", monthOf().month, micros)
+	} catch (error) {
+		// The answer is worth more than its estimate: it is saved all the same.
+		logError("[ai] recording what an answer cost failed", error)
+	}
+}
+
 /** Refuses at a cap, and counts the refusal. */
 async function refuse(userId: string, limit: LimitName, max: number, resetsAt?: Date) {
 	await countRefusal(userId)
@@ -109,12 +143,38 @@ async function refuse(userId: string, limit: LimitName, max: number, resetsAt?: 
 /**
  * Counts one more `metric` this month in the caller's transaction, and refuses past the cap; the
  * refusal rolls the count back with the rest. The row lock makes two at once take turns, so they
- * cannot both take the last one.
+ * cannot both take the last one. Answers the count with this one, the cap, and when it starts over.
  */
-export async function countMonthly(tx: Tx, userId: string, metric: "saves" | "editions" | "ai") {
+export async function countMonthly(
+	tx: Tx,
+	userId: string,
+	metric: "saves" | "editions" | "ai",
+): Promise<{ used: number; max: number; resetsAt: Date }> {
 	const max = (await limitsFor(userId))[metric]
-	if ((await bump(tx, userId, metric)) > max)
-		throw await refuse(userId, metric, max, monthOf().resetsAt)
+	// One month for the count and the date it starts over, even at midnight on the 1st.
+	const { month, resetsAt } = monthOf()
+	const used = await bump(tx, userId, metric, month)
+	if (used > max) throw await refuse(userId, metric, max, resetsAt)
+	return { used, max, resetsAt }
+}
+
+/** The account's AI questions this month against its cap, for the reader. */
+export async function aiAllowance(userId: string): Promise<AiAllowance> {
+	const { month, resetsAt } = monthOf()
+	const [limits, [row]] = await Promise.all([
+		limitsFor(userId),
+		db
+			.select({ count: usageCounts.count })
+			.from(usageCounts)
+			.where(
+				and(
+					eq(usageCounts.userId, userId),
+					eq(usageCounts.metric, "ai"),
+					eq(usageCounts.month, month),
+				),
+			),
+	])
+	return { used: row?.count ?? 0, max: limits.ai, resetsAt: resetsAt.toISOString() }
 }
 
 /**

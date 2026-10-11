@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { db, eq, user } from "@klipstack/db"
+import { aiThreads, db, documents, eq, usageCounts, user } from "@klipstack/db"
 import { expect, type Locator, type Page, test } from "@playwright/test"
 import { signupUser, waitForHydration } from "./helpers"
 import { insertArticle } from "./seed"
@@ -320,4 +320,131 @@ test("without the feature, the toolbar has no AI", async ({ page }) => {
 	await expect(page.getByRole("button", { name: "Chat about this article" })).toHaveCount(0)
 	await page.keyboard.press("h")
 	await expect(page.getByRole("tab", { name: "Chat" })).toHaveCount(0)
+})
+
+/** Sets the article's owner's AI questions this month, as if they had asked them. */
+async function askedThisMonth(documentId: string, count: number) {
+	const [doc] = await db
+		.select({ userId: documents.userId })
+		.from(documents)
+		.where(eq(documents.id, documentId))
+	const month = `${new Date().toISOString().slice(0, 7)}-01`
+	await db
+		.insert(usageCounts)
+		.values({ userId: doc!.userId, metric: "ai", month, count })
+		.onConflictDoUpdate({
+			target: [usageCounts.userId, usageCounts.metric, usageCounts.month],
+			set: { count },
+		})
+	return doc!.userId
+}
+
+/** The 1st of next month, as the reader writes it. */
+function nextMonth() {
+	const now = new Date()
+	return new Intl.DateTimeFormat("en", { dateStyle: "medium", timeZone: "UTC" }).format(
+		new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)),
+	)
+}
+
+test("with few questions left the card counts them down, and the last one says when it starts over", async ({
+	page,
+}) => {
+	test.setTimeout(120_000)
+	await page.setViewportSize({ width: 1440, height: 900 })
+	const id = await open(page)
+	// 98 of 100: none of it shows until a question is asked.
+	await askedThisMonth(id, 98)
+	await page.reload()
+	// Ask says it before anything is asked: the page loads where the account stands.
+	await select(page, PASSAGE)
+	await selectionToolbar(page).getByRole("button", { name: "Ask" }).click()
+	await expect(page.getByTestId("questions-left")).toHaveText("2 questions left this month")
+	await page.keyboard.press("Escape")
+	await expect(page.getByTestId("ai-card")).toHaveCount(0)
+	await select(page, PASSAGE)
+	await selectionToolbar(page).getByRole("button", { name: "Explain" }).click()
+	const card = page.getByTestId("ai-card")
+	await expect(card).toContainText("Answer 1.")
+	await expect(card.getByTestId("questions-left")).toHaveText("1 question left this month")
+	await shot(page, "few-left")
+
+	await card.getByRole("textbox").fill("And the last one?")
+	await card.getByRole("textbox").press("Enter")
+	await expect(card).toContainText("Answer 2.")
+	// None left: no field for another, no Retry, and the day it starts over.
+	await expect(card).toContainText(`It starts over on ${nextMonth()}.`)
+	await expect(card.getByRole("textbox")).toHaveCount(0)
+	await expect(card.getByRole("button", { name: "Answer again" })).toHaveCount(0)
+	await expect(card.getByTestId("questions-left")).toHaveCount(0)
+	await card.getByText(/starts over/).scrollIntoViewIfNeeded()
+	await shot(page, "none-left")
+})
+
+test("at the cap the AI buttons are dimmed, and pressing one says why without asking", async ({
+	page,
+}) => {
+	test.setTimeout(120_000)
+	await page.setViewportSize({ width: 1440, height: 900 })
+	const id = await open(page)
+	const userId = await askedThisMonth(id, 100)
+	await page.reload()
+	await waitForHydration(page)
+
+	const brief = page.getByTestId("brief")
+	await expect(brief).toHaveClass(/opacity-50/)
+	await select(page, PASSAGE)
+	const explain = selectionToolbar(page).getByRole("button", { name: "Explain" })
+	await expect(explain).toHaveAttribute("data-none-left", "true")
+	await shot(page, "dimmed-toolbar")
+	await explain.click()
+	const card = page.getByTestId("ai-card")
+	await expect(card).toContainText(`It starts over on ${nextMonth()}.`)
+	await expect(card.getByRole("textbox")).toHaveCount(0)
+
+	// Ask opens to the same reason, not a field for a question that would be refused.
+	await select(page, "they understand the cost")
+	await selectionToolbar(page).getByRole("button", { name: "Ask" }).click()
+	await expect(page.getByTestId("ai-card").filter({ hasText: "starts over" })).toBeVisible()
+	await expect(page.getByTestId("ai-card").getByRole("textbox")).toHaveCount(0)
+
+	await brief.click()
+	await expect(brief).toContainText(`It starts over on ${nextMonth()}.`)
+	await expect(brief.getByRole("button", { name: "Answer again" })).toHaveCount(0)
+
+	// The chat takes no question either, and says why.
+	await page.keyboard.press("Escape")
+	await page.getByRole("button", { name: "Chat about this article" }).click()
+	const chat = page.getByTestId("chat")
+	await expect(chat).toContainText(`It starts over on ${nextMonth()}.`)
+	await expect(chat.getByRole("textbox")).toHaveCount(0)
+
+	// Nothing reached the server: no thread, the count where it was, and no refusal counted.
+	expect(await db.select().from(aiThreads).where(eq(aiThreads.userId, userId))).toHaveLength(0)
+	const counts = await db
+		.select({ metric: usageCounts.metric, count: usageCounts.count })
+		.from(usageCounts)
+		.where(eq(usageCounts.userId, userId))
+	expect(counts.find((c) => c.metric === "ai")?.count).toBe(100)
+	expect(counts.find((c) => c.metric === "refused")).toBeUndefined()
+})
+
+test("a question the server refuses at the cap turns the page to none left", async ({ page }) => {
+	test.setTimeout(120_000)
+	await page.setViewportSize({ width: 1440, height: 900 })
+	const id = await open(page)
+	// Another tab used the last one: this page still thinks there are some.
+	await askedThisMonth(id, 100)
+	await select(page, PASSAGE)
+	await selectionToolbar(page).getByRole("button", { name: "Explain" }).click()
+	const card = page.getByTestId("ai-card")
+	await expect(card).toContainText(`It starts over on ${nextMonth()}.`)
+	await expect(card.getByRole("button", { name: "Answer again" })).toHaveCount(0)
+	await expect(page.getByTestId("brief")).toHaveClass(/opacity-50/)
+	await page.keyboard.press("Escape")
+	await select(page, "they understand the cost")
+	await expect(selectionToolbar(page).getByRole("button", { name: "Explain" })).toHaveAttribute(
+		"data-none-left",
+		"true",
+	)
 })

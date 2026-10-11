@@ -2,6 +2,7 @@ import type { AiCitation, AiThreadAction } from "@klipstack/db"
 import { useCallback, useInsertionEffect, useRef, useState, useSyncExternalStore } from "react"
 import { type AiFailure, changeThread, streamAnswer } from "~/lib/ai-stream.client"
 import type { AiMessageView, AiStreamEvent, AiThreadWithMessages } from "~/lib/ai-threads"
+import type { AiAllowanceState } from "./use-ai-allowance"
 
 /** A passage to ask about: where it is in the article's current version. */
 export interface AiPassage {
@@ -41,9 +42,14 @@ const question = (text: string): AiMessageView => ({
 /**
  * The reader's AI threads: the ones the article loaded with, and the questions asked since, each
  * answer streamed into its card as it is written. One card is open at a time. When the page's data
- * loads again (an undo, a refresh), `reloaded` merges it in.
+ * loads again (an undo, a refresh), `reloaded` merges it in. With no questions left this month
+ * (`allowance`), a question is refused here, as the server would.
  */
-export function useAiThreads(documentId: string, loaded: AiThreadWithMessages[]) {
+export function useAiThreads(
+	documentId: string,
+	loaded: AiThreadWithMessages[],
+	allowance?: Pick<AiAllowanceState, "take" | "refused" | "refusal">,
+) {
 	const [cards, setCards] = useState<AiCard[]>(loaded)
 	const [seen, setSeen] = useState(loaded)
 	const [openId, setOpenId] = useState<string | null>(null)
@@ -56,8 +62,10 @@ export function useAiThreads(documentId: string, loaded: AiThreadWithMessages[])
 		setCards((prev) => reloaded(prev, loaded, asked.current, deleting.current))
 	}
 	const latest = useRef(cards)
+	const quota = useRef(allowance)
 	useInsertionEffect(() => {
 		latest.current = cards
+		quota.current = allowance
 	})
 
 	const update = useCallback((id: string, change: (card: AiCard) => AiCard) => {
@@ -75,6 +83,7 @@ export function useAiThreads(documentId: string, loaded: AiThreadWithMessages[])
 				switch (event.type) {
 					case "start": {
 						const { thread, question: saved } = event
+						quota.current?.take(event.allowance)
 						const was = current
 						current = thread.id
 						asked.current.add(thread.id)
@@ -109,8 +118,12 @@ export function useAiThreads(documentId: string, loaded: AiThreadWithMessages[])
 				}
 			}
 			written.clear(id)
-			const result = await streamAnswer(documentId, body, onEvent)
+			const none = quota.current?.refusal()
+			const result = none
+				? ({ ok: false, error: none } as const)
+				: await streamAnswer(documentId, body, onEvent)
 			written.clear(current)
+			if (!result.ok) quota.current?.refused(result.error)
 			if (!result.ok)
 				update(current, (c) => ({
 					...c,
@@ -127,10 +140,14 @@ export function useAiThreads(documentId: string, loaded: AiThreadWithMessages[])
 		[documentId, update, written],
 	)
 
-	/** Explain and Define are sent at once; Ask opens its question field first. */
+	/**
+	 * Explain and Define are sent at once; Ask opens its question field first, or, with no questions
+	 * left, says so.
+	 */
 	const start = useCallback(
 		(passage: AiPassage, action: AiThreadAction, typed = "") => {
 			const id = tempId("t")
+			const none = action === "ask" ? quota.current?.refusal() : null
 			const card: AiCard = {
 				id,
 				action,
@@ -142,7 +159,11 @@ export function useAiThreads(documentId: string, loaded: AiThreadWithMessages[])
 				orphaned: false,
 				createdAt: now(),
 				messages: action === "ask" ? [] : [question("")],
-				...(action === "ask" ? { draft: { question: typed } } : { streaming: true }),
+				...(none
+					? { failure: none }
+					: action === "ask"
+						? { draft: { question: typed } }
+						: { streaming: true }),
 			}
 			setCards((prev) => [...prev, card])
 			setOpenId(id)

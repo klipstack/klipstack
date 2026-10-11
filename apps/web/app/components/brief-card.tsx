@@ -1,12 +1,14 @@
 import type { AiCitation } from "@klipstack/db"
 import { ChevronUp, Copy, Loader2, RotateCcw, ScrollText } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import { useQuestionsLeft } from "~/hooks/use-ai-allowance"
 import { type AnswerStore, useWritten } from "~/hooks/use-ai-threads"
 import { BRIEF } from "~/hooks/use-brief"
 import type { AiFailure } from "~/lib/ai-stream.client"
 import type { AiBriefView } from "~/lib/ai-threads"
+import { cn } from "~/lib/utils"
 import { AiAnswer, plainAnswer } from "./ai-answer"
-import { Failure } from "./ai-card"
+import { Failure, QuestionsLeft } from "./ai-card"
 import { tooltip } from "./tooltip-host"
 
 interface Props {
@@ -38,6 +40,8 @@ export function BriefCard({
 }: Props) {
 	const { t } = useTranslation("reader")
 	const streamed = useWritten(written, BRIEF)
+	// None left this month: the button stays, dimmed, and pressing it says why; no Retry.
+	const { none } = useQuestionsLeft()
 	const label = (
 		<span className="flex items-center gap-1 text-xs font-medium text-accent">
 			<ScrollText className="size-3" aria-hidden />
@@ -49,7 +53,13 @@ export function BriefCard({
 
 	if (!brief && !writing && !failure)
 		return (
-			<button type="button" onClick={onMake} className={row} data-testid="brief">
+			<button
+				type="button"
+				onClick={onMake}
+				className={cn(row, none && "opacity-50")}
+				data-testid="brief"
+				{...(none ? tooltip(t("ai.noneLeft")) : {})}
+			>
 				{label}
 				<span>{t("ai.brief.make")}</span>
 			</button>
@@ -106,7 +116,11 @@ export function BriefCard({
 						citeLabel={(n) => t("ai.citation", { n })}
 					/>
 				) : null}
-				{failure && !writing ? <Failure code={failure.code} /> : null}
+				{failure && !writing ? <Failure {...failure} /> : null}
+				{/* Failed for another reason at the cap: why there is no Retry. */}
+				{failure && !writing && none ? (
+					<QuestionsLeft failed={failure.code === "limit_reached"} />
+				) : null}
 			</div>
 			{writing ? null : (
 				<div className="mt-2 flex items-center gap-0.5">
@@ -120,7 +134,7 @@ export function BriefCard({
 						>
 							<Copy className="size-3.5" aria-hidden />
 						</button>
-					) : (
+					) : none ? null : (
 						<button
 							type="button"
 							onClick={onMake}
