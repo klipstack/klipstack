@@ -1,6 +1,15 @@
 import { db, documents, eq, inArray, user as userTable } from "@klipstack/db"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
-import { getEdition, listEditions, listShortlist } from "~/services/editions.server"
+import {
+	addItem,
+	createEdition,
+	deleteEdition,
+	getEdition,
+	listEditions,
+	listShortlist,
+	publishEdition,
+	unpublishEdition,
+} from "~/services/editions.server"
 import { action as createAction, loader as listLoader } from "./editions"
 import { action as editAction, loader as editLoader } from "./editions.edit"
 import { loader as previewLoader } from "./editions.preview"
@@ -223,6 +232,43 @@ describe("the editor", () => {
 		} finally {
 			await post(id, { intent: "delete" }).catch(() => null)
 			await db.update(documents).set({ shortlistedAt: null }).where(eq(documents.id, documentId))
+		}
+	})
+
+	it("lists the other drafts, and past editions by year, with a link only while public", async () => {
+		as(owner)
+		const input = { locale: "en", timeZone: "Europe/Madrid" }
+		const made: string[] = []
+		try {
+			const publish = async () => {
+				const edition = await createEdition(ownerId, input)
+				made.push(edition.id)
+				await addItem(ownerId, edition.id, documentId)
+				expect((await publishEdition(ownerId, edition.id)).ok).toBe(true)
+				return edition.id
+			}
+			const live = await publish()
+			const hidden = await publish()
+			await unpublishEdition(ownerId, hidden)
+			const older = await createEdition(ownerId, input)
+			const newer = await createEdition(ownerId, input)
+			made.push(older.id, newer.id)
+			const data = await listLoader({
+				request: new Request("http://localhost/editions"),
+				context: {},
+				params: {},
+			} as never)
+			expect(data.desk?.id).toBe(newer.id)
+			expect(data.otherDrafts.map((draft) => draft.id)).toContain(older.id)
+			const past = (id: string) => data.past.find((edition) => edition.id === id)
+			expect(past(live)).toMatchObject({
+				state: "live",
+				year: expect.stringMatching(/^\d{4}$/),
+				publicUrl: expect.stringMatching(/\/e\/[0-9A-Za-z]+\//),
+			})
+			expect(past(hidden)).toMatchObject({ state: "unpublished", publicUrl: null })
+		} finally {
+			for (const id of made) await deleteEdition(ownerId, id)
 		}
 	})
 

@@ -92,8 +92,8 @@ export default {
 		start_other: "Start the edition with these {{count}}",
 		started: "Started {{started}}",
 		startedEdited: "Started {{started}}, edited {{edited}}",
-		more_one: "and 1 more",
-		more_other: "and {{count}} more",
+		more_one: "And 1 more.",
+		more_other: "And {{count}} more.",
 		addMore: "While you read, “Add to next edition” (N) adds an article here.",
 		ready: "Ready to publish",
 		problems_one: "{{count}} thing to fix before publishing",
@@ -121,7 +121,7 @@ export default {
 		off: "Each edition stands alone",
 		on: "Each links to my previous and next ones",
 		detail:
-			"Linked, anyone with the link to one edition can find the others. Unpublished editions are never linked.",
+			"When they are linked, anyone with the link to one edition can find the others. Unpublished editions are never linked.",
 	},
 	lately: {
 		heading: "Read lately",

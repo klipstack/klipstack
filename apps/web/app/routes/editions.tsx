@@ -101,14 +101,14 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 async function draftDesk(userId: string, id: string, ago: (days: number) => string) {
 	const { edition, items } = await getEdition(userId, id)
 	const days = (date: Date) => Math.max(0, Math.floor((Date.now() - date.getTime()) / DAY_MS))
-	const started = days(edition.createdAt)
-	const edited = days(edition.updatedAt)
+	const started = ago(days(edition.createdAt))
+	const edited = ago(days(edition.updatedAt))
 	return {
 		id: edition.id,
 		title: edition.title,
-		started: ago(started),
-		// Edited the day it was started says nothing more.
-		edited: edited === started ? null : ago(edited),
+		started,
+		// Edited when it was started, as the page says it, says nothing more.
+		edited: edited === started ? null : edited,
 		itemCount: items.length,
 		items: items.slice(0, DESK_ITEMS).map((item) => ({
 			id: item.id,

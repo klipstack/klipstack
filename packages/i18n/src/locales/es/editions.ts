@@ -81,7 +81,7 @@ export default {
 		more_other: "Hay {{count}} artículos más marcados para tu próxima edición.",
 		remove: "Quitar «{{title}}» de tu próxima edición",
 	},
-	/** Por qué toca una edición nueva: el punto de la barra lateral lleva aquí. */
+	/** La próxima edición, arriba en `/editions`: el borrador en curso, o lo que empieza una. */
 	desk: {
 		heading: "Tu próxima edición",
 		emptyDetail:
@@ -93,8 +93,8 @@ export default {
 		start_other: "Empezar la edición con estos {{count}}",
 		started: "Empezada {{started}}",
 		startedEdited: "Empezada {{started}}, editada {{edited}}",
-		more_one: "y 1 más",
-		more_other: "y {{count}} más",
+		more_one: "Y 1 más.",
+		more_other: "Y {{count}} más.",
 		addMore: "Al leer, «Añadir a la próxima edición» (N) añade el artículo aquí.",
 		ready: "Lista para publicar",
 		problems_one: "{{count}} cosa por arreglar antes de publicar",
@@ -107,6 +107,7 @@ export default {
 	past: {
 		heading: "Ediciones anteriores",
 	},
+	/** Por qué toca una edición nueva: el punto de la barra lateral lleva aquí. */
 	nudge: {
 		last: "Tu última edición salió {{ago}}.",
 		marked_one: "Hay {{count}} artículo marcado para la próxima.",
@@ -121,7 +122,7 @@ export default {
 		off: "Cada edición va sola",
 		on: "Cada una enlaza a la anterior y a la siguiente",
 		detail:
-			"Enlazadas, quien tenga el enlace de una edición puede encontrar las demás. Las ediciones retiradas nunca se enlazan.",
+			"Si las enlazas, quien tenga el enlace de una puede encontrar las demás. Las ediciones retiradas nunca se enlazan.",
 	},
 	lately: {
 		heading: "Leído últimamente",

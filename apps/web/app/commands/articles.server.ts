@@ -33,7 +33,7 @@ import {
 	liveDuplicateOf,
 	restoreDocument,
 } from "~/services/documents.server"
-import { addToDraft, currentDraft, removeFromDraft } from "~/services/editions.server"
+import { addToDraft, currentDraft, draftCopies, removeFromDraft } from "~/services/editions.server"
 import { changeTagsIn } from "~/services/tags.server"
 
 /**
@@ -175,6 +175,9 @@ export async function updateArticles(
 ): Promise<{ found: string[]; notFound: string[]; changed: string[]; undo: UndoRecord }> {
 	const update = parseInput(ArticleUpdate, input)
 	const { ids } = update
+	// Marking with a draft in progress: the copies it takes, made first, as `addItem` makes them.
+	const ahead = update.shortlisted ? await currentDraft(db, userId) : null
+	const copies = ahead ? await draftCopies(userId, ahead, ids) : new Map()
 	return db.transaction(async (tx) => {
 		// The draft before the articles: the order every change takes its locks in.
 		const draft = update.shortlisted === undefined ? null : await currentDraft(tx, userId, true)
@@ -203,7 +206,7 @@ export async function updateArticles(
 			// In the order given: the draft takes them in it.
 			const live = ids.filter((id) => found.has(id))
 			const done = update.shortlisted
-				? await addToDraft(tx, userId, draft, live)
+				? await addToDraft(tx, draft, live, copies)
 				: await removeFromDraft(tx, draft, live)
 			for (const id of done.documentIds) changed.add(id)
 			if (done.documentIds.length > 0) undo.draft = done.change

@@ -67,6 +67,7 @@ export default {
 		restored: "Restaurado",
 		alreadySaved: "Esta página ya está en tu biblioteca, así que sigue en la papelera.",
 		openSaved: "Abrirla",
+		unshortlisted: "Quitado de tu próxima edición",
 		undo: "Deshacer",
 	},
 	review: {

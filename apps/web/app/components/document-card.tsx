@@ -16,6 +16,7 @@ import {
 import { useEffect, useInsertionEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link, useFetcher, useLocation, useNavigate } from "react-router"
+import { useDraftUndoToast } from "~/hooks/use-draft-undo-toast"
 import { useRestoreConflictToast } from "~/hooks/use-restore-conflict-toast"
 import { warnAboutBacklinks } from "~/lib/backlink-warning.client"
 import { useCommands } from "~/lib/commands"
@@ -100,6 +101,8 @@ export function DocumentCard({
 	}, [armed])
 	// A restore refused because the page was saved again: say so, and offer that article.
 	useRestoreConflictToast(fetcher.data)
+	// Unmarked out of the draft in progress: Undo puts its copy back.
+	useDraftUndoToast(fetcher.data)
 	const title = doc.title ?? (pending ? doc.sourceUrl : t("card.untitled"))
 	const host = safeHost(doc.sourceUrl)
 	const image = doc.leadImageAssetId ? `/assets/${doc.leadImageAssetId}` : doc.leadImageUrl

@@ -1,6 +1,6 @@
-import { db, documents, editions, eq, inArray, user as userTable } from "@klipstack/db"
-import { afterAll, beforeAll, describe, expect, it } from "vitest"
-import { createEdition } from "~/commands/editions.server"
+import { db, documents, editions, eq, inArray, sql, user as userTable } from "@klipstack/db"
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest"
+import { createEdition, startEdition } from "~/commands/editions.server"
 import {
 	addItem,
 	currentDraft,
@@ -42,6 +42,20 @@ afterAll(async () => {
 })
 
 describe("the draft in progress", () => {
+	afterEach(async () => {
+		await db.delete(editions).where(eq(editions.userId, userId))
+		await db.delete(documents).where(eq(documents.userId, userId))
+		await db.update(userTable).set({ prefs: {} }).where(eq(userTable.id, userId))
+	})
+
+	it("is started once, however many Starts arrive together", async () => {
+		// Connections open first: a new one is slow enough to hide the race.
+		await Promise.all(Array.from({ length: 4 }, () => db.execute(sql`select pg_sleep(0.01)`)))
+		const started = await Promise.all(Array.from({ length: 4 }, () => startEdition(userId, input)))
+		expect(new Set(started.map((edition) => edition.id)).size).toBe(1)
+		expect(await db.select().from(editions).where(eq(editions.userId, userId))).toHaveLength(1)
+	})
+
 	it("is none until one is started, then the one edited last; a published one is not", async () => {
 		expect(await currentDraft(db, userId)).toBeNull()
 		const older = await createEdition(userId, input)
@@ -52,7 +66,6 @@ describe("the draft in progress", () => {
 			.set({ updatedAt: new Date(Date.now() + 1000) })
 			.where(eq(editions.id, older.id))
 		expect((await currentDraft(db, userId))?.id).toBe(older.id)
-		await db.delete(editions).where(eq(editions.userId, userId))
 	})
 
 	it("stops the nudge for a new edition, and nudges to publish it a week after it was started", async () => {
@@ -81,9 +94,15 @@ describe("the draft in progress", () => {
 			reason: "draft",
 			draft: { days: 7, items: 3 },
 		})
-		// "Not now" quiets this one too.
+		// "Not now" quiets this one too, for a week.
+		await db
+			.update(editions)
+			.set({ createdAt: new Date(Date.now() - 8 * DAY) })
+			.where(eq(editions.id, draft.id))
+		expect((await editionNudge(userId)).reason).toBe("draft")
 		await snoozeNudge(userId)
-		expect((await editionNudge(userId, sixDays)).reason).toBeNull()
+		expect((await editionNudge(userId)).reason).toBeNull()
+		expect((await editionNudge(userId, week)).reason).toBe("draft")
 		await db.update(userTable).set({ prefs: {} }).where(eq(userTable.id, userId))
 		// Published, it is no longer the draft: nothing is due.
 		expect((await publishEdition(userId, draft.id)).ok).toBe(true)

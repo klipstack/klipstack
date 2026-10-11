@@ -288,6 +288,61 @@ describe("the mark, with a draft in progress", () => {
 	})
 })
 
+describe("the mark and the draft, at the edges", () => {
+	const draftOf = () => insertEdition(userId, { locale: "en", timeZone: "Europe/Madrid" })
+	const docsOf = async (editionId: string) =>
+		(
+			await db
+				.select({ documentId: editionItems.documentId })
+				.from(editionItems)
+				.where(eq(editionItems.editionId, editionId))
+				.orderBy(asc(editionItems.position))
+		).map((row) => row.documentId)
+
+	it("finishing and marking at once dates the item the day it was finished", async () => {
+		const [a] = ids as [string]
+		const draft = await draftOf()
+		await updateArticles(userId, { ids: [a], finished: true, shortlisted: true })
+		const [item] = await db
+			.select({ readOn: editionItems.readOn })
+			.from(editionItems)
+			.where(eq(editionItems.editionId, draft.id))
+		expect(item?.readOn).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+	})
+
+	it("undo leaves a draft alone once it is published, and does not add an article twice", async () => {
+		const [a, b] = ids as [string, string]
+		const draft = await draftOf()
+		const marked = await updateArticles(userId, { ids: [a], shortlisted: true })
+		expect((await publishEdition(userId, draft.id)).ok).toBe(true)
+		await undoChanges(userId, marked.undo)
+		expect(await docsOf(draft.id)).toEqual([a])
+
+		const next = await draftOf()
+		await updateArticles(userId, { ids: [b], shortlisted: true })
+		const off = await updateArticles(userId, { ids: [b], shortlisted: false })
+		// Added again from the picker before the undo: once is enough.
+		await addItem(userId, next.id, b)
+		await undoChanges(userId, off.undo)
+		expect(await docsOf(next.id)).toEqual([b])
+	})
+
+	it("keeps an undo small enough to send back, whatever the draft's notes", async () => {
+		const [a, b] = ids as [string, string]
+		const draft = await draftOf()
+		await updateArticles(userId, { ids: [a, b], shortlisted: true })
+		const long = "x".repeat(60_000)
+		await db.update(editionItems).set({ note: long }).where(eq(editionItems.editionId, draft.id))
+		const { undo } = await updateArticles(userId, { ids: [a, b], shortlisted: false })
+		expect(JSON.stringify(undo).length).toBeLessThan(48 * 1024)
+		expect(await docsOf(draft.id)).toEqual([])
+		// What did not fit is copied from the library again, in its place.
+		await undoChanges(userId, undo)
+		expect(await docsOf(draft.id)).toEqual([a, b])
+		for (const id of [a, b]) expect((await read(id)).shortlistedAt).not.toBeNull()
+	})
+})
+
 describe("archive and back", () => {
 	it("moving back to the library resets reading, and undo restores it", async () => {
 		const [a] = ids as [string]

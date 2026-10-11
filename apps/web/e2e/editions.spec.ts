@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { db, documents, editions, eq, highlights } from "@klipstack/db"
+import { db, documents, editionItems, editions, eq, highlights } from "@klipstack/db"
 import { expect, type Page, test } from "@playwright/test"
 import { signupUser, waitForHydration, waitForSidebarPrefetch } from "./helpers"
 import { insertArticle } from "./seed"
@@ -349,6 +349,26 @@ test("with a draft started, marking adds to it, and a week on the page asks to p
 		/Second read/,
 	])
 	await expect(desk.getByTestId("editions-desk-status")).toHaveText("Ready to publish")
+
+	// Unmarked while reading: out of the draft, and Undo puts it back.
+	await page.goto(`/read/${second}`)
+	await waitForHydration(page)
+	await page.keyboard.press("n")
+	const toast = page.getByRole("status").filter({ hasText: "Removed from your next edition" })
+	await expect(toast).toBeVisible()
+	expect(
+		await db.select().from(editionItems).where(eq(editionItems.editionId, draftId)),
+	).toHaveLength(1)
+	await Promise.all([
+		page.waitForResponse((r) => new URL(r.url()).pathname.startsWith("/documents/bulk") && r.ok()),
+		toast.getByRole("button", { name: "Undo" }).click(),
+	])
+	await page.goto("/editions")
+	await waitForHydration(page)
+	await expect(desk.getByTestId("editions-desk-items").getByRole("listitem")).toHaveText([
+		/First read/,
+		/Second read/,
+	])
 
 	// A week after it was started: the dot, and the desk asks to publish it.
 	await db

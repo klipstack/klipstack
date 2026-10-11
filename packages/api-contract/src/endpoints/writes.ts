@@ -112,7 +112,7 @@ export const undoArticles = defineEndpoint({
 	path: "/articles/undo",
 	scope: "write",
 	summary:
-		"Puts back what a PATCH /articles changed, with one of its undo tokens, for 15 minutes: the columns it wrote, the reading completions and tags it added.",
+		"Puts back what a PATCH /articles changed, with one of its undo tokens, for 15 minutes: the columns it wrote, the reading completions and tags it added, and the articles it added to or took out of the draft edition in progress.",
 	body: z.object({
 		token: z
 			.string()
