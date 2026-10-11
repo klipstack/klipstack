@@ -323,6 +323,17 @@ describe("the mark and the draft, at the edges", () => {
 		expect(unmarked).toMatchObject({ changed: [a], draft: { added: [], removed: [] } })
 	})
 
+	it("unmarking names only the articles the draft had", async () => {
+		const [a, b] = ids as [string, string]
+		// Marked before the draft was started: not in it.
+		await updateArticles(userId, { ids: [a], shortlisted: true })
+		const draft = await draftOf()
+		await updateArticles(userId, { ids: [b], shortlisted: true })
+		const unmarked = await updateArticles(userId, { ids: [a, b], shortlisted: false })
+		expect(unmarked).toMatchObject({ changed: [a, b], draft: { added: [], removed: [b] } })
+		expect(await docsOf(draft.id)).toEqual([])
+	})
+
 	it("finishing and marking at once dates the item the day it was finished", async () => {
 		const [a] = ids as [string]
 		const draft = await draftOf()

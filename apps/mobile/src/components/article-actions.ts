@@ -3,7 +3,7 @@ import type { ArticleSummary, KlipstackClient } from "@klipstack/sdk"
 import { useCallback, useInsertionEffect, useRef } from "react"
 import { Alert } from "react-native"
 import { actedOn, afterAction, BULK_CHANGES, type BulkAction } from "@/lib/bulk-actions"
-import { showUnmarked } from "@/lib/draft-undo"
+import { afterMarking } from "@/lib/draft-undo"
 
 /** What the actions change themselves: Tags opens the tag sheet instead (`useTagSheet`). */
 export type ArticleAction = Exclude<BulkAction, "tag">
@@ -47,13 +47,13 @@ export function useArticleActions(options: {
 					latest.current.apply(new Map(acted.filter((a) => kept.has(a.id)).map((a) => [a.id, a])))
 				latest.current.done?.(action, restored.length, kept.size)
 			} else {
-				const answer = await client.articles.update(ids, BULK_CHANGES[action])
+				const changes = BULK_CHANGES[action]
+				const answer = await client.articles.update(ids, changes)
 				latest.current.apply(new Map(answer.items.map((a) => [a.id, a])))
 				latest.current.done?.(action, answer.items.length, 0)
-				if (action === "unshortlist")
-					showUnmarked(client, answer, (items) =>
-						latest.current.apply(new Map(items.map((a) => [a.id, a]))),
-					)
+				afterMarking(client, changes, answer, (items) =>
+					latest.current.apply(new Map(items.map((a) => [a.id, a]))),
+				)
 			}
 		} catch (e) {
 			Alert.alert("Not saved", e instanceof Error ? e.message : String(e))

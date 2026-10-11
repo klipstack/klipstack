@@ -37,7 +37,7 @@ import { retagged } from "@/lib/article-tags"
 import { useAuth } from "@/lib/auth"
 import { copyText } from "@/lib/clipboard"
 import type { ColorSchemePref } from "@/lib/color-scheme"
-import { showUnmarked } from "@/lib/draft-undo"
+import { afterMarking, withUndone } from "@/lib/draft-undo"
 import { finishOnLeave, showFinished } from "@/lib/finish-on-leave"
 import { minutesLeft } from "@/lib/home"
 import {
@@ -434,12 +434,7 @@ export default function Reader() {
 			const result = await client.articles.update([article.id], changes)
 			if (changes.finished) showFinished(client, result.undo, before.location === "archive")
 			// Out of the draft in progress: Undo puts it back, marked again.
-			if (changes.shortlisted === false)
-				showUnmarked(client, result, (items) => {
-					const back = items.find((a) => a.id === before.id)
-					if (back)
-						setArticle((a) => (a?.id === back.id ? { ...a, shortlisted: back.shortlisted } : a))
-				})
+			afterMarking(client, changes, result, (items) => setArticle((a) => withUndone(a, items)))
 			// Out of the inbox (finishing archives too): back to the list, which no longer shows it.
 			if (changes.location === "archive" || changes.finished) router.back()
 		} catch (e) {
