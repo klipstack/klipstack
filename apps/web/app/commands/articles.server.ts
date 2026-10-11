@@ -54,6 +54,7 @@ const CHANGES = [
 	"addTags",
 	"removeTags",
 	"title",
+	"kept",
 ] as const
 
 const ArticleUpdate = z
@@ -71,9 +72,15 @@ const ArticleUpdate = z
 		removeTags: TagNames.optional(),
 		/** Only with a single article. */
 		title: ArticleTitle.optional(),
+		/**
+		 * Kept when reviewing old saves: not suggested for letting go for a while. Web only, for now.
+		 * Keeping again starts that while again.
+		 */
+		kept: z.boolean().optional(),
 	})
 	.refine((v) => CHANGES.some((key) => v[key] !== undefined), {
-		message: `Pass at least one change: ${CHANGES.join(", ")}.`,
+		// Without `kept`: only the web keeps, and MCP callers get this message.
+		message: `Pass at least one change: ${CHANGES.filter((key) => key !== "kept").join(", ")}.`,
 	})
 	.refine((v) => !(v.finished === true && v.location === "inbox"), {
 		message: "finished: true moves articles to the archive; they cannot also go to the library.",
@@ -95,6 +102,8 @@ const PLANS = {
 	unstar: { changes: (r: Row) => r.starredAt !== null, columns: ["starredAt"] },
 	shortlist: { changes: (r: Row) => r.shortlistedAt === null, columns: ["shortlistedAt"] },
 	unshortlist: { changes: (r: Row) => r.shortlistedAt !== null, columns: ["shortlistedAt"] },
+	keep: { changes: () => true, columns: ["keptAt"] },
+	unkeep: { changes: (r: Row) => r.keptAt !== null, columns: ["keptAt"] },
 	archive: { changes: (r: Row) => r.archivedAt === null, columns: ["archivedAt"] },
 	unarchive: {
 		changes: (r: Row) => r.archivedAt !== null,
@@ -122,7 +131,7 @@ type StateChange = keyof typeof PLANS
 
 /**
  * The state changes asked for, in the order they apply: finished, where it is, the star, the mark
- * for the next edition.
+ * for the next edition, kept.
  */
 function stateChanges(v: z.output<typeof ArticleUpdate>): StateChange[] {
 	const out: StateChange[] = []
@@ -130,6 +139,7 @@ function stateChanges(v: z.output<typeof ArticleUpdate>): StateChange[] {
 	if (v.location) out.push(v.location === "archive" ? "archive" : "unarchive")
 	if (v.starred !== undefined) out.push(v.starred ? "star" : "unstar")
 	if (v.shortlisted !== undefined) out.push(v.shortlisted ? "shortlist" : "unshortlist")
+	if (v.kept !== undefined) out.push(v.kept ? "keep" : "unkeep")
 	return out
 }
 
@@ -142,6 +152,7 @@ const selection = {
 	readAt: sql<string | null>`${documents.readAt}::text`,
 	firstOpenedAt: sql<string | null>`${documents.firstOpenedAt}::text`,
 	lastReadAt: sql<string | null>`${documents.lastReadAt}::text`,
+	keptAt: sql<string | null>`${documents.keptAt}::text`,
 	readingProgress: documents.readingProgress,
 	readingPosition: documents.readingPosition,
 	readingCycle: documents.readingCycle,
@@ -151,7 +162,7 @@ const owned = (userId: string, ids: string[]) =>
 	and(eq(documents.userId, userId), inArray(documents.id, ids))
 
 /**
- * Moves, stars, marks for the next edition, finishes, tags or renames the user's articles among `ids`, all in one transaction
+ * Moves, stars, marks for the next edition, finishes, keeps, tags or renames the user's articles among `ids`, all in one transaction
  * with the rows locked: a refusal (too many tags) changes nothing. `changed` names the articles
  * that changed (the others were that way already); `undo` puts them back (`undoChanges`).
  */
@@ -244,6 +255,13 @@ async function applyState(
 			await tx
 				.update(documents)
 				.set({ shortlistedAt: change === "shortlist" ? new Date() : null })
+				.where(where)
+			return
+		case "keep":
+		case "unkeep":
+			await tx
+				.update(documents)
+				.set({ keptAt: change === "keep" ? new Date() : null })
 				.where(where)
 			return
 		case "archive":

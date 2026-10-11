@@ -155,6 +155,7 @@ describe("home selections", () => {
 			timeChoice: false,
 			feed: [],
 			emptyState: { kind: "new", to: "/add" },
+			review: false,
 		})
 		expect((await readingHome(sparseId)).emptyState).toBeNull()
 		const sparse = await shelves(sparseId)
@@ -207,6 +208,7 @@ describe("home selections", () => {
 			timeChoice: false,
 			feed: [],
 			emptyState: expected,
+			review: false,
 		})
 	})
 })

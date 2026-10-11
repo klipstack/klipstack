@@ -18,6 +18,7 @@ export const DATES = [
 	"readAt",
 	"firstOpenedAt",
 	"lastReadAt",
+	"keptAt",
 ] as const
 export const NUMBERS = ["readingProgress", "readingPosition", "readingCycle"] as const
 export type Column = (typeof DATES)[number] | (typeof NUMBERS)[number]

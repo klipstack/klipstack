@@ -4,6 +4,7 @@ import {
 	Archive,
 	ArrowDownUp,
 	Check,
+	History,
 	ListFilter as FilterIcon,
 	LibraryBig,
 	LayoutGrid,
@@ -17,7 +18,7 @@ import { archiveFinished, undoArchive } from "~/commands/articles.server"
 import { saveArticle } from "~/commands/saving.server"
 import { DocumentList } from "~/components/document-list"
 import { LayoutToggle } from "~/components/layout-toggle"
-import { MenuButton, MoreMenu } from "~/components/more-menu"
+import { MenuButton, MenuNavLink, MoreMenu } from "~/components/more-menu"
 import { PinnedControls } from "~/components/pinned-controls"
 import { SaveLinkDialog } from "~/components/save-link-dialog"
 import { SelectionBar } from "~/components/selection-bar"
@@ -337,6 +338,14 @@ function ListControls({
 								{t(`sort.${s}`)}
 							</MenuButton>
 						))}
+					</MoreMenu>
+				) : null}
+				{/* Always here, never a badge: Home's card for it is only an occasional reminder. */}
+				{view === "inbox" ? (
+					<MoreMenu label={t("review.libraryMenu")} className="shrink-0 p-2">
+						<MenuNavLink to="/library/review" icon={<History className="size-4" aria-hidden />}>
+							{t("review.open")}
+						</MenuNavLink>
 					</MoreMenu>
 				) : null}
 			</div>

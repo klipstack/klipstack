@@ -61,6 +61,7 @@ const read = async (id: string) => {
 			readAt: sql<string | null>`${documents.readAt}::text`,
 			firstOpenedAt: sql<string | null>`${documents.firstOpenedAt}::text`,
 			lastReadAt: sql<string | null>`${documents.lastReadAt}::text`,
+			keptAt: sql<string | null>`${documents.keptAt}::text`,
 			readingProgress: documents.readingProgress,
 			readingPosition: documents.readingPosition,
 			readingCycle: documents.readingCycle,
@@ -157,6 +158,52 @@ describe("the mark for the next edition", () => {
 		await trashArticles(userId, [a])
 		expect((await updateArticles(userId, { ids: [a], shortlisted: false })).notFound).toEqual([a])
 		expect((await read(a)).shortlistedAt).not.toBeNull()
+	})
+})
+
+describe("keep", () => {
+	it("keeps them all from now, a kept one again, and undo puts back when each was kept", async () => {
+		const [a, b] = ids as [string, string, string]
+		await db
+			.update(documents)
+			.set({ keptAt: sql`'2026-01-02 03:04:05.123456+00'` })
+			.where(eq(documents.id, a))
+		const start = Date.now()
+		const { changed, undo } = await updateArticles(userId, { ids: [a, b, theirs], kept: true })
+		const end = Date.now()
+		expect(changed.sort()).toEqual([a, b].sort())
+		for (const id of [a, b]) {
+			const keptAt = Date.parse((await read(id)).keptAt!)
+			expect(keptAt).toBeGreaterThanOrEqual(start - 1000)
+			expect(keptAt).toBeLessThanOrEqual(end + 1000)
+		}
+		expect((await read(theirs)).keptAt).toBeNull()
+
+		await undoChanges(userId, undo)
+		expect((await read(a)).keptAt).toBe("2026-01-02 03:04:05.123456+00")
+		expect((await read(b)).keptAt).toBeNull()
+	})
+
+	it("kept: false forgets only the kept ones, and undo keeps them again", async () => {
+		const [a, b] = ids as [string, string, string]
+		await db
+			.update(documents)
+			.set({ keptAt: sql`'2026-01-02 03:04:05.123456+00'` })
+			.where(eq(documents.id, a))
+		const { changed, undo } = await updateArticles(userId, { ids: [a, b], kept: false })
+		expect(changed).toEqual([a])
+		expect((await read(a)).keptAt).toBeNull()
+
+		await undoChanges(userId, undo)
+		expect((await read(a)).keptAt).toBe("2026-01-02 03:04:05.123456+00")
+		expect((await read(b)).keptAt).toBeNull()
+	})
+
+	it("is left out of the message for a request without changes: the API and MCP can't keep", async () => {
+		const [a] = ids as [string]
+		const refusal = updateArticles(userId, { ids: [a] })
+		await expect(refusal).rejects.toMatchObject({ code: "invalid_request" })
+		await expect(refusal).rejects.not.toThrow(/kept/)
 	})
 })
 

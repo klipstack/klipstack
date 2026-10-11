@@ -47,6 +47,11 @@ export interface UserPrefs {
 	 */
 	editionsNudgeAfter?: string | null
 	/**
+	 * Opening the review of old saves, or "Not now" on Home's card for it: no card before this time
+	 * (ISO). Only the server writes it.
+	 */
+	reviewSuggestAfter?: string | null
+	/**
 	 * Public editions link to the author's previous and next ones. Off by default: each edition was
 	 * published as unlisted on its own.
 	 */

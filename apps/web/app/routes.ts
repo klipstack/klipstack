@@ -17,6 +17,7 @@ export default [
 	layout("routes/app-layout.tsx", [
 		route("home", "routes/reading-home.tsx"),
 		route("library", "routes/library.tsx"),
+		route("library/review", "routes/library.review.tsx"),
 		route("feed", "routes/feed.tsx"),
 		route("archive", "routes/library.tsx", { id: "routes/archive" }),
 		route("starred", "routes/library.tsx", { id: "routes/starred" }),

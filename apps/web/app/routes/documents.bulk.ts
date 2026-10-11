@@ -24,6 +24,7 @@ const INTENTS = [
 	"unarchive",
 	"finish",
 	"unread",
+	"keep",
 	"delete",
 	"restore",
 	"tag",
@@ -57,6 +58,7 @@ const CHANGES: Record<string, ArticleChanges> = {
 	unarchive: { location: "inbox" },
 	finish: { finished: true },
 	unread: { finished: false },
+	keep: { kept: true },
 }
 
 /**
