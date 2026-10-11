@@ -232,7 +232,7 @@ export default {
 	},
 	/** The article an item came from, read beside the editor: the library's copy. */
 	article: {
-		tab: "Artículo",
+		pane: "Artículo",
 		close: "Cerrar el artículo",
 		loading: "Cargando el artículo…",
 		gone: "Este artículo ya no está en tu biblioteca.",

@@ -67,6 +67,7 @@ export function EditionItemCard({
 	last,
 	save,
 	reading,
+	away,
 	onRead,
 }: {
 	editionId: string
@@ -76,6 +77,8 @@ export function EditionItemCard({
 	save: EditionSave
 	/** Its article is open beside the editor. */
 	reading: boolean
+	/** Another article is open: this card waits, dimmed and out of reach, until it closes. */
+	away: boolean
 	/** Opens its article beside the editor, at a highlight if one is given. */
 	onRead: (highlightId: string | null) => void
 }) {
@@ -149,10 +152,12 @@ export function EditionItemCard({
 			// Set aside, it has nothing in the preview for the preview to follow.
 			data-edition-card={included ? "" : undefined}
 			data-set-aside={included ? undefined : ""}
+			inert={away}
 			className={cn(
-				"rounded-xl border border-border p-4",
+				"rounded-xl border border-border p-4 transition-opacity",
 				included ? "bg-card" : "border-dashed py-2",
 				reading && "ring-2 ring-accent/50",
+				away && "opacity-40",
 			)}
 		>
 			{/* On a phone the buttons wrap under the text, rather than squeeze it. */}

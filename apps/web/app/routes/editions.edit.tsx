@@ -146,13 +146,17 @@ export default function EditionEditor({ loaderData }: Route.ComponentProps) {
 	const editorColumn = useRef<HTMLElement>(null)
 	const previewScroller = useRef<HTMLDivElement>(null)
 	useEditionScrollSync(editorColumn, previewScroller)
-	// The article open beside the editor, while its item is still in the edition.
+	// The article open beside the editor, while its item is still in the edition. Only that item's
+	// card stays within reach; the rest of the editor waits until the article closes.
 	const [asked, setReading] = useState<Reading | null>(null)
 	const reading = asked && items.some((item) => item.id === asked.itemId) ? asked : null
-	// Counts every request, closed ones too: the pane tells a new one from one it has shown.
+	// Counts every request: the article scrolls to a highlight asked for again.
 	const requests = useRef(0)
+	// Where the focus was when the article opened, to go back to when it closes.
+	const opener = useRef<HTMLElement | null>(null)
 	const read = useCallback((itemId: string, highlightId: string | null) => {
 		const asked = ++requests.current
+		if (document.activeElement instanceof HTMLElement) opener.current = document.activeElement
 		setReading((open) =>
 			// Read again, the open article closes.
 			open?.itemId === itemId && highlightId === null && open.highlightId === null
@@ -160,6 +164,24 @@ export default function EditionEditor({ loaderData }: Route.ComponentProps) {
 				: { itemId, highlightId, asked },
 		)
 	}, [])
+	const close = useCallback(() => {
+		setReading(null)
+		const back = opener.current
+		opener.current = null
+		// Once the editor is within reach again.
+		requestAnimationFrame(() => {
+			if (back?.isConnected) back.focus({ preventScroll: true })
+		})
+	}, [])
+	// Escape closes the article from anywhere, unless something nearer (a menu, a popover) took it.
+	useEffect(() => {
+		if (!reading) return
+		const onKey = (e: KeyboardEvent) => {
+			if (e.key === "Escape" && !e.defaultPrevented) close()
+		}
+		window.addEventListener("keydown", onKey)
+		return () => window.removeEventListener("keydown", onKey)
+	}, [reading, close])
 	return (
 		<AutosaveGroupContext value={group}>
 			<div className="@container flex w-full min-w-0 flex-1 flex-col">
@@ -175,7 +197,7 @@ export default function EditionEditor({ loaderData }: Route.ComponentProps) {
 					<SidePane
 						data={loaderData}
 						reading={reading}
-						onClose={() => setReading(null)}
+						onClose={close}
 						previewRef={previewScroller}
 					/>
 				</div>
@@ -205,22 +227,27 @@ function EditorColumn({
 	const { edition, items, picker, missing } = loaderData
 	// Set aside: kept in place, left out of the page.
 	const aside = items.filter((item) => !item.included).length
+	// While an article is open, all but its card wait, dimmed and out of reach (`inert`).
+	const away = reading !== null
+	const waiting = cn("transition-opacity", away && "opacity-40")
 	return (
 		<main
 			ref={mainRef}
 			className="mx-auto w-full max-w-3xl flex-1 px-4 pt-3 pb-16 md:pt-4 md:pb-8 @5xl:mx-0 @5xl:w-[32rem] @5xl:max-w-none @5xl:flex-none @5xl:px-6 @6xl:w-[36rem]"
 		>
-			<Link
-				to="/editions"
-				className="inline-flex items-center gap-1 text-sm text-muted-fg hover:text-fg md:h-10"
-			>
-				<ArrowLeft className="size-4" aria-hidden />
-				{t("editor.back")}
-			</Link>
-			<PublishPanel data={loaderData} />
-			<EditionFields edition={edition} save={save} />
+			<div data-testid="edition-editor-top" inert={away} className={waiting}>
+				<Link
+					to="/editions"
+					className="inline-flex items-center gap-1 text-sm text-muted-fg hover:text-fg md:h-10"
+				>
+					<ArrowLeft className="size-4" aria-hidden />
+					{t("editor.back")}
+				</Link>
+				<PublishPanel data={loaderData} />
+				<EditionFields edition={edition} save={save} />
+			</div>
 			<section aria-labelledby="edition-items" className="mt-10">
-				<div className="flex items-center justify-between gap-3">
+				<div inert={away} className={cn("flex items-center justify-between gap-3", waiting)}>
 					<h2 id="edition-items" className="text-lg font-semibold">
 						{t("articles", { count: items.length - aside })}
 						{aside > 0 ? (
@@ -235,7 +262,11 @@ function EditorColumn({
 				{missing > 0 ? (
 					<div
 						data-testid="edition-shortlist-more"
-						className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg bg-muted px-3 py-2 text-sm"
+						inert={away}
+						className={cn(
+							"mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg bg-muted px-3 py-2 text-sm",
+							waiting,
+						)}
 					>
 						<Newspaper className="size-4 shrink-0 text-muted-fg" aria-hidden />
 						<span className="flex-1">{t("shortlist.more", { count: missing })}</span>
@@ -255,6 +286,7 @@ function EditorColumn({
 								last={i === items.length - 1}
 								save={save}
 								reading={reading === item.id}
+								away={away && reading !== item.id}
 								onRead={(highlightId) => onRead(item.id, highlightId)}
 							/>
 						))}
@@ -278,8 +310,9 @@ function useOpenPreview(editionId: string) {
 
 /**
  * Beside the editor, on a wide page: the public page as it would look, the working copy after its
- * last save, at desktop width or at a phone's, since the page sizes itself to its container. With
- * an item's article open, a tab shows it instead; on a narrow page the article takes the screen.
+ * last save, at desktop width or at a phone's, since the page sizes itself to its container. An
+ * item's article, once opened, shows instead until it is closed; on a narrow page it takes the
+ * screen.
  */
 function SidePane({
 	data,
@@ -296,13 +329,9 @@ function SidePane({
 	const { edition, items, view, readerFont } = data
 	const [phone, setPhone] = useState(false)
 	const openPreview = useOpenPreview(edition.id)
-	// Back to the preview, until another article or highlight is asked for.
-	const [previewedAt, setPreviewedAt] = useState<number | null>(null)
-	const tab = reading && previewedAt !== reading.asked ? "article" : "preview"
 	const item = reading ? items.find((i) => i.id === reading.itemId) : undefined
 	const articleScroller = useRef<HTMLDivElement>(null)
 	const pane = useRef<HTMLElement>(null)
-	const id = useId()
 
 	// On a narrow page the article covers the editor: focus goes with it.
 	useEffect(() => {
@@ -311,18 +340,10 @@ function SidePane({
 			aside.querySelector<HTMLElement>("[data-close-article]")?.focus()
 	}, [reading])
 
-	const tabClass = (selected: boolean) =>
-		cn(
-			"h-8 min-w-0 rounded-md px-2.5 text-sm font-medium",
-			selected ? "bg-muted text-fg" : "text-muted-fg hover:text-fg",
-		)
 	return (
 		<aside
 			ref={pane}
-			aria-label={tab === "article" ? t("article.tab") : t("preview.pane")}
-			onKeyDown={(e) => {
-				if (e.key === "Escape" && reading) onClose()
-			}}
+			aria-label={reading ? t("article.pane") : t("preview.pane")}
 			className={cn(
 				"min-w-0 flex-1 flex-col border-l border-border @5xl:sticky @5xl:flex @5xl:h-dvh",
 				// On a narrow page the article covers the editor; on a wide one it sits beside it.
@@ -333,30 +354,9 @@ function SidePane({
 		>
 			<div className="flex h-12 shrink-0 items-center gap-3 border-b border-border bg-card px-4 md:h-14">
 				{reading && item ? (
-					<div role="tablist" className="flex min-w-0 items-center gap-1">
-						<button
-							type="button"
-							role="tab"
-							id={`${id}-preview`}
-							aria-selected={tab === "preview"}
-							aria-controls={`${id}-preview-panel`}
-							onClick={() => setPreviewedAt(reading.asked)}
-							className={tabClass(tab === "preview")}
-						>
-							{t("preview.pane")}
-						</button>
-						<button
-							type="button"
-							role="tab"
-							id={`${id}-article`}
-							aria-selected={tab === "article"}
-							aria-controls={`${id}-article-panel`}
-							onClick={() => setPreviewedAt(null)}
-							className={cn(tabClass(tab === "article"), "flex max-w-64 items-center gap-1")}
-						>
-							<span className="shrink-0">{t("article.tab")}</span>
-							<span className="truncate font-normal text-muted-fg">· {item.title}</span>
-						</button>
+					<div className="min-w-0">
+						<p className="text-sm font-medium">{t("article.pane")}</p>
+						<p className="truncate text-xs text-muted-fg">{item.title}</p>
 					</div>
 				) : (
 					<div className="min-w-0">
@@ -365,7 +365,7 @@ function SidePane({
 					</div>
 				)}
 				<div className="ml-auto flex shrink-0 items-center gap-1">
-					{tab === "preview" ? (
+					{!reading ? (
 						<>
 							{(
 								[
@@ -411,15 +411,12 @@ function SidePane({
 					) : null}
 				</div>
 			</div>
-			{/* Kept while the article shows: the editor's scroll follows it. */}
+			{/* Kept, hidden, while the article shows: the editor's scroll sync holds on to it. */}
 			<div
 				ref={previewRef}
-				id={`${id}-preview-panel`}
-				role={reading ? "tabpanel" : undefined}
-				aria-labelledby={reading ? `${id}-preview` : undefined}
 				className={cn(
 					"min-h-0 flex-1 overflow-y-auto overscroll-contain bg-muted/40",
-					tab === "article" && "hidden",
+					reading && "hidden",
 				)}
 			>
 				<div
@@ -434,15 +431,7 @@ function SidePane({
 			{reading && item ? (
 				<div
 					ref={articleScroller}
-					id={`${id}-article-panel`}
-					role="tabpanel"
-					aria-labelledby={`${id}-article`}
-					// Scrolled with the keyboard too; a click in it lets Escape close it.
-					tabIndex={0}
-					className={cn(
-						"min-h-0 flex-1 overflow-y-auto overscroll-contain bg-bg",
-						tab === "preview" && "hidden",
-					)}
+					className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-bg"
 				>
 					<EditionArticle
 						editionId={edition.id}

@@ -230,7 +230,7 @@ export default {
 	},
 	/** The article an item came from, read beside the editor: the library's copy. */
 	article: {
-		tab: "Article",
+		pane: "Article",
 		close: "Close the article",
 		loading: "Loading the article…",
 		gone: "This article is no longer in your library.",

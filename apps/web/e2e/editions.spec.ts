@@ -539,16 +539,31 @@ test("an article set aside stays in place, out of the page; its article reads be
 	await expect(article.getByText("Paragraph 0 of what came first.")).not.toBeInViewport()
 	expect(await page.evaluate(() => CSS.highlights.get("klip-hl")?.size)).toBe(1)
 
-	// Back to the preview and closed, the next article asked for shows.
-	await pane.getByRole("tab", { name: "Preview" }).click()
-	await expect(page.getByRole("complementary", { name: "Preview" })).toBeVisible()
-	await page.getByRole("button", { name: "Close the article" }).click()
-	await recall.getByRole("button", { name: "Read the article" }).click()
-	await expect(pane.getByRole("tab", { name: /^Article/ })).toHaveAttribute("aria-selected", "true")
-	await expect(article.getByText("Paragraph 0 of what came first.")).toBeInViewport()
-	// Escape closes it, from inside the pane: in the editor it would belong to the text being typed.
-	await article.getByRole("heading", { name: "Recall" }).click()
+	// While it is open, only its card is within reach: the rest of the editor waits.
+	const inert = (locator: typeof recall) => locator.evaluate((el) => el.closest("[inert]") !== null)
+	expect(await inert(page.getByTestId("edition-editor-top"))).toBe(true)
+	expect(await inert(aside)).toBe(true)
+	expect(await inert(recall)).toBe(false)
+	// Its quote can be picked beside the article, which stays open.
+	await Promise.all([
+		editorAction(page, editionId),
+		recall.getByRole("checkbox", { name: quote }).check(),
+	])
+	await expect(article).toBeVisible()
+
+	// Escape closes it, wherever the focus is; the focus goes back where it was, and the editor is
+	// within reach again.
 	await page.keyboard.press("Escape")
+	await expect(pane).toHaveCount(0)
+	await expect(recall.getByRole("button", { name: "Show in the article" })).toBeFocused()
+	expect(await inert(page.getByTestId("edition-editor-top"))).toBe(false)
+	expect(await inert(aside)).toBe(false)
+	await expect(page.getByRole("complementary", { name: "Preview" })).toContainText(quote)
+
+	// Read from the top; Read again closes it.
+	await recall.getByRole("button", { name: "Read the article" }).click()
+	await expect(article.getByText("Paragraph 0 of what came first.")).toBeInViewport()
+	await recall.getByRole("button", { name: "Read the article" }).click()
 	await expect(pane).toHaveCount(0)
 
 	// Published: only what is in. The article set aside keeps its mark for the next edition.
