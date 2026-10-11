@@ -31,4 +31,7 @@ Report:
   server's page shows its content before the page hydrates, so assertions on it pass, while a
   click that lands before hydration does nothing; on a slow runner that is a flaky test. Links
   and plain form posts work without it.
+- A Playwright test that saves an article and waits for the worker to extract it, when saving and
+  extraction are not what it tests: `insertArticle` (`e2e/seed.ts`) puts it in place at once. A
+  wait longer than the test's own timeout fails as a timeout, at random, on a slow first run.
 - Refusals left untested: another user's item, a trashed item, input over a limit.
