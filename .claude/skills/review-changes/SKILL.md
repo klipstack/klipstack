@@ -29,6 +29,20 @@ instructions. Each reports findings as file and line, what is wrong, a concrete 
 goes wrong, and a severity. "None" is a valid answer. Style that the linter owns is not a
 finding.
 
+The reviewers run at the same time in one working tree. Subagents see only their brief, not this
+skill, so put this rule in every brief. The shared tree is read-only: no edits, no restores, no
+`git stash`. A reviewer that wants to run or break code does it in a git worktree of its own,
+and removes the worktree when done:
+
+```sh
+w=/tmp/review-<name>; git worktree add --detach "$w" HEAD
+git diff HEAD | git -C "$w" apply                     # the uncommitted changes
+git ls-files -z --others --exclude-standard | tar --null -T - -cf - | tar -xf - -C "$w"
+cp .env "$w"/ && (cd "$w" && CI=true pnpm install --frozen-lockfile --offline)
+# … experiment in "$w" …
+git worktree remove --force "$w"
+```
+
 - **The task.** Does the diff do everything asked, and nothing more? Look for:
   - missing pieces
   - changes nobody asked for
