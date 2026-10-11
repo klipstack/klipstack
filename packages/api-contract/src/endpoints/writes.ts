@@ -100,6 +100,13 @@ export const updateArticles = defineEndpoint({
 			 * changed. Optional: servers before 2026-10-02 don't send it.
 			 */
 			undo: z.array(z.string()).optional(),
+			/**
+			 * The articles marking added to the draft edition in progress, and those unmarking took out
+			 * of it, losing their copy there with its edits until the undo puts it back. Empty when the
+			 * draft did not change or there is none. Optional: servers before 2026-10-11 don't send them.
+			 */
+			addedToDraft: z.array(Id).optional(),
+			removedFromDraft: z.array(Id).optional(),
 		}),
 	),
 	// An article would have more tags than it may, or the library more than it may: nothing changes.

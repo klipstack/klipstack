@@ -167,12 +167,18 @@ const owned = (userId: string, ids: string[]) =>
  * with the rows locked: a refusal (too many tags) changes nothing. `changed` names the articles
  * that changed (the others were that way already); `undo` puts them back (`undoChanges`).
  * With a draft in progress, the mark is being in it: marking adds the articles to it (those with a
- * web address), unmarking takes them out.
+ * web address), unmarking takes them out. `draft` names the articles added or taken out.
  */
 export async function updateArticles(
 	userId: string,
 	input: ArticleUpdate,
-): Promise<{ found: string[]; notFound: string[]; changed: string[]; undo: UndoRecord }> {
+): Promise<{
+	found: string[]
+	notFound: string[]
+	changed: string[]
+	undo: UndoRecord
+	draft: { added: string[]; removed: string[] }
+}> {
 	const update = parseInput(ArticleUpdate, input)
 	const { ids } = update
 	// Marking with a draft in progress: the copies it takes, made first, as `addItem` makes them.
@@ -189,6 +195,7 @@ export async function updateArticles(
 		const found = new Set(rows.map((r) => r.id))
 		const changed = new Set<string>()
 		const undo = emptyUndo()
+		const inDraft = { added: [] as string[], removed: [] as string[] }
 		const before = new Map<string, Before>()
 		const record = (row: Row, columns: Column[]) => {
 			const entry = before.get(row.id) ?? { id: row.id }
@@ -210,6 +217,7 @@ export async function updateArticles(
 				: await removeFromDraft(tx, draft, live)
 			for (const id of done.documentIds) changed.add(id)
 			if (done.documentIds.length > 0) undo.draft = done.change
+			inDraft[update.shortlisted ? "added" : "removed"] = done.documentIds
 		}
 		if (update.addTags || update.removeTags) {
 			const tags = await changeTagsIn(tx, {
@@ -237,6 +245,7 @@ export async function updateArticles(
 			notFound: ids.filter((id) => !found.has(id)),
 			changed: ids.filter((id) => changed.has(id)),
 			undo,
+			draft: inDraft,
 		}
 	})
 }

@@ -240,12 +240,17 @@ describe("the mark, with a draft in progress", () => {
 		const draft = await draftOf()
 		await addItem(userId, draft.id, c)
 
-		const { changed, undo } = await updateArticles(userId, {
+		const {
+			changed,
+			undo,
+			draft: inDraft,
+		} = await updateArticles(userId, {
 			ids: [b, a, c, noUrl!],
 			shortlisted: true,
 		})
 		// c, added from the picker, is marked already.
 		expect(changed.sort()).toEqual([a, b, noUrl].sort())
+		expect(inDraft).toEqual({ added: [b, a], removed: [] })
 		expect(await itemsOf(draft.id)).toEqual([
 			{ documentId: c, position: 0, includeNote: false },
 			{ documentId: b, position: 1, includeNote: false },
@@ -273,8 +278,16 @@ describe("the mark, with a draft in progress", () => {
 		await updateItem(userId, draft.id, item!.id, { note: "Mine.", includeNote: true })
 		const marked = (await read(b)).shortlistedAt
 
-		const { changed, undo } = await updateArticles(userId, { ids: [b], shortlisted: false })
+		const {
+			changed,
+			undo,
+			draft: outOfDraft,
+		} = await updateArticles(userId, {
+			ids: [b],
+			shortlisted: false,
+		})
 		expect(changed).toEqual([b])
+		expect(outOfDraft).toEqual({ added: [], removed: [b] })
 		expect(await itemsOf(draft.id)).toEqual([
 			{ documentId: a, position: 0, includeNote: false },
 			{ documentId: c, position: 1, includeNote: false },
@@ -301,6 +314,14 @@ describe("the mark and the draft, at the edges", () => {
 				.where(eq(editionItems.editionId, editionId))
 				.orderBy(asc(editionItems.position))
 		).map((row) => row.documentId)
+
+	it("without a draft in progress, the mark is all that changes", async () => {
+		const [a] = ids as [string]
+		const marked = await updateArticles(userId, { ids: [a], shortlisted: true })
+		expect(marked).toMatchObject({ changed: [a], draft: { added: [], removed: [] } })
+		const unmarked = await updateArticles(userId, { ids: [a], shortlisted: false })
+		expect(unmarked).toMatchObject({ changed: [a], draft: { added: [], removed: [] } })
+	})
 
 	it("finishing and marking at once dates the item the day it was finished", async () => {
 		const [a] = ids as [string]
