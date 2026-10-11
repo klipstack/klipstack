@@ -15,7 +15,8 @@ import { HomeGreeting } from "~/components/home-greeting"
 import { SaveLinkDialog } from "~/components/save-link-dialog"
 import { Button, buttonVariants } from "~/components/ui/button"
 import { useFeedReader } from "~/hooks/use-feed-reader"
-import { fitsIn, homeShelves } from "~/lib/home-shelves"
+import { timeZoneFromCookie } from "~/lib/date-groups"
+import { fitsIn, homeShelves, shortTitle } from "~/lib/home-shelves"
 import { getInstance } from "~/lib/i18n.server"
 import { listSearch, parseTime, REDISCOVER_AFTER_DAYS, TIME_CHOICES } from "~/lib/inbox-filters"
 import { warmOffline } from "~/lib/offline.client"
@@ -23,13 +24,19 @@ import type { PageBarHandle } from "~/lib/page-bar"
 import { requireUser } from "~/lib/session.server"
 import { isSearchShortcut } from "~/lib/shortcuts"
 import { cn } from "~/lib/utils"
+import { finishedLately } from "~/services/reading-history.server"
 import { readingHome } from "~/services/reading-home.server"
 import type { Route } from "./+types/reading-home"
 
 export async function loader({ context, request }: Route.LoaderArgs) {
 	const user = requireUser(context, request)
 	const t = getInstance(context).getFixedT(null, "library")
-	return { ...(await readingHome(user.id)), title: `${t("home.title")} · Klipstack` }
+	const timeZone = timeZoneFromCookie(request.headers.get("cookie"))
+	const [home, finished] = await Promise.all([
+		readingHome(user.id),
+		finishedLately(user.id, { timeZone }),
+	])
+	return { ...home, finished, title: `${t("home.title")} · Klipstack` }
 }
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -66,7 +73,7 @@ export const handle: PageBarHandle = {
 }
 
 export default function ReadingHome({
-	loaderData: { candidates, timeChoice, feed, emptyState, review },
+	loaderData: { candidates, timeChoice, feed, emptyState, review, finished },
 }: Route.ComponentProps) {
 	const { t } = useTranslation(["library", "feed"])
 	const navigate = useNavigate()
@@ -110,7 +117,12 @@ export default function ReadingHome({
 
 	return (
 		<main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-5 pb-12 md:px-8 md:pt-4 md:pb-8">
-			<header className="mb-9 hidden min-h-10 flex-wrap items-center justify-between gap-3 md:flex">
+			<header
+				className={cn(
+					"hidden min-h-10 flex-wrap items-center justify-between gap-3 md:flex",
+					finished ? "mb-1" : "mb-9",
+				)}
+			>
 				<h1 className="text-2xl font-semibold">
 					<HomeGreeting />
 				</h1>
@@ -126,6 +138,7 @@ export default function ReadingHome({
 					<SaveLinkDialog />
 				</div>
 			</header>
+			{finished ? <FinishedLately {...finished} /> : null}
 			{timeChoice ? <TimeChoice minutes={minutes} /> : null}
 			<div className="space-y-10">
 				{featured ? (
@@ -280,6 +293,28 @@ function ReviewCard() {
 				</later.Form>
 			</div>
 		</section>
+	)
+}
+
+/** Titles longer than this are cut, so the sentence stays one line or two. */
+const FINISHED_TITLE_MAX = 80
+
+/**
+ * What the reader finished in the past week, under the greeting. Only what was read: nothing about
+ * what is left, no comparison, and nothing at all after a week without a finish.
+ */
+function FinishedLately({ count, title }: { count: number; title: string | null }) {
+	const { t } = useTranslation("library")
+	const text =
+		count > 1
+			? t("home.finished.count", { count })
+			: title
+				? t("home.finished.named", { title: shortTitle(title, FINISHED_TITLE_MAX) })
+				: t("home.finished.untitled")
+	return (
+		<p data-testid="home-finished" className="mb-6 text-sm text-muted-fg md:mb-9">
+			{text}
+		</p>
 	)
 }
 

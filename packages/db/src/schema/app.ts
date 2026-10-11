@@ -127,7 +127,12 @@ export const documents = pgTable(
 	],
 )
 
-export const completionSources = ["manual", "progress", "legacy"] as const
+/**
+ * How a completion was recorded: finishing one article (`manual`), reading to the end
+ * (`progress`), finishing several at once (`bulk`, usually tidying up), or a read date from before
+ * this history existed (`legacy`).
+ */
+export const completionSources = ["manual", "progress", "legacy", "bulk"] as const
 
 /** One completion signal per reading cycle, independent of the article's current state. */
 export const readingCompletions = pgTable(

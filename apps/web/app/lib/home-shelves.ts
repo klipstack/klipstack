@@ -74,3 +74,11 @@ export function homeShelves<T extends Timed>(
 	const rediscover = take(fillingFirst(candidates.rediscover), HOME_SHELF.rediscover)
 	return { reading, recent, rediscover }
 }
+
+/** A title for a sentence: at most `max` characters, cut after a word and ended with "…". */
+export function shortTitle(title: string, max: number): string {
+	if (title.length <= max) return title
+	const cut = title.slice(0, max - 1)
+	const space = cut.lastIndexOf(" ")
+	return `${(space > max / 2 ? cut.slice(0, space) : cut).trimEnd()}…`
+}
