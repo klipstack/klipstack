@@ -3,6 +3,7 @@ import type { ArticleSummary, KlipstackClient } from "@klipstack/sdk"
 import { useCallback, useInsertionEffect, useRef } from "react"
 import { Alert } from "react-native"
 import { actedOn, afterAction, BULK_CHANGES, type BulkAction } from "@/lib/bulk-actions"
+import { afterMarking } from "@/lib/draft-undo"
 
 /** What the actions change themselves: Tags opens the tag sheet instead (`useTagSheet`). */
 export type ArticleAction = Exclude<BulkAction, "tag">
@@ -12,8 +13,9 @@ export type ArticleAction = Exclude<BulkAction, "tag">
  * multi-select's bar and the long-press menu do. `apply` gets the articles as the action leaves
  * them, at once, then as the server has them; `done`, how many the server changed, and how many it
  * couldn't restore (the same page was saved again since: they stay in the trash). Delete asks
- * first: there is no undo, only the Trash. On failure an alert says so, and `reload` puts the
- * screen right.
+ * first: there is no undo, only the Trash. Unmarking that took articles out of the draft edition
+ * in progress offers an undo, as on the web: `apply` gets them back marked. On failure an alert
+ * says so, and `reload` puts the screen right.
  */
 export function useArticleActions(options: {
 	client: KlipstackClient | null
@@ -45,9 +47,13 @@ export function useArticleActions(options: {
 					latest.current.apply(new Map(acted.filter((a) => kept.has(a.id)).map((a) => [a.id, a])))
 				latest.current.done?.(action, restored.length, kept.size)
 			} else {
-				const answer = await client.articles.update(ids, BULK_CHANGES[action])
+				const changes = BULK_CHANGES[action]
+				const answer = await client.articles.update(ids, changes)
 				latest.current.apply(new Map(answer.items.map((a) => [a.id, a])))
 				latest.current.done?.(action, answer.items.length, 0)
+				afterMarking(client, changes, answer, (items) =>
+					latest.current.apply(new Map(items.map((a) => [a.id, a]))),
+				)
 			}
 		} catch (e) {
 			Alert.alert("Not saved", e instanceof Error ? e.message : String(e))

@@ -6,6 +6,7 @@ import {
 	documentRaw,
 	documents,
 	documentVersions,
+	editionItems,
 	eq,
 	highlights,
 	newId,
@@ -19,6 +20,7 @@ import { JSDOM } from "jsdom"
 import { afterAll, describe, expect, it } from "vitest"
 import { env } from "~/lib/env.server"
 import { getDocument, setNote } from "~/services/documents.server"
+import { createEdition } from "~/services/editions.server"
 import { createHighlight } from "~/services/highlights.server"
 import { apiUsers, captured, extract, FIXTURES, request } from "~/test/api-harness"
 import { insertArticle, seedFeeds, storeImage, urlHash } from "../../e2e/seed"
@@ -788,6 +790,37 @@ describe("writes", () => {
 			expect((await client.articles.update([theirs], { starred: true })).notFound).toEqual([theirs])
 		},
 	)
+
+	it("the mark says what it did to the draft in progress, and undo puts it back", async () => {
+		const { id: owner, client } = await users.create("API Draft")
+		const article = await insertArticle(owner, "Drafted", "<p>Worth sharing.</p>")
+		// No draft yet: only the mark changes.
+		const alone = await client.articles.update([article], { shortlisted: true })
+		expect(alone).toMatchObject({ addedToDraft: [], removedFromDraft: [] })
+		await client.articles.update([article], { shortlisted: false })
+
+		const draft = await createEdition(owner, { locale: "en", timeZone: "Europe/Madrid" })
+		const inDraft = () =>
+			db
+				.select({ documentId: editionItems.documentId })
+				.from(editionItems)
+				.where(eq(editionItems.editionId, draft.id))
+		const marked = await client.articles.update([article, MISSING], { shortlisted: true })
+		expect(marked).toMatchObject({ addedToDraft: [article], removedFromDraft: [] })
+		expect(await inDraft()).toEqual([{ documentId: article }])
+
+		const unmarked = await client.articles.update([article], { shortlisted: false })
+		expect(unmarked).toMatchObject({ addedToDraft: [], removedFromDraft: [article] })
+		expect(await inDraft()).toEqual([])
+		const undone = await client.articles.undo(unmarked.undo![0]!)
+		expect(undone.items[0]).toMatchObject({ id: article, shortlisted: true })
+		expect(await inDraft()).toEqual([{ documentId: article }])
+		// Starring changes no draft.
+		expect(await client.articles.update([article], { starred: true })).toMatchObject({
+			addedToDraft: [],
+			removedFromDraft: [],
+		})
+	})
 
 	it("the note for the next edition, apart from the private note", async () => {
 		const { id: owner, key, client } = await users.create("API Edition Note")

@@ -105,11 +105,13 @@ export const save: Handler<typeof saveArticle> = async ({ userId, body }) => {
 
 /** The same command as MCP's update_articles and the web's changes. */
 export const update: Handler<typeof updateArticles> = async ({ userId, body }) => {
-	const { found, notFound: missing, changed, undo } = await changeArticles(userId, body)
+	const { found, notFound: missing, changed, undo, draft } = await changeArticles(userId, body)
 	return {
 		items: await summaries(userId, found),
 		notFound: missing,
 		undo: changed.length > 0 ? [signUndo(userId, undo)] : [],
+		addedToDraft: draft.added,
+		removedFromDraft: draft.removed,
 	}
 }
 
