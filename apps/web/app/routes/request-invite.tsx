@@ -9,7 +9,7 @@ import { Label } from "~/components/ui/label"
 import { authLimitResponse } from "~/lib/auth-limits.server"
 import { env } from "~/lib/env.server"
 import { type FieldErrors, parseForm } from "~/lib/forms"
-import { isNsKey, useKeyTranslation } from "~/lib/i18n-keys"
+import { useIsNsKey, useKeyTranslation } from "~/lib/i18n-keys"
 import { getInstance, getLocale } from "~/lib/i18n.server"
 import { INVITE_TRAP as TRAP } from "~/lib/invite-form"
 import {
@@ -96,6 +96,7 @@ export async function action({ request, context }: Route.ActionArgs) {
 export default function RequestInvite({ loaderData, actionData }: Route.ComponentProps) {
 	const { t } = useTranslation("auth")
 	const tk = useKeyTranslation()
+	const isNsKey = useIsNsKey()
 	const busy = useNavigation().state !== "idle"
 	const noteId = useId()
 

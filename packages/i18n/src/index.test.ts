@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { resources, supportedLanguages } from "./index"
+import { namespaces, resources, supportedLanguages } from "./index"
 
 function flatten(obj: Record<string, unknown>, prefix = ""): string[] {
 	return Object.entries(obj).flatMap(([k, v]) =>
@@ -10,6 +10,9 @@ function flatten(obj: Record<string, unknown>, prefix = ""): string[] {
 }
 
 describe("locales", () => {
+	it("namespaces lists the english namespaces", () => {
+		expect(namespaces).toEqual(Object.keys(resources.en))
+	})
 	it("every locale has the same keys as english", () => {
 		const enKeys = flatten(resources.en).sort()
 		for (const lng of supportedLanguages) {

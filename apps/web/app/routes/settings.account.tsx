@@ -1,4 +1,4 @@
-import { isLocale, supportedLanguages } from "@klipstack/i18n"
+import { isLocale, supportedLanguages } from "@klipstack/i18n/languages"
 import { useTranslation } from "react-i18next"
 import { data, Form, useFetcher, useNavigation } from "react-router"
 import { z } from "zod"

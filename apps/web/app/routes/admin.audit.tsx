@@ -1,4 +1,3 @@
-import { resources } from "@klipstack/i18n"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router"
 import {
@@ -11,7 +10,7 @@ import {
 	useUtcTime,
 } from "~/components/admin/ui"
 import { requireAdmin } from "~/lib/admin.server"
-import { isKeyOf } from "~/lib/i18n-keys"
+import { useIsNsKey, useKeyTranslation } from "~/lib/i18n-keys"
 import { listAuditEvents } from "~/services/admin-audit-list.server"
 import type { Route } from "./+types/admin.audit"
 
@@ -22,7 +21,14 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 
 export default function AdminAudit({ loaderData }: Route.ComponentProps) {
 	const { t } = useTranslation("admin")
+	const tk = useKeyTranslation()
+	const isNsKey = useIsNsKey()
 	const time = useUtcTime()
+	/** An action's name, or the action as recorded when it has none. */
+	const actionName = (action: string) => {
+		const key = `admin:audit.actions.${action}`
+		return isNsKey(key) ? tk(key) : action
+	}
 	return (
 		<>
 			<PageHeader title={t("audit.title")}>
@@ -54,11 +60,7 @@ export default function AdminAudit({ loaderData }: Route.ComponentProps) {
 									t("audit.deletedAccount")
 								)}
 							</td>
-							<td>
-								{isKeyOf(resources.en.admin.audit.actions, event.action)
-									? t(`audit.actions.${event.action}`)
-									: event.action}
-							</td>
+							<td>{actionName(event.action)}</td>
 							<td>
 								{event.targetKind} <Mono>{event.targetId}</Mono>
 							</td>

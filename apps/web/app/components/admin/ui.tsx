@@ -1,9 +1,8 @@
-import { resources } from "@klipstack/i18n"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link, useRevalidator } from "react-router"
 import { Button } from "~/components/ui/button"
-import { isKeyOf } from "~/lib/i18n-keys"
+import { useIsNsKey, useKeyTranslation } from "~/lib/i18n-keys"
 import { cn } from "~/lib/utils"
 
 /** The same text on the server and in any browser: UTC, in the page's language. */
@@ -252,11 +251,13 @@ export function ConfirmSubmit({
 /** The message for an action's `{ ok: false, error }` answer. Codes without a string are generic. */
 export function ActionError({ code }: { code: string | null | undefined }) {
 	const { t } = useTranslation("admin")
+	const tk = useKeyTranslation()
+	const isNsKey = useIsNsKey()
 	if (!code) return null
-	const name = code === "invalid_request" ? "invalid" : code
+	const key = `admin:errors.${code === "invalid_request" ? "invalid" : code}`
 	return (
 		<p className="text-sm text-danger" role="alert">
-			{isKeyOf(resources.en.admin.errors, name) ? t(`errors.${name}`) : t("errors.unexpected")}
+			{isNsKey(key) ? tk(key) : t("errors.unexpected")}
 		</p>
 	)
 }

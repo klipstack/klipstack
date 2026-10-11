@@ -13,7 +13,7 @@ import { auth } from "~/lib/auth.server"
 import { emailEnabled } from "~/lib/email.server"
 import { env, invitesRequired } from "~/lib/env.server"
 import { type FieldErrors, parseForm } from "~/lib/forms"
-import { isNsKey, useKeyTranslation } from "~/lib/i18n-keys"
+import { useIsNsKey, useKeyTranslation } from "~/lib/i18n-keys"
 import { getLocale, localeCookie } from "~/lib/i18n.server"
 import { findUsableInvite, signupWithInvite } from "~/lib/invites.server"
 import { requestSignupLink } from "~/lib/magic-link.server"
@@ -207,6 +207,7 @@ async function requestLink(
 export default function Signup({ loaderData, actionData }: Route.ComponentProps) {
 	const { t } = useTranslation("auth")
 	const tk = useKeyTranslation()
+	const isNsKey = useIsNsKey()
 	const navigation = useNavigation()
 	const busy = navigation.state !== "idle"
 

@@ -1,4 +1,4 @@
-import { fallbackLanguage, isLocale, supportedLanguages } from "@klipstack/i18n"
+import { fallbackLanguage, isLocale, supportedLanguages } from "@klipstack/i18n/languages"
 import type { NoteSaveStatus } from "@klipstack/sdk/note-autosave"
 import { ArrowLeft, Copy, Eye, Maximize2, Monitor, Newspaper, Smartphone } from "lucide-react"
 import { useCallback, useContext, useId, useMemo, useRef, useState } from "react"

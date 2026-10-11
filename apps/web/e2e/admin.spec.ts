@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto"
-import { adminAuditEvents, db, documents, eq, session, user } from "@klipstack/db"
+import { adminAuditEvents, db, documents, eq, invites, session, user } from "@klipstack/db"
 import { devices, expect, type Page, test } from "@playwright/test"
 import { lastEmailTo, login, PASSWORD, signupAdmin, signupUser, waitForHydration } from "./helpers"
 import { insertArticle } from "./seed"
@@ -132,6 +132,24 @@ test("an admin manages invites, and the audit trail records it without the code"
 		.from(adminAuditEvents)
 		.where(eq(adminAuditEvents.actorUserId, admin.id))
 	expect(events.map((e) => e.action).sort()).toEqual(["invite.create", "invite.revoke"])
+})
+
+test("an invite used while the page was open is not revoked, and the refusal says why", async ({
+	page,
+}) => {
+	await signupAdmin(page, "Used Invite Admin")
+	await page.goto("/admin/invites")
+	await waitForHydration(page)
+	const code = await createInvite(page, `e2e ${randomUUID().slice(0, 8)}`)
+	// Someone signs up with it before the admin presses Revoke.
+	await db.update(invites).set({ usedAt: new Date() }).where(eq(invites.code, code))
+
+	const row = page.getByRole("row").filter({ hasText: code })
+	await row.getByRole("button", { name: "Revoke" }).click()
+	await row.getByRole("button", { name: "Confirm" }).click()
+	await expect(row.getByRole("alert")).toHaveText(
+		"That invite was already used. It cannot be revoked.",
+	)
 })
 
 test("accounts are searchable, and an admin still cannot open another user's article", async ({

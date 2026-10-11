@@ -1,5 +1,5 @@
 import { db } from "@klipstack/db"
-import { fallbackLanguage, isLocale } from "@klipstack/i18n"
+import { fallbackLanguage, isLocale } from "@klipstack/i18n/languages"
 import { Check, Copy, Eye, Newspaper, Plus, Settings2, X } from "lucide-react"
 import { Fragment } from "react"
 import { useTranslation } from "react-i18next"
