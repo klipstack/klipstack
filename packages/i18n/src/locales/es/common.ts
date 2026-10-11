@@ -233,7 +233,7 @@ export default {
 		inbox: "Biblioteca",
 		feed: "Feeds",
 		feedNew: "Publicaciones nuevas",
-		editionDue: "Toca una edición nueva",
+		editionDue: "Tu próxima edición te espera",
 		archive: "Archivo",
 		starred: "Destacados",
 		highlights: "Subrayados",

@@ -234,7 +234,7 @@ export default {
 		inbox: "Library",
 		feed: "Feed",
 		feedNew: "New posts",
-		editionDue: "Time for a new edition",
+		editionDue: "Your next edition is waiting",
 		archive: "Archive",
 		starred: "Starred",
 		highlights: "Highlights",

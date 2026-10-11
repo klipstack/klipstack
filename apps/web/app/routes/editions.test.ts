@@ -1,6 +1,6 @@
 import { db, documents, eq, inArray, user as userTable } from "@klipstack/db"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
-import { getEdition, listEditions } from "~/services/editions.server"
+import { getEdition, listEditions, listShortlist } from "~/services/editions.server"
 import { action as createAction, loader as listLoader } from "./editions"
 import { action as editAction, loader as editLoader } from "./editions.edit"
 import { loader as previewLoader } from "./editions.preview"
@@ -175,21 +175,29 @@ describe("the editor", () => {
 		expect((await getEdition(ownerId, edition!.id)).items).toEqual([])
 	})
 
-	it("starts with the shortlist; removing answers an undo that puts back the item and its mark", async () => {
+	it("starts with the shortlist, shows the draft instead of it, and opens it again on Start", async () => {
 		as(owner)
-		const shortlist = async () =>
-			(
-				await listLoader({
-					request: new Request("http://localhost/editions"),
-					context: {},
-					params: {},
-				} as never)
-			).shortlist.map((entry) => entry.id)
+		const page = () =>
+			listLoader({
+				request: new Request("http://localhost/editions"),
+				context: {},
+				params: {},
+			} as never)
+		// No draft in progress: the page offers the marked articles.
+		for (const edition of await listEditions(ownerId))
+			if (!edition.publishedAt) await post(edition.id, { intent: "delete" }).catch(() => null)
 		const marked = new Date("2026-09-03T10:00:00Z")
 		await db.update(documents).set({ shortlistedAt: marked }).where(eq(documents.id, documentId))
-		expect(await shortlist()).toEqual([documentId])
+		expect(await page()).toMatchObject({ desk: null, shortlist: [{ id: documentId }] })
 		const id = (await thrown(create())).location!.split("/").pop()!
 		try {
+			// Started: the draft takes the shortlist's place, and Start opens it again.
+			expect(await page()).toMatchObject({
+				desk: { id, title: null, itemCount: 1, items: [{ title: "One" }], problems: 0 },
+				shortlist: [],
+				otherDrafts: [],
+			})
+			expect((await thrown(create())).location).toBe(`/editions/${id}`)
 			const { items } = await getEdition(ownerId, id)
 			expect(items.map((item) => item.documentId)).toEqual([documentId])
 			const removed = (await post(id, {
@@ -201,7 +209,7 @@ describe("the editor", () => {
 				unmarked: boolean
 			}
 			expect(removed).toMatchObject({ ok: true, unmarked: true })
-			expect(await shortlist()).toEqual([])
+			expect(await listShortlist(ownerId)).toEqual([])
 			// Only the signed undo, and only its user's.
 			expect((await post(id, { intent: "restore-item", token: "forged" })).init?.status).toBe(400)
 			as(other)
@@ -211,7 +219,7 @@ describe("the editor", () => {
 			as(owner)
 			expect(await post(id, { intent: "restore-item", token: removed.undo })).toEqual({ ok: true })
 			expect((await getEdition(ownerId, id)).items).toEqual(items)
-			expect(await shortlist()).toEqual([documentId])
+			expect((await listShortlist(ownerId)).map((entry) => entry.id)).toEqual([documentId])
 		} finally {
 			await post(id, { intent: "delete" }).catch(() => null)
 			await db.update(documents).set({ shortlistedAt: null }).where(eq(documents.id, documentId))
@@ -220,7 +228,7 @@ describe("the editor", () => {
 
 	it("refuses a body that is not an intent", async () => {
 		as(owner)
-		const [edition] = await listEditions(ownerId)
-		expect((await post(edition!.id, { intent: "explode" })).init?.status).toBe(400)
+		const id = (await thrown(create())).location!.split("/").pop()!
+		expect((await post(id, { intent: "explode" })).init?.status).toBe(400)
 	})
 })

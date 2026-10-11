@@ -1,3 +1,4 @@
+import { db } from "@klipstack/db"
 import { supportedLanguages } from "@klipstack/i18n"
 import { z } from "zod"
 import { AppError, parseInput } from "~/lib/app-error"
@@ -5,6 +6,7 @@ import {
 	addItem,
 	addShortlist,
 	createEdition as insertEdition,
+	currentDraft,
 	deleteEdition,
 	moveItem,
 	publishEdition,
@@ -72,6 +74,14 @@ export async function createEdition(userId: string, input: { locale: string; tim
 	const edition = await insertEdition(userId, input)
 	await addShortlist(userId, edition.id)
 	return edition
+}
+
+/**
+ * "Start" on `/editions`: the draft in progress, else a new one (`createEdition`). One draft at a
+ * time is what the page offers; a second only comes from asking for it.
+ */
+export async function startEdition(userId: string, input: { locale: string; timeZone: string }) {
+	return (await currentDraft(db, userId)) ?? createEdition(userId, input)
 }
 
 const EditionNote = z.object({ note: text.nullable() })

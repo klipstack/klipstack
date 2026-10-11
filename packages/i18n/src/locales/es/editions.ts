@@ -1,9 +1,7 @@
 export default {
 	description:
 		"Una página con artículos que vale la pena compartir, con las notas y los subrayados que elijas. Cada una tiene un enlace para compartir.",
-	empty: "Aún no hay ediciones.",
 	untitled: "Sin título",
-	create: "Nueva edición",
 	state: {
 		draft: "Borrador",
 		live: "Publicada",
@@ -81,15 +79,35 @@ export default {
 		addAll_other: "Añadir los {{count}}",
 		more_one: "Hay 1 artículo más marcado para tu próxima edición.",
 		more_other: "Hay {{count}} artículos más marcados para tu próxima edición.",
-		listDetail:
-			"Los artículos que marcaste al leer, con las notas que escribiste para tus lectores. Una edición nueva empieza con ellos; al publicarla, sus artículos salen de esta lista.",
-		empty:
-			"Aún no marcaste nada. Al leer, «Añadir a la próxima edición» (N) guarda el artículo aquí.",
 		remove: "Quitar «{{title}}» de tu próxima edición",
 	},
 	/** Por qué toca una edición nueva: el punto de la barra lateral lleva aquí. */
+	desk: {
+		heading: "Tu próxima edición",
+		emptyDetail:
+			"Al leer, «Añadir a la próxima edición» (N) guarda el artículo para ella, con una nota para tus lectores si la escribes.",
+		markedDetail:
+			"Los artículos que marcaste al leer, con las notas que escribiste para tus lectores. La edición empieza con ellos.",
+		startEmpty: "Empezar una edición vacía",
+		start_one: "Empezar la edición con él",
+		start_other: "Empezar la edición con estos {{count}}",
+		started: "Empezada {{started}}",
+		startedEdited: "Empezada {{started}}, editada {{edited}}",
+		more_one: "y 1 más",
+		more_other: "y {{count}} más",
+		addMore: "Al leer, «Añadir a la próxima edición» (N) añade el artículo aquí.",
+		ready: "Lista para publicar",
+		problems_one: "{{count}} cosa por arreglar antes de publicar",
+		problems_other: "{{count}} cosas por arreglar antes de publicar",
+		due: "La empezaste {{ago}}. ¿La publicas?",
+		review: "Revisar y publicar",
+		continue: "Seguir editando",
+		otherDrafts: "Otros borradores",
+	},
+	past: {
+		heading: "Ediciones anteriores",
+	},
 	nudge: {
-		title: "¿Toca una edición nueva?",
 		last: "Tu última edición salió {{ago}}.",
 		marked_one: "Hay {{count}} artículo marcado para la próxima.",
 		marked_other: "Hay {{count}} artículos marcados para la próxima.",
@@ -100,9 +118,10 @@ export default {
 	/** La elección de la cuenta: las ediciones públicas se enlazan entre sí. */
 	linking: {
 		title: "Enlazar mis ediciones",
-		label: "Cada edición pública enlaza a la anterior y a la siguiente",
+		off: "Cada edición va sola",
+		on: "Cada una enlaza a la anterior y a la siguiente",
 		detail:
-			"Desactivado, cada edición va sola: su enlace no muestra nada más de lo que publicaste. Activado, quien tenga un enlace puede encontrar las demás. Las ediciones retiradas nunca se enlazan.",
+			"Enlazadas, quien tenga el enlace de una edición puede encontrar las demás. Las ediciones retiradas nunca se enlazan.",
 	},
 	lately: {
 		heading: "Leído últimamente",
