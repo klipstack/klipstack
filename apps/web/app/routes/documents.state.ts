@@ -14,6 +14,7 @@ import { AppError } from "~/lib/app-error"
 import { answerNetworkFailure } from "~/lib/network-failure"
 import { readForm } from "~/lib/request-body.server"
 import { requireUser } from "~/lib/session.server"
+import { signUndo } from "~/lib/undo-token.server"
 import { answer, refused } from "~/lib/web-action.server"
 import type { Route } from "./+types/documents.state"
 
@@ -72,9 +73,13 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 				await updateArticle(user.id, id, { starred: intent === "star" })
 				break
 			case "shortlist":
-			case "unshortlist":
-				await updateArticle(user.id, id, { shortlisted: intent === "shortlist" })
+			case "unshortlist": {
+				const { undo } = await updateArticle(user.id, id, { shortlisted: intent === "shortlist" })
+				// Taken out of the draft in progress: its copy there, edits and all, comes back only so.
+				if (intent === "unshortlist" && undo.draft)
+					return { intent, undo: { intent: "revert", fields: { token: signUndo(user.id, undo) } } }
 				break
+			}
 			case "finish":
 			case "unread":
 				await updateArticle(user.id, id, { finished: intent === "finish" })

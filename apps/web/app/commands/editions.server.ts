@@ -1,3 +1,4 @@
+import { db, eq, user as userTable } from "@klipstack/db"
 import { supportedLanguages } from "@klipstack/i18n"
 import { z } from "zod"
 import { AppError, parseInput } from "~/lib/app-error"
@@ -5,6 +6,7 @@ import {
 	addItem,
 	addShortlist,
 	createEdition as insertEdition,
+	currentDraft,
 	deleteEdition,
 	moveItem,
 	publishEdition,
@@ -72,6 +74,26 @@ export async function createEdition(userId: string, input: { locale: string; tim
 	const edition = await insertEdition(userId, input)
 	await addShortlist(userId, edition.id)
 	return edition
+}
+
+/**
+ * "Start" on `/editions`: the draft in progress, else a new one (`createEdition`). One draft at a
+ * time is what the page offers; a second only comes from asking for it.
+ */
+export async function startEdition(userId: string, input: { locale: string; timeZone: string }) {
+	// The user's row held while it looks, so two Starts at once make one draft.
+	const { draft, created } = await db.transaction(async (tx) => {
+		await tx
+			.select({ id: userTable.id })
+			.from(userTable)
+			.where(eq(userTable.id, userId))
+			.for("update")
+		const found = await currentDraft(tx, userId)
+		if (found) return { draft: found, created: false }
+		return { draft: await insertEdition(userId, input, tx), created: true }
+	})
+	if (created) await addShortlist(userId, draft.id)
+	return draft
 }
 
 const EditionNote = z.object({ note: text.nullable() })

@@ -25,7 +25,6 @@ import {
 	createEdition as insertEdition,
 	deleteEdition,
 	editionNudge,
-	snoozeNudge,
 	editionNeighbors,
 	type EditionRow,
 	getEdition,
@@ -395,6 +394,9 @@ describe("the shortlist in editions", () => {
 			[files.id, "2026-09-02T10:00:00Z"],
 			[noted.id, "2026-09-01T10:00:00Z"],
 		])
+		// Three marked, but drafts are in progress (`edition`, `blank`): no nudge for another. Without
+		// one, three are an edition by themselves (`editions-draft.server.test.ts`).
+		expect(await editionNudge(userId)).toMatchObject({ marked: 3, daysSince: null, reason: null })
 		const draft = await createEdition(userId, { locale: "en", timeZone })
 		try {
 			const { items } = await getEdition(userId, draft.id)
@@ -407,19 +409,6 @@ describe("the shortlist in editions", () => {
 				files.id,
 				noted.id,
 			])
-			// Three marked: an edition by themselves, before any was published.
-			expect(await editionNudge(userId)).toMatchObject({
-				marked: 3,
-				daysSince: null,
-				reason: "marked",
-			})
-			// "Not now" quiets it for a week.
-			await snoozeNudge(userId)
-			expect((await editionNudge(userId)).reason).toBeNull()
-			expect((await editionNudge(userId, new Date(Date.now() + 8 * 86_400_000))).reason).toBe(
-				"marked",
-			)
-			await db.update(userTable).set({ prefs: {} }).where(eq(userTable.id, userId))
 			// Marked later: Add all brings it, and nothing twice.
 			await mark([[short.id, "2026-09-04T10:00:00Z"]])
 			expect(
@@ -613,8 +602,10 @@ describe("publishEdition", () => {
 	})
 
 	it("writes the snapshot: only what the user included, nothing of the library", async () => {
-		// Marked when it was added: shared now, so off the shortlist.
-		expect((await listShortlist(userId)).map((e) => e.id)).toEqual([main.id])
+		// Marked when it was added, by hand or from the picker: shared now, so off the shortlist.
+		expect((await listShortlist(userId)).map((e) => e.id).sort()).toEqual(
+			[main.id, noted.id].sort(),
+		)
 		const published = await publishEdition(userId, edition.id)
 		expect(await listShortlist(userId)).toEqual([])
 		expect(published.ok).toBe(true)

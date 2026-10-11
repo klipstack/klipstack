@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { db, documents, eq, highlights } from "@klipstack/db"
+import { db, documents, editionItems, editions, eq, highlights } from "@klipstack/db"
 import { expect, type Page, test } from "@playwright/test"
 import { signupUser, waitForHydration, waitForSidebarPrefetch } from "./helpers"
 import { insertArticle } from "./seed"
@@ -81,7 +81,7 @@ test("editions: pick, publish, update, unpublish, and nobody else's", async ({ p
 	// One mark, and no edition yet: not reason enough for the sidebar to nudge.
 	await expect(page.getByTestId("editions-nav-dot")).toHaveCount(0)
 	await expect(page.getByTestId("editions-nudge")).toHaveCount(0)
-	await page.getByRole("button", { name: "New edition" }).click()
+	await page.getByRole("button", { name: "Start the edition with it" }).click()
 	await expect(page).toHaveURL(/\/editions\/[0-9a-f-]{36}$/)
 	const editionId = page.url().split("/").pop()!
 	await waitForHydration(page)
@@ -294,7 +294,7 @@ test("three marked articles nudge for a new edition, until Not now", async ({ pa
 	await page.goto("/library")
 	await waitForHydration(page)
 	const dot = page.getByTestId("editions-nav-dot").first()
-	await expect(dot).toHaveAttribute("aria-label", "Time for a new edition")
+	await expect(dot).toHaveAttribute("aria-label", "Your next edition is waiting")
 	// The dot leads to why.
 	await page
 		.getByRole("link", { name: /^Editions/ })
@@ -304,10 +304,93 @@ test("three marked articles nudge for a new edition, until Not now", async ({ pa
 	await waitForHydration(page)
 	const nudge = page.getByTestId("editions-nudge")
 	await expect(nudge).toContainText("3 articles are marked for the next one.")
-	await nudge.getByRole("button", { name: "Not now" }).click()
+	await page.getByTestId("editions-desk").getByRole("button", { name: "Not now" }).click()
 	await expect(nudge).toHaveCount(0)
 	await expect(page.getByTestId("editions-nav-dot")).toHaveCount(0)
-	await expect(page.getByRole("button", { name: "New edition" })).toBeVisible()
+	await expect(page.getByRole("button", { name: "Start the edition with these 3" })).toBeVisible()
+})
+
+test("with a draft started, marking adds to it, and a week on the page asks to publish it", async ({
+	page,
+}) => {
+	const email = await signupUser(page, "Drafter")
+	const owner = await db.query.user.findFirst({ where: (u, { eq }) => eq(u.email, email) })
+	const [first, second] = [
+		await insertArticle(owner!.id, "First read", "<p>First.</p>"),
+		await insertArticle(owner!.id, "Second read", "<p>Second.</p>"),
+	]
+	await db.update(documents).set({ shortlistedAt: new Date() }).where(eq(documents.id, first))
+	await page.goto("/editions")
+	await waitForHydration(page)
+	await page.getByRole("button", { name: "Start the edition with it" }).click()
+	await expect(page).toHaveURL(/\/editions\/[0-9a-f-]{36}$/)
+	const draftId = page.url().split("/").pop()!
+
+	// Back on the page: the draft, not the marks again, and no way to start a second one.
+	await page.goto("/editions")
+	await waitForHydration(page)
+	const desk = page.getByTestId("editions-desk")
+	await expect(desk).toContainText("Draft")
+	await expect(desk).toContainText("Started today")
+	await expect(desk.getByTestId("editions-desk-items")).toHaveText(/First read/)
+	await expect(page.getByTestId("editions-shortlist")).toHaveCount(0)
+	await expect(page.getByRole("button", { name: /^Start/ })).toHaveCount(0)
+	await expect(page.getByTestId("editions-nav-dot")).toHaveCount(0)
+
+	// Marked while reading: into the draft.
+	const marked = await page.request.post(`/documents/${second}/state`, {
+		form: { intent: "shortlist" },
+	})
+	expect(marked.ok()).toBe(true)
+	await page.reload()
+	await waitForHydration(page)
+	await expect(desk.getByTestId("editions-desk-items").getByRole("listitem")).toHaveText([
+		/First read/,
+		/Second read/,
+	])
+	await expect(desk.getByTestId("editions-desk-status")).toHaveText("Ready to publish")
+
+	// Unmarked while reading: out of the draft, and Undo puts it back.
+	await page.goto(`/read/${second}`)
+	await waitForHydration(page)
+	await page.keyboard.press("n")
+	const toast = page.getByRole("status").filter({ hasText: "Removed from your next edition" })
+	await expect(toast).toBeVisible()
+	expect(
+		await db.select().from(editionItems).where(eq(editionItems.editionId, draftId)),
+	).toHaveLength(1)
+	await Promise.all([
+		page.waitForResponse((r) => new URL(r.url()).pathname.startsWith("/documents/bulk") && r.ok()),
+		toast.getByRole("button", { name: "Undo" }).click(),
+	])
+	await page.goto("/editions")
+	await waitForHydration(page)
+	await expect(desk.getByTestId("editions-desk-items").getByRole("listitem")).toHaveText([
+		/First read/,
+		/Second read/,
+	])
+
+	// A week after it was started: the dot, and the desk asks to publish it.
+	await db
+		.update(editions)
+		.set({ createdAt: new Date(Date.now() - 8 * 86_400_000) })
+		.where(eq(editions.id, draftId))
+	await page.reload()
+	await waitForHydration(page)
+	await expect(page.getByTestId("editions-nav-dot").first()).toHaveAttribute(
+		"aria-label",
+		"Your next edition is waiting",
+	)
+	await expect(desk.getByTestId("editions-desk-status")).toHaveText(
+		"You started it 8 days ago. Ready to publish it?",
+	)
+	await expect(desk.getByRole("link", { name: "Review and publish" })).toHaveAttribute(
+		"href",
+		`/editions/${draftId}`,
+	)
+	await desk.getByRole("button", { name: "Not now" }).click()
+	await expect(desk.getByTestId("editions-desk-status")).toHaveText("Ready to publish")
+	await expect(page.getByTestId("editions-nav-dot")).toHaveCount(0)
 })
 
 test("a note written at the end of an article goes into the next edition, in the author's voice", async ({
@@ -361,7 +444,7 @@ test("a note written at the end of an article goes into the next edition, in the
 	await expect(page.getByTestId("shortlist-note")).toHaveText(WHY)
 
 	// The new edition starts with it included, in the preview in its author's voice.
-	await page.getByRole("button", { name: "New edition" }).click()
+	await page.getByRole("button", { name: "Start the edition with it" }).click()
 	await expect(page).toHaveURL(/\/editions\/[0-9a-f-]{36}$/)
 	const editionId = page.url().split("/").pop()!
 	await waitForHydration(page)

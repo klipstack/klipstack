@@ -1,9 +1,7 @@
 export default {
 	description:
 		"A page of articles worth sharing, with the notes and highlights you choose. Each one gets a link you can share.",
-	empty: "No editions yet.",
 	untitled: "Untitled",
-	create: "New edition",
 	state: {
 		draft: "Draft",
 		live: "Published",
@@ -80,14 +78,36 @@ export default {
 		addAll_other: "Add all {{count}}",
 		more_one: "1 more article is marked for your next edition.",
 		more_other: "{{count}} more articles are marked for your next edition.",
-		listDetail:
-			"Articles you marked while reading, with the notes you wrote for your readers. A new edition starts with them; publishing one takes its articles off this list.",
-		empty: "Nothing marked yet. While you read, “Add to next edition” (N) keeps an article here.",
 		remove: "Remove “{{title}}” from your next edition",
 	},
-	/** Why a new edition is due: the sidebar's dot leads here. */
+	/** The next edition at the top of `/editions`: the draft in progress, or what starts one. */
+	desk: {
+		heading: "Your next edition",
+		emptyDetail:
+			"While you read, “Add to next edition” (N) keeps an article for it, with a note for your readers if you write one.",
+		markedDetail:
+			"Articles you marked while reading, with the notes you wrote for your readers. The edition starts with them.",
+		startEmpty: "Start an empty edition",
+		start_one: "Start the edition with it",
+		start_other: "Start the edition with these {{count}}",
+		started: "Started {{started}}",
+		startedEdited: "Started {{started}}, edited {{edited}}",
+		more_one: "And 1 more.",
+		more_other: "And {{count}} more.",
+		addMore: "While you read, “Add to next edition” (N) adds an article here.",
+		ready: "Ready to publish",
+		problems_one: "{{count}} thing to fix before publishing",
+		problems_other: "{{count}} things to fix before publishing",
+		due: "You started it {{ago}}. Ready to publish it?",
+		review: "Review and publish",
+		continue: "Continue editing",
+		otherDrafts: "Other drafts",
+	},
+	past: {
+		heading: "Past editions",
+	},
+	/** Why an edition is due: the sidebar's dot leads here. */
 	nudge: {
-		title: "Time for a new edition?",
 		last: "Your last edition came out {{ago}}.",
 		marked_one: "{{count}} article is marked for the next one.",
 		marked_other: "{{count}} articles are marked for the next one.",
@@ -98,9 +118,10 @@ export default {
 	/** The account's choice: public editions link to each other. */
 	linking: {
 		title: "Link my editions",
-		label: "Each public edition links to my previous and next ones",
+		off: "Each edition stands alone",
+		on: "Each links to my previous and next ones",
 		detail:
-			"Off, each edition stands alone: its link shows nothing else you published. On, anyone with one link can find the others. Unpublished editions are never linked.",
+			"When they are linked, anyone with the link to one edition can find the others. Unpublished editions are never linked.",
 	},
 	lately: {
 		heading: "Read lately",

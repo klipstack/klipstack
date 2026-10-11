@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { useMutationQueue } from "~/hooks/use-mutation-queue"
+import { useDraftUndoToast } from "./use-draft-undo-toast"
 
 export type StateIntent =
 	| "star"
@@ -65,14 +66,16 @@ export function useDocumentState(documentId: string, doc: DocumentFlags, onLeave
 		},
 	})
 	const [confirmed, setConfirmed] = useState(fromDocument)
+	const draftUndo = useDraftUndoToast()
 	// Loaded again (a live update, a retry): the server's row is the truth.
 	if (confirmed.doc !== doc) setConfirmed(fromDocument())
-	const queue = useMutationQueue<StateIntent, { ok: boolean }>({
+	const queue = useMutationQueue<StateIntent, { ok: boolean; undo?: unknown }>({
 		action: `/documents/${documentId}/state`,
 		body: (intent) => ({ intent }),
 		onSettled: (intent, answer) => {
 			if (!answer?.ok) return
 			setConfirmed((c) => ({ ...c, shown: apply(c.shown, intent) }))
+			draftUndo(answer)
 			if (LEAVING.has(intent)) onLeave()
 		},
 	})

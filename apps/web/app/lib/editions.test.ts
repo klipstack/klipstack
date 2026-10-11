@@ -108,7 +108,7 @@ describe("edition dates", () => {
 
 describe("nudgeReason", () => {
 	const nudge = (marked: number, daysSince: number | null, readSince = 0) =>
-		nudgeReason({ marked, daysSince, readSince })
+		nudgeReason({ marked, daysSince, readSince, draft: null })
 
 	it("takes three marked articles as an edition by themselves, first or not", () => {
 		expect(nudge(3, null)).toBe("marked")
@@ -124,6 +124,17 @@ describe("nudgeReason", () => {
 		// Time alone is no reason; before a first edition, only marks are.
 		expect(nudge(0, 60)).toBeNull()
 		expect(nudge(0, null, 50)).toBeNull()
+	})
+
+	it("with a draft, never asks for another: a week after it was started, asks to publish it", () => {
+		const signals = { marked: 9, daysSince: 60, readSince: 50 }
+		const draft = (days: number, items: number) =>
+			nudgeReason({ ...signals, draft: { days, items } })
+		expect(draft(6, 4)).toBeNull()
+		expect(draft(7, 4)).toBe("draft")
+		expect(draft(30, 1)).toBe("draft")
+		// Nothing in it yet: nothing to publish.
+		expect(draft(30, 0)).toBeNull()
 	})
 })
 

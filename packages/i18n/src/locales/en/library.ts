@@ -63,6 +63,8 @@ export default {
 		deletedLinked_one: "Deleted · a note links here",
 		deletedLinked_other: "Deleted · {{count}} notes link here",
 		restored: "Restored",
+		/** Unmarked, and so out of the draft in progress: Undo puts its copy there back. */
+		unshortlisted: "Removed from your next edition",
 		alreadySaved: "This page is already in your library, so it stays in the trash.",
 		openSaved: "Open it",
 		undo: "Undo",

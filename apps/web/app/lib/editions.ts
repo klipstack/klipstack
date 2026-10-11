@@ -117,7 +117,8 @@ export function editionTitle(
  * When the sidebar nudges for a new edition: enough marked, or a while since the last edition with
  * something to share. Time alone never does: two weeks of nothing is no reason for an edition. Nor
  * does anything before a first edition, short of the marks: every account has editions, and most
- * readers may never publish one.
+ * readers may never publish one. With a draft started, never for another: for publishing that one,
+ * a week after it was started.
  */
 export const NUDGE = {
 	/** Marked articles that are an edition by themselves. */
@@ -126,6 +127,8 @@ export const NUDGE = {
 	staleDays: 14,
 	/** Articles finished since the last edition that are something to share, without marks. */
 	read: 5,
+	/** Days after a draft was started from which it is due, with something in it. */
+	draftDays: 7,
 	/** How long "Not now" lasts. */
 	snoozeDays: 7,
 } as const
@@ -137,12 +140,19 @@ export interface EditionSignals {
 	daysSince: number | null
 	/** Articles finished since the last edition. */
 	readSince: number
+	/** The draft in progress (`currentDraft`): whole days since it was started, and its articles. */
+	draft: { days: number; items: number } | null
 }
 
-/** Why a new edition is due: enough marked, or a while since the last one. Null when it is not. */
-export type NudgeReason = "marked" | "stale"
+/**
+ * Why an edition is due: enough marked, or a while since the last one, for a new one; a draft a
+ * week old, for publishing it. Null when none is.
+ */
+export type NudgeReason = "marked" | "stale" | "draft"
 
 export function nudgeReason(signals: EditionSignals): NudgeReason | null {
+	if (signals.draft)
+		return signals.draft.days >= NUDGE.draftDays && signals.draft.items > 0 ? "draft" : null
 	if (signals.marked >= NUDGE.marked) return "marked"
 	const something = signals.marked > 0 || signals.readSince >= NUDGE.read
 	if (signals.daysSince !== null && signals.daysSince >= NUDGE.staleDays && something)
