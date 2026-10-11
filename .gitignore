@@ -19,3 +19,5 @@ apps/*/storage/
 packages/db/src/schema/auth.generated.ts
 # Amp orb portal registrations (written by `amp orb portal`)
 .amp/portals/*
+# Auto-topics simulator: corpus, model answers and runs (apps/web/scripts/topics)
+/.topics-sim/
