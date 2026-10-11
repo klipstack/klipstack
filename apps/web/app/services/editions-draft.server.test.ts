@@ -1,7 +1,14 @@
 import { db, documents, editions, eq, inArray, user as userTable } from "@klipstack/db"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import { createEdition } from "~/commands/editions.server"
-import { currentDraft, editionNudge, publishEdition, snoozeNudge } from "./editions.server"
+import {
+	addItem,
+	currentDraft,
+	editionNudge,
+	publishEdition,
+	removeItem,
+	snoozeNudge,
+} from "./editions.server"
 
 /** The draft in progress, and what the nudge makes of it. */
 
@@ -81,5 +88,29 @@ describe("the draft in progress", () => {
 		// Published, it is no longer the draft: nothing is due.
 		expect((await publishEdition(userId, draft.id)).ok).toBe(true)
 		expect(await editionNudge(userId, week)).toMatchObject({ reason: null, draft: null })
+	})
+
+	it("marks an article added from the picker to a draft: it is in the next edition", async () => {
+		const [picked, other] = await addMarked(2)
+		await db
+			.update(documents)
+			.set({ shortlistedAt: null })
+			.where(inArray(documents.id, [picked!, other!]))
+		const marked = async (id: string) =>
+			(
+				await db.select({ at: documents.shortlistedAt }).from(documents).where(eq(documents.id, id))
+			)[0]!.at
+		const published = await createEdition(userId, input)
+		await addItem(userId, published.id, other!)
+		expect((await publishEdition(userId, published.id)).ok).toBe(true)
+		const draft = await createEdition(userId, input)
+		const item = await addItem(userId, draft.id, picked!)
+		expect(await marked(picked!)).not.toBeNull()
+		// Removing it takes the mark off again, as it does for a marked one.
+		await removeItem(userId, draft.id, item.id)
+		expect(await marked(picked!)).toBeNull()
+		// A published edition's working copy is not the next edition.
+		await addItem(userId, published.id, picked!)
+		expect(await marked(picked!)).toBeNull()
 	})
 })

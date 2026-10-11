@@ -241,7 +241,8 @@ describe("the mark, with a draft in progress", () => {
 			ids: [b, a, c, noUrl!],
 			shortlisted: true,
 		})
-		expect(changed.sort()).toEqual([a, b, c, noUrl].sort())
+		// c, added from the picker, is marked already.
+		expect(changed.sort()).toEqual([a, b, noUrl].sort())
 		expect(await itemsOf(draft.id)).toEqual([
 			{ documentId: c, position: 0, includeNote: false },
 			{ documentId: b, position: 1, includeNote: false },
@@ -253,7 +254,8 @@ describe("the mark, with a draft in progress", () => {
 
 		await undoChanges(userId, undo)
 		expect((await itemsOf(draft.id)).map((i) => i.documentId)).toEqual([c])
-		for (const id of [a, b, c, noUrl!]) expect((await read(id)).shortlistedAt).toBeNull()
+		for (const id of [a, b, noUrl!]) expect((await read(id)).shortlistedAt).toBeNull()
+		expect((await read(c)).shortlistedAt).not.toBeNull()
 	})
 
 	it("unmarking takes the article out of the draft; undo puts it back as it was", async () => {

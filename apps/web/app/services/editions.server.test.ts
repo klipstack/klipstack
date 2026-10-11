@@ -602,8 +602,10 @@ describe("publishEdition", () => {
 	})
 
 	it("writes the snapshot: only what the user included, nothing of the library", async () => {
-		// Marked when it was added: shared now, so off the shortlist.
-		expect((await listShortlist(userId)).map((e) => e.id)).toEqual([main.id])
+		// Marked when it was added, by hand or from the picker: shared now, so off the shortlist.
+		expect((await listShortlist(userId)).map((e) => e.id).sort()).toEqual(
+			[main.id, noted.id].sort(),
+		)
 		const published = await publishEdition(userId, edition.id)
 		expect(await listShortlist(userId)).toEqual([])
 		expect(published.ok).toBe(true)

@@ -724,7 +724,8 @@ async function noteLinkRewriter(userId: string, texts: Array<string | null>) {
 
 /**
  * Copies the article to the end of the edition. Only its note for editions is included; nothing
- * else is until the user says so.
+ * else is until the user says so. In a draft, the article is marked too: it is in the next edition,
+ * as marking it would have made it, and removing it unmarks it.
  */
 export async function addItem(
 	userId: string,
@@ -733,7 +734,7 @@ export async function addItem(
 ): Promise<EditionItem> {
 	const copy = await copyItem(userId, documentId, await findEdition(userId, editionId))
 	return db.transaction(async (tx) => {
-		await lockEdition(tx, userId, editionId)
+		const edition = await lockEdition(tx, userId, editionId)
 		const [taken] = await tx
 			.select({ id: editionItems.id })
 			.from(editionItems)
@@ -747,6 +748,11 @@ export async function addItem(
 			.insert(editionItems)
 			.values({ ...copy, editionId, documentId, position: last!.next })
 			.returning()
+		if (!edition.publishedAt)
+			await tx
+				.update(documents)
+				.set({ shortlistedAt: sql`coalesce(${documents.shortlistedAt}, now())` })
+				.where(and(eq(documents.id, documentId), eq(documents.userId, userId)))
 		await touch(tx, editionId)
 		return item!
 	})
