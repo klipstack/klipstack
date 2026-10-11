@@ -237,7 +237,9 @@ test("the brief: asked for, three cited bullets above the text, kept for the nex
 	await expect.poll(() => page.evaluate(() => CSS.highlights.has("klip-cited"))).toBe(true)
 	await shot(page, "6-brief")
 
-	// Kept: after a reload it is one line, and opens without asking again.
+	// Kept: after a reload it is one line, and opens without asking again. Collapse shows once the
+	// server has kept it; the bullets show while it is still being written.
+	await expect(brief.getByRole("button", { name: "Collapse" })).toBeVisible()
 	await page.reload()
 	await waitForHydration(page)
 	asked.length = 0

@@ -353,19 +353,23 @@ export async function briefArticle(
 	const saved = brief.done.then(
 		async (result) => {
 			log({ documentId, model: result.model, status: result.status, ...result.usage }, "brief")
+			// Kept first: a reload right after it is written finds it. Then what it cost.
+			const kept =
+				result.status === "done" && result.text.trim()
+					? await insertBrief({
+							userId,
+							documentId,
+							versionId: version.id,
+							text: result.text,
+							citations: result.citations,
+							model: result.model,
+							inputTokens: result.usage.inputTokens,
+							outputTokens: result.usage.outputTokens,
+							cacheReadTokens: result.usage.cacheReadTokens,
+						})
+					: null
 			await recordAiSpend(userId, result.model, result.usage)
-			if (result.status !== "done" || !result.text.trim()) return null
-			return insertBrief({
-				userId,
-				documentId,
-				versionId: version.id,
-				text: result.text,
-				citations: result.citations,
-				model: result.model,
-				inputTokens: result.usage.inputTokens,
-				outputTokens: result.usage.outputTokens,
-				cacheReadTokens: result.usage.cacheReadTokens,
-			})
+			return kept
 		},
 		(error: unknown) => {
 			const reason = error instanceof AiError ? error.reason : "provider"
@@ -443,8 +447,8 @@ function answerThread(
 	const saved = answer.done.then(
 		async (result) => {
 			log({ threadId: thread.id, model: result.model, status: result.status, ...result.usage })
-			await recordAiSpend(thread.userId, result.model, result.usage)
-			return insertMessage(db, {
+			// Kept first, as the brief is. Then what it cost.
+			const message = await insertMessage(db, {
 				threadId: thread.id,
 				role: "assistant",
 				text: result.text,
@@ -455,6 +459,8 @@ function answerThread(
 				outputTokens: result.usage.outputTokens,
 				cacheReadTokens: result.usage.cacheReadTokens,
 			})
+			await recordAiSpend(thread.userId, result.model, result.usage)
+			return message
 		},
 		async (error: unknown) => {
 			const reason = error instanceof AiError ? error.reason : "provider"
