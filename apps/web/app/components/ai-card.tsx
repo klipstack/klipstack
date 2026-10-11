@@ -13,7 +13,7 @@ import {
 } from "lucide-react"
 import { useContext, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { AiAllowanceContext, useQuestionsLeft } from "~/hooks/use-ai-allowance"
+import { AiResetsOnContext, useQuestionsLeft } from "~/hooks/use-ai-allowance"
 import { type AnswerStore, type AiCard as Card, useWritten } from "~/hooks/use-ai-threads"
 import type { AiFailure } from "~/lib/ai-stream.client"
 import { cn } from "~/lib/utils"
@@ -236,12 +236,15 @@ function OpenCard({
 				{card.failure ? <Failure {...card.failure} /> : null}
 			</div>
 			{card.draft ? (
-				<QuestionField
-					initial={card.draft.question}
-					placeholder={t("ai.askPlaceholder")}
-					onSend={onSend}
-					onEscape={onClose}
-				/>
+				<>
+					<QuestionField
+						initial={card.draft.question}
+						placeholder={t("ai.askPlaceholder")}
+						onSend={onSend}
+						onEscape={onClose}
+					/>
+					<QuestionsLeft />
+				</>
 			) : (
 				<>
 					{busy ? null : (
@@ -297,19 +300,16 @@ function OpenCard({
 	)
 }
 
-/** The cap's message, with the day it starts over: midnight UTC on the 1st. */
-function useLimitMessage(resetsAt: unknown): string | null {
-	const { t, i18n } = useTranslation("reader")
-	const day = typeof resetsAt === "string" ? new Date(resetsAt) : null
-	if (!day || Number.isNaN(day.getTime())) return null
-	return t("ai.errors.limit_reached_on", {
-		date: day.toLocaleDateString(i18n.language, { month: "long", day: "numeric", timeZone: "UTC" }),
-	})
+/** The cap's message, with the day it starts over (`AiResetsOnContext`). */
+function useLimitMessage(): string | null {
+	const { t } = useTranslation("reader")
+	const resetsOn = useContext(AiResetsOnContext)
+	return resetsOn ? t("ai.errors.limit_reached_on", { date: resetsOn }) : null
 }
 
-export function Failure({ code, details }: AiFailure) {
+export function Failure({ code }: Pick<AiFailure, "code">) {
 	const { t } = useTranslation("reader")
-	const limit = useLimitMessage(details?.resetsAt)
+	const limit = useLimitMessage()
 	if (code === "limit_reached" && limit)
 		return (
 			<p role="alert" className="text-danger">
@@ -339,10 +339,9 @@ export function Failure({ code, details }: AiFailure) {
  */
 export function QuestionsLeft({ failed }: { failed?: boolean }) {
 	const { t } = useTranslation("reader")
-	const allowance = useContext(AiAllowanceContext)
 	const { left, few, none } = useQuestionsLeft()
 	// Not an error: the last one was used. A refusal (`failed`) already says it, in red.
-	const limit = useLimitMessage(allowance?.resetsAt)
+	const limit = useLimitMessage()
 	if (none) return failed || !limit ? null : <p className="mt-2 text-xs text-muted-fg">{limit}</p>
 	if (!few) return null
 	return (

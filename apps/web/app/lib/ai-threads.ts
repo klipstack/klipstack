@@ -50,7 +50,6 @@ export function messageView(message: AiMessage): AiMessageView {
 	}
 }
 
-/** What the answer stream sends, one event per `data:` line (`routes/documents.ai.ts`). */
 /** The account's AI questions this month, against its cap: the reader warns when few are left. */
 export interface AiAllowance {
 	used: number
@@ -62,13 +61,18 @@ export interface AiAllowance {
 /** A fifth of the cap or less left: the card says how many. */
 export const FEW_LEFT = 0.2
 
-/** How many questions are left, and whether to say so: only when few are, or none. */
-export function questionsLeft(allowance: AiAllowance | null) {
-	if (!allowance) return { left: Infinity, few: false, none: false }
+/**
+ * How many questions are left, and whether to say so: only when few are, or none. Once the month
+ * it counts is over, the page's count no longer holds; the server's next answer says.
+ */
+export function questionsLeft(allowance: AiAllowance | null, now = Date.now()) {
+	if (!allowance || now >= Date.parse(allowance.resetsAt))
+		return { left: Infinity, few: false, none: false }
 	const left = Math.max(0, allowance.max - allowance.used)
 	return { left, few: left > 0 && left <= allowance.max * FEW_LEFT, none: left === 0 }
 }
 
+/** What the answer stream sends, one event per `data:` line (`routes/documents.ai.ts`). */
 export type AiStreamEvent =
 	| { type: "start"; thread: AiThreadView; question: AiMessageView; allowance: AiAllowance }
 	| { type: "text"; text: string }

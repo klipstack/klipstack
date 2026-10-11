@@ -148,7 +148,14 @@ export async function loader({ context, request, params }: Route.LoaderArgs) {
 		html,
 		prefs: resolvePrefs(user.prefs),
 		highlights,
-		ai: { enabled: aiEnabled, threads, brief, allowance },
+		ai: {
+			enabled: aiEnabled,
+			threads,
+			brief,
+			allowance,
+			// Midnight UTC on the 1st, as Settings → Usage writes it.
+			resetsOn: allowance ? formatDay(allowance.resetsAt, getLocale(context), "UTC") : null,
+		},
 		savedLinks,
 		linkTargets,
 		backlinks,

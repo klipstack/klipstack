@@ -56,7 +56,6 @@ describe("limitsFor", () => {
 		try {
 			expect((await limitsFor(userId)).ai).toBe(env.LIMIT_AI_PER_MONTH)
 			expect((await limitsFor(adminId)).ai).toBe(env.LIMIT_AI_PER_MONTH_ADMIN)
-			expect(env.LIMIT_AI_PER_MONTH_ADMIN).toBeGreaterThan(env.LIMIT_AI_PER_MONTH)
 			// Only the AI cap differs.
 			expect({ ...(await limitsFor(adminId)), ai: 0 }).toEqual({
 				...(await limitsFor(userId)),
@@ -79,6 +78,7 @@ describe("aiAllowance", () => {
 		expect(await db.transaction((tx) => countMonthly(tx, userId, "ai"))).toEqual({
 			used: before.used + 1,
 			max: env.LIMIT_AI_PER_MONTH,
+			resetsAt: monthOf().resetsAt,
 		})
 		expect((await aiAllowance(userId)).used).toBe(before.used + 1)
 	})

@@ -2,10 +2,11 @@ import { date, integer, pgTable, primaryKey, text } from "drizzle-orm/pg-core"
 import { user } from "./auth"
 
 /**
- * What a monthly cap counts, and `refused`: how often a cap, any of them, refused the account. That
- * one is for admins, who look at who keeps hitting caps.
+ * What a monthly cap counts, and two for admins: `refused`, how often a cap, any of them, refused
+ * the account (who keeps hitting caps), and `ai_spend`, what its AI answers cost, estimated in
+ * millionths of a US dollar when each is paid for (what AI costs, whatever is deleted later).
  */
-export const usageMetrics = ["saves", "editions", "ai", "refused"] as const
+export const usageMetrics = ["saves", "editions", "ai", "refused", "ai_spend"] as const
 export type UsageMetric = (typeof usageMetrics)[number]
 
 /**

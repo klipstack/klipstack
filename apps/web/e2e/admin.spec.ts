@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto"
 import {
 	adminAuditEvents,
-	aiBriefs,
 	db,
 	documents,
 	eq,
@@ -426,25 +425,13 @@ test("the usage page ranks by AI questions, against each account's cap, with the
 }) => {
 	const email = await signupAdmin(page, "AI Spender")
 	const admin = await userByEmail(email)
-	const articleId = await insertArticle(admin.id, "Costly article", "<p>Body</p>")
-	const [doc] = await db
-		.select({ versionId: documents.currentVersionId })
-		.from(documents)
-		.where(eq(documents.id, articleId))
 	const month = `${new Date().toISOString().slice(0, 7)}-01`
-	// Far past any other test account's count, so this one leads the ranking.
-	await db.insert(usageCounts).values({ userId: admin.id, metric: "ai", month, count: 1_000_000 })
-	// $1.00 in and $0.50 out at Claude Haiku 5.5's prices.
-	await db.insert(aiBriefs).values({
-		documentId: articleId,
-		userId: admin.id,
-		versionId: doc!.versionId!,
-		text: "Brief",
-		model: "anthropic:claude-haiku-5-5",
-		inputTokens: 10_000_000,
-		outputTokens: 1_000_000,
-		cacheReadTokens: 0,
-	})
+	await db.insert(usageCounts).values([
+		// Far past any other test account's count, so this one leads the ranking.
+		{ userId: admin.id, metric: "ai", month, count: 1_000_000 },
+		// $1.50 this month, in millionths of a dollar.
+		{ userId: admin.id, metric: "ai_spend", month, count: 1_500_000 },
+	])
 
 	await page.goto("/admin/usage")
 	await waitForHydration(page)
@@ -455,4 +442,6 @@ test("the usage page ranks by AI questions, against each account's cap, with the
 	// Admins have their own cap: the default, LIMIT_AI_PER_MONTH_ADMIN.
 	await expect(first).toContainText("1000000 / 500")
 	await expect(first).toContainText("$1.50")
+	// The month's total, every account's: at least this one's.
+	await expect(page.getByTestId("ai-cost-total")).toContainText("$")
 })

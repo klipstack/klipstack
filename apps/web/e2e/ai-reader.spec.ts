@@ -342,9 +342,8 @@ async function askedThisMonth(documentId: string, count: number) {
 /** The 1st of next month, as the reader writes it. */
 function nextMonth() {
 	const now = new Date()
-	return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)).toLocaleDateString(
-		"en",
-		{ month: "long", day: "numeric", timeZone: "UTC" },
+	return new Intl.DateTimeFormat("en", { dateStyle: "medium", timeZone: "UTC" }).format(
+		new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)),
 	)
 }
 
@@ -357,6 +356,12 @@ test("with few questions left the card counts them down, and the last one says w
 	// 98 of 100: none of it shows until a question is asked.
 	await askedThisMonth(id, 98)
 	await page.reload()
+	// Ask says it before anything is asked: the page loads where the account stands.
+	await select(page, PASSAGE)
+	await selectionToolbar(page).getByRole("button", { name: "Ask" }).click()
+	await expect(page.getByTestId("questions-left")).toHaveText("2 questions left this month")
+	await page.keyboard.press("Escape")
+	await expect(page.getByTestId("ai-card")).toHaveCount(0)
 	await select(page, PASSAGE)
 	await selectionToolbar(page).getByRole("button", { name: "Explain" }).click()
 	const card = page.getByTestId("ai-card")
@@ -407,6 +412,13 @@ test("at the cap the AI buttons are dimmed, and pressing one says why without as
 	await expect(brief).toContainText(`It starts over on ${nextMonth()}.`)
 	await expect(brief.getByRole("button", { name: "Answer again" })).toHaveCount(0)
 
+	// The chat takes no question either, and says why.
+	await page.keyboard.press("Escape")
+	await page.getByRole("button", { name: "Chat about this article" }).click()
+	const chat = page.getByTestId("chat")
+	await expect(chat).toContainText(`It starts over on ${nextMonth()}.`)
+	await expect(chat.getByRole("textbox")).toHaveCount(0)
+
 	// Nothing reached the server: no thread, the count where it was, and no refusal counted.
 	expect(await db.select().from(aiThreads).where(eq(aiThreads.userId, userId))).toHaveLength(0)
 	const counts = await db
@@ -415,4 +427,24 @@ test("at the cap the AI buttons are dimmed, and pressing one says why without as
 		.where(eq(usageCounts.userId, userId))
 	expect(counts.find((c) => c.metric === "ai")?.count).toBe(100)
 	expect(counts.find((c) => c.metric === "refused")).toBeUndefined()
+})
+
+test("a question the server refuses at the cap turns the page to none left", async ({ page }) => {
+	test.setTimeout(120_000)
+	await page.setViewportSize({ width: 1440, height: 900 })
+	const id = await open(page)
+	// Another tab used the last one: this page still thinks there are some.
+	await askedThisMonth(id, 100)
+	await select(page, PASSAGE)
+	await selectionToolbar(page).getByRole("button", { name: "Explain" }).click()
+	const card = page.getByTestId("ai-card")
+	await expect(card).toContainText(`It starts over on ${nextMonth()}.`)
+	await expect(card.getByRole("button", { name: "Answer again" })).toHaveCount(0)
+	await expect(page.getByTestId("brief")).toHaveClass(/opacity-50/)
+	await page.keyboard.press("Escape")
+	await select(page, "they understand the cost")
+	await expect(selectionToolbar(page).getByRole("button", { name: "Explain" })).toHaveAttribute(
+		"data-none-left",
+		"true",
+	)
 })

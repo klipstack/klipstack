@@ -196,12 +196,14 @@ export default {
 		editions: "Ediciones",
 		ai: "Preguntas a la IA",
 		aiCost: "Costo de IA",
+		aiCostUnder: "< {{amount}}",
+		aiCostTotal: "IA este mes, todas las cuentas: {{amount}}",
 		editionsThisMonth: "Ediciones este mes",
 		aiThisMonth: "Preguntas a la IA este mes",
 		empty: "Aún no hay cuentas.",
 		month: "Guardados, ediciones, preguntas a la IA y límites alcanzados son de {{month}}, en UTC.",
 		aiCostNote:
-			"El costo de IA es una estimación en dólares, a partir de los tokens de las respuestas que siguen guardadas. La factura está en la consola de Anthropic.",
+			"El costo de IA es una estimación en dólares estadounidenses (USD), a partir de los tokens de cada respuesta al pagarla. La factura está en la consola de Anthropic.",
 	},
 	users: {
 		title: "Cuentas",

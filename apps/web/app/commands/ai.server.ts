@@ -15,7 +15,7 @@ import type { AiAllowance } from "~/lib/ai-threads"
 import { AI_RATE_LIMIT, ai } from "~/lib/ai.server"
 import { AppError, notFound, parseInput, rateLimited } from "~/lib/app-error"
 import { hasFeature } from "~/lib/features.server"
-import { countMonthly, monthOf } from "~/lib/limits.server"
+import { countMonthly, recordAiSpend } from "~/lib/limits.server"
 import { rateLimit } from "~/lib/rate-limit.server"
 import {
 	deleteMessage,
@@ -104,8 +104,8 @@ export interface Asked {
 
 /** Counts a question against the monthly cap, and says where the account stands after it. */
 async function countQuestion(tx: Tx, userId: string): Promise<AiAllowance> {
-	const counted = await countMonthly(tx, userId, "ai")
-	return { ...counted, resetsAt: monthOf().resetsAt.toISOString() }
+	const { used, max, resetsAt } = await countMonthly(tx, userId, "ai")
+	return { used, max, resetsAt: resetsAt.toISOString() }
 }
 
 /** The checks every question goes through, in order: the feature, the server, the pace. */
@@ -351,8 +351,9 @@ export async function briefArticle(
 		language,
 	})
 	const saved = brief.done.then(
-		(result) => {
+		async (result) => {
 			log({ documentId, model: result.model, status: result.status, ...result.usage }, "brief")
+			await recordAiSpend(userId, result.model, result.usage)
 			if (result.status !== "done" || !result.text.trim()) return null
 			return insertBrief({
 				userId,
@@ -442,6 +443,7 @@ function answerThread(
 	const saved = answer.done.then(
 		async (result) => {
 			log({ threadId: thread.id, model: result.model, status: result.status, ...result.usage })
+			await recordAiSpend(thread.userId, result.model, result.usage)
 			return insertMessage(db, {
 				threadId: thread.id,
 				role: "assistant",

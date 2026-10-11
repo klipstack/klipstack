@@ -27,9 +27,11 @@ article for a few minutes). Three limits keep a mistake or abuse from running up
 ## Watch what it costs
 
 `/admin/usage`, ranked by "AI questions this month", shows each account's questions against its cap
-and an estimate of what its answers cost this month, in US dollars, from their token counts. It is
-an estimate: answers deleted with their article no longer count, and it leaves out a few small
-charges. The bill is in the Anthropic console (Usage and Cost), which is the number to trust.
+and what its answers cost this month, in US dollars, and the month's total for every account. The
+cost is estimated from each answer's tokens at Anthropic's list prices when it is paid for, so a
+retried or deleted answer still counts. It leaves out small charges (writing Anthropic's cache costs
+a little more than reading). The bill is in the Anthropic console (Usage and Cost), which is the
+number to trust.
 
 ## Set it up
 

@@ -44,3 +44,9 @@ export type AiAllowanceState = ReturnType<typeof useAiAllowance>
 export const AiAllowanceContext = createContext<AiAllowance | null>(null)
 
 export const useQuestionsLeft = () => questionsLeft(useContext(AiAllowanceContext))
+
+/**
+ * The day the count starts over, as the page's loader wrote it in the reader's language: dates are
+ * formatted on the server, so the page renders the same on both sides.
+ */
+export const AiResetsOnContext = createContext<string | null>(null)

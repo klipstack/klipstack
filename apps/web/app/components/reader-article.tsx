@@ -21,7 +21,7 @@ import {
 	isHighlightable,
 	SelectionWatcher,
 } from "~/components/selection-watcher"
-import { AiAllowanceContext, useAiAllowance } from "~/hooks/use-ai-allowance"
+import { AiAllowanceContext, AiResetsOnContext, useAiAllowance } from "~/hooks/use-ai-allowance"
 import { type AiCard as Card, type AiPassage, useAiThreads } from "~/hooks/use-ai-threads"
 import { useArticleLinks } from "~/hooks/use-article-links"
 import { useBrief } from "~/hooks/use-brief"
@@ -591,210 +591,214 @@ export function ReaderArticle({
 
 	return (
 		<AiAllowanceContext.Provider value={allowance.allowance}>
-			<article
-				ref={articleRef}
-				className={cn("reader relative mx-auto px-4 pt-8 pb-32 sm:px-6", readerClassNames(prefs))}
-				lang={doc.language ?? undefined}
-			>
-				{header}
-				{!supported ? (
-					<p className="mb-6 rounded-lg border border-border bg-muted px-3 py-2 text-sm text-muted-fg">
-						{t("highlights.errors.unsupported")}
-					</p>
-				) : null}
-				{updating ? (
-					<p
-						role="status"
-						className="mb-6 flex items-center gap-2 rounded-lg border border-border bg-muted px-3 py-2 text-sm text-muted-fg"
-					>
-						<Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
-						{t("pending.updating")}
-					</p>
-				) : null}
-				{/* Between the header and the text: it doesn't take the margin's top from the cards. */}
-				{aiEnabled ? briefCard : null}
-				<div
-					ref={contentRef}
-					onClick={onContentClick}
-					onPointerMove={onContentPointerMove}
-					onPointerLeave={(e) => {
-						if (e.pointerType !== "mouse") return
-						resize.hover(null)
-						setHoveredThread(null)
-						if (!resize.guard.current) setHoveredId(null)
-					}}
-					// While a highlight's toolbar or note editor is open, the others dim (app.css).
-					data-focus={resize.state !== "pointer" && focusItem ? "true" : undefined}
-					data-resizing={resize.state === "pointer" ? "true" : undefined}
-					className="reader-content prose max-w-none"
-					dangerouslySetInnerHTML={{ __html: html }}
-				/>
-				{supported ? (
-					<HighlightOutline
-						articleRef={articleRef}
-						rangesRef={rangesRef}
-						id={outlined && !isTemporary(outlined.id) ? outlined.id : null}
-						version={items}
-					/>
-				) : null}
-				{!touch && supported ? (
-					<HighlightResizeHandles
-						resize={resize}
-						articleRef={articleRef}
-						rootRef={contentRef}
-						headerRef={headerRef}
-						disabled={updating || highlights.pending}
-						onFocus={focusResize}
-						focusId={resizeFocus}
-						onFocused={() => setResizeFocus(null)}
-					/>
-				) : null}
-				{marginRoom ? (
-					<MarginNotes
-						articleRef={articleRef}
-						paused={resize.state === "pointer"}
-						rangesRef={rangesRef}
-						items={marginItems}
-						editingId={editingId}
-						hoveredId={hoveredId}
-						linkTargets={linkTargets}
-						from={location.pathname}
-						onOpen={openNote}
-						onHover={hoverNote}
-						renderEditor={(item) => noteEditor(item, { kind: "margin" })}
-						cards={marginCards}
-						cardRangesRef={threadRangesRef}
-					/>
-				) : null}
-				{footer}
-			</article>
-			<SelectionWatcher
-				rootRef={contentRef}
-				onSelect={onSelect}
-				disabled={!supported || updating || resize.state !== "idle"}
-				interactionGuard={resize.guard}
-			/>
-			{selection && !popover && resize.state === "idle" ? (
-				<SelectionToolbar
-					rect={selection.rect}
-					scrollY={selection.scrollY}
-					disabled={updating || highlights.pending}
-					onHighlight={() => highlightSelection(selection.selection)}
-					canHighlight={isHighlightable(selection.selection.selector.exact)}
-					onAsk={aiEnabled ? (action) => askAboutSelection(selection.selection, action) : undefined}
-					onCopy={() => copySelection(selection.selection)}
-					onClose={() => setSelection(null)}
-				/>
-			) : null}
-			{links.card ? (
-				<LinkPopover
-					link={links.card}
-					previews={links.previews}
-					from={location.pathname}
-					onSaved={links.onSaved}
-					onClose={links.close}
-					hover={links.hover}
-					onPin={links.pin}
-				/>
-			) : null}
-			{popover && popoverItem && resize.state !== "pointer" ? (
-				<HighlightToolbar
-					highlight={popoverItem}
-					disabled={resize.blocked(popoverItem.id)}
-					rect={popover.rect}
-					scrollY={popover.scrollY}
-					onNote={() => openNote(popoverItem.id)}
-					onCopy={() => copyHighlight(popoverItem.id, popoverItem.exact)}
-					onDelete={() => removeHighlight(popoverItem.id)}
-					onAsk={
-						aiEnabled
-							? (action) =>
-									ask(
-										{
-											exact: popoverItem.exact,
-											prefix: popoverItem.prefix,
-											suffix: popoverItem.suffix,
-											start: popoverItem.startOffset,
-											end: popoverItem.endOffset,
-											highlightId: popoverItem.id,
-										},
-										action,
-									)
-							: undefined
-					}
-					onClose={() => {
-						resize.dismiss()
-						closePopover()
-					}}
-				/>
-			) : null}
-			{openCard && !marginRoom ? aiCard(openCard, openCardPlacement()) : null}
-			{editingItem && !marginRoom
-				? noteEditor(editingItem, noteEditorPlacement(touch, editingRange))
-				: null}
-			{sidebarOpen ? (
-				<ReaderSidebar
-					note={{
-						value: note.value,
-						status: note.status,
-						onChange: note.change,
-						onFlush: note.flush,
-					}}
-					items={items}
-					activeId={activeId}
-					documentId={doc.id}
-					linkTargets={linkTargets}
-					backlinks={data.backlinks}
-					contentLinks={data.contentLinks}
-					from={location.pathname}
-					onSelect={selectFromSidebar}
-					onClose={() => {
-						note.flush()
-						setSidebarOpen(false)
-					}}
-					tab={sidebarTab}
-					onTab={(tab) => tab !== sidebarTab && showSidebarTab(tab)}
-					chat={
-						aiEnabled ? (
-							<ChatPanel
-								active={sidebarTab === "chat"}
-								chat={chatCard}
-								written={ai.written}
-								canCite={chatCard?.versionId === doc.currentVersionId}
-								onAsk={(text) => ai.chat(text, doc.currentVersionId ?? "")}
-								onRetry={() => chatCard && ai.retry(chatCard.id)}
-								onClear={() => chatCard && clearChat(chatCard.id)}
-								onCopy={(text) => copyText(text, t("highlights.popover.copied"))}
-								onCite={chatCard ? citeIn(chatCard) : () => {}}
-							/>
-						) : undefined
-					}
-				/>
-			) : null}
-			<div role="status" aria-live="polite" className="sr-only">
-				{resize.status}
-			</div>
-			{resize.failure ? (
-				<div
-					role="alert"
-					className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2 rounded-lg bg-danger px-4 py-3 text-sm text-danger-fg shadow-lg"
+			<AiResetsOnContext.Provider value={data.ai.resetsOn}>
+				<article
+					ref={articleRef}
+					className={cn("reader relative mx-auto px-4 pt-8 pb-32 sm:px-6", readerClassNames(prefs))}
+					lang={doc.language ?? undefined}
 				>
-					{t(`highlights.resize.errors.${resizeError(resize.failure)}`)}
-					<button
-						type="button"
-						className="ml-3 underline"
-						disabled={resize.refreshing}
-						onClick={resize.retry}
-					>
-						{t("highlights.resize.retry")}
-					</button>
+					{header}
+					{!supported ? (
+						<p className="mb-6 rounded-lg border border-border bg-muted px-3 py-2 text-sm text-muted-fg">
+							{t("highlights.errors.unsupported")}
+						</p>
+					) : null}
+					{updating ? (
+						<p
+							role="status"
+							className="mb-6 flex items-center gap-2 rounded-lg border border-border bg-muted px-3 py-2 text-sm text-muted-fg"
+						>
+							<Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+							{t("pending.updating")}
+						</p>
+					) : null}
+					{/* Between the header and the text: it doesn't take the margin's top from the cards. */}
+					{aiEnabled ? briefCard : null}
+					<div
+						ref={contentRef}
+						onClick={onContentClick}
+						onPointerMove={onContentPointerMove}
+						onPointerLeave={(e) => {
+							if (e.pointerType !== "mouse") return
+							resize.hover(null)
+							setHoveredThread(null)
+							if (!resize.guard.current) setHoveredId(null)
+						}}
+						// While a highlight's toolbar or note editor is open, the others dim (app.css).
+						data-focus={resize.state !== "pointer" && focusItem ? "true" : undefined}
+						data-resizing={resize.state === "pointer" ? "true" : undefined}
+						className="reader-content prose max-w-none"
+						dangerouslySetInnerHTML={{ __html: html }}
+					/>
+					{supported ? (
+						<HighlightOutline
+							articleRef={articleRef}
+							rangesRef={rangesRef}
+							id={outlined && !isTemporary(outlined.id) ? outlined.id : null}
+							version={items}
+						/>
+					) : null}
+					{!touch && supported ? (
+						<HighlightResizeHandles
+							resize={resize}
+							articleRef={articleRef}
+							rootRef={contentRef}
+							headerRef={headerRef}
+							disabled={updating || highlights.pending}
+							onFocus={focusResize}
+							focusId={resizeFocus}
+							onFocused={() => setResizeFocus(null)}
+						/>
+					) : null}
+					{marginRoom ? (
+						<MarginNotes
+							articleRef={articleRef}
+							paused={resize.state === "pointer"}
+							rangesRef={rangesRef}
+							items={marginItems}
+							editingId={editingId}
+							hoveredId={hoveredId}
+							linkTargets={linkTargets}
+							from={location.pathname}
+							onOpen={openNote}
+							onHover={hoverNote}
+							renderEditor={(item) => noteEditor(item, { kind: "margin" })}
+							cards={marginCards}
+							cardRangesRef={threadRangesRef}
+						/>
+					) : null}
+					{footer}
+				</article>
+				<SelectionWatcher
+					rootRef={contentRef}
+					onSelect={onSelect}
+					disabled={!supported || updating || resize.state !== "idle"}
+					interactionGuard={resize.guard}
+				/>
+				{selection && !popover && resize.state === "idle" ? (
+					<SelectionToolbar
+						rect={selection.rect}
+						scrollY={selection.scrollY}
+						disabled={updating || highlights.pending}
+						onHighlight={() => highlightSelection(selection.selection)}
+						canHighlight={isHighlightable(selection.selection.selector.exact)}
+						onAsk={
+							aiEnabled ? (action) => askAboutSelection(selection.selection, action) : undefined
+						}
+						onCopy={() => copySelection(selection.selection)}
+						onClose={() => setSelection(null)}
+					/>
+				) : null}
+				{links.card ? (
+					<LinkPopover
+						link={links.card}
+						previews={links.previews}
+						from={location.pathname}
+						onSaved={links.onSaved}
+						onClose={links.close}
+						hover={links.hover}
+						onPin={links.pin}
+					/>
+				) : null}
+				{popover && popoverItem && resize.state !== "pointer" ? (
+					<HighlightToolbar
+						highlight={popoverItem}
+						disabled={resize.blocked(popoverItem.id)}
+						rect={popover.rect}
+						scrollY={popover.scrollY}
+						onNote={() => openNote(popoverItem.id)}
+						onCopy={() => copyHighlight(popoverItem.id, popoverItem.exact)}
+						onDelete={() => removeHighlight(popoverItem.id)}
+						onAsk={
+							aiEnabled
+								? (action) =>
+										ask(
+											{
+												exact: popoverItem.exact,
+												prefix: popoverItem.prefix,
+												suffix: popoverItem.suffix,
+												start: popoverItem.startOffset,
+												end: popoverItem.endOffset,
+												highlightId: popoverItem.id,
+											},
+											action,
+										)
+								: undefined
+						}
+						onClose={() => {
+							resize.dismiss()
+							closePopover()
+						}}
+					/>
+				) : null}
+				{openCard && !marginRoom ? aiCard(openCard, openCardPlacement()) : null}
+				{editingItem && !marginRoom
+					? noteEditor(editingItem, noteEditorPlacement(touch, editingRange))
+					: null}
+				{sidebarOpen ? (
+					<ReaderSidebar
+						note={{
+							value: note.value,
+							status: note.status,
+							onChange: note.change,
+							onFlush: note.flush,
+						}}
+						items={items}
+						activeId={activeId}
+						documentId={doc.id}
+						linkTargets={linkTargets}
+						backlinks={data.backlinks}
+						contentLinks={data.contentLinks}
+						from={location.pathname}
+						onSelect={selectFromSidebar}
+						onClose={() => {
+							note.flush()
+							setSidebarOpen(false)
+						}}
+						tab={sidebarTab}
+						onTab={(tab) => tab !== sidebarTab && showSidebarTab(tab)}
+						chat={
+							aiEnabled ? (
+								<ChatPanel
+									active={sidebarTab === "chat"}
+									chat={chatCard}
+									written={ai.written}
+									canCite={chatCard?.versionId === doc.currentVersionId}
+									onAsk={(text) => ai.chat(text, doc.currentVersionId ?? "")}
+									onRetry={() => chatCard && ai.retry(chatCard.id)}
+									onClear={() => chatCard && clearChat(chatCard.id)}
+									onCopy={(text) => copyText(text, t("highlights.popover.copied"))}
+									onCite={chatCard ? citeIn(chatCard) : () => {}}
+								/>
+							) : undefined
+						}
+					/>
+				) : null}
+				<div role="status" aria-live="polite" className="sr-only">
+					{resize.status}
 				</div>
-			) : null}
-			{highlights.error ? (
-				<output className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2 rounded-lg bg-danger px-3 py-2 text-sm text-danger-fg shadow-lg">
-					{t(`highlights.errors.${highlights.error}`)}
-				</output>
-			) : null}
+				{resize.failure ? (
+					<div
+						role="alert"
+						className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2 rounded-lg bg-danger px-4 py-3 text-sm text-danger-fg shadow-lg"
+					>
+						{t(`highlights.resize.errors.${resizeError(resize.failure)}`)}
+						<button
+							type="button"
+							className="ml-3 underline"
+							disabled={resize.refreshing}
+							onClick={resize.retry}
+						>
+							{t("highlights.resize.retry")}
+						</button>
+					</div>
+				) : null}
+				{highlights.error ? (
+					<output className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2 rounded-lg bg-danger px-3 py-2 text-sm text-danger-fg shadow-lg">
+						{t(`highlights.errors.${highlights.error}`)}
+					</output>
+				) : null}
+			</AiResetsOnContext.Provider>
 		</AiAllowanceContext.Provider>
 	)
 }

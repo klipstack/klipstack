@@ -193,12 +193,14 @@ export default {
 		editions: "Editions",
 		ai: "AI questions",
 		aiCost: "AI cost",
+		aiCostUnder: "< {{amount}}",
+		aiCostTotal: "AI this month, every account: {{amount}}",
 		editionsThisMonth: "Editions this month",
 		aiThisMonth: "AI questions this month",
 		empty: "No accounts yet.",
 		month: "Saves, editions, AI questions and cap hits are for {{month}}, in UTC.",
 		aiCostNote:
-			"AI cost is an estimate in US dollars, from the tokens of the answers still stored. The bill is in Anthropic's console.",
+			"AI cost is an estimate in US dollars, from each answer's tokens when it was paid for. The bill is in Anthropic's console.",
 	},
 	users: {
 		title: "Accounts",

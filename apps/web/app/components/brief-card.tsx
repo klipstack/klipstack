@@ -8,7 +8,7 @@ import type { AiFailure } from "~/lib/ai-stream.client"
 import type { AiBriefView } from "~/lib/ai-threads"
 import { cn } from "~/lib/utils"
 import { AiAnswer, plainAnswer } from "./ai-answer"
-import { Failure } from "./ai-card"
+import { Failure, QuestionsLeft } from "./ai-card"
 import { tooltip } from "./tooltip-host"
 
 interface Props {
@@ -117,6 +117,10 @@ export function BriefCard({
 					/>
 				) : null}
 				{failure && !writing ? <Failure {...failure} /> : null}
+				{/* Failed for another reason at the cap: why there is no Retry. */}
+				{failure && !writing && none ? (
+					<QuestionsLeft failed={failure.code === "limit_reached"} />
+				) : null}
 			</div>
 			{writing ? null : (
 				<div className="mt-2 flex items-center gap-0.5">
