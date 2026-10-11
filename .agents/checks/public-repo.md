@@ -13,5 +13,7 @@ the diff, including docs, comments, tests, fixtures and commit messages, that:
 - Contains a secret or something that looks like one: API keys, tokens, passwords other than the
   documented local demo and CI values, private keys, `.env` contents.
 - Contains personal data from real accounts.
-- Credits an agent: an agent as author or `Co-authored-by`, "Generated with" lines, links to agent
-  threads or sessions (ampcode.com, claude.ai).
+- Credits an agent in the changed files or the pull request's title or description: an agent as
+  author or `Co-authored-by`, "Generated with" lines, links to agent threads or sessions
+  (ampcode.com, claude.ai). The orb's Amp lines in the branch's commits are fine: the squash-merge
+  drops them.
