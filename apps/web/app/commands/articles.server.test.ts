@@ -214,6 +214,9 @@ describe("keep", () => {
 		const refusal = updateArticles(userId, { ids: [a] })
 		await expect(refusal).rejects.toMatchObject({ code: "invalid_request" })
 		await expect(refusal).rejects.not.toThrow(/kept/)
+	})
+})
+
 describe("the mark, with a draft in progress", () => {
 	const draftOf = () => insertEdition(userId, { locale: "en", timeZone: "Europe/Madrid" })
 	/** The draft's articles in order, and whether each includes its note. */
