@@ -8,8 +8,17 @@ export const TIME_ZONE_COOKIE = "klip_tz"
 
 export function timeZoneFromCookie(cookieHeader: string | null | undefined): string {
 	const match = /(?:^|;\s*)klip_tz=([^;]+)/.exec(cookieHeader ?? "")
-	const zone = match?.[1] ? decodeURIComponent(match[1]) : ""
+	const zone = match?.[1] ? decodeOr(match[1], "") : ""
 	return isTimeZone(zone) ? zone : "UTC"
+}
+
+/** A cookie is the browser's to change: a broken encoding is no zone, not a failed page. */
+function decodeOr(value: string, fallback: string) {
+	try {
+		return decodeURIComponent(value)
+	} catch {
+		return fallback
+	}
 }
 
 /**

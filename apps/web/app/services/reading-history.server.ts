@@ -50,6 +50,17 @@ export async function finishedLately(
 	userId: string,
 	{ now = new Date(), timeZone }: { now?: Date; timeZone: string },
 ): Promise<{ count: number; title: string | null } | null> {
+	try {
+		return await finishedSince(userId, now, timeZone)
+	} catch (error) {
+		// A zone the browser knows but this database's time zone data doesn't (22023): UTC days.
+		if (timeZone === "UTC" || (error as { cause?: { code?: string } }).cause?.code !== "22023")
+			throw error
+		return finishedSince(userId, now, "UTC")
+	}
+}
+
+async function finishedSince(userId: string, now: Date, timeZone: string) {
 	const since = sql`(date_trunc('day', ${now.toISOString()}::timestamptz at time zone ${timeZone}) - interval '6 days') at time zone ${timeZone}`
 	const [row] = await db
 		.select({

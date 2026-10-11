@@ -207,7 +207,7 @@ export async function updateArticles(
 			const plan = PLANS[change]
 			const affected = rows.filter(plan.changes)
 			for (const row of affected) record(row, plan.columns)
-			if (affected.length > 0) await applyState(tx, userId, change, affected, undo, rows.length > 1)
+			if (affected.length > 0) await applyState(tx, userId, change, affected, undo)
 		}
 		if (draft && update.shortlisted !== undefined) {
 			// In the order given: the draft takes them in it.
@@ -263,8 +263,6 @@ async function applyState(
 	change: StateChange,
 	rows: Row[],
 	undo: UndoRecord,
-	/** Several articles at once: finishing them is tidying up more than reading (`bulk`). */
-	several: boolean,
 ) {
 	const where = owned(
 		userId,
@@ -315,7 +313,8 @@ async function applyState(
 			return
 		}
 		case "finish":
-			undo.completions.push(...(await finishIn(tx, where, several ? "bulk" : "manual")))
+			// Several finished at once is tidying up more than reading.
+			undo.completions.push(...(await finishIn(tx, where, rows.length > 1 ? "bulk" : "manual")))
 			return
 		case "unread":
 			// Back to "new": never opened, no progress, not finished.

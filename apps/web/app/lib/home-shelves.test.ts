@@ -102,6 +102,12 @@ describe("shortTitle", () => {
 			"The quiet pleasures of…",
 		)
 	})
+	it("cuts at the length when the only space is early, not after one word", () => {
+		expect(shortTitle("Unread extraordinarily long", 20)).toBe("Unread extraordinar…")
+	})
+	it("never cuts a character in half", () => {
+		expect(shortTitle("読書の楽しみ📚と静かな時間", 8)).toBe("読書の楽しみ📚…")
+	})
 	it("cuts a title without spaces at the length", () => {
 		expect(shortTitle("Donaudampfschifffahrtsgesellschaft", 10)).toBe("Donaudamp…")
 	})

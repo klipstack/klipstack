@@ -163,6 +163,13 @@ describe("finishes recorded as one batch", () => {
 		expect((await listReadingHistory(userId, b.id)).map((e) => e.source)).toEqual(["bulk"])
 		expect((await listReadingHistory(userId, c.id)).map((e) => e.source)).toEqual(["manual"])
 	})
+
+	it("records one article finished as manual, even selected with others already finished", async () => {
+		const [done, fresh] = [await article(), await article()]
+		await updateArticle(userId, done.id, { finished: true })
+		await updateArticles(userId, { ids: [done.id, fresh.id], finished: true })
+		expect((await listReadingHistory(userId, fresh.id)).map((e) => e.source)).toEqual(["manual"])
+	})
 })
 
 describe("finishedLately", () => {
@@ -244,6 +251,17 @@ describe("finishedLately", () => {
 		expect(await finishedLately(owner, { now, timeZone: "UTC" })).toEqual({
 			count: 1,
 			title: "Read",
+		})
+	})
+
+	it("counts by UTC days when the database doesn't know the reader's zone", async () => {
+		const owner = await reader()
+		const doc = await article(owner, "Read anyway")
+		await finished(owner, doc.id, "2026-10-09T10:00:00Z")
+		// The browser's zone names can be newer than the database's: Home loads all the same.
+		expect(await finishedLately(owner, { now, timeZone: "Mars/Olympus_Mons" })).toEqual({
+			count: 1,
+			title: "Read anyway",
 		})
 	})
 

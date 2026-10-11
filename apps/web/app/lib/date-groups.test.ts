@@ -56,4 +56,8 @@ describe("timeZoneFromCookie", () => {
 		expect(timeZoneFromCookie("klip_tz=Not/AZone")).toBe("UTC")
 		expect(timeZoneFromCookie(null)).toBe("UTC")
 	})
+
+	it("falls back to UTC for a cookie that is not valid percent-encoding", () => {
+		expect(timeZoneFromCookie("klip_tz=%E0%A4%A")).toBe("UTC")
+	})
 })
