@@ -2,6 +2,7 @@ import { createHash } from "node:crypto"
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { createAnthropic } from "@ai-sdk/anthropic"
+import { type DecisionQuestion, decide, decisionBody } from "@klipstack/ai"
 import { generateText, Output } from "ai"
 import type { z } from "zod"
 
@@ -107,42 +108,12 @@ export class Models {
 	async jev(
 		purpose: string,
 		state: string,
-		questions: Record<string, { instructions: string; yes: string; no: string }>,
+		questions: Record<string, DecisionQuestion>,
 	): Promise<Record<string, number>> {
-		const request = {
-			model: PRICES.jev.model,
-			state,
-			questions: Object.fromEntries(
-				Object.entries(questions).map(([id, q]) => [
-					id,
-					{ type: "noul", instructions: q.instructions, criteria: { true: q.yes, false: q.no } },
-				]),
-			),
-		}
-		return this.cached("jev", purpose, request, async () => {
+		return this.cached("jev", purpose, decisionBody(state, questions), async () => {
 			if (!this.keys.typesafe) throw notRetryable("TYPESAFE_API_KEY is not set")
-			const response = await fetch("https://api.typesafe.ai/v1/systemone", {
-				method: "POST",
-				headers: {
-					authorization: `Bearer ${this.keys.typesafe}`,
-					"content-type": "application/json",
-				},
-				body: JSON.stringify(request),
-			})
-			if (!response.ok) {
-				const error = new Error(`Jev: HTTP ${response.status}: ${await response.text()}`)
-				Object.assign(error, { retryable: response.status === 429 || response.status >= 500 })
-				throw error
-			}
-			const body = (await response.json()) as {
-				answers: Record<string, { noul: number }>
-				usage: { input_tokens: number; output_tokens: number }
-			}
-			return {
-				value: Object.fromEntries(Object.entries(body.answers).map(([id, a]) => [id, a.noul])),
-				inputTokens: body.usage.input_tokens,
-				outputTokens: body.usage.output_tokens,
-			}
+			const result = await decide({ apiKey: this.keys.typesafe }, state, questions)
+			return { value: result.answers, ...result.usage }
 		})
 	}
 }
@@ -156,6 +127,7 @@ async function withRetry<T>(call: () => Promise<T>): Promise<T> {
 		try {
 			return await call()
 		} catch (error) {
+			// A key that is missing, or a request Jev refused (DecisionError), will not work later.
 			const retryable = (error as { retryable?: boolean }).retryable !== false
 			if (attempt >= 4 || !retryable) throw error
 			await new Promise((resolve) => setTimeout(resolve, 1000 * 2 ** attempt))

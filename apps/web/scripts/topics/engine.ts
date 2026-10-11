@@ -1,4 +1,17 @@
-import { z } from "zod"
+import {
+	articleState,
+	growRequest,
+	holdsEnough,
+	place,
+	proposeRequest,
+	reviewRequest,
+	sortQuestions,
+	sortRequest,
+	type TopicArticle,
+	type TopicQuestion,
+	type TopicSpec,
+	type TopicStyle,
+} from "@klipstack/ai"
 import type { Models } from "./models"
 
 /** An article of the corpus, as it arrives. */
@@ -32,9 +45,9 @@ export interface Config {
 	/** Characters of the article's text a classifier reads. */
 	textChars: number
 	/** How the proposer is asked to name topics: broad fields, or specific shelves. */
-	style: "broad" | "specific"
+	style: TopicStyle
 	/** What Jev is asked: whether the topic is a main subject, or whether the article belongs on its shelf. */
-	question: "main" | "shelf"
+	question: TopicQuestion
 	/** Whether unsorted articles may widen an existing topic's description instead of a new topic. */
 	widen: boolean
 	/** Another sample of the same run: Haiku is asked again instead of answering from the cache. */
@@ -125,29 +138,8 @@ export interface RunResult {
 	snapshots: Snapshot[]
 }
 
-function topicSpec(style: Config["style"]) {
-	return z.object({
-		name: z
-			.string()
-			.describe(
-				style === "broad"
-					? "The label of a shelf: one subject in 1-3 words, such as Management or Psychology, never two subjects joined with And"
-					: "The label of a specific shelf: one subject in 1-4 words, such as Engineering Management, Online Writing or Behavioral Economics, never a whole field like Work or Psychology, never two subjects joined with And",
-			),
-		description: z
-			.string()
-			.describe(
-				style === "broad"
-					? "One sentence: what belongs here, written to sort new articles into it"
-					: "Two sentences: what belongs here, then what does not (naming the neighbouring topics it could be confused with), written to sort new articles into it",
-			),
-	})
-}
-
-const SYSTEM: Record<Config["style"], string> = {
-	broad: `You organize one person's reading library into topics, the way a thoughtful librarian would. Topics are broad enough to hold many articles over time and narrow enough to be useful for finding things again. They describe what articles are about (subject matter), not their format, tone or source. Avoid overlapping topics.`,
-	specific: `You organize one person's reading library into topics, the way a thoughtful librarian would. A topic is a specific subject this reader keeps coming back to, the kind of shelf they would browse on purpose: "Engineering Management", "Online Writing", "Behavioral Economics", "Death and Mortality". Never propose a whole field such as Work, Life, Psychology, Technology or Science: a field swallows everything near it and helps no one find anything. Prefer two specific topics to one broad one, and prefer waiting for more articles to inventing a vague topic. Topics describe what articles are about (subject matter), not their format, tone or source, and must not overlap.`,
-}
+/** How the models see an article: named by the start of its id, as the cached answers know it. */
+const view = (article: Article): TopicArticle => ({ ...article, ref: article.id.slice(0, 8) })
 
 export class Simulation {
 	readonly topics: Topic[] = []
@@ -170,10 +162,6 @@ export class Simulation {
 		private readonly models: Pick<Models, "haiku" | "jev">,
 		private readonly log: (line: string) => void = () => {},
 	) {}
-
-	private spec() {
-		return topicSpec(this.config.style)
-	}
 
 	private active(): Topic[] {
 		return this.topics.filter((t) => t.retiredAt === undefined)
@@ -243,11 +231,7 @@ export class Simulation {
 			.join(", ")
 	}
 
-	private addTopic(
-		spec: z.infer<ReturnType<typeof topicSpec>>,
-		origin: Topic["origin"],
-		reason: string,
-	) {
+	private addTopic(spec: TopicSpec, origin: Topic["origin"], reason: string) {
 		const topic: Topic = {
 			id: `t${this.nextTopic++}`,
 			name: spec.name,
@@ -262,21 +246,12 @@ export class Simulation {
 
 	/** What a classifier reads. */
 	private state(article: Article): string {
-		return [
-			`Title: ${article.title}`,
-			article.siteName ? `Site: ${article.siteName}` : "",
-			article.description ? `Description: ${article.description}` : "",
-			"",
-			article.text.slice(0, this.config.textChars),
-		]
-			.filter((line, i) => line !== "" || i === 3)
-			.join("\n")
+		return articleState(view(article), this.config.textChars)
 	}
 
-	/** One line about an article, for the proposer. */
-	private line(article: Article): string {
-		const about = article.description || article.text.slice(0, 280).replace(/\s+/g, " ")
-		return `[${article.id.slice(0, 8)}] ${article.title}${article.siteName ? ` (${article.siteName})` : ""}: ${about}`
+	/** The topics as the models see them: named by their ids. */
+	private refs(topics: Topic[]) {
+		return topics.map((t) => ({ ref: t.id, name: t.name, description: t.description }))
 	}
 
 	/** The probability that each topic is one of the article's main subjects. Public for `compare`. */
@@ -291,34 +266,18 @@ export class Simulation {
 					await this.models.jev(
 						"sort",
 						this.state(article),
-						Object.fromEntries(
-							chunk.map((t) => [
-								t.id,
-								this.config.question === "main"
-									? {
-											instructions: `Is "${t.name}" one of the main subjects of this article? ${t.name}: ${t.description}`,
-											yes: `The article is substantially about ${t.name}`,
-											no: `${t.name} is absent or only mentioned in passing`,
-										}
-									: {
-											instructions: `A reader keeps a shelf called "${t.name}" in their library: ${t.description} Would they expect to find this article on that shelf?`,
-											yes: `Someone browsing "${t.name}" would be glad to find this article there`,
-											no: `The article would look out of place on "${t.name}", or only touches it in passing`,
-										},
-							]),
-						),
+						sortQuestions(this.refs(chunk), this.config.question),
 					),
 				)
 			}
 			return scores
 		}
 		const answer = await this.models.haiku("sort", {
-			system: SYSTEM[this.config.style],
-			sample: this.config.sample,
-			prompt: `Topics:\n${topics.map((t) => `- ${t.id}: ${t.name}: ${t.description}`).join("\n")}\n\nFor each topic, give the probability (0 to 1) that it is one of the main subjects of the article below. Most topics should be near 0; an article usually has one to three main subjects, and may have none of these.\n\n<article>\n${this.state(article)}\n</article>`,
-			schema: z.object({
-				scores: z.array(z.object({ topicId: z.string(), probability: z.number() })),
+			...sortRequest(view(article), this.refs(topics), {
+				style: this.config.style,
+				textChars: this.config.textChars,
 			}),
+			sample: this.config.sample,
 		})
 		return Object.fromEntries(answer.scores.map((s) => [s.topicId, s.probability]))
 	}
@@ -330,35 +289,20 @@ export class Simulation {
 	private async sort(article: Article, topics: Topic[]): Promise<void> {
 		const scores = await this.score(article, topics)
 		this.scores.set(article.id, { ...this.scores.get(article.id), ...scores })
-		const ids = new Set(topics.map((t) => t.id))
-		const kept = (this.assignments.get(article.id) ?? []).filter((a) => !ids.has(a.topicId))
-		const fresh = topics
-			.map((t) => ({ topicId: t.id, p: scores[t.id] ?? 0 }))
-			.filter((s) => s.p >= this.config.suggestThreshold)
-			.map((s) => ({
-				...s,
-				level: (s.p >= this.config.applyThreshold ? "applied" : "suggested") as Assignment["level"],
-				at: this.step,
-			}))
-		const all = [...kept, ...fresh].sort((a, b) => b.p - a.p)
-		let applied = 0
-		for (const a of all) {
-			if (a.level !== "applied") continue
-			if (applied >= this.config.maxTopicsPerArticle) a.level = "suggested"
-			else applied++
-		}
-		this.assignments.set(article.id, all)
+		const scored = Object.fromEntries(topics.map((t) => [t.id, scores[t.id] ?? 0]))
+		const placed = place(this.assignments.get(article.id) ?? [], scored, this.config)
+		// What was already there keeps the step it was decided at.
+		this.assignments.set(
+			article.id,
+			placed.map((a) => ({ at: this.step, ...a })),
+		)
 	}
 
 	private async bootstrap() {
 		this.lastBootstrap = this.library.length
 		const answer = await this.models.haiku("propose", {
-			system: SYSTEM[this.config.style],
+			...proposeRequest(this.library.map(view), { style: this.config.style }),
 			sample: this.config.sample,
-			prompt: `This person has saved their first ${this.library.length} articles. ${this.config.style === "broad" ? "Propose the first set of topics for their library: between 4 and 10, each one fitting at least two of these articles, and broad enough to keep receiving new articles." : "Propose the first set of topics for their library: specific subjects, each one fitting at least two of these articles. Leave an article without a topic rather than stretch a topic to cover it."}\n\n${this.library.map((a) => this.line(a)).join("\n")}`,
-			schema: z.object({
-				topics: z.array(this.spec().extend({ reason: z.string().describe("Which articles, why") })),
-			}),
 		})
 		const topics = answer.topics.map((t) => this.addTopic(t, "bootstrap", t.reason))
 		this.events.push({ step: this.step, type: "bootstrap", topicIds: topics.map((t) => t.id) })
@@ -377,45 +321,15 @@ export class Simulation {
 		this.lastAttemptPool = pool.length
 		const widen = this.config.widen
 		const answer = await this.models.haiku("grow", {
-			system: SYSTEM[this.config.style],
-			sample: this.config.sample,
-			prompt: `The library's topics:\n${this.active()
-				.map((t) => `- ${widen ? `${t.id}: ` : ""}${t.name}: ${t.description}`)
-				.join(
-					"\n",
-				)}\n\nThese recently saved articles fit none of them:\n${pool.map((a) => this.line(a)).join("\n")}\n\n${
-				widen
-					? `First, an article may belong on an existing shelf whose description is too narrow to say so. For such a shelf, write a wider description that takes those articles in (list their ids) while keeping the shelf specific and its name unchanged. Then, for the articles left, p`
-					: "P"
-			}ropose up to 2 new topics, each holding at least ${this.config.minNewTopicArticles} of these articles (list their ids), that do not overlap the existing topics. If they do not share a theme strong enough for a topic, propose none: an article may stay unsorted.`,
-			schema: z.object({
-				...(widen
-					? {
-							widen: z.array(
-								z.object({
-									topicId: z.string(),
-									description: this.spec().shape.description,
-									articleIds: z.array(z.string()).describe("The 8-character ids in brackets"),
-									reason: z.string(),
-								}),
-							),
-						}
-					: {}),
-				topics: z.array(
-					this.spec().extend({
-						articleIds: z.array(z.string()).describe("The 8-character ids in brackets"),
-						reason: z.string(),
-					}),
-				),
-				note: z.string().describe("One sentence on what you saw in these articles"),
+			...growRequest(this.refs(this.active()), pool.map(view), {
+				style: this.config.style,
+				widen,
+				minNewTopicArticles: this.config.minNewTopicArticles,
 			}),
+			sample: this.config.sample,
 		})
 		const widened: Topic[] = []
-		for (const w of (
-			answer as {
-				widen?: { topicId: string; description: string; articleIds: string[]; reason: string }[]
-			}
-		).widen ?? []) {
+		for (const w of answer.widen ?? []) {
 			const topic = this.active().find((t) => t.id === w.topicId)
 			if (!topic || w.articleIds.length === 0) continue
 			this.events.push({
@@ -432,11 +346,9 @@ export class Simulation {
 			this.log(`  ↔ widened ${topic.name}: ${w.description}`)
 		}
 		// Only the pool's own articles count, each once: the model may repeat or invent ids.
-		const poolIds = new Set(pool.map((a) => a.id.slice(0, 8)))
-		const accepted = answer.topics.filter(
-			(t) =>
-				new Set(t.articleIds.filter((id) => poolIds.has(id))).size >=
-				this.config.minNewTopicArticles,
+		const poolRefs = new Set(pool.map((a) => view(a).ref))
+		const accepted = answer.topics.filter((t) =>
+			holdsEnough(t.articleIds, poolRefs, this.config.minNewTopicArticles),
 		)
 		const topics = accepted.map((t) => this.addTopic(t, "pool", t.reason))
 		if (topics.length > 0) {
@@ -471,41 +383,37 @@ export class Simulation {
 			this.library.filter((a) =>
 				(this.assignments.get(a.id) ?? []).some((x) => x.topicId === id && x.level === "applied"),
 			)
-		const pairs: string[] = []
+		const pairs: { a: string; b: string; count: number }[] = []
 		for (let i = 0; i < active.length; i++)
 			for (let j = i + 1; j < active.length; j++) {
 				const a = new Set(members(active[i]!.id).map((x) => x.id))
 				const b = members(active[j]!.id).map((x) => x.id)
 				const both = b.filter((id) => a.has(id)).length
-				if (both >= 2) pairs.push(`${active[i]!.name} + ${active[j]!.name}: ${both} articles`)
+				if (both >= 2) pairs.push({ a: active[i]!.name, b: active[j]!.name, count: both })
 			}
 		const sorted = this.library.filter((a) => this.isSorted(a.id)).length
 		const answer = await this.models.haiku("maintain", {
-			system: SYSTEM[this.config.style],
-			sample: this.config.sample,
-			prompt: `The library has ${this.library.length} articles; ${sorted} are in a topic and ${this.unsorted.length} are unsorted. Its topics, with how many articles each holds, when it last received one (the library's article number, now ${this.step}) and some of their titles:\n\n${active
-				.map((t) => {
-					const list = members(t.id)
-					const last = Math.max(t.createdAt, ...list.map((a) => this.library.indexOf(a) + 1))
-					return `${t.id}: ${t.name} (${list.length} articles, last at ${last}): ${t.description}\n${list
-						.slice(-6)
-						.map((a) => `    - ${a.title}`)
-						.join("\n")}`
-				})
-				.join(
-					"\n\n",
-				)}\n\nTopics that often share articles:\n${pairs.join("\n") || "(none)"}\n\nReview the topics. Change them only when the change clearly helps someone find their articles: merge topics that overlap, ${this.config.style === "broad" ? "split a topic holding far more than its share (about a third of the library or more) into clearer ones" : "split a topic that holds more than about a sixth of the library, or that mixes subjects a reader would look for separately, into specific ones"}, rename a topic whose name no longer fits what it holds, retire a topic that is empty or holds a single article long after it was created. Most reviews change nothing or one thing. Never more than three changes.`,
-			schema: z.object({
-				changes: z.array(
-					z.object({
-						op: z.enum(["merge", "split", "rename", "retire"]),
-						topicIds: z.array(z.string()).describe("The topics changed, by id"),
-						into: z.array(this.spec()).describe("merge: one; split: two or three; rename: one"),
-						reason: z.string(),
+			...reviewRequest(
+				{
+					libraryCount: this.library.length,
+					sortedCount: sorted,
+					unsortedCount: this.unsorted.length,
+					topics: active.map((t) => {
+						const list = members(t.id)
+						return {
+							ref: t.id,
+							name: t.name,
+							description: t.description,
+							articles: list.length,
+							lastAt: Math.max(t.createdAt, ...list.map((a) => this.library.indexOf(a) + 1)),
+							titles: list.slice(-6).map((a) => a.title),
+						}
 					}),
-				),
-				note: z.string().describe("One sentence on the state of the topics"),
-			}),
+					pairs,
+				},
+				{ style: this.config.style },
+			),
+			sample: this.config.sample,
 		})
 		const ops: MaintenanceOp[] = []
 		for (const change of answer.changes.slice(0, 3)) {

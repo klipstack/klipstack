@@ -17,6 +17,8 @@ export const TIERS: Record<
 
 export interface AiConfig {
 	anthropicApiKey?: string
+	/** TypeSafe's key, for Jev: automatic topics need it as well as Anthropic's. */
+	typesafeApiKey?: string
 	/** A fixed answer instead of a provider, for tests and local work without a key. */
 	fake?: boolean
 	/** For tests: what the provider's client sends requests with. */
