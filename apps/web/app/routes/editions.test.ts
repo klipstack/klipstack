@@ -12,6 +12,7 @@ import {
 } from "~/services/editions.server"
 import { action as createAction, loader as listLoader } from "./editions"
 import { action as editAction, loader as editLoader } from "./editions.edit"
+import { loader as articleLoader } from "./editions.item-article"
 import { loader as previewLoader } from "./editions.preview"
 import { action as saveAction } from "./editions.save"
 
@@ -182,6 +183,27 @@ describe("the editor", () => {
 		expect((await thrown(load("not-a-uuid"))).status).toBe(404)
 		as(owner)
 		expect((await getEdition(ownerId, edition!.id)).items).toEqual([])
+	})
+
+	it("reads an item's article for its owner only", async () => {
+		as(owner)
+		const id = (await thrown(create())).location!.split("/").pop()!
+		await post(id, { intent: "add-item", documentId })
+		const [item] = (await getEdition(ownerId, id)).items
+		const read = (itemId: string) =>
+			articleLoader({
+				request: new Request("http://localhost"),
+				context: {},
+				params: { id, itemId },
+			} as never) as Promise<{ ok?: boolean; article?: unknown; init?: { status?: number } }>
+		expect(await read(item!.id)).toMatchObject({
+			ok: true,
+			// Not extracted yet: nothing to read, but the article is there.
+			article: { documentId, title: "One", html: null, highlights: [] },
+		})
+		expect((await read("not-a-uuid")).init?.status).toBe(404)
+		as(other)
+		expect((await read(item!.id)).init?.status).toBe(404)
 	})
 
 	it("starts with the shortlist, shows the draft instead of it, and opens it again on Start", async () => {

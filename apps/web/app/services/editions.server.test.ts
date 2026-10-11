@@ -28,6 +28,7 @@ import {
 	editionNeighbors,
 	type EditionRow,
 	getEdition,
+	itemArticle,
 	listEditions,
 	listShortlist,
 	moveItem,
@@ -800,6 +801,51 @@ describe("an item set aside", () => {
 				[noted.id, null],
 			])
 			await deleteEdition(userId, draft.id)
+		}
+	})
+})
+
+describe("itemArticle", () => {
+	it("shows the owner the library's copy of an item's article, with its highlights", async () => {
+		const draft = await insertEdition(userId, { locale: "en", timeZone })
+		const binned = await addDocument({ sourceUrl: "https://binned.example/", title: "Binned" })
+		try {
+			const item = await addItem(userId, draft.id, main.id)
+			const article = await itemArticle(userId, draft.id, item.id)
+			expect(article).toMatchObject({
+				documentId: main.id,
+				title: "Main article",
+				author: "Grace",
+				siteName: "A Example",
+				url: "https://a.example/post",
+				readingMinutes: 8,
+				brief: null,
+			})
+			expect(article.html).toContain("Alpha one two three.")
+			// Painted where they are: the orphaned one has no place to go.
+			expect(
+				article.highlights
+					.filter((h) => !h.orphaned)
+					.map((h) => h.id)
+					.sort(),
+			).toEqual(
+				["Alpha one two three.", "Bravo four five.", "Echo eight.", "Foxtrot nine."]
+					.map((exact) => quoteIds[exact])
+					.sort(),
+			)
+
+			// Nobody else's, and not through another edition.
+			expect(await code(itemArticle(otherId, draft.id, item.id))).toBe("not_found")
+			expect(await code(itemArticle(userId, edition.id, item.id))).toBe("not_found")
+			expect(await code(itemArticle(userId, draft.id, "nope"))).toBe("not_found")
+
+			// In the trash, the article is not there to read.
+			const gone = await addItem(userId, draft.id, binned.id)
+			await trashArticles(userId, [binned.id])
+			expect(await code(itemArticle(userId, draft.id, gone.id))).toBe("document_gone")
+		} finally {
+			await deleteEdition(userId, draft.id)
+			await db.delete(documents).where(eq(documents.id, binned.id))
 		}
 	})
 })

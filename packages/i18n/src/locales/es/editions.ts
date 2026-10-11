@@ -53,6 +53,8 @@ export default {
 		quotes: "«{{title}}» cita más de lo permitido.",
 	},
 	item: {
+		read: "Leer el artículo",
+		showInArticle: "Ver en el artículo",
 		/** The checkbox on each article: off sets it aside, in its place, out of the page. */
 		include: "Incluir en esta edición",
 		setAside: "Apartado",
@@ -227,6 +229,18 @@ export default {
 			abuse: "acoso u odio",
 			other: "no cumplir las reglas de Klipstack",
 		},
+	},
+	/** The article an item came from, read beside the editor: the library's copy. */
+	article: {
+		tab: "Artículo",
+		close: "Cerrar el artículo",
+		loading: "Cargando el artículo…",
+		gone: "Este artículo ya no está en tu biblioteca.",
+		failed: "No se pudo cargar el artículo.",
+		noText: "Klipstack aún no tiene el texto de este artículo.",
+		original: "Abrir el original",
+		brief: "Resumen",
+		highlightMissing: "Este subrayado ya no está en el texto del artículo.",
 	},
 	preview: {
 		banner: "Vista previa. Sin publicar.",

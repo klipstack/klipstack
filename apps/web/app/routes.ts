@@ -72,6 +72,7 @@ export default [
 	route("e/:publicId/:slug?", "routes/edition.public.tsx"),
 	route("read/:id", "routes/read.tsx"),
 	route("editions/:id/save", "routes/editions.save.ts"),
+	route("editions/:id/items/:itemId/article", "routes/editions.item-article.ts"),
 	route("documents/bulk", "routes/documents.bulk.ts"),
 	route("documents/:id/state", "routes/documents.state.ts"),
 	route("documents/:id/highlights", "routes/documents.highlights.ts"),

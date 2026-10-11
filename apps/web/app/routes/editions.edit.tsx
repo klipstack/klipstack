@@ -1,9 +1,10 @@
 import { fallbackLanguage, isLocale, supportedLanguages } from "@klipstack/i18n"
 import type { NoteSaveStatus } from "@klipstack/sdk/note-autosave"
-import { ArrowLeft, Copy, Eye, Maximize2, Monitor, Newspaper, Smartphone } from "lucide-react"
-import { useCallback, useContext, useId, useMemo, useRef, useState } from "react"
+import { ArrowLeft, Copy, Eye, Maximize2, Monitor, Newspaper, Smartphone, X } from "lucide-react"
+import { useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { data, Link, redirect, useFetcher, useNavigate, useRevalidator } from "react-router"
+import { EditionArticle, type Reading } from "~/components/edition-article"
 import { EditionItemCard, type EditionSave, errorText } from "~/components/edition-item-card"
 import { EditionPage } from "~/components/edition-page"
 import { AddShortlist, EditionPicker } from "~/components/edition-picker"
@@ -18,7 +19,6 @@ import { AppError } from "~/lib/app-error"
 import { copyText } from "~/lib/copy-link"
 import { formatDay } from "~/lib/date-groups"
 import { type EditionDone, editionAction } from "~/lib/edition-action.server"
-import type { EditionView } from "~/lib/edition-view"
 import {
 	EDITION_INTRO_MAX,
 	EDITION_TITLE_MAX,
@@ -31,6 +31,7 @@ import { env } from "~/lib/env.server"
 import { getInstance } from "~/lib/i18n.server"
 import { fitsKeepalive } from "~/lib/keepalive"
 import type { PageBarHandle } from "~/lib/page-bar"
+import { resolvePrefs } from "~/lib/prefs"
 import { readFields } from "~/lib/request-body.server"
 import { requireUser } from "~/lib/session.server"
 import { cn } from "~/lib/utils"
@@ -78,6 +79,8 @@ export async function loader({ params, context, request }: Route.LoaderArgs) {
 				}
 			: null,
 		publicUrl: working.publicPath ? `${env.APP_URL}${working.publicPath}` : null,
+		// The article pane reads in the reader's font.
+		readerFont: resolvePrefs(user.prefs).font,
 		// The side-by-side preview. Every save reads the page's data again, and this with it.
 		view: await previewView(
 			user.id,
@@ -143,12 +146,38 @@ export default function EditionEditor({ loaderData }: Route.ComponentProps) {
 	const editorColumn = useRef<HTMLElement>(null)
 	const previewScroller = useRef<HTMLDivElement>(null)
 	useEditionScrollSync(editorColumn, previewScroller)
+	// The article open beside the editor, while its item is still in the edition.
+	const [asked, setReading] = useState<Reading | null>(null)
+	const reading = asked && items.some((item) => item.id === asked.itemId) ? asked : null
+	// Counts every request, closed ones too: the pane tells a new one from one it has shown.
+	const requests = useRef(0)
+	const read = useCallback((itemId: string, highlightId: string | null) => {
+		const asked = ++requests.current
+		setReading((open) =>
+			// Read again, the open article closes.
+			open?.itemId === itemId && highlightId === null && open.highlightId === null
+				? null
+				: { itemId, highlightId, asked },
+		)
+	}, [])
 	return (
 		<AutosaveGroupContext value={group}>
 			<div className="@container flex w-full min-w-0 flex-1 flex-col">
 				<div className="flex flex-1 flex-col @5xl:flex-row">
-					<EditorColumn data={loaderData} save={save} added={added} mainRef={editorColumn} />
-					<PreviewPane editionId={edition.id} view={loaderData.view} scrollRef={previewScroller} />
+					<EditorColumn
+						data={loaderData}
+						save={save}
+						added={added}
+						mainRef={editorColumn}
+						reading={reading?.itemId ?? null}
+						onRead={read}
+					/>
+					<SidePane
+						data={loaderData}
+						reading={reading}
+						onClose={() => setReading(null)}
+						previewRef={previewScroller}
+					/>
 				</div>
 			</div>
 		</AutosaveGroupContext>
@@ -161,11 +190,16 @@ function EditorColumn({
 	save,
 	added,
 	mainRef,
+	reading,
+	onRead,
 }: {
 	data: Route.ComponentProps["loaderData"]
 	save: EditionSave
 	added: ReadonlySet<string>
 	mainRef: React.Ref<HTMLElement>
+	/** The item whose article is open beside the editor. */
+	reading: string | null
+	onRead: (itemId: string, highlightId: string | null) => void
 }) {
 	const { t } = useTranslation("editions")
 	const { edition, items, picker, missing } = loaderData
@@ -220,6 +254,8 @@ function EditorColumn({
 								first={i === 0}
 								last={i === items.length - 1}
 								save={save}
+								reading={reading === item.id}
+								onRead={(highlightId) => onRead(item.id, highlightId)}
 							/>
 						))}
 					</ol>
@@ -241,65 +277,150 @@ function useOpenPreview(editionId: string) {
 }
 
 /**
- * The public page as it would look, beside the editor: the working copy after its last save. At
- * desktop width, or at a phone's, since the page sizes itself to its container.
+ * Beside the editor, on a wide page: the public page as it would look, the working copy after its
+ * last save, at desktop width or at a phone's, since the page sizes itself to its container. With
+ * an item's article open, a tab shows it instead; on a narrow page the article takes the screen.
  */
-function PreviewPane({
-	editionId,
-	view,
-	scrollRef,
+function SidePane({
+	data,
+	reading,
+	onClose,
+	previewRef,
 }: {
-	editionId: string
-	view: EditionView
-	scrollRef: React.Ref<HTMLDivElement>
+	data: Route.ComponentProps["loaderData"]
+	reading: Reading | null
+	onClose: () => void
+	previewRef: React.Ref<HTMLDivElement>
 }) {
 	const { t } = useTranslation("editions")
+	const { edition, items, view, readerFont } = data
 	const [phone, setPhone] = useState(false)
-	const openPreview = useOpenPreview(editionId)
+	const openPreview = useOpenPreview(edition.id)
+	// Back to the preview, until another article or highlight is asked for.
+	const [previewedAt, setPreviewedAt] = useState<number | null>(null)
+	const tab = reading && previewedAt !== reading.asked ? "article" : "preview"
+	const item = reading ? items.find((i) => i.id === reading.itemId) : undefined
+	const articleScroller = useRef<HTMLDivElement>(null)
+	const pane = useRef<HTMLElement>(null)
+	const id = useId()
+
+	// On a narrow page the article covers the editor: focus goes with it.
+	useEffect(() => {
+		const aside = pane.current
+		if (reading && aside && getComputedStyle(aside).position === "fixed")
+			aside.querySelector<HTMLElement>("[data-close-article]")?.focus()
+	}, [reading])
+
+	const tabClass = (selected: boolean) =>
+		cn(
+			"h-8 min-w-0 rounded-md px-2.5 text-sm font-medium",
+			selected ? "bg-muted text-fg" : "text-muted-fg hover:text-fg",
+		)
 	return (
 		<aside
-			aria-label={t("preview.pane")}
-			className="sticky top-0 hidden h-dvh min-w-0 flex-1 flex-col border-l border-border @5xl:flex"
+			ref={pane}
+			aria-label={tab === "article" ? t("article.tab") : t("preview.pane")}
+			onKeyDown={(e) => {
+				if (e.key === "Escape" && reading) onClose()
+			}}
+			className={cn(
+				"min-w-0 flex-1 flex-col border-l border-border @5xl:sticky @5xl:flex @5xl:h-dvh",
+				// On a narrow page the article covers the editor; on a wide one it sits beside it.
+				reading
+					? "fixed inset-0 z-40 flex bg-bg @5xl:right-auto @5xl:bottom-auto @5xl:left-auto @5xl:z-auto @5xl:bg-transparent"
+					: "sticky top-0 hidden h-dvh",
+			)}
 		>
 			<div className="flex h-12 shrink-0 items-center gap-3 border-b border-border bg-card px-4 md:h-14">
-				<div className="min-w-0">
-					<p className="text-sm font-medium">{t("preview.pane")}</p>
-					<p className="truncate text-xs text-muted-fg">{t("preview.paneDetail")}</p>
-				</div>
+				{reading && item ? (
+					<div role="tablist" className="flex min-w-0 items-center gap-1">
+						<button
+							type="button"
+							role="tab"
+							id={`${id}-preview`}
+							aria-selected={tab === "preview"}
+							aria-controls={`${id}-preview-panel`}
+							onClick={() => setPreviewedAt(reading.asked)}
+							className={tabClass(tab === "preview")}
+						>
+							{t("preview.pane")}
+						</button>
+						<button
+							type="button"
+							role="tab"
+							id={`${id}-article`}
+							aria-selected={tab === "article"}
+							aria-controls={`${id}-article-panel`}
+							onClick={() => setPreviewedAt(null)}
+							className={cn(tabClass(tab === "article"), "flex max-w-64 items-center gap-1")}
+						>
+							<span className="shrink-0">{t("article.tab")}</span>
+							<span className="truncate font-normal text-muted-fg">· {item.title}</span>
+						</button>
+					</div>
+				) : (
+					<div className="min-w-0">
+						<p className="text-sm font-medium">{t("preview.pane")}</p>
+						<p className="truncate text-xs text-muted-fg">{t("preview.paneDetail")}</p>
+					</div>
+				)}
 				<div className="ml-auto flex shrink-0 items-center gap-1">
-					{(
-						[
-							[false, Monitor, t("preview.desktop")],
-							[true, Smartphone, t("preview.phone")],
-						] as const
-					).map(([value, Icon, label]) => (
+					{tab === "preview" ? (
+						<>
+							{(
+								[
+									[false, Monitor, t("preview.desktop")],
+									[true, Smartphone, t("preview.phone")],
+								] as const
+							).map(([value, Icon, label]) => (
+								<Button
+									key={label}
+									variant="ghost"
+									size="icon"
+									aria-label={label}
+									aria-pressed={phone === value}
+									{...tooltip(label)}
+									onClick={() => setPhone(value)}
+									className={cn(phone === value && "bg-muted text-fg")}
+								>
+									<Icon className="size-4" aria-hidden />
+								</Button>
+							))}
+							<Link
+								to={`/editions/${edition.id}/preview`}
+								onClick={openPreview}
+								aria-label={t("preview.fullPage")}
+								{...tooltip(t("preview.fullPage"))}
+								className={buttonVariants({ variant: "ghost", size: "icon" })}
+							>
+								<Maximize2 className="size-4" aria-hidden />
+							</Link>
+						</>
+					) : null}
+					{reading ? (
 						<Button
-							key={label}
 							variant="ghost"
 							size="icon"
-							aria-label={label}
-							aria-pressed={phone === value}
-							{...tooltip(label)}
-							onClick={() => setPhone(value)}
-							className={cn(phone === value && "bg-muted text-fg")}
+							data-close-article
+							aria-label={t("article.close")}
+							{...tooltip(t("article.close"))}
+							onClick={onClose}
 						>
-							<Icon className="size-4" aria-hidden />
+							<X className="size-4" aria-hidden />
 						</Button>
-					))}
-					<Link
-						to={`/editions/${editionId}/preview`}
-						onClick={openPreview}
-						aria-label={t("preview.fullPage")}
-						{...tooltip(t("preview.fullPage"))}
-						className={buttonVariants({ variant: "ghost", size: "icon" })}
-					>
-						<Maximize2 className="size-4" aria-hidden />
-					</Link>
+					) : null}
 				</div>
 			</div>
+			{/* Kept while the article shows: the editor's scroll follows it. */}
 			<div
-				ref={scrollRef}
-				className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-muted/40"
+				ref={previewRef}
+				id={`${id}-preview-panel`}
+				role={reading ? "tabpanel" : undefined}
+				aria-labelledby={reading ? `${id}-preview` : undefined}
+				className={cn(
+					"min-h-0 flex-1 overflow-y-auto overscroll-contain bg-muted/40",
+					tab === "article" && "hidden",
+				)}
 			>
 				<div
 					className={cn(
@@ -310,6 +431,28 @@ function PreviewPane({
 					<EditionPage view={view} newTab />
 				</div>
 			</div>
+			{reading && item ? (
+				<div
+					ref={articleScroller}
+					id={`${id}-article-panel`}
+					role="tabpanel"
+					aria-labelledby={`${id}-article`}
+					// Scrolled with the keyboard too; a click in it lets Escape close it.
+					tabIndex={0}
+					className={cn(
+						"min-h-0 flex-1 overflow-y-auto overscroll-contain bg-bg",
+						tab === "preview" && "hidden",
+					)}
+				>
+					<EditionArticle
+						editionId={edition.id}
+						reading={reading}
+						fallbackUrl={item.url}
+						font={readerFont}
+						scrollRef={articleScroller}
+					/>
+				</div>
+			) : null}
 		</aside>
 	)
 }

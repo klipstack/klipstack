@@ -51,6 +51,8 @@ export default {
 		quotes: "“{{title}}” quotes more than the limit.",
 	},
 	item: {
+		read: "Read the article",
+		showInArticle: "Show in the article",
 		/** The checkbox on each article: off sets it aside, in its place, out of the page. */
 		include: "Include in this edition",
 		setAside: "Set aside",
@@ -225,6 +227,18 @@ export default {
 			abuse: "harassment or hate",
 			other: "breaking Klipstack's rules",
 		},
+	},
+	/** The article an item came from, read beside the editor: the library's copy. */
+	article: {
+		tab: "Article",
+		close: "Close the article",
+		loading: "Loading the article…",
+		gone: "This article is no longer in your library.",
+		failed: "The article could not be loaded.",
+		noText: "Klipstack has no text for this article yet.",
+		original: "Open the original",
+		brief: "Brief",
+		highlightMissing: "This highlight is no longer in the article’s text.",
 	},
 	preview: {
 		banner: "Preview. Not published.",

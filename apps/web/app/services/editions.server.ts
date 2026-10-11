@@ -54,8 +54,11 @@ import {
 	publishProblems,
 	quoteProblem,
 } from "~/lib/editions"
+import { hasFeature } from "~/lib/features.server"
 import { countMonthly } from "~/lib/limits.server"
 import { extractLinkIds, rewriteNoteLinks } from "~/lib/note-links"
+import { getBrief } from "./ai-threads.server"
+import { getDocumentForReader } from "./documents.server"
 import { listDocumentHighlights } from "./highlights.server"
 
 const EDITION_REFUSALS = {
@@ -1221,6 +1224,70 @@ export async function refreshItem(
 		await touch(tx, editionId)
 		return row!
 	})
+}
+
+/** The library's copy of an item's article, as the editor's article pane shows it. */
+export interface ItemArticle {
+	documentId: string
+	title: string
+	author: string | null
+	siteName: string | null
+	url: string
+	readingMinutes: number | null
+	/** The extracted text, sanitized when it was stored. Null until extraction gives one. */
+	html: string | null
+	versionId: string | null
+	/** The user's highlights, as the reader paints them. */
+	highlights: Array<{
+		id: string
+		startOffset: number
+		endOffset: number
+		note: string | null
+		orphaned: boolean
+		versionId: string
+	}>
+	/** The brief the user asked for while reading, if any. The pane never writes one. */
+	brief: string | null
+}
+
+/**
+ * The article an item came from, to read without leaving the editor. Read only. An item whose
+ * article is in the trash or deleted has none to read (`document_gone`).
+ */
+export async function itemArticle(
+	userId: string,
+	editionId: string,
+	itemId: string,
+): Promise<ItemArticle> {
+	await findEdition(userId, editionId)
+	const { documentId } = await findItem(db, editionId, itemId)
+	const found = documentId ? await getDocumentForReader(userId, documentId) : null
+	if (!found) throw refuse("document_gone")
+	const { document: doc, version } = found
+	const url = [doc.canonicalUrl, doc.sourceUrl].find(isHttpUrl) ?? doc.sourceUrl
+	const [highlights, brief] = await Promise.all([
+		listDocumentHighlights(userId, doc.id),
+		version && (await hasFeature(userId, "ai")) ? getBrief(userId, version.id) : null,
+	])
+	return {
+		documentId: doc.id,
+		title: doc.title?.trim() || url,
+		author: doc.author,
+		siteName: doc.siteName,
+		url,
+		readingMinutes: doc.readingMinutes,
+		html: version?.html ?? null,
+		versionId: version?.id ?? null,
+		highlights: highlights.map((h) => ({
+			id: h.id,
+			startOffset: h.startOffset,
+			endOffset: h.endOffset,
+			note: h.note,
+			orphaned: h.orphaned,
+			versionId: h.versionId,
+		})),
+		brief: brief?.text ?? null,
+	}
 }
 
 const snapshotSchema = z.object({

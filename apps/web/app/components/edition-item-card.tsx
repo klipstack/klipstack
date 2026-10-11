@@ -1,7 +1,7 @@
 import { NOTE_MAX } from "@klipstack/api-contract/names"
 import type { EditionItem, EditionItemHighlight } from "@klipstack/db"
 import type { TFunction } from "i18next"
-import { ArrowDown, ArrowUp, RefreshCw, Trash2 } from "lucide-react"
+import { ArrowDown, ArrowUp, BookOpen, RefreshCw, TextSearch, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { type FetcherWithComponents, useFetcher, useFetchers } from "react-router"
@@ -66,12 +66,18 @@ export function EditionItemCard({
 	first,
 	last,
 	save,
+	reading,
+	onRead,
 }: {
 	editionId: string
 	item: EditionItem
 	first: boolean
 	last: boolean
 	save: EditionSave
+	/** Its article is open beside the editor. */
+	reading: boolean
+	/** Opens its article beside the editor, at a highlight if one is given. */
+	onRead: (highlightId: string | null) => void
 }) {
 	const { t } = useTranslation("editions")
 	// Moves, refresh and remove. Each choice (the note, a highlight) has a fetcher of its own: a new
@@ -146,6 +152,7 @@ export function EditionItemCard({
 			className={cn(
 				"rounded-xl border border-border p-4",
 				included ? "bg-card" : "border-dashed py-2",
+				reading && "ring-2 ring-accent/50",
 			)}
 		>
 			{/* On a phone the buttons wrap under the text, rather than squeeze it. */}
@@ -195,6 +202,18 @@ export function EditionItemCard({
 					</div>
 				)}
 				<div className="ml-auto flex shrink-0 items-start gap-1">
+					<Button
+						variant="ghost"
+						size="icon"
+						disabled={!item.documentId}
+						aria-label={t("item.read")}
+						aria-pressed={reading}
+						{...tooltip(item.documentId ? t("item.read") : t("item.refreshGone"))}
+						onClick={() => onRead(null)}
+						className={cn(reading && "bg-muted text-fg")}
+					>
+						<BookOpen className="size-4" aria-hidden />
+					</Button>
 					<Button
 						variant="ghost"
 						size="icon"
@@ -250,6 +269,7 @@ export function EditionItemCard({
 					noteChoice={noteChoice}
 					highlights={highlights}
 					save={save}
+					onShow={item.documentId ? onRead : null}
 				/>
 			) : null}
 
@@ -272,6 +292,7 @@ function ItemChoices({
 	noteChoice,
 	highlights,
 	save,
+	onShow,
 }: {
 	editionId: string
 	item: EditionItem
@@ -282,6 +303,8 @@ function ItemChoices({
 	noteChoice: FetcherWithComponents<IntentResult>
 	highlights: EditionItemHighlight[]
 	save: EditionSave
+	/** Shows a highlight in the article beside the editor; null when there is no article. */
+	onShow: ((highlightId: string) => void) | null
 }) {
 	const { t } = useTranslation("editions")
 	const usage = quoteUsage(includedQuotes(highlights), item.wordCount)
@@ -336,6 +359,7 @@ function ItemChoices({
 								editionId={editionId}
 								itemId={item.id}
 								highlight={highlight}
+								onShow={onShow}
 								blocked={
 									highlight.included
 										? null
@@ -370,12 +394,14 @@ function HighlightChoice({
 	editionId,
 	itemId,
 	highlight,
+	onShow,
 	blocked,
 	save,
 }: {
 	editionId: string
 	itemId: string
 	highlight: EditionItemHighlight
+	onShow: ((highlightId: string) => void) | null
 	blocked: ReturnType<typeof quoteProblem>
 	save: (text: string, keepalive: boolean) => Promise<void>
 }) {
@@ -386,31 +412,48 @@ function HighlightChoice({
 	const refused = fetcher.state === "idle" && fetcher.data?.ok === false ? fetcher.data : null
 	return (
 		<li>
-			<label
-				className={cn("flex items-start gap-2", blocked && "cursor-not-allowed opacity-60")}
-				{...(blocked ? tooltip(t(`item.${blocked}`)) : {})}
-			>
-				<input
-					type="checkbox"
-					checked={included}
-					disabled={Boolean(blocked)}
-					onChange={(e) => {
-						choose(e.target.checked)
-						void fetcher.submit(
-							{
-								intent: "update-item",
-								itemId,
-								highlights: [{ highlightId: highlight.highlightId, included: e.target.checked }],
-							},
-							post(editionId),
-						)
-					}}
-					className="mt-1 size-4 shrink-0 accent-accent"
-				/>
-				<blockquote className="border-l-2 border-accent/60 pl-3 font-serif text-sm leading-relaxed">
-					{highlight.exact}
-				</blockquote>
-			</label>
+			<div className="flex items-start gap-1">
+				<label
+					className={cn(
+						"flex flex-1 items-start gap-2",
+						blocked && "cursor-not-allowed opacity-60",
+					)}
+					{...(blocked ? tooltip(t(`item.${blocked}`)) : {})}
+				>
+					<input
+						type="checkbox"
+						checked={included}
+						disabled={Boolean(blocked)}
+						onChange={(e) => {
+							choose(e.target.checked)
+							void fetcher.submit(
+								{
+									intent: "update-item",
+									itemId,
+									highlights: [{ highlightId: highlight.highlightId, included: e.target.checked }],
+								},
+								post(editionId),
+							)
+						}}
+						className="mt-1 size-4 shrink-0 accent-accent"
+					/>
+					<blockquote className="border-l-2 border-accent/60 pl-3 font-serif text-sm leading-relaxed">
+						{highlight.exact}
+					</blockquote>
+				</label>
+				{onShow ? (
+					<Button
+						variant="ghost"
+						size="icon"
+						aria-label={t("item.showInArticle")}
+						{...tooltip(t("item.showInArticle"))}
+						onClick={() => onShow(highlight.highlightId)}
+						className="-mt-1.5 shrink-0 text-muted-fg"
+					>
+						<TextSearch className="size-4" aria-hidden />
+					</Button>
+				) : null}
+			</div>
 			{refused ? (
 				<p role="alert" className="mt-1 ml-6 text-xs text-danger">
 					{refusalText(t, refused.error)}
