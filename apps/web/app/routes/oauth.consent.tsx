@@ -121,7 +121,7 @@ export async function action({ request, context }: Route.ActionArgs) {
 }
 
 export default function OAuthConsent({ loaderData, actionData }: Route.ComponentProps) {
-	const { t } = useTranslation("auth")
+	const { t, i18n } = useTranslation("auth")
 	const tk = useKeyTranslation()
 	const navigation = useNavigation()
 	const busy = navigation.state !== "idle"
@@ -191,7 +191,7 @@ export default function OAuthConsent({ loaderData, actionData }: Route.Component
 							</li>
 						) : null}
 						{lines.map((scope) => {
-							const key = scopeKey(scope)
+							const key = scopeKey(i18n, scope)
 							const label = key ? tk(key) : scope
 							return optional.includes(scope) ? (
 								<li key={scope}>

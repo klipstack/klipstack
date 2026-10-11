@@ -1,4 +1,9 @@
-import { defaultNamespace, fallbackLanguage, namespaces, supportedLanguages } from "@klipstack/i18n"
+import {
+	defaultNamespace,
+	fallbackLanguage,
+	namespaces,
+	supportedLanguages,
+} from "@klipstack/i18n/languages"
 import i18next from "i18next"
 import I18nextBrowserLanguageDetector from "i18next-browser-languagedetector"
 import Fetch from "i18next-fetch-backend"

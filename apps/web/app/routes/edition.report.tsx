@@ -11,7 +11,7 @@ import { REPORT_DETAILS_MAX, REPORT_REASONS } from "~/lib/edition-reports"
 import { type ReportOutcome, reportEdition } from "~/lib/edition-reports.server"
 import { editionSlug, editionTitle } from "~/lib/editions"
 import { type FieldErrors, parseForm } from "~/lib/forms"
-import { isNsKey, useKeyTranslation } from "~/lib/i18n-keys"
+import { useIsNsKey, useKeyTranslation } from "~/lib/i18n-keys"
 import { getInstance, getLocale } from "~/lib/i18n.server"
 import { formToken } from "~/lib/invite-requests.server"
 import { readForm } from "~/lib/request-body.server"
@@ -119,6 +119,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 export default function ReportEdition({ loaderData, actionData }: Route.ComponentProps) {
 	const { t } = useTranslation("editions")
 	const tk = useKeyTranslation()
+	const isNsKey = useIsNsKey()
 	// A server message is a key, or plain text when it is zod's own.
 	const say = (message: string, options?: { max: number }) =>
 		isNsKey(message) ? tk(message, options) : message

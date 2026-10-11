@@ -5,6 +5,7 @@ import {
 	suggest,
 	valueItems,
 } from "@klipstack/api-contract/search-suggest"
+import type { i18n as I18n } from "i18next"
 import { type Ref, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Input } from "~/components/ui/input"
@@ -71,7 +72,7 @@ export function SearchQueryInput({
 	onKeyDown,
 	...props
 }: Props) {
-	const { t } = useTranslation("library")
+	const { t, i18n } = useTranslation("library")
 	const tk = useKeyTranslation()
 	const listId = useId()
 	const inputRef = useRef<HTMLInputElement | null>(null)
@@ -255,7 +256,7 @@ export function SearchQueryInput({
 					className="absolute inset-x-0 top-full z-30 mt-1 max-h-72 overflow-y-auto rounded-lg border border-border bg-card py-1 shadow-lg"
 				>
 					{items.map((item, i) => {
-						const hint = hintKey(item.hint)
+						const hint = hintKey(i18n, item.hint)
 						return (
 							<div key={item.insert}>
 								<button
@@ -286,7 +287,7 @@ export function SearchQueryInput({
 }
 
 /** The library-namespace key of a suggestion's hint, when the hint names one. */
-function hintKey(hint: string | undefined): NsKey | null {
+function hintKey(i18n: I18n, hint: string | undefined): NsKey | null {
 	const key = hint ? `library:${hint}` : null
-	return key && isNsKey(key) ? key : null
+	return key && isNsKey(i18n, key) ? key : null
 }

@@ -5,6 +5,7 @@ import {
 	MOBILE_CLIENT_ID,
 	OIDC_SCOPES,
 } from "@klipstack/api-contract/auth"
+import type { i18n as I18n } from "i18next"
 import { isNsKey, type NsKey } from "./i18n-keys"
 
 export const MAGIC_LINK_MINUTES = 15
@@ -39,7 +40,7 @@ export function identityKey(scopes: readonly string[]): NsKey | null {
 export const OAUTH_SCOPES = [...OIDC_SCOPES, LIBRARY_READ_SCOPE, LIBRARY_WRITE_SCOPE] as const
 
 /** i18n key for a scope's description, or null for a scope with none (i18next reads ":" as a namespace separator). */
-export function scopeKey(scope: string): NsKey | null {
+export function scopeKey(i18n: I18n, scope: string): NsKey | null {
 	const key = `auth:oauth.scopes.${scope.replace(/[^a-z0-9_]/gi, "_")}`
-	return isNsKey(key) ? key : null
+	return isNsKey(i18n, key) ? key : null
 }

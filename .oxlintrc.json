@@ -138,6 +138,34 @@
 				"jsx-a11y/click-events-have-key-events": "off",
 				"react/no-danger": "off"
 			}
+		},
+		{
+			"files": ["apps/web/app/**"],
+			"rules": {
+				"no-restricted-imports": [
+					"error",
+					{
+						"paths": [
+							{
+								"name": "@klipstack/i18n",
+								"allowTypeImports": true,
+								"message": "This carries every string of every language into the browser bundle. Import from @klipstack/i18n/languages; only server code (*.server.ts) may import the strings."
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"files": [
+				"apps/web/app/**/*.server.ts",
+				"apps/web/app/**/*.test.ts",
+				"apps/web/app/**/*.test.tsx",
+				"apps/web/app/routes/api.locales.ts"
+			],
+			"rules": {
+				"no-restricted-imports": "off"
+			}
 		}
 	]
 }

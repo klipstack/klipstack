@@ -10,7 +10,7 @@ import { authLimitResponse } from "~/lib/auth-limits.server"
 import { auth } from "~/lib/auth.server"
 import { emailEnabled } from "~/lib/email.server"
 import { type FieldErrors, parseForm } from "~/lib/forms"
-import { isNsKey, useKeyTranslation } from "~/lib/i18n-keys"
+import { useIsNsKey, useKeyTranslation } from "~/lib/i18n-keys"
 import { localeCookie } from "~/lib/i18n.server"
 import {
 	oauthApiContext,
@@ -132,6 +132,7 @@ export async function action({ request, context }: Route.ActionArgs) {
 export default function Login({ actionData, loaderData }: Route.ComponentProps) {
 	const { t } = useTranslation("auth")
 	const tk = useKeyTranslation()
+	const isNsKey = useIsNsKey()
 	const navigation = useNavigation()
 	const busy = navigation.state !== "idle"
 	const { redirectTo } = loaderData
