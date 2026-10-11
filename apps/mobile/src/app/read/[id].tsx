@@ -156,7 +156,8 @@ export default function Reader() {
 			noteSave.current?.dispose()
 			void editionSave.current?.flush()
 			editionSave.current?.dispose()
-			reading.current?.flush()
+			const saving = reading.current?.flush()
+			if (saving) void track(saving)
 			reading.current?.dispose()
 		}
 	}, [])

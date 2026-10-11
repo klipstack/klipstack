@@ -3,7 +3,7 @@ import ImageIO
 import UniformTypeIdentifiers
 
 /// What the widget shows, without the view.
-enum NextUp {
+enum NextUp: Sendable {
   case article(Article, image: Data?)
   /// Signed in, with nothing to read.
   case nothing
@@ -14,7 +14,7 @@ enum NextUp {
 }
 
 /// The few fields of an `ArticleSummary` (packages/api-contract/src/schemas.ts) the widget shows.
-struct Article: Codable, Equatable {
+struct Article: Codable, Equatable, Sendable {
   var id: String
   var title: String?
   var url: String
@@ -26,7 +26,7 @@ struct Article: Codable, Equatable {
   var savedAt: String
   var leadImage: LeadImage?
 
-  struct LeadImage: Codable, Equatable {
+  struct LeadImage: Codable, Equatable, Sendable {
     var url: String
     var downloadUrl: String?
   }
@@ -75,12 +75,23 @@ enum Klipstack {
     return URLSession(configuration: config)
   }()
 
+  /// One load at a time: the small and medium widgets reload together, and two renewals with the
+  /// same refresh token would spend it twice.
+  private static let loads = OneAtATime()
+
   /// Home's big card (homeSections in src/lib/home.ts): the ready article read last, or else the
   /// newest ready unread save. Kept for when the server can't be reached. `processing`: a newer
   /// save is still being read from its site, and will be next up once it's ready.
-  static func nextUp() async -> (nextUp: NextUp, processing: Bool) {
+  static func nextUp() async -> Loaded {
+    await loads.run(load)
+  }
+
+  typealias Loaded = (nextUp: NextUp, processing: Bool)
+
+  @Sendable private static func load() async -> Loaded {
     do {
-      guard var session = Keychain.read() else { throw KlipstackError.signedOut }
+      // A keychain that can't be read yet (before the first unlock) throws: the kept article shows.
+      guard var session = try Keychain.read() else { throw KlipstackError.signedOut }
       var (article, processing) = try await firstReady(
         session: &session, filter: "progress", sort: nil, limit: 12)
       if article == nil {
@@ -93,7 +104,10 @@ enum Klipstack {
         Cache.clear()
         return (.nothing, processing)
       }
-      if let kept = Cache.read(), kept.article.leadImage == article.leadImage {
+      // The picture kept with the same article, unless its download failed: that one goes again.
+      if let kept = Cache.read(), kept.article.leadImage == article.leadImage,
+        kept.image != nil || article.leadImage == nil
+      {
         Cache.write(article, image: kept.image)
         return (.article(article, image: kept.image), processing)
       }
@@ -181,14 +195,21 @@ enum Klipstack {
       guard image.url.hasPrefix("https://"), let url = URL(string: image.url) else { return nil }
       request = URLRequest(url: url)
     }
-    guard let (status, data) = try? await send(request), status == 200 else { return nil }
-    return thumbnail(data, maxPixels: 360)
+    // To a file, not memory, and refused when large: a widget has little memory.
+    guard let (file, response) = try? await http.download(for: request) else { return nil }
+    defer { try? FileManager.default.removeItem(at: file) }
+    let size = (try? file.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? .max
+    guard (response as? HTTPURLResponse)?.statusCode == 200, size <= maxImageBytes else {
+      return nil
+    }
+    return thumbnail(file, maxPixels: 360)
   }
 
-  /// A JPEG no wider or taller than `maxPixels`, decoded without the full image in memory: a
-  /// widget has little.
-  private static func thumbnail(_ data: Data, maxPixels: Int) -> Data? {
-    guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+  private static let maxImageBytes = 10 * 1024 * 1024
+
+  /// A JPEG no wider or taller than `maxPixels`, decoded without the full image in memory.
+  private static func thumbnail(_ file: URL, maxPixels: Int) -> Data? {
+    guard let source = CGImageSourceCreateWithURL(file as CFURL, nil),
       let image = CGImageSourceCreateThumbnailAtIndex(
         source, 0,
         [
@@ -227,11 +248,12 @@ enum Klipstack {
     guard status == 200 else {
       if json["error"] as? String == "invalid_grant" {
         // The app or the share extension may have renewed the session meanwhile, which spent this
-        // refresh token: use what it stored rather than signing all of them out.
-        if let stored = Keychain.read(), stored.refreshToken != session.refreshToken {
+        // refresh token: use what it stores. The widget never deletes the session: the app
+        // decides when it is gone, and signs out.
+        try? await Task.sleep(nanoseconds: 1_000_000_000)
+        if let stored = try? Keychain.read(), stored.refreshToken != session.refreshToken {
           return stored
         }
-        Keychain.delete()
         throw KlipstackError.signedOut
       }
       throw KlipstackError.unreachable
@@ -279,7 +301,7 @@ struct Session: Codable {
 }
 
 /// The app's session item: expo-secure-store's layout for key "session" in service "klipstack".
-/// As the share extension's.
+/// As the share extension's, which also deletes it; the widget only reads and renews it.
 enum Keychain {
   private static var query: [String: Any] {
     let key = Data("session".utf8)
@@ -292,13 +314,18 @@ enum Keychain {
     ]
   }
 
-  static func read() -> Session? {
+  /// The session; nil when there is none. Throws when the keychain can't be read now (before the
+  /// phone's first unlock), which is not signing out.
+  static func read() throws -> Session? {
     var q = query
     q[kSecMatchLimit as String] = kSecMatchLimitOne
     q[kSecReturnData as String] = true
     var item: CFTypeRef?
-    guard SecItemCopyMatching(q as CFDictionary, &item) == errSecSuccess, let data = item as? Data
-    else { return nil }
+    let status = SecItemCopyMatching(q as CFDictionary, &item)
+    if status == errSecItemNotFound { return nil }
+    guard status == errSecSuccess, let data = item as? Data else {
+      throw KlipstackError.unreachable
+    }
     return try? JSONDecoder().decode(Session.self, from: data)
   }
 
@@ -306,14 +333,11 @@ enum Keychain {
     guard let data = try? JSONEncoder().encode(session) else { return }
     SecItemUpdate(query as CFDictionary, [kSecValueData as String: data] as CFDictionary)
   }
-
-  static func delete() {
-    SecItemDelete(query as CFDictionary)
-  }
 }
 
 /// The article last shown and its picture, in the app group's caches, for when the server can't be
-/// reached. Gone on signing out.
+/// reached. The app deletes them on signing out (src/lib/widget.ts), and so does the widget when it
+/// finds no session.
 enum Cache {
   private static var dir: URL? {
     FileManager.default
@@ -343,5 +367,19 @@ enum Cache {
   static func clear() {
     guard let dir else { return }
     try? FileManager.default.removeItem(at: dir)
+  }
+}
+
+/// Runs one piece of work at a time: a caller while it runs gets the same result.
+actor OneAtATime {
+  private var running: Task<Klipstack.Loaded, Never>?
+
+  func run(_ work: @escaping @Sendable () async -> Klipstack.Loaded) async -> Klipstack.Loaded {
+    if let running { return await running.value }
+    let task = Task { await work() }
+    running = task
+    let result = await task.value
+    running = nil
+    return result
   }
 }

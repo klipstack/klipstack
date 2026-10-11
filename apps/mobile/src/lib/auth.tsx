@@ -6,7 +6,7 @@ import { CLIENT, DEFAULT_API_URL, DEV_API_TOKEN, USER_AGENT } from "./config"
 import { authorize, refresh, revoke, SignedOutError } from "./oauth"
 import { forgetOffline } from "./offline-download"
 import { clearSession, readSession, type Session, writeSession } from "./session-store"
-import { reloadNextUp } from "./widget"
+import { forgetNextUp, reloadNextUp } from "./widget"
 
 export type AuthState =
 	| { status: "loading" }
@@ -41,7 +41,7 @@ function createAuth(setState: (state: AuthState) => void) {
 	// clear doesn't keep anyone signed in. The widget stops showing the account's next article.
 	const forget = async () => {
 		await clearSession()
-		reloadNextUp()
+		forgetNextUp()
 		forgetOffline()
 		await Image.clearDiskCache().catch(() => false)
 		signedOut()

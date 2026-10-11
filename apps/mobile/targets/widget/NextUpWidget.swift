@@ -2,8 +2,8 @@ import SwiftUI
 import WidgetKit
 
 /// The home screen's "Next up": one article to read, as Home's big card picks it. No counts and no
-/// nudges; a tap opens the article in the reader. The app reloads it when Home loads and when it
-/// goes to the background, the share extension after a save (`kind` is the name they use).
+/// nudges; a tap opens the article in the reader. The app reloads it on its way to the background
+/// and on signing in or out, the share extension after a save (`kind` is the name they use).
 @main
 struct NextUpWidget: Widget {
   static let kind = "NextUp"

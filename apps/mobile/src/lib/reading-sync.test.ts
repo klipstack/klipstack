@@ -108,9 +108,15 @@ describe("createReadingSync", () => {
 		expect(sync.flush()).toBeUndefined()
 		sync.scrolled(0.4, false)
 		const saving = sync.flush()
-		expect(saving).toBeInstanceOf(Promise)
+		let settled = false
+		void saving?.then(() => {
+			settled = true
+		})
+		await Promise.resolve()
+		expect(settled).toBe(false)
 		land?.()
 		await saving
+		expect(settled).toBe(true)
 		expect(landed).toEqual([0.4])
 
 		sync.scrolled(0.5, false)
