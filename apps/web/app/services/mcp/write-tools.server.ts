@@ -91,7 +91,7 @@ export function registerWriteTools(server: McpServer, userId: string, canWrite: 
 		"update_articles",
 		{
 			title: "Update articles",
-			description: `Changes up to ${BATCH_MAX} articles at once: move them between library and archive, star or unstar them, mark them for the user's next edition (shortlisted; the edition is the public page of articles they share) or take that mark off, mark them finished (which also archives them) or unread, add tags or remove them. With a single article, it can also rename it. Pass only the fields to change; they apply to every article given. addTags makes the tags that do not exist yet, and names match whatever their case: call list_tags first and reuse the user's tags before making new ones. The result lists the updated articles and any ids not found.`,
+			description: `Changes up to ${BATCH_MAX} articles at once: move them between library and archive, star or unstar them, mark them for the user's next edition (shortlisted; the edition is the public page of articles they share; with a draft edition in progress, marking adds them to it) or take that mark off (and out of the draft), mark them finished (which also archives them) or unread, add tags or remove them. With a single article, it can also rename it. Pass only the fields to change; they apply to every article given. addTags makes the tags that do not exist yet, and names match whatever their case: call list_tags first and reuse the user's tags before making new ones. The result lists the updated articles and any ids not found.`,
 			inputSchema: z.object({
 				ids: articleIds,
 				location: z.enum(["inbox", "archive"]).optional(),

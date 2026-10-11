@@ -1,9 +1,12 @@
 import { BATCH_MAX } from "@klipstack/api-contract"
 import {
 	and,
+	asc,
 	db,
 	documents,
 	documentTags,
+	editionItems,
+	editions,
 	eq,
 	inArray,
 	readingCompletions,
@@ -13,6 +16,12 @@ import {
 } from "@klipstack/db"
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
 import { AppError } from "~/lib/app-error"
+import {
+	addItem,
+	createEdition as insertEdition,
+	publishEdition,
+	updateItem,
+} from "~/services/editions.server"
 import {
 	openArticle,
 	purgeArticles,
@@ -81,6 +90,7 @@ beforeAll(async () => {
 })
 
 beforeEach(async () => {
+	await db.delete(editions).where(eq(editions.userId, userId))
 	await db.delete(documents).where(eq(documents.userId, userId))
 	await db.delete(tags).where(eq(tags.userId, userId))
 	ids = await insert(userId, 3)
@@ -204,6 +214,75 @@ describe("keep", () => {
 		const refusal = updateArticles(userId, { ids: [a] })
 		await expect(refusal).rejects.toMatchObject({ code: "invalid_request" })
 		await expect(refusal).rejects.not.toThrow(/kept/)
+describe("the mark, with a draft in progress", () => {
+	const draftOf = () => insertEdition(userId, { locale: "en", timeZone: "Europe/Madrid" })
+	/** The draft's articles in order, and whether each includes its note. */
+	const itemsOf = async (editionId: string) =>
+		db
+			.select({
+				documentId: editionItems.documentId,
+				position: editionItems.position,
+				includeNote: editionItems.includeNote,
+			})
+			.from(editionItems)
+			.where(eq(editionItems.editionId, editionId))
+			.orderBy(asc(editionItems.position))
+
+	it("adds the articles to the end of the draft, once; undo takes them out with the mark", async () => {
+		const [a, b, c] = ids as [string, string, string]
+		const [noUrl] = await insert(userId, 1, { sourceUrl: "file:///local.pdf" })
+		const published = await draftOf()
+		await addItem(userId, published.id, a)
+		expect((await publishEdition(userId, published.id)).ok).toBe(true)
+		const draft = await draftOf()
+		await addItem(userId, draft.id, c)
+
+		const { changed, undo } = await updateArticles(userId, {
+			ids: [b, a, c, noUrl!],
+			shortlisted: true,
+		})
+		expect(changed.sort()).toEqual([a, b, c, noUrl].sort())
+		expect(await itemsOf(draft.id)).toEqual([
+			{ documentId: c, position: 0, includeNote: false },
+			{ documentId: b, position: 1, includeNote: false },
+			{ documentId: a, position: 2, includeNote: false },
+		])
+		// Without a web address it is only marked; a published edition is left alone.
+		expect((await read(noUrl!)).shortlistedAt).not.toBeNull()
+		expect((await itemsOf(published.id)).map((i) => i.documentId)).toEqual([a])
+
+		await undoChanges(userId, undo)
+		expect((await itemsOf(draft.id)).map((i) => i.documentId)).toEqual([c])
+		for (const id of [a, b, c, noUrl!]) expect((await read(id)).shortlistedAt).toBeNull()
+	})
+
+	it("unmarking takes the article out of the draft; undo puts it back as it was", async () => {
+		const [a, b, c] = ids as [string, string, string]
+		const draft = await draftOf()
+		await updateArticles(userId, { ids: [a, b, c], shortlisted: true })
+		const [, item] = await db
+			.select({ id: editionItems.id })
+			.from(editionItems)
+			.where(eq(editionItems.editionId, draft.id))
+			.orderBy(asc(editionItems.position))
+		await updateItem(userId, draft.id, item!.id, { note: "Mine.", includeNote: true })
+		const marked = (await read(b)).shortlistedAt
+
+		const { changed, undo } = await updateArticles(userId, { ids: [b], shortlisted: false })
+		expect(changed).toEqual([b])
+		expect(await itemsOf(draft.id)).toEqual([
+			{ documentId: a, position: 0, includeNote: false },
+			{ documentId: c, position: 1, includeNote: false },
+		])
+		expect((await read(b)).shortlistedAt).toBeNull()
+
+		await undoChanges(userId, undo)
+		expect(await itemsOf(draft.id)).toEqual([
+			{ documentId: a, position: 0, includeNote: false },
+			{ documentId: b, position: 1, includeNote: true },
+			{ documentId: c, position: 2, includeNote: false },
+		])
+		expect((await read(b)).shortlistedAt).toBe(marked)
 	})
 })
 

@@ -62,7 +62,7 @@ export const updateArticles = defineEndpoint({
 	method: "PATCH",
 	path: "/articles",
 	scope: "write",
-	summary: `Moves, stars, marks for the next edition, finishes or tags up to ${BATCH_MAX} articles, in one transaction. shortlisted: true marks them for the user's next edition; publishing an edition with them clears it. finished: true also archives; finished: false marks them unread. addTags makes the tags that do not exist yet; names match whatever their case.`,
+	summary: `Moves, stars, marks for the next edition, finishes or tags up to ${BATCH_MAX} articles, in one transaction. shortlisted: true marks them for the user's next edition, and adds those with a web address to the draft edition in progress, if there is one; false takes them out of it. Publishing an edition with them clears the mark. finished: true also archives; finished: false marks them unread. addTags makes the tags that do not exist yet; names match whatever their case.`,
 	body: z
 		.object({
 			ids: Ids,

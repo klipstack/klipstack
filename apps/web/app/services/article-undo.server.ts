@@ -10,6 +10,7 @@ import {
 	sql,
 	tags,
 } from "@klipstack/db"
+import { type DraftChange, revertDraftChange } from "./editions.server"
 
 export const DATES = [
 	"starredAt",
@@ -40,6 +41,8 @@ export interface UndoRecord {
 	removedLinks?: Array<{ documentId: string; tagId: string }>
 	/** Tags the change created. */
 	tags: string[]
+	/** What marking or unmarking did to the draft in progress. */
+	draft?: DraftChange
 }
 
 export const emptyUndo = (): UndoRecord => ({
@@ -54,6 +57,8 @@ export const emptyUndo = (): UndoRecord => ({
 export async function revertChanges(userId: string, undo: UndoRecord): Promise<string[]> {
 	return db.transaction(async (tx) => {
 		const touched = new Set<string>()
+		// The draft before the articles: the order every change takes its locks in.
+		if (undo.draft) await revertDraftChange(tx, userId, undo.draft)
 		for (const doc of undo.docs) {
 			const set: Record<string, unknown> = {}
 			for (const column of DATES)

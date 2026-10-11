@@ -33,6 +33,7 @@ import {
 	liveDuplicateOf,
 	restoreDocument,
 } from "~/services/documents.server"
+import { addToDraft, currentDraft, removeFromDraft } from "~/services/editions.server"
 import { changeTagsIn } from "~/services/tags.server"
 
 /**
@@ -165,6 +166,8 @@ const owned = (userId: string, ids: string[]) =>
  * Moves, stars, marks for the next edition, finishes, keeps, tags or renames the user's articles among `ids`, all in one transaction
  * with the rows locked: a refusal (too many tags) changes nothing. `changed` names the articles
  * that changed (the others were that way already); `undo` puts them back (`undoChanges`).
+ * With a draft in progress, the mark is being in it: marking adds the articles to it (those with a
+ * web address), unmarking takes them out.
  */
 export async function updateArticles(
 	userId: string,
@@ -173,6 +176,8 @@ export async function updateArticles(
 	const update = parseInput(ArticleUpdate, input)
 	const { ids } = update
 	return db.transaction(async (tx) => {
+		// The draft before the articles: the order every change takes its locks in.
+		const draft = update.shortlisted === undefined ? null : await currentDraft(tx, userId, true)
 		const rows = (await tx
 			.select(selection)
 			.from(documents)
@@ -193,6 +198,15 @@ export async function updateArticles(
 			const affected = rows.filter(plan.changes)
 			for (const row of affected) record(row, plan.columns)
 			if (affected.length > 0) await applyState(tx, userId, change, affected, undo)
+		}
+		if (draft && update.shortlisted !== undefined) {
+			// In the order given: the draft takes them in it.
+			const live = ids.filter((id) => found.has(id))
+			const done = update.shortlisted
+				? await addToDraft(tx, userId, draft, live)
+				: await removeFromDraft(tx, draft, live)
+			for (const id of done.documentIds) changed.add(id)
+			if (done.documentIds.length > 0) undo.draft = done.change
 		}
 		if (update.addTags || update.removeTags) {
 			const tags = await changeTagsIn(tx, {
