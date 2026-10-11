@@ -58,6 +58,7 @@ import { formatDay, timeZoneFromCookie } from "~/lib/date-groups"
 import { hasFeature } from "~/lib/features.server"
 import { supportsHighlightApi } from "~/lib/highlights.client"
 import { getLocale } from "~/lib/i18n.server"
+import { aiAllowance } from "~/lib/limits.server"
 import { extractLinkIds } from "~/lib/note-links"
 import { isUuid } from "~/lib/page-cursor"
 import { resolvePrefs } from "~/lib/prefs"
@@ -108,12 +109,13 @@ export async function loader({ context, request, params }: Route.LoaderArgs) {
 		aiModule.available &&
 		(await hasFeature(user.id, "ai"))
 	const versionId = result.document.currentVersionId
-	const [listed, kept] = aiEnabled
+	const [listed, kept, allowance] = aiEnabled
 		? await Promise.all([
 				listDocumentThreads(user.id, params.id, versionId),
 				versionId ? getBrief(user.id, versionId) : null,
+				aiAllowance(user.id),
 			])
-		: [[], null]
+		: [[], null, null]
 	const threads: AiThreadWithMessages[] = listed.map((thread) => ({
 		...threadView(thread),
 		messages: thread.messages.map(messageView),
@@ -146,7 +148,7 @@ export async function loader({ context, request, params }: Route.LoaderArgs) {
 		html,
 		prefs: resolvePrefs(user.prefs),
 		highlights,
-		ai: { enabled: aiEnabled, threads, brief },
+		ai: { enabled: aiEnabled, threads, brief, allowance },
 		savedLinks,
 		linkTargets,
 		backlinks,

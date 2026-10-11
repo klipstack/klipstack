@@ -2,9 +2,10 @@ import type { AiCitation } from "@klipstack/db"
 import { Copy, Loader2, RotateCcw, Trash2 } from "lucide-react"
 import { useLayoutEffect, useRef } from "react"
 import { useTranslation } from "react-i18next"
+import { useQuestionsLeft } from "~/hooks/use-ai-allowance"
 import { type AiCard, type AnswerStore, useWritten } from "~/hooks/use-ai-threads"
 import { AiAnswer, plainAnswer } from "./ai-answer"
-import { Failure, QuestionField } from "./ai-card"
+import { Failure, QuestionField, QuestionsLeft } from "./ai-card"
 import { tooltip } from "./tooltip-host"
 
 interface Props {
@@ -56,6 +57,7 @@ export function ChatPanel({
 	const last = chat?.messages.at(-1)
 	const lastAnswer = chat?.messages.findLast((m) => m.role === "assistant" && m.status === "done")
 	const cite = (n: number) => t("ai.citation", { n })
+	const { none } = useQuestionsLeft()
 
 	return (
 		<div className="flex min-h-0 flex-1 flex-col font-sans text-sm leading-snug" data-testid="chat">
@@ -111,12 +113,12 @@ export function ChatPanel({
 						</p>
 					)
 				) : null}
-				{chat?.failure && !busy ? <Failure code={chat.failure.code} /> : null}
+				{chat?.failure && !busy ? <Failure {...chat.failure} /> : null}
 			</div>
 			<div className="border-t border-border p-3">
 				{chat && !busy ? (
 					<div className="mb-1 flex items-center gap-0.5">
-						{last?.role === "user" || chat.failure || last?.role === "assistant" ? (
+						{(last?.role === "user" || chat.failure || last?.role === "assistant") && !none ? (
 							<button
 								type="button"
 								onClick={onRetry}
@@ -150,7 +152,7 @@ export function ChatPanel({
 					</div>
 				) : null}
 				{/* A question still waiting for its answer takes no new one; a refused one does. */}
-				{busy || (last?.role === "user" && !chat?.failure) ? null : (
+				{busy || (last?.role === "user" && !chat?.failure) || none ? null : (
 					<QuestionField
 						key={chat?.id ?? "new"}
 						placeholder={t("ai.chat.placeholder")}
@@ -159,6 +161,7 @@ export function ChatPanel({
 						autoFocus={active}
 					/>
 				)}
+				{busy ? null : <QuestionsLeft failed={chat?.failure?.code === "limit_reached"} />}
 			</div>
 		</div>
 	)

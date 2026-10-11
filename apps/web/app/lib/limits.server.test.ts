@@ -1,7 +1,7 @@
 import { db, eq, user as userTable } from "@klipstack/db"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import { env } from "./env.server"
-import { countMonthly, limitsFor, monthOf, usageOf } from "./limits.server"
+import { aiAllowance, countMonthly, limitsFor, monthOf, usageOf } from "./limits.server"
 
 const userId = `test-limits-${Date.now()}`
 
@@ -65,5 +65,21 @@ describe("limitsFor", () => {
 		} finally {
 			await db.delete(userTable).where(eq(userTable.id, adminId))
 		}
+	})
+})
+
+describe("aiAllowance", () => {
+	it("is this month's AI questions against the account's cap, and when they start over", async () => {
+		const before = await aiAllowance(userId)
+		expect(before).toEqual({
+			used: expect.any(Number),
+			max: env.LIMIT_AI_PER_MONTH,
+			resetsAt: monthOf().resetsAt.toISOString(),
+		})
+		expect(await db.transaction((tx) => countMonthly(tx, userId, "ai"))).toEqual({
+			used: before.used + 1,
+			max: env.LIMIT_AI_PER_MONTH,
+		})
+		expect((await aiAllowance(userId)).used).toBe(before.used + 1)
 	})
 })

@@ -11,6 +11,7 @@ import {
 	usageCounts,
 	user,
 } from "@klipstack/db"
+import type { AiAllowance } from "./ai-threads"
 import { AppError } from "./app-error"
 import { env } from "./env.server"
 
@@ -118,12 +119,36 @@ async function refuse(userId: string, limit: LimitName, max: number, resetsAt?: 
 /**
  * Counts one more `metric` this month in the caller's transaction, and refuses past the cap; the
  * refusal rolls the count back with the rest. The row lock makes two at once take turns, so they
- * cannot both take the last one.
+ * cannot both take the last one. Answers the count with this one, and the cap.
  */
-export async function countMonthly(tx: Tx, userId: string, metric: "saves" | "editions" | "ai") {
+export async function countMonthly(
+	tx: Tx,
+	userId: string,
+	metric: "saves" | "editions" | "ai",
+): Promise<{ used: number; max: number }> {
 	const max = (await limitsFor(userId))[metric]
-	if ((await bump(tx, userId, metric)) > max)
-		throw await refuse(userId, metric, max, monthOf().resetsAt)
+	const used = await bump(tx, userId, metric)
+	if (used > max) throw await refuse(userId, metric, max, monthOf().resetsAt)
+	return { used, max }
+}
+
+/** The account's AI questions this month against its cap, for the reader. */
+export async function aiAllowance(userId: string): Promise<AiAllowance> {
+	const { month, resetsAt } = monthOf()
+	const [limits, [row]] = await Promise.all([
+		limitsFor(userId),
+		db
+			.select({ count: usageCounts.count })
+			.from(usageCounts)
+			.where(
+				and(
+					eq(usageCounts.userId, userId),
+					eq(usageCounts.metric, "ai"),
+					eq(usageCounts.month, month),
+				),
+			),
+	])
+	return { used: row?.count ?? 0, max: limits.ai, resetsAt: resetsAt.toISOString() }
 }
 
 /**

@@ -51,6 +51,8 @@ export default defineConfig({
 			GITHUB_CLIENT_SECRET: "e2e-secret",
 			// AI answers come from a fixed fake model: no provider is called.
 			AI_FAKE: "1",
+			// The cap ai-reader.spec.ts counts down from, whatever the local `.env` says.
+			LIMIT_AI_PER_MONTH: "100",
 			NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ""} --import=${fileURLToPath(new URL("./e2e/email-transport.mjs", import.meta.url))}`,
 		},
 		url: `${baseURL}/healthcheck`,

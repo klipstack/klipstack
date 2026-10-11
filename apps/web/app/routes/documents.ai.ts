@@ -32,7 +32,7 @@ type Body = Record<string, unknown>
  * restore | brief | chat).
  *
  * ask, chat, follow-up and retry answer with a stream of server-sent events (`AiStreamEvent`): the
- * thread and the question, the answer's text and citations as they are written, then the answer
+ * thread, the question and where the account stands against its cap, the answer's text and citations as they are written, then the answer
  * as saved (its `status` says whether it failed). A refusal before anything is sent (the flag, the
  * cap, the rate limit, a passage not found) is the usual `{ok: false, error}`. delete and restore
  * answer `{ok: true, id}`. brief answers `{ok: true, brief}` when one is kept for the version, else a
@@ -131,6 +131,7 @@ function answerStream(asked: Asked): Response {
 				type: "start",
 				thread: threadView(asked.thread),
 				question: messageView(asked.question),
+				allowance: asked.allowance,
 			})
 			try {
 				for await (const event of asked.events) send(event)
@@ -169,6 +170,7 @@ function briefStream(briefing: Briefing): Response {
 					// The reader went away; a finished brief is still kept.
 				}
 			}
+			send({ type: "allowance", allowance: briefing.allowance })
 			try {
 				for await (const event of briefing.events) send(event)
 			} catch {

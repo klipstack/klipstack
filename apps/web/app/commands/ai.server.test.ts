@@ -16,7 +16,7 @@ vi.hoisted(() => {
 })
 
 const { env } = await import("~/lib/env.server")
-const { usageOf } = await import("~/lib/limits.server")
+const { monthOf, usageOf } = await import("~/lib/limits.server")
 const { listDocumentThreads } = await import("~/services/ai-threads.server")
 const {
 	AI_TEXT_MAX,
@@ -126,6 +126,12 @@ describe("askAboutPassage", () => {
 			inputTokens: 100,
 		})
 		expect((await usageOf(userId)).ai.used).toBe(before + 1)
+		// Where the account stands, for the card's "questions left".
+		expect(asked.allowance).toEqual({
+			used: before + 1,
+			max: env.LIMIT_AI_PER_MONTH,
+			resetsAt: monthOf().resetsAt.toISOString(),
+		})
 	})
 
 	it("takes one word, and needs a question to Ask", async () => {
@@ -318,6 +324,7 @@ describe("briefArticle", () => {
 		})
 		expect(events.some((e) => e.type === "citation")).toBe(true)
 		expect((await usageOf(userId)).ai.used).toBe(before + 1)
+		expect(first.allowance).toMatchObject({ used: before + 1, max: env.LIMIT_AI_PER_MONTH })
 
 		// Kept: the same brief, at no cost.
 		const again = await briefArticle(userId, id, en)

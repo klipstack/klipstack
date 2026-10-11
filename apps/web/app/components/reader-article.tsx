@@ -21,6 +21,7 @@ import {
 	isHighlightable,
 	SelectionWatcher,
 } from "~/components/selection-watcher"
+import { AiAllowanceContext, useAiAllowance } from "~/hooks/use-ai-allowance"
 import { type AiCard as Card, type AiPassage, useAiThreads } from "~/hooks/use-ai-threads"
 import { useArticleLinks } from "~/hooks/use-article-links"
 import { useBrief } from "~/hooks/use-brief"
@@ -135,8 +136,9 @@ export function ReaderArticle({
 	const { items } = highlights
 	const note = useNoteAutosave(doc.id, doc.note)
 	const aiEnabled = data.ai.enabled && supported
-	const ai = useAiThreads(doc.id, data.ai.threads)
-	const brief = useBrief(doc.id, doc.currentVersionId, data.ai.brief)
+	const allowance = useAiAllowance(data.ai.allowance)
+	const ai = useAiThreads(doc.id, data.ai.threads, allowance)
+	const brief = useBrief(doc.id, doc.currentVersionId, data.ai.brief, allowance)
 	const threadRangesRef = useRef<Map<string, Range>>(new Map())
 	const [hoveredThread, setHoveredThread] = useState<string | null>(null)
 
@@ -588,7 +590,7 @@ export function ReaderArticle({
 	)
 
 	return (
-		<>
+		<AiAllowanceContext.Provider value={allowance.allowance}>
 			<article
 				ref={articleRef}
 				className={cn("reader relative mx-auto px-4 pt-8 pb-32 sm:px-6", readerClassNames(prefs))}
@@ -793,6 +795,6 @@ export function ReaderArticle({
 					{t(`highlights.errors.${highlights.error}`)}
 				</output>
 			) : null}
-		</>
+		</AiAllowanceContext.Provider>
 	)
 }

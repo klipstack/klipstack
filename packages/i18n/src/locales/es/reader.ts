@@ -209,6 +209,9 @@ export default {
 		},
 		collapse: "Contraer",
 		thinking: "Pensando…",
+		left_one: "Te queda {{count}} pregunta este mes",
+		left_other: "Te quedan {{count}} preguntas este mes",
+		noneLeft: "No te quedan preguntas a la IA este mes",
 		failed: "No se pudo responder. Inténtalo de nuevo.",
 		refused: "No se pudo responder esta pregunta.",
 		citation: "Pasaje {{n}} del artículo",
@@ -221,6 +224,8 @@ export default {
 		deleted: "Respuesta eliminada",
 		errors: {
 			limit_reached: "Ya hiciste todas las preguntas que permite este mes. Se reinicia el día 1.",
+			limit_reached_on:
+				"Ya hiciste todas las preguntas que permite este mes. Se reinicia el {{date}}.",
 			rate_limited: "Demasiadas preguntas seguidas. Espera unos minutos e inténtalo de nuevo.",
 			network: "No se pudo conectar con Klipstack. Revisa tu conexión e inténtalo de nuevo.",
 			no_match: "Ese pasaje ya no está en el artículo.",

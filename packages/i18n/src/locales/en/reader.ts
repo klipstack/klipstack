@@ -205,6 +205,9 @@ export default {
 		},
 		collapse: "Collapse",
 		thinking: "Thinking…",
+		left_one: "{{count}} question left this month",
+		left_other: "{{count}} questions left this month",
+		noneLeft: "No AI questions left this month",
 		failed: "Couldn't answer. Try again.",
 		refused: "This question couldn't be answered.",
 		citation: "Passage {{n}} of the article",
@@ -218,6 +221,8 @@ export default {
 		errors: {
 			limit_reached:
 				"You've asked as many questions as this month allows. It starts over on the 1st.",
+			limit_reached_on:
+				"You've asked as many questions as this month allows. It starts over on {{date}}.",
 			rate_limited: "Too many questions at once. Wait a few minutes and try again.",
 			network: "Klipstack couldn't be reached. Check your connection and try again.",
 			no_match: "That passage isn't in the article anymore.",
