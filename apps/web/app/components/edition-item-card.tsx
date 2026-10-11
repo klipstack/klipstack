@@ -1,7 +1,7 @@
 import { NOTE_MAX } from "@klipstack/api-contract/names"
 import type { EditionItem, EditionItemHighlight } from "@klipstack/db"
 import type { TFunction } from "i18next"
-import { ArrowDown, ArrowUp, RefreshCw, Trash2 } from "lucide-react"
+import { ArrowDown, ArrowUp, BookOpen, RefreshCw, TextSearch, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { type FetcherWithComponents, useFetcher, useFetchers } from "react-router"
@@ -32,6 +32,7 @@ type HighlightChange = { highlightId: string; included?: boolean; note?: string 
 type ItemPatch = {
 	intent?: string
 	itemId?: string
+	included?: boolean
 	includeNote?: boolean
 	highlights?: HighlightChange[]
 }
@@ -56,7 +57,8 @@ function useChoice(saved: boolean, fetcher: FetcherWithComponents<IntentResult>)
 
 /**
  * One article of the edition: what the public page will show, and what the user chooses to add
- * to it. Choices save at once; typed text saves itself.
+ * to it. Choices save at once; typed text saves itself. Unticked, the article is set aside: it
+ * keeps its place, folded to one dimmed line, and the page leaves it out.
  */
 export function EditionItemCard({
 	editionId,
@@ -64,18 +66,29 @@ export function EditionItemCard({
 	first,
 	last,
 	save,
+	reading,
+	away,
+	onRead,
 }: {
 	editionId: string
 	item: EditionItem
 	first: boolean
 	last: boolean
 	save: EditionSave
+	/** Its article is open beside the editor. */
+	reading: boolean
+	/** Another article is open: this card waits, dimmed and out of reach, until it closes. */
+	away: boolean
+	/** Opens its article beside the editor, at a highlight if one is given. */
+	onRead: (highlightId: string | null) => void
 }) {
 	const { t } = useTranslation("editions")
 	// Moves, refresh and remove. Each choice (the note, a highlight) has a fetcher of its own: a new
 	// submission cancels the one in flight, and ticking two highlights quickly must keep both.
 	const fetcher = useFetcher<IntentResult>()
 	const noteChoice = useFetcher<IntentResult>()
+	const inclusion = useFetcher<IntentResult>()
+	const [included, chooseIncluded] = useChoice(item.included, inclusion)
 	// A refresh replaces the note copies: the text fields start again from the new ones. Each answer
 	// counts once, and only the answer to a refresh.
 	const [copy, setCopy] = useState(0)
@@ -105,10 +118,8 @@ export function EditionItemCard({
 			.findLast((c) => c.highlightId === h.highlightId && c.included !== undefined)
 		return change?.included === undefined ? h : { ...h, included: change.included }
 	})
-	const usage = quoteUsage(includedQuotes(highlights), item.wordCount)
-	const over = quoteProblem(includedQuotes(highlights), item.wordCount)
 	const failed = (f: typeof fetcher) => (f.state === "idle" && f.data?.ok === false ? f.data : null)
-	const error = failed(fetcher) ?? failed(noteChoice)
+	const error = failed(fetcher) ?? failed(noteChoice) ?? failed(inclusion)
 	const [removing, setRemoving] = useState(false)
 	const busy = fetcher.state !== "idle" || removing
 
@@ -138,12 +149,34 @@ export function EditionItemCard({
 	return (
 		<li
 			data-testid="edition-item"
-			data-edition-card
-			className="rounded-xl border border-border bg-card p-4"
+			// Set aside, it has nothing in the preview for the preview to follow.
+			data-edition-card={included ? "" : undefined}
+			data-set-aside={included ? undefined : ""}
+			inert={away}
+			className={cn(
+				"rounded-xl border border-border p-4 transition-opacity",
+				included ? "bg-card" : "border-dashed py-2",
+				reading && "ring-2 ring-accent/50",
+				away && "opacity-40",
+			)}
 		>
 			{/* On a phone the buttons wrap under the text, rather than squeeze it. */}
 			<div className="flex flex-wrap gap-3">
-				{item.leadImageUrl ? (
+				<input
+					type="checkbox"
+					checked={included}
+					aria-label={t("item.include")}
+					{...tooltip(t("item.include"))}
+					onChange={(e) => {
+						chooseIncluded(e.target.checked)
+						void inclusion.submit(
+							{ intent: "update-item", itemId: item.id, included: e.target.checked },
+							post(editionId),
+						)
+					}}
+					className={cn("size-4 shrink-0 accent-accent", included ? "mt-1" : "mt-2.5")}
+				/>
+				{included && item.leadImageUrl ? (
 					<img
 						src={item.leadImageUrl}
 						alt=""
@@ -152,16 +185,40 @@ export function EditionItemCard({
 						className="relative size-16 shrink-0 rounded-md bg-muted object-cover before:absolute before:inset-0 before:bg-muted"
 					/>
 				) : null}
-				<div className="min-w-0 flex-1 basis-48">
-					<p className="font-medium leading-snug">{item.title}</p>
-					<p className="mt-0.5 truncate text-sm text-muted-fg">
-						{[item.siteName, item.author].filter(Boolean).join(" · ") || item.url}
-					</p>
-					{item.description ? (
-						<p className="mt-1 line-clamp-2 text-sm text-muted-fg">{item.description}</p>
-					) : null}
-				</div>
+				{included ? (
+					<div className="min-w-0 flex-1 basis-48">
+						<p className="font-medium leading-snug">{item.title}</p>
+						<p className="mt-0.5 truncate text-sm text-muted-fg">
+							{[item.siteName, item.author].filter(Boolean).join(" · ") || item.url}
+						</p>
+						{item.description ? (
+							<p className="mt-1 line-clamp-2 text-sm text-muted-fg">{item.description}</p>
+						) : null}
+					</div>
+				) : (
+					<div
+						className="min-w-0 flex-1 basis-48 self-center opacity-60"
+						{...tooltip(t("item.setAsideDetail"))}
+					>
+						<p className="truncate text-sm font-medium">{item.title}</p>
+						<p className="truncate text-xs text-muted-fg">
+							{[t("item.setAside"), item.siteName ?? item.url].join(" · ")}
+						</p>
+					</div>
+				)}
 				<div className="ml-auto flex shrink-0 items-start gap-1">
+					<Button
+						variant="ghost"
+						size="icon"
+						disabled={!item.documentId}
+						aria-label={t("item.read")}
+						aria-pressed={reading}
+						{...tooltip(item.documentId ? t("item.read") : t("item.refreshGone"))}
+						onClick={() => onRead(null)}
+						className={cn(reading && "bg-muted text-fg")}
+					>
+						<BookOpen className="size-4" aria-hidden />
+					</Button>
 					<Button
 						variant="ghost"
 						size="icon"
@@ -207,6 +264,58 @@ export function EditionItemCard({
 				</div>
 			</div>
 
+			{included ? (
+				<ItemChoices
+					editionId={editionId}
+					item={item}
+					copy={copy}
+					includeNote={includeNote}
+					chooseIncludeNote={chooseIncludeNote}
+					noteChoice={noteChoice}
+					highlights={highlights}
+					save={save}
+					onShow={item.documentId ? onRead : null}
+				/>
+			) : null}
+
+			{error ? (
+				<p role="alert" className="mt-3 text-sm text-danger">
+					{refusalText(t, error.error)}
+				</p>
+			) : null}
+		</li>
+	)
+}
+
+/** What an included article shows on the page: its note, and the highlights quoted. */
+function ItemChoices({
+	editionId,
+	item,
+	copy,
+	includeNote,
+	chooseIncludeNote,
+	noteChoice,
+	highlights,
+	save,
+	onShow,
+}: {
+	editionId: string
+	item: EditionItem
+	/** Bumped by a refresh, which replaces the note copies. */
+	copy: number
+	includeNote: boolean
+	chooseIncludeNote: (value: boolean) => void
+	noteChoice: FetcherWithComponents<IntentResult>
+	highlights: EditionItemHighlight[]
+	save: EditionSave
+	/** Shows a highlight in the article beside the editor; null when there is no article. */
+	onShow: ((highlightId: string) => void) | null
+}) {
+	const { t } = useTranslation("editions")
+	const usage = quoteUsage(includedQuotes(highlights), item.wordCount)
+	const over = quoteProblem(includedQuotes(highlights), item.wordCount)
+	return (
+		<>
 			{/* Without a note from the library, one can be written here. */}
 			<div className="mt-4 border-t border-border pt-3">
 				<label className="flex items-center gap-2 text-sm font-medium">
@@ -255,6 +364,7 @@ export function EditionItemCard({
 								editionId={editionId}
 								itemId={item.id}
 								highlight={highlight}
+								onShow={onShow}
 								blocked={
 									highlight.included
 										? null
@@ -280,13 +390,7 @@ export function EditionItemCard({
 					</p>
 				) : null}
 			</div>
-
-			{error ? (
-				<p role="alert" className="mt-3 text-sm text-danger">
-					{refusalText(t, error.error)}
-				</p>
-			) : null}
-		</li>
+		</>
 	)
 }
 
@@ -295,12 +399,14 @@ function HighlightChoice({
 	editionId,
 	itemId,
 	highlight,
+	onShow,
 	blocked,
 	save,
 }: {
 	editionId: string
 	itemId: string
 	highlight: EditionItemHighlight
+	onShow: ((highlightId: string) => void) | null
 	blocked: ReturnType<typeof quoteProblem>
 	save: (text: string, keepalive: boolean) => Promise<void>
 }) {
@@ -311,31 +417,48 @@ function HighlightChoice({
 	const refused = fetcher.state === "idle" && fetcher.data?.ok === false ? fetcher.data : null
 	return (
 		<li>
-			<label
-				className={cn("flex items-start gap-2", blocked && "cursor-not-allowed opacity-60")}
-				{...(blocked ? tooltip(t(`item.${blocked}`)) : {})}
-			>
-				<input
-					type="checkbox"
-					checked={included}
-					disabled={Boolean(blocked)}
-					onChange={(e) => {
-						choose(e.target.checked)
-						void fetcher.submit(
-							{
-								intent: "update-item",
-								itemId,
-								highlights: [{ highlightId: highlight.highlightId, included: e.target.checked }],
-							},
-							post(editionId),
-						)
-					}}
-					className="mt-1 size-4 shrink-0 accent-accent"
-				/>
-				<blockquote className="border-l-2 border-accent/60 pl-3 font-serif text-sm leading-relaxed">
-					{highlight.exact}
-				</blockquote>
-			</label>
+			<div className="flex items-start gap-1">
+				<label
+					className={cn(
+						"flex flex-1 items-start gap-2",
+						blocked && "cursor-not-allowed opacity-60",
+					)}
+					{...(blocked ? tooltip(t(`item.${blocked}`)) : {})}
+				>
+					<input
+						type="checkbox"
+						checked={included}
+						disabled={Boolean(blocked)}
+						onChange={(e) => {
+							choose(e.target.checked)
+							void fetcher.submit(
+								{
+									intent: "update-item",
+									itemId,
+									highlights: [{ highlightId: highlight.highlightId, included: e.target.checked }],
+								},
+								post(editionId),
+							)
+						}}
+						className="mt-1 size-4 shrink-0 accent-accent"
+					/>
+					<blockquote className="border-l-2 border-accent/60 pl-3 font-serif text-sm leading-relaxed">
+						{highlight.exact}
+					</blockquote>
+				</label>
+				{onShow ? (
+					<Button
+						variant="ghost"
+						size="icon"
+						aria-label={t("item.showInArticle")}
+						{...tooltip(t("item.showInArticle"))}
+						onClick={() => onShow(highlight.highlightId)}
+						className="-mt-1.5 shrink-0 text-muted-fg"
+					>
+						<TextSearch className="size-4" aria-hidden />
+					</Button>
+				) : null}
+			</div>
 			{refused ? (
 				<p role="alert" className="mt-1 ml-6 text-xs text-danger">
 					{refusalText(t, refused.error)}

@@ -100,6 +100,8 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 /** The draft in progress as the desk shows it: its first articles, its age, and what blocks it. */
 async function draftDesk(userId: string, id: string, ago: (days: number) => string) {
 	const { edition, items } = await getEdition(userId, id)
+	// Set aside, an article is not one of the draft's.
+	const going = items.filter((item) => item.included)
 	const days = (date: Date) => Math.max(0, Math.floor((Date.now() - date.getTime()) / DAY_MS))
 	const started = ago(days(edition.createdAt))
 	const edited = ago(days(edition.updatedAt))
@@ -109,8 +111,8 @@ async function draftDesk(userId: string, id: string, ago: (days: number) => stri
 		started,
 		// Edited when it was started, as the page says it, says nothing more.
 		edited: edited === started ? null : edited,
-		itemCount: items.length,
-		items: items.slice(0, DESK_ITEMS).map((item) => ({
+		itemCount: going.length,
+		items: going.slice(0, DESK_ITEMS).map((item) => ({
 			id: item.id,
 			title: item.title,
 			siteName: item.siteName,

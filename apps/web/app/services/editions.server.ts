@@ -54,8 +54,11 @@ import {
 	publishProblems,
 	quoteProblem,
 } from "~/lib/editions"
+import { hasFeature } from "~/lib/features.server"
 import { countMonthly } from "~/lib/limits.server"
 import { extractLinkIds, rewriteNoteLinks } from "~/lib/note-links"
+import { getBrief } from "./ai-threads.server"
+import { getDocumentForReader } from "./documents.server"
 import { listDocumentHighlights } from "./highlights.server"
 
 const EDITION_REFUSALS = {
@@ -194,7 +197,8 @@ export async function listEditions(userId: string) {
 			...editionColumns,
 			publishedTitle,
 			// Plain SQL: Drizzle leaves the table out of column names here, and "id" would be the item's.
-			itemCount: sql<number>`(select count(*)::int from edition_items i where i.edition_id = editions.id)`,
+			// Set aside, an article is not one of the edition's.
+			itemCount: sql<number>`(select count(*)::int from edition_items i where i.edition_id = editions.id and i.included)`,
 		})
 		.from(editions)
 		.where(eq(editions.userId, userId))
@@ -330,9 +334,11 @@ export async function pickerDocuments(userId: string, editionId: string): Promis
 			exists (
 				select 1 from edition_items i where i.edition_id = ${editionId} and i.document_id = d.id
 			) as added,
+			-- Set aside in a published edition, an article was not shared.
 			exists (
 				select 1 from edition_items i join editions e on e.id = i.edition_id
 				where i.document_id = d.id and e.id <> ${editionId} and e.published_at is not null
+					and i.included
 			) as published
 		from documents d
 		where d.user_id = ${userId} and d.deleted_at is null and (
@@ -439,11 +445,12 @@ export async function editionNudge(userId: string, now = new Date()): Promise<Ed
 	return { ...signals, reason: snoozed ? null : nudgeReason(signals) }
 }
 
+/** The draft's articles going out: those set aside don't count. */
 async function countItems(editionId: string): Promise<number> {
 	const [row] = await db
 		.select({ n: sql<number>`count(*)::int` })
 		.from(editionItems)
-		.where(eq(editionItems.editionId, editionId))
+		.where(and(eq(editionItems.editionId, editionId), eq(editionItems.included, true)))
 	return row?.n ?? 0
 }
 
@@ -989,6 +996,8 @@ export async function revertDraftChange(
 }
 
 export interface ItemPatch {
+	/** False sets the item aside. */
+	included?: boolean
 	includeNote?: boolean
 	/** The edition's copy. The library's note stays as it is. */
 	note?: string | null
@@ -1036,11 +1045,13 @@ export async function updateItem(
 				})
 		}
 		const next = {
+			included: patch.included ?? item.included,
 			includeNote: patch.includeNote ?? item.includeNote,
 			note: note === undefined ? item.note : note,
 			highlights,
 		}
 		if (
+			next.included === item.included &&
 			next.includeNote === item.includeNote &&
 			next.note === item.note &&
 			JSON.stringify(next.highlights) === JSON.stringify(item.highlights)
@@ -1218,6 +1229,70 @@ export async function refreshItem(
 	})
 }
 
+/** The library's copy of an item's article, as the editor's article pane shows it. */
+export interface ItemArticle {
+	documentId: string
+	title: string
+	author: string | null
+	siteName: string | null
+	url: string
+	readingMinutes: number | null
+	/** The extracted text, sanitized when it was stored. Null until extraction gives one. */
+	html: string | null
+	versionId: string | null
+	/** The user's highlights, as the reader paints them. */
+	highlights: Array<{
+		id: string
+		startOffset: number
+		endOffset: number
+		note: string | null
+		orphaned: boolean
+		versionId: string
+	}>
+	/** The brief the user asked for while reading, if any. The pane never writes one. */
+	brief: string | null
+}
+
+/**
+ * The article an item came from, to read without leaving the editor. Read only. An item whose
+ * article is in the trash or deleted has none to read (`document_gone`).
+ */
+export async function itemArticle(
+	userId: string,
+	editionId: string,
+	itemId: string,
+): Promise<ItemArticle> {
+	await findEdition(userId, editionId)
+	const { documentId } = await findItem(db, editionId, itemId)
+	const found = documentId ? await getDocumentForReader(userId, documentId) : null
+	if (!found) throw refuse("document_gone")
+	const { document: doc, version } = found
+	const url = [doc.canonicalUrl, doc.sourceUrl].find(isHttpUrl) ?? doc.sourceUrl
+	const [highlights, brief] = await Promise.all([
+		listDocumentHighlights(userId, doc.id),
+		version && (await hasFeature(userId, "ai")) ? getBrief(userId, version.id) : null,
+	])
+	return {
+		documentId: doc.id,
+		title: doc.title?.trim() || url,
+		author: doc.author,
+		siteName: doc.siteName,
+		url,
+		readingMinutes: doc.readingMinutes,
+		html: version?.html ?? null,
+		versionId: version?.id ?? null,
+		highlights: highlights.map((h) => ({
+			id: h.id,
+			startOffset: h.startOffset,
+			endOffset: h.endOffset,
+			note: h.note,
+			orphaned: h.orphaned,
+			versionId: h.versionId,
+		})),
+		brief: brief?.text ?? null,
+	}
+}
+
 const snapshotSchema = z.object({
 	v: z.literal(1),
 	/** Null for none: the page shows the date. Snapshots from before 2026-10 also hold a period. */
@@ -1250,7 +1325,10 @@ export function parseSnapshot(value: unknown): EditionSnapshot | null {
 	return parsed.success ? parsed.data : null
 }
 
-/** The public page's data from a working copy. Only included notes and highlights go in. */
+/**
+ * The public page's data from a working copy. Only the items, notes and highlights included go in:
+ * none set aside.
+ */
 export function buildSnapshot(
 	edition: Pick<EditionRow, "title" | "intro" | "locale">,
 	items: readonly EditionItem[],
@@ -1262,20 +1340,22 @@ export function buildSnapshot(
 		intro: edition.intro,
 		authorName,
 		locale: edition.locale,
-		items: items.map((item) => ({
-			url: item.url,
-			title: item.title,
-			author: item.author,
-			siteName: item.siteName,
-			description: item.description,
-			leadImageUrl: item.leadImageUrl,
-			readingMinutes: item.readingMinutes,
-			readOn: item.readOn,
-			note: item.includeNote ? item.note : null,
-			highlights: item.highlights
-				.filter((h) => h.included)
-				.map(({ exact, note }) => ({ exact, note })),
-		})),
+		items: items
+			.filter((item) => item.included)
+			.map((item) => ({
+				url: item.url,
+				title: item.title,
+				author: item.author,
+				siteName: item.siteName,
+				description: item.description,
+				leadImageUrl: item.leadImageUrl,
+				readingMinutes: item.readingMinutes,
+				readOn: item.readOn,
+				note: item.includeNote ? item.note : null,
+				highlights: item.highlights
+					.filter((h) => h.included)
+					.map(({ exact, note }) => ({ exact, note })),
+			})),
 	}
 }
 
@@ -1336,8 +1416,10 @@ export async function publishEdition(userId: string, id: string): Promise<Publis
 			.select({ name: userTable.name })
 			.from(userTable)
 			.where(eq(userTable.id, userId))
-		// Shared now: off the shortlist.
-		const shared = items.flatMap((item) => (item.documentId ? [item.documentId] : []))
+		// Shared now: off the shortlist. Set aside, it stays marked for an edition to come.
+		const shared = items.flatMap((item) =>
+			item.documentId && item.included ? [item.documentId] : [],
+		)
 		if (shared.length > 0)
 			await tx
 				.update(documents)
@@ -1494,6 +1576,8 @@ export interface ExportedEdition {
 		readOn: string | null
 		note: string | null
 		includeNote: boolean
+		/** False when set aside: in the working copy, not on the public page. */
+		included: boolean
 		highlights: Array<{
 			highlightId: string
 			exact: string
@@ -1551,6 +1635,7 @@ export async function exportEditions(userId: string): Promise<ExportedEdition[]>
 				readOn: item.readOn,
 				note: item.note,
 				includeNote: item.includeNote,
+				included: item.included,
 				highlights: item.highlights.map(({ highlightId, exact, note, included }) => ({
 					highlightId,
 					exact,

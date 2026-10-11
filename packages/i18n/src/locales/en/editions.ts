@@ -9,6 +9,9 @@ export default {
 	},
 	articles_one: "{{count}} article",
 	articles_other: "{{count}} articles",
+	/** Beside the count of articles: those set aside, which the page leaves out. */
+	setAside_one: "{{count}} set aside",
+	setAside_other: "{{count}} set aside",
 	changes: "Unpublished changes",
 	editor: {
 		back: "Editions",
@@ -43,11 +46,17 @@ export default {
 		noItems: "No articles yet. Add some you marked, read lately, or find in your library.",
 	},
 	problems: {
-		no_items: "Add at least one article.",
+		no_items: "Include at least one article.",
 		url: "“{{title}}” has no web address.",
 		quotes: "“{{title}}” quotes more than the limit.",
 	},
 	item: {
+		read: "Read the article",
+		showInArticle: "Show in the article",
+		/** The checkbox on each article: off sets it aside, in its place, out of the page. */
+		include: "Include in this edition",
+		setAside: "Set aside",
+		setAsideDetail: "Left out of the page. Tick it to put it back.",
 		removed: "Removed from this edition",
 		removedUnmarked: "Removed, and unmarked for your next edition",
 		undo: "Undo",
@@ -218,6 +227,18 @@ export default {
 			abuse: "harassment or hate",
 			other: "breaking Klipstack's rules",
 		},
+	},
+	/** The article an item came from, read beside the editor: the library's copy. */
+	article: {
+		pane: "Article",
+		close: "Close the article",
+		loading: "Loading the article…",
+		gone: "This article is no longer in your library.",
+		failed: "The article could not be loaded.",
+		noText: "Klipstack has no text for this article yet.",
+		original: "Open the original",
+		brief: "Brief",
+		highlightMissing: "This highlight is no longer in the article’s text.",
 	},
 	preview: {
 		banner: "Preview. Not published.",

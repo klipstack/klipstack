@@ -1,0 +1,1 @@
+ALTER TABLE "edition_items" ADD COLUMN "included" boolean DEFAULT true NOT NULL;

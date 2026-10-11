@@ -44,6 +44,8 @@ const EditionChange = z.discriminatedUnion("intent", [
 	z.object({
 		intent: z.literal("update-item"),
 		itemId: id,
+		/** False sets the item aside: out of the public page, still in the working copy. */
+		included: z.boolean().optional(),
 		includeNote: z.boolean().optional(),
 		note: text.nullable().optional(),
 		highlights: z

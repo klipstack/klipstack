@@ -1,6 +1,14 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { db, documents, editionItems, editions, eq, highlights } from "@klipstack/db"
+import {
+	db,
+	documents,
+	documentVersions,
+	editionItems,
+	editions,
+	eq,
+	highlights,
+} from "@klipstack/db"
 import { expect, type Page, test } from "@playwright/test"
 import { signupUser, waitForHydration, waitForSidebarPrefetch } from "./helpers"
 import { insertArticle } from "./seed"
@@ -467,4 +475,128 @@ test("a note written at the end of an article goes into the next edition, in the
 	const note = visitor.getByTestId("edition-item-note")
 	await expect(note).toContainText(WHY)
 	await expect(visitor.getByText("Only for me.")).toHaveCount(0)
+})
+
+test("an article set aside stays in place, out of the page; its article reads beside the editor", async ({
+	page,
+}) => {
+	test.setTimeout(90_000)
+	await page.setViewportSize({ width: 1440, height: 900 })
+	const email = await signupUser(page, "Recaller")
+	const owner = await db.query.user.findFirst({ where: (u, { eq }) => eq(u.email, email) })
+	// Long enough that the quote is far below the top.
+	const filler = Array.from({ length: 40 }, (_, i) => `<p>Paragraph ${i} of what came first.</p>`)
+	const quote = "The part worth remembering."
+	const recallId = await insertArticle(owner!.id, "Recall", `${filler.join("")}<p>${quote}</p>`)
+	const asideId = await insertArticle(owner!.id, "Aside", "<p>Not this time.</p>")
+	const version = await db.query.documentVersions.findFirst({
+		where: eq(documentVersions.documentId, recallId),
+	})
+	const text = filler.map((p) => p.replace(/<\/?p>/g, "")).join("") + quote
+	await db.insert(highlights).values({
+		documentId: recallId,
+		userId: owner!.id,
+		versionId: version!.id,
+		startOffset: text.indexOf(quote),
+		endOffset: text.indexOf(quote) + quote.length,
+		exact: quote,
+	})
+	for (const id of [recallId, asideId])
+		await db.update(documents).set({ shortlistedAt: new Date() }).where(eq(documents.id, id))
+
+	await page.goto("/editions")
+	await waitForHydration(page)
+	await page.getByRole("button", { name: "Start the edition with these 2" }).click()
+	await expect(page).toHaveURL(/\/editions\/[0-9a-f-]{36}$/)
+	const editionId = page.url().split("/").pop()!
+	await waitForHydration(page)
+	const items = page.getByTestId("edition-item")
+	await expect(items).toHaveCount(2)
+	const preview = page.getByRole("complementary", { name: "Preview" })
+	await expect(preview.getByRole("heading", { name: "Aside" })).toBeVisible()
+
+	// Set aside: folded in its place, out of the preview, and so after a reload.
+	const aside = items.filter({ hasText: "Aside" })
+	await Promise.all([
+		editorAction(page, editionId),
+		aside.getByRole("checkbox", { name: "Include in this edition" }).uncheck(),
+	])
+	await expect(aside).toHaveAttribute("data-set-aside", "")
+	await expect(aside).toContainText("Set aside")
+	await expect(page.getByRole("heading", { name: "1 article · 1 set aside" })).toBeVisible()
+	await expect(preview.getByRole("heading", { name: "Aside" })).toHaveCount(0)
+	await page.reload()
+	await waitForHydration(page)
+	await expect(aside.getByRole("checkbox", { name: "Include in this edition" })).not.toBeChecked()
+
+	// The quote, shown in the article beside the editor: scrolled to and marked.
+	const recall = items.filter({ hasText: "Recall" })
+	await recall.getByRole("button", { name: "Show in the article" }).click()
+	const pane = page.getByRole("complementary", { name: "Article" })
+	const article = pane.getByTestId("edition-article")
+	await expect(article.getByRole("heading", { name: "Recall" })).toBeVisible()
+	await expect(article.getByText(quote)).toBeInViewport()
+	await expect(article.getByText("Paragraph 0 of what came first.")).not.toBeInViewport()
+	expect(await page.evaluate(() => CSS.highlights.get("klip-hl")?.size)).toBe(1)
+
+	// While it is open, only its card is within reach: the rest of the editor waits.
+	const inert = (locator: typeof recall) => locator.evaluate((el) => el.closest("[inert]") !== null)
+	expect(await inert(page.getByTestId("edition-editor-top"))).toBe(true)
+	expect(await inert(aside)).toBe(true)
+	expect(await inert(recall)).toBe(false)
+	// Its quote can be picked beside the article, which stays open.
+	await Promise.all([
+		editorAction(page, editionId),
+		recall.getByRole("checkbox", { name: quote }).check(),
+	])
+	await expect(article).toBeVisible()
+
+	// Escape closes it, wherever the focus is; the focus goes back where it was, and the editor is
+	// within reach again.
+	await page.keyboard.press("Escape")
+	await expect(pane).toHaveCount(0)
+	await expect(recall.getByRole("button", { name: "Show in the article" })).toBeFocused()
+	expect(await inert(page.getByTestId("edition-editor-top"))).toBe(false)
+	expect(await inert(aside)).toBe(false)
+	await expect(page.getByRole("complementary", { name: "Preview" })).toContainText(quote)
+
+	// Read from the top; Read again closes it.
+	await recall.getByRole("button", { name: "Read the article" }).click()
+	await expect(article.getByText("Paragraph 0 of what came first.")).toBeInViewport()
+	await recall.getByRole("button", { name: "Read the article" }).click()
+	await expect(pane).toHaveCount(0)
+	// Opened at a quote, Read closes it too.
+	await recall.getByRole("button", { name: "Show in the article" }).click()
+	await expect(article).toBeVisible()
+	await recall.getByRole("button", { name: "Read the article" }).click()
+	await expect(pane).toHaveCount(0)
+
+	// Its article removed, the pane closes; Undo brings the article back, not the pane.
+	await recall.getByRole("button", { name: "Read the article" }).click()
+	await expect(article).toBeVisible()
+	await recall.getByRole("button", { name: "Remove" }).click()
+	await expect(pane).toHaveCount(0)
+	await page
+		.getByRole("status")
+		.filter({ hasText: "Removed" })
+		.getByRole("button", { name: "Undo" })
+		.click()
+	await expect(recall).toBeVisible()
+	await expect(pane).toHaveCount(0)
+	expect(await inert(page.getByTestId("edition-editor-top"))).toBe(false)
+
+	// Published: only what is in. The article set aside keeps its mark for the next edition.
+	await Promise.all([
+		editorAction(page, editionId),
+		page.getByRole("button", { name: "Publish", exact: true }).click(),
+	])
+	const link = page.getByTestId("edition-public-link")
+	await expect(link).toBeVisible()
+	const marked = async (id: string) =>
+		(await db.query.documents.findFirst({ where: eq(documents.id, id) }))?.shortlistedAt ?? null
+	expect(await marked(recallId)).toBeNull()
+	expect(await marked(asideId)).not.toBeNull()
+	await page.goto(new URL((await link.getAttribute("href"))!).pathname)
+	await expect(page.getByRole("heading", { name: "Recall" })).toBeVisible()
+	await expect(page.getByRole("heading", { name: "Aside" })).toHaveCount(0)
 })

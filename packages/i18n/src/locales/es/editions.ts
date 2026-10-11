@@ -9,6 +9,9 @@ export default {
 	},
 	articles_one: "{{count}} artículo",
 	articles_other: "{{count}} artículos",
+	/** Beside the count of articles: those set aside, which the page leaves out. */
+	setAside_one: "{{count}} apartado",
+	setAside_other: "{{count}} apartados",
 	changes: "Cambios sin publicar",
 	editor: {
 		back: "Ediciones",
@@ -45,11 +48,17 @@ export default {
 			"Aún no hay artículos. Añade alguno que marcaste, que leíste últimamente o de tu biblioteca.",
 	},
 	problems: {
-		no_items: "Añade al menos un artículo.",
+		no_items: "Incluye al menos un artículo.",
 		url: "«{{title}}» no tiene dirección web.",
 		quotes: "«{{title}}» cita más de lo permitido.",
 	},
 	item: {
+		read: "Leer el artículo",
+		showInArticle: "Ver en el artículo",
+		/** The checkbox on each article: off sets it aside, in its place, out of the page. */
+		include: "Incluir en esta edición",
+		setAside: "Apartado",
+		setAsideDetail: "Fuera de la página. Márcalo para volver a incluirlo.",
 		removed: "Quitado de esta edición",
 		removedUnmarked: "Quitado, y desmarcado para tu próxima edición",
 		undo: "Deshacer",
@@ -220,6 +229,18 @@ export default {
 			abuse: "acoso u odio",
 			other: "no cumplir las reglas de Klipstack",
 		},
+	},
+	/** The article an item came from, read beside the editor: the library's copy. */
+	article: {
+		pane: "Artículo",
+		close: "Cerrar el artículo",
+		loading: "Cargando el artículo…",
+		gone: "Este artículo ya no está en tu biblioteca.",
+		failed: "No se pudo cargar el artículo.",
+		noText: "Klipstack aún no tiene el texto de este artículo.",
+		original: "Abrir el original",
+		brief: "Resumen",
+		highlightMissing: "Este subrayado ya no está en el texto del artículo.",
 	},
 	preview: {
 		banner: "Vista previa. Sin publicar.",
