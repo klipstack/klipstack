@@ -334,9 +334,11 @@ export async function pickerDocuments(userId: string, editionId: string): Promis
 			exists (
 				select 1 from edition_items i where i.edition_id = ${editionId} and i.document_id = d.id
 			) as added,
+			-- Set aside in a published edition, an article was not shared.
 			exists (
 				select 1 from edition_items i join editions e on e.id = i.edition_id
 				where i.document_id = d.id and e.id <> ${editionId} and e.published_at is not null
+					and i.included
 			) as published
 		from documents d
 		where d.user_id = ${userId} and d.deleted_at is null and (
@@ -443,11 +445,12 @@ export async function editionNudge(userId: string, now = new Date()): Promise<Ed
 	return { ...signals, reason: snoozed ? null : nudgeReason(signals) }
 }
 
+/** The draft's articles going out: those set aside don't count. */
 async function countItems(editionId: string): Promise<number> {
 	const [row] = await db
 		.select({ n: sql<number>`count(*)::int` })
 		.from(editionItems)
-		.where(eq(editionItems.editionId, editionId))
+		.where(and(eq(editionItems.editionId, editionId), eq(editionItems.included, true)))
 	return row?.n ?? 0
 }
 

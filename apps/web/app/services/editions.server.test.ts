@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto"
 import {
+	aiBriefs,
 	db,
 	documents,
 	documentVersions,
@@ -9,6 +10,7 @@ import {
 	highlights,
 	inArray,
 	readingCompletions,
+	userFeatures,
 	user as userTable,
 } from "@klipstack/db"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
@@ -748,14 +750,16 @@ describe("an edition without a title", () => {
 
 describe("an item set aside", () => {
 	it("stays in the working copy and on the shortlist, out of the page and of its problems", async () => {
+		// In no other edition, so nothing has shared it before.
+		const fresh = await addDocument({ sourceUrl: "https://fresh.example/", title: "Fresh" })
 		await mark([
 			[target.id, "2026-09-05T10:00:00Z"],
-			[noted.id, "2026-09-06T10:00:00Z"],
+			[fresh.id, "2026-09-06T10:00:00Z"],
 		])
 		const draft = await insertEdition(userId, { locale: "en", timeZone })
 		try {
 			const kept = await addItem(userId, draft.id, target.id)
-			const aside = await addItem(userId, draft.id, noted.id)
+			const aside = await addItem(userId, draft.id, fresh.id)
 			expect([kept.included, aside.included]).toEqual([true, true])
 			// An address the page cannot link to: a problem only while the item is in.
 			await db
@@ -774,13 +778,33 @@ describe("an item set aside", () => {
 			const { items } = await getEdition(userId, draft.id)
 			expect(items.map((i) => [i.documentId, i.position, i.included])).toEqual([
 				[target.id, 0, true],
-				[noted.id, 1, false],
+				[fresh.id, 1, false],
 			])
 			expect((await listEditions(userId)).find((e) => e.id === draft.id)?.itemCount).toBe(1)
+			// The draft's articles, as the nudge counts them: those going out.
+			expect((await editionNudge(userId)).draft?.items).toBe(1)
 			expect((await publishEdition(userId, draft.id)).ok).toBe(true)
 			expect((await snapshotOf(draft.id))!.items.map((i) => i.title)).toEqual(["Target"])
 			// Shared now: off the shortlist. Set aside: still marked, for an edition to come.
-			expect((await listShortlist(userId)).map((e) => e.id)).toEqual([noted.id])
+			expect((await listShortlist(userId)).map((e) => e.id)).toEqual([fresh.id])
+			// Unmarked and finished since, it was never shared: the next edition suggests it.
+			await mark([[fresh.id, null]])
+			await db.insert(readingCompletions).values({
+				documentId: fresh.id,
+				userId,
+				cycle: 0,
+				completedAt: new Date(Date.now() + 60_000),
+				source: "manual",
+			})
+			const next = await insertEdition(userId, { locale: "en", timeZone })
+			try {
+				const picked = await pickerDocuments(userId, next.id)
+				expect(picked.lately.map((d) => d.id)).toContain(fresh.id)
+				expect(picked.lately.map((d) => d.id)).not.toContain(target.id)
+			} finally {
+				await deleteEdition(userId, next.id)
+				await db.delete(readingCompletions).where(eq(readingCompletions.documentId, fresh.id))
+			}
 
 			// Setting one aside is a change the public page does not have yet.
 			await changeEdition(userId, draft.id, {
@@ -796,11 +820,9 @@ describe("an item set aside", () => {
 				problems: [{ code: "no_items" }],
 			})
 		} finally {
-			await mark([
-				[target.id, null],
-				[noted.id, null],
-			])
+			await mark([[target.id, null]])
 			await deleteEdition(userId, draft.id)
+			await db.delete(documents).where(eq(documents.id, fresh.id))
 		}
 	})
 })
@@ -839,9 +861,27 @@ describe("itemArticle", () => {
 			expect(await code(itemArticle(userId, edition.id, item.id))).toBe("not_found")
 			expect(await code(itemArticle(userId, draft.id, "nope"))).toBe("not_found")
 
-			// In the trash, the article is not there to read.
+			// The brief the reader asked for shows, with the AI feature on.
+			const [doc] = await db.select().from(documents).where(eq(documents.id, main.id))
+			await db.insert(aiBriefs).values({
+				documentId: main.id,
+				userId,
+				versionId: doc!.currentVersionId!,
+				text: "- One point.\n- Another.",
+				model: "test:model",
+			})
+			expect((await itemArticle(userId, draft.id, item.id)).brief).toBeNull()
+			await db.insert(userFeatures).values({ userId, feature: "ai" })
+			expect((await itemArticle(userId, draft.id, item.id)).brief).toBe("- One point.\n- Another.")
+			await db.delete(userFeatures).where(eq(userFeatures.userId, userId))
+			await db.delete(aiBriefs).where(eq(aiBriefs.documentId, main.id))
+
+			// In the trash, the article is not there to read; deleted for good, neither.
 			const gone = await addItem(userId, draft.id, binned.id)
 			await trashArticles(userId, [binned.id])
+			expect(await code(itemArticle(userId, draft.id, gone.id))).toBe("document_gone")
+			await purgeArticles(userId, [binned.id])
+			expect((await getEdition(userId, draft.id)).items.at(-1)?.documentId).toBeNull()
 			expect(await code(itemArticle(userId, draft.id, gone.id))).toBe("document_gone")
 		} finally {
 			await deleteEdition(userId, draft.id)
@@ -1157,6 +1197,7 @@ describe("listEditions and deleteEdition", () => {
 			["Noted", null],
 		])
 		expect(exported!.published!.items[0]!.title).toBe("Main article")
+		expect(exported!.items.map((item) => item.included)).toEqual([true, true])
 		expect(exported!.items[0]!.highlights[0]).toEqual({
 			highlightId: quoteIds["Alpha one two three."],
 			exact: "Alpha one two three.",

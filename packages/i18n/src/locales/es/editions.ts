@@ -48,7 +48,7 @@ export default {
 			"Aún no hay artículos. Añade alguno que marcaste, que leíste últimamente o de tu biblioteca.",
 	},
 	problems: {
-		no_items: "Añade al menos un artículo.",
+		no_items: "Incluye al menos un artículo.",
 		url: "«{{title}}» no tiene dirección web.",
 		quotes: "«{{title}}» cita más de lo permitido.",
 	},

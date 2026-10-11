@@ -230,6 +230,10 @@ describe("the editor", () => {
 			})
 			expect((await thrown(create())).location).toBe(`/editions/${id}`)
 			const { items } = await getEdition(ownerId, id)
+			// Set aside, it is not one of the draft's articles, and nothing is left to publish.
+			await post(id, { intent: "update-item", itemId: items[0]!.id, included: false })
+			expect(await page()).toMatchObject({ desk: { itemCount: 0, items: [], problems: 1 } })
+			await post(id, { intent: "update-item", itemId: items[0]!.id, included: true })
 			expect(items.map((item) => item.documentId)).toEqual([documentId])
 			const removed = (await post(id, {
 				intent: "remove-item",

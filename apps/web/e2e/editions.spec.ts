@@ -565,6 +565,25 @@ test("an article set aside stays in place, out of the page; its article reads be
 	await expect(article.getByText("Paragraph 0 of what came first.")).toBeInViewport()
 	await recall.getByRole("button", { name: "Read the article" }).click()
 	await expect(pane).toHaveCount(0)
+	// Opened at a quote, Read closes it too.
+	await recall.getByRole("button", { name: "Show in the article" }).click()
+	await expect(article).toBeVisible()
+	await recall.getByRole("button", { name: "Read the article" }).click()
+	await expect(pane).toHaveCount(0)
+
+	// Its article removed, the pane closes; Undo brings the article back, not the pane.
+	await recall.getByRole("button", { name: "Read the article" }).click()
+	await expect(article).toBeVisible()
+	await recall.getByRole("button", { name: "Remove" }).click()
+	await expect(pane).toHaveCount(0)
+	await page
+		.getByRole("status")
+		.filter({ hasText: "Removed" })
+		.getByRole("button", { name: "Undo" })
+		.click()
+	await expect(recall).toBeVisible()
+	await expect(pane).toHaveCount(0)
+	expect(await inert(page.getByTestId("edition-editor-top"))).toBe(false)
 
 	// Published: only what is in. The article set aside keeps its mark for the next edition.
 	await Promise.all([

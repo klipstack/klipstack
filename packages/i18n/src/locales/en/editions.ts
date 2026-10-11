@@ -46,7 +46,7 @@ export default {
 		noItems: "No articles yet. Add some you marked, read lately, or find in your library.",
 	},
 	problems: {
-		no_items: "Add at least one article.",
+		no_items: "Include at least one article.",
 		url: "“{{title}}” has no web address.",
 		quotes: "“{{title}}” quotes more than the limit.",
 	},

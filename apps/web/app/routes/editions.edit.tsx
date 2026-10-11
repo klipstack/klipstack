@@ -148,8 +148,9 @@ export default function EditionEditor({ loaderData }: Route.ComponentProps) {
 	useEditionScrollSync(editorColumn, previewScroller)
 	// The article open beside the editor, while its item is still in the edition. Only that item's
 	// card stays within reach; the rest of the editor waits until the article closes.
-	const [asked, setReading] = useState<Reading | null>(null)
-	const reading = asked && items.some((item) => item.id === asked.itemId) ? asked : null
+	const [reading, setReading] = useState<Reading | null>(null)
+	// Its item removed, the article closes, and an undo does not open it again.
+	if (reading && !items.some((item) => item.id === reading.itemId)) setReading(null)
 	// Counts every request: the article scrolls to a highlight asked for again.
 	const requests = useRef(0)
 	// Where the focus was when the article opened, to go back to when it closes.
@@ -159,9 +160,7 @@ export default function EditionEditor({ loaderData }: Route.ComponentProps) {
 		if (document.activeElement instanceof HTMLElement) opener.current = document.activeElement
 		setReading((open) =>
 			// Read again, the open article closes.
-			open?.itemId === itemId && highlightId === null && open.highlightId === null
-				? null
-				: { itemId, highlightId, asked },
+			open?.itemId === itemId && highlightId === null ? null : { itemId, highlightId, asked },
 		)
 	}, [])
 	const close = useCallback(() => {
@@ -348,7 +347,7 @@ function SidePane({
 				"min-w-0 flex-1 flex-col border-l border-border @5xl:sticky @5xl:flex @5xl:h-dvh",
 				// On a narrow page the article covers the editor; on a wide one it sits beside it.
 				reading
-					? "fixed inset-0 z-40 flex bg-bg @5xl:right-auto @5xl:bottom-auto @5xl:left-auto @5xl:z-auto @5xl:bg-transparent"
+					? "fixed inset-0 z-40 flex bg-bg pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] @5xl:right-auto @5xl:bottom-auto @5xl:left-auto @5xl:z-auto @5xl:bg-transparent @5xl:p-0"
 					: "sticky top-0 hidden h-dvh",
 			)}
 		>
