@@ -514,12 +514,19 @@ test("Home says what was finished this past week, and leaves tidying up out", as
 	const finishFromHome = async (id: string, title: string) => {
 		await page.getByRole("link", { name: title }).first().click()
 		await expect(page).toHaveURL(new RegExp(`/read/${id}$`))
-		await expect(page.locator(".reader-content")).toBeVisible()
-		await page.getByRole("button", { name: "Mark as finished" }).click()
+		// At the end of the article, once it is on the page, as a reader gets there.
+		const end = page.getByTestId("reader-end")
+		await expect(end).toBeAttached()
+		await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+		await expect(end).toBeInViewport()
+		await end.getByRole("button", { name: "Mark as finished" }).click()
 		await expect(page).toHaveURL(/\/home$/)
 	}
 	await finishFromHome(slow, "Slow reading")
-	await expect(finished).toHaveText("You finished “Slow reading” this past week.")
+	await expect(finished).toHaveText("You finished Slow reading this past week.")
+	// The title stands apart from the sentence, as a title: not a link.
+	await expect(finished.locator("cite")).toHaveText("Slow reading")
+	await expect(finished.getByRole("link")).toHaveCount(0)
 
 	// Two marked finished at once from the library is tidying up: it doesn't count.
 	await page.goto("/library")
@@ -533,7 +540,7 @@ test("Home says what was finished this past week, and leaves tidying up out", as
 		bar.getByRole("button", { name: "Mark finished" }).click(),
 	])
 	await page.goto("/home")
-	await expect(finished).toHaveText("You finished “Slow reading” this past week.")
+	await expect(finished).toHaveText("You finished Slow reading this past week.")
 
 	await waitForHydration(page)
 	await finishFromHome(deep, "Deep work")

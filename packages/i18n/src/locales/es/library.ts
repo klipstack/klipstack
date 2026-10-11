@@ -24,7 +24,7 @@ export default {
 			count: "Terminaste {{count}} artículos esta última semana.",
 			count_one: "Terminaste {{count}} artículo esta última semana.",
 			count_other: "Terminaste {{count}} artículos esta última semana.",
-			named: "Terminaste «{{title}}» esta última semana.",
+			named: "Terminaste {{title}} esta última semana.",
 			untitled: "Terminaste un artículo esta última semana.",
 		},
 		rediscover: {

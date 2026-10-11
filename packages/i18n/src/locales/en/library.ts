@@ -25,7 +25,7 @@ export default {
 			count: "You finished {{count}} articles this past week.",
 			count_one: "You finished {{count}} article this past week.",
 			count_other: "You finished {{count}} articles this past week.",
-			named: "You finished “{{title}}” this past week.",
+			named: "You finished {{title}} this past week.",
 			untitled: "You finished an article this past week.",
 		},
 		rediscover: {
