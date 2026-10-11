@@ -60,21 +60,7 @@ ci_db=""
 admin_url=""
 
 # database create|drop NAME, through the server that .env names.
-database() {
-  (cd packages/db && node -e '
-    const { Client } = require("pg")
-    const [url, action, name] = process.argv.slice(1)
-    // The builtin collation provider, as in CI and production, whatever the server default is.
-    // Quoted names, not string literals: this script sits in single quotes.
-    const create = `create database "${name}" template template0 encoding UTF8 locale_provider builtin builtin_locale "C.UTF-8" locale "C.UTF-8"`
-    const sql = action === "create" ? create : `drop database if exists "${name}" with (force)`
-    const client = new Client({ connectionString: url })
-    client.connect().then(() => client.query(sql)).then(() => client.end()).catch((error) => {
-      console.error(error.message)
-      process.exit(1)
-    })
-  ' "$admin_url" "$1" "$2")
-}
+database() { scripts/test-database "$admin_url" "$1" "$2"; }
 
 cleanup() {
   # By PID only: another session may run a server of its own.
@@ -151,6 +137,10 @@ if wanted static; then
   run "static: lint" pnpm lint
   run "static: typecheck" pnpm typecheck
   run "static: migrations match schema" scripts/check-migrations
+  for script in scripts/image-smoke scripts/verify scripts/test-database .githooks/pre-commit; do
+    run "static: bash -n ${script##*/}" bash -n "$script"
+  done
+  run "static: agent guardrails" node --test scripts/*.test.mjs
 fi
 
 boot_server_bundle() {

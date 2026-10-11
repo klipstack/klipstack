@@ -52,6 +52,9 @@ pnpm dev         # Start web (localhost:5180) and worker
 - `pnpm lint` / `pnpm lint:fix`: check or fix lint rules (oxlint) and formatting and import order (oxfmt).
 - `pnpm typecheck`: generate route types and check TypeScript across apps and packages.
 - `pnpm test`: run Vitest tests across apps and packages.
+- `pnpm verify` (`scripts/verify`): the fast check of a change, in a minute or two. It runs lint,
+  the typecheck of affected workspaces, the migrations check, and the unit tests that a changed
+  file reaches, on an empty database of its own. Add `--full` for every test of those workspaces.
 - `pnpm test:e2e`: run Playwright; requires PostgreSQL, `.env`, and installed browsers. Each run
   deletes the accounts, invites, feeds and OAuth clients it created (`apps/web/e2e/cleanup.ts`,
   local databases only); `pnpm --filter @klipstack/web e2e:clean` removes leftovers of any age.
@@ -77,6 +80,29 @@ Use strict TypeScript and ES modules. oxfmt owns formatting (tabs, 100 columns);
 ## Testing Guidelines
 
 Use `*.test.ts` or `*.test.tsx` for Vitest tests beside source files; extraction tests also use `packages/extract/test/`. Place Playwright scenarios in `apps/web/e2e/*.spec.ts`. Add regression tests for behavior changes. Run focused tests with `pnpm --filter @klipstack/web test`, then relevant package and browser checks.
+
+## Definition of Done
+
+A change is done when something you ran shows it works. Reading the code is not enough. The skills
+in `.claude/skills/` hold the how; follow the one that fits the task, without being asked:
+
+- `verify`: before calling anything done. Run `pnpm verify`, prove the change where it shows (a
+  test, the page, the API), and report what you ran, what it showed and what you did not verify.
+- `fix-bug`: a check that fails on the bug before any fix, and passes after.
+- `build-feature`: the owner's open decisions first, each with your recommendation. Then thin
+  slices, test-first.
+- `write-tests`: the real database, mocks only at the process boundary, every new test seen
+  failing once.
+- `review-changes`: when the owner says the work is ready for a pull request, or asks for a
+  review, fresh subagents review the diff against the task and `.agents/checks/`.
+- `learn`: when corrected, or when a mistake repeats, add a check, a test or a rule, not a
+  promise.
+
+Never make a check pass by weakening it: no skipped, deleted or loosened tests, and no
+`--no-verify`. If a test is wrong, change it openly and say so in the report. Hooks enforce part
+of this: they refuse commits on `main`, pushes to it and `--no-verify`. They also send an agent
+back once when a turn changed code that `pnpm verify` has not passed. `docs/development/agents.md`
+explains the setup.
 
 ## Commits, Branches and Releases
 

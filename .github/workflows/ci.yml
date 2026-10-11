@@ -49,7 +49,9 @@ jobs:
       # whose own `typecheck` would check it again). `scripts/ci-local` checks the mobile app too.
       - run: pnpm -r --filter '!klipstack' --filter '!@klipstack/mobile' typecheck
       - run: scripts/check-migrations
-      - run: bash -n scripts/image-smoke
+      - run: for f in scripts/image-smoke scripts/verify scripts/test-database .githooks/pre-commit; do bash -n "$f"; done
+      # The guardrails coding agents run under (scripts/agent-hook.mjs).
+      - run: node --test scripts/*.test.mjs
 
   unit:
     needs: changes
@@ -187,8 +189,9 @@ jobs:
           RUN_ATTEMPT: ${{ github.run_attempt }}
           # Paths that do not go into the running app: docs, tests, the extension, the CLI and the
           # SDK (the server uses only the contract), the mobile app, CI, agent tooling (Amp orb
-          # setup, Claude skills), and .gitignore files.
-          NOT_APP: '^(docs/|\.github/|\.agents/|\.claude/|apps/extension/|apps/cli/|apps/mobile/|packages/sdk/|apps/web/e2e/|packages/[^/]+/test/)|\.md$|\.test\.tsx?$|(^|/)(vitest|playwright)\.config\.ts$|(^|/)\.gitignore$'
+          # setup and plugins, Claude skills and hooks, the git hook, `pnpm verify` and the agent
+          # guardrails), and .gitignore files.
+          NOT_APP: '^(docs/|\.github/|\.agents/|\.amp/|\.claude/|\.githooks/|apps/extension/|apps/cli/|apps/mobile/|packages/sdk/|apps/web/e2e/|packages/[^/]+/test/)|^scripts/(verify|test-database|agent-hook\.mjs|agent-hook\.test\.mjs)$|\.md$|\.test\.tsx?$|(^|/)(vitest|playwright)\.config\.ts$|(^|/)\.gitignore$'
         run: |
           deploy=false
           e2e=true

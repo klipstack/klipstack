@@ -1,0 +1,154 @@
+#!/usr/bin/env bash
+# The fast check of a change, for people and agents: lint, the typecheck of every workspace the
+# change can affect, the migrations check when the schema changed, and the unit tests that import
+# a changed file. Minutes at most, where `pnpm ci:local` takes ten; CI still runs everything.
+#
+# Usage: pnpm verify [--base REF] [--full]
+#
+#   --base REF  compare with REF (default: where the branch left origin/main)
+#   --full      run every unit test of the affected workspaces, not only those a change reaches
+#
+# The change is everything that differs from the base: commits, staged and unstaged edits and
+# untracked files. When every step passes it records the working tree as verified, which the
+# agent hooks read (scripts/agent-hook.mjs). The unit tests run on an empty database made on the
+# local PostgreSQL that .env names, and dropped after. Browser tests don't run here: see .claude/skills/verify/SKILL.md.
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+
+base=""
+full=""
+while [ $# -gt 0 ]; do
+  case $1 in
+    --base) base=${2:?--base needs a ref}; shift 2 ;;
+    --base=*) base=${1#--base=}; shift ;;
+    --full) full=1; shift ;;
+    -h|--help) sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) echo "Unknown option: $1 (see --help)" >&2; exit 1 ;;
+  esac
+done
+if [ -z "$base" ]; then
+  for upstream in origin/main main; do
+    git rev-parse -q --verify "$upstream^{commit}" >/dev/null && break
+    upstream=""
+  done
+  [ -n "$upstream" ] || { echo "No origin/main or main to compare with: pass --base REF." >&2; exit 1; }
+  base=$(git merge-base HEAD "$upstream")
+fi
+
+tree=$(node scripts/agent-hook.mjs fingerprint)
+logs=$(mktemp -d "${TMPDIR:-/tmp}/klipstack-verify.XXXXXX")
+
+# run NAME COMMAND…: quiet on success; on failure, the end of the log and where the rest is.
+run() {
+  local name=$1 log started
+  shift
+  log="$logs/$(printf '%s' "$name" | tr -c 'A-Za-z0-9' '-').log"
+  started=$SECONDS
+  printf '  %-30s' "$name"
+  if "$@" >"$log" 2>&1; then
+    printf 'ok    %4ss\n' "$((SECONDS - started))"
+  else
+    printf 'FAIL  %4ss\n\n' "$((SECONDS - started))"
+    tail -n 80 "$log"
+    printf '\nFull log: %s\n' "$log"
+    exit 1
+  fi
+}
+
+verified() {
+  node scripts/agent-hook.mjs mark-verified "$tree"
+  echo "$1"
+}
+
+changed=$({ git diff --name-only "$base"; git ls-files --others --exclude-standard; } | sort -u)
+if [ -z "$changed" ]; then
+  verified "Nothing differs from $(git rev-parse --short "$base"). Nothing to check."
+  exit 0
+fi
+# As scripts/ci-local: no check reads Markdown or docs/.
+code=$(grep -Ev '^docs/|\.md$' <<<"$changed" || true)
+if [ -z "$code" ]; then
+  verified "Only Markdown and docs/ changed. Nothing to check."
+  exit 0
+fi
+# A here-string, not a pipe: under pipefail, `grep -q` closing a long pipe early reads as no match.
+has() { grep -qE "$1" <<<"$code"; }
+
+echo "Verifying $(wc -l <<<"$changed" | tr -d ' ') changed files against $(git rev-parse --short "$base")"
+
+run "lint" pnpm lint
+
+# The workspaces holding a changed file, and every workspace that depends on them. Read from the
+# change list, not from pnpm's `[ref]` filter, which misses untracked files and git worktrees. A
+# change to the root's configuration reaches every workspace. The root package (`klipstack`) has
+# no code of its own.
+affected=()
+if has '^(package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|tsconfig\.base\.json|\.npmrc|\.nvmrc)$'; then
+  affected=(--filter '!klipstack')
+else
+  # Into a variable first: set -e does not see a failure inside `< <(…)`.
+  all=$(pnpm -r --filter '!klipstack' ls --depth -1 --parseable)
+  while IFS= read -r dir; do
+    dir=${dir#"$PWD"/}
+    if grep -q "^$dir/" <<<"$code"; then affected+=(--filter "...{$dir}"); fi
+  done <<<"$all"
+fi
+if [ ${#affected[@]} -gt 0 ]; then
+  workspaces=$(pnpm -r "${affected[@]}" ls --depth -1 --parseable)
+  echo "  affected: $(sed "s|^$PWD/||" <<<"$workspaces" | paste -sd ' ' -)"
+  run "typecheck (affected)" pnpm -r --no-bail "${affected[@]}" typecheck
+  if has '^packages/db/'; then
+    run "migrations match schema" scripts/check-migrations
+  fi
+  # As in CI, the tests get an empty database of their own. The one in .env keeps rate-limit
+  # counters between runs: a few runs in a row would fail on them, not on the code.
+  [ -f .env ] || { echo "No .env here: copy the main checkout's." >&2; exit 1; }
+  admin_url=${DATABASE_URL:-$(grep -E '^DATABASE_URL=' .env | head -n 1 | cut -d= -f2- | tr -d "\"'")}
+  admin_url=${admin_url%%\?*}
+  if ! grep -qE '@(localhost|127\.0\.0\.1)(:[0-9]+)?/' <<<"$admin_url"; then
+    echo "DATABASE_URL must name a local PostgreSQL: the tests create and drop a database there." >&2
+    exit 1
+  fi
+  # A run that was killed (SIGKILL skips the trap) leaves its database: drop those of dead runs.
+  for stale in $(scripts/test-database "$admin_url" list klipstack_verify_); do
+    kill -0 "${stale##*_}" 2>/dev/null || scripts/test-database "$admin_url" drop "$stale" || true
+  done
+  test_db="klipstack_verify_$$"
+  trap 'scripts/test-database "$admin_url" drop "$test_db" >/dev/null 2>&1 || echo "  note: could not drop the database $test_db" >&2' EXIT
+  run "database (empty)" scripts/test-database "$admin_url" create "$test_db"
+  export DATABASE_URL="${admin_url%/*}/$test_db"
+  run "database migrations" pnpm db:migrate
+  # CI=1 as on GitHub: Vitest refuses a stray .only instead of running just that test. With
+  # --changed, a workspace whose tests no change reaches passes.
+  if [ -n "$full" ]; then
+    run "unit tests (affected)" env CI=1 pnpm -r --no-bail "${affected[@]}" test
+  else
+    run "unit tests (changed)" env CI=1 pnpm -r --no-bail "${affected[@]}" test --changed "$base"
+  fi
+else
+  echo "  no workspace changed: no typecheck or unit tests to run"
+fi
+for script in $(grep -E '^(scripts/[^/.]+|\.agents/(setup|resume)|\.githooks/.+)$' <<<"$code" || true); do
+  [ -f "$script" ] && run "bash -n $script" bash -n "$script"
+done
+if has '^scripts/.*\.mjs$'; then
+  run "scripts tests" node --test scripts/*.test.mjs
+fi
+
+verified "Verified. Logs: $logs"
+
+# What this check cannot see, for the change at hand.
+notes=()
+has '^apps/web/(app/(routes|components|hooks)/|app/app\.css|app/root\.tsx|e2e/)' &&
+  notes+=("The web UI changed: run its Playwright specs and look at the page (.claude/skills/verify/SKILL.md).")
+has '^apps/mobile/' &&
+  notes+=("The mobile app changed and CI skips it: run \`pnpm ci:local\`.")
+has '^apps/extension/' &&
+  notes+=("The extension changed: \`pnpm --filter @klipstack/web exec playwright test e2e/extension.spec.ts\` loads it in Chromium.")
+has '^(Dockerfile|\.dockerignore|apps/web/(server|security-middleware)\.js)$' &&
+  notes+=("The image or the server changed: \`pnpm ci:local --only build,image\`.")
+if [ ${#notes[@]} -gt 0 ]; then
+  echo
+  echo "Not covered here:"
+  printf '  - %s\n' "${notes[@]}"
+fi
