@@ -78,7 +78,9 @@ const schema = z.object({
 	LIMIT_STORAGE_MB: z.coerce.number().int().positive().default(250),
 	LIMIT_FEEDS: z.coerce.number().int().positive().default(100),
 	LIMIT_EDITIONS_PER_MONTH: z.coerce.number().int().positive().default(4),
-	LIMIT_AI_PER_MONTH: z.coerce.number().int().positive().default(500),
+	/** Except AI questions: they cost money, so admins have a cap of their own. */
+	LIMIT_AI_PER_MONTH: z.coerce.number().int().positive().default(100),
+	LIMIT_AI_PER_MONTH_ADMIN: z.coerce.number().int().positive().default(500),
 	/** AI answers in the reader. Unset, the AI buttons stay hidden. */
 	ANTHROPIC_API_KEY: z.string().optional(),
 	/** "1": a fixed answer instead of a provider, for the e2e tests and work without a key. */

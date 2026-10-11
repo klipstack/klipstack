@@ -7,15 +7,17 @@ import {
 	subscriptions,
 	type Tx,
 	type UsageMetric,
+	type UserRole,
 	usageCounts,
+	user,
 } from "@klipstack/db"
 import { AppError } from "./app-error"
 import { env } from "./env.server"
 
 /**
  * Per-account caps. Unlike the rate limits, they are counted in the database, so they hold across
- * deploys and machines. Every account has the same numbers today; a plan, or an exception for an
- * import, is `limitsFor` answering other ones.
+ * deploys and machines. Every account has the same numbers, except admins' AI cap; a plan, or an
+ * exception for an import, is `limitsFor` answering other ones.
  */
 export interface Limits {
 	/** New articles a calendar month (UTC), however they were saved. */
@@ -32,8 +34,15 @@ export interface Limits {
 
 export type LimitName = keyof Limits
 
-export async function limitsFor(_userId: string): Promise<Limits> {
-	return defaultLimits()
+export async function limitsFor(userId: string): Promise<Limits> {
+	const [account] = await db.select({ role: user.role }).from(user).where(eq(user.id, userId))
+	return limitsForRole(account?.role ?? "user")
+}
+
+/** The caps of an account with that role: admins ask the AI more, everything else is the same. */
+export function limitsForRole(role: UserRole): Limits {
+	const limits = defaultLimits()
+	return role === "admin" ? { ...limits, ai: env.LIMIT_AI_PER_MONTH_ADMIN } : limits
 }
 
 /** The caps of an account with nothing special about it: the env's numbers. */

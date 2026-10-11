@@ -16,11 +16,20 @@ Each question is one paid request. With Claude Haiku 5.5 a first question about 
 costs about a tenth of a cent; follow-ups on the same article cost less (Anthropic caches the
 article for a few minutes). Three limits keep a mistake or abuse from running up a bill:
 
-- `LIMIT_AI_PER_MONTH` (default 500): questions per account per month, counted in
-  `usage_counts` like saves. Retries and follow-ups count. Admins see it on the account's page.
+- `LIMIT_AI_PER_MONTH` (default 100): questions per account per month, counted in
+  `usage_counts` like saves. Retries, follow-ups and article briefs count.
+  `LIMIT_AI_PER_MONTH_ADMIN` (default 500) is the same for admin accounts, so you can ask more
+  than the people you invite.
 - A rate limit: 30 questions per account per 5 minutes.
 - **A spend limit at Anthropic**, set by you in the console (below). This is the one that holds
   even if Klipstack has a bug. Set it.
+
+## Watch what it costs
+
+`/admin/usage`, ranked by "AI questions this month", shows each account's questions against its cap
+and an estimate of what its answers cost this month, in US dollars, from their token counts. It is
+an estimate: answers deleted with their article no longer count, and it leaves out a few small
+charges. The bill is in the Anthropic console (Usage and Cost), which is the number to trust.
 
 ## Set it up
 

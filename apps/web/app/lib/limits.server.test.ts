@@ -1,7 +1,7 @@
 import { db, eq, user as userTable } from "@klipstack/db"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import { env } from "./env.server"
-import { countMonthly, monthOf, usageOf } from "./limits.server"
+import { countMonthly, limitsFor, monthOf, usageOf } from "./limits.server"
 
 const userId = `test-limits-${Date.now()}`
 
@@ -43,6 +43,27 @@ describe("countMonthly", () => {
 			expect(usage.refused).toBe(1)
 		} finally {
 			env.LIMIT_EDITIONS_PER_MONTH = before
+		}
+	})
+})
+
+describe("limitsFor", () => {
+	it("gives admins their own AI cap, and everyone else the default one", async () => {
+		const adminId = `${userId}-admin`
+		await db
+			.insert(userTable)
+			.values({ id: adminId, name: "Admin", email: `${adminId}@example.com`, role: "admin" })
+		try {
+			expect((await limitsFor(userId)).ai).toBe(env.LIMIT_AI_PER_MONTH)
+			expect((await limitsFor(adminId)).ai).toBe(env.LIMIT_AI_PER_MONTH_ADMIN)
+			expect(env.LIMIT_AI_PER_MONTH_ADMIN).toBeGreaterThan(env.LIMIT_AI_PER_MONTH)
+			// Only the AI cap differs.
+			expect({ ...(await limitsFor(adminId)), ai: 0 }).toEqual({
+				...(await limitsFor(userId)),
+				ai: 0,
+			})
+		} finally {
+			await db.delete(userTable).where(eq(userTable.id, adminId))
 		}
 	})
 })

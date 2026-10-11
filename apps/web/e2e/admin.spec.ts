@@ -1,5 +1,15 @@
 import { randomUUID } from "node:crypto"
-import { adminAuditEvents, db, documents, eq, invites, session, user } from "@klipstack/db"
+import {
+	adminAuditEvents,
+	aiBriefs,
+	db,
+	documents,
+	eq,
+	invites,
+	session,
+	usageCounts,
+	user,
+} from "@klipstack/db"
 import { devices, expect, type Page, test } from "@playwright/test"
 import { lastEmailTo, login, PASSWORD, signupAdmin, signupUser, waitForHydration } from "./helpers"
 import { insertArticle } from "./seed"
@@ -409,4 +419,40 @@ test.describe("on a phone", () => {
 		await page.getByRole("link", { name: "Audit" }).click()
 		await expect(page).toHaveURL(/\/admin\/audit$/)
 	})
+})
+
+test("the usage page ranks by AI questions, against each account's cap, with the cost", async ({
+	page,
+}) => {
+	const email = await signupAdmin(page, "AI Spender")
+	const admin = await userByEmail(email)
+	const articleId = await insertArticle(admin.id, "Costly article", "<p>Body</p>")
+	const [doc] = await db
+		.select({ versionId: documents.currentVersionId })
+		.from(documents)
+		.where(eq(documents.id, articleId))
+	const month = `${new Date().toISOString().slice(0, 7)}-01`
+	// Far past any other test account's count, so this one leads the ranking.
+	await db.insert(usageCounts).values({ userId: admin.id, metric: "ai", month, count: 1_000_000 })
+	// $1.00 in and $0.50 out at Claude Haiku 5.5's prices.
+	await db.insert(aiBriefs).values({
+		documentId: articleId,
+		userId: admin.id,
+		versionId: doc!.versionId!,
+		text: "Brief",
+		model: "anthropic:claude-haiku-5-5",
+		inputTokens: 10_000_000,
+		outputTokens: 1_000_000,
+		cacheReadTokens: 0,
+	})
+
+	await page.goto("/admin/usage")
+	await waitForHydration(page)
+	await page.getByLabel("Rank by").selectOption({ label: "AI questions this month" })
+	await expect(page).toHaveURL(/\/admin\/usage\?by=ai$/)
+	const first = page.getByRole("row").nth(1)
+	await expect(first).toContainText(email)
+	// Admins have their own cap: the default, LIMIT_AI_PER_MONTH_ADMIN.
+	await expect(first).toContainText("1000000 / 500")
+	await expect(first).toContainText("$1.50")
 })

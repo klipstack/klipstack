@@ -44,6 +44,12 @@ function Against({ used, max, unit = "" }: { used: number; max: number; unit?: s
 	)
 }
 
+/** Dollars to the cent, and the cents an account spends as "< $0.01" rather than nothing. */
+function dollars(usd: number) {
+	if (usd > 0 && usd < 0.01) return "< $0.01"
+	return `$${usd.toFixed(2)}`
+}
+
 export default function AdminUsage({ loaderData }: Route.ComponentProps) {
 	const { t } = useTranslation("admin")
 	const submit = useSubmit()
@@ -91,6 +97,8 @@ export default function AdminUsage({ loaderData }: Route.ComponentProps) {
 						t("usage.saves"),
 						t("usage.feeds"),
 						t("usage.editions"),
+						t("usage.ai"),
+						t("usage.aiCost"),
 					]}
 				>
 					{loaderData.rows.map((row) => (
@@ -120,6 +128,10 @@ export default function AdminUsage({ loaderData }: Route.ComponentProps) {
 							<td>
 								<Against used={row.editions} max={limits.editions} />
 							</td>
+							<td>
+								<Against used={row.ai} max={row.aiMax} />
+							</td>
+							<td className="tabular-nums">{dollars(row.aiCostUsd)}</td>
 						</tr>
 					))}
 				</Table>
@@ -127,6 +139,7 @@ export default function AdminUsage({ loaderData }: Route.ComponentProps) {
 				<Empty>{t("usage.empty")}</Empty>
 			)}
 			<p className="mt-4 text-sm text-muted-fg">{t("usage.month", { month: loaderData.month })}</p>
+			<p className="mt-1 text-sm text-muted-fg">{t("usage.aiCostNote")}</p>
 		</>
 	)
 }

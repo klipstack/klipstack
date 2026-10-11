@@ -144,7 +144,8 @@ work. Keep the bucket private: the app serves images itself, after checking who 
 | `LIMIT_STORAGE_MB` | `250` | Image storage per account. |
 | `LIMIT_FEEDS` | `100` | Feeds per account. |
 | `LIMIT_EDITIONS_PER_MONTH` | `4` | Editions per account per month. |
-| `LIMIT_AI_PER_MONTH` | `500` | AI questions per account per month. |
+| `LIMIT_AI_PER_MONTH` | `100` | AI questions per account per month. |
+| `LIMIT_AI_PER_MONTH_ADMIN` | `500` | AI questions per admin account per month. |
 | `PG_POOL_MAX` | `10` | Database connections per process (web and worker each have a pool). |
 | `OPS_UPTIME_URL`, `OPS_BACKUPS_URL` | unset | Links on `/admin/system` to your uptime and backup dashboards. Plain `https` URLs only: no credentials, no query string. |
 

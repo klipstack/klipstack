@@ -4,7 +4,8 @@ import type { AiTier } from "./types"
 
 /**
  * Where each tier goes: the one place that names providers and models. Another provider is a
- * case in `languageModel` and an `@ai-sdk/*` dependency; another model is a line here.
+ * case in `languageModel` and an `@ai-sdk/*` dependency; another model is a line here and its
+ * price in `cost.ts`.
  */
 export const TIERS: Record<
 	AiTier,
