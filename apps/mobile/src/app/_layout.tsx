@@ -15,6 +15,10 @@ void SplashScreen.preventAutoHideAsync()
 applyColorScheme(loadColorScheme())
 SplashScreen.setOptions({ duration: 250, fade: true })
 
+// A link that opens the app on an article (the home screen widget's) puts the tabs under the
+// reader, so its back button leads somewhere.
+export const unstable_settings = { anchor: "(tabs)" }
+
 export default function RootLayout() {
 	// The home screen widget catches up with what was read here.
 	useEffect(reloadNextUpInBackground, [])
