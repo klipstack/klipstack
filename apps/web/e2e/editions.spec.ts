@@ -506,7 +506,7 @@ test("an article set aside stays in place, out of the page; its article reads be
 
 	await page.goto("/editions")
 	await waitForHydration(page)
-	await page.getByRole("button", { name: "New edition" }).click()
+	await page.getByRole("button", { name: "Start the edition with these 2" }).click()
 	await expect(page).toHaveURL(/\/editions\/[0-9a-f-]{36}$/)
 	const editionId = page.url().split("/").pop()!
 	await waitForHydration(page)
