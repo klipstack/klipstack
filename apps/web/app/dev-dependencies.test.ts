@@ -6,14 +6,25 @@ import { expect, test } from "vitest"
 
 const APP = import.meta.dirname
 const ROOT = join(APP, "..")
+const REPO = join(ROOT, "../..")
 
-/** What the browser can load: the app's modules, without server-only code, tests or the route config. */
+/**
+ * Our scripts the browser can load: no server-only code, tests or route config. Not the
+ * stylesheet's imports either: Tailwind lists there every file it reads class names from.
+ */
+const browserSource = (file: string) =>
+	/\.(m?js|jsx|tsx?)$/.test(file) &&
+	file.startsWith(REPO) &&
+	!file.includes("/node_modules/") &&
+	!/\.(test|server)\.tsx?$/.test(file) &&
+	!relative(REPO, file).split("/").includes("test") &&
+	file !== join(APP, "routes.ts")
+
+/** The app's modules the browser can load. */
 function clientModules(): string[] {
 	return readdirSync(APP, { recursive: true, encoding: "utf8" })
-		.filter((file) => /\.tsx?$/.test(file))
-		.filter((file) => !/\.(test|server)\.tsx?$/.test(file) && !/(^|\/)test\//.test(file))
-		.filter((file) => file !== "routes.ts")
 		.map((file) => join(APP, file))
+		.filter(browserSource)
 }
 
 /**
@@ -34,7 +45,8 @@ test(
 			configFile: join(ROOT, "vite.config.ts"),
 			cacheDir,
 			logLevel: "silent",
-			server: { middlewareMode: true, hmr: false, ws: false },
+			// Only what the crawl below loads, not what Vite loads in the background meanwhile.
+			server: { middlewareMode: true, hmr: false, ws: false, preTransformRequests: false },
 		})
 		try {
 			const client = server.environments.client
@@ -50,10 +62,25 @@ test(
 			const files = clientModules()
 			// A filter that matched nothing would check nothing.
 			expect(files.length).toBeGreaterThan(100)
+			// Each module and the source it imports, lazily or not, as far as the shared packages:
+			// what the browser can load.
 			const failed: string[] = []
-			for (const file of files) {
-				await client.transformRequest(file).catch(() => failed.push(relative(ROOT, file)))
+			const seen = new Set<string>()
+			const queue = [...files]
+			for (let file = queue.shift(); file; file = queue.shift()) {
+				if (seen.has(file)) continue
+				seen.add(file)
+				if (!(await client.transformRequest(file).catch(() => null))) {
+					failed.push(relative(REPO, file))
+					continue
+				}
+				for (const mod of client.moduleGraph.getModulesByFile(file) ?? []) {
+					for (const { file: next } of mod.importedModules) {
+						if (next && browserSource(next)) queue.push(next)
+					}
+				}
 			}
+			expect([...seen].some((file) => file.startsWith(join(REPO, "packages")))).toBe(true)
 			expect(failed).toEqual([])
 			expect([...known()].filter((dep) => !atStart.has(dep))).toEqual([])
 		} finally {

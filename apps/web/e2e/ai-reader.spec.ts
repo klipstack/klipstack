@@ -1,7 +1,9 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
+import { db, eq, user } from "@klipstack/db"
 import { expect, type Locator, type Page, test } from "@playwright/test"
 import { signupUser, waitForHydration } from "./helpers"
+import { insertArticle } from "./seed"
 
 const FIXTURE = join(
 	import.meta.dirname,
@@ -305,7 +307,12 @@ test("the chat: questions about the whole article in the sidebar, kept, and clea
 })
 
 test("without the feature, the toolbar has no AI", async ({ page }) => {
-	await open(page, [])
+	const email = await signupUser(page, "Reader", { features: [] })
+	const owner = await db.query.user.findFirst({ where: eq(user.email, email) })
+	// The toolbar is all it looks at: the article need not be extracted.
+	const id = await insertArticle(owner!.id, "No AI", `<p>${PASSAGE}, and more.</p>`)
+	await page.goto(`/read/${id}`)
+	await waitForHydration(page)
 	await select(page, PASSAGE)
 	await expect(selectionToolbar(page).getByRole("button", { name: "Highlight" })).toBeVisible()
 	await expect(selectionToolbar(page).getByRole("button", { name: "Explain" })).toHaveCount(0)

@@ -1,7 +1,9 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
+import { db, eq, user } from "@klipstack/db"
 import { expect, type Page, test } from "@playwright/test"
 import { signupUser, waitForHydration } from "./helpers"
+import { insertArticle } from "./seed"
 
 const FIXTURE = join(
 	import.meta.dirname,
@@ -199,8 +201,10 @@ test.describe("quick changes", () => {
 	test.use({ serviceWorkers: "block" })
 
 	test("two tags added quickly both stay", async ({ page }) => {
-		await signupUser(page, "Quick Tagger")
-		const id = await save(page, "quick", OLDER)
+		const email = await signupUser(page, "Quick Tagger")
+		const owner = await db.query.user.findFirst({ where: eq(user.email, email) })
+		// Straight in the database: the test is about tags, not about saving.
+		const id = await insertArticle(owner!.id, OLDER, "<p>Numbats eat termites.</p>")
 		// A slow server: the second tag is added while the first is still on its way.
 		const answered: number[] = []
 		await page.route(`**/documents/${id}/tags*`, async (route) => {
@@ -211,7 +215,7 @@ test.describe("quick changes", () => {
 			await route.fulfill({ response }).catch(() => undefined)
 		})
 		await page.goto("/library")
-		await expect(page.getByRole("link", { name: OLDER })).toBeVisible({ timeout: 60_000 })
+		await expect(page.getByRole("link", { name: OLDER })).toBeVisible()
 		await waitForHydration(page)
 		await page.keyboard.press("j")
 		await page.keyboard.press("t")
