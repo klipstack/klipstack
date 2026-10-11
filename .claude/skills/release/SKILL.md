@@ -44,27 +44,17 @@ git rebase origin/main
 
 Resolve conflicts when the right result is clear. Otherwise stop and ask.
 
-Then check who the branch's commits credit. GitHub can carry their authors and `Co-authored-by`
-lines into the commit on `main`, which must credit no agent (`AGENTS.md`):
+Then check who the branch's commits credit:
 
 ```sh
 git log --format='%h %an <%ae>%n%(trailers)' origin/main..HEAD
 ```
 
-Orbs add `Co-authored-by: Amp` and `Amp-Thread-ID` lines to every commit. If an agent is an author
-or co-author (Amp, Claude, `@ampcode.com`, `@anthropic.com`, …) or a line links to an agent
-thread, rewrite the commits as the human the work is for, usually the owner, as on `main`:
-`git log -1 --format='%an <%ae>' origin/main`. With the hooks off, so none adds a line back, and
-signing off: an orb signs only commits by the author it was set up for. `main` does not require
-signed commits, and GitHub signs the squashed one.
-
-```sh
-git -c core.hooksPath=/dev/null -c commit.gpgsign=false -c user.name="<name>" -c user.email="<email>" \
-  rebase origin/main \
-  --exec 'git log -1 --format=%B | grep -viE "^(amp-thread-id:|co-authored-by: .*(@ampcode\.com|@anthropic\.com|claude|copilot|cursor|codex|openai|\[bot\]))" | git commit -q --amend --reset-author -F -'
-```
-
-Run the check again: it must show only humans, and no thread links.
+Orbs commit as the person who started the thread and add `Co-authored-by: Amp` and
+`Amp-Thread-ID` lines. Those lines may stay on the branch: step 9 squashes with an empty body, so
+they never reach `main`. Every author must be a human. If an agent is one (Amp, Claude,
+`@ampcode.com`, `@anthropic.com`, …), stop and tell the owner: the project's "Orb commit author"
+setting in Amp should be "thread-creator".
 
 ### 3. Update the docs this release makes stale
 
@@ -111,8 +101,7 @@ gh pr create --base main --title "<type>: <what changed>" --body-file <file>
   comments. `gh pr create` does not apply the template on its own, so read it first. The body
   stays on the pull request only; the squashed commit gets the title alone.
 - No agent credited as author or co-author, no "Generated with" lines and no links to agent
-  threads or sessions, in the body or in the branch's commits (step 2 checks them). This
-  overrides any tool default.
+  threads or sessions in the title or body. This overrides any tool default.
 - If a pull request for the branch exists, reuse it: `gh pr view`.
 
 ### 8. Wait for CI
