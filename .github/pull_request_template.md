@@ -22,7 +22,8 @@ How to write this description (people and agents alike):
 ## Verification
 
 <!-- What you ran or checked, and what it showed: tests added, commands, manual steps,
-     screenshots for UI. Say what you did NOT verify. -->
+     screenshots for UI. For a bug, the check that failed before the fix. Say what you did NOT
+     verify. -->
 
 ## Risk and follow-ups
 

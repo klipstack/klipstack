@@ -8,6 +8,7 @@
 		"build": "pnpm -r build",
 		"ci:local": "scripts/ci-local",
 		"typecheck": "pnpm -r typecheck",
+		"verify": "scripts/verify",
 		"lint": "oxlint --report-unused-disable-directives && oxfmt --check",
 		"lint:fix": "oxlint --report-unused-disable-directives --fix && oxfmt",
 		"test": "pnpm -r test",
@@ -23,7 +24,8 @@
 		"demo:reset": "pnpm --filter @klipstack/web demo reset",
 		"demo:verify": "pnpm --filter @klipstack/web demo verify",
 		"demo:login-link": "pnpm --filter @klipstack/web demo login-link",
-		"orb:app": "scripts/orb-app"
+		"orb:app": "scripts/orb-app",
+		"prepare": "git config core.hooksPath .githooks 2>/dev/null || true"
 	},
 	"devDependencies": {
 		"oxfmt": "0.71.0",

@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Runs before every commit, for people and agents alike (`git config core.hooksPath .githooks`,
+# which `pnpm install` sets). Fast on purpose: the branch rule, and lint on the staged files.
+# `pnpm verify` and CI check the rest.
+set -euo pipefail
+
+if [ "$(git symbolic-ref --short -q HEAD || true)" = "main" ]; then
+  echo "Never commit on main: every change reaches it through a pull request (AGENTS.md)." >&2
+  echo "Create a branch, which keeps these changes: git switch -c <type>/<short-name>" >&2
+  exit 1
+fi
+
+files=()
+while IFS= read -r -d '' file; do files+=("$file"); done < <(
+  git diff --cached --name-only --diff-filter=ACMR -z -- '*.ts' '*.tsx' '*.js' '*.mjs' '*.cjs' '*.jsx' '*.json' '*.jsonc'
+)
+[ ${#files[@]} -eq 0 ] && exit 0
+if ! command -v pnpm >/dev/null; then
+  echo "pre-commit: pnpm is not on PATH (a GUI git client?), so lint is skipped. CI still runs it." >&2
+  exit 0
+fi
+# The files as they are on disk: a partly staged file is checked with its unstaged lines. Files the
+# linters' own settings ignore (fixtures, generated code) are not an error.
+if ! pnpm exec oxlint --report-unused-disable-directives --no-error-on-unmatched-pattern "${files[@]}" >&2 ||
+  ! pnpm exec oxfmt --check --no-error-on-unmatched-pattern "${files[@]}" >&2; then
+  echo "Lint failed on the staged files. \`pnpm lint:fix\` fixes formatting; stage the result and commit again." >&2
+  exit 1
+fi

@@ -11,10 +11,11 @@
 # included: add a path only when nothing the job runs reads it.
 set -euo pipefail
 
-# Read by neither job: Markdown and docs/, agent tooling (Amp orb setup, Claude skills), the mobile
-# app (CI neither builds nor tests it), lint and format config, the Docker image (built and booted
-# by the deploy job only), and scripts neither runs.
-inert='\.md$|^(docs|\.agents|\.claude|apps/mobile)/|(^|/)\.gitignore$|^(LICENSE|NOTICE|\.oxlintrc\.json|\.oxfmtrc\.json|Dockerfile|\.dockerignore|docker-compose\.yml)$|^scripts/(ci-local|check-migrations|image-smoke|orb-app)$'
+# Read by neither job: Markdown and docs/, agent tooling (Amp orb setup and plugins, Claude skills
+# and hooks, the git hook, `pnpm verify` and the agent guardrails, which the static job checks), the
+# mobile app (CI neither builds nor tests it), lint and format config, the Docker image (built and
+# booted by the deploy job only), and scripts neither runs.
+inert='\.md$|^(docs|\.agents|\.amp|\.claude|\.githooks|apps/mobile)/|(^|/)\.gitignore$|^(LICENSE|NOTICE|\.oxlintrc\.json|\.oxfmtrc\.json|Dockerfile|\.dockerignore|docker-compose\.yml)$|^scripts/(ci-local|check-migrations|image-smoke|orb-app|test-database|verify|agent-hook\.mjs|agent-hook\.test\.mjs)$'
 
 case "${1:-}" in
   # Unit tests and their config. Playwright runs every *.spec.ts and *.test.ts in apps/web/e2e/:

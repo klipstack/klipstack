@@ -73,8 +73,12 @@ Commit these on the branch:
 - A security boundary changed: its row in `docs/security.md`.
 - Configuration, migrations or the image changed in a way self-hosters must know: `docs/self-hosting/`.
 
-### 4. Check locally when it pays
+### 4. Verify and review
 
+- `pnpm verify` passes on the branch as it will be pushed. The `verify` skill says what else the
+  change needs: a spec, the page, the API. The pull request reports it.
+- The `review-changes` skill has run on the branch, and its real findings are fixed. Skip the
+  review only for a change of a few lines, or of docs only.
 - The branch touches `apps/mobile`: run `pnpm ci:local`. CI does not check the mobile app.
 - Otherwise CI is the gate. `pnpm ci:local --only static,unit` finds most failures sooner.
 - `pnpm ci:local` needs the local PostgreSQL (`pnpm db:up`) and `.env`, and port 5180 free (stop
