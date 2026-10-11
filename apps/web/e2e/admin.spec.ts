@@ -443,5 +443,6 @@ test("the usage page ranks by AI questions, against each account's cap, with the
 	await expect(first).toContainText("1000000 / 500")
 	await expect(first).toContainText("$1.50")
 	// The month's total, every account's: at least this one's.
-	await expect(page.getByTestId("ai-cost-total")).toContainText("$")
+	const total = await page.getByTestId("ai-cost-total").textContent()
+	expect(Number(total?.match(/\$([\d,.]+)/)?.[1]?.replace(/,/g, ""))).toBeGreaterThanOrEqual(1.5)
 })

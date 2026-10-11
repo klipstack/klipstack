@@ -203,7 +203,7 @@ export default {
 		empty: "Aún no hay cuentas.",
 		month: "Guardados, ediciones, preguntas a la IA y límites alcanzados son de {{month}}, en UTC.",
 		aiCostNote:
-			"El costo de IA es una estimación en dólares estadounidenses (USD), a partir de los tokens de cada respuesta al pagarla. La factura está en la consola de Anthropic.",
+			"El costo de IA es una estimación en dólares estadounidenses (USD), a partir de los tokens de cada respuesta terminada. La factura está en la consola de Anthropic.",
 	},
 	users: {
 		title: "Cuentas",

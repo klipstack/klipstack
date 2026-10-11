@@ -97,6 +97,7 @@ describe("listUsage, AI", () => {
 			aiMax: env.LIMIT_AI_PER_MONTH_ADMIN,
 			aiCostUsd: 0,
 		})
-		expect(usage.aiCostUsd).toBeCloseTo(before + 4.33, 6)
+		// Every account's: other tests may add to it meanwhile, never take from it.
+		expect(usage.aiCostUsd).toBeGreaterThanOrEqual(before + 4.33 - 1e-9)
 	})
 })

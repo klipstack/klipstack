@@ -32,7 +32,7 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 		})),
 		limits: { ...limits, storage: Math.round(limits.storage / MB) },
 		month: month.slice(0, 7),
-		aiCostTotal: usd.format(aiCostUsd),
+		aiCostTotal: dollars(aiCostUsd),
 	}
 }
 
@@ -146,7 +146,12 @@ export default function AdminUsage({ loaderData }: Route.ComponentProps) {
 			)}
 			<p className="mt-4 text-sm text-muted-fg">{t("usage.month", { month: loaderData.month })}</p>
 			<p className="mt-4 text-sm font-medium" data-testid="ai-cost-total">
-				{t("usage.aiCostTotal", { amount: loaderData.aiCostTotal })}
+				{t("usage.aiCostTotal", {
+					amount:
+						"under" in loaderData.aiCostTotal
+							? t("usage.aiCostUnder", { amount: loaderData.aiCostTotal.under })
+							: loaderData.aiCostTotal.amount,
+				})}
 			</p>
 			<p className="mt-1 text-sm text-muted-fg">{t("usage.aiCostNote")}</p>
 		</>

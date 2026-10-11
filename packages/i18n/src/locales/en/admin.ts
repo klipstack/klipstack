@@ -200,7 +200,7 @@ export default {
 		empty: "No accounts yet.",
 		month: "Saves, editions, AI questions and cap hits are for {{month}}, in UTC.",
 		aiCostNote:
-			"AI cost is an estimate in US dollars, from each answer's tokens when it was paid for. The bill is in Anthropic's console.",
+			"AI cost is an estimate in US dollars, from each finished answer's tokens. The bill is in Anthropic's console.",
 	},
 	users: {
 		title: "Accounts",

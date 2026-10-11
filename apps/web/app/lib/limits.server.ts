@@ -120,7 +120,8 @@ export async function countRefusal(userId: string) {
 
 /**
  * What an AI answer or brief cost, estimated from its tokens, added to the account's month for
- * `/admin/usage`. When it is paid for, failed ones included: a retry or a delete later keeps it.
+ * `/admin/usage` when the provider finishes it: a retry or a delete later keeps it. One cut off
+ * (the reader left, the provider failed) comes with no token counts, and is not priced.
  */
 export async function recordAiSpend(userId: string, model: string, tokens: TokenCounts) {
 	const micros = Math.round(estimateCostUsd(model, tokens) * 1_000_000)

@@ -343,6 +343,7 @@ describe("briefArticle", () => {
 	it("writes a cited brief once per version, and counts it once", async () => {
 		const id = await article()
 		const before = (await usageOf(userId)).ai.used
+		const spentBefore = await spent()
 		const first = await briefArticle(userId, id, en)
 		if (!("events" in first)) throw new Error("expected a new brief")
 		const events = []
@@ -357,10 +358,14 @@ describe("briefArticle", () => {
 		expect((await usageOf(userId)).ai.used).toBe(before + 1)
 		expect(first.allowance).toMatchObject({ used: before + 1, max: env.LIMIT_AI_PER_MONTH })
 
+		// Priced once written: the fake brief's 100 tokens in and 30 out at $1 a million.
+		expect(await spent()).toBe(spentBefore + 130)
+
 		// Kept: the same brief, at no cost.
 		const again = await briefArticle(userId, id, en)
 		expect(again).toMatchObject({ id: brief!.id })
 		expect((await usageOf(userId)).ai.used).toBe(before + 1)
+		expect(await spent()).toBe(spentBefore + 130)
 
 		// A new version of the article needs a new one.
 		await newVersion(id, `Preface. ${TEXT}`, 2)
