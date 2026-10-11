@@ -7,6 +7,7 @@ import { ToastHost } from "@/components/toast-host"
 import { AuthProvider, useAuth } from "@/lib/auth"
 import { loadColorScheme } from "@/lib/reader-files"
 import { applyColorScheme, useColors } from "@/lib/theme"
+import { reloadNextUpInBackground } from "@/lib/widget"
 
 // The launch screen stays up until the app knows whether it is signed in, then fades.
 void SplashScreen.preventAutoHideAsync()
@@ -15,6 +16,8 @@ applyColorScheme(loadColorScheme())
 SplashScreen.setOptions({ duration: 250, fade: true })
 
 export default function RootLayout() {
+	// The home screen widget catches up with what was read here.
+	useEffect(reloadNextUpInBackground, [])
 	return (
 		<AuthProvider>
 			<StatusBar style="auto" />

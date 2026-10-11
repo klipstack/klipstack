@@ -1,6 +1,7 @@
 import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
+import WidgetKit
 
 /// The share sheet's "Klipstack" entry: saves the shared link to the signed-in account, then closes.
 /// It uses the session the app keeps in the keychain (src/lib/session-store.ts), and refreshes it.
@@ -31,7 +32,10 @@ final class ShareViewController: UIViewController {
       return
     }
     do {
-      model.state = try await Klipstack.save(url) ? .saved : .alreadySaved
+      let saved = try await Klipstack.save(url)
+      model.state = saved ? .saved : .alreadySaved
+      // With nothing in progress, the new save is next up once ready (targets/widget/).
+      if saved { WidgetCenter.shared.reloadTimelines(ofKind: "NextUp") }
       try? await Task.sleep(nanoseconds: 900_000_000)
       close()
     } catch let error as SaveError {

@@ -5,7 +5,7 @@ module.exports = (config) => ({
 	displayName: "Klipstack",
 	bundleIdentifier: ".share",
 	deploymentTarget: "17.0",
-	frameworks: ["UIKit", "SwiftUI", "UniformTypeIdentifiers"],
+	frameworks: ["UIKit", "SwiftUI", "UniformTypeIdentifiers", "WidgetKit"],
 	entitlements: {
 		// The app keeps its session in a keychain item of this group (src/lib/session-store.ts).
 		"com.apple.security.application-groups":
