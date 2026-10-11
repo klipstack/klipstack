@@ -47,8 +47,11 @@ test(
 				])
 			await (optimizer as { scanProcessing?: Promise<void> }).scanProcessing
 			const atStart = known()
+			const files = clientModules()
+			// A filter that matched nothing would check nothing.
+			expect(files.length).toBeGreaterThan(100)
 			const failed: string[] = []
-			for (const file of clientModules()) {
+			for (const file of files) {
 				await client.transformRequest(file).catch(() => failed.push(relative(ROOT, file)))
 			}
 			expect(failed).toEqual([])
