@@ -5,7 +5,8 @@
  *   cycle). A new one only once the user reads: `engage`, which the reader calls after 10 seconds
  *   on screen, a screen of scrolling or a highlight. A glance keeps it new.
  * - Positions are saved only after that, with the reading cycle, `delay` ms after the last scroll,
- *   when they moved by 0.05 or reached the end (0.98); `flush` saves the exact one on the way out.
+ *   when they moved by 0.05 or reached the end (0.98); `flush` saves the exact one on the way out,
+ *   and returns the save for whatever must wait for it.
  *
  * A failed save is sent again with the next one, or on the way out.
  */
@@ -48,7 +49,7 @@ export function createReadingSync({
 		)
 	}
 
-	function send(exact: boolean) {
+	function send(exact: boolean): Promise<unknown> | undefined {
 		clearTimer()
 		if (!engaged) return
 		const moved = exact
@@ -58,7 +59,7 @@ export function createReadingSync({
 		const previous = lastSent
 		const sent = latest
 		lastSent = sent
-		save(sent, current).catch(() => {
+		return save(sent, current).catch(() => {
 			// Not saved: unless a later save went out meanwhile, the next one (or flush) sends it.
 			if (lastSent === sent) lastSent = previous
 		})
@@ -75,7 +76,7 @@ export function createReadingSync({
 			timer = setTimeout(() => send(false), delay)
 		},
 		engage,
-		/** Saves the exact position now, if it moved. */
+		/** Saves the exact position now, if it moved; the save, which never fails, or nothing. */
 		flush: () => send(true),
 		get engaged() {
 			return engaged

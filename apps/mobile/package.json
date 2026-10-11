@@ -15,6 +15,7 @@
 		"build:page": "node scripts/build-page.mjs"
 	},
 	"dependencies": {
+		"@bacons/apple-targets": "^5.0.0",
 		"@klipstack/api-contract": "workspace:*",
 		"@klipstack/sdk": "workspace:*",
 		"@react-native-community/slider": "5.2.0",
@@ -43,7 +44,6 @@
 		"react-native-webview": "13.16.1"
 	},
 	"devDependencies": {
-		"@bacons/apple-targets": "^5.0.0",
 		"@klipstack/anchor": "workspace:*",
 		"@types/jsdom": "^30.0.0",
 		"@types/react": "~19.2.2",

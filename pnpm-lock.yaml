@@ -45,6 +45,9 @@ importers:
 
   apps/mobile:
     dependencies:
+      '@bacons/apple-targets':
+        specifier: ^5.0.0
+        version: 5.0.0(expo@57.0.25)(typescript@6.0.3)
       '@klipstack/api-contract':
         specifier: workspace:*
         version: link:../../packages/api-contract
@@ -124,9 +127,6 @@ importers:
         specifier: 13.16.1
         version: 13.16.1(react-native@0.86.3(@babel/core@7.29.7)(@react-native/metro-config@0.87.1(@babel/core@7.29.7))(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)
     devDependencies:
-      '@bacons/apple-targets':
-        specifier: ^5.0.0
-        version: 5.0.0(expo@57.0.25)(typescript@6.0.3)
       '@klipstack/anchor':
         specifier: workspace:*
         version: link:../../packages/anchor

@@ -49,6 +49,8 @@ pnpm dlx expo-doctor         # Diagnose dependency and config problems
   see its README).
 - `targets/share/`: the iOS share extension, in Swift. `@bacons/apple-targets` links it into
   the Xcode project at prebuild.
+- `targets/widget/`: the home screen's "Next up" widget, in Swift: Home's big card, loaded with
+  the shared session. `src/lib/widget.ts` reloads it; a tap opens `klipstack://read/<id>`.
 - `ios/` and `android/` are generated (`expo prebuild`) and ignored. Never edit them. Change
   `app.json`, a config plugin, or `targets/` instead, then run `pnpm ios` again.
   After a release build (`pnpm ios:device`), a development build can fail to link
@@ -86,6 +88,7 @@ Release builds ignore it. Agents need this to use the simulator: they can't type
 - The app signs in with OAuth (authorization code + PKCE) as the first-party client
   `klipstack-mobile`, like the CLI does.
 - It keeps the session (API URL, tokens) as one JSON keychain item in the app group
-  `group.com.klipstack.app`. The share extension reads and refreshes the same item.
+  `group.com.klipstack.app`. The share extension and the widget read and refresh the same item;
+  only the app and the share extension delete it.
 - Every API request sends `X-Klipstack-Client: ios/<version>`. The server answers `426` when the
   version is too old; the app and the extension then ask the user to update.
