@@ -103,7 +103,7 @@ export type MaintenanceOp =
 	| { op: "merge"; topicIds: string[]; into: string; reason: string }
 	| { op: "split"; topicId: string; into: string[]; reason: string }
 	| { op: "rename"; topicId: string; from: string; to: string; reason: string }
-	| { op: "retire"; topicId: string; reason: string }
+	| { op: "retire"; topicIds: string[]; reason: string }
 
 export interface Snapshot {
 	step: number
@@ -159,6 +159,8 @@ export class Simulation {
 	private readonly library: Article[] = []
 	private unsorted: string[] = []
 	private lastAttemptPool = 0
+	/** The library's size when the first topics were last asked for. */
+	private lastBootstrap = 0
 	private step = 0
 	private nextTopic = 1
 
@@ -188,7 +190,12 @@ export class Simulation {
 		if (this.active().length === 0) {
 			this.events.push({ step, type: "arrive", articleId: article.id, outcome: "waiting" })
 			this.log(`#${step} ${article.title} → waiting for the first topics`)
-			if (this.library.length >= this.config.bootstrapSize) await this.bootstrap()
+			if (
+				this.library.length >= this.config.bootstrapSize &&
+				(this.lastBootstrap === 0 ||
+					this.library.length >= this.lastBootstrap + this.config.poolSize)
+			)
+				await this.bootstrap()
 		} else {
 			await this.sort(article, this.active())
 			const sorted = this.isSorted(article.id)
@@ -344,6 +351,7 @@ export class Simulation {
 	}
 
 	private async bootstrap() {
+		this.lastBootstrap = this.library.length
 		const answer = await this.models.haiku("propose", {
 			system: SYSTEM[this.config.style],
 			sample: this.config.sample,
@@ -423,8 +431,12 @@ export class Simulation {
 			widened.push(topic)
 			this.log(`  ↔ widened ${topic.name}: ${w.description}`)
 		}
+		// Only the pool's own articles count, each once: the model may repeat or invent ids.
+		const poolIds = new Set(pool.map((a) => a.id.slice(0, 8)))
 		const accepted = answer.topics.filter(
-			(t) => t.articleIds.length >= this.config.minNewTopicArticles,
+			(t) =>
+				new Set(t.articleIds.filter((id) => poolIds.has(id))).size >=
+				this.config.minNewTopicArticles,
 		)
 		const topics = accepted.map((t) => this.addTopic(t, "pool", t.reason))
 		if (topics.length > 0) {
@@ -448,7 +460,8 @@ export class Simulation {
 		}
 		// A new or widened topic is checked against the whole library, not only the pool.
 		for (const article of this.library) await this.sort(article, [...widened, ...topics])
-		this.unsorted = this.unsorted.filter((id) => !this.isSorted(id))
+		// A widened topic can also let an article go.
+		this.unsorted = this.library.filter((a) => !this.isSorted(a.id)).map((a) => a.id)
 		this.lastAttemptPool = this.unsorted.length
 	}
 
@@ -512,13 +525,12 @@ export class Simulation {
 				t.renamedFrom = [...(t.renamedFrom ?? []), t.name]
 				t.name = change.into[0].name
 				t.description = change.into[0].description
-				// Renamed in place: its articles keep it, judged again against the new description.
-				for (const a of members(t.id)) await this.sort(a, [t])
+				// Renamed in place; the whole library is judged again against the new description.
+				for (const a of this.library) await this.sort(a, [t])
 			} else if (change.op === "retire") {
 				this.retire(targets, change.reason)
-				ops.push({ op: "retire", topicId: targets[0]!.id, reason: change.reason })
+				ops.push({ op: "retire", topicIds: targets.map((t) => t.id), reason: change.reason })
 			} else if (change.op === "merge" && targets.length >= 2 && change.into[0]) {
-				const affected = [...new Set(targets.flatMap((t) => members(t.id)))]
 				this.retire(targets, `merged: ${change.reason}`)
 				const merged = this.addTopic(change.into[0], "merge", change.reason)
 				ops.push({
@@ -527,10 +539,9 @@ export class Simulation {
 					into: merged.id,
 					reason: change.reason,
 				})
-				for (const a of affected) await this.sort(a, [merged])
+				for (const a of this.library) await this.sort(a, [merged])
 			} else if (change.op === "split" && change.into.length >= 2) {
 				const t = targets[0]!
-				const affected = members(t.id)
 				this.retire([t], `split: ${change.reason}`)
 				const parts = change.into.map((spec) => this.addTopic(spec, "split", change.reason))
 				ops.push({
@@ -539,7 +550,7 @@ export class Simulation {
 					into: parts.map((p) => p.id),
 					reason: change.reason,
 				})
-				for (const a of affected) await this.sort(a, parts)
+				for (const a of this.library) await this.sort(a, parts)
 			}
 		}
 		this.unsorted = this.library.filter((a) => !this.isSorted(a.id)).map((a) => a.id)

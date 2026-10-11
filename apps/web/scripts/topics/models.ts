@@ -84,7 +84,7 @@ export class Models {
 			...(input.sample ? { sample: input.sample } : {}),
 		}
 		return this.cached("haiku", purpose, request, async () => {
-			if (!this.keys.anthropic) throw new Error("ANTHROPIC_API_KEY is not set")
+			if (!this.keys.anthropic) throw notRetryable("ANTHROPIC_API_KEY is not set")
 			const anthropic = createAnthropic({ apiKey: this.keys.anthropic })
 			const result = await generateText({
 				model: anthropic(PRICES.haiku.model),
@@ -120,7 +120,7 @@ export class Models {
 			),
 		}
 		return this.cached("jev", purpose, request, async () => {
-			if (!this.keys.typesafe) throw new Error("TYPESAFE_API_KEY is not set")
+			if (!this.keys.typesafe) throw notRetryable("TYPESAFE_API_KEY is not set")
 			const response = await fetch("https://api.typesafe.ai/v1/systemone", {
 				method: "POST",
 				headers: {
@@ -145,6 +145,10 @@ export class Models {
 			}
 		})
 	}
+}
+
+function notRetryable(message: string): Error {
+	return Object.assign(new Error(message), { retryable: false })
 }
 
 async function withRetry<T>(call: () => Promise<T>): Promise<T> {

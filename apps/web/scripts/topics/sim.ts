@@ -32,7 +32,7 @@ Options:
   --sample N          Ask Haiku again instead of reusing its cached answers (default 0)
   --limit N           run: only the first N articles
   --run NAME          compare: the run whose final topics both classifiers use (default: jev)
-  --out PATH          report: the HTML file (default: .amp/in/artifacts/pages/auto-topics.html)
+  --out PATH          report: the HTML file (default: <dir>/report.html)
   --featured A,B      report: the runs shown in full (default: all)
   --template PATH     report: the page template (default: <dir>/page-template.html, else plain)
   --notes PATH        report: the hand-written header and findings (default: <dir>/notes.html)
@@ -57,7 +57,7 @@ async function main() {
 			widen: { type: "boolean" },
 			question: { type: "string" },
 			featured: { type: "string" },
-			out: { type: "string", default: ".amp/in/artifacts/pages/auto-topics.html" },
+			out: { type: "string" },
 			template: { type: "string" },
 			notes: { type: "string" },
 			help: { type: "boolean", short: "h" },
@@ -94,7 +94,8 @@ async function main() {
 		const topics = run.topics.filter((t) => t.retiredAt === undefined)
 		const scores: Comparison["scores"] = { jev: {}, haiku: {} }
 		for (const classifier of ["jev", "haiku"] as const) {
-			const sim = new Simulation({ ...DEFAULT_CONFIG, classifier }, models)
+			// The run's own settings (question, text length), with the other classifier.
+			const sim = new Simulation({ ...DEFAULT_CONFIG, ...run.config, classifier }, models)
 			for (let i = 0; i < corpus.length; i += 8)
 				await Promise.all(
 					corpus.slice(i, i + 8).map(async (article) => {
@@ -113,17 +114,16 @@ async function main() {
 			.then((text) => JSON.parse(text) as Comparison)
 			.catch(() => undefined)
 		const all: ReportRun[] = []
-		for (const sub of ["runs-v1", "runs"])
-			for (const file of (await readdir(resolve(dir, sub)).catch(() => [] as string[])).sort())
-				if (file.endsWith(".json"))
-					all.push(JSON.parse(await readFile(resolve(dir, sub, file), "utf8")))
+		for (const file of (await readdir(resolve(dir, "runs")).catch(() => [] as string[])).sort())
+			if (file.endsWith(".json"))
+				all.push(JSON.parse(await readFile(resolve(dir, "runs", file), "utf8")))
 		const featured = values.featured?.split(",") ?? all.map((r) => r.name)
 		const runs = featured.map((name) => {
 			const run = all.find((r) => r.name === name)
 			if (!run) throw new Error(`No run named ${name}`)
 			return run
 		})
-		const out = resolve(root, values.out)
+		const out = values.out ? resolve(root, values.out) : resolve(dir, "report.html")
 		await mkdir(dirname(out), { recursive: true })
 		const template = await readFile(
 			values.template ?? resolve(dir, "page-template.html"),
@@ -144,26 +144,24 @@ async function main() {
 		return
 	}
 
-	const classifier = values.classifier ?? DEFAULT_CONFIG.classifier
-	if (classifier !== "jev" && classifier !== "haiku") throw new Error(usage)
-	const number = (value: string | undefined, fallback: number) =>
-		value === undefined ? fallback : Number(value)
 	const config: Config = {
 		...DEFAULT_CONFIG,
-		classifier,
-		bootstrapSize: number(values.bootstrap, DEFAULT_CONFIG.bootstrapSize),
-		applyThreshold: number(values.apply, DEFAULT_CONFIG.applyThreshold),
-		suggestThreshold: number(values.suggest, DEFAULT_CONFIG.suggestThreshold),
-		poolSize: number(values.pool, DEFAULT_CONFIG.poolSize),
-		maintainEvery: number(values.maintain, DEFAULT_CONFIG.maintainEvery),
-		style: values.style === "specific" ? "specific" : "broad",
-		sample: number(values.sample, 0),
+		classifier: oneOf("classifier", values.classifier, ["jev", "haiku"], DEFAULT_CONFIG.classifier),
+		bootstrapSize: count("bootstrap", values.bootstrap, DEFAULT_CONFIG.bootstrapSize),
+		applyThreshold: probability("apply", values.apply, DEFAULT_CONFIG.applyThreshold),
+		suggestThreshold: probability("suggest", values.suggest, DEFAULT_CONFIG.suggestThreshold),
+		poolSize: count("pool", values.pool, DEFAULT_CONFIG.poolSize),
+		maintainEvery: count("maintain", values.maintain, DEFAULT_CONFIG.maintainEvery),
+		style: oneOf("style", values.style, ["broad", "specific"], DEFAULT_CONFIG.style),
+		sample: count("sample", values.sample, 0, 0),
 		widen: values.widen ?? false,
-		question: values.question === "shelf" ? "shelf" : "main",
+		question: oneOf("question", values.question, ["main", "shelf"], DEFAULT_CONFIG.question),
 	}
-	const name = values.name ?? classifier
+	const name = values.name ?? config.classifier
+	// The name becomes a file name in the runs directory.
+	if (!/^[\w.-]+$/.test(name)) throw new Error(`--name: letters, digits, ".", "-" and "_" only`)
 	const sim = new Simulation(config, models, (line) => console.log(line))
-	const articles = corpus.slice(0, number(values.limit, corpus.length))
+	const articles = corpus.slice(0, count("limit", values.limit, corpus.length))
 	for (const article of articles) await sim.arrive(article)
 	const saved: ReportRun = { ...sim.result(name), calls: models.calls }
 	await mkdir(resolve(dir, "runs"), { recursive: true })
@@ -197,6 +195,8 @@ async function loadArticles(): Promise<Article[]> {
 		.select({ documentId: documentTags.documentId, name: tags.name })
 		.from(documentTags)
 		.innerJoin(tags, eq(tags.id, documentTags.tagId))
+		.innerJoin(user, eq(user.id, tags.userId))
+		.where(eq(user.email, EMAIL))
 	return rows.map((r) => ({
 		id: r.id,
 		title: r.title ?? "(untitled)",
@@ -206,6 +206,32 @@ async function loadArticles(): Promise<Article[]> {
 		text: r.text,
 		manualTags: tagRows.filter((t) => t.documentId === r.id).map((t) => t.name),
 	}))
+}
+
+/** A whole number of at least `min`, or the fallback when the option is absent. */
+function count(option: string, value: string | undefined, fallback: number, min = 1): number {
+	if (value === undefined) return fallback
+	const n = Number(value)
+	if (!Number.isInteger(n) || n < min) throw new Error(`--${option}: a whole number from ${min}`)
+	return n
+}
+
+function probability(option: string, value: string | undefined, fallback: number): number {
+	if (value === undefined) return fallback
+	const p = Number(value)
+	if (!(p > 0 && p <= 1)) throw new Error(`--${option}: a number above 0, at most 1`)
+	return p
+}
+
+function oneOf<T extends string>(
+	option: string,
+	value: string | undefined,
+	allowed: readonly T[],
+	fallback: T,
+): T {
+	if (value === undefined) return fallback
+	if (!allowed.includes(value as T)) throw new Error(`--${option}: one of ${allowed.join(", ")}`)
+	return value as T
 }
 
 main().catch((error) => {

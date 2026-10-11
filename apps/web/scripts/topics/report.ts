@@ -1,4 +1,4 @@
-import type { Article, Assignment, RunResult, SimEvent, Topic } from "./engine"
+import type { Article, Assignment, MaintenanceOp, RunResult, SimEvent, Topic } from "./engine"
 import type { CallRecord } from "./models"
 
 export interface ReportRun extends RunResult {
@@ -91,6 +91,10 @@ const esc = (s: string) =>
 		.replaceAll('"', "&quot;")
 
 const COLORS = ["var(--accent)", "var(--warn)", "var(--ok)", "var(--bad)"]
+/** A run's color, then a dash pattern once the colors run out. */
+const color = (i: number) => COLORS[i % COLORS.length]!
+const dash = (i: number) =>
+	i < COLORS.length ? "" : ` stroke-dasharray="${2 + 4 * Math.floor(i / COLORS.length)} 3"`
 
 function topicName(run: RunResult, id: string): string {
 	return run.topics.find((t) => t.id === id)?.name ?? id
@@ -101,7 +105,9 @@ function coverage(runs: ReportRun[]): string {
 	const width = 720
 	const height = 240
 	const pad = { left: 44, right: 12, top: 12, bottom: 32 }
-	const steps = Math.max(...runs.map((r) => r.snapshots.length))
+	if (runs.length === 0) return ""
+	// At least two, so that a run of one article still has a width.
+	const steps = Math.max(2, ...runs.map((r) => r.snapshots.length))
 	const x = (step: number) => pad.left + ((step - 1) / (steps - 1)) * (width - pad.left - pad.right)
 	const y = (share: number) => pad.top + (1 - share) * (height - pad.top - pad.bottom)
 	const grid = [0, 0.25, 0.5, 0.75, 1]
@@ -127,14 +133,14 @@ function coverage(runs: ReportRun[]): string {
 				.map((e) => {
 					const snap = run.snapshots[e.step - 1]!
 					const names = e.topicIds.map((id) => topicName(run, id)).join(", ")
-					return `<circle cx="${x(e.step)}" cy="${y(snap.sorted / snap.step)}" r="4" fill="${COLORS[i]}"><title>${esc(run.name)}, article ${e.step}: ${esc(names)}</title></circle>`
+					return `<circle cx="${x(e.step)}" cy="${y(snap.sorted / snap.step)}" r="4" fill="${color(i)}"><title>${esc(run.name)}, article ${e.step}: ${esc(names)}</title></circle>`
 				})
 				.join("")
-			return `<polyline points="${points}" fill="none" stroke="${COLORS[i]}" stroke-width="2"/>${marks}`
+			return `<polyline points="${points}" fill="none" stroke="${color(i)}"${dash(i)} stroke-width="2"/>${marks}`
 		})
 		.join("")
 	const legend = runs
-		.map((r, i) => `<span><i style="background:${COLORS[i]}"></i>${esc(label(r))}</span>`)
+		.map((r, i) => `<span><i style="background:${color(i)}"></i>${esc(label(r))}</span>`)
 		.join("")
 	return `<section id="coverage" data-toc="Coverage over time">
 <h2>How much of the library is in a topic, article by article</h2>
@@ -221,7 +227,7 @@ function stability(all: ReportRun[]): string {
 <h2>The same first articles, asked again</h2>
 <p>Each line is one try at the first topics from the same articles. In bold, topics that share a word with a topic of every other try in the group.</p>
 <figure id="fig-stability"><div class="viz"><div class="runs">${blocks}</div></div>
-<figcaption>Asking for specific topics after 25 articles gives the most similar sets from one try to the next.</figcaption></figure>
+<figcaption>Similar lines across tries mean the first topics depend less on chance.</figcaption></figure>
 </section>`
 }
 
@@ -232,7 +238,7 @@ function history(runs: ReportRun[], byId: Map<string, Article>): string {
 			.filter((e) => e.type !== "arrive")
 			.map((e) => `<li><span class="step">#${e.step}</span>${event(run, e, byId)}</li>`)
 			.join("")
-		return `<div id="history-${run.name}"><h3>${esc(label(run))}</h3><ul class="events">${items}</ul></div>`
+		return `<div id="history-${esc(run.name)}"><h3>${esc(label(run))}</h3><ul class="events">${items}</ul></div>`
 	}
 	return `<section id="history" data-toc="How the topics grew">
 <h2>How the topics grew</h2>
@@ -257,9 +263,23 @@ function event(run: ReportRun, e: SimEvent, byId: Map<string, Article>): string 
 		case "widen":
 			return `<details><summary>Widened <span class="topic">${esc(topicName(run, e.topicId))}</span> for ${e.articleIds.length} unsorted articles</summary><p class="small"><del>${esc(e.from)}</del></p><p class="small">${esc(e.to)}</p><p class="small quiet">${esc(e.reason)}</p></details>`
 		case "maintenance":
-			return `<details><summary>Review: ${e.ops.length ? e.ops.map((o) => o.op).join(", ") : "no change"}</summary><p class="small quiet">${esc(e.note)}</p></details>`
+			return `<details><summary>Review: ${e.ops.length ? e.ops.map((o) => o.op).join(", ") : "no change"}</summary>${e.ops.length ? `<ul class="small">${e.ops.map((o) => `<li>${esc(describeOp(run, o))}</li>`).join("")}</ul>` : ""}<p class="small quiet">${esc(e.note)}</p></details>`
 		default:
 			return ""
+	}
+}
+
+function describeOp(run: RunResult, op: MaintenanceOp): string {
+	const names = (ids: string[]) => ids.map((id) => topicName(run, id)).join(" and ")
+	switch (op.op) {
+		case "merge":
+			return `Merged ${names(op.topicIds)} into ${topicName(run, op.into)}: ${op.reason}`
+		case "split":
+			return `Split ${topicName(run, op.topicId)} into ${names(op.into)}: ${op.reason}`
+		case "rename":
+			return `Renamed ${op.from} to ${op.to}: ${op.reason}`
+		case "retire":
+			return `Retired ${names(op.topicIds)}: ${op.reason}`
 	}
 }
 
@@ -277,7 +297,8 @@ function thresholds(runs: ReportRun[], corpus: Article[]): string {
 			scores: r.scores,
 		})),
 	}
-	const json = JSON.stringify(data).replaceAll("</", "<\\/")
+	// No "<" at all inside the script: neither "</script>" nor "<!--" can end or confuse it.
+	const json = JSON.stringify(data).replaceAll("<", "\\u003c")
 	return `<section id="threshold" data-toc="Final topics">
 <h2>The final topics, at the threshold you choose</h2>
 <p>Every article is sorted again into the run's final topics, applying a topic when its probability reaches the threshold (at most ${runs[0]?.config.maxTopicsPerArticle ?? 3} per article). Move it to see how many articles each topic would hold and how many would stay unsorted.</p>
@@ -287,7 +308,7 @@ function thresholds(runs: ReportRun[], corpus: Article[]): string {
 <input id="threshold-input" type="range" min="0.3" max="0.95" step="0.05" value="0.7" style="width:100%"></label>
 <div class="runs" id="threshold-runs"></div>
 </div>
-<figcaption>Jev's probabilities and Haiku's are not on the same scale: Haiku states round numbers, Jev's come from its trained calibration.</figcaption>
+<figcaption>Each run's classifier gave these probabilities; two classifiers' numbers need not mean the same.</figcaption>
 </figure>
 <script>
 (() => {
@@ -378,7 +399,7 @@ function costs(runs: ReportRun[], articleCount: number): string {
 					const tokens = calls.reduce((s, c) => s + c.inputTokens + c.outputTokens, 0)
 					return `<tr><td>${esc(run.name)}</td><td>${esc(key)}</td><td>${calls.length}</td><td>${tokens.toLocaleString("en")}</td><td>${ms[Math.floor(ms.length / 2)]} ms</td><td>$${cost.toFixed(4)}</td></tr>`
 				}),
-				`<tr><td>${esc(run.name)}</td><td><strong>Total</strong></td><td>${run.calls.length}</td><td></td><td></td><td><strong>$${total.toFixed(4)}</strong> · $${((total / articleCount) * 1000).toFixed(2)} per 1,000 articles</td></tr>`,
+				`<tr><td>${esc(run.name)}</td><td><strong>Total</strong></td><td>${run.calls.length}</td><td></td><td></td><td><strong>$${total.toFixed(4)}</strong> · $${((total / Math.max(1, articleCount)) * 1000).toFixed(2)} per 1,000 articles</td></tr>`,
 			]
 		})
 		.join("")
@@ -418,7 +439,7 @@ function compare(c: Comparison, corpus: Article[]): string {
 		}
 		return { same, overlap, jevNone, haikuNone, topSame }
 	}
-	const pct = (n: number) => `${Math.round((100 * n) / corpus.length)}%`
+	const pct = (n: number) => `${Math.round((100 * n) / Math.max(1, corpus.length))}%`
 	const rows = [0.5, 0.7]
 		.map((t) => {
 			const s = stats(t)
