@@ -194,7 +194,8 @@ export async function listEditions(userId: string) {
 			...editionColumns,
 			publishedTitle,
 			// Plain SQL: Drizzle leaves the table out of column names here, and "id" would be the item's.
-			itemCount: sql<number>`(select count(*)::int from edition_items i where i.edition_id = editions.id)`,
+			// Set aside, an article is not one of the edition's.
+			itemCount: sql<number>`(select count(*)::int from edition_items i where i.edition_id = editions.id and i.included)`,
 		})
 		.from(editions)
 		.where(eq(editions.userId, userId))
@@ -989,6 +990,8 @@ export async function revertDraftChange(
 }
 
 export interface ItemPatch {
+	/** False sets the item aside. */
+	included?: boolean
 	includeNote?: boolean
 	/** The edition's copy. The library's note stays as it is. */
 	note?: string | null
@@ -1036,11 +1039,13 @@ export async function updateItem(
 				})
 		}
 		const next = {
+			included: patch.included ?? item.included,
 			includeNote: patch.includeNote ?? item.includeNote,
 			note: note === undefined ? item.note : note,
 			highlights,
 		}
 		if (
+			next.included === item.included &&
 			next.includeNote === item.includeNote &&
 			next.note === item.note &&
 			JSON.stringify(next.highlights) === JSON.stringify(item.highlights)
@@ -1250,7 +1255,10 @@ export function parseSnapshot(value: unknown): EditionSnapshot | null {
 	return parsed.success ? parsed.data : null
 }
 
-/** The public page's data from a working copy. Only included notes and highlights go in. */
+/**
+ * The public page's data from a working copy. Only the items, notes and highlights included go in:
+ * none set aside.
+ */
 export function buildSnapshot(
 	edition: Pick<EditionRow, "title" | "intro" | "locale">,
 	items: readonly EditionItem[],
@@ -1262,20 +1270,22 @@ export function buildSnapshot(
 		intro: edition.intro,
 		authorName,
 		locale: edition.locale,
-		items: items.map((item) => ({
-			url: item.url,
-			title: item.title,
-			author: item.author,
-			siteName: item.siteName,
-			description: item.description,
-			leadImageUrl: item.leadImageUrl,
-			readingMinutes: item.readingMinutes,
-			readOn: item.readOn,
-			note: item.includeNote ? item.note : null,
-			highlights: item.highlights
-				.filter((h) => h.included)
-				.map(({ exact, note }) => ({ exact, note })),
-		})),
+		items: items
+			.filter((item) => item.included)
+			.map((item) => ({
+				url: item.url,
+				title: item.title,
+				author: item.author,
+				siteName: item.siteName,
+				description: item.description,
+				leadImageUrl: item.leadImageUrl,
+				readingMinutes: item.readingMinutes,
+				readOn: item.readOn,
+				note: item.includeNote ? item.note : null,
+				highlights: item.highlights
+					.filter((h) => h.included)
+					.map(({ exact, note }) => ({ exact, note })),
+			})),
 	}
 }
 
@@ -1336,8 +1346,10 @@ export async function publishEdition(userId: string, id: string): Promise<Publis
 			.select({ name: userTable.name })
 			.from(userTable)
 			.where(eq(userTable.id, userId))
-		// Shared now: off the shortlist.
-		const shared = items.flatMap((item) => (item.documentId ? [item.documentId] : []))
+		// Shared now: off the shortlist. Set aside, it stays marked for an edition to come.
+		const shared = items.flatMap((item) =>
+			item.documentId && item.included ? [item.documentId] : [],
+		)
 		if (shared.length > 0)
 			await tx
 				.update(documents)
@@ -1494,6 +1506,8 @@ export interface ExportedEdition {
 		readOn: string | null
 		note: string | null
 		includeNote: boolean
+		/** False when set aside: in the working copy, not on the public page. */
+		included: boolean
 		highlights: Array<{
 			highlightId: string
 			exact: string
@@ -1551,6 +1565,7 @@ export async function exportEditions(userId: string): Promise<ExportedEdition[]>
 				readOn: item.readOn,
 				note: item.note,
 				includeNote: item.includeNote,
+				included: item.included,
 				highlights: item.highlights.map(({ highlightId, exact, note, included }) => ({
 					highlightId,
 					exact,

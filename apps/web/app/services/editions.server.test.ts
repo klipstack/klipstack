@@ -13,7 +13,7 @@ import {
 } from "@klipstack/db"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import { purgeArticles, trashArticles } from "~/commands/articles.server"
-import { createEdition } from "~/commands/editions.server"
+import { changeEdition, createEdition } from "~/commands/editions.server"
 import { AppError } from "~/lib/app-error"
 import { hasUnpublishedChanges } from "~/lib/editions"
 import { env } from "~/lib/env.server"
@@ -741,6 +741,65 @@ describe("an edition without a title", () => {
 			)
 		} finally {
 			await deleteEdition(userId, untitled.id)
+		}
+	})
+})
+
+describe("an item set aside", () => {
+	it("stays in the working copy and on the shortlist, out of the page and of its problems", async () => {
+		await mark([
+			[target.id, "2026-09-05T10:00:00Z"],
+			[noted.id, "2026-09-06T10:00:00Z"],
+		])
+		const draft = await insertEdition(userId, { locale: "en", timeZone })
+		try {
+			const kept = await addItem(userId, draft.id, target.id)
+			const aside = await addItem(userId, draft.id, noted.id)
+			expect([kept.included, aside.included]).toEqual([true, true])
+			// An address the page cannot link to: a problem only while the item is in.
+			await db
+				.update(editionItems)
+				.set({ url: "ftp://files.example/a" })
+				.where(eq(editionItems.id, aside.id))
+			expect(await code(changeEdition(userId, draft.id, { intent: "publish" }))).toBe(
+				"publish_problems",
+			)
+
+			await changeEdition(userId, draft.id, {
+				intent: "update-item",
+				itemId: aside.id,
+				included: false,
+			})
+			const { items } = await getEdition(userId, draft.id)
+			expect(items.map((i) => [i.documentId, i.position, i.included])).toEqual([
+				[target.id, 0, true],
+				[noted.id, 1, false],
+			])
+			expect((await listEditions(userId)).find((e) => e.id === draft.id)?.itemCount).toBe(1)
+			expect((await publishEdition(userId, draft.id)).ok).toBe(true)
+			expect((await snapshotOf(draft.id))!.items.map((i) => i.title)).toEqual(["Target"])
+			// Shared now: off the shortlist. Set aside: still marked, for an edition to come.
+			expect((await listShortlist(userId)).map((e) => e.id)).toEqual([noted.id])
+
+			// Setting one aside is a change the public page does not have yet.
+			await changeEdition(userId, draft.id, {
+				intent: "update-item",
+				itemId: kept.id,
+				included: false,
+			})
+			const { edition: changed } = await getEdition(userId, draft.id)
+			expect(hasUnpublishedChanges(changed)).toBe(true)
+			// Every item set aside: nothing to publish.
+			expect(await publishEdition(userId, draft.id)).toEqual({
+				ok: false,
+				problems: [{ code: "no_items" }],
+			})
+		} finally {
+			await mark([
+				[target.id, null],
+				[noted.id, null],
+			])
+			await deleteEdition(userId, draft.id)
 		}
 	})
 })

@@ -32,6 +32,7 @@ type HighlightChange = { highlightId: string; included?: boolean; note?: string 
 type ItemPatch = {
 	intent?: string
 	itemId?: string
+	included?: boolean
 	includeNote?: boolean
 	highlights?: HighlightChange[]
 }
@@ -56,7 +57,8 @@ function useChoice(saved: boolean, fetcher: FetcherWithComponents<IntentResult>)
 
 /**
  * One article of the edition: what the public page will show, and what the user chooses to add
- * to it. Choices save at once; typed text saves itself.
+ * to it. Choices save at once; typed text saves itself. Unticked, the article is set aside: it
+ * keeps its place, folded to one dimmed line, and the page leaves it out.
  */
 export function EditionItemCard({
 	editionId,
@@ -76,6 +78,8 @@ export function EditionItemCard({
 	// submission cancels the one in flight, and ticking two highlights quickly must keep both.
 	const fetcher = useFetcher<IntentResult>()
 	const noteChoice = useFetcher<IntentResult>()
+	const inclusion = useFetcher<IntentResult>()
+	const [included, chooseIncluded] = useChoice(item.included, inclusion)
 	// A refresh replaces the note copies: the text fields start again from the new ones. Each answer
 	// counts once, and only the answer to a refresh.
 	const [copy, setCopy] = useState(0)
@@ -105,10 +109,8 @@ export function EditionItemCard({
 			.findLast((c) => c.highlightId === h.highlightId && c.included !== undefined)
 		return change?.included === undefined ? h : { ...h, included: change.included }
 	})
-	const usage = quoteUsage(includedQuotes(highlights), item.wordCount)
-	const over = quoteProblem(includedQuotes(highlights), item.wordCount)
 	const failed = (f: typeof fetcher) => (f.state === "idle" && f.data?.ok === false ? f.data : null)
-	const error = failed(fetcher) ?? failed(noteChoice)
+	const error = failed(fetcher) ?? failed(noteChoice) ?? failed(inclusion)
 	const [removing, setRemoving] = useState(false)
 	const busy = fetcher.state !== "idle" || removing
 
@@ -138,12 +140,31 @@ export function EditionItemCard({
 	return (
 		<li
 			data-testid="edition-item"
-			data-edition-card
-			className="rounded-xl border border-border bg-card p-4"
+			// Set aside, it has nothing in the preview for the preview to follow.
+			data-edition-card={included ? "" : undefined}
+			data-set-aside={included ? undefined : ""}
+			className={cn(
+				"rounded-xl border border-border p-4",
+				included ? "bg-card" : "border-dashed py-2",
+			)}
 		>
 			{/* On a phone the buttons wrap under the text, rather than squeeze it. */}
 			<div className="flex flex-wrap gap-3">
-				{item.leadImageUrl ? (
+				<input
+					type="checkbox"
+					checked={included}
+					aria-label={t("item.include")}
+					{...tooltip(t("item.include"))}
+					onChange={(e) => {
+						chooseIncluded(e.target.checked)
+						void inclusion.submit(
+							{ intent: "update-item", itemId: item.id, included: e.target.checked },
+							post(editionId),
+						)
+					}}
+					className={cn("size-4 shrink-0 accent-accent", included ? "mt-1" : "mt-2.5")}
+				/>
+				{included && item.leadImageUrl ? (
 					<img
 						src={item.leadImageUrl}
 						alt=""
@@ -152,15 +173,27 @@ export function EditionItemCard({
 						className="relative size-16 shrink-0 rounded-md bg-muted object-cover before:absolute before:inset-0 before:bg-muted"
 					/>
 				) : null}
-				<div className="min-w-0 flex-1 basis-48">
-					<p className="font-medium leading-snug">{item.title}</p>
-					<p className="mt-0.5 truncate text-sm text-muted-fg">
-						{[item.siteName, item.author].filter(Boolean).join(" · ") || item.url}
-					</p>
-					{item.description ? (
-						<p className="mt-1 line-clamp-2 text-sm text-muted-fg">{item.description}</p>
-					) : null}
-				</div>
+				{included ? (
+					<div className="min-w-0 flex-1 basis-48">
+						<p className="font-medium leading-snug">{item.title}</p>
+						<p className="mt-0.5 truncate text-sm text-muted-fg">
+							{[item.siteName, item.author].filter(Boolean).join(" · ") || item.url}
+						</p>
+						{item.description ? (
+							<p className="mt-1 line-clamp-2 text-sm text-muted-fg">{item.description}</p>
+						) : null}
+					</div>
+				) : (
+					<div
+						className="min-w-0 flex-1 basis-48 self-center opacity-60"
+						{...tooltip(t("item.setAsideDetail"))}
+					>
+						<p className="truncate text-sm font-medium">{item.title}</p>
+						<p className="truncate text-xs text-muted-fg">
+							{[t("item.setAside"), item.siteName ?? item.url].join(" · ")}
+						</p>
+					</div>
+				)}
 				<div className="ml-auto flex shrink-0 items-start gap-1">
 					<Button
 						variant="ghost"
@@ -207,6 +240,54 @@ export function EditionItemCard({
 				</div>
 			</div>
 
+			{included ? (
+				<ItemChoices
+					editionId={editionId}
+					item={item}
+					copy={copy}
+					includeNote={includeNote}
+					chooseIncludeNote={chooseIncludeNote}
+					noteChoice={noteChoice}
+					highlights={highlights}
+					save={save}
+				/>
+			) : null}
+
+			{error ? (
+				<p role="alert" className="mt-3 text-sm text-danger">
+					{refusalText(t, error.error)}
+				</p>
+			) : null}
+		</li>
+	)
+}
+
+/** What an included article shows on the page: its note, and the highlights quoted. */
+function ItemChoices({
+	editionId,
+	item,
+	copy,
+	includeNote,
+	chooseIncludeNote,
+	noteChoice,
+	highlights,
+	save,
+}: {
+	editionId: string
+	item: EditionItem
+	/** Bumped by a refresh, which replaces the note copies. */
+	copy: number
+	includeNote: boolean
+	chooseIncludeNote: (value: boolean) => void
+	noteChoice: FetcherWithComponents<IntentResult>
+	highlights: EditionItemHighlight[]
+	save: EditionSave
+}) {
+	const { t } = useTranslation("editions")
+	const usage = quoteUsage(includedQuotes(highlights), item.wordCount)
+	const over = quoteProblem(includedQuotes(highlights), item.wordCount)
+	return (
+		<>
 			{/* Without a note from the library, one can be written here. */}
 			<div className="mt-4 border-t border-border pt-3">
 				<label className="flex items-center gap-2 text-sm font-medium">
@@ -280,13 +361,7 @@ export function EditionItemCard({
 					</p>
 				) : null}
 			</div>
-
-			{error ? (
-				<p role="alert" className="mt-3 text-sm text-danger">
-					{refusalText(t, error.error)}
-				</p>
-			) : null}
-		</li>
+		</>
 	)
 }
 

@@ -169,6 +169,8 @@ function EditorColumn({
 }) {
 	const { t } = useTranslation("editions")
 	const { edition, items, picker, missing } = loaderData
+	// Set aside: kept in place, left out of the page.
+	const aside = items.filter((item) => !item.included).length
 	return (
 		<main
 			ref={mainRef}
@@ -186,7 +188,13 @@ function EditorColumn({
 			<section aria-labelledby="edition-items" className="mt-10">
 				<div className="flex items-center justify-between gap-3">
 					<h2 id="edition-items" className="text-lg font-semibold">
-						{t("articles", { count: items.length })}
+						{t("articles", { count: items.length - aside })}
+						{aside > 0 ? (
+							<span className="font-normal text-muted-fg">
+								{" · "}
+								{t("setAside", { count: aside })}
+							</span>
+						) : null}
 					</h2>
 					<EditionPicker editionId={edition.id} picker={picker} added={added} />
 				</div>

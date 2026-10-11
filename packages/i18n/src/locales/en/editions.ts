@@ -9,6 +9,9 @@ export default {
 	},
 	articles_one: "{{count}} article",
 	articles_other: "{{count}} articles",
+	/** Beside the count of articles: those set aside, which the page leaves out. */
+	setAside_one: "{{count}} set aside",
+	setAside_other: "{{count}} set aside",
 	changes: "Unpublished changes",
 	editor: {
 		back: "Editions",
@@ -48,6 +51,10 @@ export default {
 		quotes: "“{{title}}” quotes more than the limit.",
 	},
 	item: {
+		/** The checkbox on each article: off sets it aside, in its place, out of the page. */
+		include: "Include in this edition",
+		setAside: "Set aside",
+		setAsideDetail: "Left out of the page. Tick it to put it back.",
 		removed: "Removed from this edition",
 		removedUnmarked: "Removed, and unmarked for your next edition",
 		undo: "Undo",

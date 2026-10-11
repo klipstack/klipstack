@@ -154,7 +154,13 @@ describe("isHttpUrl and markdownUrl", () => {
 })
 
 describe("publishProblems", () => {
-	const item = { id: "a", url: "https://example.com", wordCount: 1000, highlights: [] }
+	const item = {
+		id: "a",
+		url: "https://example.com",
+		wordCount: 1000,
+		included: true,
+		highlights: [],
+	}
 
 	it("needs an item, and no title", () => {
 		expect(publishProblems([item])).toEqual([])
@@ -173,5 +179,11 @@ describe("publishProblems", () => {
 			{ code: "url", itemId: "b" },
 			{ code: "quotes", itemId: "c", problem: "too-long" },
 		])
+	})
+
+	it("passes over the items set aside, and needs one that is not", () => {
+		const aside = { ...item, id: "b", url: "javascript:alert(1)", included: false }
+		expect(publishProblems([item, aside])).toEqual([])
+		expect(publishProblems([aside])).toEqual([{ code: "no_items" }])
 	})
 })

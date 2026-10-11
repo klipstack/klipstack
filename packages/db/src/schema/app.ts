@@ -659,6 +659,11 @@ export const editionItems = pgTable(
 		note: text("note"),
 		includeNote: boolean("include_note").notNull().default(false),
 		highlights: jsonb("highlights").$type<EditionItemHighlight[]>().notNull().default([]),
+		/**
+		 * False when set aside: the item keeps its place and choices in the working copy, but the
+		 * public page leaves it out, and publishing leaves its article on the shortlist.
+		 */
+		included: boolean("included").notNull().default(true),
 	},
 	(t) => [
 		unique("edition_items_edition_position_unique").on(t.editionId, t.position),

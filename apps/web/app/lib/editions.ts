@@ -186,18 +186,23 @@ export type PublishProblem =
 	| { code: "url"; itemId: string }
 	| { code: "quotes"; itemId: string; problem: QuoteProblem }
 
-/** What stops the working copy from going public. Empty when nothing does. */
+/**
+ * What stops the working copy from going public. Empty when nothing does. Items set aside don't
+ * go public, so nothing about them does.
+ */
 export function publishProblems(
 	items: readonly {
 		id: string
 		url: string
 		wordCount: number | null
+		included: boolean
 		highlights: readonly { exact: string; included: boolean }[]
 	}[],
 ): PublishProblem[] {
 	const problems: PublishProblem[] = []
-	if (items.length === 0) problems.push({ code: "no_items" })
-	for (const item of items) {
+	const going = items.filter((item) => item.included)
+	if (going.length === 0) problems.push({ code: "no_items" })
+	for (const item of going) {
 		if (!isHttpUrl(item.url)) problems.push({ code: "url", itemId: item.id })
 		const problem = quoteProblem(includedQuotes(item.highlights), item.wordCount)
 		if (problem) problems.push({ code: "quotes", itemId: item.id, problem })
