@@ -26,4 +26,9 @@ Report:
 - A Playwright `waitForTimeout` where a state could be awaited. A fixed wait is fine only to show
   that something did not happen, or when the product needs time to pass, with a comment on the
   wait or at the start of its step saying which.
+- A Playwright `goto` or `reload` followed by a click, key press or selection that needs the
+  page's JavaScript (a button, a menu, a shortcut), with no `waitForHydration` between them. The
+  server's page shows its content before the page hydrates, so assertions on it pass, while a
+  click that lands before hydration does nothing; on a slow runner that is a flaky test. Links
+  and plain form posts work without it.
 - Refusals left untested: another user's item, a trashed item, input over a limit.

@@ -398,6 +398,8 @@ test("the reader's own changes do not load the article again", async ({ page }) 
 
 	// Every change is on the server all the same.
 	await page.reload()
+	// The server's page shows the state before it can open a menu.
+	await waitForHydration(page)
 	await expect(bar.getByRole("button", { name: "Unstar", exact: true })).toBeVisible()
 	await bar.getByRole("button", { name: "More actions" }).click()
 	await expect(page.getByRole("menuitem", { name: "Move to library" })).toBeVisible()
