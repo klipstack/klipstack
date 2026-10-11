@@ -1,28 +1,21 @@
-import { readFileSync } from "node:fs"
-import { join } from "node:path"
+import { db, eq, user } from "@klipstack/db"
 import { expect, type Page, test } from "@playwright/test"
 import { signupUser, waitForHydration } from "./helpers"
+import { insertArticle } from "./seed"
 
-const FIXTURE = join(
-	import.meta.dirname,
-	"../../../packages/extract/test/fixtures/pages/paulgraham-makers.html",
-)
 const TITLE = "Maker's Schedule, Manager's Schedule"
 
 const stateResponse = (page: Page) =>
 	page.waitForResponse((r) => r.url().includes("/state") && r.request().method() === "POST")
 
+/** An article ready in the library, written straight to the database: no wait on the worker. */
 async function libraryWithArticle(page: Page) {
-	await signupUser(page, "Access")
-	await page.request.post("/api/documents", {
-		data: {
-			url: "https://paulgraham.com/makersschedule.html",
-			html: readFileSync(FIXTURE, "utf8"),
-		},
-	})
+	const email = await signupUser(page, "Access")
+	const owner = await db.query.user.findFirst({ where: eq(user.email, email) })
+	await insertArticle(owner!.id, TITLE, "<p>One way of using time.</p>")
 	await page.goto("/library")
 	await waitForHydration(page)
-	await expect(page.getByRole("link", { name: TITLE })).toBeVisible({ timeout: 60_000 })
+	await expect(page.getByRole("link", { name: TITLE })).toBeVisible()
 }
 
 test("a … menu works from the keyboard and gives the focus back", async ({ page }) => {
