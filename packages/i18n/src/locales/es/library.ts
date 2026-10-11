@@ -69,6 +69,42 @@ export default {
 		openSaved: "Abrirla",
 		undo: "Deshacer",
 	},
+	review: {
+		card: {
+			title: "¿Todavía quieres leer estos?",
+			description:
+				"Algunos artículos que guardaste hace más de un mes siguen sin abrir. Conserva los que todavía quieras y archiva el resto. Los archivados siguen en tu archivo y en la búsqueda.",
+			open: "Revisarlos",
+			later: "Ahora no",
+		},
+		libraryMenu: "Opciones de la biblioteca",
+		open: "Revisar guardados antiguos",
+		title: "Guardados hace tiempo, nunca abiertos",
+		description:
+			"Archivar saca un artículo de tu biblioteca, no de Klipstack: sigue en tu archivo y en la búsqueda. Los que conserves no se volverán a sugerir aquí en tres meses.",
+		oldestFirst:
+			"Aquí están los {{count}} más antiguos. Irán apareciendo más a medida que avances.",
+		saved: "Guardado {{when}}",
+		minutes: "{{count}} min",
+		keep: "Conservar",
+		archive: "Archivar",
+		delete: "Eliminar",
+		more: "Más opciones de «{{title}}»",
+		untitled: "Sin título",
+		archiveAll_one: "Archivarlo",
+		archiveAll_other: "Archivar estos {{count}}",
+		keepAll_one: "Conservarlo",
+		keepAll_other: "Conservar estos {{count}}",
+		kept: "Conservado",
+		keptMany_one: "{{count}} artículo conservado",
+		keptMany_other: "{{count}} artículos conservados",
+		failed: "No cambió nada. Inténtalo de nuevo.",
+		empty: {
+			title: "No queda nada por revisar",
+			description: "Ya decidiste qué hacer con cada artículo guardado hace tiempo.",
+			action: "Volver a Inicio",
+		},
+	},
 	continueReading: {
 		title: "Seguir leyendo",
 		left: "{{count}} min restantes",

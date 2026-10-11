@@ -1,12 +1,19 @@
 import { BookOpen, CircleAlert, Clock3, Search } from "lucide-react"
 import { useEffect, useMemo } from "react"
 import { useTranslation } from "react-i18next"
-import { Link, type ShouldRevalidateFunctionArgs, useNavigate, useSearchParams } from "react-router"
+import {
+	Form,
+	Link,
+	type ShouldRevalidateFunctionArgs,
+	useFetcher,
+	useNavigate,
+	useSearchParams,
+} from "react-router"
 import { FeedArticle } from "~/components/feed-article"
 import { HomeArticle } from "~/components/home-article"
 import { HomeGreeting } from "~/components/home-greeting"
 import { SaveLinkDialog } from "~/components/save-link-dialog"
-import { buttonVariants } from "~/components/ui/button"
+import { Button, buttonVariants } from "~/components/ui/button"
 import { useFeedReader } from "~/hooks/use-feed-reader"
 import { fitsIn, homeShelves } from "~/lib/home-shelves"
 import { getInstance } from "~/lib/i18n.server"
@@ -59,7 +66,7 @@ export const handle: PageBarHandle = {
 }
 
 export default function ReadingHome({
-	loaderData: { candidates, timeChoice, feed, emptyState },
+	loaderData: { candidates, timeChoice, feed, emptyState, review },
 }: Route.ComponentProps) {
 	const { t } = useTranslation(["library", "feed"])
 	const navigate = useNavigate()
@@ -181,6 +188,8 @@ export default function ReadingHome({
 						</ul>
 					</section>
 				) : null}
+				{/* With a time chosen, the reader came to read, not to tidy up. */}
+				{review && !timed ? <ReviewCard /> : null}
 				{nothingFits ? (
 					<div className="flex flex-col items-center gap-4 py-10 text-center">
 						<p className="text-sm text-muted-fg">{t("home.time.none", { count: minutes! })}</p>
@@ -233,6 +242,44 @@ export default function ReadingHome({
 				) : null}
 			</div>
 		</main>
+	)
+}
+
+/**
+ * Old saves never opened, to keep or let go of: a quiet suggestion, without a count. Opening the
+ * review or "Not now" puts it off for a month.
+ */
+function ReviewCard() {
+	const { t } = useTranslation("library")
+	const later = useFetcher()
+	if (later.state !== "idle" || later.data) return null
+	return (
+		<section
+			aria-labelledby="home-review"
+			data-testid="home-review"
+			className="rounded-xl border border-border bg-card p-5"
+		>
+			<h2 id="home-review" className="font-medium">
+				{t("review.card.title")}
+			</h2>
+			<p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-fg">
+				{t("review.card.description")}
+			</p>
+			<div className="mt-4 flex flex-wrap items-center gap-2">
+				<Form method="post" action="/library/review">
+					<input type="hidden" name="intent" value="open" />
+					<Button type="submit" variant="secondary">
+						{t("review.card.open")}
+					</Button>
+				</Form>
+				<later.Form method="post" action="/library/review">
+					<input type="hidden" name="intent" value="snooze" />
+					<Button type="submit" variant="ghost">
+						{t("review.card.later")}
+					</Button>
+				</later.Form>
+			</div>
+		</section>
 	)
 }
 

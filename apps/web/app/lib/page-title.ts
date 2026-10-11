@@ -15,6 +15,7 @@ export const PAGE_TITLES = [
 	"common:nav.tags",
 	"common:nav.trash",
 	"library:add.button",
+	"library:review.title",
 	"settings:about.title",
 	"settings:account.title",
 	"settings:apiKeys.title",

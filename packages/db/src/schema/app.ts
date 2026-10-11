@@ -75,6 +75,11 @@ export const documents = pgTable(
 		 * Marked "for next edition". Publishing an edition with the article clears it.
 		 */
 		shortlistedAt: timestamp("shortlisted_at", { withTimezone: true }),
+		/**
+		 * Kept when reviewing old saves never opened: not suggested for letting go again for a while
+		 * (`REVIEW.keepDays` in the web app).
+		 */
+		keptAt: timestamp("kept_at", { withTimezone: true }),
 		firstOpenedAt: timestamp("first_opened_at", { withTimezone: true }),
 		readAt: timestamp("read_at", { withTimezone: true }),
 		lastReadAt: timestamp("last_read_at", { withTimezone: true }),

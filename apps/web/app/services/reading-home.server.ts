@@ -2,23 +2,25 @@ import { and, count, db, documents, eq, isNull, sql } from "@klipstack/db"
 import { homeShelves, TIME_FILTER_MIN } from "~/lib/home-shelves"
 import { homeFeedItems } from "./feeds.server"
 import { countUnfinished, homeCandidates } from "./reading-suggestions.server"
+import { reviewSuggested } from "./review.server"
 
 /**
  * Home: candidates for its sections (`homeShelves` picks from them, for any time choice), whether
- * to offer the time choice, and new feed posts.
+ * to offer the time choice, new feed posts, and whether to suggest reviewing old saves.
  */
 export async function readingHome(userId: string, { now = new Date() }: { now?: Date } = {}) {
-	const [candidates, unfinished, feed] = await Promise.all([
+	const [candidates, unfinished, feed, review] = await Promise.all([
 		homeCandidates(userId, { now }),
 		countUnfinished(userId),
 		homeFeedItems(userId),
+		reviewSuggested(userId, now),
 	])
 	const shelves = homeShelves(candidates, null)
 	const emptyState =
 		shelves.reading.length || shelves.recent.length || shelves.rediscover.length || feed.length
 			? null
 			: await homeEmptyState(userId)
-	return { candidates, timeChoice: unfinished > TIME_FILTER_MIN, feed, emptyState }
+	return { candidates, timeChoice: unfinished > TIME_FILTER_MIN, feed, emptyState, review }
 }
 
 /** Only queried when there is nothing to feature. Archived and trashed saves are not pending work. */

@@ -7,6 +7,7 @@ export const DEFAULT_PREFS: Required<UserPrefs> = {
 	theme: "system",
 	shortcuts: "on",
 	editionsNudgeAfter: null,
+	reviewSuggestAfter: null,
 	linkEditions: "off",
 }
 
