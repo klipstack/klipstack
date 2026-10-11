@@ -11,10 +11,12 @@ import {
 } from "react-router"
 import { FeedArticle } from "~/components/feed-article"
 import { HomeArticle } from "~/components/home-article"
+import { FinishedLately } from "~/components/home-finished"
 import { HomeGreeting } from "~/components/home-greeting"
 import { SaveLinkDialog } from "~/components/save-link-dialog"
 import { Button, buttonVariants } from "~/components/ui/button"
 import { useFeedReader } from "~/hooks/use-feed-reader"
+import { timeZoneFromCookie } from "~/lib/date-groups"
 import { fitsIn, homeShelves } from "~/lib/home-shelves"
 import { getInstance } from "~/lib/i18n.server"
 import { listSearch, parseTime, REDISCOVER_AFTER_DAYS, TIME_CHOICES } from "~/lib/inbox-filters"
@@ -23,13 +25,19 @@ import type { PageBarHandle } from "~/lib/page-bar"
 import { requireUser } from "~/lib/session.server"
 import { isSearchShortcut } from "~/lib/shortcuts"
 import { cn } from "~/lib/utils"
+import { finishedLately } from "~/services/reading-history.server"
 import { readingHome } from "~/services/reading-home.server"
 import type { Route } from "./+types/reading-home"
 
 export async function loader({ context, request }: Route.LoaderArgs) {
 	const user = requireUser(context, request)
 	const t = getInstance(context).getFixedT(null, "library")
-	return { ...(await readingHome(user.id)), title: `${t("home.title")} · Klipstack` }
+	const timeZone = timeZoneFromCookie(request.headers.get("cookie"))
+	const [home, finished] = await Promise.all([
+		readingHome(user.id),
+		finishedLately(user.id, { timeZone }),
+	])
+	return { ...home, finished, title: `${t("home.title")} · Klipstack` }
 }
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -66,7 +74,7 @@ export const handle: PageBarHandle = {
 }
 
 export default function ReadingHome({
-	loaderData: { candidates, timeChoice, feed, emptyState, review },
+	loaderData: { candidates, timeChoice, feed, emptyState, review, finished },
 }: Route.ComponentProps) {
 	const { t } = useTranslation(["library", "feed"])
 	const navigate = useNavigate()
@@ -110,7 +118,12 @@ export default function ReadingHome({
 
 	return (
 		<main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-5 pb-12 md:px-8 md:pt-4 md:pb-8">
-			<header className="mb-9 hidden min-h-10 flex-wrap items-center justify-between gap-3 md:flex">
+			<header
+				className={cn(
+					"hidden min-h-10 flex-wrap items-center justify-between gap-3 md:flex",
+					finished ? "mb-1" : "mb-9",
+				)}
+			>
 				<h1 className="text-2xl font-semibold">
 					<HomeGreeting />
 				</h1>
@@ -126,6 +139,7 @@ export default function ReadingHome({
 					<SaveLinkDialog />
 				</div>
 			</header>
+			{finished ? <FinishedLately {...finished} /> : null}
 			{timeChoice ? <TimeChoice minutes={minutes} /> : null}
 			<div className="space-y-10">
 				{featured ? (

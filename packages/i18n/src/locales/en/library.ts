@@ -21,6 +21,13 @@ export default {
 			pickUp_other: "Doesn't fit in {{count}} minutes, but it's where you left off.",
 			showAll: "Show everything",
 		},
+		finished: {
+			count: "You finished {{count}} articles this past week.",
+			count_one: "You finished {{count}} article this past week.",
+			count_other: "You finished {{count}} articles this past week.",
+			named: "You finished {{title}} this past week.",
+			untitled: "You finished an article this past week.",
+		},
 		rediscover: {
 			title: "From a while ago",
 			description: "Saved more than {{count}} days ago. A different few each day.",

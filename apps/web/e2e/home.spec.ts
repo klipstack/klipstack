@@ -11,7 +11,8 @@ import {
 	user,
 } from "@klipstack/db"
 import { expect, test } from "@playwright/test"
-import { createInviteCode, uniqueEmail, waitForHydration } from "./helpers"
+import { createInviteCode, signupUser, uniqueEmail, waitForHydration } from "./helpers"
+import { insertArticle } from "./seed"
 
 test("home adapts to the library, opens articles and returns after finishing", async ({ page }) => {
 	test.setTimeout(60_000)
@@ -490,4 +491,61 @@ test("Home brings back older saves and narrows to the time chosen, without askin
 	await expect(page).toHaveURL(/\/home$/)
 	await expect(choice("Any")).toHaveAttribute("aria-current", "true")
 	await expect(articles).not.toHaveCount(0)
+})
+
+test("Home says what was finished this past week, and leaves tidying up out", async ({ page }) => {
+	test.setTimeout(60_000)
+	const email = await signupUser(page, "Finished Reader")
+	const owner = await db.query.user.findFirst({ where: eq(user.email, email) })
+	const html = "<p>A few paragraphs worth reading to the end.</p>"
+	const slow = await insertArticle(owner!.id, "Slow reading", html)
+	const deep = await insertArticle(owner!.id, "Deep work", html)
+	await insertArticle(owner!.id, "Old news", html)
+	await insertArticle(owner!.id, "Older news", html)
+	const finished = page.getByTestId("home-finished")
+
+	// Nothing finished yet: nothing said, no zero.
+	await page.goto("/home")
+	await waitForHydration(page)
+	await expect(page.getByRole("heading", { name: "Recently saved" })).toBeVisible()
+	await expect(finished).toHaveCount(0)
+
+	// Opened from Home, finished in the reader, back on Home.
+	const finishFromHome = async (id: string, title: string) => {
+		await page.getByRole("link", { name: title }).first().click()
+		await expect(page).toHaveURL(new RegExp(`/read/${id}$`))
+		// At the end of the article, once it is on the page, as a reader gets there.
+		const end = page.getByTestId("reader-end")
+		await expect(end).toBeAttached()
+		await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+		await expect(end).toBeInViewport()
+		await end.getByRole("button", { name: "Mark as finished" }).click()
+		await expect(page).toHaveURL(/\/home$/)
+	}
+	await finishFromHome(slow, "Slow reading")
+	await expect(finished).toHaveText("You finished Slow reading this past week.")
+	// The title stands apart from the sentence, as a title: not a link.
+	await expect(finished.locator("cite")).toHaveText("Slow reading")
+	await expect(finished.getByRole("link")).toHaveCount(0)
+
+	// Two marked finished at once from the library is tidying up: it doesn't count.
+	await page.goto("/library")
+	await waitForHydration(page)
+	const bar = page.getByRole("toolbar", { name: "Selected articles" })
+	await page.getByRole("checkbox", { name: "Select “Old news”" }).click()
+	await page.getByRole("checkbox", { name: "Select “Older news”" }).click()
+	await expect(bar).toContainText("2 selected")
+	await Promise.all([
+		page.waitForResponse((r) => r.url().includes("/documents/bulk") && r.ok()),
+		bar.getByRole("button", { name: "Mark finished" }).click(),
+	])
+	await page.goto("/home")
+	await expect(finished).toHaveText("You finished Slow reading this past week.")
+
+	await waitForHydration(page)
+	await finishFromHome(deep, "Deep work")
+	await expect(finished).toHaveText("You finished 2 articles this past week.")
+	// On a phone the greeting is in the top bar; the line opens the page.
+	await page.setViewportSize({ width: 390, height: 844 })
+	await expect(finished).toBeVisible()
 })

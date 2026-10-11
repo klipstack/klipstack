@@ -313,7 +313,8 @@ async function applyState(
 			return
 		}
 		case "finish":
-			undo.completions.push(...(await finishIn(tx, where)))
+			// Several finished at once is tidying up more than reading.
+			undo.completions.push(...(await finishIn(tx, where, rows.length > 1 ? "bulk" : "manual")))
 			return
 		case "unread":
 			// Back to "new": never opened, no progress, not finished.
@@ -335,7 +336,11 @@ async function applyState(
  * Finished, progress full, archived if they were not, and a completion recorded for the reading
  * cycle. Returns the ids of the completions it added (none for a cycle already completed).
  */
-async function finishIn(tx: Tx, where: ReturnType<typeof owned>): Promise<string[]> {
+async function finishIn(
+	tx: Tx,
+	where: ReturnType<typeof owned>,
+	source: "manual" | "bulk",
+): Promise<string[]> {
 	const docs = await tx
 		.update(documents)
 		.set({
@@ -361,7 +366,7 @@ async function finishIn(tx: Tx, where: ReturnType<typeof owned>): Promise<string
 				documentId: doc.id,
 				cycle: doc.cycle,
 				completedAt: doc.completedAt!,
-				source: "manual" as const,
+				source,
 			})),
 		)
 		.onConflictDoNothing({ target: [readingCompletions.documentId, readingCompletions.cycle] })

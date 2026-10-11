@@ -20,6 +20,13 @@ export default {
 			pickUp_other: "No cabe en {{count}} minutos, pero es donde lo dejaste.",
 			showAll: "Mostrar todo",
 		},
+		finished: {
+			count: "Terminaste {{count}} artículos esta última semana.",
+			count_one: "Terminaste {{count}} artículo esta última semana.",
+			count_other: "Terminaste {{count}} artículos esta última semana.",
+			named: "Terminaste {{title}} esta última semana.",
+			untitled: "Terminaste un artículo esta última semana.",
+		},
 		rediscover: {
 			title: "De hace un tiempo",
 			description: "Guardados hace más de {{count}} días. Unos distintos cada día.",

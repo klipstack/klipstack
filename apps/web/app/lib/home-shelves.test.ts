@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { fillsTime, fitsIn, homeShelves, TIME_FILTER_MIN } from "./home-shelves"
+import { fillsTime, fitsIn, homeShelves, shortTitle, TIME_FILTER_MIN } from "./home-shelves"
 
 const recentSince = new Date("2026-09-26T00:00:00Z")
 const lately = new Date("2026-10-09T00:00:00Z")
@@ -90,5 +90,25 @@ describe("TIME_FILTER_MIN", () => {
 		)
 		const shown = full.reading.length + full.recent.length + full.rediscover.length
 		expect(shown).toBe(TIME_FILTER_MIN)
+	})
+})
+
+describe("shortTitle", () => {
+	it("keeps a title that fits", () => {
+		expect(shortTitle("How to Read a Book", 20)).toBe("How to Read a Book")
+	})
+	it("cuts a long title after a word, within the length", () => {
+		expect(shortTitle("The quiet pleasures of reading slowly in a hurried age", 30)).toBe(
+			"The quiet pleasures of…",
+		)
+	})
+	it("cuts at the length when the only space is early, not after one word", () => {
+		expect(shortTitle("Unread extraordinarily long", 20)).toBe("Unread extraordinar…")
+	})
+	it("never cuts a character in half", () => {
+		expect(shortTitle("読書の楽しみ📚と静かな時間", 8)).toBe("読書の楽しみ📚…")
+	})
+	it("cuts a title without spaces at the length", () => {
+		expect(shortTitle("Donaudampfschifffahrtsgesellschaft", 10)).toBe("Donaudamp…")
 	})
 })

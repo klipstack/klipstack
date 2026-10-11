@@ -10,7 +10,7 @@ import {
 } from "~/commands/articles.server"
 import { restoreDocument } from "./documents.server"
 import { buildDocumentExport, buildExport } from "./export.server"
-import { listReadingHistory } from "./reading-history.server"
+import { finishedLately, listReadingHistory } from "./reading-history.server"
 
 const userId = `test-history-${Date.now()}`
 const otherId = `${userId}-other`
@@ -22,11 +22,12 @@ beforeAll(async () => {
 afterAll(async () => {
 	for (const id of [userId, otherId]) await db.delete(user).where(eq(user.id, id))
 })
-async function article(owner = userId) {
+async function article(owner = userId, title: string | null = null) {
 	const [doc] = await db
 		.insert(documents)
 		.values({
 			userId: owner,
+			title,
 			sourceUrl: "https://example.com/history",
 			urlHash: newId(),
 			status: "ready",
@@ -150,5 +151,134 @@ describe("durable completion history", () => {
 					and(eq(readingCompletions.userId, otherId), eq(readingCompletions.documentId, doc.id)),
 				),
 		).toEqual([])
+	})
+})
+
+describe("finishes recorded as one batch", () => {
+	it("records finishing several articles at once as bulk, and one article as manual", async () => {
+		const [a, b, c] = [await article(), await article(), await article()]
+		await updateArticles(userId, { ids: [a.id, b.id], finished: true })
+		await updateArticles(userId, { ids: [c.id], finished: true })
+		expect((await listReadingHistory(userId, a.id)).map((e) => e.source)).toEqual(["bulk"])
+		expect((await listReadingHistory(userId, b.id)).map((e) => e.source)).toEqual(["bulk"])
+		expect((await listReadingHistory(userId, c.id)).map((e) => e.source)).toEqual(["manual"])
+	})
+
+	it("records one article finished as manual, even selected with others already finished", async () => {
+		const [done, fresh] = [await article(), await article()]
+		await updateArticle(userId, done.id, { finished: true })
+		await updateArticles(userId, { ids: [done.id, fresh.id], finished: true })
+		expect((await listReadingHistory(userId, fresh.id)).map((e) => e.source)).toEqual(["manual"])
+	})
+})
+
+describe("finishedLately", () => {
+	// Sunday 11 October 2026, 09:00 in Santiago (UTC-3).
+	const now = new Date("2026-10-11T12:00:00Z")
+	async function reader() {
+		const id = `test-lately-${newId()}`
+		await db.insert(user).values({ id, name: "Reader", email: `${id}@example.com` })
+		readers.push(id)
+		return id
+	}
+	const readers: string[] = []
+	afterAll(async () => {
+		for (const id of readers) await db.delete(user).where(eq(user.id, id))
+	})
+	async function finished(
+		owner: string,
+		documentId: string,
+		completedAt: string,
+		source: "manual" | "progress" | "legacy" | "bulk" = "manual",
+		cycle = 0,
+	) {
+		await db
+			.insert(readingCompletions)
+			.values({ userId: owner, documentId, cycle, completedAt: new Date(completedAt), source })
+	}
+
+	it("says nothing when nothing was finished in the past week", async () => {
+		const owner = await reader()
+		const doc = await article(owner, "Long ago")
+		await finished(owner, doc.id, "2026-09-20T10:00:00Z")
+		expect(await finishedLately(owner, { now, timeZone: "UTC" })).toBeNull()
+	})
+
+	it("names the one article finished", async () => {
+		const owner = await reader()
+		const doc = await article(owner, "How to Read a Book")
+		await finished(owner, doc.id, "2026-10-10T18:00:00Z", "progress")
+		expect(await finishedLately(owner, { now, timeZone: "UTC" })).toEqual({
+			count: 1,
+			title: "How to Read a Book",
+		})
+	})
+
+	it("counts articles finished by hand, by reading to the end, and before the history existed", async () => {
+		const owner = await reader()
+		const [a, b, c] = [await article(owner), await article(owner), await article(owner)]
+		await finished(owner, a.id, "2026-10-06T10:00:00Z", "manual")
+		await finished(owner, b.id, "2026-10-08T10:00:00Z", "progress")
+		await finished(owner, c.id, "2026-10-11T11:00:00Z", "legacy")
+		expect(await finishedLately(owner, { now, timeZone: "UTC" })).toEqual({ count: 3, title: null })
+	})
+
+	it("counts an article read twice in the week once, and a reread of an old one", async () => {
+		const owner = await reader()
+		const [twice, old, other] = [await article(owner), await article(owner), await article(owner)]
+		await finished(owner, twice.id, "2026-10-06T10:00:00Z", "manual", 0)
+		await finished(owner, twice.id, "2026-10-09T10:00:00Z", "progress", 1)
+		await finished(owner, old.id, "2026-03-01T10:00:00Z", "manual", 0)
+		await finished(owner, old.id, "2026-10-10T10:00:00Z", "progress", 1)
+		await finished(owner, other.id, "2026-10-10T11:00:00Z")
+		expect(await finishedLately(owner, { now, timeZone: "UTC" })).toEqual({ count: 3, title: null })
+	})
+
+	it("leaves out bulk finishes, trashed articles and other readers' articles", async () => {
+		const owner = await reader()
+		const someone = await reader()
+		const [read, tidied, trashed] = [
+			await article(owner, "Read"),
+			await article(owner, "Tidied"),
+			await article(owner, "Trashed"),
+		]
+		const theirs = await article(someone, "Theirs")
+		await finished(owner, read.id, "2026-10-09T10:00:00Z")
+		await finished(owner, tidied.id, "2026-10-09T10:00:00Z", "bulk")
+		await finished(owner, trashed.id, "2026-10-09T10:00:00Z")
+		await db.update(documents).set({ deletedAt: new Date() }).where(eq(documents.id, trashed.id))
+		await finished(someone, theirs.id, "2026-10-09T10:00:00Z")
+		expect(await finishedLately(owner, { now, timeZone: "UTC" })).toEqual({
+			count: 1,
+			title: "Read",
+		})
+	})
+
+	it("counts by UTC days when the database doesn't know the reader's zone", async () => {
+		const owner = await reader()
+		const doc = await article(owner, "Read anyway")
+		await finished(owner, doc.id, "2026-10-09T10:00:00Z")
+		// The browser's zone names can be newer than the database's: Home loads all the same.
+		expect(await finishedLately(owner, { now, timeZone: "Mars/Olympus_Mons" })).toEqual({
+			count: 1,
+			title: "Read anyway",
+		})
+	})
+
+	it("covers today and the 6 days before, as days in the reader's time zone", async () => {
+		const owner = await reader()
+		const [first, before] = [await article(owner, "First day"), await article(owner, "Before")]
+		// Monday 5 October, 00:30 in Santiago: the first day of the week before Sunday the 11th.
+		await finished(owner, first.id, "2026-10-05T03:30:00Z")
+		// Sunday 4 October, 23:30 in Santiago, but already Monday the 5th in UTC.
+		await finished(owner, before.id, "2026-10-05T02:30:00Z")
+		expect(await finishedLately(owner, { now, timeZone: "America/Santiago" })).toEqual({
+			count: 1,
+			title: "First day",
+		})
+		expect(await finishedLately(owner, { now, timeZone: "UTC" })).toEqual({
+			count: 2,
+			title: null,
+		})
 	})
 })
