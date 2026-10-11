@@ -87,6 +87,38 @@ describe("createReadingSync", () => {
 		expect(saves).toEqual([[0.21, 1]])
 	})
 
+	it("returns the flushed save, which lands before it settles and never fails", async () => {
+		let land: (() => void) | undefined
+		let fail: ((error: Error) => void) | undefined
+		const landed: number[] = []
+		const sync = createReadingSync({
+			opened: true,
+			position: 0.2,
+			cycle: 1,
+			open: async () => ({ cycle: 1 }),
+			save: (at) =>
+				new Promise<void>((resolve, reject) => {
+					land = () => {
+						landed.push(at)
+						resolve()
+					}
+					fail = reject
+				}),
+		})
+		expect(sync.flush()).toBeUndefined()
+		sync.scrolled(0.4, false)
+		const saving = sync.flush()
+		expect(saving).toBeInstanceOf(Promise)
+		land?.()
+		await saving
+		expect(landed).toEqual([0.4])
+
+		sync.scrolled(0.5, false)
+		const failing = sync.flush()
+		fail?.(new Error("offline"))
+		await expect(failing).resolves.toBeUndefined()
+	})
+
 	it("sends a failed save again on the way out, and keeps going", async () => {
 		const saves: number[] = []
 		const sync = createReadingSync({

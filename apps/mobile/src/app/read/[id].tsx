@@ -32,6 +32,7 @@ import type { NoteLinking } from "@/components/note-field"
 import { NotesSheet } from "@/components/notes-sheet"
 import { ReaderStatus } from "@/components/reader-status"
 import { useTagSheet } from "@/components/tag-sheet"
+import { track } from "@/lib/article-changes"
 import { retagged } from "@/lib/article-tags"
 import { useAuth } from "@/lib/auth"
 import { copyText } from "@/lib/clipboard"
@@ -139,13 +140,14 @@ export default function Reader() {
 	})
 
 	// Unsaved typing and the exact position go out when the app leaves the foreground and when the
-	// reader closes.
+	// reader closes. The home screen widget waits for the position (src/lib/widget.ts).
 	useEffect(() => {
 		const sub = AppState.addEventListener("change", (appState) => {
 			if (appState !== "active") {
 				void noteSave.current?.flush()
 				void editionSave.current?.flush()
-				reading.current?.flush()
+				const saving = reading.current?.flush()
+				if (saving) void track(saving)
 			}
 		})
 		return () => {
