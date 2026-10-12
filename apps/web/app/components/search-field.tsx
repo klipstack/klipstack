@@ -32,8 +32,8 @@ interface Props {
 	 * its form, whatever `inputClassName` says.
 	 */
 	operators?: boolean
-	/** The query, as the reader submits it. */
-	onSearch?: (query: string) => void
+	/** The query, as the reader submits it, and the one shown until then (`value`). */
+	onSearch?: (query: string, previous: string) => void
 }
 
 /** Compact search box with the search icon and clear button inside the field. */
@@ -101,7 +101,7 @@ export function SearchField({
 			state={state}
 			// The results take the keys (j/k), and a phone puts its keyboard away.
 			onSubmit={(event) => {
-				onSearch?.(String(new FormData(event.currentTarget).get("q") ?? ""))
+				onSearch?.(String(new FormData(event.currentTarget).get("q") ?? ""), value)
 				inputRef.current?.blur()
 			}}
 			role="search"

@@ -28,7 +28,6 @@ import {
 	inArray,
 	isNotNull,
 	isNull,
-	monthOf,
 	not,
 	notExists,
 	rewriteSavedQueries,
@@ -56,10 +55,10 @@ import { log } from "./log"
  * 5. Review the topics every so many new articles.
  *
  * What is left goes to the next run (`again`). Sorting, first or again, stops at the month's sort
- * budget (`sortLimit`): what is left waits for a run on the month's 1st, and growing and reviewing
- * wait with it. Runs for one reader never overlap (the queue's
- * `stately` policy). Every write first checks that the reader still has topics on: one turned
- * off mid-run stops the run, and nothing it learned is kept.
+ * budget (`sortLimit`), and growing and reviewing stop with it: their topics would wait a month to
+ * be sorted into. What is left waits for the month's runs on the 1st (`topics-month`). Runs for
+ * one reader never overlap (the queue's `stately` policy). Every write first checks that the
+ * reader still has topics on: one turned off mid-run stops the run, and nothing it learned is kept.
  */
 
 export interface TopicsDeps {
@@ -68,8 +67,8 @@ export interface TopicsDeps {
 	limit: number
 	/** Articles an account may have sorted a month, first sorts and re-sorts alike. */
 	sortLimit: number
-	/** Queues another run for the reader, for what this one left: now, or `at` that time. */
-	again: (at?: Date) => Promise<void>
+	/** Queues another run for the reader, for what this one left. */
+	again: () => Promise<void>
 	/** Articles sorted in one run (`SORT_BATCH`); tests make it small. */
 	batch?: number
 }
@@ -216,10 +215,9 @@ class Run {
 			await this.deps.again()
 			return done()
 		}
-		// The budget is spent: a run on the 1st takes it from here.
-		const paused = async () => {
+		// The budget is spent: the month's runs on the 1st take it from here.
+		const paused = () => {
 			outcome.paused = true
-			await this.deps.again(monthOf().resetsAt)
 			return done()
 		}
 		this.sorted = await usageThisMonth(db, this.userId, "topic_sorts")
@@ -242,6 +240,8 @@ class Run {
 		outcome.resorted = resort.articles
 		if (resort.paused) return paused()
 		if (!resort.finished) return later()
+		// Nothing waits, but a topic grown or changed now could not be sorted into until the 1st.
+		if (this.sortsLeft() === 0) return done()
 
 		const growth = await this.grow(library.unsortedAtLastGrow)
 		outcome.grew = growth.grew

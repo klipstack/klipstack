@@ -117,7 +117,13 @@ describe("listUsage, topics", () => {
 		])
 
 		const usage = await listUsage(ctx, "topicCost")
-		expect(usage.rows[0]).toMatchObject({ id: sorter.id, aiCostUsd: 0.01, topicCostUsd: 2000 })
+		// Most expensive first; other test accounts may be listed too.
+		const costs = usage.rows.map((r) => r.topicCostUsd)
+		expect(costs).toEqual([...costs].sort((a, b) => b - a))
+		expect(usage.rows.find((r) => r.id === sorter.id)).toMatchObject({
+			aiCostUsd: 0.01,
+			topicCostUsd: 2000,
+		})
 		expect(usage.topicCostUsd).toBeGreaterThanOrEqual(before + 2000 - 1e-6)
 	})
 })

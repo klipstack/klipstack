@@ -15,7 +15,7 @@ import { stopBoss } from "@klipstack/queue"
 import type { JobWithMetadata } from "pg-boss"
 import { afterAll, describe, expect, it } from "vitest"
 import type { TopicsDeps } from "../topics"
-import { handleTopics, queueTopicsAfterSave } from "./topics"
+import { handleTopics, handleTopicsMonth, queueTopicsAfterSave } from "./topics"
 
 const tag = `topics-job-${randomUUID().slice(0, 8)}`
 
@@ -96,6 +96,24 @@ describe("the topics job", () => {
 		await queueTopicsAfterSave(off)
 		expect(await queued(on)).toBe(1)
 		expect(await queued(off)).toBe(0)
+	})
+
+	it("is queued on the 1st for every reader with topics on and the feature, as the sorts start again", async () => {
+		const on = await reader(true)
+		const off = await reader(false)
+		const unflagged = await reader(true)
+		await db.delete(userFeatures).where(eq(userFeatures.userId, unflagged))
+		await handleTopicsMonth()
+		expect(await queued(on)).toBe(1)
+		expect(await queued(off)).toBe(0)
+		expect(await queued(unflagged)).toBe(0)
+		// A run for now: nothing waits for a later time and holds the reader's place in the queue.
+		const [row] = (
+			await db.execute<{ late: boolean }>(
+				sql`select start_after > now() + interval '1 minute' as late from pgboss.job where name = 'topics' and data->>'userId' = ${on}`,
+			)
+		).rows
+		expect(row).toEqual({ late: false })
 	})
 
 	it("ends quietly on a request a provider refused, and fails on one worth retrying", async () => {

@@ -68,11 +68,8 @@ export function topicLimits(source: Record<string, string | undefined> = process
 	sorts: number
 } {
 	const read = (name: string, fallback: number) => {
-		const raw = source[name]
-		const value = Number(raw)
-		return raw !== undefined && raw !== "" && Number.isInteger(value) && value >= 0
-			? value
-			: fallback
+		const raw = source[name]?.trim()
+		return raw && /^\d+$/.test(raw) ? Number(raw) : fallback
 	}
 	return {
 		topics: read("LIMIT_TOPICS_PER_MONTH", TOPICS_PER_MONTH),

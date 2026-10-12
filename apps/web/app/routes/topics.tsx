@@ -65,9 +65,13 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 	const invited = usable && state.stage === "off" && !(await topicsInvitationEnded(user.id))
 	// Formatted here, as Settings does: the server's Intl and the browser's may differ.
 	const locale = getLocale(context)
+	const number = new Intl.NumberFormat(locale)
 	const sortsPaused = state.sortsPaused && {
-		max: new Intl.NumberFormat(locale).format(state.sortsPaused.max),
+		max: number.format(state.sortsPaused.max),
+		waiting: number.format(state.sorting),
 		date: formatDay(state.sortsPaused.resetsAt, locale, "UTC"),
+		// The server sorts nothing at all: no month brings sorting back.
+		off: state.sortsPaused.max === 0,
 	}
 	return { state, paused: !usable, invited, sortsPaused }
 }
@@ -296,14 +300,17 @@ function Shelves({
 	sortsPaused,
 }: {
 	state: TopicsState
-	sortsPaused: { max: string; date: string } | null
+	sortsPaused: { max: string; waiting: string; date: string; off: boolean } | null
 }) {
 	const { t } = useTranslation("library")
 	return (
 		<>
 			{sortsPaused ? (
 				<p data-testid="topics-sorts-paused" className="mt-6 max-w-2xl text-sm text-muted-fg">
-					{t("topics.sortsPaused", { count: state.sorting, ...sortsPaused })}
+					{t(sortsPaused.off ? "topics.sortsOff" : "topics.sortsPaused", {
+						count: state.sorting,
+						...sortsPaused,
+					})}
 				</p>
 			) : state.sorting > 0 ? (
 				<p

@@ -36,7 +36,7 @@ export default {
 						"If you report a public page: the reason, what you write, your email address if you give one, and your language. Only the people who run Klipstack see them. The page's author never sees your report or your address.",
 						"Abuse limits: for sign-in attempts, invite requests and reports, a scrambled (hashed) form of the IP address and email address. We delete these within about a day.",
 						"Server logs: which page was asked for, the result and how long it took. They don't include your IP address or your account. Logs about saving can name an article's number or a website's name.",
-						"Monthly counts for each account: how many articles you saved, editions you published and questions you asked, how many articles were sorted into topics, what the AI behind questions and topics cost us, and how often you used parts of topics (such as filtering by a topic or renaming one). They're numbers only, with no articles, titles or topic names. Only the people who run Klipstack see them, to apply limits and decide what to improve.",
+						"Monthly counts for each account: how many articles you saved, editions you published and questions you asked, how many articles were sorted into topics and how often AI proposed or reviewed your topics, how often a limit stopped something you did, what the AI behind questions and topics cost us, and how often you used parts of topics (such as filtering by a topic or renaming one). They're numbers only, with no articles, titles or topic names. Only the people who run Klipstack see them, to apply limits and decide what to improve.",
 					],
 				},
 				"We don't use analytics services, ads, trackers, third-party scripts, third-party fonts or error-reporting services.",

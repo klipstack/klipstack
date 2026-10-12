@@ -1,5 +1,5 @@
 import { createTopicModels, retryable } from "@klipstack/ai"
-import { db, eq, topicLibraries, topicLimits } from "@klipstack/db"
+import { and, db, eq, topicLibraries, topicLimits, userFeatures } from "@klipstack/db"
 import { enqueue, type JobPayloads, QUEUES } from "@klipstack/queue"
 import type { JobWithMetadata } from "pg-boss"
 import { log } from "../log"
@@ -15,20 +15,30 @@ function depsFor(userId: string): TopicsDeps {
 		}),
 		limit: limits.topics,
 		sortLimit: limits.sorts,
-		again: (at) => queueTopics(userId, at),
+		again: () => queueTopics(userId),
 	}
 }
 
+/** Asks for a run of the reader's topics: at most one waits while another runs. */
+export async function queueTopics(userId: string) {
+	await enqueue(QUEUES.topics, { userId }, { singletonKey: userId })
+}
+
 /**
- * Asks for a run of the reader's topics, now or `at` that time: at most one waits while another
- * runs, so one waiting for a time takes the place of any asked for meanwhile.
+ * Scheduled on the 1st: a run for every reader with topics on and the feature, as the month's
+ * sorts start again. What waited for them is sorted without waiting for a new save; a reader with
+ * nothing due costs a few queries.
  */
-export async function queueTopics(userId: string, at?: Date) {
-	await enqueue(
-		QUEUES.topics,
-		{ userId },
-		{ singletonKey: userId, ...(at ? { startAfter: at } : {}) },
-	)
+export async function handleTopicsMonth() {
+	const readers = await db
+		.select({ userId: topicLibraries.userId })
+		.from(topicLibraries)
+		.innerJoin(
+			userFeatures,
+			and(eq(userFeatures.userId, topicLibraries.userId), eq(userFeatures.feature, "topics")),
+		)
+	for (const { userId } of readers) await queueTopics(userId)
+	return { readers: readers.length }
 }
 
 /** After an article is ready: a run for its reader, if they have topics on. */

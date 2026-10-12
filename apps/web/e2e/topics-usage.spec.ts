@@ -56,7 +56,7 @@ test("topics: sorting waits for next month at the budget, and admins see costs a
 	await db.insert(usageCounts).values([
 		{ userId: reader.id, metric: "topic_sorts", month, count: 1000 },
 		{ userId: reader.id, metric: "topics", month, count: 3 },
-		// Far past any other test account's, so this one leads the Topics table: $2,000.
+		// Far past any real account's, so this one is in the top 50 of the Topics table: $2,000.
 		{ userId: reader.id, metric: "topic_spend", month, count: 2_000_000_000 },
 	])
 
@@ -65,7 +65,7 @@ test("topics: sorting waits for next month at the budget, and admins see costs a
 		resetsAt,
 	)
 	await expect(page.getByTestId("topics-sorts-paused")).toHaveText(
-		`Sorting stopped for this month: 1,000 articles were sorted, the most an account can. 2 new articles will be sorted on ${next}. Nothing is lost.`,
+		`Sorting stopped for this month: 1,000 articles were sorted, the most an account can. 2 articles are waiting, and sorting starts again on ${next}. Nothing is lost.`,
 	)
 	await expect(page.getByTestId("topics-sorting")).toHaveCount(0)
 
@@ -83,8 +83,14 @@ test("topics: sorting waits for next month at the budget, and admins see costs a
 	await page.getByRole("link", { name: "Everything in Psyche" }).click()
 	await beacon
 	await expect(page).toHaveURL(new RegExp(`/topics/${topic!.id}$`))
-	// A reload is not a click: it counts nothing.
+	// A reload is not a click: once the page runs again, it has sent nothing.
+	const sent: string[] = []
+	page.on("request", (r) => {
+		if (r.url().endsWith("/topics/use")) sent.push(r.url())
+	})
 	await page.reload()
+	await waitForHydration(page)
+	expect(sent).toEqual([])
 
 	await expect
 		.poll(async () =>
@@ -102,8 +108,7 @@ test("topics: sorting waits for next month at the budget, and admins see costs a
 
 	await page.goto("/admin/usage?by=topicCost")
 	await expect(page.getByLabel("Rank by")).toHaveValue("topicCost")
-	const usageRow = page.getByRole("table").first().getByRole("row").nth(1)
-	await expect(usageRow).toContainText(email)
+	const usageRow = page.getByRole("table").first().getByRole("row").filter({ hasText: email })
 	await expect(usageRow).toContainText("$2,000.00")
 	const topicsTable = page.getByRole("table", { name: "Topics this month" })
 	await expect(topicsTable.getByRole("columnheader")).toContainText([
@@ -115,8 +120,7 @@ test("topics: sorting waits for next month at the budget, and admins see costs a
 		"Search filter",
 		"Topic opened",
 	])
-	const row = topicsTable.getByRole("row").nth(1)
-	await expect(row).toContainText(email)
+	const row = topicsTable.getByRole("row").filter({ hasText: email })
 	await expect(row.getByRole("cell")).toHaveText([
 		/Topic Budget/,
 		"$2,000.00",

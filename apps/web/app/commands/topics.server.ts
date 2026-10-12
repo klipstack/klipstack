@@ -27,6 +27,7 @@ import { AppError, notFound, parseInput } from "~/lib/app-error"
 import { hasFeature } from "~/lib/features.server"
 import { isUniqueViolation } from "~/lib/postgres-errors.server"
 import { rateLimit } from "~/lib/rate-limit.server"
+import { TOPIC_CLICKS } from "~/lib/topic-use"
 
 /**
  * A reader's automatic topics: turning them on and off, confirming the first ones, and correcting
@@ -294,13 +295,7 @@ export async function takeOutOfTopic(userId: string, id: string, articleId: stri
 }
 
 /** What the reader clicks that `countTopicUse` counts; the commands above count the rest. */
-const TopicClick = z.enum([
-	"topic_filter_library",
-	"topic_filter_search",
-	"topic_opened",
-	"topic_next",
-	"topic_home",
-])
+const TopicClick = z.enum(TOPIC_CLICKS)
 /** More clicks a minute than a person makes: the counts stay numbers an admin can trust. */
 const CLICKS_PER_MINUTE = 60
 

@@ -106,7 +106,8 @@ changed topic sorts the whole library again into it, so a library of a thousand 
 about ten cents each time. Each account has two monthly caps, counted from the 1st (UTC):
 
 - `LIMIT_TOPIC_SORTS_PER_MONTH` (default 1,000): articles sorted, first sorts and re-sorts alike.
-  Past it, sorting stops until the next month: new articles wait unsorted, nothing is lost, and
+  Past it, sorting stops until the next month, and so do growing and reviewing topics: new
+  articles wait unsorted, nothing is lost, and
   the Topics page tells the reader when sorting starts again. The worker sorts them on the 1st
   without waiting for a new save. Raise it for readers with large libraries: turning topics on
   sorts the whole library, and every new or changed topic sorts it again.
