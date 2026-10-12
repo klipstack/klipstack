@@ -8,7 +8,6 @@ import {
 	documents,
 	documentTopics,
 	eq,
-	inArray,
 	isNull,
 	ne,
 	not,
@@ -285,88 +284,58 @@ export async function readerTopics(userId: string, documentId: string): Promise<
 				eq(topics.userId, userId),
 				eq(topics.status, "active"),
 				eq(documents.userId, userId),
+				isNull(documents.deletedAt),
 			),
 		)
 		.orderBy(desc(documentTopics.probability), asc(topics.name))
 	const applied = placed
 		.filter((p) => p.level === "applied")
 		.map(({ id, name }): ReaderTopic => ({ id, name }))
-	const scores = new Map(placed.map((p) => [p.id, p.probability]))
+	if (applied.length === 0) return { topics: applied, shelf: null }
+	// How close each article is to this one: the cosine of their topic scores, in active topics,
+	// without this one's length, the same for every article. Ranked in the database: a topic may
+	// hold thousands of unread articles, and three are shown.
+	const mine = sql.join(
+		placed.map((p) => sql`(${p.id}::uuid, ${p.probability}::float8)`),
+		sql`, `,
+	)
+	const closeness = sql<number>`coalesce((
+		select sum(s.probability * m.p) / nullif(sqrt(sum(s.probability * s.probability)), 0)
+		from ${documentTopics} s
+		join ${topics} st on st.id = s.topic_id and st.status = 'active'
+		left join (values ${mine}) as m(topic_id, p) on m.topic_id = s.topic_id
+		where s.document_id = ${documents.id} and s.refused_at is null
+	), 0)`
 	for (const topic of applied) {
-		const candidates = await db
+		const onShelf = and(
+			eq(documentTopics.topicId, topic.id),
+			eq(documentTopics.level, "applied"),
+			isNull(documentTopics.refusedAt),
+			inLibrary(userId),
+			isNull(documents.archivedAt),
+			not(finished),
+			ne(documents.id, documentId),
+		)
+		const [{ unread } = { unread: 0 }] = await db
+			.select({ unread: count() })
+			.from(documentTopics)
+			.innerJoin(documents, eq(documents.id, documentTopics.documentId))
+			.where(onShelf)
+		if (unread === 0) continue
+		const items: ShelfArticle[] = await db
 			.select({
 				id: documents.id,
 				title: documents.title,
 				siteName: documents.siteName,
 				sourceUrl: documents.sourceUrl,
 				readingMinutes: documents.readingMinutes,
-				createdAt: documents.createdAt,
 			})
 			.from(documentTopics)
 			.innerJoin(documents, eq(documents.id, documentTopics.documentId))
-			.where(
-				and(
-					eq(documentTopics.topicId, topic.id),
-					eq(documentTopics.level, "applied"),
-					isNull(documentTopics.refusedAt),
-					inLibrary(userId),
-					isNull(documents.archivedAt),
-					not(finished),
-					ne(documents.id, documentId),
-				),
-			)
-		if (candidates.length === 0) continue
-		const theirs = await db
-			.select({
-				documentId: documentTopics.documentId,
-				topicId: documentTopics.topicId,
-				probability: documentTopics.probability,
-			})
-			.from(documentTopics)
-			.innerJoin(topics, eq(topics.id, documentTopics.topicId))
-			.where(
-				and(
-					inArray(
-						documentTopics.documentId,
-						candidates.map((c) => c.id),
-					),
-					isNull(documentTopics.refusedAt),
-					eq(topics.status, "active"),
-				),
-			)
-		const vectors = new Map<string, Map<string, number>>()
-		for (const row of theirs) {
-			const vector = vectors.get(row.documentId) ?? new Map<string, number>()
-			vector.set(row.topicId, row.probability)
-			vectors.set(row.documentId, vector)
-		}
-		const closeness = new Map(
-			candidates.map((c) => [c.id, cosine(scores, vectors.get(c.id) ?? new Map())]),
-		)
-		const items = candidates
-			.sort(
-				(a, b) =>
-					closeness.get(b.id)! - closeness.get(a.id)! ||
-					b.createdAt.getTime() - a.createdAt.getTime() ||
-					a.id.localeCompare(b.id),
-			)
-			.slice(0, READER_SHELF_SIZE)
-			.map((c): ShelfArticle => ({
-				id: c.id,
-				title: c.title,
-				siteName: c.siteName,
-				sourceUrl: c.sourceUrl,
-				readingMinutes: c.readingMinutes,
-			}))
-		return { topics: applied, shelf: { topic, unread: candidates.length, items } }
+			.where(onShelf)
+			.orderBy(desc(closeness), desc(documents.createdAt), asc(documents.id))
+			.limit(READER_SHELF_SIZE)
+		return { topics: applied, shelf: { topic, unread, items } }
 	}
 	return { topics: applied, shelf: null }
-}
-
-/** How much two articles' topic scores point the same way: 1 alike, 0 nothing in common. */
-function cosine(a: Map<string, number>, b: Map<string, number>): number {
-	let dot = 0
-	for (const [topicId, p] of a) dot += p * (b.get(topicId) ?? 0)
-	const norm = (v: Map<string, number>) => Math.sqrt([...v.values()].reduce((s, p) => s + p * p, 0))
-	return dot === 0 ? 0 : dot / (norm(a) * norm(b))
 }

@@ -44,6 +44,8 @@ test("topics: turned on, proposed, confirmed, sorted, corrected and turned off",
 	const psyche = page.getByTestId("proposed-topic").filter({ has: page.getByLabel("Keep Psyche") })
 	await expect(psyche).toContainText("Articles from Psyche.")
 	await expect(page.getByTestId("topics-proposal")).not.toContainText("other sites")
+	// Home may not have been running yet, and the page then loads anew: unchecking needs its script.
+	await waitForHydration(page)
 	await page.getByLabel("Keep Aeon").uncheck()
 	// Left out: its card dims, and its name can't be edited.
 	const aeon = page.getByTestId("proposed-topic").filter({ has: page.getByLabel("Keep Aeon") })
@@ -138,13 +140,17 @@ test("topics: turned on, proposed, confirmed, sorted, corrected and turned off",
 	await expect(page.getByText("Removed Minds. It won't be proposed again.")).toBeVisible()
 	await expect(page.getByTestId("topics-empty")).toBeVisible()
 
-	// The reader names the article's topic above its title, and ends with its unread articles.
+	// The reader names the article's topic above its title, and ends with its unread articles. On a
+	// phone's screen, where the shelf takes the page past one screen.
+	await page.setViewportSize({ width: 390, height: 600 })
 	await page.getByTestId("topic-articles").getByText("Psyche essay 2", { exact: true }).click()
 	await expect(page.getByTestId("reader-topics")).toHaveText("Minds")
 	const shelf = page.getByTestId("reader-shelf")
 	await expect(shelf.getByRole("heading")).toHaveText("More in Minds")
-	await expect(shelf).toContainText("11 unread")
+	await expect(shelf).toContainText("11 unread · See all")
 	await expect(shelf.getByRole("listitem")).toHaveCount(3)
+	// The shelf comes after the article: with the article and its end in view, it is all read.
+	await expect(page.getByTestId("reading-progress")).toHaveAttribute("style", /scaleX\(1\)/)
 	await expect(shelf).not.toContainText("Psyche essay 2")
 	await shelf.getByRole("listitem").first().getByRole("link").click()
 	await expect(page).not.toHaveURL(/\/topics\//)
@@ -152,6 +158,7 @@ test("topics: turned on, proposed, confirmed, sorted, corrected and turned off",
 	await expect(page.getByRole("heading", { level: 1 })).not.toHaveText("Psyche essay 2")
 	await page.getByTestId("reader-topics").getByRole("link", { name: "Minds" }).click()
 	await expect(page.getByTestId("topic-name")).toHaveText("Minds")
+	await page.setViewportSize({ width: 1280, height: 720 })
 
 	await page.goto("/topics")
 	// The second tap is the page's script: it must be running first.

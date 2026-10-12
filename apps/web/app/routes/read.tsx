@@ -132,8 +132,10 @@ export async function loader({ context, request, params }: Route.LoaderArgs) {
 	const linked = extractLinkIds(
 		[result.document.note ?? "", ...highlights.map((h) => h.note ?? "")].join("\n"),
 	)
-	// Its topics, and what to read next in them: with the feature, and topics to open.
-	const topicsShown = readable && topicModels.available && (await hasFeature(user.id, "topics"))
+	// Its topics, and what to read next in them: with the feature, and topics to open. Not for an
+	// offline copy, whose shelf would go stale and lead to articles it doesn't have.
+	const topicsShown =
+		readable && !warming && topicModels.available && (await hasFeature(user.id, "topics"))
 	const noTopics: ReaderTopics = { topics: [], shelf: null }
 	const [linkTargets, backlinks, contentLinks, topics] = await Promise.all([
 		linkTargetStatus(user.id, linked),

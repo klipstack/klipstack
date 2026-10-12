@@ -76,7 +76,7 @@ export function useReadingProgress(doc: Doc, ready: boolean) {
 		const onScroll = () => {
 			const el = document.documentElement
 			if (Math.abs(el.scrollTop - startY) >= el.clientHeight) engage()
-			const max = el.scrollHeight - el.clientHeight
+			const max = scrollSpan(el)
 			const progress = max <= 0 ? 1 : Math.min(1, (el.scrollTop + el.clientHeight * 0.2) / max)
 			latest.current = progress
 			setProgress(progress)
@@ -89,7 +89,7 @@ export function useReadingProgress(doc: Doc, ready: boolean) {
 		const stored = doc.readingPosition
 		if (!window.location.hash && window.scrollY === 0 && stored >= 0.05 && stored <= 0.95) {
 			const el = document.documentElement
-			const max = el.scrollHeight - el.clientHeight
+			const max = scrollSpan(el)
 			window.scrollTo({
 				top: Math.max(0, stored * max - el.clientHeight * 0.2),
 				behavior: "instant",
@@ -108,4 +108,14 @@ export function useReadingProgress(doc: Doc, ready: boolean) {
 	}, [ready, submitProgress, flushPosition, doc.readingPosition, engage])
 
 	return { engage, progress }
+}
+
+/**
+ * How far the page scrolls while reading the article: to its end, not through what comes after it
+ * (`data-after-reading`, the shelf of what to read next), so an article read to its end is read.
+ */
+function scrollSpan(el: HTMLElement): number {
+	const after = document.querySelector<HTMLElement>("[data-after-reading]")
+	const tail = after ? after.offsetHeight + Number.parseFloat(getComputedStyle(after).marginTop) : 0
+	return el.scrollHeight - el.clientHeight - tail
 }

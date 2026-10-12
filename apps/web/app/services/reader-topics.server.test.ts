@@ -97,30 +97,49 @@ describe("an article's topics in the reader", () => {
 			[growth, 0.9],
 			[writing, 0.5],
 		])
-		// The same topics in the same proportions; the topic alone; the topic and another one.
+		const old = await topic("Old", "retired")
+		// Saved in an order that is neither the closest first nor the newest first.
+		const alone = await article("Alone")
+		await place(alone, [[growth, 0.9]])
+		// In progress still counts as unread.
+		const started = await article("Started", { readingProgress: 0.3 })
+		await place(started, [
+			[growth, 0.6],
+			[science, 0.99],
+		])
+		// The same topics in the same proportions as the open article.
 		const twin = await article("Twin")
 		await place(twin, [
 			[growth, 0.9],
 			[writing, 0.5],
 		])
-		const alone = await article("Alone")
-		await place(alone, [[growth, 0.9]])
-		const apart = await article("Apart")
-		await place(apart, [
-			[growth, 0.7],
-			[science, 0.8],
+		// As close as Alone, and newer: a retired topic's score doesn't push it away.
+		const shadow = await article("Shadow")
+		await place(shadow, [
+			[growth, 0.9],
+			[old, 0.99],
 		])
 		const fourth = await article("Fourth")
 		await place(fourth, [
 			[growth, 0.6],
 			[science, 0.95],
 		])
-		// In progress still counts as unread; finished, archived, trashed and suggested-only don't.
-		const started = await article("Started", { readingProgress: 0.3 })
-		await place(started, [
-			[growth, 0.6],
-			[science, 0.99],
+		const apart = await article("Apart")
+		await place(apart, [
+			[growth, 0.7],
+			[science, 0.8],
 		])
+		// Taken out of Writing by the reader: as close as Alone, not as Twin.
+		const corrected = await article("Corrected")
+		await place(
+			corrected,
+			[
+				[growth, 0.9],
+				[writing, 0.5],
+			],
+			[writing],
+		)
+		// Finished, archived, trashed, taken out of the topic, or only suggested for it: not on it.
 		for (const state of [
 			{ readAt: new Date() },
 			{ readingProgress: 0.95 },
@@ -128,13 +147,14 @@ describe("an article's topics in the reader", () => {
 			{ deletedAt: new Date() },
 		])
 			await place(await article("Done", state), [[growth, 0.9]])
+		await place(await article("Taken out"), [[growth, 0.9]], [growth])
 		await place(await article("Nearly"), [[growth, 0.5]])
 
 		const { shelf } = await readerTopics(userId, open)
 
 		expect(shelf).toEqual({
 			topic: { id: growth, name: "Personal Growth" },
-			unread: 5,
+			unread: 7,
 			items: [
 				{
 					id: twin,
@@ -144,15 +164,15 @@ describe("an article's topics in the reader", () => {
 					readingMinutes: 5,
 				},
 				{
-					id: alone,
-					title: "Alone",
+					id: corrected,
+					title: "Corrected",
 					siteName: "Example",
 					sourceUrl: expect.any(String),
 					readingMinutes: 5,
 				},
 				{
-					id: apart,
-					title: "Apart",
+					id: shadow,
+					title: "Shadow",
 					siteName: "Example",
 					sourceUrl: expect.any(String),
 					readingMinutes: 5,
@@ -188,11 +208,15 @@ describe("an article's topics in the reader", () => {
 		})
 	})
 
-	it("has nothing for an article without topics, or another reader's article", async () => {
+	it("has nothing for an article without topics, a trashed one, or another reader's", async () => {
 		const growth = await topic("Personal Growth")
 		const bare = await article("Bare")
 		await place(await article("Other"), [[growth, 0.9]])
 		expect(await readerTopics(userId, bare)).toEqual({ topics: [], shelf: null })
+
+		const trashed = await article("Trashed", { deletedAt: new Date() })
+		await place(trashed, [[growth, 0.9]])
+		expect(await readerTopics(userId, trashed)).toEqual({ topics: [], shelf: null })
 
 		const strangerId = `${userId}-stranger`
 		await db

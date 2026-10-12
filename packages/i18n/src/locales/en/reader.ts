@@ -41,9 +41,8 @@ export default {
 	topics: {
 		label: "Topics of this article",
 		moreIn: "More in {{name}}",
-		unread_one: "{{count}} unread",
-		unread_other: "{{count}} unread",
-		seeAll: "See all",
+		unread_one: "{{count}} unread · See all",
+		unread_other: "{{count}} unread · See all",
 		minutes_one: "{{count}} min",
 		minutes_other: "{{count}} min",
 	},

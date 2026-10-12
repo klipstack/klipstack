@@ -30,13 +30,14 @@ export function TopicKicker({ topics }: { topics: ReaderTopic[] }) {
 /**
  * At the end of the article, what to read next: unread articles of its strongest topic, closest
  * first, with the way to the topic's page. In a row that scrolls on a phone, three columns wider.
- * `from` is where the reader came from: the next article goes back there too.
+ * `from` is where the reader came from: the next article goes back there too. Reading progress
+ * stops above it (`data-after-reading`).
  */
 export function TopicShelf({ shelf, from }: { shelf: ReaderTopics["shelf"]; from: string }) {
 	const { t } = useTranslation("reader")
 	if (!shelf) return null
 	return (
-		<section data-testid="reader-shelf" className="mt-10 font-sans">
+		<section data-testid="reader-shelf" data-after-reading className="mt-10 font-sans">
 			<div className="mb-3 flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
 				<h2 className="text-base font-semibold">
 					{t("topics.moreIn", { name: shelf.topic.name })}
@@ -45,7 +46,7 @@ export function TopicShelf({ shelf, from }: { shelf: ReaderTopics["shelf"]; from
 					to={`/topics/${shelf.topic.id}`}
 					className="inline-flex items-center text-sm whitespace-nowrap text-accent hover:underline"
 				>
-					{t("topics.unread", { count: shelf.unread })} · {t("topics.seeAll")}
+					{t("topics.unread", { count: shelf.unread })}
 					<ChevronRight className="size-4" aria-hidden />
 				</Link>
 			</div>
