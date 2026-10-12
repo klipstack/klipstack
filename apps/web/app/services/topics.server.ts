@@ -13,7 +13,6 @@ import {
 	isNull,
 	ne,
 	not,
-	type SQL,
 	sql,
 	topicLibraries,
 	topicSorts,
@@ -210,14 +209,6 @@ export async function hasTopics(userId: string): Promise<boolean> {
 		.from(topicLibraries)
 		.where(eq(topicLibraries.userId, userId))
 	return !!row
-}
-
-/**
- * For `has:topic` and `topic:` in the search: the article is in one of its reader's topics (with
- * that name). A topic name may hold a quote, which `topic:"…"` cannot: names match without them.
- */
-export function articleInTopic(name?: string): SQL {
-	return sql`exists (select 1 from ${documentTopics} inner join ${topics} on ${topics.id} = ${documentTopics.topicId} where ${documentTopics.documentId} = ${documents.id} and ${topics.userId} = ${documents.userId} and ${topics.status} = 'active' and ${documentTopics.level} = 'applied' and ${documentTopics.refusedAt} is null${name === undefined ? sql`` : sql` and lower(replace(${topics.name}, '"', '')) = lower(${name})`})`
 }
 
 /** The reader's topics whose names contain what is typed, most articles first: for `topic:`. */

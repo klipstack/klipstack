@@ -41,7 +41,8 @@ import {
 	SORT_KEY,
 } from "./documents.server"
 import { articleHasTag, tagArticleCount } from "./tags.server"
-import { articleInTopic, topicNames } from "./topics.server"
+import { articleInTopic } from "./topic-scope.server"
+import { topicNames } from "./topics.server"
 
 export const SEARCH_LIMIT = 30
 /** Matches in the trash shown under the results. */
