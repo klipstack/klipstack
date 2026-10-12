@@ -802,6 +802,8 @@ const KEEPING_LISTS = [
 			return `/topics/${topic!.id}`
 		},
 	},
+	// Without an `in:`, search looks in the library and the archive.
+	{ list: "search", put: async () => "/search?q=kept" },
 ]
 
 test.describe(() => {

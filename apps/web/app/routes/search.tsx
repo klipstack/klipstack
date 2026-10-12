@@ -30,7 +30,7 @@ import type { PageBarHandle } from "~/lib/page-bar"
 import { pageTitle } from "~/lib/page-title"
 import { awaitsWords, searchOrigin, searchPath } from "~/lib/search-page"
 import { requireUser } from "~/lib/session.server"
-import { SEARCH_LIMIT, searchDocuments } from "~/services/search.server"
+import { keepsArchived, SEARCH_LIMIT, searchDocuments } from "~/services/search.server"
 import type { Route } from "./+types/search"
 import type { loader as layoutLoader } from "./app-layout"
 
@@ -71,6 +71,7 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 		nextPage: result.nextOffset === null ? null : page + 1,
 		ignored: result.ignored,
 		trash: result.trash,
+		keepsArchived: keepsArchived(q),
 	}
 }
 
@@ -149,6 +150,7 @@ export default function SearchPage({ loaderData }: Route.ComponentProps) {
 					cursorId={cursorId}
 					onVanish={onVanish}
 					selection={selection}
+					keepsArchived={loaderData.keepsArchived}
 				/>
 			)}
 			{loaderData.nextPage ? (
