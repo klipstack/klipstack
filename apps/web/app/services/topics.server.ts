@@ -31,13 +31,32 @@ export interface TopicSummary {
 	articles: number
 }
 
+/** An article on a topic's shelf, as its spine shows it. */
+export interface TopicBook {
+	id: string
+	title: string | null
+	siteName: string | null
+	wordCount: number | null
+}
+
+/** A topic on the Topics page: its newest articles, and how many were saved this week. */
+export interface TopicShelf extends TopicSummary {
+	/** The newest `SHELF_BOOKS`, newest first; the topic's page has them all. */
+	books: TopicBook[]
+	/** Articles in it saved in the last seven days. */
+	recent: number
+}
+
+/** The most books a shelf holds. */
+export const SHELF_BOOKS = 16
+
 export interface TopicsState {
 	stage: TopicsStage
 	/** Ready articles in the library, out of the trash; and how many the first topics need. */
 	count: number
 	needed: number
 	/** The first topics, while `proposed`; the topics, while `active`, largest first. */
-	topics: TopicSummary[]
+	topics: TopicShelf[]
 	/** The proposal is ready and the reader has not opened it: the sidebar's dot. */
 	unseen: boolean
 	/** Articles still to sort, while `active`: the whole library, right after the reader confirms. */
@@ -93,7 +112,7 @@ async function sortedCount(userId: string): Promise<number> {
 	return row?.sorted ?? 0
 }
 
-async function summaries(userId: string, status: "active" | "proposed"): Promise<TopicSummary[]> {
+async function summaries(userId: string, status: "active" | "proposed"): Promise<TopicShelf[]> {
 	const articles = sql<number>`count(${documents.id})::int`
 	const rows = await db
 		.select({
@@ -101,21 +120,55 @@ async function summaries(userId: string, status: "active" | "proposed"): Promise
 			name: topics.name,
 			description: topics.description,
 			articles,
+			recent: sql<number>`(count(${documents.id}) filter (where ${documents.createdAt} > now() - interval '7 days'))::int`,
 		})
 		.from(topics)
-		.leftJoin(
-			documentTopics,
-			and(
-				eq(documentTopics.topicId, topics.id),
-				eq(documentTopics.level, "applied"),
-				isNull(documentTopics.refusedAt),
-			),
-		)
+		.leftJoin(documentTopics, applied)
 		.leftJoin(documents, and(eq(documents.id, documentTopics.documentId), inLibrary(userId)))
 		.where(and(eq(topics.userId, userId), eq(topics.status, status)))
 		.groupBy(topics.id)
 		.orderBy(desc(articles), asc(topics.name))
-	return rows
+	const shelved = await books(userId, status)
+	return rows.map((row) => ({ ...row, books: shelved.get(row.id) ?? [] }))
+}
+
+/** A topic's articles: those sorted into it, less the ones the reader took out. */
+const applied = and(
+	eq(documentTopics.topicId, topics.id),
+	eq(documentTopics.level, "applied"),
+	isNull(documentTopics.refusedAt),
+)
+
+/** Each topic's newest `SHELF_BOOKS` articles, by topic. */
+async function books(userId: string, status: "active" | "proposed") {
+	const ranked = db
+		.select({
+			topicId: documentTopics.topicId,
+			id: documents.id,
+			title: documents.title,
+			siteName: documents.siteName,
+			wordCount: documents.wordCount,
+			rank: sql<number>`row_number() over (partition by ${documentTopics.topicId} order by ${documents.createdAt} desc, ${documents.id})`.as(
+				"rank",
+			),
+		})
+		.from(topics)
+		.innerJoin(documentTopics, applied)
+		.innerJoin(documents, and(eq(documents.id, documentTopics.documentId), inLibrary(userId)))
+		.where(and(eq(topics.userId, userId), eq(topics.status, status)))
+		.as("ranked")
+	const rows = await db
+		.select()
+		.from(ranked)
+		.where(sql`${ranked.rank} <= ${SHELF_BOOKS}`)
+		.orderBy(asc(ranked.rank))
+	const shelves = new Map<string, TopicBook[]>()
+	for (const { topicId, id, title, siteName, wordCount } of rows) {
+		const shelf = shelves.get(topicId) ?? []
+		shelf.push({ id, title, siteName, wordCount })
+		shelves.set(topicId, shelf)
+	}
+	return shelves
 }
 
 /**
