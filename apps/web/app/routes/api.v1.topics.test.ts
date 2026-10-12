@@ -2,6 +2,7 @@ import { db, documents, documentTopics, eq, topics, userFeatures } from "@klipst
 import { stopBoss } from "@klipstack/queue"
 import type { KlipstackApiError } from "@klipstack/sdk"
 import { afterAll, describe, expect, it, vi } from "vitest"
+import { topicModels } from "~/lib/ai.server"
 import { env } from "~/lib/env.server"
 import { apiUsers } from "~/test/api-harness"
 import { insertArticle, urlHash } from "../../e2e/seed"
@@ -92,7 +93,7 @@ describe("an article's topics in the API", () => {
 		})
 	})
 
-	it("is empty without the feature, or for an article without text yet", async () => {
+	it("is empty without the feature, without topic models, or for an article without text yet", async () => {
 		const me = await users.create("No topics")
 		const growth = await topic(me.id, "Personal Growth")
 		const open = await insertArticle(me.id, "Open", "<p>Open.</p>")
@@ -102,6 +103,13 @@ describe("an article's topics in the API", () => {
 
 		await db.insert(userFeatures).values({ userId: me.id, feature: "topics" })
 		expect((await me.client.articles.topics(open)).topics).toHaveLength(1)
+		// A server without both model keys has no topics to show, whatever the account's flag.
+		const available = vi.spyOn(topicModels, "available", "get").mockReturnValue(false)
+		try {
+			expect(await me.client.articles.topics(open)).toEqual({ topics: [], shelf: null })
+		} finally {
+			available.mockRestore()
+		}
 		const url = `https://example.com/queued-${open}`
 		const [queued] = await db
 			.insert(documents)

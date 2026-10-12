@@ -75,6 +75,30 @@ function highlightOf(
 const TOPIC = "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b"
 const NEXT = "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5c"
 
+const SHELF = {
+	topic: { id: TOPIC, name: "Writing" },
+	unread: 1,
+	items: [
+		{
+			id: NEXT,
+			title: "Next",
+			siteName: null,
+			url: "https://example.com/next",
+			readingMinutes: 4,
+			readerUrl: `https://klipstack.test/read/${NEXT}`,
+		},
+	],
+}
+
+/** A page of 3,000 points on a screen of 1,000, with its shelf (if any) 400 tall. jsdom lays nothing out. */
+function sized(window: ReturnType<typeof openPage>["window"]) {
+	const el = window.document.documentElement
+	Object.defineProperty(el, "scrollHeight", { value: 3000 })
+	Object.defineProperty(el, "clientHeight", { value: 1000 })
+	const after = window.document.querySelector("[data-after-reading]")
+	if (after) Object.defineProperty(after, "offsetHeight", { value: 400 })
+}
+
 const settle = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 /** Selects from one text point to another, and returns what the page reports once it settles. */
@@ -220,29 +244,10 @@ describe("the reader page: reading and links", () => {
 	})
 
 	it("measures reading to the end of the article, not through the shelf after it", async () => {
-		const shelf = {
-			topic: { id: TOPIC, name: "Writing" },
-			unread: 1,
-			items: [
-				{
-					id: NEXT,
-					title: "Next",
-					siteName: null,
-					url: "https://example.com/next",
-					readingMinutes: 4,
-					readerUrl: `https://klipstack.test/read/${NEXT}`,
-				},
-			],
-		}
 		const reported = async (topics: ReaderPage["topics"]) => {
 			const { window, messages } = openPage("<p>Text.</p>", [], { topics })
-			// A page of 3,000 points on a screen of 1,000, scrolled to 1,300; the shelf 400 tall.
-			const el = window.document.documentElement
-			Object.defineProperty(el, "scrollHeight", { value: 3000 })
-			Object.defineProperty(el, "clientHeight", { value: 1000 })
+			sized(window)
 			Object.defineProperty(window, "scrollY", { value: 1300 })
-			const after = window.document.querySelector("[data-after-reading]")
-			if (after) Object.defineProperty(after, "offsetHeight", { value: 400 })
 			await settle(50)
 			messages.length = 0
 			window.dispatchEvent(new window.Event("scroll"))
@@ -250,10 +255,24 @@ describe("the reader page: reading and links", () => {
 			const last = messages.findLast((m) => m.type === "reading")
 			return last?.type === "reading" ? last.position : null
 		}
-		// (1,300 + a fifth of the screen) over 3,000 − 1,000: three quarters.
+		// Scrolled to 1,300: (1,300 + a fifth of the screen) over 3,000 − 1,000, three quarters.
 		expect(await reported(null)).toBeCloseTo(0.75)
 		// Over 3,000 − 1,000 − 400 − its 40 points of margin.
-		expect(await reported({ topics: [], shelf })).toBeCloseTo(1500 / 1560)
+		expect(await reported({ topics: [], shelf: SHELF })).toBeCloseTo(1500 / 1560)
+	})
+
+	it("opens at the saved position measured the same way, without the shelf", async () => {
+		const openedAt = async (topics: ReaderPage["topics"]) => {
+			const { window } = openPage("<p>Text.</p>", [], { topics, position: 0.9 })
+			sized(window)
+			const tops: number[] = []
+			Object.assign(window, { scrollTo: (_x: number, y: number) => tops.push(y) })
+			await settle(100)
+			return tops[0]
+		}
+		// 0.9 of the span, less a fifth of the screen.
+		expect(await openedAt(null)).toBeCloseTo(0.9 * 2000 - 200)
+		expect(await openedAt({ topics: [], shelf: SHELF })).toBeCloseTo(0.9 * 1560 - 200)
 	})
 
 	it("hands a tap on a shelf card to the app as a link to its reader page", () => {

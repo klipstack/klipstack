@@ -40,6 +40,7 @@ import type { ColorSchemePref } from "@/lib/color-scheme"
 import { afterMarking, withUndone } from "@/lib/draft-undo"
 import { finishOnLeave, showFinished } from "@/lib/finish-on-leave"
 import { minutesLeft } from "@/lib/home"
+import { inTime } from "@/lib/in-time"
 import {
 	canUseOffline,
 	loadArticle,
@@ -286,14 +287,14 @@ export default function Reader() {
 				let details: ArticleDetails
 				let stored: StoredHtml | null = null
 				// Its topics and what to read next in them, online only: a kept copy's would go stale.
-				// Without them (an older server, a failed call) the article opens all the same.
+				// Without them (an older server, a failed or slow call) the article opens all the same.
 				let topics: ArticleTopics | null = null
 				try {
 					details = await client.articles.get(id)
 					if (details.status === "ready") {
 						;[stored, topics] = await Promise.all([
 							client.articles.html(id),
-							client.articles.topics(id).catch(() => null),
+							inTime(client.articles.topics(id), TOPICS_WAIT_MS),
 						])
 						saveArticle(details, stored)
 					}
@@ -674,11 +675,17 @@ export default function Reader() {
 		])
 	}
 
-	// The library's own reader links open here; other web links, their card.
+	// The library's own reader links open here; other web links, their card. Going to another
+	// article leaves this one, as on the web: it finishes now if the end block says leaving does,
+	// and shows it finished when the reader comes back to it.
 	function openLink(tapped: TappedLink) {
 		const own = new RegExp(`^${escapeRegExp(apiUrl)}/read/([0-9a-f-]{36})`).exec(tapped.href)
-		if (own) router.push({ pathname: "/read/[id]", params: { id: own[1]! } })
-		else setLink(tapped)
+		if (!own) return setLink(tapped)
+		if (armed.current) {
+			finishIfArmed()
+			setArticle((a) => a && { ...a, finished: true, location: "archive" })
+		}
+		router.push({ pathname: "/read/[id]", params: { id: own[1]! } })
 	}
 
 	// The page never leaves. Taps on links reach `openLink` through the page's script; this
@@ -1016,6 +1023,9 @@ function hostOf(url: string): string {
 function escapeRegExp(text: string): string {
 	return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 }
+
+// How long the reader waits for an article's topics before opening without them.
+const TOPICS_WAIT_MS = 1500
 
 // The navigation bar's height below the status bar (portrait).
 const NAV_BAR = 44
