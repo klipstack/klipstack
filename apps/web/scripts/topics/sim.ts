@@ -88,11 +88,13 @@ async function main() {
 		if (!values.urls) throw new Error("import: --urls PATH, one address per line, oldest first")
 		const urls = parseUrls(await readFile(resolve(root, values.urls), "utf8"))
 		const { articles, failed } = await importUrls(urls)
+		for (const f of failed) console.log(`  failed: ${f.url}: ${f.error}`)
+		// Nothing read: the corpus there stays as it was, and with it the runs made from it.
+		if (articles.length === 0) throw new Error("import: no page could be read; nothing written")
 		await mkdir(dir, { recursive: true })
 		await writeFile(corpusFile, JSON.stringify(articles, null, "\t"))
 		await writeFile(resolve(dir, "import-failures.json"), JSON.stringify(failed, null, "\t"))
 		console.log(`Saved ${articles.length} of ${urls.length} articles to ${corpusFile}`)
-		for (const f of failed) console.log(`  failed: ${f.url}: ${f.error}`)
 		return
 	}
 

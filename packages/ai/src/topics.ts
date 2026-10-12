@@ -36,8 +36,8 @@ export interface TopicRules {
 
 /**
  * What production runs: the owner's decisions after the simulator's runs (October 2026). Topics
- * are sections, as a bookstore's: specific ones cut a library about one field (the owner's, mostly
- * about AI and software) into slivers, broad ones let one topic hold two-fifths of it.
+ * are sections, as a bookstore's: specific ones cut a library about one field into slivers, and
+ * broad ones let one topic hold two-fifths of it.
  */
 export const TOPIC_RULES: TopicRules = {
 	style: "sections",
@@ -189,7 +189,7 @@ export function growRequest(
 				"\n",
 			)}\n\nThese recently saved articles fit none of them:\n${pool.map(articleLine).join("\n")}\n\n${
 			widen
-				? `First, an article may belong on an existing shelf whose description is too narrow to say so. For such a shelf, write a wider description that takes those articles in (list their ids) while keeping the shelf specific and its name unchanged. Then, for the articles left, p`
+				? `First, an article may belong on an existing shelf whose description is too narrow to say so. For such a shelf, write a wider description that takes those articles in (list their ids) while keeping the shelf ${options.style === "sections" ? "one section" : "specific"} and its name unchanged. Then, for the articles left, p`
 				: "P"
 		}ropose up to 2 new topics, each holding at least ${options.minNewTopicArticles} of these articles (list their ids), that do not overlap the existing topics. If they do not share a theme strong enough for a topic, propose none: an article may stay unsorted.`,
 		schema: growSchema(spec, refs, widen),
