@@ -4,6 +4,7 @@ import {
 	db,
 	documents,
 	eq,
+	featureFlags,
 	invites,
 	session,
 	usageCounts,
@@ -188,12 +189,13 @@ test("accounts are searchable, and an admin still cannot open another user's art
 	await expect(main).toContainText("Articles")
 	await expect(main).not.toContainText("Private reader title")
 	// The only change an admin makes to an account here is a feature in testing.
-	await expect(main).toContainText("AI in the reader")
-	await main.getByRole("button", { name: "Turn on" }).click()
-	await expect(main.getByRole("button", { name: "Turn off" })).toBeVisible()
-	await main.getByRole("button", { name: "Turn off" }).click()
-	await expect(main.getByRole("button", { name: "Turn on" })).toBeVisible()
-	await expect(main.getByRole("button")).toHaveCount(1)
+	const ai = main.getByRole("listitem").filter({ hasText: "AI in the reader" })
+	await ai.getByRole("button", { name: "Turn on" }).click()
+	await expect(ai.getByRole("button", { name: "Turn off" })).toBeVisible()
+	await ai.getByRole("button", { name: "Turn off" }).click()
+	await expect(ai.getByRole("button", { name: "Turn on" })).toBeVisible()
+	// One button a feature, and nothing else.
+	await expect(main.getByRole("button")).toHaveCount(featureFlags.length)
 
 	expect((await page.goto(`/read/${articleId}`))?.status()).toBe(404)
 	expect((await page.request.get(`/read/${articleId}.data`)).status()).toBe(404)
