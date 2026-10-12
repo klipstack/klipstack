@@ -34,6 +34,7 @@ import { pageTitle } from "~/lib/page-title"
 import { awaitsWords, searchOrigin, searchPath } from "~/lib/search-page"
 import { requireUser } from "~/lib/session.server"
 import { showToast } from "~/lib/toast"
+import { countTopicClick, countTopicSearch } from "~/lib/topic-use"
 import { cn } from "~/lib/utils"
 import { keepsArchived, SEARCH_LIMIT, searchDocuments } from "~/services/search.server"
 import { missingTopics, topicNames, topicsInUse } from "~/services/topics.server"
@@ -122,6 +123,7 @@ export default function SearchPage({ loaderData }: Route.ComponentProps) {
 					autoFocus={awaitsWords(q)}
 					slashFocus
 					operators
+					onSearch={countTopicSearch}
 					className="min-w-0 flex-1"
 					inputClassName="w-full focus:w-full sm:w-full sm:focus:w-full"
 				/>
@@ -406,6 +408,7 @@ function TopicChip({ q, topics }: { q: string; topics: string[] }) {
 							state={location.state}
 							replace
 							current={name === topic}
+							onChoose={name === topic ? undefined : () => countTopicClick("topic_filter_search")}
 						>
 							<span className="min-w-0 truncate">{name}</span>
 						</MenuNavLink>
@@ -417,6 +420,7 @@ function TopicChip({ q, topics }: { q: string; topics: string[] }) {
 						state={location.state}
 						replace
 						current={none}
+						onChoose={none ? undefined : () => countTopicClick("topic_filter_search")}
 					>
 						{t("topicFilter.none")}
 					</MenuNavLink>

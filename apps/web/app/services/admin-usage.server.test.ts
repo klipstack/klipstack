@@ -135,6 +135,9 @@ describe("listTopicUsage", () => {
 			{ userId: big.id, metric: "topics", month, count: 7 },
 			{ userId: small.id, metric: "topic_spend", month, count: 1_800_000_000 },
 			{ userId: small.id, metric: "topic_sorts", month, count: 3 },
+			{ userId: small.id, metric: "topic_opened", month, count: 4 },
+			{ userId: small.id, metric: "topic_renamed", month, count: 2 },
+			{ userId: small.id, metric: "topic_opened", month: "2000-01-01", count: 40 },
 			// Only last month, or only questions: not this month's topics.
 			{ userId: idle.id, metric: "topic_sorts", month: "2000-01-01", count: 50 },
 			{ userId: idle.id, metric: "ai_spend", month, count: 2_100_000_000 },
@@ -151,6 +154,16 @@ describe("listTopicUsage", () => {
 				sorts: 1000,
 				work: 7,
 				costUsd: 1900,
+				uses: {
+					topic_filter_library: 0,
+					topic_filter_search: 0,
+					topic_opened: 0,
+					topic_next: 0,
+					topic_home: 0,
+					topic_taken_out: 0,
+					topic_renamed: 0,
+					topic_removed: 0,
+				},
 			},
 			{
 				id: small.id,
@@ -159,6 +172,16 @@ describe("listTopicUsage", () => {
 				sorts: 3,
 				work: 0,
 				costUsd: 1800,
+				uses: {
+					topic_filter_library: 0,
+					topic_filter_search: 0,
+					topic_opened: 4,
+					topic_next: 0,
+					topic_home: 0,
+					topic_taken_out: 0,
+					topic_renamed: 2,
+					topic_removed: 0,
+				},
 			},
 		])
 	})

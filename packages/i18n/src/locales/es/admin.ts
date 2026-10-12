@@ -217,6 +217,18 @@ export default {
 			work: "Trabajo de Haiku",
 			cost: "Costo",
 			empty: "Ninguna cuenta usó temas este mes.",
+			uses: {
+				topic_filter_library: "Filtro en la biblioteca",
+				topic_filter_search: "Filtro en la búsqueda",
+				topic_opened: "Tema abierto",
+				topic_next: "Más en… del lector",
+				topic_home: "¿Sobre qué? en Inicio",
+				topic_taken_out: "Sacados",
+				topic_renamed: "Renombrados",
+				topic_removed: "Quitados",
+			},
+			usesNote:
+				"Los usos son solo recuentos: la biblioteca y la búsqueda filtradas por un tema, la página de un tema abierta, un artículo abierto desde «Más en…» del lector y un tema elegido en Inicio se cuentan al hacer clic en un navegador con JavaScript; los artículos sacados de un tema y los temas renombrados o quitados, desde la app, la API y MCP.",
 		},
 	},
 	users: {

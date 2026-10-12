@@ -1,3 +1,4 @@
+import { topicUseMetrics } from "@klipstack/db"
 import { useTranslation } from "react-i18next"
 import { Form, Link, useNavigation, useSubmit } from "react-router"
 import { Badge, Empty, PageHeader, RefreshButton, Table } from "~/components/admin/ui"
@@ -41,6 +42,8 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 		topics: {
 			rows: topicUsage.rows.map(({ costUsd, ...row }) => ({ ...row, cost: dollars(costUsd) })),
 			limits: topicUsage.limits,
+			// The columns, in order: the list stays on the server, with the database's code.
+			uses: [...topicUseMetrics],
 		},
 	}
 }
@@ -198,6 +201,7 @@ function TopicUsage({ topics }: { topics: Route.ComponentProps["loaderData"]["to
 						t("usage.topics.cost"),
 						t("usage.topics.sorts"),
 						t("usage.topics.work"),
+						...topics.uses.map((use) => t(`usage.topics.uses.${use}`)),
 					]}
 				>
 					{topics.rows.map((row) => (
@@ -217,12 +221,18 @@ function TopicUsage({ topics }: { topics: Route.ComponentProps["loaderData"]["to
 							<td>
 								<Against used={row.work} max={topics.limits.topics} />
 							</td>
+							{topics.uses.map((use) => (
+								<td key={use} className={cn("tabular-nums", !row.uses[use] && "text-muted-fg")}>
+									{row.uses[use]}
+								</td>
+							))}
 						</tr>
 					))}
 				</Table>
 			) : (
 				<Empty>{t("usage.topics.empty")}</Empty>
 			)}
+			<p className="mt-4 text-sm text-muted-fg">{t("usage.topics.usesNote")}</p>
 		</section>
 	)
 }

@@ -213,6 +213,18 @@ export default {
 			work: "Haiku's work",
 			cost: "Cost",
 			empty: "No account used topics this month.",
+			uses: {
+				topic_filter_library: "Library filter",
+				topic_filter_search: "Search filter",
+				topic_opened: "Topic opened",
+				topic_next: "Reader's More in…",
+				topic_home: "Home's About what?",
+				topic_taken_out: "Taken out",
+				topic_renamed: "Renamed",
+				topic_removed: "Removed",
+			},
+			usesNote:
+				"Uses are counts only: library and search filtered by a topic, a topic's page opened, an article followed from the reader's “More in…” and a topic chosen on Home are counted when clicked in a browser with JavaScript; articles taken out of a topic and topics renamed or removed, from the app, the API and MCP.",
 		},
 	},
 	users: {

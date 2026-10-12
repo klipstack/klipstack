@@ -34,6 +34,7 @@ import { pageTitle } from "~/lib/page-title"
 import { readForm } from "~/lib/request-body.server"
 import { requireUser } from "~/lib/session.server"
 import { showToast } from "~/lib/toast"
+import { countTopicClick } from "~/lib/topic-use"
 import { cn } from "~/lib/utils"
 import { answer } from "~/lib/web-action.server"
 import {
@@ -357,7 +358,11 @@ function Shelf({ topic }: { topic: TopicShelf }) {
 				<div className="flex items-center gap-2">
 					<div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3 gap-y-0.5">
 						<h2 className="font-serif text-xl leading-tight font-semibold">
-							<Link to={href} className="decoration-1 underline-offset-2 hover:underline">
+							<Link
+								to={href}
+								onClick={opened}
+								className="decoration-1 underline-offset-2 hover:underline"
+							>
 								{actions.name}
 							</Link>
 						</h2>
@@ -412,11 +417,19 @@ function Shelf({ topic }: { topic: TopicShelf }) {
 					) : null}
 				</ul>
 				{/* Phones: the shelf is one target, the topic. */}
-				<Link to={href} tabIndex={-1} aria-hidden className="absolute inset-0 md:hidden" />
+				<Link
+					to={href}
+					onClick={opened}
+					tabIndex={-1}
+					aria-hidden
+					className="absolute inset-0 md:hidden"
+				/>
 			</div>
 		</li>
 	)
 }
+
+const opened = () => countTopicClick("topic_opened")
 
 /** A small, stable number for a text: a book keeps its height and color from one visit to the next. */
 function hash(text: string) {
@@ -474,6 +487,7 @@ function MoreBooks({
 		<li className={cn("flex shrink-0", className)}>
 			<Link
 				to={href}
+				onClick={opened}
 				aria-label={label}
 				{...tooltip(label)}
 				className="grid h-24 w-[34px] place-items-center rounded-t-[3px] border border-dashed border-muted-fg/50 bg-muted text-[13px] font-semibold"

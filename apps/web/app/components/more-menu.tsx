@@ -453,10 +453,13 @@ export function MenuNavLink({
 	state,
 	current = false,
 	replace = false,
+	onChoose,
 	children,
 }: {
 	icon?: React.ReactNode
 	to: string
+	/** Before the menu closes and the link is followed. */
+	onChoose?: () => void
 	state?: unknown
 	/** Replaces the page in the history, keeping the scroll: a choice on the page, not a new page. */
 	replace?: boolean
@@ -473,7 +476,10 @@ export function MenuNavLink({
 			preventScrollReset={replace}
 			role="menuitem"
 			aria-current={current ? "page" : undefined}
-			onClick={close}
+			onClick={() => {
+				onChoose?.()
+				close()
+			}}
 			className={cn(
 				"flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm",
 				current ? "bg-selected font-medium text-selected-fg" : "text-fg hover:bg-muted",

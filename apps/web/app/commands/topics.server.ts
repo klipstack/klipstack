@@ -2,6 +2,7 @@ import { Id, PROPOSED_TOPICS_MAX, TopicName } from "@klipstack/api-contract"
 import { cleanTopicName } from "@klipstack/api-contract/names"
 import { renameTopicOperator } from "@klipstack/api-contract/search-query"
 import {
+	addUsage,
 	and,
 	db,
 	notInArray,
@@ -25,6 +26,7 @@ import { topicModels } from "~/lib/ai.server"
 import { AppError, notFound, parseInput } from "~/lib/app-error"
 import { hasFeature } from "~/lib/features.server"
 import { isUniqueViolation } from "~/lib/postgres-errors.server"
+import { rateLimit } from "~/lib/rate-limit.server"
 
 /**
  * A reader's automatic topics: turning them on and off, confirming the first ones, and correcting
@@ -228,6 +230,7 @@ export async function renameTopic(userId: string, id: string, rawName: string) {
 				.where(and(eq(topics.id, topicId), eq(topics.userId, userId), eq(topics.status, "active")))
 				.returning({ id: topics.id, name: topics.name })
 			if (!renamed) throw notFound(NO_TOPIC)
+			await addUsage(tx, userId, "topic_renamed")
 			return renamed
 		})
 	} catch (error) {
@@ -249,6 +252,7 @@ export async function removeTopic(userId: string, id: string) {
 			.returning({ id: topics.id, name: topics.name })
 		if (!removed) throw notFound(NO_TOPIC)
 		await tx.delete(documentTopics).where(eq(documentTopics.topicId, topicId))
+		await addUsage(tx, userId, "topic_removed")
 		return removed
 	})
 }
@@ -284,6 +288,33 @@ export async function takeOutOfTopic(userId: string, id: string, articleId: stri
 				target: [documentTopics.documentId, documentTopics.topicId],
 				set: { refusedAt: now },
 			})
+		await addUsage(tx, userId, "topic_taken_out")
 		return topic
 	})
+}
+
+/** What the reader clicks that `countTopicUse` counts; the commands above count the rest. */
+const TopicClick = z.enum([
+	"topic_filter_library",
+	"topic_filter_search",
+	"topic_opened",
+	"topic_next",
+	"topic_home",
+])
+/** More clicks a minute than a person makes: the counts stay numbers an admin can trust. */
+const CLICKS_PER_MINUTE = 60
+
+/**
+ * One more use of a part of topics this month, for admins (`/admin/usage`): its name only, no
+ * article and no topic.
+ */
+export async function countTopicUse(userId: string, use: string): Promise<void> {
+	const metric = parseInput(TopicClick, use)
+	await mayChangeTopics(userId)
+	const limited = rateLimit(`topic-use:${userId}`, CLICKS_PER_MINUTE, 60_000)
+	if (!limited.ok)
+		throw new AppError("rate_limited", "Too many topic uses at once.", {
+			retryAfter: limited.retryAfterSeconds,
+		})
+	await addUsage(db, userId, metric)
 }

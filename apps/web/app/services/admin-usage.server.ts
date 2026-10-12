@@ -1,4 +1,11 @@
-import { db, sql, topicLimits, type UserRole } from "@klipstack/db"
+import {
+	db,
+	sql,
+	type TopicUseMetric,
+	topicLimits,
+	topicUseMetrics,
+	type UserRole,
+} from "@klipstack/db"
 import { USAGE_TOP, type UsageOrder } from "~/lib/admin-constants"
 import { type AdminContext, assertAdminContext } from "~/lib/admin.server"
 import {
@@ -137,12 +144,14 @@ export interface AdminTopicUsageRow {
 	work: number
 	/** What the month's topics cost, in US dollars, both providers. */
 	costUsd: number
+	/** How often the reader used each part of topics this month. */
+	uses: Record<TopicUseMetric, number>
 }
 
 /**
  * The accounts that used topics this month, most expensive first, as numbers only: what their
  * topics cost, against the caps every account has (`LIMIT_TOPIC_SORTS_PER_MONTH`,
- * `LIMIT_TOPICS_PER_MONTH`).
+ * `LIMIT_TOPICS_PER_MONTH`), and how often the reader used each part of them.
  */
 export async function listTopicUsage(ctx: AdminContext): Promise<{
 	rows: AdminTopicUsageRow[]
@@ -150,6 +159,10 @@ export async function listTopicUsage(ctx: AdminContext): Promise<{
 }> {
 	assertAdminContext(ctx)
 	const { month } = monthOf()
+	const uses = sql`array[${sql.join(
+		topicUseMetrics.map((m) => sql`${m}`),
+		sql`, `,
+	)}]::text[]`
 	const result = await db.execute<{
 		id: string
 		name: string
@@ -157,17 +170,22 @@ export async function listTopicUsage(ctx: AdminContext): Promise<{
 		sorts: number
 		work: number
 		spend: string
+		uses: Record<string, number>
 	}>(sql`
 		with counted as (
 			select user_id,
 				coalesce(sum(count) filter (where metric = 'topic_sorts'), 0)::int as sorts,
 				coalesce(sum(count) filter (where metric = 'topics'), 0)::int as work,
-				coalesce(sum(count) filter (where metric = 'topic_spend'), 0)::bigint as spend
+				coalesce(sum(count) filter (where metric = 'topic_spend'), 0)::bigint as spend,
+				coalesce(
+					jsonb_object_agg(metric, count) filter (where metric = any(${uses})),
+					'{}'::jsonb
+				) as uses
 			from usage_counts
-			where month = ${month} and metric in ('topic_sorts', 'topics', 'topic_spend')
+			where month = ${month} and (metric in ('topic_sorts', 'topics', 'topic_spend') or metric = any(${uses}))
 			group by user_id
 		)
-		select u.id, u.name, u.email, c.sorts, c.work, c.spend
+		select u.id, u.name, u.email, c.sorts, c.work, c.spend, c.uses
 		from counted c join "user" u on u.id = c.user_id
 		order by c.spend desc, c.sorts desc, c.work desc, u.id
 		limit ${USAGE_TOP}
@@ -180,6 +198,10 @@ export async function listTopicUsage(ctx: AdminContext): Promise<{
 			sorts: row.sorts,
 			work: row.work,
 			costUsd: Number(row.spend) / 1_000_000,
+			uses: Object.fromEntries(topicUseMetrics.map((m) => [m, row.uses[m] ?? 0])) as Record<
+				TopicUseMetric,
+				number
+			>,
 		})),
 		limits: topicLimits(),
 	}
