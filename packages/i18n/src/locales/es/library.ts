@@ -306,6 +306,12 @@ export default {
 		sorting: "Ordenando tu biblioteca en sus temas: faltan {{count}} artículos.",
 		sorting_one: "Ordenando tu biblioteca en sus temas: falta {{count}} artículo.",
 		sorting_other: "Ordenando tu biblioteca en sus temas: faltan {{count}} artículos.",
+		sortsPaused:
+			"La ordenación se detuvo este mes: se ordenaron {{max}} artículos, el máximo por cuenta. {{count}} artículos nuevos se ordenarán el {{date}}. No se pierde nada.",
+		sortsPaused_one:
+			"La ordenación se detuvo este mes: se ordenaron {{max}} artículos, el máximo por cuenta. {{count}} artículo nuevo se ordenará el {{date}}. No se pierde nada.",
+		sortsPaused_other:
+			"La ordenación se detuvo este mes: se ordenaron {{max}} artículos, el máximo por cuenta. {{count}} artículos nuevos se ordenarán el {{date}}. No se pierde nada.",
 		paused:
 			"Los temas están en pausa en tu cuenta: no cambian y no se envía nada. Aún puedes desactivarlos, lo que los borra.",
 		empty: "Ahora no hay temas. Aparecerán nuevos a medida que guardes artículos.",

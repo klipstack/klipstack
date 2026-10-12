@@ -26,7 +26,9 @@ import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
 import { topicModels } from "~/lib/ai.server"
 import { AppError } from "~/lib/app-error"
+import { formatDay } from "~/lib/date-groups"
 import { hasFeature } from "~/lib/features.server"
+import { getLocale } from "~/lib/i18n.server"
 import type { PageBarHandle } from "~/lib/page-bar"
 import { pageTitle } from "~/lib/page-title"
 import { readForm } from "~/lib/request-body.server"
@@ -60,7 +62,13 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 	const state = await topicsState(user.id)
 	// Topics off, offered here: Home's invitation to them has done its work.
 	const invited = usable && state.stage === "off" && !(await topicsInvitationEnded(user.id))
-	return { state, paused: !usable, invited }
+	// Formatted here, as Settings does: the server's Intl and the browser's may differ.
+	const locale = getLocale(context)
+	const sortsPaused = state.sortsPaused && {
+		max: new Intl.NumberFormat(locale).format(state.sortsPaused.max),
+		date: formatDay(state.sortsPaused.resetsAt, locale, "UTC"),
+	}
+	return { state, paused: !usable, invited, sortsPaused }
 }
 
 /**
@@ -113,11 +121,12 @@ export async function action({ request, context }: Route.ActionArgs) {
 export default function Topics({ loaderData }: Route.ComponentProps) {
 	const { t } = useTranslation("library")
 	const { t: tc } = useTranslation()
-	const { state, paused, invited } = loaderData
+	const { state, paused, invited, sortsPaused } = loaderData
 	// While the worker is on it, the page asks again now and then.
 	const { revalidate } = useRevalidator()
 	const busy =
-		!paused && (state.stage === "proposing" || (state.stage === "active" && state.sorting > 0))
+		!paused &&
+		(state.stage === "proposing" || (state.stage === "active" && state.sorting > 0 && !sortsPaused))
 	useEffect(() => {
 		if (!busy) return
 		const id = window.setInterval(() => void revalidate(), 5000)
@@ -163,7 +172,9 @@ export default function Topics({ loaderData }: Route.ComponentProps) {
 				</section>
 			) : null}
 			{state.stage === "proposed" && !paused ? <Proposal state={state} /> : null}
-			{state.stage === "active" && !paused ? <Shelves state={state} /> : null}
+			{state.stage === "active" && !paused ? (
+				<Shelves state={state} sortsPaused={sortsPaused} />
+			) : null}
 			{state.stage === "off" ? null : <TurnOff />}
 		</main>
 	)
@@ -279,11 +290,21 @@ function ProposedTopic({ topic }: { topic: TopicSummary }) {
 	)
 }
 
-function Shelves({ state }: { state: TopicsState }) {
+function Shelves({
+	state,
+	sortsPaused,
+}: {
+	state: TopicsState
+	sortsPaused: { max: string; date: string } | null
+}) {
 	const { t } = useTranslation("library")
 	return (
 		<>
-			{state.sorting > 0 ? (
+			{sortsPaused ? (
+				<p data-testid="topics-sorts-paused" className="mt-6 max-w-2xl text-sm text-muted-fg">
+					{t("topics.sortsPaused", { count: state.sorting, ...sortsPaused })}
+				</p>
+			) : state.sorting > 0 ? (
 				<p
 					data-testid="topics-sorting"
 					role="status"

@@ -11,12 +11,15 @@ import {
 	eq,
 	inArray,
 	isNull,
+	monthOf,
 	ne,
 	not,
 	sql,
 	topicLibraries,
+	topicLimits,
 	topicSorts,
 	topics,
+	usageThisMonth,
 	user as userTable,
 } from "@klipstack/db"
 import { topicModels } from "~/lib/ai.server"
@@ -79,6 +82,11 @@ export interface TopicsState {
 	unseen: boolean
 	/** Articles still to sort, while `active`: the whole library, right after the reader confirms. */
 	sorting: number
+	/**
+	 * The month's sorts are spent while articles wait to be sorted: they are sorted from `resetsAt`
+	 * on. `max`: the month's sorts (`LIMIT_TOPIC_SORTS_PER_MONTH`).
+	 */
+	sortsPaused: { max: number; resetsAt: string } | null
 }
 
 const inLibrary = (userId: string) =>
@@ -97,6 +105,7 @@ export async function topicsState(userId: string): Promise<TopicsState> {
 		topics: [],
 		unseen: false,
 		sorting: 0,
+		sortsPaused: null,
 	}
 	if (!library) return { stage: "off", ...empty }
 	const [{ total } = { total: 0 }] = await db
@@ -111,14 +120,23 @@ export async function topicsState(userId: string): Promise<TopicsState> {
 	if (!library.proposedAt)
 		return { ...empty, stage: total >= needed ? "proposing" : "waiting", count: total, needed }
 	const status = library.confirmedAt ? "active" : "proposed"
+	const sorting = status === "active" ? total - (await sortedCount(userId)) : 0
 	return {
 		stage: status,
 		count: total,
 		needed,
 		topics: await summaries(userId, status),
 		unseen: !library.confirmedAt && !library.seenAt,
-		sorting: status === "active" ? total - (await sortedCount(userId)) : 0,
+		sorting,
+		sortsPaused: sorting > 0 ? await sortsPaused(userId) : null,
 	}
+}
+
+/** The month's sorts, when they are spent: when they start again, and how many there are. */
+async function sortsPaused(userId: string): Promise<TopicsState["sortsPaused"]> {
+	const max = topicLimits().sorts
+	if ((await usageThisMonth(db, userId, "topic_sorts")) < max) return null
+	return { max, resetsAt: monthOf().resetsAt.toISOString() }
 }
 
 async function sortedCount(userId: string): Promise<number> {

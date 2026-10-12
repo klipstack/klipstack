@@ -303,6 +303,12 @@ export default {
 		sorting: "Sorting your library into its topics: {{count}} articles to go.",
 		sorting_one: "Sorting your library into its topics: {{count}} article to go.",
 		sorting_other: "Sorting your library into its topics: {{count}} articles to go.",
+		sortsPaused:
+			"Sorting stopped for this month: {{max}} articles were sorted, the most an account can. {{count}} new articles will be sorted on {{date}}. Nothing is lost.",
+		sortsPaused_one:
+			"Sorting stopped for this month: {{max}} articles were sorted, the most an account can. {{count}} new article will be sorted on {{date}}. Nothing is lost.",
+		sortsPaused_other:
+			"Sorting stopped for this month: {{max}} articles were sorted, the most an account can. {{count}} new articles will be sorted on {{date}}. Nothing is lost.",
 		paused:
 			"Topics are paused for your account: they don't change, and nothing is sent. You can still turn them off, which deletes them.",
 		empty: "No topics right now. New ones appear as you save more articles.",

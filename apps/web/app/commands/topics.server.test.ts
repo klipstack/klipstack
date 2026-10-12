@@ -7,11 +7,13 @@ import {
 	documentVersions,
 	eq,
 	inArray,
+	monthOf,
 	savedSearches,
 	sql,
 	topicLibraries,
 	topicSorts,
 	topics,
+	usageCounts,
 	user as userTable,
 	userFeatures,
 } from "@klipstack/db"
@@ -205,6 +207,28 @@ describe("where topics stand", () => {
 			topics: [{ name: "Shelf", articles: 1 }],
 		})
 		expect((await topicWithArticles(userId, topic))!.items.map((i) => i.id)).toEqual([kept])
+	})
+
+	it("says sorting waits for next month once the month's sorts are spent, and only while articles wait", async () => {
+		const sorted = await article()
+		await active(userId, "Shelf", [sorted])
+		await db.insert(topicSorts).values({ documentId: sorted, userId })
+		const { month, resetsAt } = monthOf()
+		await db.insert(usageCounts).values({ userId, metric: "topic_sorts", month, count: 999 })
+		expect(await topicsState(userId)).toMatchObject({ sorting: 0, sortsPaused: null })
+
+		await article()
+		await article()
+		// One sort left: the worker is still on it.
+		expect(await topicsState(userId)).toMatchObject({ sorting: 2, sortsPaused: null })
+		await db
+			.update(usageCounts)
+			.set({ count: 1000 })
+			.where(and(eq(usageCounts.userId, userId), eq(usageCounts.metric, "topic_sorts")))
+		expect(await topicsState(userId)).toMatchObject({
+			sorting: 2,
+			sortsPaused: { max: 1000, resetsAt: resetsAt.toISOString() },
+		})
 	})
 
 	it("shelves a topic's newest 16 articles, and counts the ones saved this week", async () => {
