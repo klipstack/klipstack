@@ -45,6 +45,9 @@ import { splitSentences } from "./sentences"
  * - Scrolling tells the app where the reader is (`{ type: "reading", position, ended, moved }`:
  *   `ended`, the end of the article is on screen; `moved`, a screen or more since opening). It
  *   opens at the saved position, or at a highlight.
+ * - Above the title, the article's topics; after the end block, the shelf of what to read next
+ *   (`readerHtml`), whose cards are links to the library's reader pages. Reading progress is
+ *   measured to the end block, not through the shelf (`readingSpan`).
  * - `klipEnd(end)` draws the end block after the article (whether leaving finishes it, the star,
  *   the mark for the next edition); its taps go to the app (`{ type: "end", action }`).
  * - A tap on a highlight tells the app which (`{ type: "highlight", id }`, the smallest when they
@@ -468,7 +471,7 @@ export function startReaderPage(): void {
 	function reportReading() {
 		readingTimer = undefined
 		const el = document.documentElement
-		const max = el.scrollHeight - el.clientHeight
+		const max = readingSpan(el)
 		post({
 			type: "reading",
 			position:
@@ -636,7 +639,7 @@ export function startReaderPage(): void {
 			window.scrollTo(0, Math.max(0, window.scrollY + rect.top - window.innerHeight / 4))
 		} else if (config.position > 0) {
 			const el = document.documentElement
-			const max = el.scrollHeight - el.clientHeight
+			const max = readingSpan(el)
 			window.scrollTo(0, Math.max(0, config.position * max - el.clientHeight * 0.2))
 		}
 		requestAnimationFrame(() => {
@@ -646,6 +649,19 @@ export function startReaderPage(): void {
 			reportReading()
 		})
 	})
+}
+
+/**
+ * How far the page scrolls while reading the article: to its end, not through what comes after it
+ * (`data-after-reading`, the shelf of what to read next), so an article read to its end is read.
+ * As the web reader's (apps/web/app/hooks/use-reading-progress.ts).
+ */
+export function readingSpan(el: HTMLElement): number {
+	const after = document.querySelector<HTMLElement>("[data-after-reading]")
+	const tail = after
+		? after.offsetHeight + (Number.parseFloat(getComputedStyle(after).marginTop) || 0)
+		: 0
+	return el.scrollHeight - el.clientHeight - tail
 }
 
 const NO_CONFIG: PageConfig = { top: 0, highlights: [], position: 0, highlight: null }

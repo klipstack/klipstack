@@ -1,6 +1,6 @@
 import type { HighlightColor } from "@klipstack/api-contract/enums"
 import { endState, secondsToFinish } from "@klipstack/api-contract/reading"
-import type { ArticleDetails, Highlight } from "@klipstack/sdk"
+import type { ArticleDetails, ArticleTopics, Highlight } from "@klipstack/sdk"
 import { createNoteAutosave, type NoteSaveStatus } from "@klipstack/sdk/note-autosave"
 import { router, Stack, useLocalSearchParams, useNavigation } from "expo-router"
 import { useCallback, useEffect, useRef, useState } from "react"
@@ -285,10 +285,16 @@ export default function Reader() {
 				// Online, the article is kept for offline reading; offline, the kept copy opens.
 				let details: ArticleDetails
 				let stored: StoredHtml | null = null
+				// Its topics and what to read next in them, online only: a kept copy's would go stale.
+				// Without them (an older server, a failed call) the article opens all the same.
+				let topics: ArticleTopics | null = null
 				try {
 					details = await client.articles.get(id)
 					if (details.status === "ready") {
-						stored = await client.articles.html(id)
+						;[stored, topics] = await Promise.all([
+							client.articles.html(id),
+							client.articles.topics(id).catch(() => null),
+						])
 						saveArticle(details, stored)
 					}
 				} catch (e) {
@@ -346,6 +352,7 @@ export default function Reader() {
 						title: details.title ?? details.url,
 						byline: bylineOf(details),
 						via: details.via,
+						topics,
 						html: html.html,
 						highlights: details.highlights,
 						fontScale: textScale(typeAtLoad.current.size, PixelRatio.getFontScale()),

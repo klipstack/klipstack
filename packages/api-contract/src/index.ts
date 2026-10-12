@@ -15,6 +15,7 @@ import { getMe } from "./endpoints/account"
 import {
 	articleHtml,
 	articleMarkdown,
+	articleTopics,
 	getArticle,
 	listArticles,
 	lookupArticles,
@@ -71,6 +72,7 @@ export const endpoints = {
 	"articles.get": getArticle,
 	"articles.markdown": articleMarkdown,
 	"articles.html": articleHtml,
+	"articles.topics": articleTopics,
 	"articles.save": saveArticle,
 	"articles.update": updateArticles,
 	"articles.undo": undoArticles,

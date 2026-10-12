@@ -1,16 +1,24 @@
 import type {
 	articleHtml,
 	articleMarkdown,
+	articleTopics,
 	getArticle,
 	listArticles,
 	lookupArticles,
 	previewLink,
 	searchArticles,
 } from "@klipstack/api-contract"
+import { topicModels } from "~/lib/ai.server"
+import { hasFeature } from "~/lib/features.server"
 import { parse } from "~/lib/note-links"
 import { rateLimit } from "~/lib/rate-limit.server"
 import { appOrigin, articleSummary, readerUrl } from "~/services/article-summary.server"
-import { findSavedByUrls, getDocumentForReader, listDocuments } from "~/services/documents.server"
+import {
+	findSavedByUrls,
+	getDocument,
+	getDocumentForReader,
+	listDocuments,
+} from "~/services/documents.server"
 import { buildDocumentExport, documentMarkdown } from "~/services/export.server"
 import { listDocumentHighlights } from "~/services/highlights.server"
 import { type NumberedImages, numberImages } from "~/services/images"
@@ -23,6 +31,7 @@ import {
 	listContentLinks,
 } from "~/services/links.server"
 import { searchDocuments } from "~/services/search.server"
+import { readerTopics } from "~/services/topics.server"
 import { articleCursor } from "../cursors.server"
 import { ApiError, notFound, rateLimited } from "../errors.server"
 import type { Handler } from "../handler.server"
@@ -182,4 +191,29 @@ export const html: Handler<typeof articleHtml> = async ({ userId, params }) => {
 	if (!found) throw notFound(NO_ARTICLE)
 	if (!found.version) throw ApiError.of("not_ready", "The article text is not available yet.")
 	return { versionId: found.version.id, html: found.version.html }
+}
+
+/** The reader's topics and shelf, as the web reader shows them: only with the feature and models. */
+export const topics: Handler<typeof articleTopics> = async ({ userId, params }) => {
+	const doc = await getDocument(userId, params.id)
+	if (!doc) throw notFound(NO_ARTICLE)
+	// Like the reader, for an article with text to read (a new capture may be on its way).
+	if (!doc.currentVersionId || !topicModels.available || !(await hasFeature(userId, "topics")))
+		return { topics: [], shelf: null }
+	const { topics, shelf } = await readerTopics(userId, doc.id)
+	return {
+		topics,
+		shelf: shelf && {
+			topic: shelf.topic,
+			unread: shelf.unread,
+			items: shelf.items.map((item) => ({
+				id: item.id,
+				title: item.title,
+				siteName: item.siteName,
+				url: item.sourceUrl,
+				readingMinutes: item.readingMinutes,
+				readerUrl: readerUrl(item.id),
+			})),
+		},
+	}
 }

@@ -1,4 +1,5 @@
 import { HIGHLIGHT_COLORS, type HighlightColor } from "@klipstack/api-contract/enums"
+import type { ArticleTopics } from "@klipstack/sdk"
 import type { PageConfig, PageHighlight } from "@/page/messages"
 import { pageScript, pageScriptHash } from "./reader-page.generated"
 
@@ -22,6 +23,11 @@ export type ReaderPage = {
 	 * shared it and what they said. Their HTML is sanitized on the server.
 	 */
 	via?: ReadonlyArray<{ author: string | null; siteName: string | null; html: string }>
+	/**
+	 * Its topics (`GET /articles/{id}/topics`): named above the title, and the shelf of what to
+	 * read next after the end block. Nothing when unset (offline, or an account without topics).
+	 */
+	topics?: ArticleTopics | null
 	/** The article's stored HTML (`GET /articles/{id}/html`), its images made local (`localImages`). */
 	html: string
 	highlights: ReadonlyArray<ReaderHighlight>
@@ -64,16 +70,50 @@ export function readerHtml(page: ReaderPage): string {
 </head>
 <body>
 <header>
-<h1>${escapeHtml(page.title)}</h1>
+${kickerHtml(page.topics)}<h1>${escapeHtml(page.title)}</h1>
 ${page.byline ? `<p class="byline">${escapeHtml(page.byline)}</p>` : ""}
 ${(page.via ?? []).map(viaHtml).join("")}
 </header>
 <article>${page.html}</article>
 <section id="klip-end"></section>
-<script type="application/json" id="klip-config">${scriptJson(config)}</script>
+${shelfHtml(page.topics)}<script type="application/json" id="klip-config">${scriptJson(config)}</script>
 <script>${pageScript}</script>
 </body>
 </html>`
+}
+
+/** The article's topics above its title, strongest first, as a newspaper names its sections. */
+function kickerHtml(topics: ReaderPage["topics"]): string {
+	if (!topics?.topics.length) return ""
+	const names = topics.topics.map((t) => `<span>${escapeHtml(t.name)}</span>`)
+	return `<p class="kicker">${names.join('<span aria-hidden="true">·</span>')}</p>\n`
+}
+
+/**
+ * At the end, what to read next: unread articles of its strongest topic, as the web reader's
+ * shelf. Each is a link to its reader page, which the app opens as it opens the library's own
+ * links. `data-after-reading`: reading progress stops above it.
+ */
+function shelfHtml(topics: ReaderPage["topics"]): string {
+	const shelf = topics?.shelf
+	if (!shelf?.items.length) return ""
+	const cards = shelf.items.map((item) => {
+		const site = escapeHtml(item.siteName ?? hostOf(item.url))
+		const minutes = item.readingMinutes
+			? `<span class="shelf-minutes">${item.readingMinutes} min</span>`
+			: ""
+		return `<a class="shelf-card" href="${escapeHtml(item.readerUrl)}"><span class="shelf-site">${site}</span><span class="shelf-title">${escapeHtml(item.title ?? hostOf(item.url))}</span>${minutes}</a>`
+	})
+	return `<section id="klip-shelf" data-after-reading><div class="shelf-head"><h2>More in ${escapeHtml(shelf.topic.name)}</h2><span class="shelf-count">${shelf.unread} unread</span></div><div class="shelf-cards">${cards.join("")}</div></section>
+`
+}
+
+function hostOf(url: string): string {
+	try {
+		return new URL(url).host
+	} catch {
+		return url
+	}
 }
 
 /** A post the article was saved through, as the web reader shows it above the article. */
@@ -323,6 +363,38 @@ html.hl-dragging, html.hl-dragging * { -webkit-user-select: none; user-select: n
 	background: var(--bg); text-align: left; white-space: pre-wrap; overflow-wrap: anywhere;
 }
 #klip-end .end-edition-note.empty { color: var(--muted-fg); }
+/* The topics above the title, and the shelf after the end block: as the web reader's. */
+.kicker {
+	display: flex; flex-wrap: wrap; gap: 0 8px; margin: 8px 0 0; font-family: var(--sans);
+	font-size: 0.75rem; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
+	color: var(--accent); line-height: 1.5;
+}
+#klip-shelf {
+	margin-top: 40px; font-family: var(--sans); line-height: 1.4;
+	-webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+}
+.shelf-head { display: grid; gap: 2px; margin-bottom: 12px; }
+.shelf-head h2 { margin: 0; font-size: 1rem; font-weight: 600; }
+.shelf-count { font-size: 0.875rem; color: var(--muted-fg); }
+.shelf-cards {
+	display: flex; gap: 10px; margin: 0 -20px; padding: 0 20px 4px; overflow-x: auto;
+	scroll-snap-type: x mandatory; scroll-padding: 0 20px; scrollbar-width: none;
+}
+.shelf-cards::-webkit-scrollbar { display: none; }
+#klip-shelf .shelf-card {
+	flex: none; width: 72%; scroll-snap-align: start; display: grid; align-content: start; gap: 6px;
+	min-height: 128px; padding: 12px 14px; border-radius: 12px; background: var(--muted);
+	color: var(--fg); text-decoration: none;
+}
+.shelf-site {
+	overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 0.75rem;
+	letter-spacing: 0.03em; text-transform: uppercase; color: var(--muted-fg);
+}
+.shelf-title {
+	display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden;
+	font-family: var(--serif); font-size: 1rem; font-weight: 700; line-height: 1.35; hyphens: manual; -webkit-hyphens: manual;
+}
+.shelf-minutes { margin-top: auto; font-size: 0.75rem; color: var(--muted-fg); }
 /* The sentence being read aloud. */
 ::highlight(klip-speaking) { background-color: var(--speaking); }
 `

@@ -47,6 +47,54 @@ describe("readerHtml", () => {
 		expect(readerHtml(page)).not.toContain('class="via"')
 	})
 
+	it("names the topics above the title and shelves what to read next after the end, escaped", () => {
+		const html = readerHtml({
+			...page,
+			topics: {
+				topics: [
+					{ id: "t1", name: "Science & <Tech>" },
+					{ id: "t2", name: "Writing" },
+				],
+				shelf: {
+					topic: { id: "t1", name: "Science & <Tech>" },
+					unread: 12,
+					items: [
+						{
+							id: "a1",
+							title: "A <b>bold</b> idea",
+							siteName: null,
+							url: "https://example.com/a",
+							readingMinutes: 6,
+							readerUrl: 'https://klipstack.test/read/a1"x',
+						},
+					],
+				},
+			},
+		})
+		expect(html).toContain(
+			'<header>\n<p class="kicker"><span>Science &amp; &lt;Tech&gt;</span><span aria-hidden="true">·</span><span>Writing</span></p>\n<h1>',
+		)
+		const shelf = html.slice(html.indexOf('<section id="klip-shelf"'))
+		expect(html.indexOf('<section id="klip-end">')).toBeLessThan(
+			html.indexOf('<section id="klip-shelf"'),
+		)
+		expect(shelf).toContain("data-after-reading")
+		expect(shelf).toContain("<h2>More in Science &amp; &lt;Tech&gt;</h2>")
+		expect(shelf).toContain('<span class="shelf-count">12 unread</span>')
+		expect(shelf).toContain('href="https://klipstack.test/read/a1&quot;x"')
+		expect(shelf).toContain('<span class="shelf-site">example.com</span>')
+		expect(shelf).toContain('<span class="shelf-title">A &lt;b&gt;bold&lt;/b&gt; idea</span>')
+		expect(shelf).toContain('<span class="shelf-minutes">6 min</span>')
+	})
+
+	it("has no topics or shelf without them", () => {
+		for (const topics of [undefined, null, { topics: [], shelf: null }]) {
+			const html = readerHtml({ ...page, topics })
+			expect(html).not.toContain('class="kicker"')
+			expect(html).not.toContain('id="klip-shelf"')
+		}
+	})
+
 	it("hands the highlights to the script as data their text can't end", () => {
 		const html = readerHtml(page)
 		const scripts = html.match(/<script[^>]*>[\s\S]*?<\/script>/g) ?? []
