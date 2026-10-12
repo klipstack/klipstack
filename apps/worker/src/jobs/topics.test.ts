@@ -75,6 +75,7 @@ function failing(error: Error): TopicsDeps {
 	}
 	return {
 		limit: 100,
+		sortLimit: 1000,
 		again: async () => {},
 		models: { available: true, propose: fail, grow: fail, review: fail, sort: fail },
 	}

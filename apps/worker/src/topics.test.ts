@@ -15,6 +15,7 @@ import {
 	eq,
 	inArray,
 	isNull,
+	monthOf,
 	pool,
 	sql,
 	topicLibraries,
@@ -130,7 +131,9 @@ function models(script: {
 	]
 	const deps: TopicsDeps = {
 		limit: 100,
-		again: async () => void calls.push("again"),
+		sortLimit: 1000,
+		// A run for later (the sort budget's next month) is told apart from one for now.
+		again: async (at) => void calls.push(at ? `resume:${at.toISOString()}` : "again"),
 		models: {
 			available: true,
 			async propose({ articles }) {
@@ -241,12 +244,26 @@ async function refuse(documentId: string, topicId: string) {
 		.where(and(eq(documentTopics.documentId, documentId), eq(documentTopics.topicId, topicId)))
 }
 
-async function usage(metric: "topics" | "ai_spend") {
+async function usage(metric: "topics" | "ai_spend" | "topic_sorts" | "topic_spend") {
 	const [row] = await db
 		.select({ count: usageCounts.count })
 		.from(usageCounts)
-		.where(and(eq(usageCounts.userId, userId), eq(usageCounts.metric, metric)))
+		.where(
+			and(
+				eq(usageCounts.userId, userId),
+				eq(usageCounts.metric, metric),
+				eq(usageCounts.month, monthOf().month),
+			),
+		)
 	return row?.count ?? 0
+}
+
+/** The month turns: this month's counts are put in the past. */
+async function nextMonth() {
+	await db
+		.update(usageCounts)
+		.set({ month: sql`${usageCounts.month} - interval '1 year'` })
+		.where(eq(usageCounts.userId, userId))
 }
 
 const statuses = async () =>
@@ -272,8 +289,9 @@ describe("the first topics", () => {
 			["Dogs", "proposed", "first"],
 		])
 		expect(await usage("topics")).toBe(1)
-		// 10,000 tokens in and 1,000 out at Haiku's prices: $0.0015.
-		expect(await usage("ai_spend")).toBe(1500)
+		// 10,000 tokens in and 1,000 out at Haiku's prices: $0.0015, apart from AI questions'.
+		expect(await usage("topic_spend")).toBe(1500)
+		expect(await usage("ai_spend")).toBe(0)
 
 		// Waiting for the reader: nothing more is asked.
 		expect(await run(deps)).toEqual({ done: "nothing", why: "waiting" })
@@ -532,6 +550,71 @@ describe("after the reader confirms", () => {
 			description: "Articles about cats, and about owls.",
 			boundary: "Articles about birds belong in Birds.",
 		})
+	})
+
+	const growsOwls = {
+		grow: (_topics: TopicIn[], pool: TopicArticleIn[]) => ({
+			topics: [{ ...spec("Owls"), articleIds: pool.map((a) => a.id) }],
+		}),
+	}
+
+	it("counts every article sorted, first sorts and re-sorts alike, and what topics cost apart from questions", async () => {
+		const { deps, calls } = await confirmed(growsOwls)
+		await settle(deps, calls)
+		expect(await usage("topic_sorts")).toBe(25)
+		await many(5, "owls")
+		await settle(deps, calls)
+		// 5 new articles, then the 30 of the library again into Owls.
+		expect(await usage("topic_sorts")).toBe(25 + 5 + 30)
+		// The proposal ($0.0015), and 60 sorts of 1,000 tokens at Jev's price ($0.000042 each).
+		expect(await usage("topic_spend")).toBe(1500 + 60 * 42)
+		expect(await usage("ai_spend")).toBe(0)
+	})
+
+	it("stops sorting new articles at the month's budget, and picks up on the 1st", async () => {
+		const { deps, calls, cats, dogs } = await confirmed()
+		const budget = { ...deps, sortLimit: 10 }
+		const resume = `resume:${monthOf().resetsAt.toISOString()}`
+		expect(await run(budget)).toMatchObject({ done: "sorted", articles: 10, paused: true })
+		expect(calls.filter((c) => c === "sort")).toHaveLength(10)
+		expect(calls.at(-1)).toBe(resume)
+		expect(await usage("topic_sorts")).toBe(10)
+
+		// Within the month, a run (a new save's) sorts nothing and waits for the 1st again.
+		calls.length = 0
+		expect(await run(budget)).toMatchObject({ done: "sorted", articles: 0, paused: true })
+		expect(calls).toEqual([resume])
+		expect(await topicsOf(dogs.at(-1)!)).toEqual([])
+
+		// Ten more on the 1st, and the last five the month after.
+		await nextMonth()
+		expect(await run(budget)).toMatchObject({ articles: 10, paused: true })
+		await nextMonth()
+		expect(await run(budget)).toMatchObject({ articles: 5, paused: false })
+		expect(await topicsOf(cats[0]!)).toEqual(["Cats"])
+		expect(await topicsOf(dogs.at(-1)!)).toEqual(["Dogs"])
+		expect(await db.select().from(topicSorts).where(eq(topicSorts.userId, userId))).toHaveLength(25)
+	})
+
+	it("stops sorting the library again at the budget, grows nothing meanwhile, and goes on next month", async () => {
+		const { deps, calls } = await confirmed(growsOwls)
+		await settle(deps, calls)
+		const owls = await many(5, "owls")
+		calls.length = 0
+		// 25 sorted already, 5 new, then 10 of the 30 again into Owls.
+		const budget = { ...deps, sortLimit: 40 }
+		await settle(budget, calls)
+		expect(calls.filter((c) => c === "sort")).toHaveLength(15)
+		expect(calls.at(-1)).toMatch(/^resume:/)
+		expect((await topicNamed("Owls")).resortPending).toBe(true)
+
+		calls.length = 0
+		await nextMonth()
+		await settle(budget, calls)
+		expect(calls.filter((c) => c === "sort")).toHaveLength(20)
+		expect(calls.some((c) => c.startsWith("grow"))).toBe(false)
+		expect((await topicNamed("Owls")).resortPending).toBe(false)
+		for (const id of owls) expect(await topicsOf(id)).toEqual(["Owls"])
 	})
 })
 

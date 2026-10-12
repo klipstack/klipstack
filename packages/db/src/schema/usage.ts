@@ -3,11 +3,22 @@ import { user } from "./auth"
 
 /**
  * What a monthly cap counts (`topics`: Haiku's work on an account's topics, proposing, growing
- * and reviewing them), and two for admins: `refused`, how often a cap, any of them, refused
- * the account (who keeps hitting caps), and `ai_spend`, what its AI answers cost, estimated in
- * millionths of a US dollar when each is paid for (what AI costs, whatever is deleted later).
+ * and reviewing them; `topic_sorts`: articles Jev sorted into them, first sorts and re-sorts
+ * alike), and for admins: `refused`, how often a cap, any of them, refused the account (who keeps
+ * hitting caps); `ai_spend`, what its AI answers cost, and `topic_spend`, what its topics cost
+ * (Haiku and Jev), each estimated in millionths of a US dollar when paid for (what AI costs,
+ * whatever is deleted later).
  */
-export const usageMetrics = ["saves", "editions", "ai", "refused", "ai_spend", "topics"] as const
+export const usageMetrics = [
+	"saves",
+	"editions",
+	"ai",
+	"refused",
+	"ai_spend",
+	"topics",
+	"topic_sorts",
+	"topic_spend",
+] as const
 export type UsageMetric = (typeof usageMetrics)[number]
 
 /**

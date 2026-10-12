@@ -14,7 +14,14 @@ export {
 } from "./feeds"
 export { newId, newPublicId } from "./ids"
 export { rewriteSavedQueries } from "./saved-searches"
-export { addUsage, monthOf } from "./usage"
+export {
+	addUsage,
+	monthOf,
+	TOPIC_SORTS_PER_MONTH,
+	TOPICS_PER_MONTH,
+	topicLimits,
+	usageThisMonth,
+} from "./usage"
 export * from "./schema"
 export {
 	anyWordQuery,

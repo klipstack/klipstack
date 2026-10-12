@@ -38,7 +38,7 @@ import {
 	topicLibraries,
 	topicSorts,
 	topics,
-	usageCounts,
+	usageThisMonth,
 	user,
 	userFeatures,
 } from "@klipstack/db"
@@ -55,7 +55,9 @@ import { log } from "./log"
  * 4. Grow new topics, or widen existing ones, from the articles no topic holds.
  * 5. Review the topics every so many new articles.
  *
- * What is left goes to the next run (`again`). Runs for one reader never overlap (the queue's
+ * What is left goes to the next run (`again`). Sorting, first or again, stops at the month's sort
+ * budget (`sortLimit`): what is left waits for a run on the month's 1st, and growing and reviewing
+ * wait with it. Runs for one reader never overlap (the queue's
  * `stately` policy). Every write first checks that the reader still has topics on: one turned
  * off mid-run stops the run, and nothing it learned is kept.
  */
@@ -64,8 +66,10 @@ export interface TopicsDeps {
 	models: Pick<TopicModels, "available" | "propose" | "grow" | "review" | "sort">
 	/** Haiku's work (propose, grow, review) an account may have a month. */
 	limit: number
-	/** Queues another run for the reader, for what this one left. */
-	again: () => Promise<void>
+	/** Articles an account may have sorted a month, first sorts and re-sorts alike. */
+	sortLimit: number
+	/** Queues another run for the reader, for what this one left: now, or `at` that time. */
+	again: (at?: Date) => Promise<void>
 	/** Articles sorted in one run (`SORT_BATCH`); tests make it small. */
 	batch?: number
 }
@@ -80,6 +84,8 @@ export type TopicsOutcome =
 			grew: number
 			widened: number
 			reviewed: boolean
+			/** The month's sort budget is spent: the rest waits for the 1st. */
+			paused: boolean
 	  }
 
 const RULES = TOPIC_RULES
@@ -128,6 +134,8 @@ type ActiveTopic = TopicIn & { namedByReader: boolean; resortPending: boolean }
 
 class Run {
 	readonly batch: number
+	/** Articles sent to Jev this month, this run's included; read when sorting starts. */
+	sorted = 0
 
 	constructor(
 		readonly userId: string,
@@ -195,14 +203,29 @@ class Run {
 
 	/** After the reader confirmed: sort what is new, sort again what changed, then grow and review. */
 	async keepUp(library: Library): Promise<TopicsOutcome> {
-		const outcome = { articles: 0, resorted: 0, grew: 0, widened: 0, reviewed: false }
+		const outcome = {
+			articles: 0,
+			resorted: 0,
+			grew: 0,
+			widened: 0,
+			reviewed: false,
+			paused: false,
+		}
 		const done = () => ({ done: "sorted" as const, ...outcome })
 		const later = async () => {
 			await this.deps.again()
 			return done()
 		}
+		// The budget is spent: a run on the 1st takes it from here.
+		const paused = async () => {
+			outcome.paused = true
+			await this.deps.again(monthOf().resetsAt)
+			return done()
+		}
+		this.sorted = await usageThisMonth(db, this.userId, "topic_sorts")
 
-		const pending = await this.articles({ unsorted: true, limit: this.batch })
+		const room = Math.min(this.batch, this.sortsLeft())
+		const pending = await this.articles({ unsorted: true, limit: room })
 		const active = await this.activeTopics()
 		// The library's first sort, right after the reader confirmed, does not call for a review:
 		// only articles saved since do.
@@ -211,10 +234,13 @@ class Run {
 			await this.sortInto(article, active, { first: true, counts, refusedFirst: true })
 		outcome.articles = pending.length
 		if (pending.length === this.batch) return later()
+		if (pending.length === room && (await this.articles({ unsorted: true, limit: 1 })).length)
+			return paused()
 		if (!counts) await this.setLibrary({ librarySortedAt: new Date() })
 
 		const resort = await this.resort(library)
 		outcome.resorted = resort.articles
+		if (resort.paused) return paused()
 		if (!resort.finished) return later()
 
 		const growth = await this.grow(library.unsortedAtLastGrow)
@@ -236,21 +262,26 @@ class Run {
 	/**
 	 * Sorts a batch of the library again into the topics that need it, after the article the last
 	 * batch stopped at. `finished` once the library's end is reached: the topics are up to date.
+	 * `paused` when the month's sort budget ends the batch first.
 	 */
-	async resort(library: Library): Promise<{ articles: number; finished: boolean }> {
+	async resort(
+		library: Library,
+	): Promise<{ articles: number; finished: boolean; paused: boolean }> {
 		const changed = (await this.activeTopics()).filter((t) => t.resortPending)
-		if (changed.length === 0) return { articles: 0, finished: true }
+		if (changed.length === 0) return { articles: 0, finished: true, paused: false }
+		const room = Math.min(this.batch, this.sortsLeft())
+		if (room === 0) return { articles: 0, finished: false, paused: true }
 		const after =
 			library.resortAfterAt && library.resortAfterId
 				? { at: library.resortAfterAt, id: library.resortAfterId }
 				: null
-		const batch = await this.articles({ sorted: true, after, limit: this.batch })
+		const batch = await this.articles({ sorted: true, after, limit: room })
 		for (const article of batch)
 			await this.sortInto(article, changed, { first: false, counts: false, refusedFirst: false })
 		const last = batch.at(-1)
-		if (batch.length === this.batch && last) {
+		if (batch.length === room && last) {
 			await this.setLibrary({ resortAfterAt: last.createdAt, resortAfterId: last.id })
-			return { articles: batch.length, finished: false }
+			return { articles: batch.length, finished: false, paused: room < this.batch }
 		}
 		await this.write(async (tx) => {
 			await tx
@@ -267,7 +298,7 @@ class Run {
 				.set({ resortAfterAt: null, resortAfterId: null })
 				.where(eq(topicLibraries.userId, this.userId))
 		})
-		return { articles: batch.length, finished: true }
+		return { articles: batch.length, finished: true, paused: false }
 	}
 
 	/** Marks topics for the library to be sorted again into them, from its first article. */
@@ -469,10 +500,13 @@ class Run {
 		let scores: Record<string, number> = {}
 		try {
 			const answer = await this.deps.models.sort({ article, topics: scored })
+			await this.countSort()
 			await this.spent(answer.spend)
 			scores = Object.fromEntries(scored.map((t) => [t.id, answer.value[t.id] ?? 0]))
 		} catch (error) {
 			if (retryable(error)) throw error
+			// Refused, but sent all the same: it counts towards the budget.
+			await this.countSort()
 			log.warn("topics: an article was refused", { documentId: article.id, error: String(error) })
 			if (!refusedFirst) return
 		}
@@ -795,18 +829,17 @@ class Run {
 
 	/** Whether the account may have another piece of Haiku's work this month. */
 	async mayWork(): Promise<boolean> {
-		const { month } = monthOf()
-		const [row] = await db
-			.select({ count: usageCounts.count })
-			.from(usageCounts)
-			.where(
-				and(
-					eq(usageCounts.userId, this.userId),
-					eq(usageCounts.metric, "topics"),
-					eq(usageCounts.month, month),
-				),
-			)
-		return (row?.count ?? 0) < this.deps.limit
+		return (await usageThisMonth(db, this.userId, "topics")) < this.deps.limit
+	}
+
+	/** Articles the month's sort budget has left. */
+	sortsLeft(): number {
+		return Math.max(0, this.deps.sortLimit - this.sorted)
+	}
+
+	/** One article sent to Jev: towards the month's sort budget, once it answered (or refused). */
+	async countSort() {
+		this.sorted = await addUsage(db, this.userId, "topic_sorts")
 	}
 
 	/** One piece of Haiku's work done: counted once answered, so an outage spends none. */
@@ -815,12 +848,12 @@ class Run {
 		await this.spent(spend)
 	}
 
-	/** What the requests cost, added to the account's AI spend for admins. */
+	/** What the requests cost, added to the account's topic spend for admins, apart from questions'. */
 	async spent(spend: TopicSpend[]) {
 		const micros = Math.round(
 			spend.reduce((sum, s) => sum + estimateCostUsd(s.model, s), 0) * 1_000_000,
 		)
-		if (micros > 0) await addUsage(db, this.userId, "ai_spend", micros)
+		if (micros > 0) await addUsage(db, this.userId, "topic_spend", micros)
 	}
 }
 

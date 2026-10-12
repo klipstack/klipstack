@@ -1,29 +1,34 @@
 import { createTopicModels, retryable } from "@klipstack/ai"
-import { db, eq, topicLibraries } from "@klipstack/db"
+import { db, eq, topicLibraries, topicLimits } from "@klipstack/db"
 import { enqueue, type JobPayloads, QUEUES } from "@klipstack/queue"
 import type { JobWithMetadata } from "pg-boss"
 import { log } from "../log"
 import { bringTopicsUpToDate, type TopicsDeps } from "../topics"
 
-/** Haiku's work on one account's topics a month, unless `LIMIT_TOPICS_PER_MONTH` says otherwise. */
-export const TOPICS_PER_MONTH = 100
-
 function depsFor(userId: string): TopicsDeps {
-	const limit = Number(process.env.LIMIT_TOPICS_PER_MONTH)
+	const limits = topicLimits()
 	return {
 		models: createTopicModels({
 			anthropicApiKey: process.env.ANTHROPIC_API_KEY || undefined,
 			typesafeApiKey: process.env.TYPESAFE_API_KEY || undefined,
 			fake: process.env.AI_FAKE === "1",
 		}),
-		limit: Number.isInteger(limit) && limit >= 0 ? limit : TOPICS_PER_MONTH,
-		again: () => queueTopics(userId),
+		limit: limits.topics,
+		sortLimit: limits.sorts,
+		again: (at) => queueTopics(userId, at),
 	}
 }
 
-/** Asks for a run of the reader's topics: at most one waits while another runs. */
-export async function queueTopics(userId: string) {
-	await enqueue(QUEUES.topics, { userId }, { singletonKey: userId })
+/**
+ * Asks for a run of the reader's topics, now or `at` that time: at most one waits while another
+ * runs, so one waiting for a time takes the place of any asked for meanwhile.
+ */
+export async function queueTopics(userId: string, at?: Date) {
+	await enqueue(
+		QUEUES.topics,
+		{ userId },
+		{ singletonKey: userId, ...(at ? { startAfter: at } : {}) },
+	)
 }
 
 /** After an article is ready: a run for its reader, if they have topics on. */
