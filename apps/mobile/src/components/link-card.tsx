@@ -229,6 +229,7 @@ function SaveRow({
 							tintColor={colors.accent}
 							size={22}
 							style={styles.icon}
+							accessibilityElementsHidden
 						/>
 						<Text style={[styles.label, { color: colors.fg }]}>Saved to Klipstack</Text>
 					</View>
@@ -265,6 +266,7 @@ function Row({
 	return (
 		<Pressable
 			accessibilityRole="button"
+			accessibilityLabel={label}
 			onPress={onPress}
 			style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.muted }]}
 		>

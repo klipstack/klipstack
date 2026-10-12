@@ -158,7 +158,12 @@ export default function Home() {
 				)
 			) : empty ? (
 				<View style={styles.emptyState}>
-					<SymbolView name="square.and.arrow.up" tintColor={colors.mutedFg} size={36} />
+					<SymbolView
+						name="square.and.arrow.up"
+						tintColor={colors.mutedFg}
+						size={36}
+						accessibilityElementsHidden
+					/>
 					<Text style={[styles.emptyTitle, { color: colors.fg }]}>Your next read starts here</Text>
 					<Text style={[styles.message, { color: colors.mutedFg }]}>
 						Share an article to Klipstack from Safari or any app, or tap + to paste a link. It will
@@ -215,14 +220,26 @@ function Section({
 	const heading = (
 		<View style={styles.heading}>
 			<Text style={[styles.sectionTitle, { color: colors.fg }]}>{title}</Text>
-			{onMore ? <SymbolView name="chevron.right" tintColor={colors.mutedFg} size={15} /> : null}
+			{onMore ? (
+				<SymbolView
+					name="chevron.right"
+					tintColor={colors.mutedFg}
+					size={15}
+					accessibilityElementsHidden
+				/>
+			) : null}
 		</View>
 	)
 	return (
 		<View style={styles.section}>
 			<View style={styles.inset}>
 				{onMore ? (
-					<Pressable accessibilityRole="link" onPress={onMore} hitSlop={8}>
+					<Pressable
+						accessibilityRole="link"
+						accessibilityLabel={title}
+						onPress={onMore}
+						hitSlop={8}
+					>
 						{heading}
 					</Pressable>
 				) : (

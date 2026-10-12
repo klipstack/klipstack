@@ -78,7 +78,12 @@ export default function SaveLink() {
 				contentContainerStyle={styles.page}
 			>
 				<View style={[styles.field, { backgroundColor: colors.muted }]}>
-					<SymbolView name="link" tintColor={colors.mutedFg} size={17} />
+					<SymbolView
+						name="link"
+						tintColor={colors.mutedFg}
+						size={17}
+						accessibilityElementsHidden
+					/>
 					<TextInput
 						accessibilityLabel="Link to save"
 						value={text}
@@ -111,7 +116,12 @@ export default function SaveLink() {
 							</>
 						) : status.state === "saved" ? (
 							<>
-								<SymbolView name="checkmark.circle.fill" tintColor={colors.accent} size={20} />
+								<SymbolView
+									name="checkmark.circle.fill"
+									tintColor={colors.accent}
+									size={20}
+									accessibilityElementsHidden
+								/>
 								<Text style={[styles.statusText, { color: colors.fg }]}>
 									{status.created ? "Saved to Klipstack" : "Already in Klipstack"}
 								</Text>

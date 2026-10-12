@@ -50,6 +50,7 @@ export default function Tags() {
 							title={tag.name}
 							icon="tag"
 							detail={String(tag.articles)}
+							detailLabel={tag.articles === 1 ? "1 article" : `${tag.articles} articles`}
 							href={{ pathname: "/library/tags/[id]", params: { id: tag.id, name: tag.name } }}
 							menu={
 								client

@@ -88,7 +88,12 @@ export function LinkArticleSheet({
 					<Text style={[styles.title, { color: colors.fg }]}>Link Article</Text>
 				</View>
 				<View style={[styles.field, { backgroundColor: colors.muted }]}>
-					<SymbolView name="magnifyingglass" tintColor={colors.mutedFg} size={17} />
+					<SymbolView
+						name="magnifyingglass"
+						tintColor={colors.mutedFg}
+						size={17}
+						accessibilityElementsHidden
+					/>
 					<TextInput
 						accessibilityLabel="Search your library"
 						value={query}

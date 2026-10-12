@@ -101,6 +101,7 @@ export function ClipboardOffer({
 				name={offer.state === "saved" ? "checkmark.circle.fill" : "link"}
 				tintColor={colors.accent}
 				size={22}
+				accessibilityElementsHidden
 			/>
 			<View style={styles.text}>
 				<Text style={[styles.title, { color: colors.fg }]}>

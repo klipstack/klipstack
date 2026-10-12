@@ -42,12 +42,14 @@ export function PlaceGroup({
 /**
  * A row that opens a list (`href`): its icon, its name, a detail on the right (a count), and a
  * chevron. With a `menu` (`Link.MenuAction`s, in a list: the menu reads no fragment), a long press
- * opens it, the row lifted.
+ * opens it, the row lifted. VoiceOver reads the title and `detailLabel` (what the detail means:
+ * "3 articles"), not the symbols' names.
  */
 export function PlaceRow({
 	title,
 	icon,
 	detail,
+	detailLabel = detail,
 	href,
 	menu,
 	colors,
@@ -55,6 +57,7 @@ export function PlaceRow({
 	title: string
 	icon: SymbolViewProps["name"]
 	detail?: string
+	detailLabel?: string
 	href: Href
 	menu?: ReactNode[]
 	colors: Colors
@@ -65,6 +68,7 @@ export function PlaceRow({
 			<Link.Trigger>
 				<Pressable
 					accessibilityRole="button"
+					accessibilityLabel={detailLabel ? `${title}, ${detailLabel}` : title}
 					onPressIn={() => setPressed(true)}
 					onPressOut={() => setPressed(false)}
 					// The Link takes one style object, not a list.
