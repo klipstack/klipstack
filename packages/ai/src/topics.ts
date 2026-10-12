@@ -4,7 +4,8 @@ import type { AiLanguage } from "./types"
 /**
  * Automatic topics: what Haiku is asked to propose, grow and review a reader's topics, and what
  * Jev is asked to sort an article into them. The topics simulator (`apps/web/scripts/topics`)
- * builds its requests here too, so it measures what production runs.
+ * builds its requests here too, so it measures what production runs. What was tried with it, and
+ * what it showed, is in `docs/development/topics-experiments.md`.
  */
 
 /** How topics are named: broad fields, specific shelves, or sections as a bookstore has (production). */

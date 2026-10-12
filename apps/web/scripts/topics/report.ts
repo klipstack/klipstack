@@ -268,6 +268,18 @@ function event(run: ReportRun, e: SimEvent, byId: Map<string, Article>): string 
 			return `<details><summary>Widened <span class="topic">${esc(topicName(run, e.topicId))}</span> for ${e.articleIds.length} unsorted articles</summary><p class="small"><del>${esc(e.from)}</del></p><p class="small">${esc(e.to)}</p><p class="small quiet">${esc(e.reason)}</p></details>`
 		case "maintenance":
 			return `<details><summary>Review: ${e.ops.length ? e.ops.map((o) => o.op).join(", ") : "no change"}</summary>${e.ops.length ? `<ul class="small">${e.ops.map((o) => `<li>${esc(describeOp(run, o))}</li>`).join("")}</ul>` : ""}<p class="small quiet">${esc(e.note)}</p></details>`
+		case "reader":
+			return `The reader ${[
+				e.change?.op === "rename"
+					? `renamed ${esc(e.change.from)} to ${esc(e.change.to ?? "")}`
+					: "",
+				e.change?.op === "remove" ? `removed ${esc(e.change.from)}` : "",
+				e.takenOut.length
+					? `took out ${e.takenOut.map((o) => `${esc(byId.get(o.articleId)?.title ?? o.articleId)} (${esc(topicName(run, o.topicId))})`).join("; ")}`
+					: "",
+			]
+				.filter(Boolean)
+				.join(", ")}`
 		default:
 			return ""
 	}
