@@ -214,7 +214,12 @@ export function EditionItemCard({
 						aria-label={t("item.read")}
 						aria-pressed={reading}
 						{...tooltip(item.documentId ? t("item.read") : t("item.refreshGone"))}
-						onClick={() => onRead(null)}
+						// Safari does not focus a clicked button: the focus comes back here when the article
+						// closes.
+						onClick={(e) => {
+							e.currentTarget.focus()
+							onRead(null)
+						}}
 						className={cn(reading && "bg-muted text-fg")}
 					>
 						<BookOpen className="size-4" aria-hidden />
@@ -452,7 +457,12 @@ function HighlightChoice({
 						size="icon"
 						aria-label={t("item.showInArticle")}
 						{...tooltip(t("item.showInArticle"))}
-						onClick={() => onShow(highlight.highlightId)}
+						// Safari does not focus a clicked button: the focus comes back here when the article
+						// closes.
+						onClick={(e) => {
+							e.currentTarget.focus()
+							onShow(highlight.highlightId)
+						}}
 						className="-mt-1.5 shrink-0 text-muted-fg"
 					>
 						<TextSearch className="size-4" aria-hidden />
