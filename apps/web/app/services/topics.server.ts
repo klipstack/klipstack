@@ -9,12 +9,14 @@ import {
 	documentTopics,
 	eq,
 	isNull,
+	ne,
+	not,
 	sql,
 	topicLibraries,
 	topicSorts,
 	topics,
 } from "@klipstack/db"
-import { type LibraryCard, libraryCardColumns } from "./documents.server"
+import { finished, type LibraryCard, libraryCardColumns } from "./documents.server"
 
 /**
  * Where a reader's topics stand. `waiting`: fewer articles than the first topics need (`count` of
@@ -231,4 +233,109 @@ export async function topicWithArticles(
 		)
 		.orderBy(desc(documents.createdAt), asc(documents.id))
 	return { topic: { ...topic, articles: items.length }, items }
+}
+
+/** Articles on the reader's shelf at the end of an article. */
+export const READER_SHELF_SIZE = 3
+
+export interface ReaderTopic {
+	id: string
+	name: string
+}
+
+export interface ShelfArticle {
+	id: string
+	title: string | null
+	siteName: string | null
+	sourceUrl: string
+	readingMinutes: number | null
+}
+
+export interface ReaderTopics {
+	/** The topics the article is in, strongest first. */
+	topics: ReaderTopic[]
+	/**
+	 * What to read next: unread articles of the article's strongest topic that has any, closest
+	 * first, with how many unread it holds. Null when none of its topics has one.
+	 */
+	shelf: { topic: ReaderTopic; unread: number; items: ShelfArticle[] } | null
+}
+
+/**
+ * An article's topics for the reader, and the shelf at its end. Articles are compared by the
+ * topic scores kept for them (applied and suggested): two that lean on the same topics in the
+ * same proportions are closest. No model is asked anything.
+ */
+export async function readerTopics(userId: string, documentId: string): Promise<ReaderTopics> {
+	const placed = await db
+		.select({
+			id: topics.id,
+			name: topics.name,
+			probability: documentTopics.probability,
+			level: documentTopics.level,
+		})
+		.from(documentTopics)
+		.innerJoin(topics, eq(topics.id, documentTopics.topicId))
+		.innerJoin(documents, eq(documents.id, documentTopics.documentId))
+		.where(
+			and(
+				eq(documentTopics.documentId, documentId),
+				isNull(documentTopics.refusedAt),
+				eq(topics.userId, userId),
+				eq(topics.status, "active"),
+				eq(documents.userId, userId),
+				isNull(documents.deletedAt),
+			),
+		)
+		.orderBy(desc(documentTopics.probability), asc(topics.name))
+	const applied = placed
+		.filter((p) => p.level === "applied")
+		.map(({ id, name }): ReaderTopic => ({ id, name }))
+	if (applied.length === 0) return { topics: applied, shelf: null }
+	// How close each article is to this one: the cosine of their topic scores, in active topics,
+	// without this one's length, the same for every article. Ranked in the database: a topic may
+	// hold thousands of unread articles, and three are shown.
+	const mine = sql.join(
+		placed.map((p) => sql`(${p.id}::uuid, ${p.probability}::float8)`),
+		sql`, `,
+	)
+	const closeness = sql<number>`coalesce((
+		select sum(s.probability * m.p) / nullif(sqrt(sum(s.probability * s.probability)), 0)
+		from ${documentTopics} s
+		join ${topics} st on st.id = s.topic_id and st.status = 'active'
+		left join (values ${mine}) as m(topic_id, p) on m.topic_id = s.topic_id
+		where s.document_id = ${documents.id} and s.refused_at is null
+	), 0)`
+	for (const topic of applied) {
+		const onShelf = and(
+			eq(documentTopics.topicId, topic.id),
+			eq(documentTopics.level, "applied"),
+			isNull(documentTopics.refusedAt),
+			inLibrary(userId),
+			isNull(documents.archivedAt),
+			not(finished),
+			ne(documents.id, documentId),
+		)
+		const [{ unread } = { unread: 0 }] = await db
+			.select({ unread: count() })
+			.from(documentTopics)
+			.innerJoin(documents, eq(documents.id, documentTopics.documentId))
+			.where(onShelf)
+		if (unread === 0) continue
+		const items: ShelfArticle[] = await db
+			.select({
+				id: documents.id,
+				title: documents.title,
+				siteName: documents.siteName,
+				sourceUrl: documents.sourceUrl,
+				readingMinutes: documents.readingMinutes,
+			})
+			.from(documentTopics)
+			.innerJoin(documents, eq(documents.id, documentTopics.documentId))
+			.where(onShelf)
+			.orderBy(desc(closeness), desc(documents.createdAt), asc(documents.id))
+			.limit(READER_SHELF_SIZE)
+		return { topics: applied, shelf: { topic, unread, items } }
+	}
+	return { topics: applied, shelf: null }
 }

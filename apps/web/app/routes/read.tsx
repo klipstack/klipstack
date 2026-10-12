@@ -34,6 +34,7 @@ import { ReaderArticle } from "~/components/reader-article"
 import { ReaderEnd } from "~/components/reader-end"
 import type { SidebarTab } from "~/components/reader-sidebar"
 import { ReaderTopBar } from "~/components/reader-top-bar"
+import { TopicKicker, TopicShelf } from "~/components/reader-topics"
 import { SharedLinkBlocked, SharedVia } from "~/components/shared-via"
 import { TagChips, TagDialog } from "~/components/tag-dialog"
 import { tooltip } from "~/components/tooltip-host"
@@ -50,7 +51,7 @@ import {
 	messageView,
 	threadView,
 } from "~/lib/ai-threads"
-import { ai as aiModule } from "~/lib/ai.server"
+import { ai as aiModule, topicModels } from "~/lib/ai.server"
 import { warnAboutBacklinks } from "~/lib/backlink-warning.client"
 import { useCommands } from "~/lib/commands"
 import { copyLink } from "~/lib/copy-link"
@@ -76,6 +77,7 @@ import { getBrief, listDocumentThreads } from "~/services/ai-threads.server"
 import { getDocumentForReader, joinedArticleId, savedLinksIn } from "~/services/documents.server"
 import { listDocumentHighlights } from "~/services/highlights.server"
 import { linkTargetStatus, listBacklinks, listContentLinks } from "~/services/links.server"
+import { type ReaderTopics, readerTopics } from "~/services/topics.server"
 import type { Route } from "./+types/read"
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -130,10 +132,16 @@ export async function loader({ context, request, params }: Route.LoaderArgs) {
 	const linked = extractLinkIds(
 		[result.document.note ?? "", ...highlights.map((h) => h.note ?? "")].join("\n"),
 	)
-	const [linkTargets, backlinks, contentLinks] = await Promise.all([
+	// Its topics, and what to read next in them: with the feature, and topics to open. Not for an
+	// offline copy, whose shelf would go stale and lead to articles it doesn't have.
+	const topicsShown =
+		readable && !warming && topicModels.available && (await hasFeature(user.id, "topics"))
+	const noTopics: ReaderTopics = { topics: [], shelf: null }
+	const [linkTargets, backlinks, contentLinks, topics] = await Promise.all([
 		linkTargetStatus(user.id, linked),
 		listBacklinks(user.id, params.id),
 		listContentLinks(user.id, params.id),
+		topicsShown ? readerTopics(user.id, params.id) : noTopics,
 	])
 	const { publishedAt } = result.document
 	const day = (at: Date) =>
@@ -160,6 +168,7 @@ export async function loader({ context, request, params }: Route.LoaderArgs) {
 		linkTargets,
 		backlinks,
 		contentLinks,
+		topics,
 	}
 }
 
@@ -453,6 +462,7 @@ function Reader({ loaderData }: Route.ComponentProps) {
 					engage={engage}
 					header={
 						<header ref={titleRef} className="mb-8">
+							<TopicKicker topics={loaderData.topics.topics} />
 							<EditableTitle title={doc.title} action={`/documents/${doc.id}/state`} />
 							<p className="mt-3 text-sm text-muted-fg">
 								{[doc.siteName ?? safeHost(doc.sourceUrl), doc.author].filter(Boolean).join(" · ")}
@@ -481,20 +491,23 @@ function Reader({ loaderData }: Route.ComponentProps) {
 						</header>
 					}
 					footer={
-						<ReaderEnd
-							key={doc.id}
-							documentId={doc.id}
-							editionNote={doc.editionNote}
-							state={ending.state}
-							archived={state.archived}
-							starred={state.starred}
-							shortlisted={state.shortlisted}
-							onReached={ending.reached}
-							onChange={change}
-							onKeep={ending.keep}
-							onFinish={ending.finish}
-							back={back}
-						/>
+						<>
+							<ReaderEnd
+								key={doc.id}
+								documentId={doc.id}
+								editionNote={doc.editionNote}
+								state={ending.state}
+								archived={state.archived}
+								starred={state.starred}
+								shortlisted={state.shortlisted}
+								onReached={ending.reached}
+								onChange={change}
+								onKeep={ending.keep}
+								onFinish={ending.finish}
+								back={back}
+							/>
+							<TopicShelf shelf={loaderData.topics.shelf} from={back.to} />
+						</>
 					}
 				/>
 			) : doc.status === "failed" ? (

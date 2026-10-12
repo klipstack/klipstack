@@ -38,6 +38,14 @@ export default {
 			"Klipstack couldn't open the page this post links to. Save that page from your browser, and this post moves onto it.",
 		openLink: "Open the page",
 	},
+	topics: {
+		label: "Topics of this article",
+		moreIn: "More in {{name}}",
+		unread_one: "{{count}} unread · See all",
+		unread_other: "{{count}} unread · See all",
+		minutes_one: "{{count}} min",
+		minutes_other: "{{count}} min",
+	},
 	meta: {
 		minutes: "{{count}} min read",
 		minutes_one: "{{count}} min read",
