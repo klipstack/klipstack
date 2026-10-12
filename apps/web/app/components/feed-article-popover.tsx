@@ -3,6 +3,7 @@ import { type RefObject, useEffect, useLayoutEffect, useRef, useState } from "re
 import { createPortal } from "react-dom"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router"
+import { inWindow } from "~/components/more-menu"
 import { useMediaQuery } from "~/hooks/use-media-query"
 
 /** The title and the entry's context menu share this action sheet. */
@@ -85,7 +86,7 @@ export function FeedArticlePopover({
 		const onScroll = (event: Event) => {
 			if (card.contains(event.target as Node)) return
 			const rect = anchor.current?.getBoundingClientRect()
-			if (!rect || rect.bottom < 0 || rect.top > window.innerHeight || rect.width === 0) {
+			if (!rect || !inWindow(rect)) {
 				onCloseRef.current()
 				return
 			}

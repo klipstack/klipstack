@@ -266,8 +266,33 @@ test("feed: the popover of the last post stays beside its title, and a later scr
 	await page.mouse.wheel(0, -5000)
 	await item.click({ button: "right" })
 	await expect(dialog).toBeVisible()
+	// Nothing should close it while the page settles.
 	await page.waitForTimeout(500)
 	await expect(dialog).toBeVisible()
+	await page.keyboard.press("Escape")
+	await expect(dialog).toHaveCount(0)
+
+	// Right-clicked higher up, a little scroll moves it as far as the post.
+	const items = page.getByTestId("feed-item")
+	let upper = items.first()
+	for (const candidate of await items.all()) {
+		const y = (await candidate.boundingBox())!.y
+		if (y > 100 && y < 300) {
+			upper = candidate
+			break
+		}
+	}
+	const u = (await upper.boundingBox())!
+	await upper.click({ button: "right", position: { x: 20, y: 10 } })
+	await expect(dialog).toBeVisible()
+	const d = (await dialog.boundingBox())!
+	await page.mouse.move(u.x + 10, u.y + 5)
+	await page.mouse.wheel(0, -50)
+	await expect.poll(async () => (await upper.boundingBox())!.y).toBeGreaterThan(u.y + 30)
+	await expect(async () => {
+		const moved = (await upper.boundingBox())!.y - u.y
+		expect(Math.abs((await dialog.boundingBox())!.y - d.y - moved)).toBeLessThan(2)
+	}).toPass({ timeout: 2_000 })
 
 	/** Lined up with the title's left edge, right under or above it. */
 	async function expectBeside() {

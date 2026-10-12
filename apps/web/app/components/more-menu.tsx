@@ -26,6 +26,17 @@ export interface MoreMenuHandle {
 
 type Position = { top: number; right: number } | { top: number; left: number }
 
+/** Whether some of `rect` is inside the window: a hidden button has no size. */
+export function inWindow(rect: DOMRect) {
+	return (
+		rect.width > 0 &&
+		rect.bottom > 0 &&
+		rect.right > 0 &&
+		rect.top < window.innerHeight &&
+		rect.left < window.innerWidth
+	)
+}
+
 /** Between a button and a menu opened beside it: clears the collapsed sidebar's edge. */
 const SIDE_GAP = 16
 
@@ -134,8 +145,10 @@ export function MoreMenu({
 				setPosition({ top, left: rect.right + SIDE_GAP })
 			return
 		}
+		// Under the button when it fits, else above it when that fits; chosen again as a scroll moves it.
+		const below = rect.bottom + 4
 		const above = rect.top - height - 4
-		const top = position.top + height > window.innerHeight - 8 && above >= 8 ? above : position.top
+		const top = below + height > window.innerHeight - 8 && above >= 8 ? above : below
 		const next: Position =
 			rect.right - width < 8
 				? { top, left: rect.left }
@@ -199,7 +212,7 @@ export function MoreMenu({
 		const onScroll = (e: Event) => {
 			if (menuRef.current?.contains(e.target as Node)) return
 			const rect = buttonRef.current?.getBoundingClientRect()
-			if (!rect || rect.bottom < 0 || rect.top > window.innerHeight || rect.width === 0) {
+			if (!rect || !inWindow(rect)) {
 				setOpen(false)
 				return
 			}
