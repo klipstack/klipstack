@@ -117,9 +117,8 @@ export interface Audit {
 	/** Placements applied, and how many of them the reader would look for there. */
 	applied: number
 	agreed: number
-	/** Placements the reader would look for, and how many of them are applied. */
+	/** Placements the reader would look for: recall is `agreed` of them. */
 	wanted: number
-	found: number
 }
 
 export interface Assignment {
@@ -204,6 +203,8 @@ export class Simulation {
 	/** The library's size when the first topics were last asked for. */
 	private lastBootstrap = 0
 	private step = 0
+	/** The reader confirmed the first topics: the library grows from here, even with none left. */
+	private confirmed = false
 	private nextTopic = 1
 
 	constructor(
@@ -225,7 +226,7 @@ export class Simulation {
 		this.step++
 		this.library.push(article)
 		const step = this.step
-		if (this.active().length === 0) {
+		if (!this.confirmed) {
 			this.events.push({ step, type: "arrive", articleId: article.id, outcome: "waiting" })
 			this.log(`#${step} ${article.title} → waiting for the first topics`)
 			if (
@@ -257,7 +258,7 @@ export class Simulation {
 			this.active().length > 0 &&
 			!this.events.some((e) => e.type === "bootstrap" && e.step === step)
 		)
-			await this.read(false)
+			await this.read(true)
 		if (step % this.config.maintainEvery === 0 && this.active().length > 0) await this.maintain()
 		this.snapshot()
 	}
@@ -373,6 +374,7 @@ export class Simulation {
 			sample: this.config.sample,
 		})
 		const topics = this.fresh(answer.topics).map((t) => this.addTopic(t, "bootstrap", t.reason))
+		this.confirmed = topics.length > 0
 		this.events.push({ step: this.step, type: "bootstrap", topicIds: topics.map((t) => t.id) })
 		this.log(`  ★ first topics: ${topics.map((t) => t.name).join(", ")}`)
 		// The reader confirms the first topics, perhaps renaming or removing one of them.
@@ -383,7 +385,7 @@ export class Simulation {
 		this.log(
 			`  sorted ${this.library.length - this.unsorted.length}, unsorted ${this.unsorted.length}`,
 		)
-		if (this.config.reader && topics.length > 0) await this.read(false, false)
+		if (this.config.reader && topics.length > 0) await this.read(false)
 	}
 
 	/** Asks for new topics that would hold the unsorted articles, then sorts the library into them. */
@@ -504,6 +506,8 @@ export class Simulation {
 			if (change.op === "rename" && change.into[0]) {
 				const t = targets[0]!
 				const spec = change.into[0]
+				// As production: a rename without a description changes nothing.
+				if (!spec.description.trim()) continue
 				// The reader's name, or one already taken, stays; the description is sharpened all the same.
 				const [named] = t.namedByReader ? [] : this.fresh([spec])
 				const from = t.name
@@ -608,15 +612,17 @@ export class Simulation {
 			),
 			sample: this.config.sample,
 		})
-		return new Set(answer.topicIds)
+		// Only the topics it was shown: a name or an id it made up is no topic.
+		const shown = new Set(topics.map((t) => t.id))
+		return new Set(answer.topicIds.filter((id) => shown.has(id)))
 	}
 
 	/**
 	 * The reader's look at their topics: perhaps a rename or a removal (`tidy`), then the articles
 	 * they look at taken out of topics where they would not look for them.
 	 */
-	private async read(confirming: boolean, tidy = true) {
-		const change = tidy ? await this.tidy(confirming) : undefined
+	private async read(tidy: boolean) {
+		if (tidy) await this.tidy(false)
 		const takenOut: { articleId: string; topicId: string }[] = []
 		const active = this.active()
 		for (const article of this.library) {
@@ -643,8 +649,7 @@ export class Simulation {
 			)
 		}
 		this.unsorted = this.library.filter((a) => !this.isSorted(a.id)).map((a) => a.id)
-		if (takenOut.length || change)
-			this.events.push({ step: this.step, type: "reader", takenOut, ...(change ? { change } : {}) })
+		if (takenOut.length) this.events.push({ step: this.step, type: "reader", takenOut })
 		if (takenOut.length)
 			this.log(
 				`  ✋ reader took out ${takenOut.map((o) => `${this.topicName(o.topicId)}`).join(", ")}`,
@@ -673,7 +678,7 @@ export class Simulation {
 		})
 		const { op, topicId, name } = answer.change
 		const t = active.find((x) => x.id === topicId)
-		if (!t || op === "none") return undefined
+		if (!t || op === "none") return
 		if (op === "remove") {
 			this.retire([t], "removed by the reader")
 			t.removed = true
@@ -684,23 +689,31 @@ export class Simulation {
 				change: { op, topicId: t.id, from: t.name },
 			})
 			this.log(`  ✋ reader removed ${t.name}`)
-			return undefined
+			return
 		}
 		const clean = name.trim()
-		if (!clean || this.fresh([{ name: clean, description: "", boundary: "" }]).length === 0)
-			return undefined
+		// As production: any name but another topic's in use, a removed one included.
+		const taken = active.some(
+			(x) => x.id !== t.id && x.name.toLocaleLowerCase() === clean.toLocaleLowerCase(),
+		)
+		if (!clean || taken) return undefined
 		const from = t.name
 		t.renamedFrom = [...(t.renamedFrom ?? []), t.name]
 		t.name = clean
 		t.namedByReader = true
+		this.events.push({
+			step: this.step,
+			type: "reader",
+			takenOut: [],
+			change: { op, topicId: t.id, from, to: clean },
+		})
 		this.log(`  ✋ reader renamed ${from} to ${clean}`)
-		return { op, topicId: t.id, from, to: clean }
 	}
 
 	/** The final topics, each article of the library judged by the reader against all of them. */
 	async audit(): Promise<Audit> {
 		const active = this.active()
-		const audit: Audit = { applied: 0, agreed: 0, wanted: 0, found: 0 }
+		const audit: Audit = { applied: 0, agreed: 0, wanted: 0 }
 		for (const article of this.library) {
 			const wanted = await this.judge(article, active, "audit")
 			const applied = new Set(
@@ -711,7 +724,6 @@ export class Simulation {
 			audit.applied += applied.size
 			audit.wanted += wanted.size
 			for (const id of applied) if (wanted.has(id)) audit.agreed++
-			for (const id of wanted) if (applied.has(id)) audit.found++
 		}
 		return audit
 	}

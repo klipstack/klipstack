@@ -7,7 +7,7 @@ import { config as loadDotenv } from "dotenv"
 import { parseUrls } from "../demo/cache"
 import { assertLocal, EMAIL } from "../demo/local"
 import { type Article, type Config, DEFAULT_CONFIG, Simulation } from "./engine"
-import { Models } from "./models"
+import { Models, PRICES } from "./models"
 import { type Comparison, PLAIN_TEMPLATE, type ReportRun, writeReport } from "./report"
 
 const root = fileURLToPath(new URL("../../../../", import.meta.url))
@@ -204,7 +204,7 @@ async function main() {
 	)
 	if (audit)
 		console.log(
-			`audit: ${audit.agreed}/${audit.applied} placements the reader agrees with, ${audit.found}/${audit.wanted} of theirs found; ${sim.refusals.filter((r) => !r.carried).length} taken out`,
+			`audit: ${audit.agreed}/${audit.applied} placements the reader agrees with, ${audit.agreed}/${audit.wanted} of theirs found; ${sim.refusals.filter((r) => !r.carried).length} taken out; ${models.calls.filter((c) => c.provider === "reader").length} calls to the reader (${PRICES.reader.model}), not in the cost`,
 		)
 }
 

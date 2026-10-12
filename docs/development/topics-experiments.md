@@ -11,7 +11,8 @@ of a topic where it would not look for it, and now and then renames or removes a
 confirming the first ones. It sees names and descriptions, never boundaries. `--taste strict` makes
 it keep shelves narrow. At the end it judges every article against the final topics, and the run
 records how many applied placements it agrees with (precision) and how many of the placements it
-wants are applied (recall). The simulation keeps production's rules: an article taken out of a topic
+wants are applied (recall). The reader's calls are left out of the printed cost; a run prints how
+many it made (100 to 200 for a library of 66 to 94 articles). The simulation keeps production's rules: an article taken out of a topic
 never comes back, and its refusal carries over to what replaces the topic; a review never renames,
 merges, splits or retires a topic the reader named; a removed name never returns.
 

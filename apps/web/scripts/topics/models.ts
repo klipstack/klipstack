@@ -11,7 +11,7 @@ export const PRICES = {
 	haiku: { model: "claude-haiku-5-5", input: 0.1, output: 0.5 },
 	jev: { model: "jev-1.13.0", input: 0.042, output: 0 },
 	// The simulated reader: another model than the ones it corrects. Not priced: it is no cost of
-	// the feature.
+	// the feature, but it is paid all the same. A run prints how many calls it made.
 	reader: { model: "claude-sonnet-5-5", input: 0, output: 0 },
 } as const
 
