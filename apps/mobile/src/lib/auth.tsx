@@ -6,6 +6,7 @@ import { CLIENT, DEFAULT_API_URL, DEV_API_TOKEN, USER_AGENT } from "./config"
 import { authorize, refresh, revoke, SignedOutError } from "./oauth"
 import { forgetOffline } from "./offline-download"
 import { clearSession, readSession, type Session, writeSession } from "./session-store"
+import { forgetTopics } from "./topic-choices"
 import { forgetNextUp, reloadNextUp } from "./widget"
 
 export type AuthState =
@@ -38,11 +39,13 @@ function createAuth(setState: (state: AuthState) => void) {
 	const signedOut = () => setState({ status: "signed-out" })
 	// Signed out by the user or the server: the articles read and kept here go with the session, and
 	// so do the lead images the lists cached (stored ones came with the token). A cache that won't
-	// clear doesn't keep anyone signed in. The widget stops showing the account's next article.
+	// clear doesn't keep anyone signed in. The widget stops showing the account's next article, and
+	// the lists their topics.
 	const forget = async () => {
 		await clearSession()
 		forgetNextUp()
 		forgetOffline()
+		forgetTopics()
 		await Image.clearDiskCache().catch(() => false)
 		signedOut()
 	}

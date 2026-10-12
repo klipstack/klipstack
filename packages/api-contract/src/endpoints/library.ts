@@ -79,8 +79,17 @@ export const listTopics = defineEndpoint({
 	path: "/topics",
 	scope: "read",
 	summary:
-		"The user's automatic topics, which the app keeps up to date, most articles first: empty while topics are off. Search with topic:<name> (repeated, any of them), or list one with GET /articles?topic=<id>.",
-	response: json(z.object({ items: z.array(Topic) })),
+		"The user's automatic topics, which the app keeps up to date, most articles first: empty while topics are off. Search with topic:<name> (repeated, any of them), or list one with GET /articles?topic=<id>. With `view`, each topic's articles in that list (`inView`, most first), and the list's articles in no topic (`none`) and not sorted yet (`sorting`), as a list's topic choice shows them.",
+	query: z.object({ view: z.enum(["inbox", "archive", "starred"]).optional() }),
+	response: json(
+		z.object({
+			items: z.array(Topic),
+			/** With `view`, while topics are on: the list's articles sorted into no topic. */
+			none: z.number().int().optional(),
+			/** With `view`, while topics are on: the list's articles not sorted yet. */
+			sorting: z.number().int().optional(),
+		}),
+	),
 	errors: [],
 })
 

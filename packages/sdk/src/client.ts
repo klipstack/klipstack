@@ -145,8 +145,10 @@ export function createClient(options: ClientOptions) {
 			/**
 			 * The automatic topics, most articles first; empty while they are off.
 			 * `articles.list({ topic })` and `articles.search("topic:<name>")` list a topic's articles.
+			 * With `view`: what each holds of that list, most first, and the list's `none` and `sorting`.
 			 */
-			list: () => call("topics.list"),
+			list: ({ view }: { view?: "inbox" | "archive" | "starred" } = {}) =>
+				call("topics.list", { query: { view } }),
 		},
 		savedSearches: {
 			/** The queries the user named, by name. `articles.search(query)` runs one. */

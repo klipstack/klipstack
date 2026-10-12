@@ -1,7 +1,9 @@
 import {
+	and,
 	db,
 	documents,
 	documentTopics,
+	eq,
 	newId,
 	topicLibraries,
 	topicSorts,
@@ -75,6 +77,13 @@ afterAll(async () => {
 	await stopBoss()
 })
 
+const topicOf = (name: string, articles: number) => ({
+	id: ids[`reader:${name}`],
+	name,
+	description: `About ${name}.`,
+	articles,
+})
+
 const titles = (page: { items: { title: string | null }[] }) =>
 	page.items.map((a) => a.title).sort()
 
@@ -94,6 +103,50 @@ describe("GET /topics and GET /articles?topic=", () => {
 			["articles", "description", "id", "name"],
 			["articles", "description", "id", "name"],
 		])
+	})
+
+	it("counts what each topic holds of one list, most first, and the list's articles in none", async () => {
+		// Archived: out of the library's list, in the archive's.
+		const [atoms] = await db
+			.select({ id: documents.id })
+			.from(documents)
+			.where(and(eq(documents.userId, reader.id), eq(documents.title, "Atoms")))
+		await db.update(documents).set({ archivedAt: new Date() }).where(eq(documents.id, atoms!.id))
+		// Not sorted yet: neither in a topic nor in none.
+		const [fresh] = await db
+			.insert(documents)
+			.values({
+				userId: reader.id,
+				sourceUrl: `https://example.com/${newId()}`,
+				urlHash: newId(),
+				status: "ready",
+				title: "Fresh",
+			})
+			.returning({ id: documents.id })
+		try {
+			expect(await reader.client.topics.list({ view: "archive" })).toEqual({
+				items: [
+					{ ...topicOf("Science", 1), inView: 1 },
+					{ ...topicOf("Writing", 2), inView: 0 },
+				],
+				none: 0,
+				sorting: 0,
+			})
+			expect(await reader.client.topics.list({ view: "inbox" })).toEqual({
+				items: [
+					{ ...topicOf("Writing", 2), inView: 2 },
+					{ ...topicOf("Science", 1), inView: 0 },
+				],
+				none: 1,
+				sorting: 1,
+			})
+			expect(await without.client.topics.list({ view: "inbox" })).toEqual({ items: [] })
+			const trash = await request("/api/v1/topics?view=trash", { token: reader.key })
+			expect(trash.status).toBe(400)
+		} finally {
+			await db.update(documents).set({ archivedAt: null }).where(eq(documents.id, atoms!.id))
+			await db.delete(documents).where(eq(documents.id, fresh!.id))
+		}
 	})
 
 	it("lists a topic's articles, or those in none", async () => {
