@@ -4,7 +4,8 @@ import UniformTypeIdentifiers
 
 /// What the widget shows, without the view.
 enum NextUp: Sendable {
-  case article(Article, image: Data?)
+  /// Home's big card, with its picture, and the articles after it for the large widget.
+  case article(Article, image: Data?, more: [Article])
   /// Signed in, with nothing to read.
   case nothing
   case signedOut
@@ -80,8 +81,9 @@ enum Klipstack {
   private static let loads = OneAtATime()
 
   /// Home's big card (homeSections in src/lib/home.ts): the ready article read last, or else the
-  /// newest ready unread save. Kept for when the server can't be reached. `processing`: a newer
-  /// save is still being read from its site, and will be next up once it's ready.
+  /// newest ready unread save. Then, for the large widget, the others in progress and the newest
+  /// unread saves, as Home's shelves. Kept for when the server can't be reached. `processing`: a
+  /// newer save is still being read from its site, and will be next up once it's ready.
   static func nextUp() async -> Loaded {
     await loads.run(load)
   }
@@ -92,46 +94,65 @@ enum Klipstack {
     do {
       // A keychain that can't be read yet (before the first unlock) throws: the kept article shows.
       guard var session = try Keychain.read() else { throw KlipstackError.signedOut }
-      var (article, processing) = try await firstReady(
+      var (articles, processing) = try await ready(
         session: &session, filter: "progress", sort: nil, limit: 12)
-      if article == nil {
-        (article, processing) = try await firstReady(
-          session: &session, filter: "unread", sort: "newest", limit: 20)
-      } else {
-        processing = false
+      if !articles.isEmpty { processing = false }
+      // The newest saves only when those in progress don't fill the widget. Only the large widget
+      // shows them after an article in progress, so then a failed load of them loses nothing else.
+      if articles.count <= maxMore {
+        let unread: (articles: [Article], processing: Bool)?
+        if articles.isEmpty {
+          unread = try await ready(session: &session, filter: "unread", sort: "newest", limit: 20)
+        } else {
+          unread = try? await ready(session: &session, filter: "unread", sort: "newest", limit: 20)
+        }
+        if let unread {
+          // A save still being read from its site will be next up, or in a large widget's card.
+          processing = unread.processing
+          let shown = Set(articles.map(\.id))
+          articles += unread.articles.filter { !shown.contains($0.id) }
+        }
       }
-      guard let article else {
+      guard let article = articles.first else {
         Cache.clear()
         return (.nothing, processing)
       }
+      let more = Array(articles.dropFirst().prefix(maxMore))
       // The picture kept with the same article, unless its download failed: that one goes again.
       if let kept = Cache.read(), kept.article.leadImage == article.leadImage,
         kept.image != nil || article.leadImage == nil
       {
-        Cache.write(article, image: kept.image)
-        return (.article(article, image: kept.image), processing)
+        Cache.write(article, more: more, image: kept.image)
+        return (.article(article, image: kept.image, more: more), processing)
       }
       let image = await picture(article.leadImage, session: session)
-      Cache.write(article, image: image)
-      return (.article(article, image: image), processing)
+      Cache.write(article, more: more, image: image)
+      return (.article(article, image: image, more: more), processing)
     } catch KlipstackError.signedOut {
       Cache.clear()
       return (.signedOut, false)
     } catch KlipstackError.outdated {
       return (.outdated, false)
     } catch {
-      if let kept = Cache.read() { return (.article(kept.article, image: kept.image), false) }
+      if let kept = Cache.read() {
+        return (.article(kept.article, image: kept.image, more: kept.more), false)
+      }
       return (.unavailable, false)
     }
   }
+
+  /// The articles the large widget shows after the big card, side by side.
+  static let maxMore = 2
 
   private struct Page: Decodable {
     var items: [Article]
   }
 
-  private static func firstReady(
+  /// The list's ready articles. `processing`: a recent save before the first of them is still
+  /// being read from its site.
+  private static func ready(
     session: inout Session, filter: String, sort: String?, limit: Int
-  ) async throws -> (Article?, processing: Bool) {
+  ) async throws -> ([Article], processing: Bool) {
     var query = [
       URLQueryItem(name: "view", value: "inbox"),
       URLQueryItem(name: "filter", value: filter),
@@ -144,13 +165,13 @@ enum Klipstack {
     url.queryItems = query
     let data = try await get(url.url!, session: &session)
     let page = try JSONDecoder().decode(Page.self, from: data)
-    let ready = page.items.firstIndex { $0.status == "ready" }
+    let first = page.items.firstIndex { $0.status == "ready" }
     // Only a recent save, so that one stuck on the server doesn't keep the widget reloading.
     let recently = Date.now.addingTimeInterval(-15 * 60)
-    let processing = page.items[..<(ready ?? page.items.endIndex)].contains {
+    let processing = page.items[..<(first ?? page.items.endIndex)].contains {
       ($0.status == "queued" || $0.status == "processing") && ($0.saved ?? .distantPast) > recently
     }
-    return (ready.map { page.items[$0] }, processing)
+    return (page.items.filter { $0.status == "ready" }, processing)
   }
 
   /// An API request, with the session renewed when it has expired or the server refuses it.
@@ -335,9 +356,9 @@ enum Keychain {
   }
 }
 
-/// The article last shown and its picture, in the app group's caches, for when the server can't be
-/// reached. The app deletes them on signing out (src/lib/widget.ts), and so does the widget when it
-/// finds no session.
+/// The articles last shown and the first one's picture, in the app group's caches, for when the
+/// server can't be reached. The app deletes them on signing out (src/lib/widget.ts), and so does
+/// the widget when it finds no session.
 enum Cache {
   private static var dir: URL? {
     FileManager.default
@@ -345,15 +366,21 @@ enum Cache {
       .appending(path: "Library/Caches/widget", directoryHint: .isDirectory)
   }
 
-  static func read() -> (article: Article, image: Data?)? {
-    guard let dir, let data = try? Data(contentsOf: dir.appending(path: "next-up.json")),
-      let article = try? JSONDecoder().decode(Article.self, from: data)
-    else { return nil }
-    return (article, try? Data(contentsOf: dir.appending(path: "next-up.jpg")))
+  private struct Kept: Codable {
+    var article: Article
+    var more: [Article]
   }
 
-  static func write(_ article: Article, image: Data?) {
-    guard let dir, let data = try? JSONEncoder().encode(article) else { return }
+  static func read() -> (article: Article, more: [Article], image: Data?)? {
+    guard let dir, let data = try? Data(contentsOf: dir.appending(path: "next-up.json")),
+      let kept = try? JSONDecoder().decode(Kept.self, from: data)
+    else { return nil }
+    return (kept.article, kept.more, try? Data(contentsOf: dir.appending(path: "next-up.jpg")))
+  }
+
+  static func write(_ article: Article, more: [Article], image: Data?) {
+    guard let dir, let data = try? JSONEncoder().encode(Kept(article: article, more: more))
+    else { return }
     try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     try? data.write(to: dir.appending(path: "next-up.json"), options: .atomic)
     let picture = dir.appending(path: "next-up.jpg")

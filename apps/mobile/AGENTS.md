@@ -49,8 +49,9 @@ pnpm dlx expo-doctor         # Diagnose dependency and config problems
   see its README).
 - `targets/share/`: the iOS share extension, in Swift. `@bacons/apple-targets` links it into
   the Xcode project at prebuild.
-- `targets/widget/`: the home screen's "Next up" widget, in Swift: Home's big card, loaded with
-  the shared session. `src/lib/widget.ts` reloads it; a tap opens `klipstack://read/<id>`.
+- `targets/widget/`: the home screen's "Next up" widget, in Swift: Home's big card (and, in the
+  large size, two more after it), loaded with the shared session. `src/lib/widget.ts` reloads
+  it; a tap opens `klipstack://read/<id>`.
 - `ios/` and `android/` are generated (`expo prebuild`) and ignored. Never edit them. Change
   `app.json`, a config plugin, or `targets/` instead, then run `pnpm ios` again.
   After a release build (`pnpm ios:device`), a development build can fail to link
