@@ -10,7 +10,7 @@ import { useColors } from "@/lib/theme"
 
 /**
  * The Library tab's first screen: its places, each opening its list, as Mail lists its mailboxes:
- * the views, the tags, the saved searches (as the web's sidebar lists them; a long press renames or
+ * the views, the tags and topics, the saved searches (as the web's sidebar lists them; a long press renames or
  * deletes one) and the trash. The tab opens on Inbox, with this screen behind it, as Mail opens on its inbox: "‹ Library" leads here,
  * and so does tapping the tab again.
  */
@@ -46,6 +46,18 @@ export default function Places() {
 	useEffect(loadSaved, [loadSaved])
 	useFocusEffect(loadSaved)
 
+	// Topics, for an account offered them, in any stage: their screen says what to do on the web.
+	// Without (none offered, or not loaded), no row.
+	const [topics, setTopics] = useState(false)
+	const loadTopics = useCallback(() => {
+		client?.topics
+			.list()
+			.then((answer) => setTopics(answer.stage !== "unavailable"))
+			.catch(() => {})
+	}, [client])
+	useEffect(loadTopics, [loadTopics])
+	useFocusEffect(loadTopics)
+
 	return (
 		<ScrollView
 			contentInsetAdjustmentBehavior="automatic"
@@ -59,6 +71,9 @@ export default function Places() {
 			</PlaceGroup>
 			<PlaceGroup colors={colors}>
 				<PlaceRow title="Tags" icon="tag" href="/library/tags" colors={colors} />
+				{topics ? (
+					<PlaceRow title="Topics" icon="books.vertical" href="/library/topics" colors={colors} />
+				) : null}
 			</PlaceGroup>
 			<PlaceGroup title="Saved Searches" colors={colors}>
 				{saved.map((search) => (

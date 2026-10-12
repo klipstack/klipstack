@@ -1,7 +1,7 @@
 import type { ArticleSummary } from "@klipstack/sdk"
 
-/** A list of the library: the API's views, each a place in the Library tab. */
-export type LibraryView = "inbox" | "starred" | "archive" | "trash"
+/** A list of the library: the API's views, each a place in the Library tab; `all`, a topic's. */
+export type LibraryView = "inbox" | "starred" | "archive" | "all" | "trash"
 
 /**
  * What the selection bar offers for the checked articles: the web's (`apps/web/app/lib/
@@ -119,6 +119,7 @@ export function afterAction(
 export function inView(view: LibraryView, item: ArticleSummary): boolean {
 	if (view === "trash") return Boolean(item.trashedAt)
 	if (item.trashedAt) return false
+	if (view === "all") return true
 	return view === "starred" ? item.starred : item.location === view
 }
 

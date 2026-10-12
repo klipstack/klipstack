@@ -29,6 +29,9 @@ const light = {
 		accent: "#7faee9",
 		accentFg: "#0d141f",
 	},
+	// The Topics screen's shelves: the board, the titles on the spines, a new book's top (the web's
+	// --k-shelf, --k-book-fg and --k-link). The spines' own colors come from `topic-shelves.ts`.
+	shelf: { board: "#dccfc0", bookFg: "#212730", recent: "#0f5ab5" },
 	// The reader page's highlight colors (reader-html.ts), without their transparency.
 	highlight: {
 		yellow: "#ffe658",
@@ -71,6 +74,7 @@ const dark: typeof light = {
 		accent: "#7faee9",
 		accentFg: "#0d141f",
 	},
+	shelf: { board: "#493a2d", bookFg: "#f1eee7", recent: "#83bdf8" },
 	highlight: {
 		yellow: "#ba9c13",
 		green: "#57a45b",
@@ -82,6 +86,11 @@ const dark: typeof light = {
 }
 
 export type Colors = typeof light
+
+/** Light or dark, as the screens draw it now. */
+export function useScheme(): "light" | "dark" {
+	return useColorScheme() === "dark" ? "dark" : "light"
+}
 
 export function useColors(): Colors {
 	return useColorScheme() === "dark" ? dark : light

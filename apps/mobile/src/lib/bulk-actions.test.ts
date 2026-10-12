@@ -84,6 +84,9 @@ describe("afterAction", () => {
 		expect(inView("archive", afterAction(article({ location: "archive" }), "delete", now))).toBe(
 			false,
 		)
+		// The whole library, a topic's list: only the trash takes them out.
+		expect(inView("all", afterAction(article(), "archive", now))).toBe(true)
+		expect(inView("all", afterAction(article(), "delete", now))).toBe(false)
 	})
 
 	it("keeps a search's results after an action, but not one just deleted", () => {
