@@ -11,6 +11,7 @@ import {
 	PanelLeftOpen,
 	Rss,
 	Search,
+	Shapes,
 	Star,
 	Tag,
 	Trash2,
@@ -52,8 +53,12 @@ const items = [
 	{ to: "/editions", key: "nav.editions", icon: Newspaper },
 	// One link, not the tags themselves: a library can have hundreds. The command menu finds one.
 	{ to: "/tags", key: "nav.tags", icon: Tag },
+	{ to: "/topics", key: "nav.topics", icon: Shapes },
 	{ to: "/trash", key: "nav.trash", icon: Trash2 },
 ] as const
+
+/** Topics in the sidebar: none for an account without them; a dot for a proposal not opened yet. */
+export type TopicsNav = { unseen: boolean } | null
 
 export const linkClass =
 	(collapsed: boolean) =>
@@ -78,6 +83,7 @@ function SidebarContent({
 	user,
 	feedNew,
 	editionDue,
+	topics,
 	savedSearches,
 	collapsed = false,
 	onToggle,
@@ -88,6 +94,7 @@ function SidebarContent({
 	user: AccountUser
 	feedNew: number
 	editionDue: boolean
+	topics: TopicsNav
 	savedSearches: SavedSearchItem[]
 	/** A rail of icons (desktop only). */
 	collapsed?: boolean
@@ -145,46 +152,50 @@ function SidebarContent({
 				</div>
 			</div>
 			<nav className="flex flex-1 flex-col gap-1">
-				{items.map(({ to, key, icon: Icon }) => {
-					// Dots, not counts: busy blogs would make a number meaningless, and why an edition is due
-					// is said on its page.
-					const dot =
-						to === "/feed" && feedNew > 0
-							? { testId: "feed-nav-dot", label: t("nav.feedNew") }
-							: to === "/editions" && editionDue
-								? { testId: "editions-nav-dot", label: t("nav.editionDue") }
-								: null
-					const railLabel = dot ? `${t(key)}, ${dot.label}` : t(key)
-					return (
-						<NavLink
-							key={to}
-							to={to}
-							// An edition's editor and preview are still Editions.
-							end={to !== "/editions"}
-							prefetch="render"
-							onClick={onNavigate}
-							className={linkClass(collapsed)}
-							// A rail shows icons only: the name is still there for screen readers.
-							{...(collapsed
-								? { "aria-label": railLabel, ...tooltip(railLabel, undefined, "right") }
-								: {})}
-						>
-							<NavIcon icon={Icon} />
-							{collapsed ? null : t(key)}
-							{dot ? (
-								<span
-									data-testid={dot.testId}
-									role="img"
-									aria-label={dot.label}
-									className={cn(
-										"size-2 rounded-full bg-accent",
-										collapsed ? "absolute top-1 right-1.5" : "mr-1 ml-auto",
-									)}
-								/>
-							) : null}
-						</NavLink>
-					)
-				})}
+				{items
+					.filter(({ to }) => to !== "/topics" || topics)
+					.map(({ to, key, icon: Icon }) => {
+						// Dots, not counts: busy blogs would make a number meaningless, and why an edition is due
+						// is said on its page.
+						const dot =
+							to === "/feed" && feedNew > 0
+								? { testId: "feed-nav-dot", label: t("nav.feedNew") }
+								: to === "/editions" && editionDue
+									? { testId: "editions-nav-dot", label: t("nav.editionDue") }
+									: to === "/topics" && topics?.unseen
+										? { testId: "topics-nav-dot", label: t("nav.topicsReady") }
+										: null
+						const railLabel = dot ? `${t(key)}, ${dot.label}` : t(key)
+						return (
+							<NavLink
+								key={to}
+								to={to}
+								// An edition's editor and preview are still Editions.
+								end={to !== "/editions"}
+								prefetch="render"
+								onClick={onNavigate}
+								className={linkClass(collapsed)}
+								// A rail shows icons only: the name is still there for screen readers.
+								{...(collapsed
+									? { "aria-label": railLabel, ...tooltip(railLabel, undefined, "right") }
+									: {})}
+							>
+								<NavIcon icon={Icon} />
+								{collapsed ? null : t(key)}
+								{dot ? (
+									<span
+										data-testid={dot.testId}
+										role="img"
+										aria-label={dot.label}
+										className={cn(
+											"size-2 rounded-full bg-accent",
+											collapsed ? "absolute top-1 right-1.5" : "mr-1 ml-auto",
+										)}
+									/>
+								) : null}
+							</NavLink>
+						)
+					})}
 				{/* A row is its name, and a rail has no room for names: there, one button lists them. */}
 				{savedSearches.length === 0 ? null : collapsed ? (
 					<SavedSearchesMenu savedSearches={savedSearches} />
@@ -317,6 +328,7 @@ export function AppShell({
 	user,
 	feedNew,
 	editionDue,
+	topics = null,
 	savedSearches,
 }: {
 	children: React.ReactNode
@@ -327,6 +339,8 @@ export function AppShell({
 	feedNew: number
 	/** A new edition is due (`editionNudge`), from the layout loader. */
 	editionDue: boolean
+	/** Topics, for accounts that have them, from the layout loader. */
+	topics?: TopicsNav
 	/** By name, from the layout loader. */
 	savedSearches: SavedSearchItem[]
 }) {
@@ -419,6 +433,7 @@ export function AppShell({
 					user={user}
 					feedNew={feedNew}
 					editionDue={editionDue}
+					topics={topics}
 					savedSearches={savedSearches}
 					collapsed={collapsed}
 					onToggle={() => setSidebar({ collapsed: !collapsed })}
@@ -529,6 +544,7 @@ export function AppShell({
 					user={user}
 					feedNew={feedNew}
 					editionDue={editionDue}
+					topics={topics}
 					savedSearches={savedSearches}
 					onNavigate={() => setOpen(false)}
 					onClose={() => setOpen(false)}

@@ -12,6 +12,7 @@ import {
 	isNull,
 	sql,
 	topicLibraries,
+	topicSorts,
 	topics,
 } from "@klipstack/db"
 import { type LibraryCard, libraryCardColumns } from "./documents.server"
@@ -40,6 +41,8 @@ export interface TopicsState {
 	topics: TopicSummary[]
 	/** The proposal is ready and the reader has not opened it: the sidebar's dot and Home's card. */
 	unseen: boolean
+	/** Articles still to sort, while `active`: the whole library, right after the reader confirms. */
+	sorting: number
 }
 
 const inLibrary = (userId: string) =>
@@ -52,7 +55,13 @@ const inLibrary = (userId: string) =>
 
 export async function topicsState(userId: string): Promise<TopicsState> {
 	const [library] = await db.select().from(topicLibraries).where(eq(topicLibraries.userId, userId))
-	const empty = { count: 0, needed: TOPIC_RULES.bootstrapSize, topics: [], unseen: false }
+	const empty = {
+		count: 0,
+		needed: TOPIC_RULES.bootstrapSize,
+		topics: [],
+		unseen: false,
+		sorting: 0,
+	}
 	if (!library) return { stage: "off", ...empty }
 	const [{ total } = { total: 0 }] = await db
 		.select({ total: count() })
@@ -72,7 +81,17 @@ export async function topicsState(userId: string): Promise<TopicsState> {
 		needed,
 		topics: await summaries(userId, status),
 		unseen: !library.confirmedAt && !library.seenAt,
+		sorting: status === "active" ? total - (await sortedCount(userId)) : 0,
 	}
+}
+
+async function sortedCount(userId: string): Promise<number> {
+	const [row] = await db
+		.select({ sorted: count() })
+		.from(topicSorts)
+		.innerJoin(documents, eq(documents.id, topicSorts.documentId))
+		.where(and(eq(topicSorts.userId, userId), inLibrary(userId)))
+	return row?.sorted ?? 0
 }
 
 async function summaries(userId: string, status: "active" | "proposed"): Promise<TopicSummary[]> {

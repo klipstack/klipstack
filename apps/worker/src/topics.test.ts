@@ -242,6 +242,29 @@ describe("the first topics", () => {
 		expect(calls).toEqual(["propose:25", "propose:30"])
 	})
 
+	it("are asked for again at once when the request failed, and wait for the answer as proposing", async () => {
+		const { deps, calls } = models({ propose: () => [spec("Cats")] })
+		await many(25, "cats")
+		const failing = {
+			...deps,
+			models: {
+				...deps.models,
+				propose: async () => {
+					calls.push("propose:failed")
+					throw new Error("Haiku is down")
+				},
+			},
+		}
+		await expect(run(failing)).rejects.toThrow("Haiku is down")
+		const [library] = await db
+			.select()
+			.from(topicLibraries)
+			.where(eq(topicLibraries.userId, userId))
+		expect(library!.proposedAtCount).toBeNull()
+		expect(await run(deps)).toEqual({ done: "proposed", topics: 1 })
+		expect(calls).toEqual(["propose:failed", "propose:25"])
+	})
+
 	it("are not asked for past the month's cap, nor without the feature or the providers", async () => {
 		await many(25, "cats")
 		const capped = models({ propose: () => [spec("Cats")] })
@@ -349,7 +372,7 @@ describe("after the reader confirms", () => {
 		expect(await topicsOf(cats[1]!)).toEqual(["Cats"])
 	})
 
-	it("reviews after twenty sorted articles: a merge keeps refusals, a reader's name stays", async () => {
+	it("reviews after twenty articles saved since confirming: a merge keeps refusals, a reader's name stays", async () => {
 		let changes: ReviewChange[] = []
 		const { deps, calls, cats, dogs } = await confirmed({ review: () => changes })
 		const catsTopic = await topicNamed("Cats")
@@ -363,6 +386,13 @@ describe("after the reader confirms", () => {
 				reason: "",
 			},
 		]
+		// The library's first sort, right after confirming, is not reviewed: the reader just chose.
+		await run(deps)
+		expect(calls.filter((c) => c === "review")).toHaveLength(0)
+		await many(19, "dogs")
+		await run(deps)
+		expect(calls.filter((c) => c === "review")).toHaveLength(0)
+		await article("dogs")
 		await run(deps)
 		expect(calls.filter((c) => c === "review")).toHaveLength(1)
 		expect(await topicNamed("Dogs")).toMatchObject({

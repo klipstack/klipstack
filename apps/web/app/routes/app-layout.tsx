@@ -3,12 +3,14 @@ import { AppShell } from "~/components/app-shell"
 import { EmailVerification } from "~/components/email-verification"
 import { ErrorContent } from "~/components/error-content"
 import { looksLikeAdmin } from "~/lib/admin.server"
+import { topicModels } from "~/lib/ai.server"
 import { emailEnabled } from "~/lib/email.server"
 import { listFeatures } from "~/lib/features.server"
 import { requireUser } from "~/lib/session.server"
 import { editionNudge } from "~/services/editions.server"
 import { countNewFeedItems } from "~/services/feeds.server"
 import { listSavedSearches } from "~/services/saved-searches.server"
+import { topicsUnseen } from "~/services/topics.server"
 import type { Route } from "./+types/app-layout"
 
 export async function loader({ context, request }: Route.LoaderArgs) {
@@ -19,6 +21,11 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 		listSavedSearches(user.id),
 		listFeatures(user.id),
 	])
+	// Topics show for an account with the feature, on a server with both providers' keys.
+	const topics =
+		features.includes("topics") && topicModels.available
+			? { unseen: await topicsUnseen(user.id) }
+			: null
 	return {
 		user: {
 			id: user.id,
@@ -38,6 +45,7 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 		savedSearches,
 		// Features in testing turned on for this account: their links show only then.
 		features,
+		topics,
 	}
 }
 
@@ -61,6 +69,7 @@ export default function AppLayout({ loaderData }: Route.ComponentProps) {
 			user={loaderData.user}
 			feedNew={loaderData.feedNew}
 			editionDue={loaderData.editionDue}
+			topics={loaderData.topics}
 			savedSearches={loaderData.savedSearches}
 			notice={
 				!loaderData.user.emailVerified ? (
@@ -87,6 +96,7 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
 			user={data?.user ?? { name: "", email: "" }}
 			feedNew={data?.feedNew ?? 0}
 			editionDue={data?.editionDue ?? false}
+			topics={data?.topics ?? null}
 			savedSearches={data?.savedSearches ?? []}
 		>
 			<ErrorContent error={error} />

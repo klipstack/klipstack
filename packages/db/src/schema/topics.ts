@@ -31,9 +31,11 @@ export const topicLibraries = pgTable("topic_libraries", {
 	/** When the reader opened the proposal: the sidebar's dot and Home's card go. */
 	seenAt: timestamp("seen_at", { withTimezone: true }),
 	confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+	/** When the library was first sorted into the confirmed topics: reviews count articles after it. */
+	librarySortedAt: timestamp("library_sorted_at", { withTimezone: true }),
 	/** Unsorted articles when a new topic was last asked for: the next ask waits for more. */
 	unsortedAtLastGrow: integer("unsorted_at_last_grow").notNull().default(0),
-	/** Articles sorted since the last review of the topics. */
+	/** Articles sorted since the last review of the topics, the library's first sort aside. */
 	sortedSinceReview: integer("sorted_since_review").notNull().default(0),
 })
 

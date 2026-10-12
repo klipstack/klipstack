@@ -2,7 +2,7 @@ import { CONTROLLER, type Policy, PRIVACY_CONTACT } from "./types"
 
 export default {
 	title: "Política de privacidad",
-	updated: "Última actualización: 9 de octubre de 2026",
+	updated: "Última actualización: 12 de octubre de 2026",
 	summary:
 		"Klipstack guarda lo que guardas para que puedas leerlo. No vende tus datos, no muestra anuncios y no te rastrea. Esta página explica qué recopilamos, para qué, quién nos ayuda a operar el servicio y qué puedes hacer al respecto.",
 	contentsLabel: "En esta página",
@@ -84,7 +84,8 @@ export default {
 						"Better Stack comprueba desde fuera que Klipstack funciona. No ve datos de cuentas.",
 						"Google o GitHub, solo si eliges iniciar sesión con ellos.",
 						"FxTwitter, solo cuando guardas una publicación de X.",
-						"Anthropic responde preguntas sobre lo que lees, solo cuando haces una.",
+						"Anthropic responde preguntas sobre lo que lees, solo cuando haces una, y pone nombre a tus temas, solo si activas los temas.",
+						"TypeSafe ordena tus artículos en temas, solo si activas los temas.",
 					],
 				},
 				"No compartimos tus datos con nadie más, salvo que la ley lo exija. Si ocurre, te avisamos, salvo que la ley lo prohíba.",
@@ -94,9 +95,17 @@ export default {
 			id: "ai",
 			title: "Preguntas sobre lo que lees",
 			blocks: [
-				"En el lector puedes preguntar sobre un pasaje: que te lo explique, que defina una palabra o hacer una pregunta. Solo entonces nuestro servidor le envía a Anthropic el texto del artículo, el pasaje y tu pregunta, y te muestra su respuesta. No se envía nada si no preguntas.",
+				"En el lector puedes preguntar sobre un pasaje: que te lo explique, que defina una palabra o hacer una pregunta. Solo entonces nuestro servidor le envía a Anthropic el texto del artículo, el pasaje y tu pregunta, y te muestra su respuesta. Aparte de los temas, más abajo, no se envía nada si no preguntas.",
 				"Anthropic los usa solo para responder, según sus condiciones comerciales, y no entrena sus modelos con ellos.",
 				"Guardamos tus preguntas y las respuestas con el artículo, para que puedas volver a leerlas, hasta que las borres o borres el artículo. Los registros del servidor anotan que se respondió una pregunta y su tamaño, nunca lo que decía.",
+			],
+		},
+		{
+			id: "topics",
+			title: "Temas automáticos",
+			blocks: [
+				"Los temas están desactivados hasta que los activas, en la página Temas. Mientras están activados, nuestro servidor envía cada artículo que guardas a TypeSafe, que lo ordena en tus temas: su título, su sitio, su descripción y el comienzo de su texto. También envía a Anthropic los títulos y las descripciones de tus artículos, para proponer tus temas, crear otros nuevos y revisarlos.",
+				"Guardamos tus temas y qué artículos están en cada uno hasta que desactivas los temas, lo que los borra, o borras tu cuenta.",
 			],
 		},
 		{

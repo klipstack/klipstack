@@ -15,6 +15,7 @@ CREATE TABLE "topic_libraries" (
 	"proposed_at" timestamp with time zone,
 	"seen_at" timestamp with time zone,
 	"confirmed_at" timestamp with time zone,
+	"library_sorted_at" timestamp with time zone,
 	"unsorted_at_last_grow" integer DEFAULT 0 NOT NULL,
 	"sorted_since_review" integer DEFAULT 0 NOT NULL
 );

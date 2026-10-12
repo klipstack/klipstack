@@ -49,8 +49,8 @@ number to trust.
    ```
 
 5. Recreate the web container so it reads the new value. `docker compose restart` keeps the old
-   environment; `up` recreates a container whose settings changed. The worker does not use the
-   key.
+   environment; `up` recreates a container whose settings changed. For answers in the reader,
+   the worker does not use the key; automatic topics (below) do.
 
    ```sh
    docker compose up -d web
@@ -79,6 +79,40 @@ Never the article, the passage or the question.
 The privacy policy names Anthropic as a service provider for these answers. Under its commercial
 terms, Anthropic does not train models on API requests. If you run a server for other people,
 tell them the same in your own privacy policy.
+
+## Automatic topics
+
+Topics sort each reader's articles into shelves on their own: once a library has 25 articles,
+Claude Haiku proposes topics, the reader confirms them once, and from then on TypeSafe's Jev sorts
+every new article into them, a few seconds after it is saved. Haiku also creates new topics when
+articles pile up that fit none, and reviews the topics every 20 new articles.
+
+The work runs in the worker, so both containers need both keys:
+
+1. Create a TypeSafe account and an API key at console.typesafe.ai, and set a spend limit there,
+   as for Anthropic.
+2. Add it to `.env`, next to Anthropic's:
+
+   ```sh
+   TYPESAFE_API_KEY=your-typesafe-key
+   ```
+
+3. Recreate both containers, so both read it: `docker compose up -d web worker`.
+4. Turn the `topics` flag on for your account in `/admin`, then open Topics in the sidebar and turn
+   them on.
+
+What it costs: Jev reads about 2,000 tokens of each article, a hundredth of a cent. A new or
+changed topic sorts the whole library again into it, so a library of a thousand articles costs
+about ten cents each time. Haiku's work (proposing, growing, reviewing) is capped per account:
+`LIMIT_TOPICS_PER_MONTH` (default 100). Past it, sorting goes on and topics stop changing until
+the next month. Both providers' costs count in `/admin/usage` with the account's AI spend.
+
+What could go wrong: with one key missing, Topics is hidden and nothing is sent. A wrong TypeSafe
+key leaves articles unsorted, and the worker log has `topics: refused` lines. A reader who turns
+topics off loses them; turning them on again starts with a new proposal.
+
+Privacy: while a reader has topics on, the text of what they save goes to TypeSafe and to
+Anthropic. The privacy policy says so; if you run a server for other people, say it in yours.
 
 ## Local development and tests
 

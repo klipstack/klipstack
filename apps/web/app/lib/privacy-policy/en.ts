@@ -2,7 +2,7 @@ import { CONTROLLER, type Policy, PRIVACY_CONTACT } from "./types"
 
 export default {
 	title: "Privacy policy",
-	updated: "Last updated October 9, 2026",
+	updated: "Last updated October 12, 2026",
 	summary:
 		"Klipstack keeps what you save so you can read it. It doesn't sell your data, show ads or track you. This page explains what we collect, why, who helps us run the service, and what you can do about it.",
 	contentsLabel: "On this page",
@@ -84,7 +84,8 @@ export default {
 						"Better Stack checks from outside that Klipstack is up. It sees no account data.",
 						"Google or GitHub, only if you choose to sign in with them.",
 						"FxTwitter, only when you save a post from X.",
-						"Anthropic answers questions about what you read, only when you ask one.",
+						"Anthropic answers questions about what you read, only when you ask one, and names your topics, only if you turn topics on.",
+						"TypeSafe sorts your articles into topics, only if you turn topics on.",
 					],
 				},
 				"We don't share your data with anyone else, unless the law requires it. If that happens, we tell you, unless the law forbids it.",
@@ -94,9 +95,17 @@ export default {
 			id: "ai",
 			title: "Questions about what you read",
 			blocks: [
-				"In the reader you can ask about a passage: explain it, define a word, or ask a question. Only then, our server sends Anthropic the article's text, the passage and your question, and shows you its answer. Nothing is sent unless you ask.",
+				"In the reader you can ask about a passage: explain it, define a word, or ask a question. Only then, our server sends Anthropic the article's text, the passage and your question, and shows you its answer. Apart from topics, below, nothing is sent unless you ask.",
 				"Anthropic uses them only to answer, under its commercial terms, and doesn't train its models on them.",
 				"We keep your questions and the answers with the article, so you can read them again, until you delete them or the article. Our server logs record that a question was answered and its size, never what it said.",
+			],
+		},
+		{
+			id: "topics",
+			title: "Automatic topics",
+			blocks: [
+				"Topics are off until you turn them on, on the Topics page. While they are on, our server sends each article you save to TypeSafe, which sorts it into your topics: its title, site, description and the start of its text. It also sends Anthropic the titles and descriptions of your articles, to propose your topics, grow new ones and review them.",
+				"We keep your topics and which articles are in them until you turn topics off, which deletes them, or delete your account.",
 			],
 		},
 		{

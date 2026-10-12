@@ -1,5 +1,5 @@
 {
-	"id": "eaec9de0-2aad-4bdc-94a7-c63946e31b13",
+	"id": "f79e0c31-4672-4acf-8c65-979c758e86a3",
 	"prevId": "8169305f-677e-43e4-a83b-811b7c56cdf1",
 	"version": "7",
 	"dialect": "postgresql",
@@ -5360,6 +5360,12 @@
 				},
 				"confirmed_at": {
 					"name": "confirmed_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"library_sorted_at": {
+					"name": "library_sorted_at",
 					"type": "timestamp with time zone",
 					"primaryKey": false,
 					"notNull": false

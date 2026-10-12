@@ -230,6 +230,11 @@ export default {
 			turnOff: "Desactivar",
 			none: "No hay funciones en prueba.",
 			flags: {
+				topics: {
+					name: "Temas automáticos",
+					description:
+						"Temas propuestos a partir de la biblioteca y mantenidos al día, en una página propia. Envía el texto de los artículos a TypeSafe y Anthropic cuando el lector los activa.",
+				},
 				ai: {
 					name: "IA en el lector",
 					description:

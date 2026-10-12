@@ -105,13 +105,15 @@ class Run {
 		if (lastCount !== null && count < lastCount + RULES.poolSize)
 			return { done: "nothing", why: "waiting" }
 		if (!(await this.takeWork())) return { done: "nothing", why: "capped" }
+		const articles = await this.articles({ newest: PROPOSE_MAX })
+		const answer = await this.deps.models.propose({ articles, language: this.language })
+		await this.spent(answer.spend)
+		// Only an answer counts as an ask: until then the page says the topics are on their way, and a
+		// failed request is tried again without waiting for more articles.
 		await db
 			.update(topicLibraries)
 			.set({ proposedAtCount: count })
 			.where(eq(topicLibraries.userId, this.userId))
-		const articles = await this.articles({ newest: PROPOSE_MAX })
-		const answer = await this.deps.models.propose({ articles, language: this.language })
-		await this.spent(answer.spend)
 		const fresh = await this.withoutRemoved(answer.value)
 		if (fresh.length === 0) return { done: "proposed", topics: 0 }
 		await db.transaction(async (tx) => {
@@ -137,11 +139,19 @@ class Run {
 		const batch = this.deps.batch ?? SORT_BATCH
 		const pending = await this.articles({ unsorted: true, limit: batch })
 		const active = await this.activeTopics()
-		for (const article of pending) await this.sortInto(article, active, { first: true })
+		// The library's first sort, right after the reader confirmed, does not call for a review:
+		// only articles saved since do.
+		const counts = library.librarySortedAt !== null
+		for (const article of pending) await this.sortInto(article, active, { first: true, counts })
 		if (pending.length === batch) {
 			await this.deps.again()
 			return { done: "sorted", articles: pending.length, grew: 0, widened: 0, reviewed: false }
 		}
+		if (!counts)
+			await db
+				.update(topicLibraries)
+				.set({ librarySortedAt: new Date() })
+				.where(eq(topicLibraries.userId, this.userId))
 		const growth = await this.grow(library.unsortedAtLastGrow)
 		const [after] = await db
 			.select({ sortedSinceReview: topicLibraries.sortedSinceReview })
@@ -270,15 +280,20 @@ class Run {
 	/** Sorts every sorted article again, into `changed` topics only. */
 	async resortLibrary(changed: TopicIn[]) {
 		const library = await this.articles({ sorted: true })
-		for (const article of library) await this.sortInto(article, changed, { first: false })
+		for (const article of library)
+			await this.sortInto(article, changed, { first: false, counts: false })
 	}
 
 	/**
 	 * Scores an article against `scored` topics and records where it stands: what it has from
 	 * other topics stays, and a topic the reader took it out of never comes back. `first`: its
-	 * first sort, which counts towards the next review.
+	 * first sort; `counts`: one towards the next review.
 	 */
-	async sortInto(article: TopicArticleIn, scored: TopicIn[], { first }: { first: boolean }) {
+	async sortInto(
+		article: TopicArticleIn,
+		scored: TopicIn[],
+		{ first, counts }: { first: boolean; counts: boolean },
+	) {
 		const answer = await this.deps.models.sort({ article, topics: scored })
 		await this.spent(answer.spend)
 		const scores = Object.fromEntries(scored.map((t) => [t.id, answer.value[t.id] ?? 0]))
@@ -311,16 +326,16 @@ class Run {
 						level: p.level,
 					})),
 				)
-			if (first) {
+			if (first)
 				await tx
 					.insert(topicSorts)
 					.values({ documentId: article.id, userId: this.userId })
 					.onConflictDoNothing()
+			if (counts)
 				await tx
 					.update(topicLibraries)
 					.set({ sortedSinceReview: sql`${topicLibraries.sortedSinceReview} + 1` })
 					.where(eq(topicLibraries.userId, this.userId))
-			}
 		})
 	}
 

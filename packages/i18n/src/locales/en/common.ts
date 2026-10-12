@@ -235,6 +235,8 @@ export default {
 		feed: "Feed",
 		feedNew: "New posts",
 		editionDue: "Your next edition is waiting",
+		topics: "Topics",
+		topicsReady: "Your first topics are ready",
 		archive: "Archive",
 		starred: "Starred",
 		highlights: "Highlights",

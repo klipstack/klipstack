@@ -13,6 +13,7 @@ export const PAGE_TITLES = [
 	"common:nav.settings",
 	"common:nav.starred",
 	"common:nav.tags",
+	"common:nav.topics",
 	"common:nav.trash",
 	"library:add.button",
 	"library:review.title",
