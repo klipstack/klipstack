@@ -212,31 +212,36 @@ struct LargeArticles: View {
       MediumArticle(article: article, image: image)
         .frame(height: 138)
       Rule().frame(height: 1)
-      HStack(alignment: .top, spacing: 16) {
-        tile(more.first)
-        Rule().frame(width: 1)
-        tile(more.dropFirst().first)
+      if more.isEmpty {
+        hint
+      } else {
+        HStack(alignment: .top, spacing: 16) {
+          tile(more[0])
+          Rule().frame(width: 1)
+          if more.count > 1 { tile(more[1]) } else { hint }
+        }
       }
     }
   }
 
-  /// An article, or where there is none, the way to add one.
-  @ViewBuilder private func tile(_ article: Article?) -> some View {
-    Group {
-      if let article {
-        let card = SmallArticle(article: article, eyebrow: false)
-        if let url = reader(article) {
-          Link(destination: url) { card }
-        } else {
-          card
-        }
-      } else {
-        Text("Share an article to Klipstack to read it next.")
-          .font(.caption)
-          .foregroundStyle(Palette.muted)
-      }
+  @ViewBuilder private func tile(_ article: Article) -> some View {
+    let card = SmallArticle(article: article, eyebrow: false)
+      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    if let url = reader(article) {
+      Link(destination: url) { card }
+    } else {
+      card
     }
-    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+  }
+
+  /// Where there is no other article: the way to add one. A tap opens Home.
+  private var hint: some View {
+    Link(destination: URL(string: "klipstack://")!) {
+      Text("Share an article to Klipstack to read it next.")
+        .font(.caption)
+        .foregroundStyle(Palette.muted)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
   }
 }
 

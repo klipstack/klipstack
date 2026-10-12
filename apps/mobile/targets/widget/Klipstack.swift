@@ -97,13 +97,21 @@ enum Klipstack {
       var (articles, processing) = try await ready(
         session: &session, filter: "progress", sort: nil, limit: 12)
       if !articles.isEmpty { processing = false }
-      // The newest saves only when those in progress don't fill the widget.
+      // The newest saves only when those in progress don't fill the widget. Only the large widget
+      // shows them after an article in progress, so then a failed load of them loses nothing else.
       if articles.count <= maxMore {
-        let (unread, unreadProcessing) = try await ready(
-          session: &session, filter: "unread", sort: "newest", limit: 20)
-        if articles.isEmpty { processing = unreadProcessing }
-        let shown = Set(articles.map(\.id))
-        articles += unread.filter { !shown.contains($0.id) }
+        let unread: (articles: [Article], processing: Bool)?
+        if articles.isEmpty {
+          unread = try await ready(session: &session, filter: "unread", sort: "newest", limit: 20)
+        } else {
+          unread = try? await ready(session: &session, filter: "unread", sort: "newest", limit: 20)
+        }
+        if let unread {
+          // A save still being read from its site will be next up, or in a large widget's card.
+          processing = unread.processing
+          let shown = Set(articles.map(\.id))
+          articles += unread.articles.filter { !shown.contains($0.id) }
+        }
       }
       guard let article = articles.first else {
         Cache.clear()
