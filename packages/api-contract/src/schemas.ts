@@ -185,6 +185,8 @@ export const Topic = z
 		description: z.string(),
 		/** Articles in it, the trash left out. */
 		articles: z.number().int(),
+		/** With `view`: its articles in that list. */
+		inView: z.number().int().optional(),
 	})
 	.meta({ id: "Topic" })
 export type Topic = z.infer<typeof Topic>

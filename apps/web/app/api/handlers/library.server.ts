@@ -18,7 +18,7 @@ import { listFeedPage, listFollowedFeeds } from "~/services/feeds.server"
 import { listUserHighlights } from "~/services/highlights.server"
 import { listSavedSearches } from "~/services/saved-searches.server"
 import { listTags } from "~/services/tags.server"
-import { topicList } from "~/services/topics.server"
+import { listTopics, topicList } from "~/services/topics.server"
 import {
 	encodeFeedCursor,
 	encodeHighlightCursor,
@@ -144,9 +144,21 @@ export const tags: Handler<typeof listTagsEndpoint> = async ({ userId }) => ({
 	items: await listTags(userId),
 })
 
-export const topics: Handler<typeof listTopicsEndpoint> = async ({ userId }) => ({
-	items: await topicList(userId),
-})
+export const topics: Handler<typeof listTopicsEndpoint> = async ({ userId, query }) => {
+	const items = await topicList(userId)
+	if (!query.view || items.length === 0) return { items }
+	// One list's share, in the web's order: most in the list first.
+	const { topics, none, sorting } = await listTopics(userId, query.view, null)
+	const byId = new Map(items.map((t) => [t.id, t]))
+	return {
+		items: topics.flatMap((t) => {
+			const topic = byId.get(t.id)
+			return topic ? [{ ...topic, inView: t.count }] : []
+		}),
+		none,
+		sorting,
+	}
+}
 
 export const savedSearches: Handler<typeof listSavedSearchesEndpoint> = async ({ userId }) => ({
 	items: await listSavedSearches(userId),
