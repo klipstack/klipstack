@@ -11,6 +11,14 @@ export const EDITION_INTRO_MAX = 5_000
 /** The database's `editionCovers`, here for the browser. The first is the default. */
 export const EDITION_COVERS = ["stack", "shelf"] as const satisfies readonly EditionCover[]
 
+/** The design of the covers. Bump it when it changes: platforms keep a picture by its address. */
+export const CARD_DESIGN = 2
+
+/** Where the editor's picker finds a cover's example, in the user's language. */
+export function coverExampleUrl(cover: EditionCover, lang: string): string {
+	return `/edition-covers/${cover}-${lang}.png?v=${CARD_DESIGN}`
+}
+
 /** Most highlights one item may quote. */
 export const QUOTES_MAX = 3
 /** Most words one item may quote, however long the article. */

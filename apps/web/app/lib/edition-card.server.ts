@@ -14,7 +14,7 @@ import font400 from "../../../../brand/fonts/newsreader-400-opsz40.ttf?inline"
 import font500 from "../../../../brand/fonts/newsreader-500-opsz40.ttf?inline"
 import font600 from "../../../../brand/fonts/newsreader-600-opsz18.ttf?inline"
 import { siteOf } from "./edition-view"
-import { formatEditionDate } from "./editions"
+import { CARD_DESIGN, formatEditionDate } from "./editions"
 
 export const CARD_WIDTH = 1200
 export const CARD_HEIGHT = 630
@@ -35,9 +35,6 @@ export interface EditionCard {
 	/** "+ 7 more", for the articles not shown. */
 	more: (count: number) => string
 }
-
-/** Bump it when the design changes: platforms keep a picture by its address. */
-const DESIGN = 2
 
 const INK = {
 	from: "#26344F",
@@ -355,6 +352,40 @@ export function cardFor(
 	}
 }
 
+/** The example sites of `exampleCard`, and their reading times: made up, not anyone's. */
+const EXAMPLE_SITES: [string, number][] = [
+	["The Slow Review", 42],
+	["Field Notes", 11],
+	["Longform Weekly", 9],
+	["Margins", 18],
+	["The Reading Room", 7],
+	["Quiet Machines", 34],
+	["Paper & Ink", 15],
+	["Northern Letters", 13],
+]
+
+/** A cover's example for the editor's picker: an edition that is not the user's, in `lang`. */
+export function exampleCard(
+	cover: EditionCover,
+	lang: string,
+	t: TFunction<"editions">,
+): EditionCard {
+	return {
+		cover,
+		date: formatEditionDate(new Date("2026-10-01T12:00:00Z"), lang, "UTC"),
+		title: t("editor.coverSample.title"),
+		authorName: "Ada Reader",
+		items: EXAMPLE_SITES.map(([site, minutes], i) => ({
+			site,
+			title: i === 0 ? t("editor.coverSample.first") : "",
+			minutes,
+		})),
+		total: EXAMPLE_SITES.length,
+		count: t("public.articles", { count: EXAMPLE_SITES.length }),
+		more: (count) => t("public.cardMore", { count }),
+	}
+}
+
 /**
  * Which version of an edition's card: it changes with each Update and each new design, so the
  * card's address does too, and a link shared after either is not shown with the old one from a
@@ -362,7 +393,7 @@ export function cardFor(
  */
 export function cardVersion(published: { publishedAt: Date | null; republishedAt: Date | null }) {
 	const at = (published.republishedAt ?? published.publishedAt)?.getTime() ?? 0
-	return `${at.toString(36)}d${DESIGN}`
+	return `${at.toString(36)}d${CARD_DESIGN}`
 }
 
 /** Cards drawn lately, by edition and version: a link shared in a busy channel is asked for often. */

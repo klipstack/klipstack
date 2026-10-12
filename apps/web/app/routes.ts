@@ -71,6 +71,7 @@ export default [
 	// Public: outside the app layout, for anyone with the link.
 	route("e/:publicId/report", "routes/edition.report.tsx"),
 	route("e/:publicId/og.png", "routes/edition.og.ts"),
+	route("edition-covers/:name", "routes/edition-cover-example.ts"),
 	route("e/:publicId/:slug?", "routes/edition.public.tsx"),
 	route("read/:id", "routes/read.tsx"),
 	route("editions/:id/save", "routes/editions.save.ts"),

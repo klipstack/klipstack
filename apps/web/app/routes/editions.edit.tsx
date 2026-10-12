@@ -20,6 +20,8 @@ import { copyText } from "~/lib/copy-link"
 import { formatDay } from "~/lib/date-groups"
 import { type EditionDone, editionAction } from "~/lib/edition-action.server"
 import {
+	coverExampleUrl,
+	EDITION_COVERS,
 	EDITION_INTRO_MAX,
 	EDITION_TITLE_MAX,
 	editionState,
@@ -593,7 +595,7 @@ function PublishPanel({ data }: { data: Route.ComponentProps["loaderData"] }) {
 	)
 }
 
-/** Title and intro save themselves as you type; the language saves when chosen. */
+/** Title and intro save themselves as you type; the cover and the language save when chosen. */
 function EditionFields({
 	edition,
 	save,
@@ -648,6 +650,7 @@ function EditionFields({
 					className="min-h-[5.5rem] w-full rounded-lg border border-border bg-card px-3 py-2 text-sm leading-relaxed placeholder:text-muted-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 				/>
 			</div>
+			<CoverPicker edition={edition} />
 			<div className="flex flex-wrap items-end justify-between gap-3">
 				<div className="flex flex-col gap-1.5">
 					<Label htmlFor={`${id}-locale`}>{t("editor.language")}</Label>
@@ -676,6 +679,57 @@ function EditionFields({
 				<SaveStatus statuses={[title.status, intro.status]} />
 			</div>
 		</div>
+	)
+}
+
+/**
+ * The picture for link previews: an example of each cover, in the page's language, not this
+ * edition's own. The public page shows the new one once published.
+ */
+function CoverPicker({ edition }: { edition: Route.ComponentProps["loaderData"]["edition"] }) {
+	const { t } = useTranslation("editions")
+	const id = useId()
+	const fetcher = useFetcher<WebResult<{ deleted?: true }>>()
+	const pending = (fetcher.json as { cover?: string } | undefined)?.cover
+	const chosen = pending ?? edition.cover
+	return (
+		<fieldset className="flex flex-col gap-1.5" aria-describedby={`${id}-hint`}>
+			<legend className="mb-1.5 text-sm font-medium">{t("editor.cover")}</legend>
+			<div className="grid max-w-md grid-cols-2 gap-3">
+				{EDITION_COVERS.map((cover) => (
+					<label
+						key={cover}
+						className="group flex cursor-pointer flex-col gap-1.5 text-sm text-muted-fg has-[:checked]:text-fg"
+					>
+						<input
+							type="radio"
+							name={`${id}-cover`}
+							value={cover}
+							checked={chosen === cover}
+							onChange={() =>
+								fetcher.submit(
+									{ intent: "update", cover },
+									{ method: "post", encType: "application/json" },
+								)
+							}
+							className="peer sr-only"
+						/>
+						<img
+							src={coverExampleUrl(cover, edition.locale)}
+							alt=""
+							width={600}
+							height={315}
+							loading="lazy"
+							className="aspect-[40/21] w-full rounded-md border border-border object-cover opacity-80 transition group-hover:opacity-100 peer-checked:opacity-100 peer-checked:ring-2 peer-checked:ring-accent peer-checked:ring-offset-2 peer-checked:ring-offset-bg peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2"
+						/>
+						<span className="peer-checked:font-medium">{t(`editor.covers.${cover}`)}</span>
+					</label>
+				))}
+			</div>
+			<p id={`${id}-hint`} className="text-xs text-muted-fg">
+				{t("editor.coverHint")}
+			</p>
+		</fieldset>
 	)
 }
 
