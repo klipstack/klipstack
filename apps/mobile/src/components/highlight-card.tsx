@@ -221,7 +221,13 @@ function Tool({
 	onPress: () => void
 }) {
 	return (
-		<Pressable accessibilityRole="button" onPress={onPress} hitSlop={8} style={styles.tool}>
+		<Pressable
+			accessibilityRole="button"
+			accessibilityLabel={label}
+			onPress={onPress}
+			hitSlop={8}
+			style={styles.tool}
+		>
 			<SymbolView name={symbol} tintColor={color} size={18} />
 			<Text style={[styles.toolText, { color }]}>{label}</Text>
 		</Pressable>

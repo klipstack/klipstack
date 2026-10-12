@@ -74,10 +74,11 @@ function Screens() {
 			</Stack.Protected>
 			<Stack.Protected guard={state.status === "signed-in"}>
 				<Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-				{/* Over the tabs, full screen: the back button returns to whichever tab opened it. */}
+				{/* Over the tabs, full screen: the back button returns to whichever tab opened it. It
+				    shows no title, but VoiceOver reads one: without it, "(tabs)". */}
 				<Stack.Screen
 					name="read/[id]"
-					options={{ title: "", headerBackButtonDisplayMode: "minimal" }}
+					options={{ title: "", headerBackTitle: "Back", headerBackButtonDisplayMode: "minimal" }}
 				/>
 				<Stack.Screen name="voices" options={{ title: "Voices", presentation: "modal" }} />
 				<Stack.Screen name="save" options={{ title: "Save a Link", presentation: "modal" }} />

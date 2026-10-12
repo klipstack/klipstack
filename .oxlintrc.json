@@ -1,6 +1,7 @@
 {
 	"$schema": "./node_modules/oxlint/configuration_schema.json",
 	"plugins": ["typescript", "unicorn", "oxc", "react", "jsx-a11y", "import", "vitest"],
+	"jsPlugins": ["./scripts/oxlint-plugin.mjs"],
 	"categories": {
 		"correctness": "error"
 	},
@@ -124,6 +125,12 @@
 		"apps/mobile/src/lib/reader-page.generated.ts"
 	],
 	"overrides": [
+		{
+			"files": ["apps/mobile/src/**/*.tsx"],
+			"rules": {
+				"klipstack/symbol-needs-label": "error"
+			}
+		},
 		{
 			"files": ["apps/mobile/src/page/**"],
 			"rules": {

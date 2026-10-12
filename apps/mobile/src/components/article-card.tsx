@@ -261,8 +261,15 @@ function CheckCircle({
 				style,
 			]}
 		>
+			{/* The card's checkbox state says it; VoiceOver would add "selected". */}
 			{checked ? (
-				<SymbolView name="checkmark" tintColor={colors.accentFg} size={13} weight="bold" />
+				<SymbolView
+					name="checkmark"
+					tintColor={colors.accentFg}
+					size={13}
+					weight="bold"
+					accessibilityElementsHidden
+				/>
 			) : null}
 		</View>
 	)
@@ -485,7 +492,12 @@ export function CardPicture({
 					onError={setFailed}
 				/>
 			) : (
-				<SymbolView name="newspaper" tintColor={colors.border} size={28} />
+				<SymbolView
+					name="newspaper"
+					tintColor={colors.border}
+					size={28}
+					accessibilityElementsHidden
+				/>
 			)}
 		</View>
 	)

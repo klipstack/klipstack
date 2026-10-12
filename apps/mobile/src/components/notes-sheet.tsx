@@ -85,6 +85,7 @@ export function NotesSheet({
 					/>
 					<Pressable
 						accessibilityRole="button"
+						accessibilityLabel="Link Article"
 						onPress={() => field.current?.linkArticle()}
 						hitSlop={8}
 						style={styles.linkArticle}

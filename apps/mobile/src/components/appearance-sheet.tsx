@@ -109,7 +109,12 @@ export function AppearanceSheet({
 					/>
 				</View>
 				<View style={styles.brightness}>
-					<SymbolView name="sun.min" tintColor={colors.mutedFg} size={18} />
+					<SymbolView
+						name="sun.min"
+						tintColor={colors.mutedFg}
+						size={18}
+						accessibilityElementsHidden
+					/>
 					{/* Once the current level is known, so the thumb doesn't jump to it. */}
 					{brightness !== null ? (
 						<Slider
@@ -125,7 +130,12 @@ export function AppearanceSheet({
 					) : (
 						<View style={styles.grow} />
 					)}
-					<SymbolView name="sun.max" tintColor={colors.mutedFg} size={22} />
+					<SymbolView
+						name="sun.max"
+						tintColor={colors.mutedFg}
+						size={22}
+						accessibilityElementsHidden
+					/>
 				</View>
 				<View accessibilityRole="radiogroup" style={styles.choices}>
 					{COLOR_SCHEMES.map((s) => (
@@ -202,6 +212,7 @@ function Choice({
 	return (
 		<Pressable
 			accessibilityRole="radio"
+			accessibilityLabel={label}
 			accessibilityState={{ selected }}
 			onPress={onPress}
 			style={({ pressed }) => [

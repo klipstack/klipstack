@@ -209,6 +209,7 @@ function TagRow({
 	return (
 		<Pressable
 			accessibilityRole={checked ? "checkbox" : "button"}
+			accessibilityLabel={label}
 			accessibilityState={
 				checked ? { checked: checked === "all" ? true : checked === "some" ? "mixed" : false } : {}
 			}

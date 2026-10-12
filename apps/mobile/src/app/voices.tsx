@@ -177,6 +177,7 @@ function Language({
 							<Pressable
 								key={voice.id}
 								accessibilityRole="button"
+								accessibilityLabel={voice.name}
 								accessibilityState={{ selected: voice.id === chosen }}
 								onPress={() => onChoose(voice.id)}
 								style={({ pressed }) => [
