@@ -65,8 +65,13 @@ export const topics = pgTable(
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
 		name: text("name").notNull(),
-		/** What belongs on the shelf and what does not: what Jev sorts articles by. */
+		/** What the shelf holds, as the reader sees it. */
 		description: text("description").notNull(),
+		/**
+		 * What does not belong on the shelf, naming its neighbours: never shown to the reader. Jev sorts
+		 * articles by the description and the boundary together.
+		 */
+		boundary: text("boundary").notNull().default(""),
 		status: text("status", { enum: topicStatus }).notNull(),
 		origin: text("origin", { enum: topicOrigin }).notNull(),
 		/** The reader named it: a review never renames, merges, splits or retires it. */

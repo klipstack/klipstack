@@ -6,7 +6,8 @@ import { insertArticle } from "./seed"
 /**
  * Automatic topics, end to end with the worker and the fake models (AI_FAKE): the fake proposes a
  * topic for each site several articles share, and sorts an article into a topic whose name it
- * holds.
+ * holds. It writes each topic's description, which the reader sees, and a boundary sentence,
+ * which only sorting reads.
  */
 async function library(email: string, sites: Record<string, number>) {
 	const [owner] = await db.select({ id: user.id }).from(user).where(eq(user.email, email))
@@ -39,6 +40,10 @@ test("topics: turned on, proposed, confirmed, sorted, corrected and turned off",
 	await expect(page.getByTestId("topics-nav-dot").first()).toBeVisible()
 	await page.getByRole("link", { name: "See your topics" }).click()
 	await expect(page.getByLabel("Keep Psyche")).toBeChecked()
+	// The reader sees what a topic holds, never the sentence that sorting reads.
+	const psyche = page.getByTestId("proposed-topic").filter({ has: page.getByLabel("Keep Psyche") })
+	await expect(psyche).toContainText("Articles from Psyche.")
+	await expect(page.getByTestId("topics-proposal")).not.toContainText("other sites")
 	await page.getByLabel("Keep Aeon").uncheck()
 	// Left out: its card dims, and its name can't be edited.
 	const aeon = page.getByTestId("proposed-topic").filter({ has: page.getByLabel("Keep Aeon") })
@@ -53,6 +58,7 @@ test("topics: turned on, proposed, confirmed, sorted, corrected and turned off",
 	await expect(shelves).toContainText("18 articles", { timeout: 60_000 })
 	await expect(page.getByTestId("topics-sorting")).toHaveCount(0, { timeout: 60_000 })
 	await expect(shelves).not.toContainText("Aeon")
+	await expect(shelves).not.toContainText("other sites")
 	await expect(page.getByTestId("topics-nav-dot")).toHaveCount(0)
 	// A full shelf: the newest 15 articles as books, each opening its article, then "+3" for the rest.
 	// All 18 were saved today.
@@ -79,6 +85,8 @@ test("topics: turned on, proposed, confirmed, sorted, corrected and turned off",
 	await expect(page.getByRole("heading", { name: "Minds" })).toBeVisible()
 	await page.getByRole("link", { name: "See all 18 articles in Minds" }).click()
 	await expect(page.getByTestId("topic-name")).toHaveText("Minds")
+	await expect(page.getByText("Articles from Psyche.")).toBeVisible()
+	await expect(page.locator("main")).not.toContainText("other sites")
 	await expect(page.getByTestId("topic-articles").getByRole("listitem")).toHaveCount(18)
 	// The library's cards, as a list or a grid, and the library's switch between them.
 	const articles = page.getByTestId("topic-articles")
@@ -136,6 +144,32 @@ test("topics: turned on, proposed, confirmed, sorted, corrected and turned off",
 	await page.getByRole("button", { name: "Turn off topics" }).click()
 	await page.getByRole("button", { name: "Tap again: this deletes your topics" }).click()
 	await expect(page.getByTestId("topics-off")).toBeVisible()
+})
+
+test("topics: a Spanish reader sees descriptions in Spanish, without the boundary", async ({
+	page,
+}) => {
+	test.setTimeout(180_000)
+	const email = await signupUser(page, "Lectora de temas", { features: ["topics"] })
+	await db.update(user).set({ locale: "es" }).where(eq(user.email, email))
+	await library(email, { Psyche: 13, Aeon: 12 })
+
+	await page.goto("/topics")
+	await page.getByRole("button", { name: "Activar los temas" }).click()
+	const psyche = page
+		.getByTestId("proposed-topic")
+		.filter({ has: page.getByLabel("Conservar Psyche") })
+	await expect(psyche).toContainText("Artículos de Psyche.", { timeout: 60_000 })
+	await expect(page.getByTestId("topics-proposal")).not.toContainText("otros sitios")
+	await page.getByRole("button", { name: "Confirmar los temas" }).click()
+
+	const shelves = page.getByTestId("topics-shelves")
+	await expect(shelves).toContainText("13 artículos", { timeout: 60_000 })
+	await expect(shelves).not.toContainText("otros sitios")
+	await shelves.getByRole("heading", { name: "Psyche" }).getByRole("link").click()
+	await expect(page.getByTestId("topic-name")).toHaveText("Psyche")
+	await expect(page.getByText("Artículos de Psyche.")).toBeVisible()
+	await expect(page.locator("main")).not.toContainText("otros sitios")
 })
 
 test("topics: an account without the feature has no page and no link", async ({ page }) => {

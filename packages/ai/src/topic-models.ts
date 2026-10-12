@@ -29,11 +29,12 @@ export interface TopicArticleIn {
 	text: string
 }
 
-/** A topic as the app gives it. */
+/** A topic as the app gives it: `description` for the reader, `boundary` for sorting only. */
 export interface TopicIn {
 	id: string
 	name: string
 	description: string
+	boundary: string
 }
 
 /** How long Jev may take for one article: it answers in a tenth of a second. */
@@ -91,7 +92,7 @@ export function createTopicModels(config: AiConfig, rules: TopicRules = TOPIC_RU
 			articles: TopicArticleIn[]
 			language: AiLanguage
 		}): Promise<Spent<(TopicSpec & { reason: string })[]>> {
-			if (config.fake) return { value: fakeTopics(input.articles), spend: [] }
+			if (config.fake) return { value: fakeTopics(input.articles, input.language), spend: [] }
 			const refs = articleRefs(input.articles)
 			const answer = await structured(
 				config,
@@ -103,7 +104,11 @@ export function createTopicModels(config: AiConfig, rules: TopicRules = TOPIC_RU
 		async grow(input: { topics: TopicIn[]; pool: TopicArticleIn[]; language: AiLanguage }) {
 			if (config.fake)
 				return {
-					value: { widen: [], topics: fakeTopics(input.pool, input.topics), note: "" },
+					value: {
+						widen: [],
+						topics: fakeTopics(input.pool, input.language, input.topics),
+						note: "",
+					},
 					spend: [],
 				}
 			const articles = articleRefs(input.pool)
@@ -124,7 +129,15 @@ export function createTopicModels(config: AiConfig, rules: TopicRules = TOPIC_RU
 					const topicId = topics.toId.get(w.topicId)
 					const articleIds = ids(w.articleIds)
 					return topicId && articleIds.length
-						? [{ topicId, description: w.description, articleIds, reason: w.reason }]
+						? [
+								{
+									topicId,
+									description: w.description,
+									boundary: w.boundary,
+									articleIds,
+									reason: w.reason,
+								},
+							]
 						: []
 				}),
 				topics: answer.value.topics
@@ -240,11 +253,24 @@ async function structured<S extends z.ZodType>(
 	}
 }
 
+/** What the fake writes about a site's topic, in the reader's language. */
+const FAKE_TEXT: Record<AiLanguage, { description: (site: string) => string; boundary: string }> = {
+	en: {
+		description: (site) => `Articles from ${site}.`,
+		boundary: "Articles from other sites belong in their own topics.",
+	},
+	es: {
+		description: (site) => `Artículos de ${site}.`,
+		boundary: "Los artículos de otros sitios van en sus propios temas.",
+	},
+}
+
 /**
  * The fake proposes one topic for each site that saved articles share, and sorts an article into a
  * topic when the topic's name appears in it: enough for tests to see topics come and go.
  */
-function fakeTopics(articles: TopicArticleIn[], existing: TopicIn[] = []) {
+function fakeTopics(articles: TopicArticleIn[], language: AiLanguage, existing: TopicIn[] = []) {
+	const text = FAKE_TEXT[language]
 	const sites = new Map<string, string[]>()
 	for (const a of articles) {
 		if (!a.siteName) continue
@@ -255,7 +281,8 @@ function fakeTopics(articles: TopicArticleIn[], existing: TopicIn[] = []) {
 		.filter(([site, ids]) => ids.length >= 2 && !taken.has(site))
 		.map(([site, ids]) => ({
 			name: site,
-			description: `Articles from ${site}.`,
+			description: text.description(site),
+			boundary: text.boundary,
 			reason: "They share a site.",
 			articleIds: ids,
 		}))

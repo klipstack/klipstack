@@ -91,10 +91,11 @@ const many = async (count: number, subject: string) => {
 	return ids
 }
 
-const spec = (name: string, description = `Articles about ${name.toLowerCase()}.`) => ({
-	name,
-	description,
-})
+const spec = (
+	name: string,
+	description = `Articles about ${name.toLowerCase()}.`,
+	boundary = "",
+) => ({ name, description, boundary })
 
 /**
  * Models the test scripts. Sorting says yes (0.9) when a word of the topic's description is the
@@ -102,15 +103,23 @@ const spec = (name: string, description = `Articles about ${name.toLowerCase()}.
  * or do something meanwhile (`during`), as a reader would while a request is on its way.
  */
 function models(script: {
-	propose?: () => { name: string; description: string }[]
+	propose?: () => { name: string; description: string; boundary: string }[]
 	grow?: (
 		topics: TopicIn[],
 		pool: TopicArticleIn[],
 	) => {
-		widen?: { topicId: string; description: string; articleIds: string[]; reason: string }[]
-		topics?: { name: string; description: string; articleIds: string[] }[]
+		widen?: {
+			topicId: string
+			description: string
+			boundary: string
+			articleIds: string[]
+			reason: string
+		}[]
+		topics?: { name: string; description: string; boundary: string; articleIds: string[] }[]
 	}
 	review?: (topics: TopicIn[]) => ReviewChange[]
+	/** Sees the topics each article is sorted against. */
+	sorting?: (topics: TopicIn[]) => void
 	refuse?: (article: TopicArticleIn) => boolean
 	during?: (call: string) => Promise<void>
 }) {
@@ -157,6 +166,7 @@ function models(script: {
 			},
 			async sort({ article, topics }) {
 				calls.push("sort")
+				script.sorting?.(topics)
 				await script.during?.("sort")
 				if (script.refuse?.(article))
 					throw new AiError("provider", "Jev refused", {
@@ -323,6 +333,34 @@ describe("the first topics", () => {
 		])
 	})
 
+	it("keep what readers see apart from the boundary, and sort by both", async () => {
+		const sorted: TopicIn[][] = []
+		const { deps, calls } = models({
+			propose: () => [
+				spec("Cats", "Articles about cats.", "  Owls belong in   Birds. "),
+				spec("Dogs", "Articles about dogs.", "z".repeat(5000)),
+				spec("Mice", "Articles about mice.", "   "),
+			],
+			sorting: (topics) => void sorted.push(topics),
+		})
+		await many(25, "cats")
+		await run(deps)
+		const rows = await db.select().from(topics).where(eq(topics.userId, userId))
+		expect(
+			rows.map((t) => [t.name, t.description, t.boundary.slice(0, 20), t.boundary.length]).sort(),
+		).toEqual([
+			["Cats", "Articles about cats.", "Owls belong in Birds", 21],
+			["Dogs", "Articles about dogs.", "z".repeat(20), 600],
+			["Mice", "Articles about mice.", "", 0],
+		])
+		await confirm()
+		await settle(deps, calls)
+		expect(sorted.at(-1)!.find((t) => t.name === "Cats")).toMatchObject({
+			description: "Articles about cats.",
+			boundary: "Owls belong in Birds.",
+		})
+	})
+
 	it("keep nothing when the reader turns topics off while they are being proposed", async () => {
 		const { deps } = models({
 			propose: () => [spec("Cats")],
@@ -473,6 +511,7 @@ describe("after the reader confirms", () => {
 					{
 						topicId: topics.find((t) => t.name === "Cats")!.id,
 						description: "Articles about cats, and about owls.",
+						boundary: "Articles about birds belong in Birds.",
 						articleIds: [],
 						reason: "",
 					},
@@ -488,6 +527,10 @@ describe("after the reader confirms", () => {
 		expect(await topicsOf(owls[0]!)).toEqual(["Cats"])
 		expect(await topicsOf(cats[0]!)).toEqual([])
 		expect(await topicsOf(cats[1]!)).toEqual(["Cats"])
+		expect(await topicNamed("Cats")).toMatchObject({
+			description: "Articles about cats, and about owls.",
+			boundary: "Articles about birds belong in Birds.",
+		})
 	})
 })
 
@@ -573,7 +616,7 @@ describe("reviews", () => {
 			{
 				op: "rename",
 				topicIds: [dogsTopic.id],
-				into: [spec("Hounds", "Articles about dogs and hounds.")],
+				into: [spec("Hounds", "Articles about dogs and hounds.", "Wolves belong in Wildlife.")],
 				reason: "",
 			},
 			{ op: "rename", topicIds: [catsTopic.id], into: [spec("Felines")], reason: "" },
@@ -590,6 +633,7 @@ describe("reviews", () => {
 		expect(await topicNamed("Dogs")).toMatchObject({
 			status: "active",
 			description: "Articles about dogs and hounds.",
+			boundary: "Wolves belong in Wildlife.",
 		})
 		expect(await topicNamed("Cats")).toMatchObject({
 			status: "active",

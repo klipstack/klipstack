@@ -62,11 +62,20 @@ export interface TopicArticle {
 	text: string
 }
 
-/** A topic as the models see it. `ref` names it in a request. */
+/**
+ * A topic as the models see it. `ref` names it in a request. `description` is what readers see:
+ * what the topic holds; `boundary` is what does not belong in it, for sorting only.
+ */
 export interface TopicRef {
 	ref: string
 	name: string
 	description: string
+	boundary: string
+}
+
+/** What the models sort by: what a topic holds, then what does not belong in it. */
+export function sortingText(topic: Pick<TopicRef, "description" | "boundary">): string {
+	return topic.boundary ? `${topic.description} ${topic.boundary}` : topic.description
 }
 
 /** What to ask Haiku: a system prompt, a prompt, and the shape of the answer. */
@@ -96,17 +105,25 @@ const NAME: Record<TopicStyle, string> = {
 }
 
 const DESCRIPTION: Record<TopicStyle, string> = {
-	broad: "One sentence: what belongs here, written to sort new articles into it",
+	broad: "One sentence for the reader: what this topic holds",
+	specific: "One sentence for the reader: what this topic holds",
+	sections: "One sentence for the reader: what this section holds, broadly",
+}
+
+const BOUNDARY: Record<TopicStyle, string> = {
+	broad:
+		"One sentence: what does not belong here, written to sort new articles. Never shown to the reader",
 	specific:
-		"Two sentences: what belongs here, then what does not (naming the neighbouring topics it could be confused with), written to sort new articles into it",
+		"One sentence: what does not belong here, naming the neighbouring topics it could be confused with, written to sort new articles. Never shown to the reader",
 	sections:
-		"Two sentences: what belongs in this section, broadly, then what does not (naming the neighbouring sections), written to sort new articles into it",
+		"One sentence: what does not belong in this section, naming the neighbouring sections, written to sort new articles. Never shown to the reader",
 }
 
 export function topicSpec(style: TopicStyle) {
 	return z.object({
 		name: z.string().describe(NAME[style]),
 		description: z.string().describe(DESCRIPTION[style]),
+		boundary: z.string().describe(BOUNDARY[style]),
 	})
 }
 
@@ -119,8 +136,8 @@ const SYSTEM: Record<TopicStyle, string> = {
 }
 
 const LANGUAGE: Record<AiLanguage, string> = {
-	en: "Write topic names and descriptions in English, whatever language the articles are in.",
-	es: "Write topic names and descriptions in Spanish, whatever language the articles are in, with Spanish capitalization: only the first word and proper names capitalized (Gestión de equipos, not Gestión De Equipos).",
+	en: "Write topic names, descriptions and boundaries in English, whatever language the articles are in.",
+	es: "Write topic names, descriptions and boundaries in Spanish, whatever language the articles are in, with Spanish capitalization: only the first word and proper names capitalized (Gestión de equipos, not Gestión De Equipos).",
 }
 
 export function topicSystem(options: Pick<RequestOptions, "style" | "language">): string {
@@ -184,12 +201,12 @@ export function growRequest(
 	return {
 		system: topicSystem(options),
 		prompt: `The library's topics:\n${topics
-			.map((t) => `- ${widen ? `${t.ref}: ` : ""}${t.name}: ${t.description}`)
+			.map((t) => `- ${widen ? `${t.ref}: ` : ""}${t.name}: ${sortingText(t)}`)
 			.join(
 				"\n",
 			)}\n\nThese recently saved articles fit none of them:\n${pool.map(articleLine).join("\n")}\n\n${
 			widen
-				? `First, an article may belong on an existing shelf whose description is too narrow to say so. For such a shelf, write a wider description that takes those articles in (list their ids) while keeping the shelf ${options.style === "sections" ? "one section" : "specific"} and its name unchanged. Then, for the articles left, p`
+				? `First, an article may belong on an existing shelf whose description is too narrow to say so. For such a shelf, write a wider description and boundary that take those articles in (list their ids) while keeping the shelf ${options.style === "sections" ? "one section" : "specific"} and its name unchanged. Then, for the articles left, p`
 				: "P"
 		}ropose up to 2 new topics, each holding at least ${options.minNewTopicArticles} of these articles (list their ids), that do not overlap the existing topics. If they do not share a theme strong enough for a topic, propose none: an article may stay unsorted.`,
 		schema: growSchema(spec, refs, widen),
@@ -205,6 +222,7 @@ function growSchema(spec: ReturnType<typeof topicSpec>, refs: z.ZodType<string[]
 		z.object({
 			topicId: z.string(),
 			description: spec.shape.description,
+			boundary: spec.shape.boundary,
 			articleIds: refs,
 			reason: z.string(),
 		}),
@@ -255,7 +273,7 @@ export function reviewRequest(input: ReviewInput, options: RequestOptions) {
 		prompt: `The library has ${input.libraryCount} articles; ${input.sortedCount} are in a topic and ${input.unsortedCount} are unsorted. Its topics, with how many articles each holds, when it last received one (the library's article number, now ${input.libraryCount}) and some of their titles:\n\n${input.topics
 			.map(
 				(t) =>
-					`${t.ref}: ${t.name} (${t.articles} articles, last at ${t.lastAt}): ${t.description}\n${t.titles
+					`${t.ref}: ${t.name} (${t.articles} articles, last at ${t.lastAt}): ${sortingText(t)}\n${t.titles
 						.map((title) => `    - ${title}`)
 						.join("\n")}`,
 			)
@@ -284,7 +302,7 @@ export function sortRequest(
 ) {
 	return {
 		system: topicSystem(options),
-		prompt: `Topics:\n${topics.map((t) => `- ${t.ref}: ${t.name}: ${t.description}`).join("\n")}\n\nFor each topic, give the probability (0 to 1) that it is one of the main subjects of the article below. Most topics should be near 0; an article usually has one to three main subjects, and may have none of these.\n\n<article>\n${articleState(article, options.textChars)}\n</article>`,
+		prompt: `Topics:\n${topics.map((t) => `- ${t.ref}: ${t.name}: ${sortingText(t)}`).join("\n")}\n\nFor each topic, give the probability (0 to 1) that it is one of the main subjects of the article below. Most topics should be near 0; an article usually has one to three main subjects, and may have none of these.\n\n<article>\n${articleState(article, options.textChars)}\n</article>`,
 		schema: z.object({
 			scores: z.array(z.object({ topicId: z.string(), probability: z.number() })),
 		}),
@@ -308,12 +326,12 @@ export function sortQuestions(
 			t.ref,
 			question === "main"
 				? {
-						instructions: `Is "${t.name}" one of the main subjects of this article? ${t.name}: ${t.description}`,
+						instructions: `Is "${t.name}" one of the main subjects of this article? ${t.name}: ${sortingText(t)}`,
 						yes: `The article is substantially about ${t.name}`,
 						no: `${t.name} is absent or only mentioned in passing`,
 					}
 				: {
-						instructions: `A reader keeps a shelf called "${t.name}" in their library: ${t.description} Would they expect to find this article on that shelf?`,
+						instructions: `A reader keeps a shelf called "${t.name}" in their library: ${sortingText(t)} Would they expect to find this article on that shelf?`,
 						yes: `Someone browsing "${t.name}" would be glad to find this article there`,
 						no: `The article would look out of place on "${t.name}", or only touches it in passing`,
 					},

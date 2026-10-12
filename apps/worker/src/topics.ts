@@ -87,7 +87,7 @@ export const SORT_BATCH = 200
 export const PROPOSE_MAX = 200
 /** The newest unsorted articles a growth reads. */
 const GROW_MAX = 40
-/** A model's description longer than this is cut: it is a sentence or two. */
+/** A model's description or boundary longer than this is cut: it is a sentence or two. */
 const DESCRIPTION_MAX = 600
 
 /** The reader turned topics off while the run was on: it stops, keeping nothing. */
@@ -177,6 +177,7 @@ class Run {
 							userId: this.userId,
 							name: t.name,
 							description: t.description,
+							boundary: t.boundary,
 							status: "proposed" as const,
 							origin: "first" as const,
 						})),
@@ -297,7 +298,7 @@ class Run {
 		const widen = answer.value.widen.flatMap((w) => {
 			const description = cleanDescription(w.description)
 			return description && active.some((t) => t.id === w.topicId)
-				? [{ topicId: w.topicId, description }]
+				? [{ topicId: w.topicId, description, boundary: cleanDescription(w.boundary) ?? "" }]
 				: []
 		})
 		return this.write(async (tx) => {
@@ -309,7 +310,7 @@ class Run {
 			for (const w of widen)
 				await tx
 					.update(topics)
-					.set({ description: w.description })
+					.set({ description: w.description, boundary: w.boundary })
 					.where(and(eq(topics.id, w.topicId), eq(topics.status, "active")))
 			const created = await this.createTopics(tx, fresh, "grown")
 			await this.needsResort(tx, [...widen.map((w) => w.topicId), ...created.map((t) => t.id)])
@@ -391,12 +392,13 @@ class Run {
 			if (change.op === "rename" && first) {
 				const sharpened = description(first.spec)
 				if (!sharpened) return
+				const boundary = cleanDescription(first.spec.boundary) ?? ""
 				const t = live[0]!
 				// The reader's name, or one already taken, stays; the description is sharpened all the same.
 				const name = !t.namedByReader && first.fresh ? cleanTopicName(first.spec.name)! : undefined
 				await tx
 					.update(topics)
-					.set({ description: sharpened, ...(name ? { name } : {}) })
+					.set({ description: sharpened, boundary, ...(name ? { name } : {}) })
 					.where(eq(topics.id, t.id))
 				await this.needsResort(tx, [t.id])
 			} else if (theirs) {
@@ -537,13 +539,19 @@ class Run {
 						userId: this.userId,
 						name: t.name,
 						description: t.description,
+						boundary: t.boundary,
 						status: "active" as const,
 						origin,
 					})),
 				)
 				// A name the reader gave a topic meanwhile wins: the model's is skipped.
 				.onConflictDoNothing()
-				.returning({ id: topics.id, name: topics.name, description: topics.description })
+				.returning({
+					id: topics.id,
+					name: topics.name,
+					description: topics.description,
+					boundary: topics.boundary,
+				})
 		)
 	}
 
@@ -600,7 +608,7 @@ class Run {
 			const description = cleanDescription(t.description)
 			if (!name || !description || names.has(name.toLocaleLowerCase())) return []
 			names.add(name.toLocaleLowerCase())
-			return [{ ...t, name, description }]
+			return [{ ...t, name, description, boundary: cleanDescription(t.boundary) ?? "" }]
 		})
 	}
 
@@ -610,6 +618,7 @@ class Run {
 				id: topics.id,
 				name: topics.name,
 				description: topics.description,
+				boundary: topics.boundary,
 				namedByReader: topics.namedByReader,
 				resortPending: topics.resortPending,
 			})
@@ -785,7 +794,7 @@ class Run {
 	}
 }
 
-/** A model's description as stored: one line of plain text, cut to size. Null when empty. */
+/** A model's description or boundary as stored: one line of plain text, cut to size. Null when empty. */
 function cleanDescription(raw: string): string | null {
 	const clean = raw.replaceAll("\u0000", "").replace(/\s+/g, " ").trim().slice(0, DESCRIPTION_MAX)
 	return clean.length ? clean : null
