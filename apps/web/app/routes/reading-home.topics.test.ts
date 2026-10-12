@@ -14,7 +14,10 @@ import { loader } from "./reading-home"
 
 const session = vi.hoisted(() => ({ user: { id: "", name: "Reader", locale: "en" } }))
 vi.mock("~/lib/session.server", () => ({ requireUser: () => session.user }))
-vi.mock("~/lib/ai.server", () => ({ topicModels: { available: true } }))
+// Topics need their models: the fake ones, which answer without calling anyone.
+vi.hoisted(() => {
+	process.env.AI_FAKE = "1"
+})
 vi.mock("~/lib/i18n.server", async () => {
 	const { createInstance } = await import("i18next")
 	const { resources } = await import("@klipstack/i18n")
@@ -122,10 +125,17 @@ describe("Home's topic choice", () => {
 		expect(data.feed).toEqual([])
 	})
 
-	it("chooses something different: the topic read from least lately", async () => {
-		const data = await home(readerId, "?topic=different")
-		expect(data.topics?.chosen).toMatchObject({ name: "Economics", different: true })
-		expect(titles(data)).toEqual(["Economics 0", "Economics 1"])
+	it("keeps something different the same topic once chosen, after the reader reads from it", async () => {
+		const economics = topicIds[`${readerId}:Economics`]!
+		const chosen = await home(readerId, `?topic=${economics}&different`)
+		expect(chosen.topics?.chosen).toMatchObject({ name: "Economics", different: true })
+		expect(titles(chosen)).toEqual(["Economics 0", "Economics 1"])
+		// Reading from it makes Science the one read from least lately: offered next time.
+		const opened = chosen.candidates.recent.find((d) => d.title === "Economics 1")!
+		await db.update(documents).set({ lastReadAt: new Date() }).where(eq(documents.id, opened.id))
+		const after = await home(readerId, `?topic=${economics}&different`)
+		expect(after.topics?.chosen).toMatchObject({ name: "Economics", different: true })
+		expect(after.topics?.different).toBe(topicIds[`${readerId}:Science`])
 	})
 
 	it("ignores a topic that is not the reader's, or not a topic", async () => {

@@ -37,12 +37,18 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 	const user = requireUser(context, request)
 	const t = getInstance(context).getFixedT(null, "library")
 	const timeZone = timeZoneFromCookie(request.headers.get("cookie"))
-	const [topics, finished, topicsReady] = await Promise.all([
-		topicChoice(user.id, new URL(request.url).searchParams.get("topic")),
+	const params = new URL(request.url).searchParams
+	const topicId = params.get("topic")
+	const choosing = topicChoice(user.id, topicId, params.has("different"))
+	// Without a topic asked for, Home loads alongside the topics; with one, after them, for its id.
+	const [topics, finished, topicsReady, home] = await Promise.all([
+		choosing,
 		finishedLately(user.id, { timeZone }),
 		firstTopicsReady(user.id),
+		topicId
+			? choosing.then((choice) => readingHome(user.id, { topicId: choice?.chosen?.id }))
+			: readingHome(user.id),
 	])
-	const home = await readingHome(user.id, { topicId: topics?.chosen?.id })
 	// Each article's topic, when Home is not already about one.
 	const labels =
 		topics && !topics.chosen
@@ -60,20 +66,20 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 }
 
 /**
- * The reader's topics to choose from, and the one chosen (`?topic=`: a topic's id, or `different`
- * for the one read from least lately). Null without topics. A topic that is not one of theirs, or
- * has nothing to read, is no choice: Home shows everything.
+ * The reader's topics to choose from, the one to offer as something different, and the one chosen
+ * (`?topic=` its id; `&different` when it was offered as something different, which it stays after
+ * the reader reads from it). Null without topics. A topic that is not one of theirs, or has nothing
+ * to read, is no choice: Home shows everything.
  */
-async function topicChoice(userId: string, param: string | null) {
+async function topicChoice(userId: string, id: string | null, different: boolean) {
 	if (!topicModels.available || !(await hasFeature(userId, "topics"))) return null
-	const { topics, different } = await homeTopics(userId)
-	if (!topics.length) return null
-	const id = param === "different" ? different : param
-	const chosen = topics.find((topic) => topic.id === id)
+	const list = await homeTopics(userId)
+	if (!list.topics.length) return null
+	const chosen = list.topics.find((topic) => topic.id === id)
 	return {
-		list: topics.map(({ id, name, toRead }) => ({ id, name, toRead })),
-		different,
-		chosen: chosen ? { ...chosen, different: param === "different" } : null,
+		list: list.topics.map(({ id, name, toRead }) => ({ id, name, toRead })),
+		different: list.different,
+		chosen: chosen ? { ...chosen, different } : null,
 	}
 }
 
@@ -119,10 +125,14 @@ export const handle: PageBarHandle = {
 /** Topics Home offers as chips, most to read first: the rest are under More. */
 const TOPIC_CHIPS = 4
 
+/** A topic chosen on Home: its id, and whether it was offered as something different. */
+type TopicPick = { id: string; different: boolean } | null
+
 /** Home's address for a topic and a time; null for any. */
-function homeSearch(topic: string | null, minutes: number | null) {
+function homeSearch(topic: TopicPick, minutes: number | null) {
 	const params = new URLSearchParams()
-	if (topic) params.set("topic", topic)
+	if (topic) params.set("topic", topic.id)
+	if (topic?.different) params.set("different", "")
 	if (minutes !== null) params.set("time", String(minutes))
 	const search = params.toString()
 	return search ? `?${search}` : ""
@@ -150,8 +160,7 @@ export default function ReadingHome({
 	const [searchParams] = useSearchParams()
 	const minutes = parseTime(searchParams.get("time"))
 	const chosen = topics?.chosen ?? null
-	// What the address says, for the links: `different` stays `different`.
-	const topicParam = chosen ? (chosen.different ? "different" : chosen.id) : null
+	const pick: TopicPick = chosen ? { id: chosen.id, different: chosen.different } : null
 	const { reading, recent, rediscover } = useMemo(
 		() => homeShelves(candidates, timeChoice ? minutes : null),
 		[candidates, timeChoice, minutes],
@@ -213,8 +222,8 @@ export default function ReadingHome({
 			{finished ? <FinishedLately {...finished} /> : null}
 			{timeChoice || topics ? (
 				<div className="mb-9 space-y-3">
-					{timeChoice ? <TimeChoice minutes={minutes} topic={topicParam} /> : null}
-					{topics ? <TopicChoice topics={topics} minutes={minutes} param={topicParam} /> : null}
+					{timeChoice ? <TimeChoice minutes={minutes} topic={pick} /> : null}
+					{topics ? <TopicChoice topics={topics} minutes={minutes} pick={pick} /> : null}
 				</div>
 			) : null}
 			{chosen ? <TopicHeading topic={chosen} minutes={timed ? minutes : null} /> : null}
@@ -289,7 +298,7 @@ export default function ReadingHome({
 								: t("home.time.none", { count: minutes! })}
 						</p>
 						<Link
-							to={{ search: homeSearch(topicParam, null) }}
+							to={{ search: homeSearch(pick, null) }}
 							replace
 							preventScrollReset
 							className={buttonVariants({ variant: "secondary" })}
@@ -411,7 +420,7 @@ function TopicsCard() {
 }
 
 /** How much time there is: narrows every section to what fits, without asking the server. */
-function TimeChoice({ minutes, topic }: { minutes: number | null; topic: string | null }) {
+function TimeChoice({ minutes, topic }: { minutes: number | null; topic: TopicPick }) {
 	const { t } = useTranslation("library")
 	const choice = (value: number | null) => (
 		<Link
@@ -458,27 +467,33 @@ const CHIP =
 function TopicChoice({
 	topics,
 	minutes,
-	param,
+	pick,
 }: {
 	topics: TopicChoices
 	minutes: number | null
-	param: string | null
+	pick: TopicPick
 }) {
 	const { t } = useTranslation("library")
-	const chosenId = topics.chosen && !topics.chosen.different ? topics.chosen.id : null
+	const chosenId = pick && !pick.different ? pick.id : null
 	const chips = topics.list.slice(0, TOPIC_CHIPS)
 	const extra = topics.list.find((topic) => topic.id === chosenId && !chips.includes(topic))
 	if (extra) chips.push(extra)
 	const rest = topics.list.filter((topic) => !chips.includes(topic))
-	const choice = (value: string | null, label: string) => (
+	// Something different stays chosen, and stays the same topic, when the reader reads from it.
+	const different = pick?.different
+		? pick
+		: topics.different
+			? { id: topics.different, different: true }
+			: null
+	const choice = (key: string, value: TopicPick, current: boolean, label: string) => (
 		<Link
-			key={value ?? "any"}
+			key={key}
 			to={{ search: homeSearch(value, minutes) }}
 			replace
 			preventScrollReset
-			aria-current={value === param ? "true" : undefined}
+			aria-current={current ? "true" : undefined}
 			onClick={(e) => {
-				if (value === param) e.preventDefault()
+				if (current) e.preventDefault()
 			}}
 			className={CHIP}
 		>
@@ -497,9 +512,13 @@ function TopicChoice({
 			</h2>
 			{/* One line on phones, scrolled sideways, so Home's sections stay in view. */}
 			<div className="-mx-4 flex w-[calc(100%+2rem)] gap-2 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:w-auto md:min-w-0 md:flex-1 md:flex-wrap md:overflow-visible md:px-0">
-				{choice(null, t("home.topics.any"))}
-				{chips.map((topic) => choice(topic.id, topic.name))}
-				{topics.different ? choice("different", t("home.topics.different")) : null}
+				{choice("any", null, !pick, t("home.topics.any"))}
+				{chips.map((topic) =>
+					choice(topic.id, { id: topic.id, different: false }, topic.id === chosenId, topic.name),
+				)}
+				{different
+					? choice("different", different, !!pick?.different, t("home.topics.different"))
+					: null}
 				{rest.length ? (
 					<MoreMenu
 						label={t("home.topics.moreLabel")}
@@ -512,7 +531,11 @@ function TopicChoice({
 						}
 					>
 						{rest.map((topic) => (
-							<MenuNavLink key={topic.id} to={homeSearch(topic.id, minutes)} replace>
+							<MenuNavLink
+								key={topic.id}
+								to={homeSearch({ id: topic.id, different: false }, minutes)}
+								replace
+							>
 								{topic.name}
 							</MenuNavLink>
 						))}

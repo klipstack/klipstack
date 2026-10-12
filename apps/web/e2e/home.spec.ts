@@ -631,14 +631,21 @@ test("home narrows to a topic: the biggest as chips, the rest under More, someth
 	await expect(page.getByTestId("home-article")).toHaveCount(3)
 	await expect(heading).toContainText("Aeon")
 
-	// The smaller topics are under More; chosen, one shows as a chip.
+	// The smaller topics are under More; chosen, one shows as a chip. A topic keeps the time.
+	await page
+		.getByRole("group", { name: "How much time do you have?" })
+		.getByRole("link", { name: "30 min" })
+		.click()
+	await expect(heading).toContainText("30 minutes of Aeon")
 	await choice.getByRole("button", { name: "More topics" }).click()
 	await page.getByRole("menuitem", { name: "Minor" }).click()
 	await expect(choice.getByRole("link", { name: "Minor" })).toHaveAttribute("aria-current", "true")
+	await expect(heading).toContainText("30 minutes of Minor")
 	await expect(heading).toContainText("1 to read")
 
 	await choice.getByRole("link", { name: "Something different" }).click()
-	await expect(page).toHaveURL(/\?topic=different/)
+	await expect(page).toHaveURL(/&different/)
+	await expect(page).toHaveURL(/time=30/)
 	await expect(heading).toContainText("Craft")
 	await expect(heading).toContainText("a topic you haven't read from yet")
 	await expect(page.getByTestId("home-article")).toHaveCount(1)

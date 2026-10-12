@@ -58,10 +58,13 @@ export function HomeArticle({
 			)}
 			<div className={cn("flex min-w-0 flex-col", featured && "justify-center p-6 sm:p-8")}>
 				<p className="flex items-center gap-2 text-xs text-muted-fg">
-					<span className="truncate">
-						{sourceLabel(doc)}
-						{topic ? <span data-testid="home-article-topic"> · {topic}</span> : null}
-					</span>
+					<span className="truncate">{sourceLabel(doc)}</span>
+					{/* Its own span: a long source is cut, the topic stays. */}
+					{topic ? (
+						<span data-testid="home-article-topic" className="max-w-1/2 shrink-0 truncate">
+							· {topic}
+						</span>
+					) : null}
 					{doc.starredAt ? (
 						<Star
 							className="size-3.5 shrink-0 fill-favorite text-favorite"

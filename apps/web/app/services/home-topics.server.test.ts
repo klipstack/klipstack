@@ -120,6 +120,11 @@ beforeAll(async () => {
 	await sort("Both", "Writing", { probability: 0.95 })
 	await sort("Both", "Science", { probability: 0.6 })
 
+	// In topics no longer in use, or not confirmed: never offered, never a label.
+	await article(userId, { title: "Shelved" })
+	await sort("Shelved", "Proposed", { probability: 0.99 })
+	await sort("Shelved", "Removed", { probability: 0.98 })
+
 	await article(otherId, { title: "Their article" })
 	await sort("Their article", "Theirs")
 })
@@ -140,6 +145,12 @@ describe("homeTopics", () => {
 
 	it("offers as something different the topic read from least lately, never read first", async () => {
 		expect((await homeTopics(userId)).different).toBe(ids.Economics)
+	})
+
+	it("offers nothing different with a single topic: it would be the same one", async () => {
+		const { topics: list, different } = await homeTopics(otherId)
+		expect(list.map((t) => t.name)).toEqual(["Theirs"])
+		expect(different).toBeNull()
 	})
 
 	it("is empty for a reader without topics, and knows nothing different", async () => {
@@ -175,11 +186,13 @@ describe("Home's candidates in a topic", () => {
 })
 
 describe("topicLabels", () => {
-	it("names the topic each article fits best, and none for articles in no topic", async () => {
+	it("names the topic each article fits best; none when only nearly in, taken out, or in a topic not in use", async () => {
 		const labels = await topicLabels(userId, [
 			docIds.Both!,
 			docIds["Science 1"]!,
 			docIds["Science, nearly"]!,
+			docIds["Science, refused"]!,
+			docIds.Shelved!,
 		])
 		expect(labels).toEqual({ [docIds.Both!]: "Writing", [docIds["Science 1"]!]: "Science" })
 	})

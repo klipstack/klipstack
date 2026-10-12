@@ -38,7 +38,7 @@ export default {
 			toRead_one: "{{count}} por leer",
 			toRead_other: "{{count}} por leer",
 			differentNever: "Algo distinto: un tema del que aún no has leído nada.",
-			differentLeast: "Algo distinto: el tema del que menos has leído últimamente.",
+			differentLeast: "Algo distinto: el tema que hace más tiempo que no lees.",
 			all: "Todo en {{topic}}",
 			none_one: "Nada de {{topic}} cabe en {{count}} minuto.",
 			none_other: "Nada de {{topic}} cabe en {{count}} minutos.",
