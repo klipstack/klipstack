@@ -3,9 +3,13 @@
  * the quote cap on every item save and again at publish.
  */
 import { slugify } from "@klipstack/api-contract/names"
+import type { EditionCover } from "@klipstack/db"
 
 export const EDITION_TITLE_MAX = 200
 export const EDITION_INTRO_MAX = 5_000
+
+/** The database's `editionCovers`, here for the browser. The first is the default. */
+export const EDITION_COVERS = ["stack", "shelf"] as const satisfies readonly EditionCover[]
 
 /** Most highlights one item may quote. */
 export const QUOTES_MAX = 3

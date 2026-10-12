@@ -145,6 +145,9 @@ describe("the editor", () => {
 			ok: true,
 		})
 		expect((await post(id, { intent: "update", locale: "fr" })).init?.status).toBe(400)
+		expect((await post(id, { intent: "update", cover: "poster" })).init?.status).toBe(400)
+		expect(await post(id, { intent: "update", cover: "shelf" })).toMatchObject({ ok: true })
+		expect((await load(id)).edition.cover).toBe("shelf")
 		expect(await post(id, { intent: "publish" })).toEqual({ ok: true })
 		const data = await load(id)
 		expect(data).toMatchObject({ state: "live", changes: false })

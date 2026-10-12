@@ -88,6 +88,7 @@ describe("the edition card", () => {
 			intro: null,
 			authorName: "Ada Reader",
 			locale: "es",
+			cover: "stack" as const,
 			items: [],
 		}
 		const published = { publishedAt: new Date("2026-09-30T22:30:00Z"), timeZone: "Europe/Madrid" }

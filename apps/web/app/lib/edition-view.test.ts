@@ -28,6 +28,7 @@ const snapshot: EditionSnapshot = {
 	intro: null,
 	authorName: "Ada Reader",
 	locale: "en",
+	cover: "stack",
 	items: [
 		item,
 		{ ...item, url: "https://b.example/", title: "B", leadImageUrl: "https://img.example/b.jpg" },

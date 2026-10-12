@@ -252,6 +252,12 @@ describe("updateEdition", () => {
 		}
 		edition = await updateEdition(userId, edition.id, { title: "Good reads, autumn" })
 	})
+
+	it("starts with the stack as its cover, and takes the shelf", async () => {
+		expect(edition.cover).toBe("stack")
+		edition = await updateEdition(userId, edition.id, { cover: "shelf" })
+		expect(edition.cover).toBe("shelf")
+	})
 })
 
 /** Marks articles for the next edition, at these times, or takes the mark off (null). */
@@ -623,6 +629,7 @@ describe("publishEdition", () => {
 			intro: null,
 			authorName: "Ada Reader",
 			locale: "en",
+			cover: "shelf",
 		})
 		expect(snapshot!.items).toEqual([
 			{
@@ -690,6 +697,12 @@ describe("publishEdition", () => {
 		expect(updated.edition.republishedAt).toBeInstanceOf(Date)
 		expect(hasUnpublishedChanges(updated.edition)).toBe(false)
 		expect((await snapshotOf(edition.id))!.intro).toBe("What I read.\n\nMore.")
+	})
+
+	it("reads a page published before covers as the stack", () => {
+		const old = { v: 1, title: null, intro: null, authorName: "A", locale: "en", items: [] }
+		expect(parseSnapshot(old)?.cover).toBe("stack")
+		expect(parseSnapshot({ ...old, cover: "poster" })).toBeNull()
 	})
 
 	it("checks the quote cap again", async () => {
