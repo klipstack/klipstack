@@ -6,6 +6,8 @@ import {
 	documentTopics,
 	documentVersions,
 	eq,
+	inArray,
+	savedSearches,
 	sql,
 	topicLibraries,
 	topicSorts,
@@ -290,6 +292,24 @@ describe("correcting topics", () => {
 			code: "not_found",
 		})
 		await expect(renameTopic(userId, topic, "")).rejects.toMatchObject({ code: "invalid_request" })
+	})
+
+	it("takes the reader's saved searches along to the new name, and no one else's", async () => {
+		const topic = await active(userId, "Old Shelf", [])
+		await db.insert(savedSearches).values([
+			{ userId, name: "Shelf", query: 'topic:"old shelf" is:unread' },
+			{ userId: otherId, name: "Theirs", query: 'topic:"Old Shelf"' },
+		])
+		await renameTopic(userId, topic, "New Shelf")
+		const rows = await db
+			.select({ userId: savedSearches.userId, query: savedSearches.query })
+			.from(savedSearches)
+			.where(inArray(savedSearches.userId, [userId, otherId]))
+			.orderBy(savedSearches.name)
+		expect(rows).toEqual([
+			{ userId, query: 'topic:"New Shelf" is:unread' },
+			{ userId: otherId, query: 'topic:"Old Shelf"' },
+		])
 	})
 
 	it("removes a topic: its articles leave it, and its name stays taken", async () => {

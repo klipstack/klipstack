@@ -317,6 +317,61 @@ export function renameTagOperator(q: string, from: string, to: string): string {
 	return out.length > QUERY_MAX ? q : out
 }
 
+/** A topic's name as `topic:` can hold it: cleaned, without the quotes a name may have. */
+const topicKey = (name: string) => cleanTopicName(name.replaceAll('"', ""))?.toLowerCase()
+
+/**
+ * The same query with every `topic:` and `-topic:` of one topic pointing at the topics that took
+ * its place: renamed, merged into another, or split into several (one token each, which widen).
+ * Names match whatever their case and quotes. A token the change made a repeat of another one
+ * goes; the rest stays as typed. A result past `QUERY_MAX` leaves the query as it was.
+ */
+export function renameTopicOperator(q: string, from: string, to: string[]): string {
+	if (q.length > QUERY_MAX) return q
+	const old = topicKey(from)
+	const targets = new Set(to.map((name) => topicKey(name)))
+	const topicOf = (t: Token) => (t.key === "topic" && t.value ? topicKey(t.value) : undefined)
+	const tokens = parseSearchQuery(q).tokens
+	if (!old || !tokens.some((t) => topicOf(t) === old)) return q
+	// Of the topics that stay: one `topic:` and one `-topic:` of each at most.
+	const kept = new Set<string>()
+	let out = ""
+	let end = 0
+	for (const token of tokens) {
+		const topic = topicOf(token)
+		const dash = token.raw.startsWith("-") ? "-" : ""
+		let text = token.raw
+		if (topic === old) {
+			const fresh = to.filter((name) => !kept.has(`${dash}${topicKey(name)}`))
+			for (const name of fresh) kept.add(`${dash}${topicKey(name)}`)
+			text = fresh.map((name) => `${dash}${operatorText("topic", name)}`).join(" ")
+		} else if (topic !== undefined && targets.has(topic)) {
+			if (kept.has(`${dash}${topic}`)) text = ""
+			kept.add(`${dash}${topic}`)
+		}
+		if (!text) {
+			// A repeat goes with the space before it.
+			end = token.end
+			continue
+		}
+		out += q.slice(end, token.start) + text
+		end = token.end
+	}
+	out = (out + q.slice(end)).trim()
+	return out.length > QUERY_MAX ? q : out
+}
+
+/** The topics a query names in `topic:` or `-topic:`, as written, once each whatever the case. */
+export function topicsNamedIn(q: string): string[] {
+	const names = new Map<string, string>()
+	for (const token of parseSearchQuery(q).tokens)
+		if (token.kind === "operator" && token.key === "topic" && token.value) {
+			const key = topicKey(token.value) ?? token.value
+			if (!names.has(key)) names.set(key, token.value)
+		}
+	return [...names.values()]
+}
+
 /** Only the words, as typed. */
 export function textOnly(q: string): string {
 	return joined(parseSearchQuery(q).tokens.filter((t) => t.kind === "text"))

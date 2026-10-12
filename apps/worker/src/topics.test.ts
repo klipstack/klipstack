@@ -21,6 +21,7 @@ import {
 	topicSorts,
 	topics,
 	usageCounts,
+	savedSearches,
 	user,
 	userFeatures,
 } from "@klipstack/db"
@@ -628,6 +629,55 @@ describe("reviews", () => {
 		expect(await topicsOf(cats[1]!)).toEqual(["Big cats", "House cats"])
 		expect(await topicsOf(cats[0]!)).toEqual([])
 		expect(await topicsOf(dogs[0]!)).toEqual(["Dogs"])
+	})
+
+	it("take the reader's saved searches along to the topics that replace one", async () => {
+		let changes: ReviewChange[] = []
+		const { deps, calls } = await reviewing(() => changes)
+		const [catsTopic, dogsTopic] = [await topicNamed("Cats"), await topicNamed("Dogs")]
+		const queries = ["topic:Cats is:unread", "-topic:dogs", "topic:Cats topic:Dogs", "tag:Cats"]
+		await db
+			.insert(savedSearches)
+			.values(queries.map((query, i) => ({ userId, name: `Search ${i}`, query })))
+		changes = [
+			{
+				op: "split",
+				topicIds: [catsTopic.id],
+				into: [spec("House cats"), spec("Big cats")],
+				reason: "",
+			},
+			{ op: "rename", topicIds: [dogsTopic.id], into: [spec("Hounds")], reason: "" },
+		]
+		await many(20, "dogs")
+		await settle(deps, calls)
+		const saved = await db
+			.select({ query: savedSearches.query })
+			.from(savedSearches)
+			.where(eq(savedSearches.userId, userId))
+			.orderBy(savedSearches.name)
+		expect(saved.map((s) => s.query)).toEqual([
+			'topic:"House cats" topic:"Big cats" is:unread',
+			"-topic:Hounds",
+			'topic:"House cats" topic:"Big cats" topic:Hounds',
+			"tag:Cats",
+		])
+	})
+
+	it("take saved searches along to a merge, without repeats", async () => {
+		let changes: ReviewChange[] = []
+		const { deps, calls } = await reviewing(() => changes)
+		const [catsTopic, dogsTopic] = [await topicNamed("Cats"), await topicNamed("Dogs")]
+		await db.insert(savedSearches).values({ userId, name: "Both", query: "topic:Cats topic:Dogs" })
+		changes = [
+			{ op: "merge", topicIds: [catsTopic.id, dogsTopic.id], into: [spec("Pets")], reason: "" },
+		]
+		await many(20, "cats")
+		await settle(deps, calls)
+		const [saved] = await db
+			.select({ query: savedSearches.query })
+			.from(savedSearches)
+			.where(eq(savedSearches.userId, userId))
+		expect(saved?.query).toBe("topic:Pets")
 	})
 
 	it("only sharpen the description of a topic the reader named, and never take a removed name", async () => {

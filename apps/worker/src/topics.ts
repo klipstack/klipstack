@@ -13,6 +13,7 @@ import {
 	type TopicSpend,
 } from "@klipstack/ai"
 import { cleanTopicName } from "@klipstack/api-contract/names"
+import { renameTopicOperator } from "@klipstack/api-contract/search-query"
 import {
 	addUsage,
 	and,
@@ -30,6 +31,7 @@ import {
 	monthOf,
 	not,
 	notExists,
+	rewriteSavedQueries,
 	type SQL,
 	sql,
 	type Tx,
@@ -381,7 +383,7 @@ class Run {
 		const description = (spec: TopicSpec | undefined) => cleanDescription(spec?.description ?? "")
 		await this.write(async (tx) => {
 			const live = await tx
-				.select({ id: topics.id, namedByReader: topics.namedByReader })
+				.select({ id: topics.id, name: topics.name, namedByReader: topics.namedByReader })
 				.from(topics)
 				.where(
 					and(
@@ -405,6 +407,7 @@ class Run {
 					.update(topics)
 					.set({ description: sharpened, boundary, ...(name ? { name } : {}) })
 					.where(eq(topics.id, t.id))
+				if (name) await this.followInSavedSearches(tx, [t.name], [name])
 				await this.needsResort(tx, [t.id])
 			} else if (theirs) {
 				return
@@ -415,6 +418,11 @@ class Run {
 				)
 			} else if (change.op === "merge" && live.length >= 2 && first?.fresh) {
 				const merged = await this.createTopics(tx, [first.spec], "merged")
+				await this.followInSavedSearches(
+					tx,
+					live.map((t) => t.name),
+					merged.map((t) => t.name),
+				)
 				await this.carryRefusals(
 					tx,
 					live.map((t) => t.id),
@@ -435,6 +443,11 @@ class Run {
 					"split",
 				)
 				const ids = parts.map((p) => p.id)
+				await this.followInSavedSearches(
+					tx,
+					[live[0]!.name],
+					parts.map((p) => p.name),
+				)
 				await this.carryRefusals(tx, [live[0]!.id], ids)
 				await this.end(tx, [live[0]!.id])
 				await this.needsResort(tx, ids)
@@ -557,6 +570,18 @@ class Run {
 					description: topics.description,
 					boundary: topics.boundary,
 				})
+		)
+	}
+
+	/**
+	 * The reader's saved searches that name the topics `from` name the topics that took their place
+	 * instead: one for a rename or a merge, several for a split. With none (a model's name taken
+	 * meanwhile), they keep the old name, and the search page says it ended.
+	 */
+	async followInSavedSearches(tx: Tx, from: string[], to: string[]) {
+		if (to.length === 0) return
+		await rewriteSavedQueries(tx, this.userId, (query) =>
+			from.reduce((q, name) => renameTopicOperator(q, name, to), query),
 		)
 	}
 

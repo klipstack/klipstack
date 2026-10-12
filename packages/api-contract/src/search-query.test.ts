@@ -8,7 +8,9 @@ import {
 	QUERY_MAX,
 	removeOperator,
 	renameTagOperator,
+	renameTopicOperator,
 	textOnly,
+	topicsNamedIn,
 } from "./search-query"
 
 const filters = (q: string) => parseSearchQuery(q).filters
@@ -293,6 +295,59 @@ describe("a tag renamed in a query", () => {
 		const q = `${"z".repeat(QUERY_MAX - 6)} tag:a`
 		expect(renameTagOperator(q, "a", "a longer name")).toBe(q)
 		expect(renameTagOperator(q, "a", "b")).toBe(`${"z".repeat(QUERY_MAX - 6)} tag:b`)
+	})
+})
+
+describe("a topic renamed, merged or split in a query", () => {
+	it("points topic: and -topic: at the new name, quoting it when it has a space", () => {
+		expect(renameTopicOperator("is:unread topic:Writing site:x", "Writing", ["Craft"])).toBe(
+			"is:unread topic:Craft site:x",
+		)
+		expect(renameTopicOperator('-topic:"personal growth" zebra', "Personal Growth", ["Self"])).toBe(
+			"-topic:Self zebra",
+		)
+		expect(renameTopicOperator("topic:ml", "ML", ["Machine Learning"])).toBe(
+			'topic:"Machine Learning"',
+		)
+	})
+
+	it("matches names with quotes without them", () => {
+		expect(renameTopicOperator('topic:"Say No"', 'Say "No"', ['Say "Yes"'])).toBe('topic:"Say Yes"')
+	})
+
+	it("writes one token for each topic a split made, which widen", () => {
+		expect(renameTopicOperator("topic:Writing is:unread", "Writing", ["Craft", "Audience"])).toBe(
+			"topic:Craft topic:Audience is:unread",
+		)
+		expect(renameTopicOperator("-topic:Writing", "Writing", ["Craft", "Audience"])).toBe(
+			"-topic:Craft -topic:Audience",
+		)
+	})
+
+	it("drops the repeats a merge makes, and leaves other tokens alone", () => {
+		expect(renameTopicOperator("topic:Writing topic:Startups", "Writing", ["Startups"])).toBe(
+			"topic:Startups",
+		)
+		expect(renameTopicOperator("topic:Startups topic:Writing x", "Writing", ["Startups"])).toBe(
+			"topic:Startups x",
+		)
+		const q = 'topic:Writer topic:"Writing club" tag:Writing Writing "topic:Writing"'
+		expect(renameTopicOperator(q, "Writing", ["Craft"])).toBe(q)
+	})
+
+	it("leaves a query past the limit as it was", () => {
+		const q = `${"z".repeat(QUERY_MAX - 8)} topic:a`
+		expect(renameTopicOperator(q, "a", ["bbbbbbbb"])).toBe(q)
+	})
+})
+
+describe("topicsNamedIn", () => {
+	it("lists each topic once, as written, negated or not", () => {
+		expect(topicsNamedIn('topic:Writing -topic:"Personal Growth" topic:writing tag:x')).toEqual([
+			"Writing",
+			"Personal Growth",
+		])
+		expect(topicsNamedIn('Writing "topic:Writing"')).toEqual([])
 	})
 })
 
