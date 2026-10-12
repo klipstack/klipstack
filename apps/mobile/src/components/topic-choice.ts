@@ -1,31 +1,14 @@
 import type { NativeStackHeaderItem } from "expo-router/native-stack"
 import { useCallback, useSyncExternalStore } from "react"
 import { type TopicChoice, type TopicsInList, topicMenu } from "@/lib/library-topics"
-
-// Each list's topic, while the app runs: a list opened again shows the topic it had.
-const choices = new Map<string, TopicChoice>()
-const listeners = new Set<() => void>()
-
-function subscribe(listener: () => void) {
-	listeners.add(listener)
-	return () => {
-		listeners.delete(listener)
-	}
-}
-
-/** The topic a list shows now. */
-export function topicOf(view: string): TopicChoice {
-	return choices.get(view) ?? null
-}
+import { chooseTopic, onTopicChange, topicOf } from "@/lib/topic-choices"
 
 /** The topic a list (`view`) shows, and the way to change it; null for a list without topics. */
 export function useTopicChoice(view: string | null): [TopicChoice, (next: TopicChoice) => void] {
-	const topic = useSyncExternalStore(subscribe, () => (view ? topicOf(view) : null))
+	const topic = useSyncExternalStore(onTopicChange, () => (view ? topicOf(view) : null))
 	const set = useCallback(
 		(next: TopicChoice) => {
-			if (!view || topicOf(view) === next) return
-			choices.set(view, next)
-			for (const listener of listeners) listener()
+			if (view) chooseTopic(view, next)
 		},
 		[view],
 	)

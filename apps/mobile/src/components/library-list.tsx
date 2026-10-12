@@ -1,8 +1,8 @@
 import { TRASH_RETENTION_DAYS } from "@klipstack/api-contract/names"
 import { SEARCH_LIMIT_MAX } from "@klipstack/api-contract/search-query"
-import { type ArticleSummary, KlipstackApiError } from "@klipstack/sdk"
+import type { ArticleSummary } from "@klipstack/sdk"
 import { Stack, useFocusEffect } from "expo-router"
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useMemo, useRef, useState } from "react"
 import { ActivityIndicator, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native"
 import { useArticleActions } from "@/components/article-actions"
 import { ArticleList, type CardMenu, useImageHeaders } from "@/components/article-card"
@@ -12,14 +12,22 @@ import { usePagedList } from "@/components/paged-list"
 import { SELECTION_BAR_SPACE, SelectionBar } from "@/components/selection-bar"
 import { HeaderButtons, HeaderTextButton, SaveLinkButton } from "@/components/tab-stack"
 import { useTagSheet } from "@/components/tag-sheet"
-import { topicHeaderItem, topicOf, useTopicChoice } from "@/components/topic-choice"
+import { topicHeaderItem, useTopicChoice } from "@/components/topic-choice"
 import { retagged } from "@/lib/article-tags"
 import { useAuth } from "@/lib/auth"
 import { actedOn, bulkActions, bulkNotice, type LibraryView, stillShown } from "@/lib/bulk-actions"
-import { chosenTopic, type TopicsInList, topicStillThere } from "@/lib/library-topics"
+import {
+	chosenTopic,
+	keptOffline,
+	type TopicsInList,
+	topicEnded,
+	topicStillThere,
+	topicToAsk,
+} from "@/lib/library-topics"
 import { loadList, saveList } from "@/lib/offline"
 import { downloadAhead } from "@/lib/offline-download"
 import { useColors } from "@/lib/theme"
+import { topicOf } from "@/lib/topic-choices"
 
 const PAGE_SIZE = 30
 
@@ -67,24 +75,34 @@ export function LibraryList({
 		setGone(true)
 		setTopic(null)
 	}, [setTopic])
-	// The reader's topics with what each holds of this list: none while topics are off.
-	const [topics, setTopics] = useState<TopicsInList | null>(null)
+	// The reader's topics with what each holds of this list: none while topics are off. Loaded on
+	// each return here; an answer older than the latest is dropped. The "ended" note is for the
+	// load that dropped the topic only.
+	const [topics, setTopics] = useState<TopicsInList | "loading" | "failed">("loading")
+	const topicsAsked = useRef(0)
 	const loadTopics = useCallback(() => {
 		if (!client || !filterable) return
+		const mine = ++topicsAsked.current
+		setGone(false)
 		client.topics
 			.list({ view: filterable })
 			.then((answer) => {
+				if (mine !== topicsAsked.current) return
 				const next = { items: answer.items, none: answer.none ?? 0, sorting: answer.sorting ?? 0 }
 				setTopics(next)
 				const chosen = topicOf(filterable)
 				if (chosen && !topicStillThere(next, chosen)) ended()
 			})
-			.catch(() => {})
+			.catch(() => {
+				if (mine === topicsAsked.current) setTopics((now) => (now === "loading" ? "failed" : now))
+			})
 	}, [client, filterable, ended])
 	useFocusEffect(loadTopics)
+	// What the list asks for: the chosen topic once the topics confirm it (`topicToAsk`).
+	const asked = filterable ? topicToAsk(topic, topics) : null
 
 	const fetchPage = useMemo(() => {
-		if (!client) return null
+		if (!client || asked === undefined) return null
 		if (view) {
 			return async (limit: number, cursor?: string) => {
 				try {
@@ -93,11 +111,12 @@ export function LibraryList({
 						sort: "newest",
 						limit,
 						cursor,
-						topic: topic ?? undefined,
+						topic: asked ?? undefined,
 					})
 				} catch (e) {
-					// The topic ended, or topics were turned off, since the list loaded them.
-					if (topic && e instanceof KlipstackApiError && e.code === "not_found") ended()
+					// The topic ended, or topics were turned off, since the list loaded them; unless the
+					// reader chose another one since.
+					if (filterable && topicEnded(asked, e) && topicOf(filterable) === asked) ended()
 					throw e
 				}
 			}
@@ -107,19 +126,21 @@ export function LibraryList({
 			const page = await client.articles.search(query, { limit, offset: Number(cursor ?? 0) })
 			return { items: page.items, nextCursor: page.nextOffset?.toString() ?? null }
 		}
-	}, [client, view, query, topic, ended])
-	// Inbox and Starred are kept for offline reading, as on the web (src/lib/offline.ts); one topic's
-	// share of them is not the list to keep.
+	}, [client, view, query, asked, filterable, ended])
+	// Inbox and Starred are kept for offline reading, as on the web (src/lib/offline.ts). One topic's
+	// share of them is not the list to keep, nor to show offline: it gets the offline note alone.
 	const offline = useMemo(() => {
-		if (!client || (view !== "inbox" && view !== "starred") || topic) return undefined
+		if (!client || (view !== "inbox" && view !== "starred")) return undefined
+		const kept = keptOffline(view, asked ?? null)
 		return {
 			loaded: (items: ArticleSummary[]) => {
+				if (!kept) return
 				saveList(view, items)
 				void downloadAhead(client, view, items)
 			},
-			kept: () => loadList(view),
+			kept: () => (kept ? loadList(view) : null),
 		}
-	}, [client, view, topic])
+	}, [client, view, asked])
 	const list = usePagedList(fetchPage, PAGE_SIZE, view ? undefined : SEARCH_LIMIT_MAX, offline)
 	const { items, error, edit, load } = list
 	const select = useMultiSelect(items)
@@ -152,8 +173,9 @@ export function LibraryList({
 			: gone
 				? "That topic ended, so this shows every topic."
 				: null
-	const shown = topics && topic ? chosenTopic(topics, topic) : null
-	const topicMenu = filterable && topics?.items.length ? topics : null
+	const loaded = typeof topics === "object" ? topics : null
+	const shown = loaded && asked ? chosenTopic(loaded, asked) : null
+	const topicMenu = filterable && loaded?.items.length ? loaded : null
 	const buttons = (
 		<HeaderButtons>
 			{items?.length ? <HeaderTextButton label="Select" onPress={() => start()} /> : null}
@@ -174,7 +196,7 @@ export function LibraryList({
 								// With topics, the topic menu first: a native menu, which only these items can hold.
 								unstable_headerRightItems: topicMenu
 									? () => [
-											topicHeaderItem(topicMenu, topic, choose, colors.accent),
+											topicHeaderItem(topicMenu, asked ?? null, choose, colors.accent),
 											{ type: "custom", element: buttons, hidesSharedBackground: true },
 										]
 									: undefined,
@@ -235,7 +257,14 @@ export function LibraryList({
 				}
 				ListEmptyComponent={
 					<Text style={[styles.empty, { color: colors.mutedFg }]}>
-						{error ?? (items ? (topic ? "No articles in this topic here." : empty) : "Loading…")}
+						{error ??
+							(items
+								? asked === "none"
+									? "No articles without a topic here."
+									: asked
+										? "No articles in this topic here."
+										: empty
+								: "Loading…")}
 					</Text>
 				}
 			/>

@@ -69,6 +69,38 @@ export function topicStillThere(topics: TopicsInList, chosen: string): boolean {
 	return chosen === "none" || topics.items.some((t) => t.id === chosen)
 }
 
+/**
+ * The topic a list asks the server for: the chosen one once the reader's topics confirm it, so the
+ * list never shows one topic without saying which. Undefined while they load: the list waits.
+ * Every topic when they can't load (the menu is gone too), or the chosen one ended.
+ */
+export function topicToAsk(
+	chosen: TopicChoice,
+	topics: TopicsInList | "loading" | "failed",
+): TopicChoice | undefined {
+	if (chosen === null) return null
+	if (topics === "loading") return undefined
+	if (topics === "failed") return null
+	return topicStillThere(topics, chosen) ? chosen : null
+}
+
+/** Whether a list's load is the copy kept for offline reading: Inbox or Starred, every topic. */
+export function keptOffline(view: string, topic: TopicChoice): boolean {
+	return (view === "inbox" || view === "starred") && topic === null
+}
+
+/**
+ * Whether a failed load means the list's topic ended, or topics were turned off: the API answers
+ * `not_found` for a topic that is none of the reader's now.
+ */
+export function topicEnded(topic: TopicChoice, error: unknown): boolean {
+	return (
+		topic !== null &&
+		error instanceof Error &&
+		(error as Error & { code?: unknown }).code === "not_found"
+	)
+}
+
 /** The search for a topic's articles: `topic:` and its whole name. */
 export function topicQuery(name: string): string {
 	return addOperator("", "topic", name)

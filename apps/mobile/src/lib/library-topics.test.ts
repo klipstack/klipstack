@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest"
 import {
 	chosenTopic,
+	keptOffline,
+	topicToAsk,
 	searchHint,
 	topicMenu,
 	topicQuery,
 	type TopicsInList,
+	topicEnded,
 	topicStillThere,
 } from "./library-topics"
 
@@ -83,5 +86,37 @@ describe("topics in the search", () => {
 		expect(searchHint(true)).toBe(
 			"Search titles, text and notes. Try is:starred, site:example.com or has:topic, or a topic below.",
 		)
+	})
+})
+
+describe("a list narrowed to a topic", () => {
+	it("is not the copy of Inbox or Starred kept for offline reading", () => {
+		expect(keptOffline("inbox", null)).toBe(true)
+		expect(keptOffline("starred", null)).toBe(true)
+		expect(keptOffline("inbox", "t1")).toBe(false)
+		expect(keptOffline("starred", "none")).toBe(false)
+		expect(keptOffline("archive", null)).toBe(false)
+	})
+
+	it("learns that its topic ended from a not_found, and only with a topic", () => {
+		const notFound = Object.assign(new Error("No topic"), { code: "not_found" })
+		expect(topicEnded("t1", notFound)).toBe(true)
+		expect(topicEnded(null, notFound)).toBe(false)
+		expect(topicEnded("t1", Object.assign(new Error("Slow"), { code: "rate_limited" }))).toBe(false)
+		expect(topicEnded("t1", new TypeError("Network request failed"))).toBe(false)
+	})
+})
+
+describe("the topic a list asks for", () => {
+	it("is the chosen one once the reader's topics confirm it, and waits for them", () => {
+		expect(topicToAsk(null, "loading")).toBeNull()
+		expect(topicToAsk("w", "loading")).toBeUndefined()
+		expect(topicToAsk("w", topics)).toBe("w")
+		expect(topicToAsk("none", topics)).toBe("none")
+	})
+
+	it("is every topic when the topics can't load, or the chosen one ended", () => {
+		expect(topicToAsk("w", "failed")).toBeNull()
+		expect(topicToAsk("ended", topics)).toBeNull()
 	})
 })
