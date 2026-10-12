@@ -446,11 +446,14 @@ export function MenuNavLink({
 	to,
 	state,
 	current = false,
+	replace = false,
 	children,
 }: {
 	icon?: React.ReactNode
 	to: string
 	state?: unknown
+	/** Replaces the page in the history, keeping the scroll: a choice on the page, not a new page. */
+	replace?: boolean
 	/** The page shows this destination already. */
 	current?: boolean
 	children: React.ReactNode
@@ -460,6 +463,8 @@ export function MenuNavLink({
 		<Link
 			to={to}
 			state={state}
+			replace={replace}
+			preventScrollReset={replace}
 			role="menuitem"
 			aria-current={current ? "page" : undefined}
 			onClick={close}

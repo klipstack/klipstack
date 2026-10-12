@@ -2,12 +2,16 @@ import { createHash } from "node:crypto"
 import {
 	db,
 	documents,
+	documentTopics,
 	documentVersions,
 	eq,
 	feeds,
 	feedItems,
 	subscriptions,
 	notifyDocumentEvent,
+	topicLibraries,
+	topicSorts,
+	topics,
 	user,
 } from "@klipstack/db"
 import { expect, test } from "@playwright/test"
@@ -548,4 +552,104 @@ test("Home says what was finished this past week, and leaves tidying up out", as
 	// On a phone the greeting is in the top bar; the line opens the page.
 	await page.setViewportSize({ width: 390, height: 844 })
 	await expect(finished).toBeVisible()
+})
+
+test("home narrows to a topic: the biggest as chips, the rest under More, something different", async ({
+	page,
+}) => {
+	test.setTimeout(60_000)
+	const email = await signupUser(page, "Topic Home Reader", { features: ["topics"] })
+	const [owner] = await db.select({ id: user.id }).from(user).where(eq(user.email, email))
+	const userId = owner!.id
+	// Confirmed topics and a sorted library, as the worker leaves them: it has nothing left to do.
+	await db.insert(topicLibraries).values({
+		userId,
+		proposedAt: new Date(),
+		confirmedAt: new Date(),
+		librarySortedAt: new Date(),
+	})
+	const toRead = { Psyche: 4, Aeon: 3, Ideas: 2, Notes: 2, Craft: 1, Minor: 1 }
+	for (const [name, count] of Object.entries(toRead)) {
+		const [topic] = await db
+			.insert(topics)
+			.values({ userId, name, description: `About ${name}`, status: "active", origin: "first" })
+			.returning({ id: topics.id })
+		// Each topic read from once, but Craft: never, so it is the different one.
+		const read = name === "Craft" ? 0 : 1
+		for (let i = 0; i < count + read; i++) {
+			const id = await insertArticle(userId, `${name} essay ${i + 1}`, `<p>${name}</p>`)
+			await db
+				.update(documents)
+				.set(
+					i < count
+						? { readingMinutes: 10 }
+						: { readingMinutes: 10, readAt: new Date(), archivedAt: new Date() },
+				)
+				.where(eq(documents.id, id))
+			await db
+				.insert(documentTopics)
+				.values({ documentId: id, topicId: topic!.id, probability: 0.9, level: "applied" })
+			await db.insert(topicSorts).values({ documentId: id, userId })
+		}
+	}
+
+	await page.goto("/home")
+	await waitForHydration(page)
+	const choice = page.getByRole("group", { name: "About what?" })
+	await expect(choice.getByRole("link")).toHaveText([
+		"Anything",
+		"Psyche",
+		"Aeon",
+		"Ideas",
+		"Notes",
+		"Something different",
+	])
+	await expect(choice.getByRole("link", { name: "Anything" })).toHaveAttribute(
+		"aria-current",
+		"true",
+	)
+	// Each card says its topic.
+	await expect(page.getByTestId("home-article-topic").first()).toBeVisible()
+
+	await choice.getByRole("link", { name: "Aeon" }).click()
+	await expect(page).toHaveURL(/\?topic=/)
+	const heading = page.getByTestId("home-topic")
+	await expect(heading).toContainText("Aeon")
+	await expect(heading).toContainText("3 to read")
+	await expect(page.getByTestId("home-article")).toHaveCount(3)
+	for (const title of await page.getByTestId("home-article").locator("h3").allTextContents())
+		expect(title).toContain("Aeon")
+
+	// With a time: none of them fits in 5 minutes; any length keeps the topic.
+	await page
+		.getByRole("group", { name: "How much time do you have?" })
+		.getByRole("link", { name: "5 min", exact: true })
+		.click()
+	await expect(heading).toContainText("5 minutes of Aeon")
+	await expect(page.getByText("Nothing in Aeon fits in 5 minutes.")).toBeVisible()
+	await page.getByRole("link", { name: "Any length" }).click()
+	await expect(page.getByTestId("home-article")).toHaveCount(3)
+	await expect(heading).toContainText("Aeon")
+
+	// The smaller topics are under More; chosen, one shows as a chip. A topic keeps the time.
+	await page
+		.getByRole("group", { name: "How much time do you have?" })
+		.getByRole("link", { name: "30 min" })
+		.click()
+	await expect(heading).toContainText("30 minutes of Aeon")
+	await choice.getByRole("button", { name: "More topics" }).click()
+	await page.getByRole("menuitem", { name: "Minor" }).click()
+	await expect(choice.getByRole("link", { name: "Minor" })).toHaveAttribute("aria-current", "true")
+	await expect(heading).toContainText("30 minutes of Minor")
+	await expect(heading).toContainText("1 to read")
+
+	await choice.getByRole("link", { name: "Something different" }).click()
+	await expect(page).toHaveURL(/&different/)
+	await expect(page).toHaveURL(/time=30/)
+	await expect(heading).toContainText("Craft")
+	await expect(heading).toContainText("a topic you haven't read from yet")
+	await expect(page.getByTestId("home-article")).toHaveCount(1)
+
+	await choice.getByRole("link", { name: "Anything" }).click()
+	await expect(page.getByTestId("home-topic")).toHaveCount(0)
 })

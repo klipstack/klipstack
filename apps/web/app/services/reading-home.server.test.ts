@@ -304,6 +304,11 @@ describe("Home feed discovery", () => {
 		expect(home.candidates.recent).toEqual([])
 		expect((await readingHome(emptyId)).feed).toEqual([])
 	})
+	it("leaves feed posts out of a topic, which they are never in, and an empty topic is not an empty library", async () => {
+		const home = await readingHome(ownerId, { topicId: crypto.randomUUID() })
+		expect(home.feed).toEqual([])
+		expect(home.emptyState).toBeNull()
+	})
 	it("can use one active source without showing saved, opened, dismissed, or expired posts", async () => {
 		for (const id of viewedIds) await markFeedItemViewed(ownerId, id)
 		const home = await readingHome(ownerId)
