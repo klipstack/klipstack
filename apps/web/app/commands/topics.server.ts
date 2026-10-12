@@ -6,6 +6,7 @@ import {
 	db,
 	notInArray,
 	sql,
+	type Db,
 	type Tx,
 	documents,
 	documentTopics,
@@ -16,6 +17,7 @@ import {
 	topicSorts,
 	topics,
 	rewriteSavedQueries,
+	user as userTable,
 } from "@klipstack/db"
 import { enqueue, QUEUES } from "@klipstack/queue"
 import { z } from "zod"
@@ -84,7 +86,10 @@ async function nameTaken(tx: Tx, userId: string, name: string, except: string[] 
  */
 export async function enableTopics(userId: string): Promise<void> {
 	await mayUseTopics(userId)
-	await db.insert(topicLibraries).values({ userId }).onConflictDoNothing()
+	await db.transaction(async (tx) => {
+		await tx.insert(topicLibraries).values({ userId }).onConflictDoNothing()
+		await endInvitation(tx, userId)
+	})
 	await queueRun(userId)
 }
 
@@ -121,6 +126,25 @@ export async function dismissTopicsCard(userId: string): Promise<void> {
 		.update(topicLibraries)
 		.set({ cardDismissedAt: new Date() })
 		.where(and(eq(topicLibraries.userId, userId), isNull(topicLibraries.cardDismissedAt)))
+}
+
+/**
+ * Home's invitation to turn topics on is over, for good: "No thanks" on it, or the Topics page
+ * opened while topics are off.
+ */
+export async function endTopicsInvitation(userId: string): Promise<void> {
+	await mayChangeTopics(userId)
+	await endInvitation(db, userId)
+}
+
+/** Marks the invitation over, keeping the first time it ended. */
+async function endInvitation(tx: Db | Tx, userId: string) {
+	await tx
+		.update(userTable)
+		.set({
+			prefs: sql`${userTable.prefs} || jsonb_build_object('topicsInvitationEndedAt', ${new Date().toISOString()}::text)`,
+		})
+		.where(and(eq(userTable.id, userId), sql`not (${userTable.prefs} ? 'topicsInvitationEndedAt')`))
 }
 
 const Confirmation = z.object({

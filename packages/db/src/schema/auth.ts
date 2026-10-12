@@ -52,6 +52,11 @@ export interface UserPrefs {
 	 */
 	reviewSuggestAfter?: string | null
 	/**
+	 * Home's invitation to turn topics on is over: declined, the Topics page opened while topics were
+	 * off, or topics turned on (ISO, when). It does not come back. Only the server writes it.
+	 */
+	topicsInvitationEndedAt?: string | null
+	/**
 	 * Public editions link to the author's previous and next ones. Off by default: each edition was
 	 * published as unlisted on its own.
 	 */

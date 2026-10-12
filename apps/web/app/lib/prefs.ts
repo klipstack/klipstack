@@ -8,6 +8,7 @@ export const DEFAULT_PREFS: Required<UserPrefs> = {
 	shortcuts: "on",
 	editionsNudgeAfter: null,
 	reviewSuggestAfter: null,
+	topicsInvitationEndedAt: null,
 	linkEditions: "off",
 }
 
