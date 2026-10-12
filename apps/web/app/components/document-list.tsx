@@ -18,6 +18,7 @@ export function DocumentList({
 	onVanish,
 	selection,
 	cardMenu,
+	keepsArchived = false,
 	className,
 }: {
 	items: LibraryCard[]
@@ -29,6 +30,8 @@ export function DocumentList({
 	selection?: ListSelection
 	/** Menu items the list adds to each card's ⋯ (`DocumentCard`'s `menuItems`). */
 	cardMenu?: (doc: LibraryCard) => React.ReactNode
+	/** The list shows archived and unarchived articles alike: archiving one does not take it out. */
+	keepsArchived?: boolean
 	className?: string
 }) {
 	const { t, i18n } = useTranslation("library")
@@ -62,6 +65,7 @@ export function DocumentList({
 							checked={selection?.checked.has(doc.id) ?? false}
 							selecting={selection?.selecting ?? false}
 							onCheck={selection?.toggle}
+							keepsArchived={keepsArchived}
 							pendingIntent={
 								typeof bulkIntent === "string" && bulkIds.has(doc.id) ? bulkIntent : null
 							}

@@ -12,7 +12,13 @@ import {
 } from "@klipstack/db"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import { updateArticle } from "~/commands/articles.server"
-import { operatorValues, quickFind, recentDocuments, searchDocuments } from "./search.server"
+import {
+	keepsArchived,
+	operatorValues,
+	quickFind,
+	recentDocuments,
+	searchDocuments,
+} from "./search.server"
 
 const userId = `test-search-${Date.now()}`
 /** Owns the extracted articles, so they stay out of the first user's recent list. */
@@ -513,5 +519,25 @@ describe("operatorValues", () => {
 			"example.com",
 		])
 		expect(await operatorValues({ userId, key: "author", q: "" })).toEqual([])
+	})
+})
+
+describe("keepsArchived", () => {
+	it("holds when the results are the library and the archive together", () => {
+		expect(keepsArchived("quokka")).toBe(true)
+		expect(keepsArchived("quokka in:anywhere")).toBe(true)
+		expect(keepsArchived("quokka in:library in:archive")).toBe(true)
+		expect(keepsArchived("quokka -in:trash")).toBe(true)
+		expect(keepsArchived("quokka is:starred")).toBe(true)
+	})
+
+	it("does not when archiving or unarchiving takes an article out", () => {
+		expect(keepsArchived("quokka in:library")).toBe(false)
+		expect(keepsArchived("quokka in:archive")).toBe(false)
+		expect(keepsArchived("quokka in:trash")).toBe(false)
+		expect(keepsArchived("quokka -in:archive")).toBe(false)
+		expect(keepsArchived("quokka in:anywhere -in:library")).toBe(false)
+		// Read as the search reads it.
+		expect(keepsArchived("quokka in:archive\u0000")).toBe(false)
 	})
 })

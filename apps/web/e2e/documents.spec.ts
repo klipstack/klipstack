@@ -1,6 +1,15 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { and, db, documents, eq, readingCompletions, user } from "@klipstack/db"
+import {
+	and,
+	db,
+	documents,
+	documentTopics,
+	eq,
+	readingCompletions,
+	topics,
+	user,
+} from "@klipstack/db"
 import { expect, type Page, test } from "@playwright/test"
 import { signupUser, waitForHydration } from "./helpers"
 import { insertArticle } from "./seed"
@@ -770,3 +779,153 @@ test.describe(() => {
 		await expect(page.getByRole("link", { name: "Undo order" })).toBeVisible()
 	})
 })
+
+/**
+ * The lists that keep archived articles: where articles are put there, newest last, and the list's
+ * address.
+ */
+const KEEPING_LISTS = [
+	{
+		list: "starred",
+		put: async (_userId: string, ids: string[]) => {
+			for (const id of ids)
+				await db.update(documents).set({ starredAt: new Date() }).where(eq(documents.id, id))
+			return "/starred"
+		},
+	},
+	{
+		list: "a topic",
+		put: async (userId: string, ids: string[]) => {
+			const [topic] = await db
+				.insert(topics)
+				.values({ userId, name: "Keepers", description: "Kept", status: "active", origin: "first" })
+				.returning({ id: topics.id })
+			await db.insert(documentTopics).values(
+				ids.map((id) => ({
+					documentId: id,
+					topicId: topic!.id,
+					probability: 1,
+					level: "applied" as const,
+				})),
+			)
+			return `/topics/${topic!.id}`
+		},
+	},
+	// Without an `in:`, search looks in the library and the archive.
+	{ list: "search", put: async () => "/search?q=kept%20sort:newest" },
+]
+
+test.describe(() => {
+	// The service worker would take the requests the test holds back.
+	test.use({ serviceWorkers: "block" })
+	for (const { list, put } of KEEPING_LISTS)
+		test(`archiving in ${list} keeps the card, which shows its new state at once`, async ({
+			page,
+		}) => {
+			const email = await signupUser(page, "Keeping list", { features: ["topics"] })
+			const owner = await db.query.user.findFirst({ where: eq(user.email, email) })
+			// Archived: an undo about another card must not bring it back.
+			const other = await insertArticle(owner!.id, "Kept bystander", "<p>Delta echo.</p>")
+			await db.update(documents).set({ archivedAt: new Date() }).where(eq(documents.id, other))
+			const id = await insertArticle(owner!.id, "Kept card", "<p>Alpha bravo charlie.</p>")
+			await page.goto(await put(owner!.id, [other, id]))
+			await waitForHydration(page)
+			const card = page.locator("li").filter({ has: page.getByRole("link", { name: "Kept card" }) })
+			await expect(card).toBeVisible()
+			// Each change is held on its way, so the card shows what it does before the page reloads.
+			const held: (() => void)[] = []
+			await page.route(`**/documents/${id}/state*`, async (route) => {
+				await new Promise<void>((resolve) => held.push(resolve))
+				await route.continue()
+			})
+			const release = async () => {
+				await expect.poll(() => held.length).toBe(1)
+				held.shift()!()
+			}
+
+			// e archives the article under the cursor: the card stays, under the cursor, ready to move back.
+			await page.keyboard.press("j")
+			await expect(card).toHaveAttribute("data-cursor")
+			const archived = stateSaved(page, "archive")
+			await page.keyboard.press("e")
+			const toast = page.getByRole("status").filter({ hasText: "Archived" })
+			await expect(toast).toBeVisible()
+			await expect(card.getByRole("button", { name: "Move to library" })).toBeVisible()
+			await expect(card).toHaveAttribute("data-cursor")
+			await release()
+			await archived
+			await expect.poll(async () => await archivedAt(id)).not.toBeNull()
+			await expect(card.getByRole("button", { name: "Move to library" })).toBeVisible()
+
+			// The toast's undo puts it back; the card stays through that too.
+			const undone = stateSaved(page, "undo-archive")
+			await toast.getByRole("button", { name: "Undo" }).click()
+			await expect.poll(() => held.length).toBe(1)
+			await expect(card.getByRole("button", { name: "Archive", exact: true })).toBeVisible()
+			await expect(card).toHaveAttribute("data-cursor")
+			// Only the card the undo is about.
+			const bystander = page
+				.locator("li")
+				.filter({ has: page.getByRole("link", { name: "Kept bystander" }) })
+			await expect(bystander.getByRole("button", { name: "Move to library" })).toBeVisible()
+			await release()
+			await undone
+			await expect.poll(async () => await archivedAt(id)).toBeNull()
+			await expect(card.getByRole("button", { name: "Archive", exact: true })).toBeVisible()
+
+			// The card's own button: the same, while the change is on its way.
+			const again = stateSaved(page, "archive")
+			await card.getByRole("button", { name: "Archive", exact: true }).click()
+			await expect(card.getByRole("button", { name: "Move to library" })).toBeVisible()
+			await release()
+			await again
+			await expect(card.getByRole("button", { name: "Move to library" })).toBeVisible()
+			await expect(card).toHaveAttribute("data-cursor")
+
+			// And back to the library from here: still in place.
+			const back = stateSaved(page, "unarchive")
+			await card.getByRole("button", { name: "Move to library" }).click()
+			await expect(card.getByRole("button", { name: "Archive", exact: true })).toBeVisible()
+			await release()
+			await back
+			await expect.poll(async () => await archivedAt(id)).toBeNull()
+			await expect(card.getByRole("button", { name: "Archive", exact: true })).toBeVisible()
+		})
+
+	for (const [list, path] of [
+		["the library", "/library"],
+		["a search of the library", "/search?q=card%20in:library%20sort:newest"],
+	] as const)
+		test(`archiving in ${list} takes the card out at once, and the cursor moves on`, async ({
+			page,
+		}) => {
+			const email = await signupUser(page, "Leaving list")
+			const owner = await db.query.user.findFirst({ where: eq(user.email, email) })
+			await insertArticle(owner!.id, "Older card", "<p>Delta echo.</p>")
+			const id = await insertArticle(owner!.id, "Leaving card", "<p>Alpha bravo charlie.</p>")
+			await page.goto(path)
+			await waitForHydration(page)
+			const link = page.getByRole("link", { name: "Leaving card" })
+			await expect(link).toBeVisible()
+			// Held on its way: the card is gone before the page reloads its data.
+			let release = () => {}
+			await page.route(`**/documents/${id}/state*`, async (route) => {
+				await new Promise<void>((resolve) => (release = resolve))
+				await route.continue()
+			})
+			await page.keyboard.press("j")
+			await expect(page.locator("li[data-cursor]")).toContainText("Leaving card")
+			const archived = stateSaved(page, "archive")
+			await page.keyboard.press("e")
+			await expect(link).toHaveCount(0)
+			await expect(page.locator("li[data-cursor]")).toContainText("Older card")
+			release()
+			await archived
+			await expect(link).toHaveCount(0)
+		})
+})
+
+async function archivedAt(id: string) {
+	const row = await db.query.documents.findFirst({ where: eq(documents.id, id) })
+	return row?.archivedAt ?? null
+}

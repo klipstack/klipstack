@@ -23,7 +23,7 @@ import { useCommands } from "~/lib/commands"
 import { copyLink } from "~/lib/copy-link"
 import { type ArticleShortcut, articleShortcut, SELECT_HINT, SHORTCUT_HINTS } from "~/lib/shortcuts"
 import { safeHost, siteLabel } from "~/lib/site-label"
-import { showToast } from "~/lib/toast"
+import { showToast, UNDO_FETCHER } from "~/lib/toast"
 import { cn } from "~/lib/utils"
 import type { LibraryCard } from "~/services/documents.server"
 import { ArticleImage } from "./article-image"
@@ -36,7 +36,8 @@ import { tooltip } from "./tooltip-host"
  * (star, archive, delete, unread, open) and reports through `onVanish` when it leaves the list so
  * the cursor can move on. Moving the cursor is the list's job. `checked` is multi-select: while the
  * list is `selecting`, a click on the card toggles it (`onCheck`) and the selection bar has the
- * actions, so the card's own buttons and keys step aside.
+ * actions, so the card's own buttons and keys step aside. `keepsArchived`: the list shows archived
+ * and unarchived articles alike (starred), so archiving one leaves the card where it is.
  */
 export function DocumentCard({
 	doc,
@@ -47,6 +48,7 @@ export function DocumentCard({
 	onCheck,
 	pendingIntent = null,
 	menuItems,
+	keepsArchived = false,
 }: {
 	doc: LibraryCard
 	cursor?: boolean
@@ -59,6 +61,7 @@ export function DocumentCard({
 	pendingIntent?: string | null
 	/** What the list the card is in adds to its menu, before Delete: a topic's "Take out". */
 	menuItems?: React.ReactNode
+	keepsArchived?: boolean
 }) {
 	const { t } = useTranslation("library")
 	const { t: tc } = useTranslation()
@@ -69,7 +72,15 @@ export function DocumentCard({
 	const from = location.pathname + location.search
 	const pending = doc.status === "queued" || doc.status === "processing"
 	const failed = doc.status === "failed"
-	const optimisticIntent = fetcher.formData?.get("intent") ?? pendingIntent
+	// The toast's Undo of an archive or unarchive of this card, on its way. The toast sends it once the
+	// card's own change has left, so it is the newer, unless the card is sending another change.
+	const undo = useFetcher({ key: UNDO_FETCHER })
+	const undoIntent = undo.formAction?.split("?")[0] === action ? undo.formData?.get("intent") : null
+	const optimisticIntent =
+		(fetcher.state === "submitting" ? fetcher.formData?.get("intent") : null) ??
+		(undoIntent === "undo-archive" || undoIntent === "archive" ? undoIntent : null) ??
+		fetcher.formData?.get("intent") ??
+		pendingIntent
 	const starred =
 		optimisticIntent === "star"
 			? true
@@ -82,14 +93,18 @@ export function DocumentCard({
 			: optimisticIntent === "unshortlist"
 				? false
 				: Boolean(doc.shortlistedAt)
+	// Finishing archives too.
+	const archived =
+		optimisticIntent === "archive" || optimisticIntent === "finish"
+			? true
+			: optimisticIntent === "unarchive" || optimisticIntent === "undo-archive"
+				? false
+				: Boolean(doc.archivedAt)
 	const hidden =
-		optimisticIntent === "archive" ||
-		optimisticIntent === "unarchive" ||
 		optimisticIntent === "delete" ||
 		optimisticIntent === "restore" ||
 		optimisticIntent === "purge" ||
-		// Finishing archives: it leaves as archiving does.
-		(optimisticIntent === "finish" && !doc.archivedAt)
+		(!keepsArchived && archived !== Boolean(doc.archivedAt))
 	const trashed = Boolean(doc.deletedAt)
 	const unread =
 		optimisticIntent === "unread" ||
@@ -111,7 +126,7 @@ export function DocumentCard({
 	const image = doc.leadImageAssetId ? `/assets/${doc.leadImageAssetId}` : doc.leadImageUrl
 	const picture = image && !pending ? image : null
 	const description = doc.status === "ready" ? doc.description : null
-	const archiving = !doc.archivedAt
+	const archiving = !archived
 	const canUnread =
 		Boolean(doc.firstOpenedAt) && doc.status === "ready" && optimisticIntent !== "unread"
 	const undoable = (intent: "archive" | "unarchive" | "delete") => {
@@ -523,10 +538,10 @@ export function DocumentCard({
 					>
 						<input type="hidden" name="intent" value={archiving ? "archive" : "unarchive"} />
 						<IconButton
-							label={doc.archivedAt ? t("card.unarchive") : t("card.archive")}
+							label={archiving ? t("card.archive") : t("card.unarchive")}
 							hint={SHORTCUT_HINTS.archive}
 						>
-							{doc.archivedAt ? (
+							{!archiving ? (
 								<ArchiveRestore className="size-4" aria-hidden />
 							) : (
 								<Archive className="size-4" aria-hidden />
