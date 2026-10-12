@@ -1,7 +1,19 @@
 import { z } from "zod"
 import { binary, defineEndpoint, json } from "../endpoint"
 import { HIGHLIGHT_FILTERS } from "../enums"
-import { FeedPage, FollowedFeed, Highlight, Id, page, SavedSearch, Tag, Topic } from "../schemas"
+import {
+	FeedPage,
+	FollowedFeed,
+	Highlight,
+	Id,
+	page,
+	SavedSearch,
+	Tag,
+	Topic,
+	TOPIC_LATEST_MAX,
+	TOPICS_STAGES,
+	Time,
+} from "../schemas"
 
 export const getAsset = defineEndpoint({
 	id: "assets.get",
@@ -79,15 +91,29 @@ export const listTopics = defineEndpoint({
 	path: "/topics",
 	scope: "read",
 	summary:
-		"The user's automatic topics, which the app keeps up to date, most articles first: empty while topics are off. Search with topic:<name> (repeated, any of them), or list one with GET /articles?topic=<id>. With `view`, each topic's articles in that list (`inView`, most first), and the list's articles in no topic (`none`) and not sorted yet (`sorting`), as a list's topic choice shows them.",
-	query: z.object({ view: z.enum(["inbox", "archive", "starred"]).optional() }),
+		"The user's automatic topics, which the app keeps up to date, most articles first, and the `stage` they are in: `items` is empty until it is `active`. Search with topic:<name> (repeated, any of them), or list one with GET /articles?topic=<id> (`view=all` for the whole library). With `view`, each topic's articles in that list (`inView`, most first), and the list's articles in no topic (`none`) and not sorted yet (`sorting`), as a list's topic choice shows them. With `latest`, each topic's newest articles, as a shelf shows them.",
+	query: z.object({
+		view: z.enum(["inbox", "archive", "starred"]).optional(),
+		/** Each topic's newest articles to include (`latest`), up to this many. */
+		latest: z.coerce.number().int().min(1).max(TOPIC_LATEST_MAX).optional(),
+	}),
 	response: json(
 		z.object({
+			stage: z.enum(TOPICS_STAGES),
 			items: z.array(Topic),
+			/** While `waiting` or `proposing`: the library's articles, and how many the first topics need. */
+			progress: z.object({ count: z.number().int(), needed: z.number().int() }).optional(),
+			/** While `proposed`: the first topics, which the reader confirms in the web app. */
+			proposed: z.array(z.object({ id: Id, name: z.string(), description: z.string() })).optional(),
+			/** While `active`: the library's articles not sorted yet; with `view`, that list's. */
+			sorting: z.number().int().optional(),
+			/**
+			 * While `active`: null, or the month's sorts are spent and articles wait. `resumesAt` is when
+			 * sorting starts again; null when this server sorts none at all.
+			 */
+			sortingPaused: z.object({ resumesAt: Time.nullable() }).nullable().optional(),
 			/** With `view`, while topics are on: the list's articles sorted into no topic. */
 			none: z.number().int().optional(),
-			/** With `view`, while topics are on: the list's articles not sorted yet. */
-			sorting: z.number().int().optional(),
 		}),
 	),
 	errors: [],

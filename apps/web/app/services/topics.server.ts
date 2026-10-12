@@ -97,7 +97,16 @@ const inLibrary = (userId: string) =>
 		isNull(documents.deletedAt),
 	)
 
-export async function topicsState(userId: string): Promise<TopicsState> {
+/** Whether the account is offered topics: the feature, and the models that write and sort them. */
+export async function topicsOffered(userId: string): Promise<boolean> {
+	return topicModels.available && (await hasFeature(userId, "topics"))
+}
+
+/** The reader's topics, in whichever stage. `shelves: false` leaves the books out (the API's). */
+export async function topicsState(
+	userId: string,
+	{ shelves = true }: { shelves?: boolean } = {},
+): Promise<TopicsState> {
 	const [library] = await db.select().from(topicLibraries).where(eq(topicLibraries.userId, userId))
 	const empty = {
 		count: 0,
@@ -125,7 +134,7 @@ export async function topicsState(userId: string): Promise<TopicsState> {
 		stage: status,
 		count: total,
 		needed,
-		topics: await summaries(userId, status),
+		topics: await summaries(userId, status, { shelves }),
 		unseen: !library.confirmedAt && !library.seenAt,
 		sorting,
 		sortsPaused: sorting > 0 ? await sortsPaused(userId) : null,
@@ -216,6 +225,55 @@ async function books(userId: string) {
 		shelves.set(topicId, shelf)
 	}
 	return shelves
+}
+
+/**
+ * Each active topic's newest `limit` articles, newest saved first, as the library lists them: by
+ * topic. One ranked query for every topic, then their cards.
+ */
+export async function latestInTopics(
+	userId: string,
+	limit: number,
+): Promise<Map<string, LibraryCard[]>> {
+	const ranked = db
+		.select({
+			topicId: documentTopics.topicId,
+			id: documents.id,
+			rank: sql<number>`row_number() over (partition by ${documentTopics.topicId} order by ${documents.createdAt} desc, ${documents.id})`.as(
+				"rank",
+			),
+		})
+		.from(topics)
+		.innerJoin(documentTopics, applied)
+		.innerJoin(documents, and(eq(documents.id, documentTopics.documentId), inLibrary(userId)))
+		.where(and(eq(topics.userId, userId), eq(topics.status, "active")))
+		.as("ranked")
+	const rows = await db
+		.select({ topicId: ranked.topicId, id: ranked.id })
+		.from(ranked)
+		.where(sql`${ranked.rank} <= ${limit}`)
+		.orderBy(asc(ranked.rank))
+	const latest = new Map<string, LibraryCard[]>()
+	if (!rows.length) return latest
+	const cards = await db
+		.select(libraryCardColumns)
+		.from(documents)
+		.where(
+			and(
+				eq(documents.userId, userId),
+				inArray(
+					documents.id,
+					rows.map((row) => row.id),
+				),
+			),
+		)
+	const byId = new Map(cards.map((card) => [card.id, card]))
+	for (const { topicId, id } of rows) {
+		const card = byId.get(id)
+		if (!card) continue
+		latest.set(topicId, [...(latest.get(topicId) ?? []), card])
+	}
+	return latest
 }
 
 /**

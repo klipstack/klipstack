@@ -8,17 +8,19 @@ import type {
 	listSavedSearches as listSavedSearchesEndpoint,
 	listTags as listTagsEndpoint,
 	listTopics as listTopicsEndpoint,
+	Topic,
 } from "@klipstack/api-contract"
 import { and, assets, db, eq } from "@klipstack/db"
 import { getStorage } from "@klipstack/storage"
 import { downloadResponse } from "~/lib/download-response.server"
+import { articleSummary } from "~/services/article-summary.server"
 import { getDocument } from "~/services/documents.server"
 import { downloadExport } from "~/services/export.server"
 import { listFeedPage, listFollowedFeeds } from "~/services/feeds.server"
 import { listUserHighlights } from "~/services/highlights.server"
 import { listSavedSearches } from "~/services/saved-searches.server"
 import { listTags } from "~/services/tags.server"
-import { listTopics, topicList } from "~/services/topics.server"
+import { latestInTopics, listTopics, topicsOffered, topicsState } from "~/services/topics.server"
 import {
 	encodeFeedCursor,
 	encodeHighlightCursor,
@@ -145,19 +147,48 @@ export const tags: Handler<typeof listTagsEndpoint> = async ({ userId }) => ({
 })
 
 export const topics: Handler<typeof listTopicsEndpoint> = async ({ userId, query }) => {
-	const items = await topicList(userId)
-	if (!query.view || items.length === 0) return { items }
+	if (!(await topicsOffered(userId))) return { stage: "unavailable" as const, items: [] }
+	const state = await topicsState(userId, { shelves: false })
+	const active = state.stage === "active"
+	const latest = active && query.latest ? await latestInTopics(userId, query.latest) : null
+	let items: Topic[] = active
+		? state.topics.map(({ id, name, description, articles, recent }) => ({
+				id,
+				name,
+				description,
+				articles,
+				savedThisWeek: recent,
+				...(latest ? { latest: (latest.get(id) ?? []).map(articleSummary) } : {}),
+			}))
+		: []
+	const answer = {
+		stage: state.stage,
+		items,
+		...(state.stage === "waiting" || state.stage === "proposing"
+			? { progress: { count: state.count, needed: state.needed } }
+			: {}),
+		...(state.stage === "proposed"
+			? { proposed: state.topics.map(({ id, name, description }) => ({ id, name, description })) }
+			: {}),
+		...(active
+			? {
+					sorting: state.sorting,
+					sortingPaused: state.sortsPaused && {
+						// A server that sorts none at all starts again in no month.
+						resumesAt: state.sortsPaused.max === 0 ? null : state.sortsPaused.resetsAt,
+					},
+				}
+			: {}),
+	}
+	if (!query.view || items.length === 0) return answer
 	// One list's share, in the web's order: most in the list first.
 	const { topics, none, sorting } = await listTopics(userId, query.view, null)
 	const byId = new Map(items.map((t) => [t.id, t]))
-	return {
-		items: topics.flatMap((t) => {
-			const topic = byId.get(t.id)
-			return topic ? [{ ...topic, inView: t.count }] : []
-		}),
-		none,
-		sorting,
-	}
+	items = topics.flatMap((t) => {
+		const topic = byId.get(t.id)
+		return topic ? [{ ...topic, inView: t.count }] : []
+	})
+	return { ...answer, items, none, sorting }
 }
 
 export const savedSearches: Handler<typeof listSavedSearchesEndpoint> = async ({ userId }) => ({

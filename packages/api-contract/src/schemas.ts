@@ -185,11 +185,33 @@ export const Topic = z
 		description: z.string(),
 		/** Articles in it, the trash left out. */
 		articles: z.number().int(),
+		/** Of those, saved in the last seven days. */
+		savedThisWeek: z.number().int(),
 		/** With `view`: its articles in that list. */
 		inView: z.number().int().optional(),
+		/** With `latest`: its newest articles, newest saved first, the trash left out. */
+		latest: z.array(ArticleSummary).optional(),
 	})
 	.meta({ id: "Topic" })
 export type Topic = z.infer<typeof Topic>
+
+/** The most articles `GET /topics?latest=` gives each topic: a shelf's worth. */
+export const TOPIC_LATEST_MAX = 16
+
+/**
+ * Where the reader's topics are. `unavailable`: not offered to this account. `off`: not turned on.
+ * `waiting`: on, for enough articles to propose the first topics. `proposing`: the first topics are
+ * being written. `proposed`: they wait for the reader to confirm them. `active`: confirmed, and kept
+ * up to date.
+ */
+export const TOPICS_STAGES = [
+	"unavailable",
+	"off",
+	"waiting",
+	"proposing",
+	"proposed",
+	"active",
+] as const
 
 /** A saved search's name as clients write it. It is stored trimmed, with inner whitespace as one space. */
 export const SavedSearchName = z
