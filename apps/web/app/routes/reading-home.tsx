@@ -30,7 +30,12 @@ import { isSearchShortcut } from "~/lib/shortcuts"
 import { cn } from "~/lib/utils"
 import { finishedLately } from "~/services/reading-history.server"
 import { readingHome } from "~/services/reading-home.server"
-import { firstTopicsNotice, homeTopics, topicLabels } from "~/services/topics.server"
+import {
+	firstTopicsNotice,
+	homeTopics,
+	topicLabels,
+	topicsInvitation,
+} from "~/services/topics.server"
 import type { Route } from "./+types/reading-home"
 
 export async function loader({ context, request }: Route.LoaderArgs) {
@@ -41,10 +46,11 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 	const topicId = params.get("topic")
 	const choosing = topicChoice(user.id, topicId, params.has("different"))
 	// Without a topic asked for, Home loads alongside the topics; with one, after them, for its id.
-	const [topics, finished, topicsReady, home] = await Promise.all([
+	const [topics, finished, topicsReady, invitation, home] = await Promise.all([
 		choosing,
 		finishedLately(user.id, { timeZone }),
 		firstTopicsReady(user.id),
+		topicsInvitation(user.id),
 		topicId
 			? choosing.then((choice) => readingHome(user.id, { topicId: choice?.chosen?.id }))
 			: readingHome(user.id),
@@ -62,7 +68,15 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 					),
 				])
 			: {}
-	return { ...home, finished, topicsReady, topics, labels, title: `${t("home.title")} · Klipstack` }
+	return {
+		...home,
+		finished,
+		topicsReady,
+		invitation,
+		topics,
+		labels,
+		title: `${t("home.title")} · Klipstack`,
+	}
 }
 
 /**
@@ -149,6 +163,7 @@ export default function ReadingHome({
 		review,
 		finished,
 		topicsReady,
+		invitation,
 		topics,
 		labels,
 	},
@@ -219,6 +234,8 @@ export default function ReadingHome({
 				</div>
 			</header>
 			{topicsReady ? <TopicsCard /> : null}
+			{/* With a time chosen, the reader came to read. */}
+			{invitation && !timed ? <TopicsInvitation count={invitation.count} /> : null}
 			{finished ? <FinishedLately {...finished} /> : null}
 			{timeChoice || topics ? (
 				<div className="mb-9 space-y-3">
@@ -418,6 +435,44 @@ function TopicsCard() {
 						{t("topics.card.later")}
 					</Button>
 				</later.Form>
+			</div>
+		</section>
+	)
+}
+
+/**
+ * Topics are off and the library is big enough for them: an invitation, once, honest about where
+ * the text goes. The way to the Topics page, or "No thanks", ends it for good.
+ */
+function TopicsInvitation({ count }: { count: number }) {
+	const { t } = useTranslation("library")
+	const decline = useFetcher()
+	if (decline.state !== "idle" || decline.data) return null
+	return (
+		<section
+			aria-labelledby="home-topics-invitation"
+			data-testid="home-topics-invitation"
+			className="mb-8 rounded-xl border border-border bg-card p-5"
+		>
+			<h2 id="home-topics-invitation" className="font-medium">
+				{t("topics.invitation.title")}
+			</h2>
+			<p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-fg">
+				{t("topics.invitation.body", { count })}
+			</p>
+			<p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-fg">
+				{t("topics.invitation.privacy")}
+			</p>
+			<div className="mt-4 flex flex-wrap items-center gap-2">
+				<Link to="/topics" className={buttonVariants({ variant: "secondary" })}>
+					{t("topics.invitation.open")}
+				</Link>
+				<decline.Form method="post" action="/topics">
+					<input type="hidden" name="intent" value="end-invitation" />
+					<Button type="submit" variant="ghost">
+						{t("topics.invitation.decline")}
+					</Button>
+				</decline.Form>
 			</div>
 		</section>
 	)
