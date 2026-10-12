@@ -142,12 +142,12 @@ private func meta(_ article: Article) -> String {
 
 struct SmallArticle: View {
   let article: Article
-  /// The words over the title: Home's big card's, unless given.
-  var eyebrow: String?
+  /// The words over the title, as Home's big card has; not in the large widget's bottom cards.
+  var eyebrow = true
 
   var body: some View {
     VStack(alignment: .leading, spacing: 6) {
-      Eyebrow(text: eyebrow ?? label(article))
+      if eyebrow { Eyebrow(text: label(article)) }
       Text(article.title ?? article.url)
         .font(.custom("Iowan Old Style", size: 17, relativeTo: .headline).weight(.semibold))
         .foregroundStyle(Palette.foreground)
@@ -224,8 +224,7 @@ struct LargeArticles: View {
   @ViewBuilder private func tile(_ article: Article?) -> some View {
     Group {
       if let article {
-        let card = SmallArticle(
-          article: article, eyebrow: article.started ? "Continue reading" : "Recently saved")
+        let card = SmallArticle(article: article, eyebrow: false)
         if let url = reader(article) {
           Link(destination: url) { card }
         } else {
