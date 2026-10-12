@@ -23,9 +23,14 @@ export interface ListSelection {
  * The keyboard cursor and the selection of a card list: j/k and the arrows move the cursor and the
  * cursor's card answers the action keys; x checks it, shift with a move checks a range, ⌘A checks
  * them all, Escape clears. `listRef` goes on the list, whose columns decide what up and down mean.
- * `sections` are lists on one page that "select all" keeps apart (the search page's trash).
+ * `sections` are lists on one page that "select all" keeps apart (the search page's trash). Without
+ * `select`, a list has the cursor only: x, ⌘A and shift with a move are left to the browser.
  */
-export function useListCursor(ids: string[], sections?: string[][]) {
+export function useListCursor(
+	ids: string[],
+	sections?: string[][],
+	{ select = true }: { select?: boolean } = {},
+) {
 	const location = useLocation()
 	const [state, dispatch] = useReducer(listReducer, INITIAL_LIST_STATE)
 	const listRef = useRef<HTMLUListElement>(null)
@@ -65,7 +70,7 @@ export function useListCursor(ids: string[], sections?: string[][]) {
 	useEffect(() => {
 		const onKey = (e: KeyboardEvent) => {
 			if (isSelectAllShortcut(e)) {
-				if (ids.length === 0) return
+				if (!select || ids.length === 0) return
 				e.preventDefault()
 				dispatch({ type: "select-all", sections: sections ?? [ids] })
 				return
@@ -79,6 +84,7 @@ export function useListCursor(ids: string[], sections?: string[][]) {
 			const visible = ids.filter((id) => !vanished.current.has(id))
 			if (visible.length === 0) return
 			if (shortcut === "toggle") {
+				if (!select) return
 				e.preventDefault()
 				dispatch({ type: "toggle-cursor", visible })
 				return
@@ -95,11 +101,11 @@ export function useListCursor(ids: string[], sections?: string[][]) {
 							? columns
 							: -columns
 			e.preventDefault()
-			dispatch({ type: "move", step, visible, extend: e.shiftKey })
+			dispatch({ type: "move", step, visible, extend: select && e.shiftKey })
 		}
 		document.addEventListener("keydown", onKey)
 		return () => document.removeEventListener("keydown", onKey)
-	}, [ids, sections])
+	}, [ids, sections, select])
 	// The phone top bar's Select / Done.
 	const selecting = isSelecting(state)
 	useEffect(() => {

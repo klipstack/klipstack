@@ -31,13 +31,34 @@ export interface TopicSummary {
 	articles: number
 }
 
+/** An article on a topic's shelf, as its spine shows it. */
+export interface TopicBook {
+	id: string
+	title: string | null
+	siteName: string | null
+	wordCount: number | null
+	/** Saved in the last seven days. */
+	recent: boolean
+}
+
+/** A topic on the Topics page: its newest articles, and how many were saved this week. */
+export interface TopicShelf extends TopicSummary {
+	/** The newest `SHELF_BOOKS`, newest first; the topic's page has them all. */
+	books: TopicBook[]
+	/** Articles in it saved in the last seven days. */
+	recent: number
+}
+
+/** The most books a shelf holds. */
+export const SHELF_BOOKS = 16
+
 export interface TopicsState {
 	stage: TopicsStage
 	/** Ready articles in the library, out of the trash; and how many the first topics need. */
 	count: number
 	needed: number
 	/** The first topics, while `proposed`; the topics, while `active`, largest first. */
-	topics: TopicSummary[]
+	topics: TopicShelf[]
 	/** The proposal is ready and the reader has not opened it: the sidebar's dot. */
 	unseen: boolean
 	/** Articles still to sort, while `active`: the whole library, right after the reader confirms. */
@@ -93,29 +114,69 @@ async function sortedCount(userId: string): Promise<number> {
 	return row?.sorted ?? 0
 }
 
-async function summaries(userId: string, status: "active" | "proposed"): Promise<TopicSummary[]> {
+async function summaries(userId: string, status: "active" | "proposed"): Promise<TopicShelf[]> {
 	const articles = sql<number>`count(${documents.id})::int`
+	const recent = sql<number>`(count(${documents.id}) filter (where ${savedThisWeek}))::int`
 	const rows = await db
 		.select({
 			id: topics.id,
 			name: topics.name,
 			description: topics.description,
 			articles,
+			recent,
 		})
 		.from(topics)
-		.leftJoin(
-			documentTopics,
-			and(
-				eq(documentTopics.topicId, topics.id),
-				eq(documentTopics.level, "applied"),
-				isNull(documentTopics.refusedAt),
-			),
-		)
+		.leftJoin(documentTopics, applied)
 		.leftJoin(documents, and(eq(documents.id, documentTopics.documentId), inLibrary(userId)))
 		.where(and(eq(topics.userId, userId), eq(topics.status, status)))
 		.groupBy(topics.id)
 		.orderBy(desc(articles), asc(topics.name))
-	return rows
+	// The first topics, still proposed, hold no articles yet: only confirmed ones have shelves.
+	const shelved = status === "active" ? await books(userId) : new Map<string, TopicBook[]>()
+	return rows.map((row) => ({ ...row, books: shelved.get(row.id) ?? [] }))
+}
+
+/** "New" on a shelf: saved in the last seven days. */
+const savedThisWeek = sql`${documents.createdAt} > now() - interval '7 days'`
+
+/** A topic's articles: those sorted into it, less the ones the reader took out. */
+const applied = and(
+	eq(documentTopics.topicId, topics.id),
+	eq(documentTopics.level, "applied"),
+	isNull(documentTopics.refusedAt),
+)
+
+/** Each active topic's newest `SHELF_BOOKS` articles, by topic. */
+async function books(userId: string) {
+	const ranked = db
+		.select({
+			topicId: documentTopics.topicId,
+			id: documents.id,
+			title: documents.title,
+			siteName: documents.siteName,
+			wordCount: documents.wordCount,
+			recent: sql<boolean>`${savedThisWeek}`.as("recent"),
+			rank: sql<number>`row_number() over (partition by ${documentTopics.topicId} order by ${documents.createdAt} desc, ${documents.id})`.as(
+				"rank",
+			),
+		})
+		.from(topics)
+		.innerJoin(documentTopics, applied)
+		.innerJoin(documents, and(eq(documents.id, documentTopics.documentId), inLibrary(userId)))
+		.where(and(eq(topics.userId, userId), eq(topics.status, "active")))
+		.as("ranked")
+	const rows = await db
+		.select()
+		.from(ranked)
+		.where(sql`${ranked.rank} <= ${SHELF_BOOKS}`)
+		.orderBy(asc(ranked.rank))
+	const shelves = new Map<string, TopicBook[]>()
+	for (const { topicId, rank: _, ...book } of rows) {
+		const shelf = shelves.get(topicId) ?? []
+		shelf.push(book)
+		shelves.set(topicId, shelf)
+	}
+	return shelves
 }
 
 /**

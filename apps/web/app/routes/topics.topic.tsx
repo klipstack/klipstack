@@ -1,10 +1,24 @@
-import { ArrowLeft, X } from "lucide-react"
-import { useEffect, useEffectEvent } from "react"
+import { ArrowLeft, CircleMinus } from "lucide-react"
+import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
-import { type FetcherWithComponents, Link, useFetcher } from "react-router"
+import {
+	Link,
+	type ShouldRevalidateFunctionArgs,
+	useFetchers,
+	useNavigate,
+	useSubmit,
+} from "react-router"
 import { takeOutOfTopic } from "~/commands/topics.server"
-import { tooltip } from "~/components/tooltip-host"
-import { Button } from "~/components/ui/button"
+import { DocumentList } from "~/components/document-list"
+import { LayoutToggle } from "~/components/layout-toggle"
+import { MenuButton } from "~/components/more-menu"
+import {
+	TopicMenu,
+	TopicRemoveConfirm,
+	TopicRenameForm,
+	useTopicActions,
+} from "~/components/topic-actions"
+import { useListCursor } from "~/hooks/use-list-cursor"
 import { topicModels } from "~/lib/ai.server"
 import { AppError } from "~/lib/app-error"
 import { requireFeature } from "~/lib/features.server"
@@ -22,7 +36,9 @@ export function meta({ matches }: Route.MetaArgs) {
 	return [{ title: pageTitle(matches, "common:nav.topics") }]
 }
 
-export const handle: PageBarHandle = { pageBar: { titleKey: "common:nav.topics" } }
+export const handle: PageBarHandle = {
+	pageBar: { titleKey: "common:nav.topics", layoutToggle: true },
+}
 
 export async function loader({ context, request, params }: Route.LoaderArgs) {
 	const user = requireUser(context, request)
@@ -44,31 +60,47 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 	})
 }
 
-/** A topic's articles, newest first, each with the way to take it out. */
+/** Removed from its own page, the topic is left for /topics: its loader would only find it gone. */
+export function shouldRevalidate({
+	formData,
+	defaultShouldRevalidate,
+}: ShouldRevalidateFunctionArgs) {
+	if (formData?.get("intent") === "remove") return false
+	return defaultShouldRevalidate
+}
+
+/**
+ * A topic's articles, newest first, as the library lists them (list or grid, the same cards), each
+ * card's ⋯ with the way to take it out of the topic. The topic's own ⋯ renames or removes it.
+ */
 export default function TopicPage({ loaderData }: Route.ComponentProps) {
 	const { t } = useTranslation("library")
-	const { t: tc } = useTranslation()
 	const { topic, items } = loaderData
-	// One fetcher for the page, not one per row: a row taken out is gone once the page loads again,
-	// and what it answered is still said.
-	const fetcher = useFetcher<typeof action>()
-	const onAnswer = useEffectEvent((result: typeof fetcher.data) => {
-		if (!result) return
-		const refused: Record<string, string> = {
-			not_found: t("topics.errors.not_found"),
-			forbidden: t("topics.errors.forbidden"),
-		}
-		showToast({
-			message: result.ok
-				? t("topics.takenOut", { name: result.name })
-				: (refused[result.error.code] ?? tc("errors.generic")),
-		})
-	})
-	useEffect(() => onAnswer(fetcher.data), [fetcher.data])
-	const leaving = fetcher.formData ? String(fetcher.formData.get("article")) : null
-	const shown = items.filter((item) => item.id !== leaving)
+	const navigate = useNavigate()
+	const actions = useTopicActions(topic, { onRemoved: () => void navigate("/topics") })
+	// Each take-out is a request of its own, so a second one doesn't cancel the first. The cards on
+	// their way out are gone already; the toast says so when the reader asks, as archiving does.
+	const submit = useSubmit()
+	const takeOut = (doc: LibraryCard) => {
+		showToast({ message: t("topics.takenOut", { name: actions.name }) })
+		void submit(
+			{ intent: "take-out", article: doc.id },
+			{ method: "post", navigate: false, fetcherKey: `take-out:${doc.id}` },
+		)
+	}
+	const leaving = useFetchers()
+		.filter((f) => f.formData?.get("intent") === "take-out")
+		.map((f) => String(f.formData?.get("article")))
+		.join(",")
+	const shown = useMemo(
+		() => items.filter((item) => !leaving.split(",").includes(item.id)),
+		[items, leaving],
+	)
+	const ids = useMemo(() => shown.map((item) => item.id), [shown])
+	// A topic's page has no selection bar: the cursor only.
+	const { cursorId, listRef, onVanish } = useListCursor(ids, undefined, { select: false })
 	return (
-		<main className="mx-auto w-full max-w-2xl flex-1 px-4 pt-3 pb-8 md:pt-4 md:pb-8">
+		<main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-3 pb-6 md:px-8 md:pt-4 md:pb-8">
 			<Link
 				to="/topics"
 				className="inline-flex items-center gap-1 text-sm text-muted-fg hover:underline"
@@ -76,57 +108,47 @@ export default function TopicPage({ loaderData }: Route.ComponentProps) {
 				<ArrowLeft className="size-4" aria-hidden />
 				{t("topics.back")}
 			</Link>
-			<h1 data-testid="topic-name" className="mt-2 text-2xl font-semibold">
-				{topic.name}
-			</h1>
+			{actions.mode === "rename" ? (
+				<div className="mt-2">
+					<TopicRenameForm actions={actions} />
+				</div>
+			) : (
+				<div className="mt-2 flex items-center gap-2">
+					<h1 data-testid="topic-name" className="min-w-0 flex-1 text-2xl font-semibold">
+						{actions.name}
+					</h1>
+					<LayoutToggle className="hidden md:block" />
+					<TopicMenu actions={actions} className="shrink-0 text-muted-fg" />
+				</div>
+			)}
+			{actions.mode === "remove" ? (
+				<div className="mt-2">
+					<TopicRemoveConfirm actions={actions} />
+				</div>
+			) : null}
 			<p className="mt-1 text-sm text-muted-fg">{topic.description}</p>
 			{shown.length === 0 ? (
 				<p data-testid="topic-empty" className="mt-8 text-sm text-muted-fg">
 					{t("topics.topicEmpty")}
 				</p>
 			) : (
-				<ul data-testid="topic-articles" className="mt-6 divide-y divide-border">
-					{shown.map((item) => (
-						<ArticleRow key={item.id} item={item} fetcher={fetcher} />
-					))}
-				</ul>
+				<div data-testid="topic-articles">
+					<DocumentList
+						items={shown}
+						listRef={listRef}
+						cursorId={cursorId}
+						onVanish={onVanish}
+						cardMenu={(doc) => (
+							<MenuButton
+								icon={<CircleMinus className="size-4" aria-hidden />}
+								onClick={() => takeOut(doc)}
+							>
+								{t("topics.takeOutItem")}
+							</MenuButton>
+						)}
+					/>
+				</div>
 			)}
 		</main>
-	)
-}
-
-function ArticleRow({
-	item,
-	fetcher,
-}: {
-	item: LibraryCard
-	fetcher: FetcherWithComponents<unknown>
-}) {
-	const { t } = useTranslation("library")
-	const title = item.title ?? item.siteName ?? item.sourceUrl
-	return (
-		<li className="flex items-center gap-3 py-3">
-			<Link to={`/read/${item.id}`} className="min-w-0 flex-1">
-				<span className="block truncate font-medium hover:underline">{title}</span>
-				{item.siteName ? (
-					<span className="block truncate text-sm text-muted-fg">{item.siteName}</span>
-				) : null}
-			</Link>
-			<fetcher.Form method="post">
-				<input type="hidden" name="intent" value="take-out" />
-				<input type="hidden" name="article" value={item.id} />
-				<Button
-					type="submit"
-					variant="ghost"
-					size="sm"
-					disabled={fetcher.state !== "idle"}
-					aria-label={t("topics.takeOut", { title })}
-					{...tooltip(t("topics.takeOut", { title }))}
-					className="text-muted-fg"
-				>
-					<X className="size-4" aria-hidden />
-				</Button>
-			</fetcher.Form>
-		</li>
 	)
 }
