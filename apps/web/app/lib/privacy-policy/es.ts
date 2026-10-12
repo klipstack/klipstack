@@ -7,6 +7,10 @@ export default {
 		"Klipstack guarda lo que guardas para que puedas leerlo. No vende tus datos, no muestra anuncios y no te rastrea. Esta página explica qué recopilamos, para qué, quién nos ayuda a operar el servicio y qué puedes hacer al respecto.",
 	contentsLabel: "En esta página",
 	email: PRIVACY_CONTACT,
+	links: {
+		"las condiciones comerciales de Anthropic": "https://www.anthropic.com/legal/commercial-terms",
+		"el acuerdo de clientes de TypeSafe": "https://typesafe.ai/legal/mca",
+	},
 	sections: [
 		{
 			id: "who",
@@ -96,7 +100,7 @@ export default {
 			title: "Preguntas sobre lo que lees",
 			blocks: [
 				"En el lector puedes preguntar sobre un pasaje: que te lo explique, que defina una palabra o hacer una pregunta. Solo entonces nuestro servidor le envía a Anthropic el texto del artículo, el pasaje y tu pregunta, y te muestra su respuesta. Aparte de los temas, más abajo, no se envía nada si no preguntas.",
-				"Anthropic los usa solo para responder, según sus condiciones comerciales, y no entrena sus modelos con ellos.",
+				"Anthropic los usa solo para responder, según las condiciones comerciales de Anthropic, y no entrena sus modelos con ellos.",
 				"Guardamos tus preguntas y las respuestas con el artículo, para que puedas volver a leerlas, hasta que las borres o borres el artículo. Los registros del servidor anotan que se respondió una pregunta y su tamaño, nunca lo que decía.",
 			],
 		},
@@ -105,6 +109,7 @@ export default {
 			title: "Temas automáticos",
 			blocks: [
 				"Los temas están desactivados hasta que los activas, en la página Temas. Mientras están activados, nuestro servidor envía cada artículo que guardas a TypeSafe, que lo ordena en tus temas: su título, su sitio, su descripción y el comienzo de su texto. También envía a Anthropic los títulos, los sitios y las descripciones de tus artículos (de uno sin descripción, las primeras líneas de su texto), para proponer tus temas, crear otros nuevos y revisarlos.",
+				"Según el acuerdo de clientes de TypeSafe, TypeSafe usa lo que le enviamos para ordenarlo y no entrena sus modelos con ello; puede conservarlo para vigilar abusos y cumplir obligaciones legales. Anthropic trabaja según las condiciones comerciales de Anthropic, como con las preguntas.",
 				"Guardamos tus temas y qué artículos están en cada uno hasta que desactivas los temas, lo que los borra, o borras tu cuenta.",
 			],
 		},

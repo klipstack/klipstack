@@ -30,7 +30,7 @@ export function PolicyDocument({ policy }: { policy: Policy }) {
 							<Block
 								key={typeof block === "string" ? block : block.list.join()}
 								block={block}
-								email={policy.email}
+								links={{ [policy.email]: `mailto:${policy.email}`, ...policy.links }}
 							/>
 						))}
 					</div>
@@ -40,28 +40,36 @@ export function PolicyDocument({ policy }: { policy: Policy }) {
 	)
 }
 
-function Block({ block, email }: { block: PolicyBlock; email: string }) {
-	if (typeof block === "string") return <p>{withEmail(block, email)}</p>
+function Block({ block, links }: { block: PolicyBlock; links: Record<string, string> }) {
+	if (typeof block === "string") return <p>{withLinks(block, links)}</p>
 	return (
 		<ul className="list-disc space-y-2 pl-5 marker:text-muted-fg">
 			{block.list.map((item) => (
-				<li key={item}>{withEmail(item, email)}</li>
+				<li key={item}>{withLinks(item, links)}</li>
 			))}
 		</ul>
 	)
 }
 
-/** The contact address, where the text names it, as a link. */
-function withEmail(text: string, email: string) {
-	const at = text.indexOf(email)
-	if (at === -1) return text
-	return (
-		<>
-			{text.slice(0, at)}
-			<a href={`mailto:${email}`} className="text-link underline underline-offset-2">
-				{email}
-			</a>
-			{text.slice(at + email.length)}
-		</>
-	)
+/** The phrases of `links` (the contact address, a provider's terms), where the text names them, as links. */
+function withLinks(text: string, links: Record<string, string>): React.ReactNode {
+	for (const [phrase, href] of Object.entries(links)) {
+		const at = text.indexOf(phrase)
+		if (at === -1) continue
+		const external = !href.startsWith("mailto:")
+		return (
+			<>
+				{withLinks(text.slice(0, at), links)}
+				<a
+					href={href}
+					className="text-link underline underline-offset-2"
+					{...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+				>
+					{phrase}
+				</a>
+				{withLinks(text.slice(at + phrase.length), links)}
+			</>
+		)
+	}
+	return text
 }
