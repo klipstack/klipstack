@@ -20,6 +20,7 @@ import { z } from "zod"
 import { topicModels } from "~/lib/ai.server"
 import { AppError, notFound, parseInput } from "~/lib/app-error"
 import { hasFeature } from "~/lib/features.server"
+import { isUniqueViolation } from "~/lib/postgres-errors.server"
 
 /**
  * A reader's automatic topics: turning them on and off, confirming the first ones, and correcting
@@ -31,8 +32,12 @@ const NO_TOPIC = "No topic with that id."
 /** Asks the worker to bring the reader's topics up to date: one run at a time per reader. */
 const queueRun = (userId: string) => enqueue(QUEUES.topics, { userId }, { singletonKey: userId })
 
-/** After an article comes back to the library (restored from the trash): a run, if topics are on. */
-export async function queueTopicsIfOn(userId: string): Promise<void> {
+/**
+ * After an article comes back to the library (restored from the trash): a run, if topics are on.
+ * It is sorted again, as if new: topics may have come and gone while it was away.
+ */
+export async function queueTopicsIfOn(userId: string, articleId?: string): Promise<void> {
+	if (articleId) await db.delete(topicSorts).where(eq(topicSorts.documentId, articleId))
 	const [library] = await db
 		.select({ userId: topicLibraries.userId })
 		.from(topicLibraries)
@@ -84,6 +89,13 @@ export async function enableTopics(userId: string): Promise<void> {
 /** Turns topics off and deletes them: every topic, where each article was, and what was refused. */
 export async function disableTopics(userId: string): Promise<void> {
 	await db.transaction(async (tx) => {
+		// The reader's row first, as the worker locks it before each write: a run's write in progress
+		// finishes before this, and its rows go with the rest; one after it finds topics off.
+		await tx
+			.select({ userId: topicLibraries.userId })
+			.from(topicLibraries)
+			.where(eq(topicLibraries.userId, userId))
+			.for("update")
 		// The topics' rows in `document_topics` go with them.
 		await tx.delete(topics).where(eq(topics.userId, userId))
 		await tx.delete(topicSorts).where(eq(topicSorts.userId, userId))
@@ -173,16 +185,22 @@ export async function renameTopic(userId: string, id: string, rawName: string) {
 	const topicId = parseInput(Id, id)
 	const name = cleanTopicName(parseInput(TopicName, rawName))!
 	await mayChangeTopics(userId)
-	return db.transaction(async (tx) => {
-		if (await nameTaken(tx, userId, name, [topicId])) throw new AppError("name_taken", NAME_TAKEN)
-		const [renamed] = await tx
-			.update(topics)
-			.set({ name, namedByReader: true })
-			.where(and(eq(topics.id, topicId), eq(topics.userId, userId), eq(topics.status, "active")))
-			.returning({ id: topics.id, name: topics.name })
-		if (!renamed) throw notFound(NO_TOPIC)
-		return renamed
-	})
+	try {
+		return await db.transaction(async (tx) => {
+			if (await nameTaken(tx, userId, name, [topicId])) throw new AppError("name_taken", NAME_TAKEN)
+			const [renamed] = await tx
+				.update(topics)
+				.set({ name, namedByReader: true })
+				.where(and(eq(topics.id, topicId), eq(topics.userId, userId), eq(topics.status, "active")))
+				.returning({ id: topics.id, name: topics.name })
+			if (!renamed) throw notFound(NO_TOPIC)
+			return renamed
+		})
+	} catch (error) {
+		// A topic of that name made meanwhile (the worker's): the unique index has the last word.
+		if (isUniqueViolation(error)) throw new AppError("name_taken", NAME_TAKEN)
+		throw error
+	}
 }
 
 /** Removes a topic: its articles leave it, and it is never proposed again. */

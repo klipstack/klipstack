@@ -16,6 +16,7 @@ import {
 	inArray,
 	isNull,
 	pool,
+	sql,
 	topicLibraries,
 	topicSorts,
 	topics,
@@ -609,5 +610,55 @@ describe("reviews", () => {
 			["Dogs", "retired"],
 		])
 		expect(await topicsOf(cats[0]!)).toEqual([])
+	})
+})
+
+describe("re-sorting the library", () => {
+	it("goes through articles saved at the same moment, one batch after another", async () => {
+		const setup = models({
+			propose: () => [spec("Cats")],
+			grow: (_topics, pool) => ({
+				topics: [{ ...spec("Owls"), articleIds: pool.map((a) => a.id) }],
+			}),
+		})
+		await many(25, "cats")
+		await run(setup.deps)
+		await confirm()
+		await settle(setup.deps, setup.calls)
+		// Five owls saved in the same millisecond, microseconds apart: the cursor must not skip any.
+		const owls = await many(5, "owls")
+		for (const [i, id] of owls.entries())
+			await db
+				.update(documents)
+				.set({
+					createdAt: sql`'2026-06-01T00:00:00.000001Z'::timestamptz + ${i} * interval '1 microsecond'`,
+				})
+				.where(eq(documents.id, id))
+		await settle({ ...setup.deps, batch: 2 }, setup.calls)
+		for (const id of owls) expect(await topicsOf(id)).toEqual(["Owls"])
+	})
+
+	it("skips a model's topic whose name the reader gave a topic meanwhile", async () => {
+		const setup = models({
+			propose: () => [spec("Cats")],
+			grow: (_topics, pool) => ({
+				topics: [{ ...spec("Owls"), articleIds: pool.map((a) => a.id) }],
+			}),
+			during: async (call) => {
+				if (call !== "grow") return
+				const [cats] = await db.select().from(topics).where(eq(topics.userId, userId))
+				await db
+					.update(topics)
+					.set({ name: "owls", namedByReader: true })
+					.where(eq(topics.id, cats!.id))
+			},
+		})
+		await many(25, "cats")
+		await run(setup.deps)
+		await confirm()
+		await settle(setup.deps, setup.calls)
+		await many(5, "owls")
+		await settle(setup.deps, setup.calls)
+		expect(await statuses()).toEqual([["owls", "active"]])
 	})
 })

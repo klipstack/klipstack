@@ -26,6 +26,7 @@ const {
 	dismissTopicsCard,
 	enableTopics,
 	markTopicsSeen,
+	queueTopicsIfOn,
 	removeTopic,
 	renameTopic,
 	takeOutOfTopic,
@@ -340,5 +341,65 @@ describe("names, other readers and the feature", () => {
 		expect(await firstTopicsNotice(userId)).toEqual({ dot: true, card: false })
 		await markTopicsSeen(userId)
 		expect(await firstTopicsNotice(userId)).toEqual({ dot: false, card: false })
+	})
+})
+
+describe("racing the worker", () => {
+	it("turning off waits for a worker's write in progress, then deletes what it wrote too", async () => {
+		await db.insert(topicLibraries).values({ userId })
+		let release!: () => void
+		const gate = new Promise<void>((resolve) => {
+			release = resolve
+		})
+		let locked!: () => void
+		const holding = new Promise<void>((resolve) => {
+			locked = resolve
+		})
+		// As the worker writes: the reader's row locked for share, then rows of its own.
+		const worker = db.transaction(async (tx) => {
+			await tx.select().from(topicLibraries).where(eq(topicLibraries.userId, userId)).for("share")
+			locked()
+			await gate
+			await tx.insert(topics).values({
+				userId,
+				name: "Late",
+				description: "Written by a run still on.",
+				status: "proposed",
+				origin: "first",
+			})
+		})
+		await holding
+		const off = disableTopics(userId)
+		await new Promise((resolve) => setTimeout(resolve, 100))
+		release()
+		await worker
+		await off
+		expect(await db.select().from(topics).where(eq(topics.userId, userId))).toEqual([])
+		expect(await topicsState(userId)).toMatchObject({ stage: "off" })
+	})
+
+	it("a topic of a name in use cannot be made twice, whoever makes it", async () => {
+		await active(userId, "Pets", [])
+		await expect(
+			db.insert(topics).values({
+				userId,
+				name: "pets",
+				description: "d",
+				status: "active",
+				origin: "grown",
+			}),
+		).rejects.toThrow()
+		// A removed name may come back: the index holds only names in use.
+		await db.update(topics).set({ status: "removed" }).where(eq(topics.userId, userId))
+		await active(userId, "Pets", [])
+	})
+
+	it("an article restored from the trash is sorted again, as if new", async () => {
+		const doc = await article()
+		await db.insert(topicLibraries).values({ userId })
+		await db.insert(topicSorts).values({ documentId: doc, userId })
+		await queueTopicsIfOn(userId, doc)
+		expect(await db.select().from(topicSorts).where(eq(topicSorts.documentId, doc))).toEqual([])
+		expect(await queuedRuns(userId)).toBe(1)
 	})
 })

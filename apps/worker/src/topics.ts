@@ -170,15 +170,18 @@ class Run {
 		// failed request is tried again without waiting for more articles.
 		await this.write(async (tx) => {
 			if (fresh.length)
-				await tx.insert(topics).values(
-					fresh.map((t) => ({
-						userId: this.userId,
-						name: t.name,
-						description: t.description,
-						status: "proposed" as const,
-						origin: "first" as const,
-					})),
-				)
+				await tx
+					.insert(topics)
+					.values(
+						fresh.map((t) => ({
+							userId: this.userId,
+							name: t.name,
+							description: t.description,
+							status: "proposed" as const,
+							origin: "first" as const,
+						})),
+					)
+					.onConflictDoNothing()
 			await tx
 				.update(topicLibraries)
 				.set({ proposedAtCount: count, ...(fresh.length ? { proposedAt: new Date() } : {}) })
@@ -526,18 +529,22 @@ class Run {
 		origin: "grown" | "split" | "merged",
 	): Promise<TopicIn[]> {
 		if (specs.length === 0) return []
-		return tx
-			.insert(topics)
-			.values(
-				specs.map((t) => ({
-					userId: this.userId,
-					name: t.name,
-					description: t.description,
-					status: "active" as const,
-					origin,
-				})),
-			)
-			.returning({ id: topics.id, name: topics.name, description: topics.description })
+		return (
+			tx
+				.insert(topics)
+				.values(
+					specs.map((t) => ({
+						userId: this.userId,
+						name: t.name,
+						description: t.description,
+						status: "active" as const,
+						origin,
+					})),
+				)
+				// A name the reader gave a topic meanwhile wins: the model's is skipped.
+				.onConflictDoNothing()
+				.returning({ id: topics.id, name: topics.name, description: topics.description })
+		)
 	}
 
 	/** Retires topics; the articles lose them, refusals included (nothing sorts into them again). */

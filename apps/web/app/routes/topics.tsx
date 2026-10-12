@@ -2,7 +2,7 @@ import { TOPIC_NAME_MAX } from "@klipstack/api-contract/names"
 import { Pencil, Shapes, Trash2 } from "lucide-react"
 import { useEffect, useEffectEvent, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { Link, useFetcher, useRevalidator } from "react-router"
+import { Link, redirect, useFetcher, useRevalidator } from "react-router"
 import {
 	confirmTopics,
 	disableTopics,
@@ -61,6 +61,9 @@ export async function action({ request, context }: Route.ActionArgs) {
 				return {}
 			case "disable":
 				await disableTopics(user.id)
+				// Without the feature, the page has nothing more to show: Home it is.
+				if (!(topicModels.available && (await hasFeature(user.id, "topics"))))
+					throw redirect("/home")
 				return { disabled: true }
 			case "seen":
 				await markTopicsSeen(user.id)

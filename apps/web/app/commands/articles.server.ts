@@ -485,7 +485,7 @@ async function restoreOne(
 		try {
 			if (!(await restoreDocument(userId, id))) return "missing"
 			// Back in the library: the reader's topics may count it, or sort it.
-			await queueTopicsIfOn(userId)
+			await queueTopicsIfOn(userId, id)
 			return "restored"
 		} catch (error) {
 			if (!isUniqueViolation(error)) throw error

@@ -51,4 +51,5 @@ ALTER TABLE "topic_sorts" ADD CONSTRAINT "topic_sorts_user_id_user_id_fk" FOREIG
 ALTER TABLE "topics" ADD CONSTRAINT "topics_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "document_topics_topic_idx" ON "document_topics" USING btree ("topic_id");--> statement-breakpoint
 CREATE INDEX "topic_sorts_user_idx" ON "topic_sorts" USING btree ("user_id");--> statement-breakpoint
-CREATE INDEX "topics_user_status_idx" ON "topics" USING btree ("user_id","status");
+CREATE INDEX "topics_user_status_idx" ON "topics" USING btree ("user_id","status");--> statement-breakpoint
+CREATE UNIQUE INDEX "topics_user_name_unique" ON "topics" USING btree ("user_id",lower("name")) WHERE "topics"."status" in ('active', 'proposed');

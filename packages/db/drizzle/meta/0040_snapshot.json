@@ -1,5 +1,5 @@
 {
-	"id": "433a6504-0dfa-44a9-9579-575bd7ebd3fd",
+	"id": "27a58594-3c42-4bbc-94af-4f83c6118908",
 	"prevId": "8169305f-677e-43e4-a83b-811b7c56cdf1",
 	"version": "7",
 	"dialect": "postgresql",
@@ -5581,6 +5581,28 @@
 						}
 					],
 					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"topics_user_name_unique": {
+					"name": "topics_user_name_unique",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "lower(\"name\")",
+							"asc": true,
+							"isExpression": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": true,
+					"where": "\"topics\".\"status\" in ('active', 'proposed')",
 					"concurrently": false,
 					"method": "btree",
 					"with": {}

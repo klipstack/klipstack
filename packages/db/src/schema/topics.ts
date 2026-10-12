@@ -1,4 +1,4 @@
-import { relations } from "drizzle-orm"
+import { relations, sql } from "drizzle-orm"
 import {
 	boolean,
 	index,
@@ -8,6 +8,7 @@ import {
 	real,
 	text,
 	timestamp,
+	uniqueIndex,
 	uuid,
 } from "drizzle-orm/pg-core"
 import { newId } from "../ids"
@@ -80,7 +81,13 @@ export const topics = pgTable(
 		/** Retired or removed since. */
 		endedAt: timestamp("ended_at", { withTimezone: true }),
 	},
-	(t) => [index("topics_user_status_idx").on(t.userId, t.status)],
+	(t) => [
+		index("topics_user_status_idx").on(t.userId, t.status),
+		// One name per shelf in use, whatever its case; removed and retired names may come again.
+		uniqueIndex("topics_user_name_unique")
+			.on(t.userId, sql`lower(${t.name})`)
+			.where(sql`${t.status} in ('active', 'proposed')`),
+	],
 )
 
 export type Topic = typeof topics.$inferSelect
