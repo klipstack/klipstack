@@ -138,6 +138,21 @@ test("topics: turned on, proposed, confirmed, sorted, corrected and turned off",
 	await expect(page.getByText("Removed Minds. It won't be proposed again.")).toBeVisible()
 	await expect(page.getByTestId("topics-empty")).toBeVisible()
 
+	// The reader names the article's topic above its title, and ends with its unread articles.
+	await page.getByTestId("topic-articles").getByText("Psyche essay 2", { exact: true }).click()
+	await expect(page.getByTestId("reader-topics")).toHaveText("Minds")
+	const shelf = page.getByTestId("reader-shelf")
+	await expect(shelf.getByRole("heading")).toHaveText("More in Minds")
+	await expect(shelf).toContainText("11 unread")
+	await expect(shelf.getByRole("listitem")).toHaveCount(3)
+	await expect(shelf).not.toContainText("Psyche essay 2")
+	await shelf.getByRole("listitem").first().getByRole("link").click()
+	await expect(page).not.toHaveURL(/\/topics\//)
+	await expect(page.getByRole("heading", { level: 1 })).toContainText("Psyche essay")
+	await expect(page.getByRole("heading", { level: 1 })).not.toHaveText("Psyche essay 2")
+	await page.getByTestId("reader-topics").getByRole("link", { name: "Minds" }).click()
+	await expect(page.getByTestId("topic-name")).toHaveText("Minds")
+
 	await page.goto("/topics")
 	// The second tap is the page's script: it must be running first.
 	await waitForHydration(page)

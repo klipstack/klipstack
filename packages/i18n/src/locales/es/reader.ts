@@ -38,6 +38,15 @@ export default {
 			"Klipstack no pudo abrir la página que enlaza esta publicación. Guarda esa página desde tu navegador y esta publicación pasará a ella.",
 		openLink: "Abrir la página",
 	},
+	topics: {
+		label: "Temas de este artículo",
+		moreIn: "Más en {{name}}",
+		unread_one: "{{count}} sin leer",
+		unread_other: "{{count}} sin leer",
+		seeAll: "Ver todos",
+		minutes_one: "{{count}} min",
+		minutes_other: "{{count}} min",
+	},
 	meta: {
 		minutes: "{{count}} min de lectura",
 		minutes_one: "{{count}} min de lectura",

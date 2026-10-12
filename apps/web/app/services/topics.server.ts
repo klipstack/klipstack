@@ -8,13 +8,16 @@ import {
 	documents,
 	documentTopics,
 	eq,
+	inArray,
 	isNull,
+	ne,
+	not,
 	sql,
 	topicLibraries,
 	topicSorts,
 	topics,
 } from "@klipstack/db"
-import { type LibraryCard, libraryCardColumns } from "./documents.server"
+import { finished, type LibraryCard, libraryCardColumns } from "./documents.server"
 
 /**
  * Where a reader's topics stand. `waiting`: fewer articles than the first topics need (`count` of
@@ -231,4 +234,139 @@ export async function topicWithArticles(
 		)
 		.orderBy(desc(documents.createdAt), asc(documents.id))
 	return { topic: { ...topic, articles: items.length }, items }
+}
+
+/** Articles on the reader's shelf at the end of an article. */
+export const READER_SHELF_SIZE = 3
+
+export interface ReaderTopic {
+	id: string
+	name: string
+}
+
+export interface ShelfArticle {
+	id: string
+	title: string | null
+	siteName: string | null
+	sourceUrl: string
+	readingMinutes: number | null
+}
+
+export interface ReaderTopics {
+	/** The topics the article is in, strongest first. */
+	topics: ReaderTopic[]
+	/**
+	 * What to read next: unread articles of the article's strongest topic that has any, closest
+	 * first, with how many unread it holds. Null when none of its topics has one.
+	 */
+	shelf: { topic: ReaderTopic; unread: number; items: ShelfArticle[] } | null
+}
+
+/**
+ * An article's topics for the reader, and the shelf at its end. Articles are compared by the
+ * topic scores kept for them (applied and suggested): two that lean on the same topics in the
+ * same proportions are closest. No model is asked anything.
+ */
+export async function readerTopics(userId: string, documentId: string): Promise<ReaderTopics> {
+	const placed = await db
+		.select({
+			id: topics.id,
+			name: topics.name,
+			probability: documentTopics.probability,
+			level: documentTopics.level,
+		})
+		.from(documentTopics)
+		.innerJoin(topics, eq(topics.id, documentTopics.topicId))
+		.innerJoin(documents, eq(documents.id, documentTopics.documentId))
+		.where(
+			and(
+				eq(documentTopics.documentId, documentId),
+				isNull(documentTopics.refusedAt),
+				eq(topics.userId, userId),
+				eq(topics.status, "active"),
+				eq(documents.userId, userId),
+			),
+		)
+		.orderBy(desc(documentTopics.probability), asc(topics.name))
+	const applied = placed
+		.filter((p) => p.level === "applied")
+		.map(({ id, name }): ReaderTopic => ({ id, name }))
+	const scores = new Map(placed.map((p) => [p.id, p.probability]))
+	for (const topic of applied) {
+		const candidates = await db
+			.select({
+				id: documents.id,
+				title: documents.title,
+				siteName: documents.siteName,
+				sourceUrl: documents.sourceUrl,
+				readingMinutes: documents.readingMinutes,
+				createdAt: documents.createdAt,
+			})
+			.from(documentTopics)
+			.innerJoin(documents, eq(documents.id, documentTopics.documentId))
+			.where(
+				and(
+					eq(documentTopics.topicId, topic.id),
+					eq(documentTopics.level, "applied"),
+					isNull(documentTopics.refusedAt),
+					inLibrary(userId),
+					isNull(documents.archivedAt),
+					not(finished),
+					ne(documents.id, documentId),
+				),
+			)
+		if (candidates.length === 0) continue
+		const theirs = await db
+			.select({
+				documentId: documentTopics.documentId,
+				topicId: documentTopics.topicId,
+				probability: documentTopics.probability,
+			})
+			.from(documentTopics)
+			.innerJoin(topics, eq(topics.id, documentTopics.topicId))
+			.where(
+				and(
+					inArray(
+						documentTopics.documentId,
+						candidates.map((c) => c.id),
+					),
+					isNull(documentTopics.refusedAt),
+					eq(topics.status, "active"),
+				),
+			)
+		const vectors = new Map<string, Map<string, number>>()
+		for (const row of theirs) {
+			const vector = vectors.get(row.documentId) ?? new Map<string, number>()
+			vector.set(row.topicId, row.probability)
+			vectors.set(row.documentId, vector)
+		}
+		const closeness = new Map(
+			candidates.map((c) => [c.id, cosine(scores, vectors.get(c.id) ?? new Map())]),
+		)
+		const items = candidates
+			.sort(
+				(a, b) =>
+					closeness.get(b.id)! - closeness.get(a.id)! ||
+					b.createdAt.getTime() - a.createdAt.getTime() ||
+					a.id.localeCompare(b.id),
+			)
+			.slice(0, READER_SHELF_SIZE)
+			.map((c): ShelfArticle => ({
+				id: c.id,
+				title: c.title,
+				siteName: c.siteName,
+				sourceUrl: c.sourceUrl,
+				readingMinutes: c.readingMinutes,
+			}))
+		return { topics: applied, shelf: { topic, unread: candidates.length, items } }
+	}
+	return { topics: applied, shelf: null }
+}
+
+/** How much two articles' topic scores point the same way: 1 alike, 0 nothing in common. */
+function cosine(a: Map<string, number>, b: Map<string, number>): number {
+	let dot = 0
+	for (const [topicId, p] of a) dot += p * (b.get(topicId) ?? 0)
+	const norm = (v: Map<string, number>) => Math.sqrt([...v.values()].reduce((s, p) => s + p * p, 0))
+	return dot === 0 ? 0 : dot / (norm(a) * norm(b))
 }
