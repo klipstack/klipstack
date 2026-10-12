@@ -137,11 +137,6 @@ test("feed page: overview, grouped posts, save, dismiss, rename, unsubscribe", a
 		.toBe("My busy blog")
 
 	// Unsubscribe from the quiet one.
-	// Scroll first: the menu closes on scroll, and a scroll-into-view lands a frame after the click.
-	await quietRow.scrollIntoViewIfNeeded()
-	await page.evaluate(
-		() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))),
-	)
 	await quietRow.getByRole("button", { name: "Feed actions" }).click()
 	await page.getByRole("menuitem", { name: "Unsubscribe" }).click()
 	await quietRow.getByRole("button", { name: "Unsubscribe" }).click()
