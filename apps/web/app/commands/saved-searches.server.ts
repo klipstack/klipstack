@@ -4,7 +4,7 @@ import {
 	cleanTopicName,
 	SAVED_SEARCHES_PER_USER_MAX,
 } from "@klipstack/api-contract/names"
-import { renameTopicOperator } from "@klipstack/api-contract/search-query"
+import { findsEverything, renameTopicOperator } from "@klipstack/api-contract/search-query"
 import { and, db, eq, ne, savedSearches, sql } from "@klipstack/db"
 import { z } from "zod"
 import { AppError, notFound, parseInput } from "~/lib/app-error"
@@ -122,7 +122,7 @@ export async function dropTopicFromSavedSearch(
 		if (!row) throw notFound(NO_SAVED_SEARCH)
 		const query = renameTopicOperator(row.query, name, [])
 		if (query === row.query) return row
-		if (!query)
+		if (findsEverything(query))
 			throw new AppError(
 				"invalid_request",
 				"Without this topic the search would find everything: delete it instead.",

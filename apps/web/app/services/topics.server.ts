@@ -129,7 +129,11 @@ async function sortedCount(userId: string): Promise<number> {
 	return row?.sorted ?? 0
 }
 
-async function summaries(userId: string, status: "active" | "proposed"): Promise<TopicShelf[]> {
+async function summaries(
+	userId: string,
+	status: "active" | "proposed",
+	{ shelves = true }: { shelves?: boolean } = {},
+): Promise<TopicShelf[]> {
 	const articles = sql<number>`count(${documents.id})::int`
 	const recent = sql<number>`(count(${documents.id}) filter (where ${savedThisWeek}))::int`
 	const rows = await db
@@ -147,7 +151,8 @@ async function summaries(userId: string, status: "active" | "proposed"): Promise
 		.groupBy(topics.id)
 		.orderBy(desc(articles), asc(topics.name))
 	// The first topics, still proposed, hold no articles yet: only confirmed ones have shelves.
-	const shelved = status === "active" ? await books(userId) : new Map<string, TopicBook[]>()
+	const shelved =
+		status === "active" && shelves ? await books(userId) : new Map<string, TopicBook[]>()
 	return rows.map((row) => ({ ...row, books: shelved.get(row.id) ?? [] }))
 }
 
@@ -232,7 +237,16 @@ export async function topicsInUse(userId: string): Promise<boolean> {
 
 /** The reader's topics, most articles first, for the API and MCP: none while topics are not in use. */
 export async function topicList(userId: string): Promise<TopicSummary[]> {
-	return (await topicsInUse(userId)) ? summaries(userId, "active") : []
+	if (!(await topicsInUse(userId))) return []
+	// The summary only: a shelf's books are the Topics page's.
+	return (await summaries(userId, "active", { shelves: false })).map(
+		({ id, name, description, articles }) => ({
+			id,
+			name,
+			description,
+			articles,
+		}),
+	)
 }
 
 /**

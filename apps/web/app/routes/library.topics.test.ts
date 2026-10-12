@@ -22,6 +22,8 @@ vi.hoisted(() => {
 
 const readerId = `test-library-topics-route-${newId()}`
 const withoutId = `${readerId}-without`
+/** Has the feature, and topics proposed, not confirmed yet. */
+const pendingId = `${readerId}-pending`
 const topicIds: Record<string, string> = {}
 
 async function library(owner: string) {
@@ -76,15 +78,27 @@ async function library(owner: string) {
 }
 
 beforeAll(async () => {
-	await db
-		.insert(user)
-		.values([readerId, withoutId].map((id) => ({ id, name: "Reader", email: `${id}@example.com` })))
-	await db.insert(userFeatures).values({ userId: readerId, feature: "topics" })
+	await db.insert(user).values(
+		[readerId, withoutId, pendingId].map((id) => ({
+			id,
+			name: "Reader",
+			email: `${id}@example.com`,
+		})),
+	)
+	await db.insert(userFeatures).values([
+		{ userId: readerId, feature: "topics" },
+		{ userId: pendingId, feature: "topics" },
+	])
 	await library(readerId)
 	await library(withoutId)
+	await library(pendingId)
+	await db
+		.update(topicLibraries)
+		.set({ confirmedAt: null })
+		.where(eq(topicLibraries.userId, pendingId))
 })
 afterAll(async () => {
-	for (const id of [readerId, withoutId]) await db.delete(user).where(eq(user.id, id))
+	for (const id of [readerId, withoutId, pendingId]) await db.delete(user).where(eq(user.id, id))
 })
 
 async function list(id: string, path: string) {
@@ -140,5 +154,8 @@ describe("the library's topic choice", () => {
 		expect(data).toMatchObject({ topics: null, topic: null, topicGone: false, labels: {} })
 		expect(titles(data)).toContain("Unsorted")
 		expect((await list(readerId, "/trash?topic=none")).topics).toBeNull()
+		// Proposed, not confirmed: the library is not sorted into them yet.
+		const pending = await list(pendingId, `/library?topic=${topicIds[`${pendingId}:Science`]}`)
+		expect(pending).toMatchObject({ topics: null, topic: null, labels: {} })
 	})
 })

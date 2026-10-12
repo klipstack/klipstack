@@ -3,6 +3,7 @@ import {
 	documents,
 	documentTopics,
 	eq,
+	savedSearches,
 	topicLibraries,
 	topicSorts,
 	topics,
@@ -128,6 +129,41 @@ test("the library narrows to a topic, its search is saved, and the search says w
 	await expect(page).toHaveURL(/\/search\?q=in%3Alibrary$/)
 	await expect(notice).toHaveCount(0)
 	await expect(saved.getByTestId("saved-search-ended")).toHaveCount(0)
+
+	// The search's own Topic chip writes the topic chosen into the query.
+	await page
+		.getByTestId("search-topic-chip")
+		.getByRole("button", { name: "Choose a topic" })
+		.click()
+	await page.getByRole("menu").getByRole("menuitem", { name: "Psyche" }).click()
+	await expect(page).toHaveURL(/\/search\?q=in%3Alibrary(%20|\+)topic%3APsyche$/)
+	await expect(cards).toHaveCount(3)
+
+	// Archive all read archives every read article: it is not offered in a topic.
+	await db
+		.update(documents)
+		.set({ readAt: new Date(), readingProgress: 1 })
+		.where(eq(documents.title, "Psyche essay 2"))
+	await page.goto("/library?show=read")
+	await expect(page.getByRole("button", { name: "Archive all read" })).toBeVisible()
+	await page.goto(`/library?topic=${topicIds.Psyche}&show=read`)
+	await expect(cards).toHaveText(["Psyche essay 2"])
+	await expect(page.getByRole("button", { name: "Archive all read" })).toHaveCount(0)
+
+	// Nothing starred in the topic: the way out keeps the view.
+	await page.goto(`/starred?topic=${topicIds.Psyche}`)
+	await expect(page.getByText("Nothing here right now.")).toBeVisible()
+	await page.getByText("Show every topic", { exact: true }).click()
+	await expect(page).toHaveURL(/\/starred$/)
+
+	// Turning topics off names the saved searches that would find nothing.
+	await db.insert(savedSearches).values({ userId, name: "Psyche reading", query: "topic:Psyche" })
+	await page.goto("/topics")
+	await waitForHydration(page)
+	await page.getByRole("button", { name: "Turn off topics" }).click()
+	await expect(page.getByTestId("topics-off-saved")).toHaveText(
+		"1 saved search names topics and will find nothing in them: Psyche reading.",
+	)
 })
 
 test("home's view all links keep the topic chosen", async ({ page }) => {

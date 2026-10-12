@@ -16,6 +16,8 @@ export async function rewriteSavedQueries(
 		.select({ id: savedSearches.id, query: savedSearches.query })
 		.from(savedSearches)
 		.where(eq(savedSearches.userId, userId))
+		// Another rewrite at the same time (the reader's, the worker's) waits, then reads this one's.
+		.for("update")
 	for (const row of rows) {
 		const query = rewrite(row.query)
 		if (query !== row.query)

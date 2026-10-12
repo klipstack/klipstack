@@ -274,16 +274,29 @@ export default function Library({ loaderData }: Route.ComponentProps) {
 					{t("topicFilter.gone")}
 				</p>
 			) : null}
-			{loaderData.items.length === 0 && filter ? (
+			{loaderData.items.length === 0 && (filter || topic) ? (
 				<div className="mt-12 flex flex-col items-center gap-3 text-center text-muted-fg md:mt-16">
 					<FilterIcon className="size-10" aria-hidden />
 					<h2 className="text-lg font-medium text-fg">{t("filters.empty")}</h2>
-					<Link
-						to={`${viewPath(loaderData.view)}${listSearch(null, sort)}`}
-						className="text-sm text-link hover:underline"
-					>
-						{t("filters.clear")}
-					</Link>
+					{/* Each way out keeps the other choice: the filter, or the topic. */}
+					<p className="flex flex-wrap justify-center gap-x-4 text-sm">
+						{filter ? (
+							<Link
+								to={`${viewPath(loaderData.view)}${listSearch(null, sort, topic)}`}
+								className="text-link hover:underline"
+							>
+								{t("filters.clear")}
+							</Link>
+						) : null}
+						{topic ? (
+							<Link
+								to={`${viewPath(loaderData.view)}${listSearch(filter, sort)}`}
+								className="text-link hover:underline"
+							>
+								{t("topicFilter.clear")}
+							</Link>
+						) : null}
+					</p>
 				</div>
 			) : loaderData.items.length === 0 ? (
 				<div className="mt-12 flex flex-col items-center gap-3 text-center text-muted-fg md:mt-16">

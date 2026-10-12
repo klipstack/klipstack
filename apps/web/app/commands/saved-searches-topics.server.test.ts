@@ -73,6 +73,11 @@ describe("dropTopicFromSavedSearch", () => {
 			code: "invalid_request",
 		})
 		expect(await queryOf(id)).toBe('topic:"Old Shelf"')
+		// A sort alone filters nothing.
+		const sorted = await saved(userId, "Sorted", 'topic:"Old Shelf" sort:oldest')
+		await expect(dropTopicFromSavedSearch(userId, sorted, "Old Shelf")).rejects.toMatchObject({
+			code: "invalid_request",
+		})
 	})
 
 	it("refuses another reader's saved search, and a missing one", async () => {

@@ -449,7 +449,7 @@ function MoreBooks({
 
 /** Turning topics off deletes them: a second tap, as removing a topic. */
 function TurnOff() {
-	const { t } = useTranslation("library")
+	const { t, i18n } = useTranslation("library")
 	const fetcher = useFetcher<typeof action>()
 	useTopicRefusals(fetcher.data)
 	const [armed, setArmed] = useState(false)
@@ -484,7 +484,10 @@ function TurnOff() {
 			</Button>
 			{armed && naming.length ? (
 				<p data-testid="topics-off-saved" role="status" className="mt-2 text-sm text-muted-fg">
-					{t("topics.turnOffSaved", { count: naming.length, names: naming.join(", ") })}
+					{t("topics.turnOffSaved", {
+						count: naming.length,
+						names: new Intl.ListFormat(i18n.language, { type: "conjunction" }).format(naming),
+					})}
 				</p>
 			) : null}
 		</fetcher.Form>

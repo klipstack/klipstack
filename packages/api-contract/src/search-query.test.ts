@@ -3,6 +3,7 @@ import {
 	addOperator,
 	canSaveSearch,
 	defaultSavedSearchName,
+	findsEverything,
 	OPERATORS_MAX,
 	parseSearchQuery,
 	QUERY_MAX,
@@ -355,6 +356,15 @@ describe("topicsNamedIn", () => {
 			"Personal Growth",
 		])
 		expect(topicsNamedIn('Writing "topic:Writing"')).toEqual([])
+	})
+})
+
+describe("findsEverything", () => {
+	it("holds for a query with no words and no filter", () => {
+		expect(findsEverything("")).toBe(true)
+		expect(findsEverything("sort:oldest")).toBe(true)
+		expect(findsEverything("in:archive")).toBe(false)
+		expect(findsEverything("wombat sort:oldest")).toBe(false)
 	})
 })
 

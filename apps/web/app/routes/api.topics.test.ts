@@ -87,6 +87,15 @@ describe("GET /topics and GET /articles?topic=", () => {
 		expect((await without.client.topics.list()).items).toEqual([])
 	})
 
+	it("answers each topic's summary only, as the contract has it", async () => {
+		const response = await request("/api/v1/topics", { token: reader.key })
+		const body = (await response.json()) as { items: Record<string, unknown>[] }
+		expect(body.items.map((t) => Object.keys(t).sort())).toEqual([
+			["articles", "description", "id", "name"],
+			["articles", "description", "id", "name"],
+		])
+	})
+
 	it("lists a topic's articles, or those in none", async () => {
 		expect(titles(await reader.client.articles.list({ topic: ids["reader:Writing"] }))).toEqual([
 			"Draft one",
@@ -122,7 +131,10 @@ describe("MCP list_topics and list_library's topic", () => {
 		const mcp = await mcpClient(reader.key)
 		clients.push(mcp)
 		const listed = json(await mcp.callTool({ name: "list_topics", arguments: {} }))
-		expect(listed.items.map((t: { name: string }) => t.name)).toEqual(["Writing", "Science"])
+		expect(listed.items).toEqual([
+			{ id: ids["reader:Writing"], name: "Writing", description: "About Writing.", articles: 2 },
+			{ id: ids["reader:Science"], name: "Science", description: "About Science.", articles: 1 },
+		])
 		const page = json(
 			await mcp.callTool({
 				name: "list_library",

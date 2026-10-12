@@ -376,6 +376,12 @@ export function topicsNamedIn(q: string): string[] {
 	return [...names.values()]
 }
 
+/** A query with no words and no filter, a sort at most: it finds the whole library. */
+export function findsEverything(q: string): boolean {
+	const { text, filters } = parseSearchQuery(q)
+	return text.trim() === "" && filters.length === 0
+}
+
 /** Only the words, as typed. */
 export function textOnly(q: string): string {
 	return joined(parseSearchQuery(q).tokens.filter((t) => t.kind === "text"))

@@ -3,6 +3,7 @@ import {
 	canSaveSearch,
 	parseSearchQuery,
 	removeOperator,
+	findsEverything,
 	renameTopicOperator,
 	type SearchKey,
 	type Token,
@@ -229,6 +230,8 @@ function MissingTopic({ q, name }: { q: string; name: string }) {
 	const fetcher = useFetcher<{ ok: boolean; saved?: SavedSearchItem }>()
 	const saved = layout?.savedSearches.find((s) => s.query === q)
 	const rest = renameTopicOperator(q, name, [])
+	// Without the topic it would find everything: deleting is the way out.
+	const keeps = !findsEverything(rest)
 	const changed = fetcher.data?.ok ? fetcher.data.saved : undefined
 	useEffect(() => {
 		if (changed) void navigate(searchPath(changed.query), { replace: true, state: location.state })
@@ -249,7 +252,7 @@ function MissingTopic({ q, name }: { q: string; name: string }) {
 				<fetcher.Form method="post" action="/saved-searches" className="flex flex-wrap gap-2">
 					<input type="hidden" name="id" value={saved.id} />
 					<input type="hidden" name="topic" value={name} />
-					{rest ? (
+					{keeps ? (
 						<button
 							type="submit"
 							name="intent"
@@ -281,7 +284,7 @@ function MissingTopic({ q, name }: { q: string; name: string }) {
 						{t("search.missingTopic.delete")}
 					</button>
 				</fetcher.Form>
-			) : rest ? (
+			) : keeps ? (
 				<Link
 					to={searchPath(rest)}
 					replace
@@ -377,13 +380,10 @@ function TopicChip({ q, topics }: { q: string; topics: string[] }) {
 		.map((token) => token.raw)
 		.join(" ")
 	const first = tokens.find(isTopicToken)
-	const chosen = !first
-		? null
-		: first.key === "has"
-			? first.raw.startsWith("-")
-				? t("topicFilter.none")
-				: null
-			: (first.value ?? null)
+	// No topic is its own choice: a topic may be called the same.
+	const none = first?.key === "has" && first.raw.startsWith("-")
+	const topic = first?.key === "topic" ? (first.value ?? null) : null
+	const chosen = none ? t("topicFilter.none") : topic
 	const to = (query: string) => searchPath(query)
 	return (
 		<span data-testid="search-topic-chip" className="flex shrink-0 items-center">
@@ -405,7 +405,7 @@ function TopicChip({ q, topics }: { q: string; topics: string[] }) {
 							to={to(addOperator(rest, "topic", name))}
 							state={location.state}
 							replace
-							current={name === chosen}
+							current={name === topic}
 						>
 							<span className="min-w-0 truncate">{name}</span>
 						</MenuNavLink>
@@ -416,7 +416,7 @@ function TopicChip({ q, topics }: { q: string; topics: string[] }) {
 						to={to(`${rest} -has:topic`.trim())}
 						state={location.state}
 						replace
-						current={chosen === t("topicFilter.none")}
+						current={none}
 					>
 						{t("topicFilter.none")}
 					</MenuNavLink>
