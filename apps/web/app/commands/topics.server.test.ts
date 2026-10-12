@@ -23,13 +23,15 @@ vi.hoisted(() => {
 const {
 	confirmTopics,
 	disableTopics,
+	dismissTopicsCard,
 	enableTopics,
 	markTopicsSeen,
 	removeTopic,
 	renameTopic,
 	takeOutOfTopic,
 } = await import("./topics.server")
-const { topicsState, topicWithArticles } = await import("~/services/topics.server")
+const { firstTopicsNotice, topicsState, topicWithArticles } =
+	await import("~/services/topics.server")
 
 const tag = `test-topics-${randomUUID().slice(0, 8)}`
 let userId: string
@@ -151,7 +153,7 @@ describe("turning topics on and off", () => {
 		const topic = await active(userId, "Mine", [mine])
 		const other = await active(otherId, "Theirs", [theirs])
 		await db.insert(topicSorts).values({ documentId: mine, userId })
-		await takeOutOfTopic(userId, topic, [mine])
+		await takeOutOfTopic(userId, topic, mine)
 
 		await disableTopics(userId)
 		expect(await topicsState(userId)).toMatchObject({ stage: "off" })
@@ -191,7 +193,7 @@ describe("where topics stand", () => {
 	it("counts a topic's articles without the refused and the trashed", async () => {
 		const [kept, refused, trashed] = [await article(), await article(), await article()]
 		const topic = await active(userId, "Shelf", [kept, refused, trashed])
-		await takeOutOfTopic(userId, topic, [refused])
+		await takeOutOfTopic(userId, topic, refused)
 		await db.update(documents).set({ deletedAt: new Date() }).where(eq(documents.id, trashed))
 		expect(await topicsState(userId)).toMatchObject({
 			stage: "active",
@@ -267,7 +269,8 @@ describe("correcting topics", () => {
 	it("takes articles out of a topic for good, refusing another reader's or a trashed one", async () => {
 		const [inIt, notInIt] = [await article(), await article()]
 		const topic = await active(userId, "Shelf", [inIt])
-		await takeOutOfTopic(userId, topic, [inIt, notInIt])
+		await takeOutOfTopic(userId, topic, inIt)
+		await takeOutOfTopic(userId, topic, notInIt)
 		const rows = await db.select().from(documentTopics).where(eq(documentTopics.topicId, topic))
 		expect(rows.map((r) => [r.documentId, r.refusedAt !== null]).sort()).toEqual(
 			[
@@ -278,7 +281,7 @@ describe("correcting topics", () => {
 		const theirs = await article(otherId)
 		const trashed = await article(userId, { deleted: true })
 		for (const id of [theirs, trashed])
-			await expect(takeOutOfTopic(userId, topic, [id])).rejects.toMatchObject({
+			await expect(takeOutOfTopic(userId, topic, id)).rejects.toMatchObject({
 				code: "not_found",
 			})
 		const [refused] = await db
@@ -286,5 +289,56 @@ describe("correcting topics", () => {
 			.from(documentTopics)
 			.where(and(eq(documentTopics.topicId, topic), eq(documentTopics.documentId, inIt)))
 		expect(refused!.refusedAt).not.toBeNull()
+	})
+})
+
+describe("names, other readers and the feature", () => {
+	it("refuse a name another topic has, on rename and on confirm", async () => {
+		const [writing, management] = await proposed()
+		await expect(
+			confirmTopics(userId, {
+				keep: [{ id: writing!.id }, { id: management!.id, name: "writing online" }],
+			}),
+		).rejects.toMatchObject({ code: "name_taken" })
+		await confirmTopics(userId, { keep: [{ id: writing!.id }, { id: management!.id }] })
+		await expect(renameTopic(userId, management!.id, "WRITING ONLINE")).rejects.toMatchObject({
+			code: "name_taken",
+		})
+		// Its own name, in another case, is no clash.
+		expect(await renameTopic(userId, writing!.id, "writing online")).toMatchObject({
+			name: "writing online",
+		})
+	})
+
+	it("refuse another reader's topic: removing it, or opening it", async () => {
+		const theirs = await active(otherId, "Theirs", [await article(otherId)])
+		await expect(removeTopic(userId, theirs)).rejects.toMatchObject({ code: "not_found" })
+		expect(await topicWithArticles(userId, theirs)).toBeNull()
+	})
+
+	it("refuse every change once the feature is gone, but let the reader turn topics off", async () => {
+		const doc = await article()
+		const topic = await active(userId, "Shelf", [doc])
+		await db.delete(userFeatures).where(eq(userFeatures.userId, userId))
+		for (const change of [
+			() => renameTopic(userId, topic, "Other"),
+			() => removeTopic(userId, topic),
+			() => takeOutOfTopic(userId, topic, doc),
+			() => markTopicsSeen(userId),
+			() => dismissTopicsCard(userId),
+			() => confirmTopics(userId, { keep: [] }),
+		])
+			await expect(change()).rejects.toMatchObject({ code: "forbidden" })
+		await disableTopics(userId)
+		expect(await topicsState(userId)).toMatchObject({ stage: "off" })
+	})
+
+	it("put Home's card away with Not now, and keep the sidebar's dot until the proposal is opened", async () => {
+		await proposed()
+		expect(await firstTopicsNotice(userId)).toEqual({ dot: true, card: true })
+		await dismissTopicsCard(userId)
+		expect(await firstTopicsNotice(userId)).toEqual({ dot: true, card: false })
+		await markTopicsSeen(userId)
+		expect(await firstTopicsNotice(userId)).toEqual({ dot: false, card: false })
 	})
 })

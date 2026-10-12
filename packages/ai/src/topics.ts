@@ -110,7 +110,7 @@ const SYSTEM: Record<TopicStyle, string> = {
 
 const LANGUAGE: Record<AiLanguage, string> = {
 	en: "Write topic names and descriptions in English, whatever language the articles are in.",
-	es: "Write topic names and descriptions in Spanish, whatever language the articles are in.",
+	es: "Write topic names and descriptions in Spanish, whatever language the articles are in, with Spanish capitalization: only the first word and proper names capitalized (Gestión de equipos, not Gestión De Equipos).",
 }
 
 export function topicSystem(options: Pick<RequestOptions, "style" | "language">): string {

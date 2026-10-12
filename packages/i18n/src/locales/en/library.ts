@@ -284,6 +284,10 @@ export default {
 			none: "No topics came out of your library this time. More will be proposed as you save more articles.",
 		},
 		sorting: "Sorting your library into its topics: {{count}} articles to go.",
+		sorting_one: "Sorting your library into its topics: {{count}} article to go.",
+		sorting_other: "Sorting your library into its topics: {{count}} articles to go.",
+		paused:
+			"Topics are paused for your account: they don't change, and nothing is sent. You can still turn them off, which deletes them.",
 		empty: "No topics right now. New ones appear as you save more articles.",
 		articles: "{{count}} articles",
 		articles_one: "{{count}} article",
@@ -309,6 +313,7 @@ export default {
 		},
 		errors: {
 			invalid_name: "A topic name has 1 to 60 characters.",
+			name_taken: "Another topic has that name.",
 			not_found: "That topic is gone.",
 			already_done: "Your topics are confirmed already.",
 			forbidden: "Topics are not turned on for your account.",

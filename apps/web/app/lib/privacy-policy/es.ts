@@ -104,7 +104,7 @@ export default {
 			id: "topics",
 			title: "Temas automáticos",
 			blocks: [
-				"Los temas están desactivados hasta que los activas, en la página Temas. Mientras están activados, nuestro servidor envía cada artículo que guardas a TypeSafe, que lo ordena en tus temas: su título, su sitio, su descripción y el comienzo de su texto. También envía a Anthropic los títulos y las descripciones de tus artículos, para proponer tus temas, crear otros nuevos y revisarlos.",
+				"Los temas están desactivados hasta que los activas, en la página Temas. Mientras están activados, nuestro servidor envía cada artículo que guardas a TypeSafe, que lo ordena en tus temas: su título, su sitio, su descripción y el comienzo de su texto. También envía a Anthropic los títulos, los sitios y las descripciones de tus artículos (de uno sin descripción, las primeras líneas de su texto), para proponer tus temas, crear otros nuevos y revisarlos.",
 				"Guardamos tus temas y qué artículos están en cada uno hasta que desactivas los temas, lo que los borra, o borras tu cuenta.",
 			],
 		},

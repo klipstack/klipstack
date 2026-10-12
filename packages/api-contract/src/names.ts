@@ -67,6 +67,8 @@ export function cleanSavedSearchName(raw: string): string | null {
 }
 
 export const TOPIC_NAME_MAX = 60
+/** The most first topics one proposal holds, and so one confirmation keeps. */
+export const PROPOSED_TOPICS_MAX = 100
 
 /** A topic name as stored: trimmed, inner whitespace as one space. Null when empty, too long, or with a NUL. */
 export function cleanTopicName(raw: string): string | null {

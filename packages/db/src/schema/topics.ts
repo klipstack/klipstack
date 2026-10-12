@@ -30,11 +30,19 @@ export const topicLibraries = pgTable("topic_libraries", {
 	proposedAt: timestamp("proposed_at", { withTimezone: true }),
 	/** When the reader opened the proposal: the sidebar's dot and Home's card go. */
 	seenAt: timestamp("seen_at", { withTimezone: true }),
+	/** "Not now" on Home's card: the card goes, the sidebar's dot stays until the proposal is opened. */
+	cardDismissedAt: timestamp("card_dismissed_at", { withTimezone: true }),
 	confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
 	/** When the library was first sorted into the confirmed topics: reviews count articles after it. */
 	librarySortedAt: timestamp("library_sorted_at", { withTimezone: true }),
 	/** Unsorted articles when a new topic was last asked for: the next ask waits for more. */
 	unsortedAtLastGrow: integer("unsorted_at_last_grow").notNull().default(0),
+	/**
+	 * How far the library has been sorted again into the topics that need it (`resortPending`): the
+	 * last article done, by save time then id. Null: from the first article.
+	 */
+	resortAfterAt: timestamp("resort_after_at", { withTimezone: true, precision: 6 }),
+	resortAfterId: uuid("resort_after_id"),
 	/** Articles sorted since the last review of the topics, the library's first sort aside. */
 	sortedSinceReview: integer("sorted_since_review").notNull().default(0),
 })
@@ -60,8 +68,10 @@ export const topics = pgTable(
 		description: text("description").notNull(),
 		status: text("status", { enum: topicStatus }).notNull(),
 		origin: text("origin", { enum: topicOrigin }).notNull(),
-		/** The reader named it: a review never renames it. */
+		/** The reader named it: a review never renames, merges, splits or retires it. */
 		namedByReader: boolean("named_by_reader").notNull().default(false),
+		/** New or changed since the library was sorted: the library is sorted again into it. */
+		resortPending: boolean("resort_pending").notNull().default(false),
 		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 		updatedAt: timestamp("updated_at", { withTimezone: true })
 			.notNull()

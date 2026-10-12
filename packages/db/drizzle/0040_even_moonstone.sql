@@ -14,9 +14,12 @@ CREATE TABLE "topic_libraries" (
 	"proposed_at_count" integer,
 	"proposed_at" timestamp with time zone,
 	"seen_at" timestamp with time zone,
+	"card_dismissed_at" timestamp with time zone,
 	"confirmed_at" timestamp with time zone,
 	"library_sorted_at" timestamp with time zone,
 	"unsorted_at_last_grow" integer DEFAULT 0 NOT NULL,
+	"resort_after_at" timestamp (6) with time zone,
+	"resort_after_id" uuid,
 	"sorted_since_review" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
@@ -34,6 +37,7 @@ CREATE TABLE "topics" (
 	"status" text NOT NULL,
 	"origin" text NOT NULL,
 	"named_by_reader" boolean DEFAULT false NOT NULL,
+	"resort_pending" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"ended_at" timestamp with time zone

@@ -36,6 +36,9 @@ export interface TopicIn {
 	description: string
 }
 
+/** How long Jev may take for one article: it answers in a tenth of a second. */
+const DECIDE_TIMEOUT_MS = 30_000
+
 /** One paid request, for the account's spend: `model` is `provider:model`. */
 export interface TopicSpend {
 	model: string
@@ -182,6 +185,8 @@ export function createTopicModels(config: AiConfig, rules: TopicRules = TOPIC_RU
 						{ apiKey: config.typesafeApiKey, fetch: config.fetch },
 						state,
 						sortQuestions(chunk.view, rules.question),
+						// A hung request would hold the reader's run until the job expires.
+						AbortSignal.timeout(DECIDE_TIMEOUT_MS),
 					)
 					for (const [ref, p] of Object.entries(result.answers)) {
 						const id = chunk.toId.get(ref)

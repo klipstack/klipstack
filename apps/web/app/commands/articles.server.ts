@@ -35,6 +35,7 @@ import {
 } from "~/services/documents.server"
 import { addToDraft, currentDraft, draftCopies, removeFromDraft } from "~/services/editions.server"
 import { changeTagsIn } from "~/services/tags.server"
+import { queueTopicsIfOn } from "./topics.server"
 
 /**
  * Changes to the user's articles, for the web, the API and MCP alike. Changes act on the user's
@@ -482,7 +483,10 @@ async function restoreOne(
 ): Promise<"restored" | "missing" | { articleId: string }> {
 	for (let attempt = 0; attempt < 2; attempt++) {
 		try {
-			return (await restoreDocument(userId, id)) ? "restored" : "missing"
+			if (!(await restoreDocument(userId, id))) return "missing"
+			// Back in the library: the reader's topics may count it, or sort it.
+			await queueTopicsIfOn(userId)
+			return "restored"
 		} catch (error) {
 			if (!isUniqueViolation(error)) throw error
 			const live = await liveDuplicateOf(userId, id)

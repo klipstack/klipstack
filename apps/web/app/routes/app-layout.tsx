@@ -10,7 +10,7 @@ import { requireUser } from "~/lib/session.server"
 import { editionNudge } from "~/services/editions.server"
 import { countNewFeedItems } from "~/services/feeds.server"
 import { listSavedSearches } from "~/services/saved-searches.server"
-import { topicsUnseen } from "~/services/topics.server"
+import { firstTopicsNotice, hasTopics } from "~/services/topics.server"
 import type { Route } from "./+types/app-layout"
 
 export async function loader({ context, request }: Route.LoaderArgs) {
@@ -21,11 +21,14 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 		listSavedSearches(user.id),
 		listFeatures(user.id),
 	])
-	// Topics show for an account with the feature, on a server with both providers' keys.
+	// Topics show for an account with the feature, on a server with both providers' keys; and for
+	// one that has topics still, to turn them off.
 	const topics =
 		features.includes("topics") && topicModels.available
-			? { unseen: await topicsUnseen(user.id) }
-			: null
+			? { unseen: (await firstTopicsNotice(user.id)).dot }
+			: (await hasTopics(user.id))
+				? { unseen: false }
+				: null
 	return {
 		user: {
 			id: user.id,

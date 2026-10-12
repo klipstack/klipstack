@@ -8,7 +8,6 @@ import {
 	documents,
 	documentTopics,
 	eq,
-	inArray,
 	isNull,
 	sql,
 	topicLibraries,
@@ -39,7 +38,7 @@ export interface TopicsState {
 	needed: number
 	/** The first topics, while `proposed`; the topics, while `active`, largest first. */
 	topics: TopicSummary[]
-	/** The proposal is ready and the reader has not opened it: the sidebar's dot and Home's card. */
+	/** The proposal is ready and the reader has not opened it: the sidebar's dot. */
 	unseen: boolean
 	/** Articles still to sort, while `active`: the whole library, right after the reader confirms. */
 	sorting: number
@@ -119,10 +118,13 @@ async function summaries(userId: string, status: "active" | "proposed"): Promise
 	return rows
 }
 
-/** Whether the sidebar shows a dot on Topics: a proposal the reader has not opened. */
-export async function topicsUnseen(userId: string): Promise<boolean> {
+/**
+ * The first topics wait for the reader, who has not opened them: `dot` for the sidebar, until
+ * they open the proposal; `card` for Home, unless "Not now" put it away first.
+ */
+export async function firstTopicsNotice(userId: string): Promise<{ dot: boolean; card: boolean }> {
 	const [row] = await db
-		.select({ userId: topicLibraries.userId })
+		.select({ cardDismissedAt: topicLibraries.cardDismissedAt })
 		.from(topicLibraries)
 		.where(
 			and(
@@ -132,6 +134,15 @@ export async function topicsUnseen(userId: string): Promise<boolean> {
 				isNull(topicLibraries.confirmedAt),
 			),
 		)
+	return { dot: !!row, card: !!row && !row.cardDismissedAt }
+}
+
+/** Whether the reader has topics, on or waiting: they may turn them off even without the feature. */
+export async function hasTopics(userId: string): Promise<boolean> {
+	const [row] = await db
+		.select({ userId: topicLibraries.userId })
+		.from(topicLibraries)
+		.where(eq(topicLibraries.userId, userId))
 	return !!row
 }
 
@@ -159,23 +170,4 @@ export async function topicWithArticles(
 		)
 		.orderBy(desc(documents.createdAt), asc(documents.id))
 	return { topic: { ...topic, articles: items.length }, items }
-}
-
-/** The topics an article is in, for the reader to see and take it out of. */
-export async function topicsOfArticle(userId: string, documentIds: string[]) {
-	if (documentIds.length === 0) return []
-	return db
-		.select({ documentId: documentTopics.documentId, id: topics.id, name: topics.name })
-		.from(documentTopics)
-		.innerJoin(topics, eq(topics.id, documentTopics.topicId))
-		.where(
-			and(
-				inArray(documentTopics.documentId, documentIds),
-				eq(topics.userId, userId),
-				eq(topics.status, "active"),
-				eq(documentTopics.level, "applied"),
-				isNull(documentTopics.refusedAt),
-			),
-		)
-		.orderBy(asc(topics.name))
 }

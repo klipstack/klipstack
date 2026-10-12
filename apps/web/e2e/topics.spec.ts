@@ -1,6 +1,6 @@
 import { db, documents, eq, inArray, user } from "@klipstack/db"
 import { expect, test } from "@playwright/test"
-import { signupUser } from "./helpers"
+import { signupUser, waitForHydration } from "./helpers"
 import { insertArticle } from "./seed"
 
 /**
@@ -62,6 +62,8 @@ test("topics: turned on, proposed, confirmed, sorted, corrected and turned off",
 	await expect(page.getByTestId("topic-articles").getByRole("listitem")).toHaveCount(12)
 
 	await page.goto("/topics")
+	// The second tap is the page's script: it must be running first.
+	await waitForHydration(page)
 	await page.getByRole("button", { name: "Turn off topics" }).click()
 	await page.getByRole("button", { name: "Tap again: this deletes your topics" }).click()
 	await expect(page.getByTestId("topics-off")).toBeVisible()

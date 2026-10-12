@@ -104,7 +104,7 @@ export default {
 			id: "topics",
 			title: "Automatic topics",
 			blocks: [
-				"Topics are off until you turn them on, on the Topics page. While they are on, our server sends each article you save to TypeSafe, which sorts it into your topics: its title, site, description and the start of its text. It also sends Anthropic the titles and descriptions of your articles, to propose your topics, grow new ones and review them.",
+				"Topics are off until you turn them on, on the Topics page. While they are on, our server sends each article you save to TypeSafe, which sorts it into your topics: its title, site, description and the start of its text. It also sends Anthropic the titles, sites and descriptions of your articles (for one without a description, the first lines of its text), to propose your topics, grow new ones and review them.",
 				"We keep your topics and which articles are in them until you turn topics off, which deletes them, or delete your account.",
 			],
 		},

@@ -261,10 +261,10 @@ export default {
 	},
 	topics: {
 		description:
-			"Los temas ordenan solos lo que guardas en estantes: se proponen a partir de tu biblioteca y se mantienen al día mientras lees.",
+			"Los temas ordenan solos en estantes lo que guardas: se proponen a partir de tu biblioteca y se mantienen al día mientras lees.",
 		off: {
 			title: "Deja que tu biblioteca se ordene sola",
-			body: "Cuando hayas guardado {{needed}} artículos, Klipstack te propone temas a partir de lo que lees: asuntos concretos a los que vuelves, como Gestión de equipos de ingeniería o Escribir en internet. Los revisas una vez. Desde entonces, cada artículo que guardas va solo a sus temas, y aparecen temas nuevos a medida que cambian tus lecturas.",
+			body: "Cuando hayas guardado {{needed}} artículos, Klipstack te propondrá temas a partir de lo que lees: asuntos concretos a los que vuelves, como Gestión de equipos de ingeniería o Escribir en internet. Los revisas una vez. Desde entonces, cada artículo que guardas va solo a sus temas, y aparecen temas nuevos a medida que cambian tus lecturas.",
 			privacy:
 				"Para ordenar tus artículos, su texto se envía a TypeSafe y a Anthropic. Desactivar los temas los borra.",
 			enable: "Activar los temas",
@@ -287,18 +287,22 @@ export default {
 			none: "Esta vez no salieron temas de tu biblioteca. Se propondrán más a medida que guardes artículos.",
 		},
 		sorting: "Ordenando tu biblioteca en sus temas: faltan {{count}} artículos.",
+		sorting_one: "Ordenando tu biblioteca en sus temas: falta {{count}} artículo.",
+		sorting_other: "Ordenando tu biblioteca en sus temas: faltan {{count}} artículos.",
+		paused:
+			"Los temas están en pausa en tu cuenta: no cambian y no se envía nada. Aún puedes desactivarlos, lo que los borra.",
 		empty: "Ahora no hay temas. Aparecerán nuevos a medida que guardes artículos.",
 		articles: "{{count}} artículos",
 		articles_one: "{{count}} artículo",
 		articles_other: "{{count}} artículos",
 		edit: "Cambiar el nombre del tema {{name}}",
-		rename: "Cambiar",
+		rename: "Cambiar nombre",
 		cancel: "Cancelar",
 		remove: "Quitar el tema {{name}}",
 		removeConfirm: "Toca otra vez para quitarlo",
 		removed: "Quitaste {{name}}. No se volverá a proponer.",
 		takeOut: "Sacar {{title}} de este tema",
-		takenOut: "Sacado de {{name}}. No se volverá a poner.",
+		takenOut: "Lo sacaste de {{name}}. No se volverá a añadir.",
 		turnOff: "Desactivar los temas",
 		turnOffConfirm: "Toca otra vez: esto borra tus temas",
 		turnedOff: "Los temas están desactivados y borrados.",
@@ -312,7 +316,8 @@ export default {
 		},
 		errors: {
 			invalid_name: "Un nombre de tema tiene de 1 a 60 caracteres.",
-			not_found: "Ese tema ya no está.",
+			name_taken: "Otro tema tiene ese nombre.",
+			not_found: "Ese tema ya no existe.",
 			already_done: "Tus temas ya están confirmados.",
 			forbidden: "Los temas no están activados en tu cuenta.",
 			unavailable: "Los temas no están configurados en este servidor.",

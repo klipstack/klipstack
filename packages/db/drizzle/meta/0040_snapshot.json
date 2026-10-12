@@ -1,5 +1,5 @@
 {
-	"id": "f79e0c31-4672-4acf-8c65-979c758e86a3",
+	"id": "433a6504-0dfa-44a9-9579-575bd7ebd3fd",
 	"prevId": "8169305f-677e-43e4-a83b-811b7c56cdf1",
 	"version": "7",
 	"dialect": "postgresql",
@@ -5358,6 +5358,12 @@
 					"primaryKey": false,
 					"notNull": false
 				},
+				"card_dismissed_at": {
+					"name": "card_dismissed_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				},
 				"confirmed_at": {
 					"name": "confirmed_at",
 					"type": "timestamp with time zone",
@@ -5376,6 +5382,18 @@
 					"primaryKey": false,
 					"notNull": true,
 					"default": 0
+				},
+				"resort_after_at": {
+					"name": "resort_after_at",
+					"type": "timestamp (6) with time zone",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"resort_after_id": {
+					"name": "resort_after_id",
+					"type": "uuid",
+					"primaryKey": false,
+					"notNull": false
 				},
 				"sorted_since_review": {
 					"name": "sorted_since_review",
@@ -5512,6 +5530,13 @@
 				},
 				"named_by_reader": {
 					"name": "named_by_reader",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"resort_pending": {
+					"name": "resort_pending",
 					"type": "boolean",
 					"primaryKey": false,
 					"notNull": true,

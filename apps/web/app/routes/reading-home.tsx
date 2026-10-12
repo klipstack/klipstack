@@ -29,7 +29,7 @@ import { isSearchShortcut } from "~/lib/shortcuts"
 import { cn } from "~/lib/utils"
 import { finishedLately } from "~/services/reading-history.server"
 import { readingHome } from "~/services/reading-home.server"
-import { topicsUnseen } from "~/services/topics.server"
+import { firstTopicsNotice } from "~/services/topics.server"
 import type { Route } from "./+types/reading-home"
 
 export async function loader({ context, request }: Route.LoaderArgs) {
@@ -47,7 +47,7 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 /** The first topics wait for the reader, who has not opened them: Home says so, once. */
 async function firstTopicsReady(userId: string): Promise<boolean> {
 	if (!topicModels.available || !(await hasFeature(userId, "topics"))) return false
-	return topicsUnseen(userId)
+	return (await firstTopicsNotice(userId)).card
 }
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -308,7 +308,7 @@ function ReviewCard() {
 	)
 }
 
-/** The first topics are ready: a way to them, or "Not now", which counts as seen (the dot goes too). */
+/** The first topics are ready: a way to them, or "Not now", which puts the card away (the dot stays). */
 function TopicsCard() {
 	const { t } = useTranslation("library")
 	const later = useFetcher()
@@ -330,7 +330,7 @@ function TopicsCard() {
 					{t("topics.card.open")}
 				</Link>
 				<later.Form method="post" action="/topics">
-					<input type="hidden" name="intent" value="seen" />
+					<input type="hidden" name="intent" value="dismiss" />
 					<Button type="submit" variant="ghost">
 						{t("topics.card.later")}
 					</Button>

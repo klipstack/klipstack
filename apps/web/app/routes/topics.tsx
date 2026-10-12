@@ -6,6 +6,7 @@ import { Link, useFetcher, useRevalidator } from "react-router"
 import {
 	confirmTopics,
 	disableTopics,
+	dismissTopicsCard,
 	enableTopics,
 	markTopicsSeen,
 	removeTopic,
@@ -16,14 +17,19 @@ import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
 import { topicModels } from "~/lib/ai.server"
 import { AppError } from "~/lib/app-error"
-import { requireFeature } from "~/lib/features.server"
+import { hasFeature } from "~/lib/features.server"
 import type { PageBarHandle } from "~/lib/page-bar"
 import { pageTitle } from "~/lib/page-title"
 import { readForm } from "~/lib/request-body.server"
 import { requireUser } from "~/lib/session.server"
 import { showToast } from "~/lib/toast"
 import { answer } from "~/lib/web-action.server"
-import { type TopicSummary, type TopicsState, topicsState } from "~/services/topics.server"
+import {
+	hasTopics,
+	type TopicSummary,
+	type TopicsState,
+	topicsState,
+} from "~/services/topics.server"
 import type { Route } from "./+types/topics"
 
 export function meta({ matches }: Route.MetaArgs) {
@@ -34,9 +40,10 @@ export const handle: PageBarHandle = { pageBar: { titleKey: "common:nav.topics" 
 
 export async function loader({ context, request }: Route.LoaderArgs) {
 	const user = requireUser(context, request)
-	await requireFeature(user.id, "topics")
-	if (!topicModels.available) throw new Response(null, { status: 404 })
-	return { state: await topicsState(user.id) }
+	// Without the feature, or the providers, a reader who has topics may still turn them off.
+	const usable = topicModels.available && (await hasFeature(user.id, "topics"))
+	if (!usable && !(await hasTopics(user.id))) throw new Response(null, { status: 404 })
+	return { state: await topicsState(user.id), paused: !usable }
 }
 
 /**
@@ -57,6 +64,9 @@ export async function action({ request, context }: Route.ActionArgs) {
 				return { disabled: true }
 			case "seen":
 				await markTopicsSeen(user.id)
+				return {}
+			case "dismiss":
+				await dismissTopicsCard(user.id)
 				return {}
 			case "confirm":
 				await confirmTopics(user.id, {
@@ -82,7 +92,9 @@ type Answered = { ok: true } | { ok: false; error: { code: string; message: stri
 /** Says a refusal in the reader's words. */
 function useRefusals(data: Answered | undefined) {
 	const { t } = useTranslation("library")
+	const { t: tc } = useTranslation()
 	const words = {
+		name_taken: t("topics.errors.name_taken"),
 		invalid_request: t("topics.errors.invalid_name"),
 		not_found: t("topics.errors.not_found"),
 		already_done: t("topics.errors.already_done"),
@@ -91,7 +103,7 @@ function useRefusals(data: Answered | undefined) {
 	} as Record<string, string>
 	const onData = useEffectEvent((result: Answered | undefined) => {
 		if (!result || result.ok) return
-		showToast({ message: words[result.error.code] ?? result.error.message })
+		showToast({ message: words[result.error.code] ?? tc("errors.generic") })
 	})
 	useEffect(() => onData(data), [data])
 }
@@ -100,10 +112,11 @@ function useRefusals(data: Answered | undefined) {
 export default function Topics({ loaderData }: Route.ComponentProps) {
 	const { t } = useTranslation("library")
 	const { t: tc } = useTranslation()
-	const { state } = loaderData
+	const { state, paused } = loaderData
 	// While the worker is on it, the page asks again now and then.
 	const { revalidate } = useRevalidator()
-	const busy = state.stage === "proposing" || (state.stage === "active" && state.sorting > 0)
+	const busy =
+		!paused && (state.stage === "proposing" || (state.stage === "active" && state.sorting > 0))
 	useEffect(() => {
 		if (!busy) return
 		const id = window.setInterval(() => void revalidate(), 5000)
@@ -113,8 +126,13 @@ export default function Topics({ loaderData }: Route.ComponentProps) {
 		<main className="mx-auto w-full max-w-2xl flex-1 px-4 pt-3 pb-8 md:pt-4 md:pb-8">
 			<h1 className="hidden text-2xl font-semibold md:block md:leading-10">{tc("nav.topics")}</h1>
 			<p className="text-sm text-muted-fg md:mt-2">{t("topics.description")}</p>
-			{state.stage === "off" ? <TurnOn state={state} /> : null}
-			{state.stage === "waiting" ? (
+			{paused ? (
+				<p data-testid="topics-paused" className="mt-6 text-sm text-muted-fg">
+					{t("topics.paused")}
+				</p>
+			) : null}
+			{state.stage === "off" && !paused ? <TurnOn state={state} /> : null}
+			{state.stage === "waiting" && !paused ? (
 				<section data-testid="topics-waiting" className="mt-6 rounded-xl border border-border p-4">
 					<h2 className="font-medium">{t("topics.waiting.title")}</h2>
 					<p className="mt-1 text-sm text-muted-fg">
@@ -131,7 +149,7 @@ export default function Topics({ loaderData }: Route.ComponentProps) {
 					</p>
 				</section>
 			) : null}
-			{state.stage === "proposing" ? (
+			{state.stage === "proposing" && !paused ? (
 				<section
 					data-testid="topics-proposing"
 					className="mt-6 rounded-xl border border-border p-4"
@@ -140,8 +158,8 @@ export default function Topics({ loaderData }: Route.ComponentProps) {
 					<p className="mt-1 text-sm text-muted-fg">{t("topics.proposing.body")}</p>
 				</section>
 			) : null}
-			{state.stage === "proposed" ? <Proposal state={state} /> : null}
-			{state.stage === "active" ? <TopicList state={state} /> : null}
+			{state.stage === "proposed" && !paused ? <Proposal state={state} /> : null}
+			{state.stage === "active" && !paused ? <TopicList state={state} /> : null}
 			{state.stage === "off" ? null : <TurnOff />}
 		</main>
 	)

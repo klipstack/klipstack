@@ -1,5 +1,11 @@
 import { randomUUID } from "node:crypto"
-import type { ReviewChange, TopicArticleIn, TopicIn } from "@klipstack/ai"
+import {
+	AiError,
+	DecisionError,
+	type ReviewChange,
+	type TopicArticleIn,
+	type TopicIn,
+} from "@klipstack/ai"
 import {
 	and,
 	db,
@@ -8,7 +14,6 @@ import {
 	documentVersions,
 	eq,
 	inArray,
-	isNotNull,
 	isNull,
 	pool,
 	topicLibraries,
@@ -92,7 +97,8 @@ const spec = (name: string, description = `Articles about ${name.toLowerCase()}.
 
 /**
  * Models the test scripts. Sorting says yes (0.9) when a word of the topic's description is the
- * article's subject, and no (0.05) otherwise; every call is recorded.
+ * article's subject, and no (0.05) otherwise; every call is recorded. `sort` may refuse an article
+ * or do something meanwhile (`during`), as a reader would while a request is on its way.
  */
 function models(script: {
 	propose?: () => { name: string; description: string }[]
@@ -104,6 +110,8 @@ function models(script: {
 		topics?: { name: string; description: string; articleIds: string[] }[]
 	}
 	review?: (topics: TopicIn[]) => ReviewChange[]
+	refuse?: (article: TopicArticleIn) => boolean
+	during?: (call: string) => Promise<void>
 }) {
 	const calls: string[] = []
 	const spend = [
@@ -116,6 +124,7 @@ function models(script: {
 			available: true,
 			async propose({ articles }) {
 				calls.push(`propose:${articles.length}`)
+				await script.during?.("propose")
 				return {
 					value: (script.propose?.() ?? []).map((t) => ({ ...t, reason: "" })),
 					spend: [
@@ -130,6 +139,7 @@ function models(script: {
 			},
 			async grow({ topics, pool }) {
 				calls.push(`grow:${pool.length}`)
+				await script.during?.("grow")
 				const answer = script.grow?.(topics, pool) ?? {}
 				return {
 					value: {
@@ -146,6 +156,11 @@ function models(script: {
 			},
 			async sort({ article, topics }) {
 				calls.push("sort")
+				await script.during?.("sort")
+				if (script.refuse?.(article))
+					throw new AiError("provider", "Jev refused", {
+						cause: new DecisionError("Jev answered HTTP 422", false),
+					})
 				const subject = article.text.match(/about (\w+)/)?.[1] ?? ""
 				return {
 					value: Object.fromEntries(
@@ -160,6 +175,16 @@ function models(script: {
 }
 
 const run = (deps: TopicsDeps) => bringTopicsUpToDate(userId, deps)
+
+/** Runs until nothing is left for a next run, as the queue would. */
+async function settle(deps: TopicsDeps, calls: string[]) {
+	for (let i = 0; i < 50; i++) {
+		const before = calls.filter((c) => c === "again").length
+		await run(deps)
+		if (calls.filter((c) => c === "again").length === before) return
+	}
+	throw new Error("the runs never settled")
+}
 
 async function confirm() {
 	await db
@@ -197,6 +222,13 @@ async function topicsOf(documentId: string) {
 	return rows.map((r) => r.name).sort()
 }
 
+async function refuse(documentId: string, topicId: string) {
+	await db
+		.update(documentTopics)
+		.set({ refusedAt: new Date() })
+		.where(and(eq(documentTopics.documentId, documentId), eq(documentTopics.topicId, topicId)))
+}
+
 async function usage(metric: "topics" | "ai_spend") {
 	const [row] = await db
 		.select({ count: usageCounts.count })
@@ -204,6 +236,11 @@ async function usage(metric: "topics" | "ai_spend") {
 		.where(and(eq(usageCounts.userId, userId), eq(usageCounts.metric, metric)))
 	return row?.count ?? 0
 }
+
+const statuses = async () =>
+	(await db.select().from(topics).where(eq(topics.userId, userId)))
+		.map((t) => [t.name, t.status])
+		.sort((a, b) => a[0]!.localeCompare(b[0]!))
 
 describe("the first topics", () => {
 	it("wait for 25 ready articles, then are proposed for the reader to confirm", async () => {
@@ -218,7 +255,7 @@ describe("the first topics", () => {
 		expect(await run(deps)).toEqual({ done: "proposed", topics: 2 })
 		expect(calls).toEqual(["propose:25"])
 		const proposed = await db.select().from(topics).where(eq(topics.userId, userId))
-		expect(proposed.map((t) => [t.name, t.status, t.origin])).toEqual([
+		expect(proposed.map((t) => [t.name, t.status, t.origin]).sort()).toEqual([
 			["Cats", "proposed", "first"],
 			["Dogs", "proposed", "first"],
 		])
@@ -242,7 +279,7 @@ describe("the first topics", () => {
 		expect(calls).toEqual(["propose:25", "propose:30"])
 	})
 
-	it("are asked for again at once when the request failed, and wait for the answer as proposing", async () => {
+	it("are asked for again at once when the request failed, which spends none of the cap", async () => {
 		const { deps, calls } = models({ propose: () => [spec("Cats")] })
 		await many(25, "cats")
 		const failing = {
@@ -261,8 +298,40 @@ describe("the first topics", () => {
 			.from(topicLibraries)
 			.where(eq(topicLibraries.userId, userId))
 		expect(library!.proposedAtCount).toBeNull()
+		expect(await usage("topics")).toBe(0)
 		expect(await run(deps)).toEqual({ done: "proposed", topics: 1 })
 		expect(calls).toEqual(["propose:failed", "propose:25"])
+	})
+
+	it("keep only names a reader could give, and cut long descriptions", async () => {
+		const { deps } = models({
+			propose: () => [
+				spec("  Cats  "),
+				spec("cats"),
+				spec("x".repeat(61)),
+				spec("Dogs\u0000"),
+				spec("Owls", "y".repeat(5000)),
+			],
+		})
+		await many(25, "cats")
+		expect(await run(deps)).toEqual({ done: "proposed", topics: 2 })
+		const rows = await db.select().from(topics).where(eq(topics.userId, userId))
+		expect(rows.map((t) => [t.name, t.description.length]).sort()).toEqual([
+			["Cats", "Articles about   cats  .".replace(/\s+/g, " ").length],
+			["Owls", 600],
+		])
+	})
+
+	it("keep nothing when the reader turns topics off while they are being proposed", async () => {
+		const { deps } = models({
+			propose: () => [spec("Cats")],
+			during: async () => {
+				await db.delete(topicLibraries).where(eq(topicLibraries.userId, userId))
+			},
+		})
+		await many(25, "cats")
+		expect(await run(deps)).toEqual({ done: "nothing", why: "off" })
+		expect(await db.select().from(topics).where(eq(topics.userId, userId))).toEqual([])
 	})
 
 	it("are not asked for past the month's cap, nor without the feature or the providers", async () => {
@@ -313,7 +382,18 @@ describe("after the reader confirms", () => {
 		expect(await topicsOf(late)).toEqual(["Dogs"])
 	})
 
-	it("grows a topic once enough articles fit none, sorts the library into it, and never re-creates a removed one", async () => {
+	it("leaves out an article a provider refuses, and goes on with the others", async () => {
+		let refused = ""
+		const { deps, calls, cats } = await confirmed({ refuse: (a) => a.id === refused })
+		refused = cats[0]!
+		await settle(deps, calls)
+		expect(await topicsOf(cats[0]!)).toEqual([])
+		expect(await topicsOf(cats[1]!)).toEqual(["Cats"])
+		const sorted = await db.select().from(topicSorts).where(eq(topicSorts.userId, userId))
+		expect(sorted).toHaveLength(25)
+	})
+
+	it("grows a topic once enough articles fit none, sorts the library into it in batches, and never re-creates a removed one", async () => {
 		const { deps, calls } = await confirmed({
 			grow: (_topics, pool) => ({
 				topics: [
@@ -322,32 +402,71 @@ describe("after the reader confirms", () => {
 				],
 			}),
 		})
-		await run(deps)
+		await settle(deps, calls)
 		await db
 			.insert(topics)
 			.values({ userId, ...spec("Ferrets"), status: "removed", origin: "first" })
 		const owls = await many(4, "owls")
-		await run(deps)
+		await settle(deps, calls)
 		expect(calls.filter((c) => c.startsWith("grow"))).toEqual([])
 		owls.push(await article("owls"))
-		const outcome = await run(deps)
-		expect(outcome).toMatchObject({ done: "sorted", grew: 1 })
+		// Small batches: the library is sorted into the new topic over several runs.
+		await settle({ ...deps, batch: 7 }, calls)
 		expect(calls.filter((c) => c.startsWith("grow"))).toEqual(["grow:5"])
+		expect(calls.filter((c) => c === "again").length).toBeGreaterThan(2)
 		for (const id of owls) expect(await topicsOf(id)).toEqual(["Owls"])
-		const ferretTopics = await db
-			.select()
-			.from(topics)
-			.where(and(eq(topics.userId, userId), eq(topics.name, "Ferrets")))
-		expect(ferretTopics.map((t) => t.status)).toEqual(["removed"])
+		expect(
+			(await statuses()).filter(([name]) => name === "Ferrets").map(([, status]) => status),
+		).toEqual(["removed"])
+		expect((await topicNamed("Owls")).resortPending).toBe(false)
 		const [library] = await db
 			.select()
 			.from(topicLibraries)
 			.where(eq(topicLibraries.userId, userId))
-		expect(library!.unsortedAtLastGrow).toBe(0)
+		expect(library).toMatchObject({ unsortedAtLastGrow: 5, resortAfterAt: null })
+	})
+
+	it("keeps nothing a growth brings when the reader turns topics off meanwhile", async () => {
+		let off = false
+		const { deps, calls } = await confirmed({
+			grow: (_topics, pool) => ({
+				topics: [{ ...spec("Owls"), articleIds: pool.map((a) => a.id) }],
+			}),
+			during: async (call) => {
+				if (call === "grow" && off)
+					await db.delete(topicLibraries).where(eq(topicLibraries.userId, userId))
+			},
+		})
+		await settle(deps, calls)
+		await many(5, "owls")
+		off = true
+		await settle(deps, calls)
+		expect((await statuses()).map(([name]) => name)).not.toContain("Owls")
+	})
+
+	it("gives nothing to a topic the reader removed while the article was being sorted", async () => {
+		let remove: string | null = null
+		const { deps, calls, cats } = await confirmed({
+			during: async (call) => {
+				if (call === "sort" && remove)
+					await db.update(topics).set({ status: "removed" }).where(eq(topics.id, remove))
+			},
+		})
+		await settle(deps, calls)
+		remove = (await topicNamed("Cats")).id
+		const late = await article("cats")
+		await settle(deps, calls)
+		expect(await topicsOf(late)).toEqual([])
+		const rows = await db
+			.select()
+			.from(documentTopics)
+			.where(and(eq(documentTopics.documentId, late), eq(documentTopics.topicId, remove)))
+		expect(rows).toEqual([])
+		void cats
 	})
 
 	it("never puts an article back in a topic the reader took it out of, even when the topic widens", async () => {
-		const { deps, cats } = await confirmed({
+		const { deps, calls, cats } = await confirmed({
 			grow: (topics) => ({
 				widen: [
 					{
@@ -359,50 +478,45 @@ describe("after the reader confirms", () => {
 				],
 			}),
 		})
-		await run(deps)
+		await settle(deps, calls)
 		const catsTopic = await topicNamed("Cats")
-		await db
-			.update(documentTopics)
-			.set({ refusedAt: new Date() })
-			.where(and(eq(documentTopics.documentId, cats[0]!), eq(documentTopics.topicId, catsTopic.id)))
+		await refuse(cats[0]!, catsTopic.id)
 		const owls = await many(5, "owls")
-		expect(await run(deps)).toMatchObject({ widened: 1 })
+		await settle(deps, calls)
+		expect(calls.filter((c) => c.startsWith("grow"))).toHaveLength(1)
 		expect(await topicsOf(owls[0]!)).toEqual(["Cats"])
 		expect(await topicsOf(cats[0]!)).toEqual([])
 		expect(await topicsOf(cats[1]!)).toEqual(["Cats"])
 	})
+})
 
-	it("reviews after twenty articles saved since confirming: a merge keeps refusals, a reader's name stays", async () => {
-		let changes: ReviewChange[] = []
-		const { deps, calls, cats, dogs } = await confirmed({ review: () => changes })
-		const catsTopic = await topicNamed("Cats")
-		const dogsTopic = await topicNamed("Dogs")
-		await db.update(topics).set({ namedByReader: true }).where(eq(topics.id, dogsTopic.id))
-		changes = [
-			{
-				op: "rename",
-				topicIds: [dogsTopic.id],
-				into: [spec("Hounds", "Articles about dogs and hounds.")],
-				reason: "",
-			},
-		]
-		// The library's first sort, right after confirming, is not reviewed: the reader just chose.
-		await run(deps)
+describe("reviews", () => {
+	async function reviewing(changes: (topics: TopicIn[]) => ReviewChange[]) {
+		const setup = models({ propose: () => [spec("Cats"), spec("Dogs")], review: changes })
+		const cats = await many(13, "cats")
+		const dogs = await many(12, "dogs")
+		await run(setup.deps)
+		await confirm()
+		await settle(setup.deps, setup.calls)
+		return { ...setup, cats, dogs }
+	}
+
+	it("wait for twenty articles saved since confirming", async () => {
+		const { deps, calls } = await reviewing(() => [])
 		expect(calls.filter((c) => c === "review")).toHaveLength(0)
 		await many(19, "dogs")
-		await run(deps)
+		await settle(deps, calls)
 		expect(calls.filter((c) => c === "review")).toHaveLength(0)
 		await article("dogs")
-		await run(deps)
+		await settle(deps, calls)
 		expect(calls.filter((c) => c === "review")).toHaveLength(1)
-		expect(await topicNamed("Dogs")).toMatchObject({
-			description: "Articles about dogs and hounds.",
-		})
+	})
 
-		await db
-			.update(documentTopics)
-			.set({ refusedAt: new Date() })
-			.where(and(eq(documentTopics.documentId, cats[0]!), eq(documentTopics.topicId, catsTopic.id)))
+	it("merge two topics into one, all at once, carrying the reader's refusals", async () => {
+		let changes: ReviewChange[] = []
+		const { deps, calls, cats, dogs } = await reviewing(() => changes)
+		const [catsTopic, dogsTopic] = [await topicNamed("Cats"), await topicNamed("Dogs")]
+		await refuse(cats[0]!, catsTopic.id)
 		changes = [
 			{
 				op: "merge",
@@ -412,32 +526,22 @@ describe("after the reader confirms", () => {
 			},
 		]
 		await many(20, "cats")
-		await run(deps)
-		expect(calls.filter((c) => c === "review")).toHaveLength(2)
-		const ended = await db
-			.select()
-			.from(topics)
-			.where(inArray(topics.id, [catsTopic.id, dogsTopic.id]))
-		expect(ended.map((t) => t.status)).toEqual(["retired", "retired"])
+		await settle(deps, calls)
+		expect(await statuses()).toEqual([
+			["Cats", "retired"],
+			["Dogs", "retired"],
+			["Pets", "active"],
+		])
 		expect(await topicsOf(dogs[0]!)).toEqual(["Pets"])
 		expect(await topicsOf(cats[1]!)).toEqual(["Pets"])
 		expect(await topicsOf(cats[0]!)).toEqual([])
-		const refusals = await db
-			.select()
-			.from(documentTopics)
-			.where(and(eq(documentTopics.documentId, cats[0]!), isNotNull(documentTopics.refusedAt)))
-		expect(refusals).toHaveLength(1)
 	})
 
-	it("splits a topic into parts, copying its refusals to each", async () => {
+	it("split a topic into parts, copying its refusals to each", async () => {
 		let changes: ReviewChange[] = []
-		const { deps, cats, dogs } = await confirmed({ review: () => changes })
-		await run(deps)
+		const { deps, calls, cats, dogs } = await reviewing(() => changes)
 		const catsTopic = await topicNamed("Cats")
-		await db
-			.update(documentTopics)
-			.set({ refusedAt: new Date() })
-			.where(and(eq(documentTopics.documentId, cats[0]!), eq(documentTopics.topicId, catsTopic.id)))
+		await refuse(cats[0]!, catsTopic.id)
 		changes = [
 			{
 				op: "split",
@@ -450,9 +554,60 @@ describe("after the reader confirms", () => {
 			},
 		]
 		await many(20, "dogs")
-		await run(deps)
+		await settle(deps, calls)
 		expect(await topicsOf(cats[1]!)).toEqual(["Big cats", "House cats"])
 		expect(await topicsOf(cats[0]!)).toEqual([])
 		expect(await topicsOf(dogs[0]!)).toEqual(["Dogs"])
+	})
+
+	it("only sharpen the description of a topic the reader named, and never take a removed name", async () => {
+		let changes: ReviewChange[] = []
+		const { deps, calls } = await reviewing(() => changes)
+		const [catsTopic, dogsTopic] = [await topicNamed("Cats"), await topicNamed("Dogs")]
+		await db.update(topics).set({ namedByReader: true }).where(eq(topics.id, dogsTopic.id))
+		await db
+			.insert(topics)
+			.values({ userId, ...spec("Felines"), status: "removed", origin: "first" })
+		changes = [
+			{
+				op: "rename",
+				topicIds: [dogsTopic.id],
+				into: [spec("Hounds", "Articles about dogs and hounds.")],
+				reason: "",
+			},
+			{ op: "rename", topicIds: [catsTopic.id], into: [spec("Felines")], reason: "" },
+			{ op: "retire", topicIds: [dogsTopic.id], into: [], reason: "" },
+			{
+				op: "merge",
+				topicIds: [catsTopic.id, dogsTopic.id],
+				into: [spec("Pets", "Articles about cats and dogs.")],
+				reason: "",
+			},
+		]
+		await many(20, "dogs")
+		await settle(deps, calls)
+		expect(await topicNamed("Dogs")).toMatchObject({
+			status: "active",
+			description: "Articles about dogs and hounds.",
+		})
+		expect(await topicNamed("Cats")).toMatchObject({
+			status: "active",
+			description: "Articles about felines.",
+		})
+		expect((await statuses()).map(([name]) => name)).not.toContain("Pets")
+	})
+
+	it("retire every topic they name", async () => {
+		let changes: ReviewChange[] = []
+		const { deps, calls, cats } = await reviewing(() => changes)
+		const [catsTopic, dogsTopic] = [await topicNamed("Cats"), await topicNamed("Dogs")]
+		changes = [{ op: "retire", topicIds: [catsTopic.id, dogsTopic.id], into: [], reason: "" }]
+		await many(20, "dogs")
+		await settle(deps, calls)
+		expect(await statuses()).toEqual([
+			["Cats", "retired"],
+			["Dogs", "retired"],
+		])
+		expect(await topicsOf(cats[0]!)).toEqual([])
 	})
 })

@@ -39,24 +39,29 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 	const form = await readForm(request)
 	return answer(async () => {
 		if (form.get("intent") !== "take-out") throw new AppError("invalid_request", "Unknown intent.")
-		const { topic, taken } = await takeOutOfTopic(user.id, params.id, [
-			String(form.get("article") ?? ""),
-		])
-		return { name: topic.name, taken }
+		const topic = await takeOutOfTopic(user.id, params.id, String(form.get("article") ?? ""))
+		return { name: topic.name }
 	})
 }
 
 /** A topic's articles, newest first, each with the way to take it out. */
 export default function TopicPage({ loaderData }: Route.ComponentProps) {
 	const { t } = useTranslation("library")
+	const { t: tc } = useTranslation()
 	const { topic, items } = loaderData
 	// One fetcher for the page, not one per row: a row taken out is gone once the page loads again,
 	// and what it answered is still said.
 	const fetcher = useFetcher<typeof action>()
 	const onAnswer = useEffectEvent((result: typeof fetcher.data) => {
 		if (!result) return
+		const refused: Record<string, string> = {
+			not_found: t("topics.errors.not_found"),
+			forbidden: t("topics.errors.forbidden"),
+		}
 		showToast({
-			message: result.ok ? t("topics.takenOut", { name: result.name }) : result.error.message,
+			message: result.ok
+				? t("topics.takenOut", { name: result.name })
+				: (refused[result.error.code] ?? tc("errors.generic")),
 		})
 	})
 	useEffect(() => onAnswer(fetcher.data), [fetcher.data])
