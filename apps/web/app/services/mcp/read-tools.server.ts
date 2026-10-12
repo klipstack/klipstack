@@ -27,6 +27,7 @@ import { listNoteLinks } from "../links.server"
 import { listSavedSearches } from "../saved-searches.server"
 import { searchDocuments } from "../search.server"
 import { listTags } from "../tags.server"
+import { topicAsked, topicList } from "../topics.server"
 import { uuid } from "./ids"
 import { imagesMarkdown } from "./images"
 import { viewImages } from "./images.server"
@@ -135,6 +136,18 @@ export function registerReadTools(server: McpServer, userId: string) {
 	)
 
 	server.registerTool(
+		"list_topics",
+		{
+			title: "List topics",
+			description:
+				"The user's automatic topics: shelves the app sorts their articles into, and keeps up to date (renamed, merged or split as the library grows), most articles first, each with its id, name, description and article count. Empty while the user has topics off. For a topic's articles, list_library with topic (its id, or none for the articles sorted into no topic), or search_library with topic:<name>. Unlike tags, the user does not put topics on articles.",
+			inputSchema: z.object({}),
+			annotations: READ_ONLY,
+		},
+		async () => json({ items: await topicList(userId) }),
+	)
+
+	server.registerTool(
 		"list_saved_searches",
 		{
 			title: "List saved searches",
@@ -158,6 +171,12 @@ export function registerReadTools(server: McpServer, userId: string) {
 				.object({
 					view: z.enum(["inbox", "archive", "starred"]).default("inbox"),
 					filter: z.enum([...new Set([...INBOX_FILTERS, ...ARCHIVE_FILTERS])]).optional(),
+					topic: z
+						.union([uuid(), z.literal("none")])
+						.optional()
+						.describe(
+							"A topic's id from list_topics: only its articles. none: the articles sorted into no topic.",
+						),
 					has_note_links: z
 						.boolean()
 						.optional()
@@ -176,9 +195,12 @@ export function registerReadTools(server: McpServer, userId: string) {
 				}),
 			annotations: READ_ONLY,
 		},
-		async ({ view, filter, has_note_links, sort, limit, cursor }) => {
+		async ({ view, filter, topic: asked, has_note_links, sort, limit, cursor }) => {
 			const decoded = decodeCursor(cursor)
 			if (cursor && !decoded) return toolError("Invalid cursor. Use nextCursor from list_library.")
+			const topic = asked ? await topicAsked(userId, asked) : null
+			if (asked && !topic)
+				return toolError("No topic with that id. Use an id from list_topics; topics may be off.")
 			const page = await listDocuments({
 				userId,
 				view,
@@ -187,6 +209,7 @@ export function registerReadTools(server: McpServer, userId: string) {
 				limit,
 				hasNoteLinks: has_note_links,
 				cursor: decoded,
+				topic,
 			})
 			return json({ items: page.items.map(articleSummary), nextCursor: page.nextCursor })
 		},

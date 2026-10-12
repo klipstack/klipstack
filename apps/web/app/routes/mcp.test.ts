@@ -34,6 +34,7 @@ const READ_TOOLS = [
 	"list_library",
 	"list_saved_searches",
 	"list_tags",
+	"list_topics",
 	"search_library",
 	"view_images",
 ]

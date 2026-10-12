@@ -46,6 +46,7 @@ export const handlers: HandlerTable<Endpoints> = {
 	"tags.create": writes.addTag,
 	"tags.rename": writes.retitleTag,
 	"tags.delete": writes.removeTag,
+	"topics.list": library.topics,
 	"savedSearches.list": library.savedSearches,
 	"savedSearches.create": writes.addSavedSearch,
 	"savedSearches.rename": writes.retitleSavedSearch,

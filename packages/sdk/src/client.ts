@@ -141,6 +141,13 @@ export function createClient(options: ClientOptions) {
 			delete: (id: string, { force = false }: { force?: boolean } = {}) =>
 				call("tags.delete", { params: { id }, query: { force } }),
 		},
+		topics: {
+			/**
+			 * The automatic topics, most articles first; empty while they are off.
+			 * `articles.list({ topic })` and `articles.search("topic:<name>")` list a topic's articles.
+			 */
+			list: () => call("topics.list"),
+		},
 		savedSearches: {
 			/** The queries the user named, by name. `articles.search(query)` runs one. */
 			list: () => call("savedSearches.list"),
@@ -204,6 +211,7 @@ export const FACADE: Record<EndpointId, string> = {
 	"tags.create": "tags.create",
 	"tags.rename": "tags.rename",
 	"tags.delete": "tags.delete",
+	"topics.list": "topics.list",
 	"savedSearches.list": "savedSearches.list",
 	"savedSearches.create": "savedSearches.create",
 	"savedSearches.rename": "savedSearches.rename",

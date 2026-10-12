@@ -26,6 +26,7 @@ import {
 	finished,
 	type LibraryCard,
 	libraryCardColumns,
+	type TopicScope,
 	viewWhere,
 } from "./documents.server"
 import { inNoTopic, notSorted } from "./topic-scope.server"
@@ -227,6 +228,25 @@ export async function topicsConfirmed(userId: string): Promise<boolean> {
  */
 export async function topicsInUse(userId: string): Promise<boolean> {
 	return topicModels.available && (await hasFeature(userId, "topics")) && topicsConfirmed(userId)
+}
+
+/** The reader's topics, most articles first, for the API and MCP: none while topics are not in use. */
+export async function topicList(userId: string): Promise<TopicSummary[]> {
+	return (await topicsInUse(userId)) ? summaries(userId, "active") : []
+}
+
+/**
+ * The topic a list asks for by id, or `none`, when the reader's topics are in use and it is one
+ * of theirs. Null otherwise: ended, removed, another reader's, or topics off.
+ */
+export async function topicAsked(userId: string, asked: string): Promise<TopicScope | null> {
+	if (!(await topicsInUse(userId))) return null
+	if (asked === "none") return "none"
+	const [row] = await db
+		.select({ id: topics.id })
+		.from(topics)
+		.where(and(eq(topics.id, asked), eq(topics.userId, userId), eq(topics.status, "active")))
+	return row?.id ?? null
 }
 
 /** Whether the reader has topics, on or waiting: they may turn them off even without the feature. */

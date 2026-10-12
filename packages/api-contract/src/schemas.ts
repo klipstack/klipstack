@@ -177,6 +177,18 @@ export const Tag = z
 	.meta({ id: "Tag" })
 export type Tag = z.infer<typeof Tag>
 
+export const Topic = z
+	.object({
+		id: Id,
+		name: z.string(),
+		/** What the topic holds, in the reader's words. */
+		description: z.string(),
+		/** Articles in it, the trash left out. */
+		articles: z.number().int(),
+	})
+	.meta({ id: "Topic" })
+export type Topic = z.infer<typeof Topic>
+
 /** A saved search's name as clients write it. It is stored trimmed, with inner whitespace as one space. */
 export const SavedSearchName = z
 	.string()
