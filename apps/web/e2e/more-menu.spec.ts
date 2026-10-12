@@ -108,18 +108,17 @@ test("a menu that opened above its button follows it up without leaving the wind
 }) => {
 	await longLibrary(page)
 	const height = page.viewportSize()!.height
-	// A card whose ⋯ button is near the bottom of the window: no room for the menu below it.
-	const buttons = page.getByRole("button", { name: "More actions" })
-	let button = buttons.first()
-	for (const candidate of await buttons.all()) {
-		const y = (await candidate.boundingBox())?.y ?? 0
-		if (y > height - 120 && y < height - 40) {
-			button = candidate
-			break
-		}
-	}
+	// A card's ⋯ button scrolled to near the bottom of the window: no room for the menu below it.
+	// Scrolled there rather than found there: where the cards fall depends on the system's fonts.
+	const button = page
+		.getByRole("listitem")
+		.filter({ hasText: title(8) })
+		.getByRole("button", { name: "More actions" })
+	const y = (await button.boundingBox())!.y
+	await page.evaluate((top) => window.scrollBy({ top, behavior: "instant" }), y - (height - 80))
 	const b = (await button.boundingBox())!
 	expect(b.y).toBeGreaterThan(height - 120)
+	expect(b.y).toBeLessThan(height - 40)
 	const menu = page.getByRole("menu", { name: "More actions" })
 	await button.click()
 	await expect(menu).toBeVisible()

@@ -112,8 +112,13 @@ test("topics: turned on, proposed, confirmed, sorted, corrected and turned off",
 		.filter({ has: page.getByRole("link", { name: "Psyche essay 18", exact: true }) })
 		.getByRole("button", { name: "More actions" })
 		.click()
+	// The toast shows before the request is sent: a reload right after it would cancel the request.
+	const takenOut = page.waitForResponse(
+		(r) => r.request().method() === "POST" && new URL(r.url()).pathname.startsWith("/topics/"),
+	)
 	await page.getByRole("menuitem", { name: "Take out of this topic" }).click()
 	await expect(page.getByText("Taken out of Minds. It won't be put back.")).toBeVisible()
+	expect((await takenOut).ok()).toBe(true)
 	await page.reload()
 	await expect(page.getByTestId("topic-articles").getByRole("listitem")).toHaveCount(17)
 
