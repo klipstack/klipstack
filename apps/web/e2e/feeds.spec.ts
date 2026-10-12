@@ -259,11 +259,15 @@ test("feed: the popover of the last post stays beside its title, and a later scr
 	await expect.poll(async () => (await title.boundingBox())!.y).toBeGreaterThan(b.y + 20)
 	await expect(dialog).toBeVisible()
 	await expectBeside()
-	await page.mouse.wheel(0, -1000)
+	// Past the bottom of the window, and short of the top of the page: Chromium on macOS goes on
+	// scrolling after a wheel that hits the top, and would pull the next scroll back up with it.
+	const t = (await title.boundingBox())!
+	await page.mouse.wheel(0, t.y - page.viewportSize()!.height - 20)
 	await expect(dialog).toHaveCount(0)
 
 	// Right-clicked at the bottom of the list, it stays open too.
-	await page.mouse.wheel(0, -5000)
+	await page.evaluate(() => window.scrollTo(0, 0))
+	expect((await title.boundingBox())!.y).toBeGreaterThan(page.viewportSize()!.height)
 	await item.click({ button: "right" })
 	await expect(dialog).toBeVisible()
 	// Nothing should close it while the page settles.
