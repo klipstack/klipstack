@@ -74,6 +74,27 @@ describe("the topic models", () => {
 		expect(sent[0]!.format).toBe("json_schema")
 	})
 
+	it("ask for sections, about one for every eight articles, as production does", async () => {
+		const { fetch, sent } = anthropic({ topics: [] })
+		const articles = Array.from({ length: 80 }, (_, i) => article(`id-${i}`, `Article ${i}`))
+		await createTopicModels({ ...keys, fetch }).propose({ articles, language: "en" })
+		expect(TOPIC_RULES.style).toBe("sections")
+		expect(sent[0]!.system).toContain("the way a bookstore is organized into sections")
+		expect(sent[0]!.prompt).toContain("Propose the first sections of their library: about 10")
+	})
+
+	it("ask for at least 3 sections and at most 12, whatever the library's size", async () => {
+		const asked = async (count: number) => {
+			const { fetch, sent } = anthropic({ topics: [] })
+			const articles = Array.from({ length: count }, (_, i) => article(`id-${i}`, `A ${i}`))
+			await createTopicModels({ ...keys, fetch }).propose({ articles, language: "en" })
+			return sent[0]!.prompt.match(/about (\d+), each/)?.[1]
+		}
+		// The first proposal comes at 25 articles; it reads at most the newest 200.
+		expect(await asked(25)).toBe("3")
+		expect(await asked(200)).toBe("12")
+	})
+
 	it("map a growth's refs back to ids, and drop topics holding too few real pool articles", async () => {
 		const { fetch } = anthropic({
 			widen: [

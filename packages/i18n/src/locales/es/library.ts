@@ -264,7 +264,7 @@ export default {
 			"Los temas ordenan solos en estantes lo que guardas: se proponen a partir de tu biblioteca y se mantienen al día mientras lees.",
 		off: {
 			title: "Deja que tu biblioteca se ordene sola",
-			body: "Cuando hayas guardado {{needed}} artículos, Klipstack te propondrá temas a partir de lo que lees: asuntos concretos a los que vuelves, como Gestión de equipos de ingeniería o Escribir en internet. Los revisas una vez. Desde entonces, cada artículo que guardas va solo a sus temas, y aparecen temas nuevos a medida que cambian tus lecturas.",
+			body: "Cuando hayas guardado {{needed}} artículos, Klipstack te propondrá temas a partir de lo que lees: las secciones que tendría tu biblioteca en una librería, como Ingeniería de software, Startups o Escritura. Los revisas una vez. Desde entonces, cada artículo que guardas va solo a sus temas, y aparecen temas nuevos a medida que cambian tus lecturas.",
 			privacy:
 				"Para ordenar tus artículos, su texto se envía a TypeSafe y a Anthropic. Desactivar los temas los borra.",
 			enable: "Activar los temas",

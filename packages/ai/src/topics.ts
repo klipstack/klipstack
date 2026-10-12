@@ -7,8 +7,8 @@ import type { AiLanguage } from "./types"
  * builds its requests here too, so it measures what production runs.
  */
 
-/** How topics are named: broad fields, or specific shelves (what production asks for). */
-export type TopicStyle = "broad" | "specific"
+/** How topics are named: broad fields, specific shelves, or sections as a bookstore has (production). */
+export type TopicStyle = "broad" | "specific" | "sections"
 /** What Jev is asked of each topic: a main subject of the article, or a shelf it belongs on. */
 export type TopicQuestion = "main" | "shelf"
 
@@ -34,9 +34,13 @@ export interface TopicRules {
 	textChars: number
 }
 
-/** What production runs: the owner's decisions after the simulator's runs (October 2026). */
+/**
+ * What production runs: the owner's decisions after the simulator's runs (October 2026). Topics
+ * are sections, as a bookstore's: specific ones cut a library about one field into slivers, and
+ * broad ones let one topic hold two-fifths of it.
+ */
 export const TOPIC_RULES: TopicRules = {
-	style: "specific",
+	style: "sections",
 	question: "shelf",
 	widen: true,
 	applyThreshold: 0.6,
@@ -82,28 +86,34 @@ export interface RequestOptions {
 
 const REF_HINT = "The 8-character ids in brackets"
 
+const NAME: Record<TopicStyle, string> = {
+	broad:
+		"The label of a shelf: one subject in 1-3 words, such as Management or Psychology, never two subjects joined with And",
+	specific:
+		"The label of a specific shelf: one subject in 1-4 words, such as Engineering Management, Online Writing or Behavioral Economics, never a whole field like Work or Psychology, never two subjects joined with And",
+	sections:
+		"The label of a section of the library, as a bookstore names its sections: 1-3 words, such as Artificial Intelligence, Software Engineering, Startups, Writing or Health. Never a single debate, product, company or event",
+}
+
+const DESCRIPTION: Record<TopicStyle, string> = {
+	broad: "One sentence: what belongs here, written to sort new articles into it",
+	specific:
+		"Two sentences: what belongs here, then what does not (naming the neighbouring topics it could be confused with), written to sort new articles into it",
+	sections:
+		"Two sentences: what belongs in this section, broadly, then what does not (naming the neighbouring sections), written to sort new articles into it",
+}
+
 export function topicSpec(style: TopicStyle) {
 	return z.object({
-		name: z
-			.string()
-			.describe(
-				style === "broad"
-					? "The label of a shelf: one subject in 1-3 words, such as Management or Psychology, never two subjects joined with And"
-					: "The label of a specific shelf: one subject in 1-4 words, such as Engineering Management, Online Writing or Behavioral Economics, never a whole field like Work or Psychology, never two subjects joined with And",
-			),
-		description: z
-			.string()
-			.describe(
-				style === "broad"
-					? "One sentence: what belongs here, written to sort new articles into it"
-					: "Two sentences: what belongs here, then what does not (naming the neighbouring topics it could be confused with), written to sort new articles into it",
-			),
+		name: z.string().describe(NAME[style]),
+		description: z.string().describe(DESCRIPTION[style]),
 	})
 }
 
 export type TopicSpec = z.infer<ReturnType<typeof topicSpec>>
 
 const SYSTEM: Record<TopicStyle, string> = {
+	sections: `You organize one person's reading library into topics, the way a bookstore is organized into sections. A topic is a section this reader browses on purpose, wide enough to keep filling over months: "Artificial Intelligence", "Software Engineering", "Management", "Writing", "Health". A topic is never a single debate, product, company, event or opinion: those are articles inside a section. When two topics would be browsed together, they are one. Aim for about one topic for every six to ten articles, and never more than twelve. Topics describe what articles are about (subject matter), not their format, tone or source, and must not overlap.`,
 	broad: `You organize one person's reading library into topics, the way a thoughtful librarian would. Topics are broad enough to hold many articles over time and narrow enough to be useful for finding things again. They describe what articles are about (subject matter), not their format, tone or source. Avoid overlapping topics.`,
 	specific: `You organize one person's reading library into topics, the way a thoughtful librarian would. A topic is a specific subject this reader keeps coming back to, the kind of shelf they would browse on purpose: "Engineering Management", "Online Writing", "Behavioral Economics", "Death and Mortality". Never propose a whole field such as Work, Life, Psychology, Technology or Science: a field swallows everything near it and helps no one find anything. Prefer two specific topics to one broad one, and prefer waiting for more articles to inventing a vague topic. Topics describe what articles are about (subject matter), not their format, tone or source, and must not overlap.`,
 }
@@ -137,11 +147,20 @@ export function articleLine(article: TopicArticle): string {
 	return `[${article.ref}] ${article.title}${article.siteName ? ` (${article.siteName})` : ""}: ${about}`
 }
 
+const PROPOSE: Record<TopicStyle, (count: number) => string> = {
+	broad: () =>
+		"Propose the first set of topics for their library: between 4 and 10, each one fitting at least two of these articles, and broad enough to keep receiving new articles.",
+	specific: () =>
+		"Propose the first set of topics for their library: specific subjects, each one fitting at least two of these articles. Leave an article without a topic rather than stretch a topic to cover it.",
+	sections: (count) =>
+		`Propose the first sections of their library: about ${Math.max(3, Math.min(12, Math.round(count / 8)))}, each holding at least four of these articles. An article may stay outside every section rather than make a section for it alone.`,
+}
+
 /** The first topics of a library, from its articles. */
 export function proposeRequest(articles: TopicArticle[], options: RequestOptions) {
 	return {
 		system: topicSystem(options),
-		prompt: `This person has saved their first ${articles.length} articles. ${options.style === "broad" ? "Propose the first set of topics for their library: between 4 and 10, each one fitting at least two of these articles, and broad enough to keep receiving new articles." : "Propose the first set of topics for their library: specific subjects, each one fitting at least two of these articles. Leave an article without a topic rather than stretch a topic to cover it."}\n\n${articles.map(articleLine).join("\n")}`,
+		prompt: `This person has saved their first ${articles.length} articles. ${PROPOSE[options.style](articles.length)}\n\n${articles.map(articleLine).join("\n")}`,
 		schema: z.object({
 			topics: z.array(
 				topicSpec(options.style).extend({ reason: z.string().describe("Which articles, why") }),
@@ -170,7 +189,7 @@ export function growRequest(
 				"\n",
 			)}\n\nThese recently saved articles fit none of them:\n${pool.map(articleLine).join("\n")}\n\n${
 			widen
-				? `First, an article may belong on an existing shelf whose description is too narrow to say so. For such a shelf, write a wider description that takes those articles in (list their ids) while keeping the shelf specific and its name unchanged. Then, for the articles left, p`
+				? `First, an article may belong on an existing shelf whose description is too narrow to say so. For such a shelf, write a wider description that takes those articles in (list their ids) while keeping the shelf ${options.style === "sections" ? "one section" : "specific"} and its name unchanged. Then, for the articles left, p`
 				: "P"
 		}ropose up to 2 new topics, each holding at least ${options.minNewTopicArticles} of these articles (list their ids), that do not overlap the existing topics. If they do not share a theme strong enough for a topic, propose none: an article may stay unsorted.`,
 		schema: growSchema(spec, refs, widen),
@@ -219,6 +238,15 @@ export interface ReviewInput {
 	pairs: { a: string; b: string; count: number }[]
 }
 
+const SPLIT: Record<TopicStyle, string> = {
+	broad:
+		"split a topic holding far more than its share (about a third of the library or more) into clearer ones",
+	specific:
+		"split a topic that holds more than about a sixth of the library, or that mixes subjects a reader would look for separately, into specific ones",
+	sections:
+		"split a section holding about a third of the library or more into two or three sections a reader would browse separately",
+}
+
 /** Whether to merge, split, rename or retire topics. */
 export function reviewRequest(input: ReviewInput, options: RequestOptions) {
 	const spec = topicSpec(options.style)
@@ -233,7 +261,7 @@ export function reviewRequest(input: ReviewInput, options: RequestOptions) {
 			)
 			.join(
 				"\n\n",
-			)}\n\nTopics that often share articles:\n${input.pairs.map((p) => `${p.a} + ${p.b}: ${p.count} articles`).join("\n") || "(none)"}\n\nReview the topics. Change them only when the change clearly helps someone find their articles: merge topics that overlap, ${options.style === "broad" ? "split a topic holding far more than its share (about a third of the library or more) into clearer ones" : "split a topic that holds more than about a sixth of the library, or that mixes subjects a reader would look for separately, into specific ones"}, rename a topic whose name no longer fits what it holds, retire a topic that is empty or holds a single article long after it was created. Most reviews change nothing or one thing. Never more than three changes.`,
+			)}\n\nTopics that often share articles:\n${input.pairs.map((p) => `${p.a} + ${p.b}: ${p.count} articles`).join("\n") || "(none)"}\n\nReview the topics. Change them only when the change clearly helps someone find their articles: merge topics that overlap, ${SPLIT[options.style]}, rename a topic whose name no longer fits what it holds, retire a topic that is empty or holds a single article long after it was created. Most reviews change nothing or one thing. Never more than three changes.`,
 		schema: z.object({
 			changes: z.array(
 				z.object({

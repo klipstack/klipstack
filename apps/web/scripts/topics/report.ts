@@ -155,9 +155,13 @@ function coverage(runs: ReportRun[]): string {
 </section>`
 }
 
+/** A run's style, as the report names it; runs saved before styles had a name were broad. */
+const styleName = (style: string | undefined) =>
+	style === "specific" ? "Specific" : style === "sections" ? "Sections" : "Broad"
+
 function label(run: RunResult): string {
 	const c = run.config
-	return `${c.style === "specific" ? "Specific" : "Broad"} topics from ${c.bootstrapSize}${c.question === "shelf" ? ", shelf question" : ""}${c.widen ? ", widening" : ""}; ${c.classifier === "jev" ? "Jev" : "Haiku"} at ${c.applyThreshold} (${run.name})`
+	return `${styleName(c.style)} topics from ${c.bootstrapSize}${c.question === "shelf" ? ", shelf question" : ""}${c.widen ? ", widening" : ""}; ${c.classifier === "jev" ? "Jev" : "Haiku"} at ${c.applyThreshold} (${run.name})`
 }
 
 function sizes(run: RunResult) {
@@ -179,7 +183,7 @@ function ladder(all: ReportRun[], articleCount: number): string {
 			const c = r.config
 			const { topics, largest } = sizes(r)
 			const cost = r.calls.reduce((s, x) => s + x.cost, 0)
-			return `<tr id="run-${esc(r.name)}"><td><code>${esc(r.name)}</code></td><td>${c.style === "specific" ? "specific" : "broad"}</td><td>${c.bootstrapSize}</td><td>${c.question === "shelf" ? "shelf" : "main subject"}</td><td>${c.widen ? "yes" : ""}</td><td>${c.classifier === "jev" ? "Jev" : "Haiku"} ${c.applyThreshold}</td><td>${r.unsorted.length}</td><td>${topics}</td><td>${largest}</td><td>$${cost.toFixed(3)}</td></tr>`
+			return `<tr id="run-${esc(r.name)}"><td><code>${esc(r.name)}</code></td><td>${styleName(c.style).toLowerCase()}</td><td>${c.bootstrapSize}</td><td>${c.question === "shelf" ? "shelf" : "main subject"}</td><td>${c.widen ? "yes" : ""}</td><td>${c.classifier === "jev" ? "Jev" : "Haiku"} ${c.applyThreshold}</td><td>${r.unsorted.length}</td><td>${topics}</td><td>${largest}</td><td>$${cost.toFixed(3)}</td></tr>`
 		})
 		.join("")
 	return `<section id="runs" data-toc="Every run">
@@ -198,7 +202,7 @@ function stability(all: ReportRun[]): string {
 		const first = r.events.find((e) => e.type === "bootstrap")
 		if (!first || first.type !== "bootstrap") continue
 		const names = first.topicIds.map((id) => topicName(r, id))
-		const key = `${r.config.style === "specific" ? "Specific" : "Broad"} topics, from the first ${r.config.bootstrapSize} articles`
+		const key = `${styleName(r.config.style)} topics, from the first ${r.config.bootstrapSize} articles`
 		const tries = groups.get(key) ?? new Map<string, string[]>()
 		// A run that reused a cached proposal is the same try.
 		tries.set(names.join("|"), names)

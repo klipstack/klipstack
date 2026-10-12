@@ -1,8 +1,10 @@
+import { createHash } from "node:crypto"
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises"
 import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { parseArgs } from "node:util"
 import { config as loadDotenv } from "dotenv"
+import { parseUrls } from "../demo/cache"
 import { assertLocal, EMAIL } from "../demo/local"
 import { type Article, type Config, DEFAULT_CONFIG, Simulation } from "./engine"
 import { Models } from "./models"
@@ -13,6 +15,7 @@ loadDotenv({ path: resolve(root, ".env"), quiet: true })
 
 const usage = `Usage: pnpm --filter @klipstack/web topics <command> [options]
   snapshot            Save the demo account's articles, oldest first, to the corpus file
+  import              Fetch the pages of a list of addresses (--urls), in that order, as the corpus
   run                 Replay the corpus from an empty library, one article at a time
   compare             Sort every article into one run's final topics with both classifiers
   report              Write the report of every saved run
@@ -26,7 +29,7 @@ Options:
   --suggest P         Probability to suggest one (default ${DEFAULT_CONFIG.suggestThreshold})
   --pool N            Unsorted articles before asking for a new topic (default ${DEFAULT_CONFIG.poolSize})
   --maintain N        A maintenance pass every N articles (default ${DEFAULT_CONFIG.maintainEvery})
-  --style broad|specific  How topics are named (default broad)
+  --style broad|specific|sections  How topics are named (default broad)
   --question main|shelf  What Jev is asked about each topic (default main)
   --widen             Let unsorted articles widen an existing topic's description
   --sample N          Ask Haiku again instead of reusing its cached answers (default 0)
@@ -57,6 +60,7 @@ async function main() {
 			widen: { type: "boolean" },
 			question: { type: "string" },
 			featured: { type: "string" },
+			urls: { type: "string" },
 			out: { type: "string" },
 			template: { type: "string" },
 			notes: { type: "string" },
@@ -64,7 +68,7 @@ async function main() {
 		},
 	})
 	const command = positionals[0]
-	if (values.help || !["snapshot", "run", "compare", "report"].includes(command ?? "")) {
+	if (values.help || !["snapshot", "import", "run", "compare", "report"].includes(command ?? "")) {
 		console.log(usage)
 		return
 	}
@@ -78,6 +82,20 @@ async function main() {
 		await writeFile(corpusFile, JSON.stringify(articles, null, "\t"))
 		console.log(`Saved ${articles.length} articles to ${corpusFile}`)
 		process.exit(0)
+	}
+
+	if (command === "import") {
+		if (!values.urls) throw new Error("import: --urls PATH, one address per line, oldest first")
+		const urls = parseUrls(await readFile(resolve(root, values.urls), "utf8"))
+		const { articles, failed } = await importUrls(urls)
+		for (const f of failed) console.log(`  failed: ${f.url}: ${f.error}`)
+		// Nothing read: the corpus there stays as it was, and with it the runs made from it.
+		if (articles.length === 0) throw new Error("import: no page could be read; nothing written")
+		await mkdir(dir, { recursive: true })
+		await writeFile(corpusFile, JSON.stringify(articles, null, "\t"))
+		await writeFile(resolve(dir, "import-failures.json"), JSON.stringify(failed, null, "\t"))
+		console.log(`Saved ${articles.length} of ${urls.length} articles to ${corpusFile}`)
+		return
 	}
 
 	const corpus = JSON.parse(await readFile(corpusFile, "utf8")) as Article[]
@@ -152,7 +170,7 @@ async function main() {
 		suggestThreshold: probability("suggest", values.suggest, DEFAULT_CONFIG.suggestThreshold),
 		poolSize: count("pool", values.pool, DEFAULT_CONFIG.poolSize),
 		maintainEvery: count("maintain", values.maintain, DEFAULT_CONFIG.maintainEvery),
-		style: oneOf("style", values.style, ["broad", "specific"], DEFAULT_CONFIG.style),
+		style: oneOf("style", values.style, ["broad", "specific", "sections"], DEFAULT_CONFIG.style),
 		sample: count("sample", values.sample, 0, 0),
 		widen: values.widen ?? false,
 		question: oneOf("question", values.question, ["main", "shelf"], DEFAULT_CONFIG.question),
@@ -171,6 +189,55 @@ async function main() {
 	console.log(
 		`\n${name}: ${sim.topics.filter((t) => t.retiredAt === undefined).length} topics, ${models.calls.length} calls (${fresh} new), $${cost.toFixed(4)}`,
 	)
+}
+
+/**
+ * Each address fetched as the app saves it: a post on X through FxTwitter, any other page with
+ * the extractors. A page that can't be read is left out and listed. Four at a time, in order.
+ */
+async function importUrls(urls: string[]) {
+	const { extractArticle, extractXPost, fetchPage, fetchXPost } = await import("@klipstack/extract")
+	const read = async (url: string, at: number): Promise<Article> => {
+		const host = new URL(url).hostname.replace(/^www\./, "")
+		const article =
+			host === "x.com" || host === "twitter.com"
+				? extractXPost((await fetchXPost(url)).json, url)
+				: await (async () => {
+						const page = await fetchPage(url, { timeoutMs: 20_000 })
+						return extractArticle({ html: page.html, url: page.finalUrl })
+					})()
+		if (!article.text.trim()) throw new Error("no text")
+		const digest = createHash("sha256").update(url).digest("hex")
+		return {
+			// A stable id from the address: reruns keep their cached answers.
+			id: `${digest.slice(0, 8)}-${digest.slice(8, 12)}-${digest.slice(12, 16)}-${digest.slice(16, 20)}-${digest.slice(20, 32)}`,
+			title: article.title,
+			siteName: article.siteName,
+			description: article.description,
+			savedAt: new Date(Date.UTC(2026, 0, 1) + at * 60_000).toISOString(),
+			text: article.text,
+			manualTags: [],
+		}
+	}
+	const results: (Article | { url: string; error: string })[] = Array.from({ length: urls.length })
+	let next = 0
+	await Promise.all(
+		Array.from({ length: 4 }, async () => {
+			while (next < urls.length) {
+				const at = next++
+				const url = urls[at]!
+				try {
+					results[at] = await read(url, at)
+				} catch (error) {
+					results[at] = { url, error: error instanceof Error ? error.message : String(error) }
+				}
+			}
+		}),
+	)
+	return {
+		articles: results.filter((r): r is Article => "text" in r),
+		failed: results.filter((r): r is { url: string; error: string } => "error" in r),
+	}
 }
 
 /** The demo account's articles with their text, oldest first: the order they were saved in. */
