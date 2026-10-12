@@ -24,6 +24,15 @@ export default {
 		language: "Page language",
 		languageHint:
 			"For dates and the page's labels, like “5 min read”. Your own text is not translated.",
+		cover: "Link preview",
+		coverHint:
+			"The picture shown with the link wherever you share it. It changes when you publish or update.",
+		covers: { stack: "Stack", shelf: "Bookshelf" },
+		/** The examples' content: an edition that is not the user's. */
+		coverSample: {
+			title: "What I read this month",
+			first: "Software that respects your time, and why it is so rare",
+		},
 		saving: "Saving…",
 		saved: "Saved",
 		saveError: "Not saved. Check your connection.",

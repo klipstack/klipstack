@@ -1,0 +1,1 @@
+ALTER TABLE "editions" ADD COLUMN "cover" text DEFAULT 'stack' NOT NULL;

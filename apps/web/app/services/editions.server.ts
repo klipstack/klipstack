@@ -16,6 +16,7 @@ import {
 	desc,
 	documents,
 	type Edition,
+	type EditionCover,
 	type EditionItem,
 	type EditionItemHighlight,
 	editionItems,
@@ -38,6 +39,7 @@ import { z } from "zod"
 import { AppError } from "~/lib/app-error"
 import { type EditionView, editionView } from "~/lib/edition-view"
 import {
+	EDITION_COVERS,
 	EDITION_INTRO_MAX,
 	EDITION_TITLE_MAX,
 	editionSlug,
@@ -86,6 +88,7 @@ const editionColumns = {
 	title: editions.title,
 	intro: editions.intro,
 	locale: editions.locale,
+	cover: editions.cover,
 	timeZone: editions.timeZone,
 	publishedAt: editions.publishedAt,
 	republishedAt: editions.republishedAt,
@@ -598,11 +601,11 @@ export async function addShortlist(userId: string, editionId: string): Promise<n
 	return added
 }
 
-/** Title, intro and language. Unchanged values change nothing, not even `updatedAt`. */
+/** Title, intro, language and cover. Unchanged values change nothing, not even `updatedAt`. */
 export async function updateEdition(
 	userId: string,
 	id: string,
-	patch: { title?: string | null; intro?: string | null; locale?: string },
+	patch: { title?: string | null; intro?: string | null; locale?: string; cover?: EditionCover },
 ): Promise<EditionRow> {
 	const title = patch.title === undefined ? undefined : cleanTitle(patch.title)
 	const intro =
@@ -615,11 +618,13 @@ export async function updateEdition(
 			title: title === undefined ? edition.title : title,
 			intro: intro === undefined ? edition.intro : intro,
 			locale: patch.locale ?? edition.locale,
+			cover: patch.cover ?? edition.cover,
 		}
 		if (
 			next.title === edition.title &&
 			next.intro === edition.intro &&
-			next.locale === edition.locale
+			next.locale === edition.locale &&
+			next.cover === edition.cover
 		)
 			return edition
 		const [row] = await tx
@@ -1300,6 +1305,8 @@ const snapshotSchema = z.object({
 	intro: z.string().nullable(),
 	authorName: z.string(),
 	locale: z.string(),
+	/** Pages published before covers had one: the first, the default. */
+	cover: z.enum(EDITION_COVERS).default(EDITION_COVERS[0]),
 	items: z.array(
 		z.object({
 			url: z.string(),
@@ -1317,7 +1324,7 @@ const snapshotSchema = z.object({
 })
 
 /** Everything the public page renders, and nothing else. */
-export type EditionSnapshot = z.infer<typeof snapshotSchema>
+export type EditionSnapshot = z.output<typeof snapshotSchema>
 
 /** The stored snapshot, or null when it is not one this code can render. */
 export function parseSnapshot(value: unknown): EditionSnapshot | null {
@@ -1330,7 +1337,7 @@ export function parseSnapshot(value: unknown): EditionSnapshot | null {
  * none set aside.
  */
 export function buildSnapshot(
-	edition: Pick<EditionRow, "title" | "intro" | "locale">,
+	edition: Pick<EditionRow, "title" | "intro" | "locale" | "cover">,
 	items: readonly EditionItem[],
 	authorName: string,
 ): EditionSnapshot {
@@ -1340,6 +1347,7 @@ export function buildSnapshot(
 		intro: edition.intro,
 		authorName,
 		locale: edition.locale,
+		cover: edition.cover,
 		items: items
 			.filter((item) => item.included)
 			.map((item) => ({

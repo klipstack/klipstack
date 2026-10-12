@@ -24,6 +24,15 @@ export default {
 		language: "Idioma de la página",
 		languageHint:
 			"Para las fechas y los rótulos de la página, como «5 min de lectura». Tu texto no se traduce.",
+		cover: "Vista previa del enlace",
+		coverHint:
+			"La imagen que acompaña al enlace donde lo compartas. Cambia al publicar o actualizar.",
+		covers: { stack: "Pila", shelf: "Estantería" },
+		/** The examples' content: an edition that is not the user's. */
+		coverSample: {
+			title: "Lo que leí este mes",
+			first: "El software que respeta tu tiempo, y por qué es tan raro",
+		},
 		saving: "Guardando…",
 		saved: "Guardado",
 		saveError: "No se ha guardado. Revisa tu conexión.",

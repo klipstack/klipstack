@@ -583,6 +583,10 @@ export type Feed = typeof feeds.$inferSelect
 export type FeedItem = typeof feedItems.$inferSelect
 export type Subscription = typeof subscriptions.$inferSelect
 
+/** An edition's picture for link previews: its articles as a stack of clippings, or on a shelf. */
+export const editionCovers = ["stack", "shelf"] as const
+export type EditionCover = (typeof editionCovers)[number]
+
 /** Why someone reports a public edition, and the ground an admin removes one on. */
 export const reportReasons = ["spam", "illegal", "copyright", "abuse", "other"] as const
 export type ReportReason = (typeof reportReasons)[number]
@@ -606,6 +610,8 @@ export const editions = pgTable(
 		title: text("title"),
 		intro: text("intro"),
 		locale: text("locale").notNull(),
+		/** Its picture for link previews; set in the working copy, shown once published. */
+		cover: text("cover", { enum: editionCovers }).notNull().default("stack"),
 		/** For the edition's dates: its own, and the day each article was read. */
 		timeZone: text("time_zone").notNull(),
 		/** Versioned (`v`): readers parse it instead of trusting this type. Null until published. */

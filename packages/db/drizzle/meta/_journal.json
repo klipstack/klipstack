@@ -288,6 +288,13 @@
 			"when": 1791766028496,
 			"tag": "0040_premium_rick_jones",
 			"breakpoints": true
+		},
+		{
+			"idx": 41,
+			"version": "7",
+			"when": 1791774460972,
+			"tag": "0041_edition_cover",
+			"breakpoints": true
 		}
 	]
 }

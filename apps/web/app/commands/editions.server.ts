@@ -2,6 +2,7 @@ import { db, eq, user as userTable } from "@klipstack/db"
 import { supportedLanguages } from "@klipstack/i18n"
 import { z } from "zod"
 import { AppError, parseInput } from "~/lib/app-error"
+import { EDITION_COVERS } from "~/lib/editions"
 import {
 	addItem,
 	addShortlist,
@@ -37,6 +38,7 @@ const EditionChange = z.discriminatedUnion("intent", [
 		title: z.string().max(1000).nullable().optional(),
 		intro: text.nullable().optional(),
 		locale: z.enum(supportedLanguages).optional(),
+		cover: z.enum(EDITION_COVERS).optional(),
 	}),
 	z.object({ intent: z.literal("add-item"), documentId: id }),
 	/** Every article of the shortlist the edition does not have yet. */

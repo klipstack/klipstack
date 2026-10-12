@@ -196,6 +196,19 @@ test("editions: pick, publish, update, unpublish, and nobody else's", async ({ p
 	const png = await card.body()
 	expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([1200, 630])
 
+	// The picker shows each cover's example; the stack is the default.
+	const stack = page.getByRole("radio", { name: "Stack" })
+	await expect(stack).toBeChecked()
+	for (const example of await page.locator("fieldset img").all())
+		await expect.poll(() => example.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(600)
+	// The bookshelf instead: like the intro below, the shared link shows it after Update.
+	await Promise.all([
+		editorAction(page, editionId),
+		page.locator("label").filter({ hasText: "Bookshelf" }).click(),
+	])
+	await expect(page.getByRole("radio", { name: "Bookshelf" })).toBeChecked()
+	await expect(page.getByTestId("edition-status")).toContainText("Unpublished changes")
+
 	// An intro typed after publishing stays off the public page until Update.
 	const INTRO = "Two schedules, one week."
 	await Promise.all([
@@ -228,6 +241,13 @@ test("editions: pick, publish, update, unpublish, and nobody else's", async ({ p
 	await expect(page.getByTestId("edition-status")).not.toContainText("Unpublished changes")
 	await visitor.reload()
 	await expect(visitor.locator("main header")).toContainText(INTRO)
+	// A new picture, at a new address, so platforms don't show the one they kept.
+	const shelfUrl = await visitor.locator('meta[property="og:image"]').getAttribute("content")
+	expect(shelfUrl).not.toBe(cardUrl)
+	const shelf = await visitor.request.get(shelfUrl!)
+	expect([shelf.status(), shelf.headers()["content-type"]]).toEqual([200, "image/png"])
+	// Same title and articles: only the cover makes it differ.
+	expect((await shelf.body()).equals(png)).toBe(false)
 	await expect(visitor.getByRole("link", { name: INTRO })).toHaveAttribute(
 		"href",
 		"https://example.com/week",

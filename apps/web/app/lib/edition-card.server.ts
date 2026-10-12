@@ -1,43 +1,70 @@
+import type { EditionCover } from "@klipstack/db"
 import type { TFunction } from "i18next"
 import { type Font, parse } from "opentype.js/dist/opentype.mjs"
 import sharp from "sharp"
 import type { EditionSnapshot } from "~/services/editions.server"
 /**
- * An edition's picture for link previews (`og:image`): 1200×630, the title and what is inside, on
- * the ink gradient. Drawn from the published snapshot when asked for, never stored. Text is
- * Newsreader turned into outlines (opentype.js), so the server needs no fonts installed and wraps
- * lines by measuring them; sharp makes the PNG. It holds no third-party images.
+ * An edition's picture for link previews (`og:image`): 1200×630, the title and its articles, in
+ * the cover the owner chose: a stack of clippings on the ink gradient, or books on a shelf. Drawn
+ * from the published snapshot when asked for, never stored. Text is Newsreader turned into outlines
+ * (opentype.js), so the server needs no fonts installed and wraps lines by measuring them; sharp
+ * makes the PNG. It holds no third-party images.
  */
 import font400 from "../../../../brand/fonts/newsreader-400-opsz40.ttf?inline"
 import font500 from "../../../../brand/fonts/newsreader-500-opsz40.ttf?inline"
 import font600 from "../../../../brand/fonts/newsreader-600-opsz18.ttf?inline"
 import { siteOf } from "./edition-view"
-import { formatEditionDate } from "./editions"
+import { CARD_DESIGN, formatEditionDate } from "./editions"
 
 export const CARD_WIDTH = 1200
 export const CARD_HEIGHT = 630
 
 /** What the card says, every string already in the edition's language. */
 export interface EditionCard {
+	cover: EditionCover
 	/** Over the title: its date, "October 1, 2026". Null when the date is the title. */
 	date: string | null
 	title: string
 	authorName: string
-	/** The first articles, at most three: their site and title. */
-	items: { site: string; title: string }[]
+	/** The first articles, as many as a cover can show: their site, title and reading time. */
+	items: { site: string; title: string; minutes: number | null }[]
 	/** How many articles the edition has. */
 	total: number
+	/** "10 articles". */
+	count: string
 	/** "+ 7 more", for the articles not shown. */
 	more: (count: number) => string
 }
 
-const PALETTE = {
+const INK = {
 	from: "#26344F",
 	to: "#0D1322",
 	tint: "#AAB7D2",
 	text: "#FFFFFF",
 	muted: "rgba(255,255,255,0.72)",
-	rule: "rgba(255,255,255,0.16)",
+}
+const PAPER = {
+	ground: "#F5F0E6",
+	text: "#1A2132",
+	muted: "#5B6476",
+	accent: "#B8432F",
+	shelf: "#C9BFA9",
+	/** The cards of the stack, from the back. */
+	cards: ["#E6DECD", "#ECE5D7", "#F1ECE1", "#FBF8F1"],
+	/** The books' colors, in turn; the light ones take dark text. */
+	books: [
+		"#1B2640",
+		"#B8432F",
+		"#2F5D50",
+		"#C9A227",
+		"#3E4A6B",
+		"#8A5A44",
+		"#5B6F8F",
+		"#A23E48",
+		"#355C7D",
+		"#D8CBB0",
+	],
+	light: new Set(["#C9A227", "#D8CBB0"]),
 }
 
 let fonts: { text: Font; name: Font; small: Font } | null = null
@@ -128,93 +155,170 @@ function mark(x: number, y: number, size: number, color: string) {
 	return `<g transform="translate(${x} ${y}) scale(${size / 1022})" fill="none" stroke="${color}" stroke-width="41" stroke-linecap="round" stroke-linejoin="round">${MARK}<path fill="${color}" stroke="none" d="M184.4 685.5L305.5 953C300.9 860.9 293.3 768.9 291.8 676.7L242.4 677Z"/></g>`
 }
 
-// The right column's rhythm: the first site's baseline, from a site to its title's first line, from
-// line to line, from one item's last line to the next site, and to the "more" line. Its bottom is
-// the bottom of the rule between the columns.
-const RIGHT_TOP = 128
-const SITE_TO_TITLE = 38
-const LINE = 34
-const ITEM_GAP = 62
-const MORE = 48
-const RIGHT_BOTTOM = 476
+const svg = (ground: string, body: string, defs = "") =>
+	`<svg xmlns="http://www.w3.org/2000/svg" width="${CARD_WIDTH}" height="${CARD_HEIGHT}" viewBox="0 0 ${CARD_WIDTH} ${CARD_HEIGHT}"><defs>${defs}</defs>${ground}${body}</svg>`
 
-const itemHeight = (lines: number) => SITE_TO_TITLE + (lines - 1) * LINE + ITEM_GAP
+/** The card as SVG, in its cover. */
+export function editionCardSvg(card: EditionCard): string {
+	return card.cover === "shelf" ? shelfSvg(card) : stackSvg(card)
+}
+
+/** Most cards in the stack. */
+const STACK_MAX = 4
+
+/** The articles the stack shows, the first on top, and how many it leaves out. */
+export function stackCards(card: EditionCard) {
+	const cards = card.items.slice(0, STACK_MAX)
+	return { cards, more: Math.max(0, card.total - cards.length) }
+}
+
+// The stack's cards: their size, where they start, how far each one behind shows above the one in
+// front, and how each one turns and moves aside, from the top one back. The stack is centred
+// however many cards it has.
+const CARD_W = 470
+const CARD_H = 236
+const STACK_X = 650
+const STACK_MIDDLE = 318
+const PEEK = 64
+const TURN = [-2, 3, -3.5, 2.5]
+const ASIDE = [0, 18, -8, 24]
 
 /**
- * The articles the right column shows, each title in its lines. Titles get two lines while they all
- * fit; then the later ones get one; then the last article goes, to the "more" line.
+ * Left: the date, the title (up to four lines), the author and the brand. Right: the first
+ * articles as clippings, each behind the one before, its site showing above it; on top, the first
+ * one's site and title; and how many more.
  */
-export function contents(font: Font, card: EditionCard) {
-	const items = card.items.map((item) => ({
-		site: item.site,
-		long: wrap(font, drawable(font, item.title), 28, 420, 2),
-		short: wrap(font, drawable(font, item.title), 28, 420, 1),
-	}))
-	for (let count = items.length; count > 0; count--) {
-		const more = card.total > count
-		const kept = items.slice(0, count)
-		// How many of them keep two lines, from the first.
-		for (let long = count; long >= 0; long--) {
-			const shown = kept.map((item, i) => ({
-				site: item.site,
-				lines: i < long ? item.long : item.short,
-			}))
-			const bottom =
-				RIGHT_TOP +
-				shown.reduce((sum, item) => sum + itemHeight(item.lines.length), 0) -
-				ITEM_GAP +
-				(more ? MORE : 0)
-			if (bottom <= RIGHT_BOTTOM) return shown
-		}
+function stackSvg(card: EditionCard): string {
+	const { text, name, small } = loadFonts()
+	const p = PAPER
+	const parts: string[] = []
+
+	if (card.date)
+		parts.push(
+			outline(small, drawable(small, card.date).toUpperCase(), 80, 112, 21, INK.tint, 0.12),
+		)
+	const titleLines = wrap(text, drawable(text, card.title), 54, 480, 4)
+	titleLines.forEach((line, i) => parts.push(outline(text, line, 80, 192 + i * 62, 54, INK.text)))
+	const author = wrap(text, drawable(text, card.authorName), 26, 480, 1)[0] ?? ""
+	parts.push(outline(text, author, 80, 192 + (titleLines.length - 1) * 62 + 56, 26, INK.muted))
+	parts.push(mark(80, 530, 42, INK.text))
+	parts.push(outline(name, "Klipstack", 132, 563, 30, INK.text))
+
+	const { cards, more } = stackCards(card)
+	const topY = Math.round(STACK_MIDDLE + ((cards.length - 1) * PEEK - CARD_H) / 2)
+	// From the back, so each card covers the one behind.
+	for (let i = cards.length - 1; i >= 0; i--) {
+		const item = cards[i]!
+		const top = i === 0
+		const x = STACK_X + ASIDE[i]!
+		const y = topY - i * PEEK
+		const g = [
+			`<rect width="${CARD_W}" height="${CARD_H}" rx="6" fill="${p.cards[STACK_MAX - 1 - i]}" filter="url(#shadow)"/>`,
+			`<rect x="30" y="${top ? 32 : 24}" width="5" height="${top ? CARD_H - 64 : 24}" fill="${p.accent}"${top ? "" : ` opacity="0.45"`}/>`,
+		]
+		// A card behind shows only its site; without one, its title, rather than nothing.
+		const label = top ? item.site : item.site || item.title
+		const site = wrap(small, drawable(small, label).toUpperCase(), 15, CARD_W - 100, 1)[0] ?? ""
+		g.push(outline(small, site, 54, top ? 52 : 42, 15, p.accent, 0.12))
+		if (top)
+			wrap(text, drawable(text, item.title), 30, CARD_W - 100, 3).forEach((line, j) =>
+				g.push(outline(text, line, 54, 96 + j * 37, 30, p.text)),
+			)
+		parts.push(
+			`<g transform="translate(${x} ${y}) rotate(${TURN[i]} ${CARD_W / 2} ${CARD_H / 2})">${g.join("")}</g>`,
+		)
 	}
-	return []
+	if (more > 0) {
+		const label = drawable(small, card.more(more))
+		const w = width(small, label, 17, 0.06) + 40
+		parts.push(
+			`<g transform="translate(${STACK_X + CARD_W - w + 20} ${topY + CARD_H - 18}) rotate(-5 ${w / 2} 22)"><rect width="${w}" height="44" rx="22" fill="${p.accent}"/>${outline(small, label, 20, 28, 17, "#FFFFFF", 0.06)}</g>`,
+		)
+	}
+
+	return svg(
+		`<rect width="${CARD_WIDTH}" height="${CARD_HEIGHT}" fill="url(#g)"/>`,
+		parts.join(""),
+		`<linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${INK.from}"/><stop offset="1" stop-color="${INK.to}"/></linearGradient><filter id="shadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#000" flood-opacity="0.45"/></filter>`,
+	)
+}
+
+// The shelf: its top, its ends, and the books' sizes. A book is wider the longer its article takes
+// to read; one without a reading time is as wide as a 12-minute read.
+const SHELF_Y = 556
+const SHELF_LEFT = 80
+export const SHELF_RIGHT = 1120
+const BOOK_GAP = 6
+const BOOK_MAX = 14
+const bookWidth = (minutes: number | null) =>
+	Math.round(28 + 8 * Math.sqrt(Math.min(Math.max(minutes ?? 12, 1), 90)))
+/** Varied, but the same for the same edition. */
+const bookHeight = (i: number) => 236 + ((i * 37) % 76)
+
+/** The books that fit on the shelf, from the left: where each one starts and how wide it is. */
+export function shelfBooks(card: EditionCard) {
+	const books: { site: string; x: number; width: number; height: number }[] = []
+	let x = SHELF_LEFT
+	for (const [i, item] of card.items.slice(0, BOOK_MAX).entries()) {
+		const w = bookWidth(item.minutes)
+		if (x + w > SHELF_RIGHT) break
+		books.push({ site: item.site || item.title, x, width: w, height: bookHeight(i) })
+		x += w + BOOK_GAP
+	}
+	return books
 }
 
 /**
- * The card as SVG. Left: the date, the title (up to four lines) and the author. Right: the first
- * articles, each its site over its title (up to two lines), and how many more. Below: the brand.
+ * Above: the date and the author, the title (up to two lines). Below: each article a book on the
+ * shelf, its site down the spine. Under the shelf, the brand and how many articles.
  */
-export function editionCardSvg(card: EditionCard): string {
+function shelfSvg(card: EditionCard): string {
 	const { text, name, small } = loadFonts()
-	const p = PALETTE
+	const p = PAPER
 	const parts: string[] = []
 
-	// Left column, 500 wide.
-	if (card.date)
-		parts.push(outline(small, drawable(small, card.date).toUpperCase(), 80, 112, 21, p.tint, 0.12))
-	const titleLines = wrap(text, drawable(text, card.title), 58, 500, 4)
-	titleLines.forEach((line, i) => parts.push(outline(text, line, 80, 196 + i * 66, 58, p.text)))
-	const author = wrap(text, drawable(text, card.authorName), 26, 500, 1)[0] ?? ""
-	parts.push(outline(text, author, 80, 196 + (titleLines.length - 1) * 66 + 58, 26, p.muted))
+	const over = [card.date, card.authorName].filter(Boolean).join("  ·  ")
+	const overLine = wrap(small, drawable(small, over).toUpperCase(), 17, 1040, 1)[0] ?? ""
+	parts.push(outline(small, overLine, 80, 92, 17, p.muted, 0.12))
+	wrap(text, drawable(text, card.title), 48, 1040, 2).forEach((line, i) =>
+		parts.push(outline(text, line, 80, 152 + i * 54, 48, p.text)),
+	)
 
-	// Right column, 420 wide: the articles that fit above the footer.
-	parts.push(`<rect x="640" y="76" width="1.5" height="400" fill="${p.rule}"/>`)
-	const shown = contents(text, card)
-	let y = RIGHT_TOP
-	shown.forEach((item, i) => {
-		const site = wrap(small, drawable(small, item.site).toUpperCase(), 16, 420, 1)[0] ?? ""
-		parts.push(outline(small, site, 700, y, 16, p.tint, 0.1))
-		item.lines.forEach((line, j) =>
-			parts.push(outline(text, line, 700, y + SITE_TO_TITLE + j * LINE, 28, p.text)),
+	const books = shelfBooks(card)
+	books.forEach((book, i) => {
+		const color = p.books[i % p.books.length]!
+		const ink = p.light.has(color) ? p.text : "#FFFFFF"
+		const top = SHELF_Y - book.height
+		parts.push(
+			`<rect x="${book.x}" y="${top}" width="${book.width}" height="${book.height}" rx="3" fill="${color}"/>`,
+			`<rect x="${book.x}" y="${top + 18}" width="${book.width}" height="2" fill="${ink}" opacity="0.35"/>`,
+			`<rect x="${book.x}" y="${SHELF_Y - 30}" width="${book.width}" height="2" fill="${ink}" opacity="0.35"/>`,
 		)
-		y += itemHeight(item.lines.length)
-		if (i < shown.length - 1) {
-			parts.push(
-				`<rect x="700" y="${y - ITEM_GAP / 2 + 4}" width="420" height="1.5" fill="${p.rule}"/>`,
-			)
-		}
+		const label =
+			wrap(small, drawable(small, book.site).toUpperCase(), 15, book.height - 76, 1)[0] ?? ""
+		// Read from the bottom up, centred on the spine: the capitals are about 11 tall.
+		parts.push(
+			`<g transform="translate(${book.x + book.width / 2 + 5.5} ${SHELF_Y - 44}) rotate(-90)">${outline(small, label, 0, 0, 15, ink, 0.12)}</g>`,
+		)
 	})
-	const more = card.total - shown.length
-	if (more > 0) parts.push(outline(text, card.more(more), 700, y - ITEM_GAP + MORE, 24, p.muted))
+	// A bookend after the last book.
+	const last = books.at(-1)
+	const end = last ? last.x + last.width + 4 : SHELF_LEFT
+	if (end + 44 <= SHELF_RIGHT + 20)
+		parts.push(
+			`<path d="M${end} ${SHELF_Y}V${SHELF_Y - 128}Q${end} ${SHELF_Y - 134} ${end + 6} ${SHELF_Y - 134}H${end + 10}V${SHELF_Y - 8}H${end + 44}V${SHELF_Y}Z" fill="${p.muted}"/>`,
+		)
+	parts.push(`<rect x="60" y="${SHELF_Y}" width="1080" height="12" rx="2" fill="${p.shelf}"/>`)
 
-	// Footer: the mark and the name, the address.
-	parts.push(`<rect x="80" y="512" width="1040" height="1.5" fill="${p.rule}"/>`)
-	parts.push(mark(80, 540, 44, p.text))
-	parts.push(outline(name, "Klipstack", 132, 574, 30, p.text))
-	const site = "klipstack.com"
-	parts.push(outline(text, site, 1120 - width(text, site, 24), 572, 24, p.muted))
+	parts.push(mark(80, 584, 30, p.text))
+	parts.push(outline(name, "Klipstack", 116, 607, 22, p.text))
+	const count = drawable(text, card.count)
+	parts.push(outline(text, count, 1120 - width(text, count, 22), 606, 22, p.muted))
 
-	return `<svg xmlns="http://www.w3.org/2000/svg" width="${CARD_WIDTH}" height="${CARD_HEIGHT}" viewBox="0 0 ${CARD_WIDTH} ${CARD_HEIGHT}"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${p.from}"/><stop offset="1" stop-color="${p.to}"/></linearGradient></defs><rect width="${CARD_WIDTH}" height="${CARD_HEIGHT}" fill="url(#g)"/>${parts.join("")}</svg>`
+	return svg(
+		`<rect width="${CARD_WIDTH}" height="${CARD_HEIGHT}" fill="${p.ground}"/>`,
+		parts.join(""),
+	)
 }
 
 /** The card as a PNG. */
@@ -235,24 +339,63 @@ export function cardFor(
 ): EditionCard {
 	const date = formatEditionDate(published.publishedAt, snapshot.locale, published.timeZone)
 	return {
+		cover: snapshot.cover,
 		date: snapshot.title === null ? null : date,
 		title: snapshot.title ?? date,
 		authorName: snapshot.authorName,
-		items: snapshot.items.slice(0, 3).map((item) => ({
+		items: snapshot.items.slice(0, BOOK_MAX).map((item) => ({
 			site: siteOf(item) ?? "",
 			title: item.title,
+			minutes: item.readingMinutes,
 		})),
 		total: snapshot.items.length,
+		count: t("public.articles", { count: snapshot.items.length }),
+		more: (count) => t("public.cardMore", { count }),
+	}
+}
+
+/** The example sites of `exampleCard`, and their reading times: made up, not anyone's. */
+const EXAMPLE_SITES: [string, number][] = [
+	["The Slow Review", 42],
+	["Field Notes", 11],
+	["Longform Weekly", 9],
+	["Margins", 18],
+	["The Reading Room", 7],
+	["Quiet Machines", 34],
+	["Paper & Ink", 15],
+	["Northern Letters", 13],
+]
+
+/** A cover's example for the editor's picker: an edition that is not the user's, in `lang`. */
+export function exampleCard(
+	cover: EditionCover,
+	lang: string,
+	t: TFunction<"editions">,
+): EditionCard {
+	return {
+		cover,
+		date: formatEditionDate(new Date("2026-10-01T12:00:00Z"), lang, "UTC"),
+		title: t("editor.coverSample.title"),
+		authorName: "Ada Reader",
+		items: EXAMPLE_SITES.map(([site, minutes], i) => ({
+			site,
+			title: i === 0 ? t("editor.coverSample.first") : "",
+			minutes,
+		})),
+		total: EXAMPLE_SITES.length,
+		count: t("public.articles", { count: EXAMPLE_SITES.length }),
 		more: (count) => t("public.cardMore", { count }),
 	}
 }
 
 /**
- * Which version of an edition's card: it changes with each Update, so the card's address does too,
- * and a link shared after an Update is not shown with the old one from a platform's cache.
+ * Which version of an edition's card: it changes with each Update and each new design, so the
+ * card's address does too, and a link shared after either is not shown with the old one from a
+ * platform's cache.
  */
 export function cardVersion(published: { publishedAt: Date | null; republishedAt: Date | null }) {
-	return ((published.republishedAt ?? published.publishedAt)?.getTime() ?? 0).toString(36)
+	const at = (published.republishedAt ?? published.publishedAt)?.getTime() ?? 0
+	return `${at.toString(36)}d${CARD_DESIGN}`
 }
 
 /** Cards drawn lately, by edition and version: a link shared in a busy channel is asked for often. */

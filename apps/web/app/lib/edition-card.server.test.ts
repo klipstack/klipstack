@@ -8,25 +8,34 @@ import {
 	cachedCard,
 	canDraw,
 	cardFor,
-	contents,
+	cardVersion,
 	drawable,
+	editionCardSvg,
 	type EditionCard,
 	editionCardPng,
-	editionCardSvg,
 	loadFonts,
+	SHELF_RIGHT,
+	shelfBooks,
+	stackCards,
 	wrap,
 } from "./edition-card.server"
+import { CARD_DESIGN } from "./editions"
 
+const site = (i: number) =>
+	["Stay SaaSy", "paulgraham.com", "registerspill.thorstenball.com"][i % 3]!
+const items = Array.from({ length: 14 }, (_, i) => ({
+	site: site(i),
+	title: `Article number ${i + 1}, on makers, managers and time`,
+	minutes: i % 4 === 3 ? null : 3 + i * 5,
+}))
 const card: EditionCard = {
+	cover: "stack",
 	date: "September 20, 2026",
 	title: "What I read this week: makers, managers and time",
 	authorName: "Ada Reader",
-	items: [
-		{ site: "Stay SaaSy", title: "Managing High Performers" },
-		{ site: "paulgraham.com", title: "Maker's Schedule, Manager's Schedule" },
-		{ site: "registerspill.thorstenball.com", title: "Be findable" },
-	],
+	items: items.slice(0, 10),
 	total: 10,
+	count: "10 articles",
 	more: (count) => `+ ${count} more`,
 }
 const font = () => loadFonts().text
@@ -56,22 +65,51 @@ describe("the edition card's text", () => {
 	})
 })
 
-describe("the edition card's contents", () => {
-	const long = "A title long enough that it needs two lines in the column at this size"
+describe("the stack", () => {
+	it("shows the first articles on cards, the first on top, and how many more", () => {
+		const { cards, more } = stackCards(card)
+		expect(cards.map((c) => c.site)).toEqual([site(0), site(1), site(2), site(3)])
+		expect(more).toBe(6)
+	})
 
-	it("gives titles two lines while they fit, then one", () => {
-		const shown = contents(font(), {
-			...card,
-			items: card.items.map((item) => ({ ...item, title: long })),
-		})
-		expect(shown).toHaveLength(3)
-		expect(shown.map((item) => item.lines.length)).toEqual([2, 1, 1])
+	it("draws a card with no site with its title instead, not blank", () => {
+		const blank = { ...card, items: card.items.map((item) => ({ ...item, site: "" })) }
+		expect(editionCardSvg(blank)).not.toBe(
+			editionCardSvg({
+				...blank,
+				items: blank.items.map((item, i) => (i === 0 ? item : { ...item, title: "Other" })),
+			}),
+		)
 	})
 
 	it("shows what there is, with no 'more' when all fit", () => {
-		const two = { ...card, items: card.items.slice(0, 2), total: 2 }
-		expect(contents(font(), two).map((item) => item.site)).toEqual(["Stay SaaSy", "paulgraham.com"])
-		expect(editionCardSvg(two)).not.toContain("more")
+		expect(stackCards({ ...card, items: card.items.slice(0, 1), total: 1 })).toMatchObject({
+			cards: [{ site: site(0) }],
+			more: 0,
+		})
+	})
+})
+
+describe("the shelf", () => {
+	const shelf = { ...card, cover: "shelf" as const }
+
+	it("has a book for each article, wider the longer the read, medium without one", () => {
+		const books = shelfBooks({ ...shelf, items: card.items.slice(0, 4), total: 4 })
+		expect(books).toHaveLength(4)
+		const [short, mid, long, unknown] = books.map((book) => book.width)
+		expect(short).toBeLessThan(mid!)
+		expect(mid).toBeLessThan(long!)
+		expect(unknown).toBeGreaterThan(short!)
+		expect(unknown).toBeLessThan(long!)
+	})
+
+	it("keeps the books on the shelf however many and however long", () => {
+		const long = items.map((item) => ({ ...item, minutes: 60 }))
+		const books = shelfBooks({ ...shelf, items: long, total: 30 })
+		expect(books.length).toBeGreaterThan(6)
+		expect(books.length).toBeLessThan(items.length)
+		const last = books.at(-1)!
+		expect(last.x + last.width).toBeLessThanOrEqual(SHELF_RIGHT)
 	})
 })
 
@@ -88,6 +126,7 @@ describe("the edition card", () => {
 			intro: null,
 			authorName: "Ada Reader",
 			locale: "es",
+			cover: "stack" as const,
 			items: [],
 		}
 		const published = { publishedAt: new Date("2026-09-30T22:30:00Z"), timeZone: "Europe/Madrid" }
@@ -102,14 +141,73 @@ describe("the edition card", () => {
 		})
 	})
 
+	it("carries the cover, and each article's site and reading time", () => {
+		const t = i18n.getFixedT("en", "editions")
+		const item = {
+			url: "https://www.example.com/a",
+			title: "A",
+			author: null,
+			siteName: null,
+			description: null,
+			leadImageUrl: null,
+			readingMinutes: 7,
+			readOn: null,
+			note: null,
+			highlights: [],
+		}
+		const snapshot = {
+			v: 1 as const,
+			title: "Good reads",
+			intro: null,
+			authorName: "Ada Reader",
+			locale: "en",
+			cover: "shelf" as const,
+			items: [item, { ...item, siteName: "Field Notes", readingMinutes: null }],
+		}
+		// As many as the shelf can show, not only the stack's.
+		const many = { ...snapshot, items: Array.from({ length: 20 }, () => item) }
+		expect(cardFor(many, { publishedAt: new Date(), timeZone: "UTC" }, t).items).toHaveLength(14)
+		const published = { publishedAt: new Date("2026-09-30T12:00:00Z"), timeZone: "UTC" }
+		expect(cardFor(snapshot, published, t)).toMatchObject({
+			cover: "shelf",
+			items: [
+				{ site: "example.com", title: "A", minutes: 7 },
+				{ site: "Field Notes", title: "A", minutes: null },
+			],
+			total: 2,
+			count: "2 articles",
+		})
+	})
+
 	it("draws without a date over the title", async () => {
 		const meta = await sharp(await editionCardPng({ ...card, date: null })).metadata()
 		expect(meta.width).toBe(CARD_WIDTH)
 	})
 
-	it("is a 1200×630 PNG", async () => {
-		const meta = await sharp(await editionCardPng(card)).metadata()
-		expect([meta.format, meta.width, meta.height]).toEqual(["png", CARD_WIDTH, CARD_HEIGHT])
+	it("draws the cover the owner chose", () => {
+		// The stack lies on the ink gradient, the shelf on paper.
+		expect(editionCardSvg(card)).toContain("url(#g)")
+		const shelf = editionCardSvg({ ...card, cover: "shelf" })
+		expect(shelf).not.toContain("url(#g)")
+		expect(shelf).toContain("#F5F0E6")
+	})
+
+	it("is a 1200×630 PNG, either cover", async () => {
+		for (const cover of ["stack", "shelf"] as const) {
+			const meta = await sharp(await editionCardPng({ ...card, cover })).metadata()
+			expect([meta.format, meta.width, meta.height]).toEqual(["png", CARD_WIDTH, CARD_HEIGHT])
+		}
+	})
+
+	it("has a new address for each Update and each new design", () => {
+		const at = new Date("2026-10-01T00:00:00Z")
+		const first = cardVersion({ publishedAt: at, republishedAt: null })
+		expect(cardVersion({ publishedAt: at, republishedAt: new Date(at.getTime() + 1) })).not.toBe(
+			first,
+		)
+		// Platforms keep the picture of an address: the design's number makes pages published
+		// before it show the new one.
+		expect(first).toBe(`${at.getTime().toString(36)}d${CARD_DESIGN}`)
 	})
 
 	it("is drawn once per edition and version", async () => {
