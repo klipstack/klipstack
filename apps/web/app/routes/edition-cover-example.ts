@@ -11,8 +11,8 @@ const drawn = new Map<string, Promise<Buffer>>()
 
 /**
  * GET /edition-covers/:cover-:lang.png — what a cover looks like, for the editor's picker: an
- * example edition, half size. Not the user's edition, so anyone may see it, and browsers keep it
- * (`coverExampleUrl` changes with the design).
+ * example edition, half size. Not the user's edition, so anyone may see it. Drawn once per server;
+ * browsers don't keep it, as the session middleware says `no-store` for every response.
  */
 export async function loader({ params, context }: Route.LoaderArgs) {
 	const [, cover, lang] = /^([a-z]+)-([a-z]+)\.png$/.exec(params.name) ?? []
@@ -33,7 +33,6 @@ export async function loader({ params, context }: Route.LoaderArgs) {
 		headers: {
 			"Content-Type": "image/png",
 			"Content-Length": String(bytes.length),
-			"Cache-Control": "public, max-age=604800",
 		},
 	})
 }

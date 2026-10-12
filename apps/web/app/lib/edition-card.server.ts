@@ -216,7 +216,9 @@ function stackSvg(card: EditionCard): string {
 			`<rect width="${CARD_W}" height="${CARD_H}" rx="6" fill="${p.cards[STACK_MAX - 1 - i]}" filter="url(#shadow)"/>`,
 			`<rect x="30" y="${top ? 32 : 24}" width="5" height="${top ? CARD_H - 64 : 24}" fill="${p.accent}"${top ? "" : ` opacity="0.45"`}/>`,
 		]
-		const site = wrap(small, drawable(small, item.site).toUpperCase(), 15, CARD_W - 100, 1)[0] ?? ""
+		// A card behind shows only its site; without one, its title, rather than nothing.
+		const label = top ? item.site : item.site || item.title
+		const site = wrap(small, drawable(small, label).toUpperCase(), 15, CARD_W - 100, 1)[0] ?? ""
 		g.push(outline(small, site, 54, top ? 52 : 42, 15, p.accent, 0.12))
 		if (top)
 			wrap(text, drawable(text, item.title), 30, CARD_W - 100, 3).forEach((line, j) =>

@@ -601,7 +601,7 @@ export async function addShortlist(userId: string, editionId: string): Promise<n
 	return added
 }
 
-/** Title, intro and language. Unchanged values change nothing, not even `updatedAt`. */
+/** Title, intro, language and cover. Unchanged values change nothing, not even `updatedAt`. */
 export async function updateEdition(
 	userId: string,
 	id: string,

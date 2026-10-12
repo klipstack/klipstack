@@ -132,7 +132,7 @@ function useEditionSave(editionId: string): EditionSave {
 }
 
 /**
- * The working copy: title, intro and language, the articles, and where to add more; beside it, on
+ * The working copy: title, intro, cover and language, the articles, and where to add more; beside it, on
  * a wide page, the preview.
  */
 export default function EditionEditor({ loaderData }: Route.ComponentProps) {
@@ -207,7 +207,7 @@ export default function EditionEditor({ loaderData }: Route.ComponentProps) {
 	)
 }
 
-/** Title, intro and language, the articles, and where to add more. */
+/** Title, intro, cover and language, the articles, and where to add more. */
 function EditorColumn({
 	data: loaderData,
 	save,

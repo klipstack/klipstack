@@ -207,6 +207,7 @@ test("editions: pick, publish, update, unpublish, and nobody else's", async ({ p
 		page.locator("label").filter({ hasText: "Bookshelf" }).click(),
 	])
 	await expect(page.getByRole("radio", { name: "Bookshelf" })).toBeChecked()
+	await expect(page.getByTestId("edition-status")).toContainText("Unpublished changes")
 
 	// An intro typed after publishing stays off the public page until Update.
 	const INTRO = "Two schedules, one week."
@@ -245,6 +246,8 @@ test("editions: pick, publish, update, unpublish, and nobody else's", async ({ p
 	expect(shelfUrl).not.toBe(cardUrl)
 	const shelf = await visitor.request.get(shelfUrl!)
 	expect([shelf.status(), shelf.headers()["content-type"]]).toEqual([200, "image/png"])
+	// Same title and articles: only the cover makes it differ.
+	expect((await shelf.body()).equals(png)).toBe(false)
 	await expect(visitor.getByRole("link", { name: INTRO })).toHaveAttribute(
 		"href",
 		"https://example.com/week",

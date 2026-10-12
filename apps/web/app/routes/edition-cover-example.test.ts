@@ -18,14 +18,21 @@ const example = (name: string) =>
 const status = (thrown: unknown) => (thrown as { init?: { status?: number } }).init?.status
 
 describe("a cover's example for the editor", () => {
-	it("is a small PNG of each cover, in each language, kept by browsers", async () => {
+	it("is a small PNG of each cover, in each language", async () => {
 		for (const name of ["stack-en.png", "shelf-es.png"]) {
 			const response = (await example(name)) as Response
 			expect(response.headers.get("Content-Type")).toBe("image/png")
-			expect(response.headers.get("Cache-Control")).toMatch(/max-age=\d+/)
 			const meta = await sharp(Buffer.from(await response.arrayBuffer())).metadata()
 			expect([meta.width, meta.height]).toEqual([600, 315])
 		}
+	})
+
+	it("shows the cover and the language asked for", async () => {
+		const bytes = async (name: string) =>
+			Buffer.from(await ((await example(name)) as Response).arrayBuffer())
+		const stack = await bytes("stack-en.png")
+		expect(stack.equals(await bytes("shelf-en.png"))).toBe(false)
+		expect(stack.equals(await bytes("stack-es.png"))).toBe(false)
 	})
 
 	it("is not found for a cover or a language Klipstack lacks", async () => {

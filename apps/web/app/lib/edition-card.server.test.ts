@@ -10,6 +10,7 @@ import {
 	cardFor,
 	cardVersion,
 	drawable,
+	editionCardSvg,
 	type EditionCard,
 	editionCardPng,
 	loadFonts,
@@ -18,6 +19,7 @@ import {
 	stackCards,
 	wrap,
 } from "./edition-card.server"
+import { CARD_DESIGN } from "./editions"
 
 const site = (i: number) =>
 	["Stay SaaSy", "paulgraham.com", "registerspill.thorstenball.com"][i % 3]!
@@ -68,6 +70,16 @@ describe("the stack", () => {
 		const { cards, more } = stackCards(card)
 		expect(cards.map((c) => c.site)).toEqual([site(0), site(1), site(2), site(3)])
 		expect(more).toBe(6)
+	})
+
+	it("draws a card with no site with its title instead, not blank", () => {
+		const blank = { ...card, items: card.items.map((item) => ({ ...item, site: "" })) }
+		expect(editionCardSvg(blank)).not.toBe(
+			editionCardSvg({
+				...blank,
+				items: blank.items.map((item, i) => (i === 0 ? item : { ...item, title: "Other" })),
+			}),
+		)
 	})
 
 	it("shows what there is, with no 'more' when all fit", () => {
@@ -150,14 +162,17 @@ describe("the edition card", () => {
 			authorName: "Ada Reader",
 			locale: "en",
 			cover: "shelf" as const,
-			items: [item, { ...item, siteName: "Craig Mod", readingMinutes: null }],
+			items: [item, { ...item, siteName: "Field Notes", readingMinutes: null }],
 		}
+		// As many as the shelf can show, not only the stack's.
+		const many = { ...snapshot, items: Array.from({ length: 20 }, () => item) }
+		expect(cardFor(many, { publishedAt: new Date(), timeZone: "UTC" }, t).items).toHaveLength(14)
 		const published = { publishedAt: new Date("2026-09-30T12:00:00Z"), timeZone: "UTC" }
 		expect(cardFor(snapshot, published, t)).toMatchObject({
 			cover: "shelf",
 			items: [
 				{ site: "example.com", title: "A", minutes: 7 },
-				{ site: "Craig Mod", title: "A", minutes: null },
+				{ site: "Field Notes", title: "A", minutes: null },
 			],
 			total: 2,
 			count: "2 articles",
@@ -167,6 +182,14 @@ describe("the edition card", () => {
 	it("draws without a date over the title", async () => {
 		const meta = await sharp(await editionCardPng({ ...card, date: null })).metadata()
 		expect(meta.width).toBe(CARD_WIDTH)
+	})
+
+	it("draws the cover the owner chose", () => {
+		// The stack lies on the ink gradient, the shelf on paper.
+		expect(editionCardSvg(card)).toContain("url(#g)")
+		const shelf = editionCardSvg({ ...card, cover: "shelf" })
+		expect(shelf).not.toContain("url(#g)")
+		expect(shelf).toContain("#F5F0E6")
 	})
 
 	it("is a 1200×630 PNG, either cover", async () => {
@@ -184,8 +207,7 @@ describe("the edition card", () => {
 		)
 		// Platforms keep the picture of an address: the design's number makes pages published
 		// before it show the new one.
-		expect(first).not.toBe(at.getTime().toString(36))
-		expect(first).toMatch(/^[0-9a-z]+$/)
+		expect(first).toBe(`${at.getTime().toString(36)}d${CARD_DESIGN}`)
 	})
 
 	it("is drawn once per edition and version", async () => {
