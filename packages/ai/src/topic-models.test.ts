@@ -11,13 +11,14 @@ const article = (id: string, title: string, siteName: string | null = null) => (
 
 /** Answers Anthropic's requests with `answer` as the JSON text, and keeps what was sent. */
 function anthropic(answer: unknown) {
-	const sent: { system: string; prompt: string; format: unknown }[] = []
+	const sent: { system: string; prompt: string; format: unknown; schema: unknown }[] = []
 	const fetch = (async (_url: string, init: RequestInit) => {
 		const body = JSON.parse(String(init.body))
 		sent.push({
 			system: body.system[0].text,
 			prompt: body.messages[0].content[0].text,
 			format: body.output_config?.format?.type,
+			schema: body.output_config?.format?.schema,
 		})
 		return Response.json({
 			id: "m",
@@ -98,23 +99,61 @@ describe("the topic models", () => {
 	it("map a growth's refs back to ids, and drop topics holding too few real pool articles", async () => {
 		const { fetch } = anthropic({
 			widen: [
-				{ topicId: "t1", description: "Wider.", articleIds: ["a1", "a9"], reason: "" },
-				{ topicId: "t7", description: "Unknown topic.", articleIds: ["a1"], reason: "" },
+				{
+					topicId: "t1",
+					description: "Wider.",
+					boundary: "Not B.",
+					articleIds: ["a1", "a9"],
+					reason: "",
+				},
+				{
+					topicId: "t7",
+					description: "Unknown topic.",
+					boundary: "",
+					articleIds: ["a1"],
+					reason: "",
+				},
 			],
 			topics: [
-				{ name: "Kept", description: "d", articleIds: ["a1", "a2", "a3"], reason: "" },
-				{ name: "Repeats", description: "d", articleIds: ["a1", "a1", "a1"], reason: "" },
-				{ name: "Invents", description: "d", articleIds: ["a1", "a2", "a8"], reason: "" },
+				{
+					name: "Kept",
+					description: "d",
+					boundary: "b",
+					articleIds: ["a1", "a2", "a3"],
+					reason: "",
+				},
+				{
+					name: "Repeats",
+					description: "d",
+					boundary: "b",
+					articleIds: ["a1", "a1", "a1"],
+					reason: "",
+				},
+				{
+					name: "Invents",
+					description: "d",
+					boundary: "b",
+					articleIds: ["a1", "a2", "a8"],
+					reason: "",
+				},
 			],
 			note: "n",
 		})
 		const result = await createTopicModels({ ...keys, fetch }).grow({
-			topics: [{ id: "topic-uuid", name: "Writing", description: "On writing." }],
+			topics: [
+				{ id: "topic-uuid", name: "Writing", description: "On writing.", boundary: "Not poems." },
+			],
 			pool: [article("x1", "One"), article("x2", "Two"), article("x3", "Three")],
 			language: "en",
 		})
 		expect(result.value.widen).toEqual([
-			{ topicId: "topic-uuid", description: "Wider.", articleIds: ["x1"], reason: "" },
+			{
+				topicId: "topic-uuid",
+				description: "Wider.",
+				boundary: "Not B.",
+				articleIds: ["x1"],
+				reason: "",
+			},
 		])
 		expect(result.value.topics.map((t) => [t.name, t.articleIds])).toEqual([
 			["Kept", ["x1", "x2", "x3"]],
@@ -140,13 +179,30 @@ describe("the topic models", () => {
 			sortedCount: 30,
 			unsortedCount: 10,
 			topics: [
-				{ id: "A", name: "Alpha", description: "a", articles: 3, lastAt: 12, titles: ["x"] },
-				{ id: "B", name: "Beta", description: "b", articles: 1, lastAt: 2, titles: ["y"] },
+				{
+					id: "A",
+					name: "Alpha",
+					description: "a.",
+					boundary: "Not b.",
+					articles: 3,
+					lastAt: 12,
+					titles: ["x"],
+				},
+				{
+					id: "B",
+					name: "Beta",
+					description: "b",
+					boundary: "",
+					articles: 1,
+					lastAt: 2,
+					titles: ["y"],
+				},
 			],
 			pairs: [{ a: "A", b: "B", count: 2 }],
 			language: "en",
 		})
 		expect(sent[0]!.prompt).toContain("Alpha + Beta: 2 articles")
+		expect(sent[0]!.prompt).toContain("Alpha (3 articles, last at 12): a. Not b.")
 		expect(result.value.changes.map((c) => c.topicIds)).toEqual([["B"], ["A"]])
 	})
 
@@ -156,6 +212,7 @@ describe("the topic models", () => {
 			id: `id-${i + 1}`,
 			name: `Topic ${i + 1}`,
 			description: "d",
+			boundary: "",
 		}))
 		const result = await createTopicModels({ ...keys, fetch }).sort({
 			article: article("x", "Title"),
@@ -173,9 +230,98 @@ describe("the topic models", () => {
 	it("tell a refused Jev request from one worth retrying", async () => {
 		const refused = createTopicModels({ ...keys, fetch: jev(() => 0, 400).fetch })
 		const busy = createTopicModels({ ...keys, fetch: jev(() => 0, 503).fetch })
-		const input = { article: article("x", "T"), topics: [{ id: "t", name: "T", description: "" }] }
+		const input = {
+			article: article("x", "T"),
+			topics: [{ id: "t", name: "T", description: "", boundary: "" }],
+		}
 		await expect(refused.sort(input)).rejects.toSatisfy((e) => !retryable(e))
 		await expect(busy.sort(input)).rejects.toSatisfy((e) => retryable(e))
+	})
+
+	it("ask Haiku for what readers see and what sorting needs as two fields", async () => {
+		const { fetch, sent } = anthropic({
+			topics: [
+				{
+					name: "Management",
+					description: "Leading teams and running organizations.",
+					boundary: "Questions about the mind belong in Psychology.",
+					reason: "",
+				},
+			],
+		})
+		const result = await createTopicModels({ ...keys, fetch }).propose({
+			articles: [article("1", "One"), article("2", "Two")],
+			language: "en",
+		})
+		type Field = { description: string }
+		const topic = (
+			sent[0]!.schema as {
+				properties: {
+					topics: { items: { properties: Record<string, Field>; required: string[] } }
+				}
+			}
+		).properties.topics.items
+		expect(topic.properties.description!.description).toMatch(/reader/)
+		expect(topic.properties.description!.description).not.toMatch(/what does not/)
+		expect(topic.properties.boundary!.description).toMatch(/what does not/)
+		expect(topic.required).toEqual(expect.arrayContaining(["description", "boundary"]))
+		expect(result.value[0]).toMatchObject({
+			description: "Leading teams and running organizations.",
+			boundary: "Questions about the mind belong in Psychology.",
+		})
+	})
+
+	it("show the models each topic's description with its boundary", async () => {
+		const topic = {
+			id: "w",
+			name: "Writing",
+			description: "On writing well.",
+			boundary: "Poetry belongs in Literature.",
+		}
+		const haiku = anthropic({ widen: [], topics: [], note: "" })
+		await createTopicModels({ ...keys, fetch: haiku.fetch }).grow({
+			topics: [topic],
+			pool: [article("x", "One")],
+			language: "en",
+		})
+		expect(haiku.sent[0]!.prompt).toContain(
+			"Writing: On writing well. Poetry belongs in Literature.",
+		)
+		const asked: string[] = []
+		const { fetch } = jev((q) => {
+			asked.push(q)
+			return 0.5
+		})
+		await createTopicModels({ ...keys, fetch }).sort({
+			article: article("a", "A"),
+			topics: [topic],
+		})
+		expect(asked[0]).toContain("On writing well. Poetry belongs in Literature.")
+		const main: string[] = []
+		const mainJev = jev((q) => {
+			main.push(q)
+			return 0.5
+		})
+		await createTopicModels(
+			{ ...keys, fetch: mainJev.fetch },
+			{ ...TOPIC_RULES, question: "main" },
+		).sort({ article: article("a", "A"), topics: [topic] })
+		expect(main[0]).toContain("Writing: On writing well. Poetry belongs in Literature.")
+	})
+
+	it("fake: a description and a boundary in the reader's language", async () => {
+		const models = createTopicModels({ fake: true })
+		const articles = [article("1", "A", "Psyche"), article("2", "B", "Psyche")]
+		const en = await models.propose({ articles, language: "en" })
+		expect(en.value[0]).toMatchObject({
+			description: "Articles from Psyche.",
+			boundary: "Articles from other sites belong in their own topics.",
+		})
+		const es = await models.grow({ topics: [], pool: articles, language: "es" })
+		expect(es.value.topics[0]).toMatchObject({
+			description: "Artículos de Psyche.",
+			boundary: "Los artículos de otros sitios van en sus propios temas.",
+		})
 	})
 
 	it("fake: one topic per site articles share, and articles sorted by the topic's name", async () => {
@@ -192,8 +338,8 @@ describe("the topic models", () => {
 		const sorted = await models.sort({
 			article: article("4", "D", "Psyche"),
 			topics: [
-				{ id: "p", name: "Psyche", description: "" },
-				{ id: "q", name: "Aeon", description: "" },
+				{ id: "p", name: "Psyche", description: "", boundary: "" },
+				{ id: "q", name: "Aeon", description: "", boundary: "" },
 			],
 		})
 		expect(sorted.value).toEqual({ p: 0.9, q: 0.05 })

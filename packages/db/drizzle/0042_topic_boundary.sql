@@ -1,0 +1,1 @@
+ALTER TABLE "topics" ADD COLUMN "boundary" text DEFAULT '' NOT NULL;

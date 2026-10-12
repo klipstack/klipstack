@@ -73,7 +73,10 @@ export const DEFAULT_CONFIG: Config = {
 export interface Topic {
 	id: string
 	name: string
+	/** What the topic holds, as a reader sees it. */
 	description: string
+	/** What does not belong in it: the models read it, a reader never does. */
+	boundary: string
 	createdAt: number
 	origin: "bootstrap" | "pool" | "split" | "merge"
 	/** Why it exists, in the proposer's words. */
@@ -236,6 +239,7 @@ export class Simulation {
 			id: `t${this.nextTopic++}`,
 			name: spec.name,
 			description: spec.description,
+			boundary: spec.boundary ?? "",
 			createdAt: this.step,
 			origin,
 			reason,
@@ -251,7 +255,12 @@ export class Simulation {
 
 	/** The topics as the models see them: named by their ids. */
 	private refs(topics: Topic[]) {
-		return topics.map((t) => ({ ref: t.id, name: t.name, description: t.description }))
+		return topics.map((t) => ({
+			ref: t.id,
+			name: t.name,
+			description: t.description,
+			boundary: t.boundary,
+		}))
 	}
 
 	/** The probability that each topic is one of the article's main subjects. Public for `compare`. */
@@ -342,6 +351,7 @@ export class Simulation {
 				reason: w.reason,
 			})
 			topic.description = w.description
+			topic.boundary = w.boundary ?? ""
 			widened.push(topic)
 			this.log(`  ↔ widened ${topic.name}: ${w.description}`)
 		}
@@ -404,6 +414,7 @@ export class Simulation {
 							ref: t.id,
 							name: t.name,
 							description: t.description,
+							boundary: t.boundary,
 							articles: list.length,
 							lastAt: Math.max(t.createdAt, ...list.map((a) => this.library.indexOf(a) + 1)),
 							titles: list.slice(-6).map((a) => a.title),
@@ -433,6 +444,7 @@ export class Simulation {
 				t.renamedFrom = [...(t.renamedFrom ?? []), t.name]
 				t.name = change.into[0].name
 				t.description = change.into[0].description
+				t.boundary = change.into[0].boundary ?? ""
 				// Renamed in place; the whole library is judged again against the new description.
 				for (const a of this.library) await this.sort(a, [t])
 			} else if (change.op === "retire") {
