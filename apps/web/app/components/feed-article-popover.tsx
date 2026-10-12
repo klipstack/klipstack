@@ -52,33 +52,59 @@ export function FeedArticlePopover({
 		}
 	}, [anchor])
 
+	// Closing is the parent's; a new `onClose` each render must not place the popover again.
+	const onCloseRef = useRef(onClose)
+	useLayoutEffect(() => {
+		onCloseRef.current = onClose
+	})
+
 	useLayoutEffect(() => {
 		if (touch) return
 		const card = ref.current
 		if (!card) return
+		// How far a scroll has carried the anchor since the popover opened at `point`.
+		const shift = { x: 0, y: 0 }
+		let last = anchor.current?.getBoundingClientRect()
 		const place = () => {
 			const rect = anchor.current?.getBoundingClientRect()
 			if (!rect) return
-			const below = point?.y ?? rect.bottom + 6
+			const at = point && { x: point.x + shift.x, y: point.y + shift.y }
+			const below = at?.y ?? rect.bottom + 6
 			const top =
-				!point && below + card.offsetHeight > window.innerHeight - 8
+				!at && below + card.offsetHeight > window.innerHeight - 8
 					? rect.top - card.offsetHeight - 6
 					: below
 			setPosition({
 				top: Math.max(8, Math.min(top, window.innerHeight - card.offsetHeight - 8)),
-				left: Math.max(
-					8,
-					Math.min(point?.x ?? rect.left, window.innerWidth - card.offsetWidth - 8),
-				),
+				left: Math.max(8, Math.min(at?.x ?? rect.left, window.innerWidth - card.offsetWidth - 8)),
 			})
+		}
+		// The popover follows its anchor through a scroll, and closes once the anchor leaves the
+		// window. The browser reports a scroll a frame late: the one that brought the anchor into view
+		// for the click arrives after the popover opened, and moved nothing since.
+		const onScroll = (event: Event) => {
+			if (card.contains(event.target as Node)) return
+			const rect = anchor.current?.getBoundingClientRect()
+			if (!rect || rect.bottom < 0 || rect.top > window.innerHeight || rect.width === 0) {
+				onCloseRef.current()
+				return
+			}
+			if (last) {
+				shift.x += rect.left - last.left
+				shift.y += rect.top - last.top
+			}
+			last = rect
+			place()
 		}
 		place()
 		const observer = new ResizeObserver(place)
 		observer.observe(card)
 		window.addEventListener("resize", place)
+		document.addEventListener("scroll", onScroll, { capture: true, passive: true })
 		return () => {
 			observer.disconnect()
 			window.removeEventListener("resize", place)
+			document.removeEventListener("scroll", onScroll, { capture: true })
 		}
 	}, [anchor, point, touch])
 
@@ -93,20 +119,15 @@ export function FeedArticlePopover({
 				onClose()
 			}
 		}
-		const onScroll = (event: Event) => {
-			if (!touch && !ref.current?.contains(event.target as Node)) onClose()
-		}
 		document.addEventListener("pointerdown", outside)
 		document.addEventListener("focusin", outside)
 		document.addEventListener("keydown", onKey)
-		document.addEventListener("scroll", onScroll, { capture: true, passive: true })
 		return () => {
 			document.removeEventListener("pointerdown", outside)
 			document.removeEventListener("focusin", outside)
 			document.removeEventListener("keydown", onKey)
-			document.removeEventListener("scroll", onScroll, { capture: true })
 		}
-	}, [anchor, onClose, touch])
+	}, [anchor, onClose])
 
 	return createPortal(
 		<div

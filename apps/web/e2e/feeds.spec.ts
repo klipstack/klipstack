@@ -234,6 +234,54 @@ test("feed: titles and right-click share post actions", async ({ page, context }
 	await expect(featured).toHaveCount(1)
 })
 
+test("feed: the popover of the last post stays beside its title, and a later scroll closes it", async ({
+	page,
+}) => {
+	const userId = await signup(page)
+	await seed(userId)
+	await page.goto("/feed")
+	await waitForHydration(page)
+	const item = page.getByTestId("feed-item").last()
+	const title = item.getByRole("button", { name: /^Busy post/ })
+	const dialog = page.getByRole("dialog", { name: "Post actions" })
+	expect((await title.boundingBox())!.y).toBeGreaterThan(page.viewportSize()!.height)
+	// The click scrolls the last post into view; the browser reports that scroll after it opened.
+	await title.click()
+	await expect(dialog).toBeVisible()
+	await page.waitForTimeout(500)
+	await expect(dialog).toBeVisible()
+	await expectBeside()
+
+	// A little scroll and the popover follows its title; past the edge of the window and it closes.
+	const b = (await title.boundingBox())!
+	await page.mouse.move(b.x + b.width + 40, b.y - 100)
+	await page.mouse.wheel(0, -40)
+	await expect.poll(async () => (await title.boundingBox())!.y).toBeGreaterThan(b.y + 20)
+	await expect(dialog).toBeVisible()
+	await expectBeside()
+	await page.mouse.wheel(0, -1000)
+	await expect(dialog).toHaveCount(0)
+
+	// Right-clicked at the bottom of the list, it stays open too.
+	await page.mouse.wheel(0, -5000)
+	await item.click({ button: "right" })
+	await expect(dialog).toBeVisible()
+	await page.waitForTimeout(500)
+	await expect(dialog).toBeVisible()
+
+	/** Lined up with the title's left edge, right under or above it. */
+	async function expectBeside() {
+		await expect(async () => {
+			const t = (await title.boundingBox())!
+			const d = (await dialog.boundingBox())!
+			expect(Math.abs(d.x - t.x)).toBeLessThan(2)
+			expect(
+				Math.min(Math.abs(d.y - (t.y + t.height)), Math.abs(d.y + d.height - t.y)),
+			).toBeLessThan(10)
+		}).toPass({ timeout: 2_000 })
+	}
+})
+
 test("feed page: imports an OPML file, and exports the feeds again", async ({ page }) => {
 	await signup(page)
 	const stamp = `${Date.now()}${Math.floor(Math.random() * 1e4)}`
