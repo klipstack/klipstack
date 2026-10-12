@@ -74,6 +74,15 @@ describe("the topic models", () => {
 		expect(sent[0]!.format).toBe("json_schema")
 	})
 
+	it("ask for sections, about one for every eight articles, as production does", async () => {
+		const { fetch, sent } = anthropic({ topics: [] })
+		const articles = Array.from({ length: 80 }, (_, i) => article(`id-${i}`, `Article ${i}`))
+		await createTopicModels({ ...keys, fetch }).propose({ articles, language: "en" })
+		expect(TOPIC_RULES.style).toBe("sections")
+		expect(sent[0]!.system).toContain("the way a bookstore is organized into sections")
+		expect(sent[0]!.prompt).toContain("Propose the first sections of their library: about 10")
+	})
+
 	it("map a growth's refs back to ids, and drop topics holding too few real pool articles", async () => {
 		const { fetch } = anthropic({
 			widen: [

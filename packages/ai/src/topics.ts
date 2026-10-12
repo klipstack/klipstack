@@ -7,7 +7,7 @@ import type { AiLanguage } from "./types"
  * builds its requests here too, so it measures what production runs.
  */
 
-/** How topics are named: broad fields, or specific shelves (what production asks for). */
+/** How topics are named: broad fields, specific shelves, or sections as a bookstore has (production). */
 export type TopicStyle = "broad" | "specific" | "sections"
 /** What Jev is asked of each topic: a main subject of the article, or a shelf it belongs on. */
 export type TopicQuestion = "main" | "shelf"
@@ -34,9 +34,13 @@ export interface TopicRules {
 	textChars: number
 }
 
-/** What production runs: the owner's decisions after the simulator's runs (October 2026). */
+/**
+ * What production runs: the owner's decisions after the simulator's runs (October 2026). Topics
+ * are sections, as a bookstore's: specific ones cut a library about one field (the owner's, mostly
+ * about AI and software) into slivers, broad ones let one topic hold two-fifths of it.
+ */
 export const TOPIC_RULES: TopicRules = {
-	style: "specific",
+	style: "sections",
 	question: "shelf",
 	widen: true,
 	applyThreshold: 0.6,

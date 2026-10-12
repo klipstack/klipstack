@@ -261,7 +261,7 @@ export default {
 			"Topics sort what you save into shelves on their own: proposed from your library, kept up to date as you read.",
 		off: {
 			title: "Let your library sort itself",
-			body: "Once you have saved {{needed}} articles, Klipstack proposes topics from what you read: specific subjects you keep coming back to, like Engineering Management or Online Writing. You look them over once. After that, each article you save lands in its topics on its own, and new topics appear as your reading changes.",
+			body: "Once you have saved {{needed}} articles, Klipstack proposes topics from what you read: the sections your library would have in a bookstore, like Software Engineering, Startups or Writing. You look them over once. After that, each article you save lands in its topics on its own, and new topics appear as your reading changes.",
 			privacy:
 				"To sort your articles, their text is sent to TypeSafe and to Anthropic. Turning topics off deletes them.",
 			enable: "Turn on topics",
