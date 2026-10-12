@@ -86,6 +86,7 @@ export default [
 	route("documents/:id/backlinks", "routes/documents.backlinks.ts"),
 	route("feed/opml", "routes/feed.opml.ts"),
 	route("saved-searches", "routes/saved-searches.ts"),
+	route("topics/use", "routes/topics.use.ts"),
 	route("prefs", "routes/prefs.ts"),
 	route("assets/:id", "routes/assets.ts"),
 	route("api/v1/*", "routes/api.v1.ts"),

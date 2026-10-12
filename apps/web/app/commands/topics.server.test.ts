@@ -7,11 +7,13 @@ import {
 	documentVersions,
 	eq,
 	inArray,
+	monthOf,
 	savedSearches,
 	sql,
 	topicLibraries,
 	topicSorts,
 	topics,
+	usageCounts,
 	user as userTable,
 	userFeatures,
 } from "@klipstack/db"
@@ -24,6 +26,7 @@ vi.hoisted(() => {
 
 const {
 	confirmTopics,
+	countTopicUse,
 	disableTopics,
 	dismissTopicsCard,
 	enableTopics,
@@ -207,6 +210,28 @@ describe("where topics stand", () => {
 		expect((await topicWithArticles(userId, topic))!.items.map((i) => i.id)).toEqual([kept])
 	})
 
+	it("says sorting waits for next month once the month's sorts are spent, and only while articles wait", async () => {
+		const sorted = await article()
+		await active(userId, "Shelf", [sorted])
+		await db.insert(topicSorts).values({ documentId: sorted, userId })
+		const { month, resetsAt } = monthOf()
+		await db.insert(usageCounts).values({ userId, metric: "topic_sorts", month, count: 999 })
+		expect(await topicsState(userId)).toMatchObject({ sorting: 0, sortsPaused: null })
+
+		await article()
+		await article()
+		// One sort left: the worker is still on it.
+		expect(await topicsState(userId)).toMatchObject({ sorting: 2, sortsPaused: null })
+		await db
+			.update(usageCounts)
+			.set({ count: 1000 })
+			.where(and(eq(usageCounts.userId, userId), eq(usageCounts.metric, "topic_sorts")))
+		expect(await topicsState(userId)).toMatchObject({
+			sorting: 2,
+			sortsPaused: { max: 1000, resetsAt: resetsAt.toISOString() },
+		})
+	})
+
 	it("shelves a topic's newest 16 articles, and counts the ones saved this week", async () => {
 		const ids: string[] = []
 		for (let i = 0; i < 18; i++) ids.push(await article())
@@ -349,6 +374,66 @@ describe("correcting topics", () => {
 			.from(documentTopics)
 			.where(and(eq(documentTopics.topicId, topic), eq(documentTopics.documentId, inIt)))
 		expect(refused!.refusedAt).not.toBeNull()
+	})
+})
+
+describe("counting how topics are used", () => {
+	const used = async (owner = userId) =>
+		Object.fromEntries(
+			(
+				await db
+					.select({ metric: usageCounts.metric, count: usageCounts.count })
+					.from(usageCounts)
+					.where(and(eq(usageCounts.userId, owner), eq(usageCounts.month, monthOf().month)))
+			).map((r) => [r.metric, r.count]),
+		)
+
+	it("counts renames, removals and articles taken out, but not the refused ones", async () => {
+		const doc = await article()
+		const topic = await active(userId, "Shelf", [doc])
+		const theirs = await active(otherId, "Theirs", [])
+		await renameTopic(userId, topic, "Better")
+		await renameTopic(userId, topic, "Best")
+		await takeOutOfTopic(userId, topic, doc)
+		await expect(renameTopic(userId, theirs, "Mine")).rejects.toMatchObject({ code: "not_found" })
+		await expect(removeTopic(userId, theirs)).rejects.toMatchObject({ code: "not_found" })
+		await removeTopic(userId, topic)
+		expect(await used()).toEqual({ topic_renamed: 2, topic_taken_out: 1, topic_removed: 1 })
+		expect(await used(otherId)).toEqual({})
+	})
+
+	it("counts what the reader clicks, by name only, for an account with topics", async () => {
+		await countTopicUse(userId, "topic_filter_library")
+		await countTopicUse(userId, "topic_filter_library")
+		await countTopicUse(userId, "topic_filter_search")
+		await countTopicUse(userId, "topic_opened")
+		await countTopicUse(userId, "topic_next")
+		await countTopicUse(userId, "topic_home")
+		expect(await used()).toEqual({
+			topic_filter_library: 2,
+			topic_filter_search: 1,
+			topic_opened: 1,
+			topic_next: 1,
+			topic_home: 1,
+		})
+		// Only clicks: the commands count the rest, and nothing else is a use.
+		for (const name of ["topic_renamed", "saves", "topic_spend", ""])
+			await expect(countTopicUse(userId, name)).rejects.toMatchObject({
+				code: "invalid_request",
+			})
+		await db.delete(userFeatures).where(eq(userFeatures.userId, userId))
+		await expect(countTopicUse(userId, "topic_opened")).rejects.toMatchObject({
+			code: "forbidden",
+		})
+		expect(await used()).toMatchObject({ topic_opened: 1 })
+	})
+
+	it("refuses more clicks than a person makes", async () => {
+		for (let i = 0; i < 60; i++) await countTopicUse(userId, "topic_opened")
+		await expect(countTopicUse(userId, "topic_opened")).rejects.toMatchObject({
+			code: "rate_limited",
+		})
+		expect(await used()).toEqual({ topic_opened: 60 })
 	})
 })
 

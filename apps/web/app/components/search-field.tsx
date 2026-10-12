@@ -32,6 +32,8 @@ interface Props {
 	 * its form, whatever `inputClassName` says.
 	 */
 	operators?: boolean
+	/** The query, as the reader submits it, and the one shown until then (`value`). */
+	onSearch?: (query: string, previous: string) => void
 }
 
 /** Compact search box with the search icon and clear button inside the field. */
@@ -49,6 +51,7 @@ export function SearchField({
 	escapeTo,
 	slashFocus,
 	operators,
+	onSearch,
 }: Props) {
 	const navigate = useNavigate()
 	// The search page remembers where it was opened from, search after search.
@@ -97,7 +100,10 @@ export function SearchField({
 			action={action}
 			state={state}
 			// The results take the keys (j/k), and a phone puts its keyboard away.
-			onSubmit={() => inputRef.current?.blur()}
+			onSubmit={(event) => {
+				onSearch?.(String(new FormData(event.currentTarget).get("q") ?? ""), value)
+				inputRef.current?.blur()
+			}}
 			role="search"
 			className={cn("relative", className)}
 		>

@@ -25,6 +25,7 @@ import { useKeyTranslation } from "~/lib/i18n-keys"
 import { usePageBar } from "~/lib/page-bar"
 import { awaitsWords, searchOrigin, searchPath } from "~/lib/search-page"
 import { setSidebar, useSidebar } from "~/lib/sidebar"
+import { countTopicSearch } from "~/lib/topic-use"
 import { cn } from "~/lib/utils"
 import { type AccountUser, AccountMenu } from "./account-menu"
 import { BrandLogoSmall } from "./brand-mark"
@@ -492,6 +493,7 @@ export function AppShell({
 								clearTo={field.clearTo}
 								escapeTo={leaveTo ?? undefined}
 								operators={field.always}
+								onSearch={field.always ? countTopicSearch : undefined}
 								placeholder={tk(field.placeholderKey)}
 								label={tk(field.labelKey)}
 								clearLabel={tk(field.clearKey)}

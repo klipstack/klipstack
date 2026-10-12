@@ -103,9 +103,20 @@ The work runs in the worker, so both containers need both keys:
 
 What it costs: Jev reads about 2,000 tokens of each article, a hundredth of a cent. A new or
 changed topic sorts the whole library again into it, so a library of a thousand articles costs
-about ten cents each time. Haiku's work (proposing, growing, reviewing) is capped per account:
-`LIMIT_TOPICS_PER_MONTH` (default 100). Past it, sorting goes on and topics stop changing until
-the next month. Both providers' costs count in `/admin/usage` with the account's AI spend.
+about ten cents each time. Each account has two monthly caps, counted from the 1st (UTC):
+
+- `LIMIT_TOPIC_SORTS_PER_MONTH` (default 1,000): articles sorted, first sorts and re-sorts alike.
+  Past it, sorting stops until the next month, and so do growing and reviewing topics: new
+  articles wait unsorted, nothing is lost, and
+  the Topics page tells the reader when sorting starts again. The worker sorts them on the 1st
+  without waiting for a new save. Raise it for readers with large libraries: turning topics on
+  sorts the whole library, and every new or changed topic sorts it again.
+- `LIMIT_TOPICS_PER_MONTH` (default 100): Haiku's work (proposing, growing, reviewing). Past it,
+  sorting goes on and topics stop changing until the next month.
+
+Set either to `0` to stop that work. Set them for the web and the worker alike: the worker
+applies them, the web shows them. `/admin/usage` shows each account's articles sorted, Haiku's
+work and what topics cost (both providers), apart from what questions in the reader cost.
 
 What could go wrong: with one key missing, Topics is hidden and nothing is sent. A wrong TypeSafe
 key leaves articles unsorted, and the worker log has `topics: refused` lines. A reader who turns

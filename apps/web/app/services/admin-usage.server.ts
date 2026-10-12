@@ -1,4 +1,11 @@
-import { db, sql, type UserRole } from "@klipstack/db"
+import {
+	db,
+	sql,
+	type TopicUseMetric,
+	topicLimits,
+	topicUseMetrics,
+	type UserRole,
+} from "@klipstack/db"
 import { USAGE_TOP, type UsageOrder } from "~/lib/admin-constants"
 import { type AdminContext, assertAdminContext } from "~/lib/admin.server"
 import {
@@ -21,6 +28,8 @@ export interface AdminUsageRow {
 	aiMax: number
 	/** What this month's AI answers cost, in US dollars: estimated from their tokens when paid for. */
 	aiCostUsd: number
+	/** What this month's topics cost (Haiku and Jev), in US dollars, apart from the answers. */
+	topicCostUsd: number
 	/** Refusals by any cap this month. Repeated ones suggest a script. */
 	refused: number
 	storageBytes: number
@@ -37,8 +46,10 @@ export async function listUsage(
 	limits: Limits
 	/** The month counted: its first day, UTC. */
 	month: string
-	/** What AI cost this month, every account's, listed or not. */
+	/** What AI answers cost this month, every account's, listed or not. */
 	aiCostUsd: number
+	/** What topics cost this month, every account's, listed or not. */
+	topicCostUsd: number
 }> {
 	assertAdminContext(ctx)
 	const { month } = monthOf()
@@ -48,6 +59,7 @@ export async function listUsage(
 		saves: sql`saves`,
 		feeds: sql`feeds`,
 		ai: sql`ai`,
+		topicCost: sql`topic_spend`,
 	}[by]
 	const result = await db.execute<{
 		id: string
@@ -58,6 +70,7 @@ export async function listUsage(
 		editions: number
 		ai: number
 		ai_spend: string
+		topic_spend: string
 		refused: number
 		storage_bytes: string
 		feeds: number
@@ -71,6 +84,7 @@ export async function listUsage(
 				coalesce(sum(count) filter (where metric = 'editions'), 0)::int as editions,
 				coalesce(sum(count) filter (where metric = 'ai'), 0)::int as ai,
 				coalesce(sum(count) filter (where metric = 'ai_spend'), 0)::bigint as ai_spend,
+				coalesce(sum(count) filter (where metric = 'topic_spend'), 0)::bigint as topic_spend,
 				coalesce(sum(count) filter (where metric = 'refused'), 0)::int as refused
 			from usage_counts where month = ${month} group by user_id
 		),
@@ -80,6 +94,7 @@ export async function listUsage(
 			coalesce(c.editions, 0) as editions,
 			coalesce(c.ai, 0) as ai,
 			coalesce(c.ai_spend, 0) as ai_spend,
+			coalesce(c.topic_spend, 0) as topic_spend,
 			coalesce(c.refused, 0) as refused,
 			coalesce(s.bytes, 0) as storage_bytes,
 			coalesce(f.feeds, 0) as feeds
@@ -91,9 +106,11 @@ export async function listUsage(
 		limit ${USAGE_TOP}
 	`)
 	const [spent] = (
-		await db.execute<{ micros: string | null }>(
-			sql`select sum(count) as micros from usage_counts where metric = 'ai_spend' and month = ${month}`,
-		)
+		await db.execute<{ ai: string | null; topics: string | null }>(sql`
+			select sum(count) filter (where metric = 'ai_spend') as ai,
+				sum(count) filter (where metric = 'topic_spend') as topics
+			from usage_counts where month = ${month}
+		`)
 	).rows
 	return {
 		rows: result.rows.map((row) => ({
@@ -105,12 +122,87 @@ export async function listUsage(
 			ai: row.ai,
 			aiMax: limitsForRole(row.role).ai,
 			aiCostUsd: Number(row.ai_spend) / 1_000_000,
+			topicCostUsd: Number(row.topic_spend) / 1_000_000,
 			refused: row.refused,
 			storageBytes: Number(row.storage_bytes),
 			feeds: row.feeds,
 		})),
 		limits: defaultLimits(),
 		month,
-		aiCostUsd: Number(spent?.micros ?? 0) / 1_000_000,
+		aiCostUsd: Number(spent?.ai ?? 0) / 1_000_000,
+		topicCostUsd: Number(spent?.topics ?? 0) / 1_000_000,
+	}
+}
+
+export interface AdminTopicUsageRow {
+	id: string
+	name: string
+	email: string
+	/** This calendar month (UTC): articles Jev sorted, first sorts and re-sorts alike. */
+	sorts: number
+	/** Haiku's work: proposing, growing and reviewing the topics. */
+	work: number
+	/** What the month's topics cost, in US dollars, both providers. */
+	costUsd: number
+	/** How often the reader used each part of topics this month. */
+	uses: Record<TopicUseMetric, number>
+}
+
+/**
+ * The accounts that used topics this month, most expensive first, as numbers only: what their
+ * topics cost, against the caps every account has (`LIMIT_TOPIC_SORTS_PER_MONTH`,
+ * `LIMIT_TOPICS_PER_MONTH`), and how often the reader used each part of them.
+ */
+export async function listTopicUsage(ctx: AdminContext): Promise<{
+	rows: AdminTopicUsageRow[]
+	limits: { topics: number; sorts: number }
+}> {
+	assertAdminContext(ctx)
+	const { month } = monthOf()
+	const uses = sql`array[${sql.join(
+		topicUseMetrics.map((m) => sql`${m}`),
+		sql`, `,
+	)}]::text[]`
+	const result = await db.execute<{
+		id: string
+		name: string
+		email: string
+		sorts: number
+		work: number
+		spend: string
+		uses: Record<string, number>
+	}>(sql`
+		with counted as (
+			select user_id,
+				coalesce(sum(count) filter (where metric = 'topic_sorts'), 0)::int as sorts,
+				coalesce(sum(count) filter (where metric = 'topics'), 0)::int as work,
+				coalesce(sum(count) filter (where metric = 'topic_spend'), 0)::bigint as spend,
+				coalesce(
+					jsonb_object_agg(metric, count) filter (where metric = any(${uses})),
+					'{}'::jsonb
+				) as uses
+			from usage_counts
+			where month = ${month} and (metric in ('topic_sorts', 'topics', 'topic_spend') or metric = any(${uses}))
+			group by user_id
+		)
+		select u.id, u.name, u.email, c.sorts, c.work, c.spend, c.uses
+		from counted c join "user" u on u.id = c.user_id
+		order by c.spend desc, c.sorts desc, c.work desc, u.id
+		limit ${USAGE_TOP}
+	`)
+	return {
+		rows: result.rows.map((row) => ({
+			id: row.id,
+			name: row.name,
+			email: row.email,
+			sorts: row.sorts,
+			work: row.work,
+			costUsd: Number(row.spend) / 1_000_000,
+			uses: Object.fromEntries(topicUseMetrics.map((m) => [m, row.uses[m] ?? 0])) as Record<
+				TopicUseMetric,
+				number
+			>,
+		})),
+		limits: topicLimits(),
 	}
 }

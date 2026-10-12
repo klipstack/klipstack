@@ -5,7 +5,7 @@ import { authorizeAdmin } from "~/lib/admin.server"
 import { env } from "~/lib/env.server"
 import { countRefusal, defaultLimits, monthOf } from "~/lib/limits.server"
 import { adminFixtures } from "~/test/admin-fixtures"
-import { listUsage } from "./admin-usage.server"
+import { listTopicUsage, listUsage } from "./admin-usage.server"
 
 const fx = adminFixtures("admin-usage")
 const feedIds: string[] = []
@@ -56,6 +56,7 @@ describe("listUsage", () => {
 			ai: 0,
 			aiMax: env.LIMIT_AI_PER_MONTH,
 			aiCostUsd: 0,
+			topicCostUsd: 0,
 			refused: 0,
 			storageBytes: 900 * MB,
 			feeds: 0,
@@ -99,5 +100,95 @@ describe("listUsage, AI", () => {
 		})
 		// Every account's: other tests may add to it meanwhile, never take from it.
 		expect(usage.aiCostUsd).toBeGreaterThanOrEqual(before + 4.33 - 1e-9)
+	})
+})
+
+describe("listUsage, topics", () => {
+	it("ranks by what topics cost, apart from AI questions, with the month's total", async () => {
+		const ctx = await authorizeAdmin(await (await fx.account({ role: "admin" })).session())
+		const sorter = await fx.account()
+		const { month } = monthOf()
+		const before = (await listUsage(ctx, "topicCost")).topicCostUsd
+		// Far past any test account's real spend, so this one leads the ranking.
+		await db.insert(usageCounts).values([
+			{ userId: sorter.id, metric: "topic_spend", month, count: 2_000_000_000 },
+			{ userId: sorter.id, metric: "topic_spend", month: "2000-01-01", count: 7_000_000 },
+			{ userId: sorter.id, metric: "ai_spend", month, count: 10_000 },
+		])
+
+		const usage = await listUsage(ctx, "topicCost")
+		// Most expensive first; other test accounts may be listed too.
+		const costs = usage.rows.map((r) => r.topicCostUsd)
+		expect(costs).toEqual([...costs].sort((a, b) => b - a))
+		expect(usage.rows.find((r) => r.id === sorter.id)).toMatchObject({
+			aiCostUsd: 0.01,
+			topicCostUsd: 2000,
+		})
+		expect(usage.topicCostUsd).toBeGreaterThanOrEqual(before + 2000 - 1e-6)
+	})
+})
+
+describe("listTopicUsage", () => {
+	it("lists the accounts that used topics this month, most expensive first, against the caps", async () => {
+		const ctx = await authorizeAdmin(await (await fx.account({ role: "admin" })).session())
+		const big = await fx.account()
+		const small = await fx.account()
+		const idle = await fx.account()
+		const { month } = monthOf()
+		await db.insert(usageCounts).values([
+			{ userId: big.id, metric: "topic_spend", month, count: 1_900_000_000 },
+			{ userId: big.id, metric: "topic_sorts", month, count: 1000 },
+			{ userId: big.id, metric: "topics", month, count: 7 },
+			{ userId: small.id, metric: "topic_spend", month, count: 1_800_000_000 },
+			{ userId: small.id, metric: "topic_sorts", month, count: 3 },
+			{ userId: small.id, metric: "topic_opened", month, count: 4 },
+			{ userId: small.id, metric: "topic_renamed", month, count: 2 },
+			{ userId: small.id, metric: "topic_opened", month: "2000-01-01", count: 40 },
+			// Only last month, or only questions: not this month's topics.
+			{ userId: idle.id, metric: "topic_sorts", month: "2000-01-01", count: 50 },
+			{ userId: idle.id, metric: "ai_spend", month, count: 2_100_000_000 },
+		])
+
+		const { rows, limits } = await listTopicUsage(ctx)
+		expect(limits).toEqual({ topics: 100, sorts: 1000 })
+		const ours = rows.filter((r) => [big.id, small.id, idle.id].includes(r.id))
+		expect(ours).toEqual([
+			{
+				id: big.id,
+				name: expect.any(String),
+				email: big.email,
+				sorts: 1000,
+				work: 7,
+				costUsd: 1900,
+				uses: {
+					topic_filter_library: 0,
+					topic_filter_search: 0,
+					topic_opened: 0,
+					topic_next: 0,
+					topic_home: 0,
+					topic_taken_out: 0,
+					topic_renamed: 0,
+					topic_removed: 0,
+				},
+			},
+			{
+				id: small.id,
+				name: expect.any(String),
+				email: small.email,
+				sorts: 3,
+				work: 0,
+				costUsd: 1800,
+				uses: {
+					topic_filter_library: 0,
+					topic_filter_search: 0,
+					topic_opened: 4,
+					topic_next: 0,
+					topic_home: 0,
+					topic_taken_out: 0,
+					topic_renamed: 2,
+					topic_removed: 0,
+				},
+			},
+		])
 	})
 })

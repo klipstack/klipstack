@@ -9,7 +9,7 @@ export const INVITE_NOTE_MAX = 200
 export const USER_SEARCH_MAX = 200
 
 /** What `/admin/usage` ranks accounts by. */
-export const USAGE_ORDERS = ["refused", "storage", "saves", "feeds", "ai"] as const
+export const USAGE_ORDERS = ["refused", "storage", "saves", "feeds", "ai", "topicCost"] as const
 export type UsageOrder = (typeof USAGE_ORDERS)[number]
 
 export function isUsageOrder(value: unknown): value is UsageOrder {

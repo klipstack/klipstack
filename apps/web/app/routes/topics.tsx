@@ -26,12 +26,15 @@ import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
 import { topicModels } from "~/lib/ai.server"
 import { AppError } from "~/lib/app-error"
+import { formatDay } from "~/lib/date-groups"
 import { hasFeature } from "~/lib/features.server"
+import { getLocale } from "~/lib/i18n.server"
 import type { PageBarHandle } from "~/lib/page-bar"
 import { pageTitle } from "~/lib/page-title"
 import { readForm } from "~/lib/request-body.server"
 import { requireUser } from "~/lib/session.server"
 import { showToast } from "~/lib/toast"
+import { countTopicClick } from "~/lib/topic-use"
 import { cn } from "~/lib/utils"
 import { answer } from "~/lib/web-action.server"
 import {
@@ -60,7 +63,17 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 	const state = await topicsState(user.id)
 	// Topics off, offered here: Home's invitation to them has done its work.
 	const invited = usable && state.stage === "off" && !(await topicsInvitationEnded(user.id))
-	return { state, paused: !usable, invited }
+	// Formatted here, as Settings does: the server's Intl and the browser's may differ.
+	const locale = getLocale(context)
+	const number = new Intl.NumberFormat(locale)
+	const sortsPaused = state.sortsPaused && {
+		max: number.format(state.sortsPaused.max),
+		waiting: number.format(state.sorting),
+		date: formatDay(state.sortsPaused.resetsAt, locale, "UTC"),
+		// The server sorts nothing at all: no month brings sorting back.
+		off: state.sortsPaused.max === 0,
+	}
+	return { state, paused: !usable, invited, sortsPaused }
 }
 
 /**
@@ -113,11 +126,12 @@ export async function action({ request, context }: Route.ActionArgs) {
 export default function Topics({ loaderData }: Route.ComponentProps) {
 	const { t } = useTranslation("library")
 	const { t: tc } = useTranslation()
-	const { state, paused, invited } = loaderData
+	const { state, paused, invited, sortsPaused } = loaderData
 	// While the worker is on it, the page asks again now and then.
 	const { revalidate } = useRevalidator()
 	const busy =
-		!paused && (state.stage === "proposing" || (state.stage === "active" && state.sorting > 0))
+		!paused &&
+		(state.stage === "proposing" || (state.stage === "active" && state.sorting > 0 && !sortsPaused))
 	useEffect(() => {
 		if (!busy) return
 		const id = window.setInterval(() => void revalidate(), 5000)
@@ -163,7 +177,9 @@ export default function Topics({ loaderData }: Route.ComponentProps) {
 				</section>
 			) : null}
 			{state.stage === "proposed" && !paused ? <Proposal state={state} /> : null}
-			{state.stage === "active" && !paused ? <Shelves state={state} /> : null}
+			{state.stage === "active" && !paused ? (
+				<Shelves state={state} sortsPaused={sortsPaused} />
+			) : null}
 			{state.stage === "off" ? null : <TurnOff />}
 		</main>
 	)
@@ -279,11 +295,24 @@ function ProposedTopic({ topic }: { topic: TopicSummary }) {
 	)
 }
 
-function Shelves({ state }: { state: TopicsState }) {
+function Shelves({
+	state,
+	sortsPaused,
+}: {
+	state: TopicsState
+	sortsPaused: { max: string; waiting: string; date: string; off: boolean } | null
+}) {
 	const { t } = useTranslation("library")
 	return (
 		<>
-			{state.sorting > 0 ? (
+			{sortsPaused ? (
+				<p data-testid="topics-sorts-paused" className="mt-6 max-w-2xl text-sm text-muted-fg">
+					{t(sortsPaused.off ? "topics.sortsOff" : "topics.sortsPaused", {
+						count: state.sorting,
+						...sortsPaused,
+					})}
+				</p>
+			) : state.sorting > 0 ? (
 				<p
 					data-testid="topics-sorting"
 					role="status"
@@ -336,7 +365,11 @@ function Shelf({ topic }: { topic: TopicShelf }) {
 				<div className="flex items-center gap-2">
 					<div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3 gap-y-0.5">
 						<h2 className="font-serif text-xl leading-tight font-semibold">
-							<Link to={href} className="decoration-1 underline-offset-2 hover:underline">
+							<Link
+								to={href}
+								onClick={opened}
+								className="decoration-1 underline-offset-2 hover:underline"
+							>
 								{actions.name}
 							</Link>
 						</h2>
@@ -391,11 +424,19 @@ function Shelf({ topic }: { topic: TopicShelf }) {
 					) : null}
 				</ul>
 				{/* Phones: the shelf is one target, the topic. */}
-				<Link to={href} tabIndex={-1} aria-hidden className="absolute inset-0 md:hidden" />
+				<Link
+					to={href}
+					onClick={opened}
+					tabIndex={-1}
+					aria-hidden
+					className="absolute inset-0 md:hidden"
+				/>
 			</div>
 		</li>
 	)
 }
+
+const opened = () => countTopicClick("topic_opened")
 
 /** A small, stable number for a text: a book keeps its height and color from one visit to the next. */
 function hash(text: string) {
@@ -453,6 +494,7 @@ function MoreBooks({
 		<li className={cn("flex shrink-0", className)}>
 			<Link
 				to={href}
+				onClick={opened}
 				aria-label={label}
 				{...tooltip(label)}
 				className="grid h-24 w-[34px] place-items-center rounded-t-[3px] border border-dashed border-muted-fg/50 bg-muted text-[13px] font-semibold"

@@ -52,6 +52,7 @@ import { searchPath } from "~/lib/search-page"
 import { requireUser } from "~/lib/session.server"
 import { isSearchShortcut, SEARCH_HINT } from "~/lib/shortcuts"
 import { showToast } from "~/lib/toast"
+import { countTopicClick } from "~/lib/topic-use"
 import { cn } from "~/lib/utils"
 import { answer, refused } from "~/lib/web-action.server"
 import {
@@ -492,7 +493,12 @@ function TopicChoice({
 		topic === "none" ? t("topicFilter.none") : topics.topics.find((x) => x.id === topic)?.name
 	const to = (id: string | null) => `${path}${listSearch(filter, sort, id)}`
 	const row = (id: string, name: string, count: number) => (
-		<MenuNavLink key={id} to={to(id)} current={id === topic}>
+		<MenuNavLink
+			key={id}
+			to={to(id)}
+			current={id === topic}
+			onChoose={id === topic ? undefined : () => countTopicClick("topic_filter_library")}
+		>
 			<span className={cn("min-w-0 flex-1 truncate", count === 0 && "text-muted-fg")}>{name}</span>
 			<span className="shrink-0 text-xs text-muted-fg tabular-nums">{count}</span>
 		</MenuNavLink>
@@ -559,12 +565,17 @@ function TopicLine({
 				<Link
 					to={searchPath(query)}
 					state={{ from: location.pathname + location.search }}
+					onClick={() => countTopicClick("topic_filter_search")}
 					className="text-link hover:underline"
 				>
 					{t("topicFilter.search")}
 				</Link>
 				{chosen ? (
-					<Link to={`/topics/${chosen.id}`} className="text-link hover:underline">
+					<Link
+						to={`/topics/${chosen.id}`}
+						onClick={() => countTopicClick("topic_opened")}
+						className="text-link hover:underline"
+					>
 						{t("topicFilter.page", { topic: chosen.name })}
 					</Link>
 				) : null}

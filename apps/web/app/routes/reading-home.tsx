@@ -27,6 +27,7 @@ import { warmOffline } from "~/lib/offline.client"
 import type { PageBarHandle } from "~/lib/page-bar"
 import { requireUser } from "~/lib/session.server"
 import { isSearchShortcut } from "~/lib/shortcuts"
+import { countTopicClick } from "~/lib/topic-use"
 import { cn } from "~/lib/utils"
 import { finishedLately } from "~/services/reading-history.server"
 import { readingHome } from "~/services/reading-home.server"
@@ -553,6 +554,7 @@ function TopicChoice({
 			aria-current={current ? "true" : undefined}
 			onClick={(e) => {
 				if (current) e.preventDefault()
+				else if (value) countTopicClick("topic_home")
 			}}
 			className={CHIP}
 		>
@@ -594,6 +596,7 @@ function TopicChoice({
 								key={topic.id}
 								to={homeSearch({ id: topic.id, different: false }, minutes)}
 								replace
+								onChoose={() => countTopicClick("topic_home")}
 							>
 								{topic.name}
 							</MenuNavLink>
@@ -631,7 +634,11 @@ function TopicHeading({
 						: t("home.topics.toRead", { count: topic.toRead })}
 				</p>
 			</div>
-			<Link to={`/topics/${topic.id}`} className="py-1 text-sm text-link hover:underline">
+			<Link
+				to={`/topics/${topic.id}`}
+				onClick={() => countTopicClick("topic_opened")}
+				className="py-1 text-sm text-link hover:underline"
+			>
 				{t("home.topics.all", { topic: topic.name })}
 				<span aria-hidden> →</span>
 			</Link>

@@ -2,6 +2,7 @@ import { ChevronRight } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router"
 import { safeHost } from "~/lib/site-label"
+import { countTopicClick } from "~/lib/topic-use"
 import type { ReaderTopic, ReaderTopics } from "~/services/topics.server"
 
 /** The article's topics above its title, as a newspaper names its sections; each opens its page. */
@@ -17,7 +18,11 @@ export function TopicKicker({ topics }: { topics: ReaderTopic[] }) {
 			{topics.map((topic, i) => (
 				// The dot ends the line it is on: a wrapped line starts with a name.
 				<span key={topic.id} className="flex items-center gap-x-2">
-					<Link to={`/topics/${topic.id}`} className="hover:underline">
+					<Link
+						to={`/topics/${topic.id}`}
+						onClick={() => countTopicClick("topic_opened")}
+						className="hover:underline"
+					>
 						{topic.name}
 					</Link>
 					{i < topics.length - 1 ? <span aria-hidden>·</span> : null}
@@ -44,6 +49,7 @@ export function TopicShelf({ shelf, from }: { shelf: ReaderTopics["shelf"]; from
 				</h2>
 				<Link
 					to={`/topics/${shelf.topic.id}`}
+					onClick={() => countTopicClick("topic_opened")}
 					className="inline-flex items-center text-sm whitespace-nowrap text-accent hover:underline"
 				>
 					{t("topics.unread", { count: shelf.unread })}
@@ -56,6 +62,7 @@ export function TopicShelf({ shelf, from }: { shelf: ReaderTopics["shelf"]; from
 						<Link
 							to={`/read/${item.id}`}
 							state={{ from }}
+							onClick={() => countTopicClick("topic_next")}
 							className="grid h-full min-h-32 content-start gap-1.5 rounded-xl bg-muted px-3.5 py-3 hover:bg-fg/10"
 						>
 							<span className="truncate text-xs tracking-wide text-muted-fg uppercase">

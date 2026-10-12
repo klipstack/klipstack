@@ -188,6 +188,7 @@ export default {
 			saves: "Guardados este mes",
 			feeds: "Feeds que sigue",
 			ai: "Preguntas a la IA este mes",
+			topicCost: "Costo de los temas este mes",
 		},
 		refused: "Límites alcanzados",
 		storage: "Almacenamiento",
@@ -197,13 +198,38 @@ export default {
 		ai: "Preguntas a la IA",
 		aiCost: "Costo de IA",
 		aiCostUnder: "< {{amount}}",
-		aiCostTotal: "IA este mes, todas las cuentas: {{amount}}",
+		aiCostTotal: "Preguntas a la IA este mes, todas las cuentas: {{amount}}",
+		topicCost: "Costo de temas",
+		topicCostTotal: "Temas este mes, todas las cuentas: {{amount}}",
 		editionsThisMonth: "Ediciones este mes",
 		aiThisMonth: "Preguntas a la IA este mes",
 		empty: "Aún no hay cuentas.",
 		month: "Guardados, ediciones, preguntas a la IA y límites alcanzados son de {{month}}, en UTC.",
 		aiCostNote:
 			"El costo de IA es una estimación en dólares estadounidenses (USD), a partir de los tokens de cada respuesta terminada. La factura está en la consola de Anthropic.",
+		topicCostNote:
+			"El costo de temas es la misma estimación para los temas: Haiku proponiéndolos, haciéndolos crecer y revisándolos, y Jev ordenando artículos (la factura de TypeSafe). Se cuenta aparte desde octubre de 2026; antes, iba en el costo de IA.",
+		topics: {
+			title: "Temas este mes",
+			description:
+				"Las {{count}} cuentas de arriba que usaron temas este mes, de la que más costó a la que menos.",
+			sorts: "Artículos ordenados",
+			work: "Trabajo de Haiku",
+			cost: "Costo",
+			empty: "Ninguna cuenta usó temas este mes.",
+			uses: {
+				topic_filter_library: "Filtro en la biblioteca",
+				topic_filter_search: "Filtro en la búsqueda",
+				topic_opened: "Tema abierto",
+				topic_next: "Más en… del lector",
+				topic_home: "¿Sobre qué? en Inicio",
+				topic_taken_out: "Sacados",
+				topic_renamed: "Renombrados",
+				topic_removed: "Quitados",
+			},
+			usesNote:
+				"Los usos son solo recuentos: la biblioteca y la búsqueda filtradas por un tema, la página de un tema abierta, un artículo abierto desde «Más en…» del lector y un tema elegido en Inicio se cuentan al hacer clic en un navegador con JavaScript; los artículos sacados de un tema y los temas renombrados o quitados, desde la app, la API y MCP.",
+		},
 	},
 	users: {
 		title: "Cuentas",

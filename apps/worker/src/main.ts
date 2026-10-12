@@ -11,7 +11,7 @@ import { handleInviteDigest } from "./jobs/invite-digest"
 import { handlePurge } from "./jobs/purge"
 import { handleReportDigest } from "./jobs/report-digest"
 import { handleSweep } from "./jobs/sweep"
-import { handleTopics } from "./jobs/topics"
+import { handleTopics, handleTopicsMonth } from "./jobs/topics"
 import { log } from "./log"
 
 loadEnv()
@@ -61,6 +61,9 @@ async function main() {
 	await boss.work(QUEUES.topics, WORK_OPTIONS, async ([job]: Batch<"topics">) => {
 		if (job) await handleTopics(job)
 	})
+	await boss.work(QUEUES.topicsMonth, WORK_OPTIONS, async () => {
+		log.info("topics: the month's runs", await handleTopicsMonth())
+	})
 	// Trash retention: once a day, 04:10 UTC. `schedule` upserts, so restarts are harmless.
 	await boss.schedule(QUEUES.purge, "10 4 * * *", {}, { tz: "UTC" })
 	// Feeds: every 5 minutes, queue the ones that are due (each feed keeps its own schedule).
@@ -71,6 +74,8 @@ async function main() {
 	await boss.schedule(QUEUES.inviteDigest, "0 8 * * *", {}, { tz: "UTC" })
 	// New reports on public editions, to the admins: every hour, at a quarter past.
 	await boss.schedule(QUEUES.reportDigest, "15 * * * *", {}, { tz: "UTC" })
+	// Topics' month: on the 1st, 00:05 UTC, runs for readers whose sorts waited for it.
+	await boss.schedule(QUEUES.topicsMonth, "5 0 1 * *", {}, { tz: "UTC" })
 
 	// Every consumer is registered: from here on the process counts as alive.
 	const stopHeartbeat = startHeartbeat()
