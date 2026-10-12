@@ -846,6 +846,8 @@ test.describe(() => {
 			// The toast's undo puts it back; the card stays through that too.
 			const undone = stateSaved(page, "undo-archive")
 			await toast.getByRole("button", { name: "Undo" }).click()
+			await expect.poll(() => held.length).toBe(1)
+			await expect(card).toBeVisible()
 			await release()
 			await undone
 			await expect.poll(async () => await archivedAt(id)).toBeNull()
@@ -859,7 +861,44 @@ test.describe(() => {
 			await again
 			await expect(card.getByRole("button", { name: "Move to library" })).toBeVisible()
 			await expect(card).toHaveAttribute("data-cursor")
+
+			// And back to the library from here: still in place.
+			const back = stateSaved(page, "unarchive")
+			await card.getByRole("button", { name: "Move to library" }).click()
+			await expect(card.getByRole("button", { name: "Archive", exact: true })).toBeVisible()
+			await release()
+			await back
+			await expect.poll(async () => await archivedAt(id)).toBeNull()
+			await expect(card.getByRole("button", { name: "Archive", exact: true })).toBeVisible()
 		})
+
+	test("archiving in the library takes the card out at once, and the cursor moves on", async ({
+		page,
+	}) => {
+		const email = await signupUser(page, "Leaving list")
+		const owner = await db.query.user.findFirst({ where: eq(user.email, email) })
+		await insertArticle(owner!.id, "Older card", "<p>Delta echo.</p>")
+		const id = await insertArticle(owner!.id, "Leaving card", "<p>Alpha bravo charlie.</p>")
+		await page.goto("/library")
+		await waitForHydration(page)
+		const link = page.getByRole("link", { name: "Leaving card" })
+		await expect(link).toBeVisible()
+		// Held on its way: the card is gone before the page reloads its data.
+		let release = () => {}
+		await page.route(`**/documents/${id}/state*`, async (route) => {
+			await new Promise<void>((resolve) => (release = resolve))
+			await route.continue()
+		})
+		await page.keyboard.press("j")
+		await expect(page.locator("li[data-cursor]")).toContainText("Leaving card")
+		const archived = stateSaved(page, "archive")
+		await page.keyboard.press("e")
+		await expect(link).toHaveCount(0)
+		await expect(page.locator("li[data-cursor]")).toContainText("Older card")
+		release()
+		await archived
+		await expect(link).toHaveCount(0)
+	})
 })
 
 async function archivedAt(id: string) {
