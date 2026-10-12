@@ -5,15 +5,16 @@ import {
 	removeOperator,
 	renameTopicOperator,
 	type SearchKey,
+	type Token,
 	textOnly,
 } from "@klipstack/api-contract/search-query"
-import { Bookmark, BookmarkCheck, CircleAlert, SearchX } from "lucide-react"
+import { Bookmark, BookmarkCheck, ChevronDown, CircleAlert, SearchX, X } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link, useFetcher, useLocation, useNavigate, useRouteLoaderData } from "react-router"
 import { DocumentList } from "~/components/document-list"
 import { LayoutToggle } from "~/components/layout-toggle"
-import { MoreMenu } from "~/components/more-menu"
+import { MenuNavLink, MoreMenu } from "~/components/more-menu"
 import { PinnedControls } from "~/components/pinned-controls"
 import { SaveLinkDialog } from "~/components/save-link-dialog"
 import {
@@ -32,8 +33,9 @@ import { pageTitle } from "~/lib/page-title"
 import { awaitsWords, searchOrigin, searchPath } from "~/lib/search-page"
 import { requireUser } from "~/lib/session.server"
 import { showToast } from "~/lib/toast"
+import { cn } from "~/lib/utils"
 import { keepsArchived, SEARCH_LIMIT, searchDocuments } from "~/services/search.server"
-import { missingTopics } from "~/services/topics.server"
+import { missingTopics, topicNames, topicsInUse } from "~/services/topics.server"
 import type { Route } from "./+types/search"
 import type { loader as layoutLoader } from "./app-layout"
 
@@ -56,6 +58,9 @@ export const handle: PageBarHandle = {
 	pageBar: { titleKey: "library:search.title", search: { ...FIELD, always: true } },
 }
 
+/** More topics than a library holds: the chip lists them all. */
+const TOPICS_LISTED = 500
+
 export async function loader({ context, request }: Route.LoaderArgs) {
 	const user = requireUser(context, request)
 	const url = new URL(request.url)
@@ -71,6 +76,8 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 		}),
 		missingTopics(user.id, [q.trim()]),
 	])
+	// The Topic chip's names, most articles first, for a reader whose topics are in use.
+	const topics = (await topicsInUse(user.id)) ? await topicNames(user.id, "", TOPICS_LISTED) : null
 	return {
 		q,
 		items: result.items,
@@ -80,6 +87,7 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 		keepsArchived: keepsArchived(q),
 		/** Topics the query names that the reader no longer has. */
 		missing,
+		topics,
 	}
 }
 
@@ -121,7 +129,7 @@ export default function SearchPage({ loaderData }: Route.ComponentProps) {
 			</div>
 			<PinnedControls title={t("search.title")}>
 				<div className="flex items-center gap-2">
-					<Chips q={query} />
+					<Chips q={query} topics={loaderData.topics} />
 					<SaveSearch q={query} />
 					{/* Phones: the top bar is the search field, so Select is here. */}
 					{cards.length > 0 ? <SelectButton className="md:hidden" /> : null}
@@ -300,7 +308,7 @@ const CHIPS = [
 ] as const satisfies ReadonlyArray<{ name: string; key: SearchKey; value: string }>
 
 /** The chips edit the query, as typing the operator would: the query is all the state there is. */
-function Chips({ q }: { q: string }) {
+function Chips({ q, topics }: { q: string; topics: string[] | null }) {
 	const { t } = useTranslation("library")
 	const location = useLocation()
 	const { filters } = useMemo(() => parseSearchQuery(q), [q])
@@ -318,6 +326,12 @@ function Chips({ q }: { q: string }) {
 			aria-label={t("search.chips.label")}
 			className="-ml-4 flex min-w-0 gap-2 overflow-x-auto py-1 pr-8 pl-4 [mask-image:linear-gradient(to_right,black_calc(100%-2rem),transparent)] [scrollbar-width:none] md:ml-0 md:pl-0"
 		>
+			{topics ? (
+				<>
+					<TopicChip q={q} topics={topics} />
+					<span aria-hidden className="my-1 w-px shrink-0 self-stretch bg-border" />
+				</>
+			) : null}
 			{CHIPS.map(({ name, key, value }) => {
 				const on = filters.some((f) => f.key === key && f.value === value && !f.negated)
 				// A place replaces the place; a negated twin would cancel the chip out.
@@ -337,6 +351,89 @@ function Chips({ q }: { q: string }) {
 				)
 			})}
 		</nav>
+	)
+}
+
+const CHIP =
+	"flex shrink-0 items-center gap-1.5 rounded-full border border-border px-3 py-1 text-sm text-muted-fg hover:bg-muted hover:text-fg"
+const CHIP_ON =
+	"border-selected bg-selected text-selected-fg hover:bg-selected hover:text-selected-fg"
+
+/** The query's `topic:` and `has:topic` tokens, which the Topic chip sets. */
+const isTopicToken = (token: Token) =>
+	(token.key === "topic" && !token.raw.startsWith("-")) ||
+	(token.key === "has" && token.value?.toLowerCase() === "topic")
+
+/**
+ * The Library's topic choice, in the search: a topic writes `topic:`, No topic `-has:topic`, in
+ * place of the ones the query had. A query naming several shows the first; × takes them all out.
+ */
+function TopicChip({ q, topics }: { q: string; topics: string[] }) {
+	const { t } = useTranslation("library")
+	const location = useLocation()
+	const tokens = parseSearchQuery(q).tokens
+	const rest = tokens
+		.filter((token) => !isTopicToken(token))
+		.map((token) => token.raw)
+		.join(" ")
+	const first = tokens.find(isTopicToken)
+	const chosen = !first
+		? null
+		: first.key === "has"
+			? first.raw.startsWith("-")
+				? t("topicFilter.none")
+				: null
+			: (first.value ?? null)
+	const to = (query: string) => searchPath(query)
+	return (
+		<span data-testid="search-topic-chip" className="flex shrink-0 items-center">
+			<MoreMenu
+				label={chosen ? t("topicFilter.chosen", { topic: chosen }) : t("topicFilter.choose")}
+				align="start"
+				className={cn(CHIP, chosen && CHIP_ON, chosen && "rounded-r-none border-r-0 pr-2")}
+				icon={
+					<>
+						<span className="max-w-48 truncate">{chosen ?? t("topicFilter.label")}</span>
+						<ChevronDown className="size-3.5 shrink-0" aria-hidden />
+					</>
+				}
+			>
+				<div className="flex max-h-80 w-64 max-w-[80vw] flex-col overflow-y-auto">
+					{topics.map((name) => (
+						<MenuNavLink
+							key={name}
+							to={to(addOperator(rest, "topic", name))}
+							state={location.state}
+							replace
+							current={name === chosen}
+						>
+							<span className="min-w-0 truncate">{name}</span>
+						</MenuNavLink>
+					))}
+				</div>
+				<div className="mt-1 border-t border-border pt-1">
+					<MenuNavLink
+						to={to(`${rest} -has:topic`.trim())}
+						state={location.state}
+						replace
+						current={chosen === t("topicFilter.none")}
+					>
+						{t("topicFilter.none")}
+					</MenuNavLink>
+				</div>
+			</MoreMenu>
+			{chosen ? (
+				<Link
+					to={to(rest)}
+					state={location.state}
+					replace
+					aria-label={t("topicFilter.clear")}
+					className={cn(CHIP, CHIP_ON, "self-stretch rounded-l-none border-l-0 px-2")}
+				>
+					<X className="size-3.5" aria-hidden />
+				</Link>
+			) : null}
+		</span>
 	)
 }
 

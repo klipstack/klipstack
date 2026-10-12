@@ -27,11 +27,9 @@ import { SaveLinkDialog } from "~/components/save-link-dialog"
 import { SelectionBar } from "~/components/selection-bar"
 import { tooltip } from "~/components/tooltip-host"
 import { useListCursor } from "~/hooks/use-list-cursor"
-import { topicModels } from "~/lib/ai.server"
 import { AppError } from "~/lib/app-error"
 import { useCommands } from "~/lib/commands"
 import { dateGroup, timeZoneFromCookie } from "~/lib/date-groups"
-import { hasFeature } from "~/lib/features.server"
 import {
 	type FilterableView,
 	filterSearch,
@@ -63,7 +61,7 @@ import {
 	listDocuments,
 	type TopicScope,
 } from "~/services/documents.server"
-import { type ListTopics, listTopics, topicLabels, topicsConfirmed } from "~/services/topics.server"
+import { type ListTopics, listTopics, topicLabels, topicsInUse } from "~/services/topics.server"
 import type { Route } from "./+types/library"
 
 const VIEW_TITLES = {
@@ -105,7 +103,7 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 	const sort = view === "inbox" ? parseSort(url.searchParams.get("sort"), filter) : "newest"
 	// A topic, or none (`?topic=`): one of the reader's topics in use. Any other shows every topic.
 	const topics =
-		filterable && (await topicsUsable(user.id))
+		filterable && (await topicsInUse(user.id))
 			? await listTopics(user.id, filterable, filter)
 			: null
 	const asked = url.searchParams.get("topic")
@@ -154,11 +152,6 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 		topicGone: !!topics && !!asked && topic === null,
 		labels,
 	}
-}
-
-/** Topics narrow the lists for a reader who has the feature and confirmed their topics. */
-async function topicsUsable(userId: string): Promise<boolean> {
-	return topicModels.available && (await hasFeature(userId, "topics")) && topicsConfirmed(userId)
 }
 
 export async function action({ context, request }: Route.ActionArgs) {

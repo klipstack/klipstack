@@ -18,6 +18,8 @@ import {
 	topicSorts,
 	topics,
 } from "@klipstack/db"
+import { topicModels } from "~/lib/ai.server"
+import { hasFeature } from "~/lib/features.server"
 import type { FilterableView, ListFilter } from "~/lib/inbox-filters"
 import {
 	filterWhere,
@@ -217,6 +219,14 @@ export async function topicsConfirmed(userId: string): Promise<boolean> {
 		.from(topicLibraries)
 		.where(eq(topicLibraries.userId, userId))
 	return !!row?.confirmedAt
+}
+
+/**
+ * Topics narrow the lists and the search for a reader who has the feature, on a server with the
+ * models, and who confirmed their topics.
+ */
+export async function topicsInUse(userId: string): Promise<boolean> {
+	return topicModels.available && (await hasFeature(userId, "topics")) && topicsConfirmed(userId)
 }
 
 /** Whether the reader has topics, on or waiting: they may turn them off even without the feature. */
