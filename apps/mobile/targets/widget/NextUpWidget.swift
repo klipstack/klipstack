@@ -1,8 +1,9 @@
 import SwiftUI
 import WidgetKit
 
-/// The home screen's "Next up": one article to read, as Home's big card picks it. No counts and no
-/// nudges; a tap opens the article in the reader. The app reloads it on its way to the background
+/// The home screen's "Next up": one article to read, as Home's big card picks it, and in the large
+/// size a few more after it, as Home's shelves. No counts and no nudges; a tap opens the article in
+/// the reader. The app reloads it on its way to the background
 /// and on signing in or out, the share extension after a save (`kind` is the name they use).
 @main
 struct NextUpWidget: Widget {
@@ -14,7 +15,7 @@ struct NextUpWidget: Widget {
     }
     .configurationDisplayName("Next Up")
     .description("The article you're reading, or the newest one you saved.")
-    .supportedFamilies([.systemSmall, .systemMedium])
+    .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
   }
 }
 
@@ -31,7 +32,7 @@ struct Provider: TimelineProvider {
   static let processing: TimeInterval = 5 * 60
 
   func placeholder(in context: Context) -> Entry {
-    Entry(date: .now, nextUp: .article(.sample, image: nil))
+    Entry(date: .now, nextUp: .article(.sample, image: nil, more: Article.moreSamples))
   }
 
   func getSnapshot(in context: Context, completion: @escaping (Entry) -> Void) {
@@ -57,6 +58,22 @@ extension Article {
     id: "", title: "The Slow Death of the Hyperlink", url: "https://example.com",
     site: "The Atlantic", readingMinutes: 18, progress: 0.35, status: "ready", savedAt: "",
     leadImage: nil)
+
+  static let moreSamples = [
+    Article(
+      id: "", title: "What the Printing Press Can Teach Us About Attention",
+      url: "https://example.com",
+      site: "Aeon", readingMinutes: 14, progress: 0.6, status: "ready", savedAt: "",
+      leadImage: nil),
+    Article(
+      id: "", title: "A Field Guide to Slow Software", url: "https://example.com",
+      site: "Increment", readingMinutes: 9, progress: 0, status: "ready", savedAt: "",
+      leadImage: nil),
+    Article(
+      id: "", title: "The Quiet Return of the Personal Website", url: "https://example.com",
+      site: "The Verge", readingMinutes: 6, progress: 0, status: "ready", savedAt: "",
+      leadImage: nil),
+  ]
 }
 
 // MARK: - Views
@@ -74,11 +91,11 @@ struct NextUpView: View {
 
   @ViewBuilder private var content: some View {
     switch entry.nextUp {
-    case .article(let article, let image):
-      if family == .systemSmall {
-        SmallArticle(article: article)
-      } else {
-        MediumArticle(article: article, image: image)
+    case .article(let article, let image, let more):
+      switch family {
+      case .systemSmall: SmallArticle(article: article)
+      case .systemLarge: LargeArticles(article: article, image: image, more: more)
+      default: MediumArticle(article: article, image: image)
       }
     case .nothing:
       Message(
@@ -101,11 +118,14 @@ struct NextUpView: View {
 
   /// The article in the reader (src/app/read/[id].tsx); the app's Home otherwise.
   private var link: URL? {
-    if case .article(let article, _) = entry.nextUp, !article.id.isEmpty {
-      return URL(string: "klipstack://read/\(article.id)")
-    }
+    if case .article(let article, _, _) = entry.nextUp, let url = reader(article) { return url }
     return URL(string: "klipstack://")
   }
+}
+
+/// The article in the reader (src/app/read/[id].tsx); nil for the gallery's examples.
+private func reader(_ article: Article) -> URL? {
+  article.id.isEmpty ? nil : URL(string: "klipstack://read/\(article.id)")
 }
 
 /// The words over Home's big card.
@@ -178,6 +198,62 @@ struct MediumArticle: View {
           .frame(width: 96, height: 96)
           .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
       }
+    }
+  }
+}
+
+/// The medium widget's card, then the articles after it, each opening its own.
+struct LargeArticles: View {
+  let article: Article
+  let image: Data?
+  let more: [Article]
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 0) {
+      MediumArticle(article: article, image: image)
+        .frame(height: 112)
+      Rectangle()
+        .fill(Palette.track)
+        .frame(height: 1)
+        .padding(.vertical, 14)
+      if more.isEmpty {
+        Text("Nothing else waiting. Share an article to Klipstack to read it next.")
+          .font(.caption)
+          .foregroundStyle(Palette.muted)
+          .lineLimit(2)
+      } else {
+        VStack(alignment: .leading, spacing: 12) {
+          Eyebrow(text: "Also on your list")
+          ForEach(Array(more.enumerated()), id: \.offset) { _, item in
+            Row(article: item)
+          }
+        }
+      }
+      Spacer(minLength: 0)
+    }
+  }
+}
+
+/// One article after the big card: its title and where it's from.
+struct Row: View {
+  let article: Article
+
+  var body: some View {
+    let row = VStack(alignment: .leading, spacing: 2) {
+      Text(article.title ?? article.url)
+        .font(.custom("Iowan Old Style", size: 15, relativeTo: .subheadline).weight(.semibold))
+        .foregroundStyle(Palette.foreground)
+        .lineLimit(2)
+      Text(meta(article))
+        .font(.caption)
+        .foregroundStyle(Palette.muted)
+        .lineLimit(1)
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    if let url = reader(article) {
+      Link(destination: url) { row }
+    } else {
+      row
     }
   }
 }
@@ -271,6 +347,14 @@ enum Palette {
 #Preview(as: .systemMedium) {
   NextUpWidget()
 } timeline: {
-  Entry(date: .now, nextUp: .article(.sample, image: nil))
+  Entry(date: .now, nextUp: .article(.sample, image: nil, more: []))
+  Entry(date: .now, nextUp: .nothing)
+}
+
+#Preview(as: .systemLarge) {
+  NextUpWidget()
+} timeline: {
+  Entry(date: .now, nextUp: .article(.sample, image: nil, more: Article.moreSamples))
+  Entry(date: .now, nextUp: .article(.sample, image: nil, more: []))
   Entry(date: .now, nextUp: .nothing)
 }
