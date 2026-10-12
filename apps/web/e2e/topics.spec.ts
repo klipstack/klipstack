@@ -55,10 +55,22 @@ test("topics: turned on, proposed, confirmed, sorted, corrected and turned off",
 	await expect(shelves).not.toContainText("Aeon")
 	await expect(page.getByTestId("topics-nav-dot")).toHaveCount(0)
 	// A full shelf: the newest 15 articles as books, each opening its article, then "+3" for the rest.
+	// All 18 were saved today.
 	await page.reload()
+	await waitForHydration(page)
+	await expect(shelves).toContainText("18 new")
 	const books = page.getByRole("list", { name: "Articles in Psyche" })
 	await expect(books.getByRole("link", { name: /^Psyche essay \d+, Psyche$/ })).toHaveCount(15)
+	await expect(books.getByRole("link").first()).toHaveAttribute("href", /^\/read\/[\w-]+$/)
 	await expect(books.getByRole("link", { name: "See all 18 articles in Psyche" })).toHaveText("+3")
+
+	// Removing asks first, in place; Cancel keeps the topic.
+	await page.getByRole("button", { name: "More for Psyche" }).click()
+	await page.getByRole("menuitem", { name: "Remove" }).click()
+	await expect(page.getByText("Remove Psyche? Its articles leave it")).toBeVisible()
+	await page.getByRole("button", { name: "Cancel" }).click()
+	await expect(page.getByText("Remove Psyche? Its articles leave it")).toHaveCount(0)
+	await expect(books).toBeVisible()
 
 	await page.getByRole("button", { name: "More for Psyche" }).click()
 	await page.getByRole("menuitem", { name: "Rename" }).click()
@@ -76,6 +88,14 @@ test("topics: turned on, proposed, confirmed, sorted, corrected and turned off",
 	await expect(articles.locator("ul")).toHaveAttribute("data-layout", "grid")
 	await toggle.click()
 	await expect(articles.locator("ul")).toHaveAttribute("data-layout", "list")
+	// The keys move the cursor. With no selection bar here, select-all is the browser's again.
+	await page.keyboard.press("j")
+	await expect(articles.locator("[data-cursor]")).toHaveCount(1)
+	await page.keyboard.press("ControlOrMeta+a")
+	expect(await page.evaluate(() => window.getSelection()?.toString().length ?? 0)).toBeGreaterThan(
+		0,
+	)
+	await page.evaluate(() => window.getSelection()?.removeAllRanges())
 	// Taking an article out is in its card's menu.
 	await articles
 		.getByRole("listitem")
@@ -91,6 +111,7 @@ test("topics: turned on, proposed, confirmed, sorted, corrected and turned off",
 	// opens the topic.
 	await page.setViewportSize({ width: 390, height: 844 })
 	await page.goto("/topics")
+	await waitForHydration(page)
 	const shelf = page.getByRole("list", { name: "Articles in Minds" })
 	await expect(shelf.getByRole("link").filter({ visible: true })).toHaveCount(12)
 	await expect(shelf.getByRole("link", { name: "See all 17 articles in Minds" })).toHaveText("+6")
@@ -98,6 +119,7 @@ test("topics: turned on, proposed, confirmed, sorted, corrected and turned off",
 	await page.mouse.click(book.x + book.width / 2, book.y + book.height / 2)
 	await expect(page).toHaveURL(/\/topics\/[\w-]+$/)
 	await page.setViewportSize({ width: 1280, height: 720 })
+	await waitForHydration(page)
 
 	// Removed from its own page, after a question: the reader is back on Topics, with none left.
 	await page.getByRole("button", { name: "More for Minds" }).click()

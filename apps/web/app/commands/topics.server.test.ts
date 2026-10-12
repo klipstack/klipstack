@@ -206,7 +206,7 @@ describe("where topics stand", () => {
 	it("shelves a topic's newest 16 articles, and counts the ones saved this week", async () => {
 		const ids: string[] = []
 		for (let i = 0; i < 18; i++) ids.push(await article())
-		// One saved a day, the last one today: three of them in the last seven days.
+		// One saved every three days, the last one today: three of them in the last seven days.
 		for (const [i, id] of ids.entries())
 			await db
 				.update(documents)
@@ -220,9 +220,13 @@ describe("where topics stand", () => {
 		const trashed = await article()
 		const topic = await active(userId, "Shelf", [...ids, trashed])
 		await db.update(documents).set({ deletedAt: new Date() }).where(eq(documents.id, trashed))
+		// Another topic, of the two oldest only: each topic has a shelf of its own newest.
+		const other = await active(userId, "Other shelf", ids.slice(0, 2))
 
 		const state = await topicsState(userId)
-		const [shelf] = state.topics
+		const [shelf, second] = state.topics
+		expect(second).toMatchObject({ id: other, articles: 2, recent: 0 })
+		expect(second!.books.map((b) => b.id)).toEqual([ids[1], ids[0]])
 		expect(shelf).toMatchObject({ id: topic, articles: 18, recent: 3 })
 		expect(shelf!.books).toHaveLength(16)
 		expect(shelf!.books[0]).toEqual({

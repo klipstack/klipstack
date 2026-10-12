@@ -391,7 +391,8 @@ function hash(text: string) {
  * spine. One saved this week has a blue top.
  */
 function Book({ book, className }: { book: TopicBook; className?: string }) {
-	const title = book.title ?? book.siteName ?? ""
+	const { t } = useTranslation("library")
+	const title = book.title ?? book.siteName ?? t("card.untitled")
 	const words = Math.max(200, book.wordCount ?? 1000)
 	const style = {
 		"--k": Math.min(1, Math.max(0, (Math.log10(words) - 2.5) / 1.6)).toFixed(2),
@@ -406,7 +407,7 @@ function Book({ book, className }: { book: TopicBook; className?: string }) {
 				{...tooltip(title)}
 				style={style}
 				className={cn(
-					"block h-[calc(92px+var(--h)*1px)] w-[calc(14px+var(--k)*9px)] overflow-hidden rounded-t-[3px] rounded-b-[1px] bg-[oklch(var(--k-book-l)_var(--k-book-c)_var(--hue))] py-2 text-[11px] leading-none font-medium text-ellipsis whitespace-nowrap text-book-fg [writing-mode:vertical-rl] motion-safe:transition-transform hover:-translate-y-1 focus-visible:-translate-y-1 md:h-[calc(104px+var(--h)*1px)] md:w-[calc(18px+var(--k)*14px)]",
+					"block h-[calc(92px+var(--h)*1px)] w-[calc(14px+var(--k)*6px)] overflow-hidden rounded-t-[3px] rounded-b-[1px] bg-[oklch(var(--k-book-l)_var(--k-book-c)_var(--hue))] py-2 text-[11px] leading-none font-medium text-ellipsis whitespace-nowrap text-book-fg [writing-mode:vertical-rl] motion-safe:transition-transform hover:-translate-y-1 focus-visible:-translate-y-1 md:h-[calc(104px+var(--h)*1px)] md:w-[calc(18px+var(--k)*14px)]",
 					book.recent
 						? "pt-3 shadow-[inset_0_4px_0_var(--color-link)]"
 						: "shadow-[inset_-2px_0_0_rgb(0_0_0/0.06),inset_2px_0_0_rgb(255_255_255/0.18)]",

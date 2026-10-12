@@ -131,7 +131,8 @@ async function summaries(userId: string, status: "active" | "proposed"): Promise
 		.where(and(eq(topics.userId, userId), eq(topics.status, status)))
 		.groupBy(topics.id)
 		.orderBy(desc(articles), asc(topics.name))
-	const shelved = await books(userId, status)
+	// The first topics, still proposed, hold no articles yet: only confirmed ones have shelves.
+	const shelved = status === "active" ? await books(userId) : new Map<string, TopicBook[]>()
 	return rows.map((row) => ({ ...row, books: shelved.get(row.id) ?? [] }))
 }
 
@@ -145,8 +146,8 @@ const applied = and(
 	isNull(documentTopics.refusedAt),
 )
 
-/** Each topic's newest `SHELF_BOOKS` articles, by topic. */
-async function books(userId: string, status: "active" | "proposed") {
+/** Each active topic's newest `SHELF_BOOKS` articles, by topic. */
+async function books(userId: string) {
 	const ranked = db
 		.select({
 			topicId: documentTopics.topicId,
@@ -162,7 +163,7 @@ async function books(userId: string, status: "active" | "proposed") {
 		.from(topics)
 		.innerJoin(documentTopics, applied)
 		.innerJoin(documents, and(eq(documents.id, documentTopics.documentId), inLibrary(userId)))
-		.where(and(eq(topics.userId, userId), eq(topics.status, status)))
+		.where(and(eq(topics.userId, userId), eq(topics.status, "active")))
 		.as("ranked")
 	const rows = await db
 		.select()

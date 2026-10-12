@@ -1,11 +1,17 @@
 import { ArrowLeft, CircleMinus } from "lucide-react"
-import { useEffect, useEffectEvent, useMemo } from "react"
+import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
-import { Link, type ShouldRevalidateFunctionArgs, useFetcher, useNavigate } from "react-router"
+import {
+	Link,
+	type ShouldRevalidateFunctionArgs,
+	useFetchers,
+	useNavigate,
+	useSubmit,
+} from "react-router"
 import { takeOutOfTopic } from "~/commands/topics.server"
 import { DocumentList } from "~/components/document-list"
 import { LayoutToggle } from "~/components/layout-toggle"
-import { MenuAction } from "~/components/more-menu"
+import { MenuButton } from "~/components/more-menu"
 import {
 	TopicMenu,
 	TopicRemoveConfirm,
@@ -22,6 +28,7 @@ import { readForm } from "~/lib/request-body.server"
 import { requireUser } from "~/lib/session.server"
 import { showToast } from "~/lib/toast"
 import { answer } from "~/lib/web-action.server"
+import type { LibraryCard } from "~/services/documents.server"
 import { topicWithArticles } from "~/services/topics.server"
 import type { Route } from "./+types/topics.topic"
 
@@ -68,30 +75,30 @@ export function shouldRevalidate({
  */
 export default function TopicPage({ loaderData }: Route.ComponentProps) {
 	const { t } = useTranslation("library")
-	const { t: tc } = useTranslation()
 	const { topic, items } = loaderData
-	// One fetcher for the page, not one per row: a row taken out is gone once the page loads again,
-	// and what it answered is still said.
-	const fetcher = useFetcher<typeof action>()
-	const onAnswer = useEffectEvent((result: typeof fetcher.data) => {
-		if (!result) return
-		const refused: Record<string, string> = {
-			not_found: t("topics.errors.not_found"),
-			forbidden: t("topics.errors.forbidden"),
-		}
-		showToast({
-			message: result.ok
-				? t("topics.takenOut", { name: result.name })
-				: (refused[result.error.code] ?? tc("errors.generic")),
-		})
-	})
-	useEffect(() => onAnswer(fetcher.data), [fetcher.data])
 	const navigate = useNavigate()
 	const actions = useTopicActions(topic, { onRemoved: () => void navigate("/topics") })
-	const leaving = fetcher.formData ? String(fetcher.formData.get("article")) : null
-	const shown = useMemo(() => items.filter((item) => item.id !== leaving), [items, leaving])
+	// Each take-out is a request of its own, so a second one doesn't cancel the first. The cards on
+	// their way out are gone already; the toast says so when the reader asks, as archiving does.
+	const submit = useSubmit()
+	const takeOut = (doc: LibraryCard) => {
+		showToast({ message: t("topics.takenOut", { name: actions.name }) })
+		void submit(
+			{ intent: "take-out", article: doc.id },
+			{ method: "post", navigate: false, fetcherKey: `take-out:${doc.id}` },
+		)
+	}
+	const leaving = useFetchers()
+		.filter((f) => f.formData?.get("intent") === "take-out")
+		.map((f) => String(f.formData?.get("article")))
+		.join(",")
+	const shown = useMemo(
+		() => items.filter((item) => !leaving.split(",").includes(item.id)),
+		[items, leaving],
+	)
 	const ids = useMemo(() => shown.map((item) => item.id), [shown])
-	const { cursorId, listRef, onVanish } = useListCursor(ids)
+	// A topic's page has no selection bar: the cursor only.
+	const { cursorId, listRef, onVanish } = useListCursor(ids, undefined, { select: false })
 	return (
 		<main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-3 pb-6 md:px-8 md:pt-4 md:pb-8">
 			<Link
@@ -132,15 +139,12 @@ export default function TopicPage({ loaderData }: Route.ComponentProps) {
 						cursorId={cursorId}
 						onVanish={onVanish}
 						cardMenu={(doc) => (
-							<MenuAction
-								fetcher={fetcher}
-								action={`/topics/${topic.id}`}
-								intent="take-out"
-								fields={{ article: doc.id }}
+							<MenuButton
 								icon={<CircleMinus className="size-4" aria-hidden />}
+								onClick={() => takeOut(doc)}
 							>
 								{t("topics.takeOutItem")}
-							</MenuAction>
+							</MenuButton>
 						)}
 					/>
 				</div>
