@@ -537,5 +537,7 @@ describe("keepsArchived", () => {
 		expect(keepsArchived("quokka in:trash")).toBe(false)
 		expect(keepsArchived("quokka -in:archive")).toBe(false)
 		expect(keepsArchived("quokka in:anywhere -in:library")).toBe(false)
+		// Read as the search reads it.
+		expect(keepsArchived("quokka in:archive\u0000")).toBe(false)
 	})
 })

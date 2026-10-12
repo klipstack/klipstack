@@ -15,10 +15,9 @@ export interface Toast {
 /** A warning is read, not just glimpsed. */
 const WARN_MS = 15_000
 /** Undo for something that took writing, such as a note: time to notice what went with it. */
+export const LONG_UNDO_MS = 15_000
 /** The fetcher a toast's Undo posts through: a card shows the undo of its own change on its way. */
 export const UNDO_FETCHER = "toast-undo"
-
-export const LONG_UNDO_MS = 15_000
 /** Left after the pointer or the focus leaves a held toast: time to read it again. */
 const AFTER_HOLD_MS = 3_000
 

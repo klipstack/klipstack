@@ -94,6 +94,9 @@ const LOCATION_WHERE: Record<SearchLocation, SQL> = {
 	anywhere: sql`true`,
 }
 
+/** Postgres text cannot hold NUL, and it means nothing in a search. */
+const parse = (q: string) => parseSearchQuery(q.replaceAll("\u0000", "").trim())
+
 /** Which of an article out of the trash, archived or not, each place holds. */
 const LOCATION_HOLDS: Record<SearchLocation, (archived: boolean) => boolean> = {
 	library: (archived) => !archived,
@@ -107,7 +110,7 @@ const LOCATION_HOLDS: Record<SearchLocation, (archived: boolean) => boolean> = {
  * Without an `in:`, they are the inbox and the archive.
  */
 export function keepsArchived(q: string): boolean {
-	const places = parseSearchQuery(q).filters.filter((f) => f.key === "in")
+	const places = parse(q).filters.filter((f) => f.key === "in")
 	const holds = (archived: boolean) =>
 		places.every((f) => !f.negated || !LOCATION_HOLDS[f.value](archived)) &&
 		(places.every((f) => f.negated) ||
@@ -424,8 +427,7 @@ export async function searchDocuments({
 	/** Where the user's days start and end, for the date operators. */
 	timeZone?: string
 }): Promise<SearchResult> {
-	// Postgres text cannot hold NUL, and it means nothing in a search.
-	const query = parseSearchQuery(q.replaceAll("\u0000", "").trim())
+	const query = parse(q)
 	const nothing = { items: [], nextOffset: null, ignored: query.ignored, trash: null }
 	if (!query.text && query.filters.length === 0) return nothing
 	const zone = zoneName(timeZone)

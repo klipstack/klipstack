@@ -72,11 +72,12 @@ export function DocumentCard({
 	const from = location.pathname + location.search
 	const pending = doc.status === "queued" || doc.status === "processing"
 	const failed = doc.status === "failed"
-	// The toast's Undo of an archive or unarchive of this card, on its way: it comes after the card's
-	// own change, so it wins.
+	// The toast's Undo of an archive or unarchive of this card, on its way. The toast sends it once the
+	// card's own change has left, so it is the newer, unless the card is sending another change.
 	const undo = useFetcher({ key: UNDO_FETCHER })
 	const undoIntent = undo.formAction?.split("?")[0] === action ? undo.formData?.get("intent") : null
 	const optimisticIntent =
+		(fetcher.state === "submitting" ? fetcher.formData?.get("intent") : null) ??
 		(undoIntent === "undo-archive" || undoIntent === "archive" ? undoIntent : null) ??
 		fetcher.formData?.get("intent") ??
 		pendingIntent
