@@ -11,11 +11,14 @@ export function HomeArticle({
 	doc,
 	featured = false,
 	compact = false,
+	topic,
 }: {
 	/** `minutesLeft` from the server, when it counted them: what Home's time choice goes by. */
 	doc: LibraryCard & { minutesLeft?: number | null }
 	featured?: boolean
 	compact?: boolean
+	/** The topic it is in, beside its source: what the library is made of, card by card. */
+	topic?: string
 }) {
 	const { t } = useTranslation("library")
 	const image = doc.leadImageAssetId ? `/assets/${doc.leadImageAssetId}` : doc.leadImageUrl
@@ -55,7 +58,10 @@ export function HomeArticle({
 			)}
 			<div className={cn("flex min-w-0 flex-col", featured && "justify-center p-6 sm:p-8")}>
 				<p className="flex items-center gap-2 text-xs text-muted-fg">
-					<span className="truncate">{sourceLabel(doc)}</span>
+					<span className="truncate">
+						{sourceLabel(doc)}
+						{topic ? <span data-testid="home-article-topic"> · {topic}</span> : null}
+					</span>
 					{doc.starredAt ? (
 						<Star
 							className="size-3.5 shrink-0 fill-favorite text-favorite"
