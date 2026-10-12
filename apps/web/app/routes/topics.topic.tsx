@@ -138,6 +138,7 @@ export default function TopicPage({ loaderData }: Route.ComponentProps) {
 						listRef={listRef}
 						cursorId={cursorId}
 						onVanish={onVanish}
+						keepsArchived
 						cardMenu={(doc) => (
 							<MenuButton
 								icon={<CircleMinus className="size-4" aria-hidden />}

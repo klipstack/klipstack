@@ -238,6 +238,7 @@ export default function Library({ loaderData }: Route.ComponentProps) {
 					cursorId={cursorId}
 					onVanish={onVanish}
 					selection={selection}
+					keepsArchived={loaderData.view === "starred"}
 				/>
 			)}
 			{loaderData.nextCursor ? (
