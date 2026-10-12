@@ -6,7 +6,7 @@ import type { Colors } from "@/lib/theme"
 
 /**
  * Rows in a rounded group, as iOS's grouped lists (Settings, Mail's mailboxes) draw them, with an
- * optional heading above: the Library's places, and the tags.
+ * optional heading above: the Library's places, the tags, and the search's topics.
  */
 export function PlaceGroup({
 	title,
@@ -83,6 +83,44 @@ export function PlaceRow({
 			</Link.Trigger>
 			{menu ? <Link.Menu>{menu}</Link.Menu> : null}
 		</Link>
+	)
+}
+
+/**
+ * A row that acts in place (`onPress`) instead of opening a list: no chevron. VoiceOver reads
+ * `label` (the title and what the detail means), not the icon's name.
+ */
+export function PlaceButton({
+	title,
+	icon,
+	detail,
+	label,
+	onPress,
+	colors,
+}: {
+	title: string
+	icon: SymbolViewProps["name"]
+	detail?: string
+	label?: string
+	onPress: () => void
+	colors: Colors
+}) {
+	return (
+		<Pressable
+			accessibilityRole="button"
+			accessibilityLabel={label ?? title}
+			onPress={onPress}
+			style={({ pressed }) => [
+				styles.row,
+				{ backgroundColor: pressed ? colors.border : colors.muted },
+			]}
+		>
+			<SymbolView name={icon} tintColor={colors.accent} size={22} style={styles.icon} />
+			<Text style={[styles.title, { color: colors.fg }]} numberOfLines={1}>
+				{title}
+			</Text>
+			{detail ? <Text style={[styles.detail, { color: colors.mutedFg }]}>{detail}</Text> : null}
+		</Pressable>
 	)
 }
 

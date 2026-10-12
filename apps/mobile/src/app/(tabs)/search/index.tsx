@@ -1,14 +1,16 @@
 import { canSaveSearch } from "@klipstack/api-contract/search-query"
-import type { ArticleSummary, SavedSearch } from "@klipstack/sdk"
+import type { ArticleSummary, SavedSearch, Topic } from "@klipstack/sdk"
 import { Stack, useFocusEffect } from "expo-router"
 import { SymbolView } from "expo-symbols"
-import { useCallback, useEffect, useMemo, useState } from "react"
-import { Pressable, StyleSheet, Text } from "react-native"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { Pressable, StyleSheet, Text, View } from "react-native"
+import type { SearchBarCommands } from "react-native-screens"
 import { AccountButton } from "@/components/account-button"
 import { useArticleActions } from "@/components/article-actions"
 import { ArticleList, type CardMenu, useImageHeaders } from "@/components/article-card"
 import { LayoutButton } from "@/components/list-layout"
 import { useMultiSelect } from "@/components/multi-select"
+import { PlaceButton, PlaceGroup } from "@/components/place-list"
 import { saveSearch, savedSearchSheet } from "@/components/saved-search-actions"
 import { SELECTION_BAR_SPACE, SelectionBar } from "@/components/selection-bar"
 import { HeaderButtons, HeaderTextButton } from "@/components/tab-stack"
@@ -16,6 +18,7 @@ import { useTagSheet } from "@/components/tag-sheet"
 import { retagged } from "@/lib/article-tags"
 import { useAuth } from "@/lib/auth"
 import { actedOn, bulkActions, bulkNotice } from "@/lib/bulk-actions"
+import { searchHint, topicQuery } from "@/lib/library-topics"
 import { useColors } from "@/lib/theme"
 
 /** Waits this long after the last keystroke before searching. */
@@ -27,6 +30,9 @@ const DEBOUNCE_MS = 300
  * tab bar. A long press on a result opens its menu, and Select checks several, as in the library
  * (`useMultiSelect`). While selecting, the selection bar takes the tab bar's place, and the field's.
  * Results in the trash (`in:trash`) can only be restored, and not with others, as on the web.
+ *
+ * A reader with topics finds them under the empty field, as Mail suggests searches: one searches
+ * `topic:` and its name.
  */
 export default function Search() {
 	const { state } = useAuth()
@@ -114,17 +120,29 @@ export default function Search() {
 	useFocusEffect(loadSaved)
 	const savedAs = saved.find((s) => s.query === q) ?? null
 
-	const hint = !q
-		? "Search titles, text and notes. Try is:starred or site:example.com."
-		: items
-			? "No articles match."
-			: "Searching…"
+	// The reader's topics, most articles first: none while topics are off.
+	const [topics, setTopics] = useState<Topic[]>([])
+	const loadTopics = useCallback(() => {
+		client?.topics
+			.list()
+			.then((answer) => setTopics(answer.items))
+			.catch(() => {})
+	}, [client])
+	useFocusEffect(loadTopics)
+	const field = useRef<SearchBarCommands>(null)
+	const searchFor = (text: string) => {
+		field.current?.setText(text)
+		setQuery(text)
+	}
+
+	const hint = !q ? searchHint(topics.length > 0) : items ? "No articles match." : "Searching…"
 
 	return (
 		<>
 			<Stack.Screen
 				options={{
 					headerSearchBarOptions: {
+						ref: field,
 						placeholder: "Search your library",
 						autoCapitalize: "none",
 						// The header stays while searching: it has Select.
@@ -162,7 +180,26 @@ export default function Search() {
 					select.selecting ? { paddingBottom: SELECTION_BAR_SPACE } : undefined
 				}
 				ListEmptyComponent={
-					<Text style={[styles.hint, { color: colors.mutedFg }]}>{error ?? hint}</Text>
+					!q && topics.length > 0 ? (
+						<View style={styles.suggestions}>
+							<Text style={[styles.hint, styles.hintAbove, { color: colors.mutedFg }]}>{hint}</Text>
+							<PlaceGroup title="Topics" colors={colors}>
+								{topics.map((topic) => (
+									<PlaceButton
+										key={topic.id}
+										title={topic.name}
+										icon="square.stack.3d.up"
+										detail={String(topic.articles)}
+										label={`${topic.name}, ${topic.articles === 1 ? "1 article" : `${topic.articles} articles`}`}
+										onPress={() => searchFor(topicQuery(topic.name))}
+										colors={colors}
+									/>
+								))}
+							</PlaceGroup>
+						</View>
+					) : (
+						<Text style={[styles.hint, { color: colors.mutedFg }]}>{error ?? hint}</Text>
+					)
 				}
 			/>
 			{select.selecting ? (
@@ -201,4 +238,6 @@ function SaveSearchButton({ saved, onPress }: { saved: SavedSearch | null; onPre
 
 const styles = StyleSheet.create({
 	hint: { padding: 32, textAlign: "center", fontSize: 16, lineHeight: 22 },
+	hintAbove: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 24 },
+	suggestions: { paddingBottom: 32 },
 })
