@@ -32,6 +32,7 @@ import {
 } from "@klipstack/extract"
 import { describeError, loggedHost } from "@klipstack/log"
 import { admitImages } from "@klipstack/queue"
+import { queueTopicsAfterSave } from "./jobs/topics"
 import { log } from "./log"
 import { publishExtraction } from "./publish"
 
@@ -166,6 +167,7 @@ export async function saveSharedArticle(
 	}
 	await notifyDocumentEvent({ userId: doc.userId, documentId: doc.id, kind: "ready" })
 	await notifyJoined(doc.userId, outcome.absorbed, doc.id)
+	await queueTopicsAfterSave(doc.userId)
 	log.info("extract: ready, the article a post shared", {
 		documentId: doc.id,
 		words: outcome.words,

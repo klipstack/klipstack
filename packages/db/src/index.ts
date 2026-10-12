@@ -13,6 +13,7 @@ export {
 	storeFeedEntries,
 } from "./feeds"
 export { newId, newPublicId } from "./ids"
+export { addUsage, monthOf } from "./usage"
 export * from "./schema"
 export {
 	anyWordQuery,

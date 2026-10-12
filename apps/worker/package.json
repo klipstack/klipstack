@@ -14,6 +14,7 @@
 		"typecheck": "tsc -p tsconfig.json"
 	},
 	"dependencies": {
+		"@klipstack/ai": "workspace:*",
 		"@klipstack/anchor": "workspace:*",
 		"@klipstack/api-contract": "workspace:*",
 		"@klipstack/db": "workspace:*",

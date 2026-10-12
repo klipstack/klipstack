@@ -234,6 +234,8 @@ export default {
 		feed: "Feeds",
 		feedNew: "Publicaciones nuevas",
 		editionDue: "Tu próxima edición te espera",
+		topics: "Temas",
+		topicsReady: "Tus primeros temas están listos",
 		archive: "Archivo",
 		starred: "Destacados",
 		highlights: "Subrayados",

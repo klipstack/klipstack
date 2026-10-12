@@ -4,9 +4,11 @@ import {
 	ARTICLE_TITLE_MAX,
 	cleanSavedSearchName,
 	cleanTagName,
+	cleanTopicName,
 	NUL_REFUSED,
 	SAVED_SEARCH_NAME_MAX,
 	TAG_NAME_MAX,
+	TOPIC_NAME_MAX,
 	TAGS_PER_ARTICLE_MAX,
 	withoutNul,
 } from "./names"
@@ -138,6 +140,14 @@ const articleSummaryShape = {
 
 export const ArticleSummary = z.object(articleSummaryShape).meta({ id: "ArticleSummary" })
 export type ArticleSummary = z.infer<typeof ArticleSummary>
+
+export const TOPIC_NAME_REFUSED = `A topic name has 1 to ${TOPIC_NAME_MAX} characters.`
+
+/** A topic name as the reader writes it. It is stored trimmed, with inner whitespace as one space. */
+export const TopicName = z
+	.string()
+	.max(200)
+	.refine((name) => cleanTopicName(name) !== null, { message: TOPIC_NAME_REFUSED })
 
 export const TAG_NAME_REFUSED = `A tag name has 1 to ${TAG_NAME_MAX} characters, and no double quote, comma or NUL.`
 

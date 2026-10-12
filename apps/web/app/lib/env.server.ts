@@ -83,6 +83,8 @@ const schema = z.object({
 	LIMIT_AI_PER_MONTH_ADMIN: z.coerce.number().int().positive().default(500),
 	/** AI answers in the reader. Unset, the AI buttons stay hidden. */
 	ANTHROPIC_API_KEY: z.string().optional(),
+	/** TypeSafe's key, for Jev: automatic topics need it and Anthropic's. */
+	TYPESAFE_API_KEY: z.string().optional(),
 	/** "1": a fixed answer instead of a provider, for the e2e tests and work without a key. */
 	AI_FAKE: z.enum(["0", "1"]).default("0"),
 })

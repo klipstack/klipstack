@@ -5,8 +5,9 @@ import { user } from "./auth"
  * Features still in testing, each turned on for chosen accounts. The name is the flag's whole
  * definition: adding one needs no migration. Remove a flag when its feature reaches everyone.
  * `ai`: questions about a passage, answered in the margin.
+ * `topics`: automatic topics, proposed from the library and kept up to date.
  */
-export const featureFlags = ["ai"] as const satisfies readonly string[]
+export const featureFlags = ["ai", "topics"] as const satisfies readonly string[]
 export type FeatureFlag = (typeof featureFlags)[number]
 
 export function isFeatureFlag(value: unknown): value is FeatureFlag {

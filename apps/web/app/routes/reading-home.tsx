@@ -16,7 +16,9 @@ import { HomeGreeting } from "~/components/home-greeting"
 import { SaveLinkDialog } from "~/components/save-link-dialog"
 import { Button, buttonVariants } from "~/components/ui/button"
 import { useFeedReader } from "~/hooks/use-feed-reader"
+import { topicModels } from "~/lib/ai.server"
 import { timeZoneFromCookie } from "~/lib/date-groups"
+import { hasFeature } from "~/lib/features.server"
 import { fitsIn, homeShelves } from "~/lib/home-shelves"
 import { getInstance } from "~/lib/i18n.server"
 import { listSearch, parseTime, REDISCOVER_AFTER_DAYS, TIME_CHOICES } from "~/lib/inbox-filters"
@@ -27,17 +29,25 @@ import { isSearchShortcut } from "~/lib/shortcuts"
 import { cn } from "~/lib/utils"
 import { finishedLately } from "~/services/reading-history.server"
 import { readingHome } from "~/services/reading-home.server"
+import { firstTopicsNotice } from "~/services/topics.server"
 import type { Route } from "./+types/reading-home"
 
 export async function loader({ context, request }: Route.LoaderArgs) {
 	const user = requireUser(context, request)
 	const t = getInstance(context).getFixedT(null, "library")
 	const timeZone = timeZoneFromCookie(request.headers.get("cookie"))
-	const [home, finished] = await Promise.all([
+	const [home, finished, topicsReady] = await Promise.all([
 		readingHome(user.id),
 		finishedLately(user.id, { timeZone }),
+		firstTopicsReady(user.id),
 	])
-	return { ...home, finished, title: `${t("home.title")} · Klipstack` }
+	return { ...home, finished, topicsReady, title: `${t("home.title")} · Klipstack` }
+}
+
+/** The first topics wait for the reader, who has not opened them: Home says so, once. */
+async function firstTopicsReady(userId: string): Promise<boolean> {
+	if (!topicModels.available || !(await hasFeature(userId, "topics"))) return false
+	return (await firstTopicsNotice(userId)).card
 }
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -74,7 +84,7 @@ export const handle: PageBarHandle = {
 }
 
 export default function ReadingHome({
-	loaderData: { candidates, timeChoice, feed, emptyState, review, finished },
+	loaderData: { candidates, timeChoice, feed, emptyState, review, finished, topicsReady },
 }: Route.ComponentProps) {
 	const { t } = useTranslation(["library", "feed"])
 	const navigate = useNavigate()
@@ -139,6 +149,7 @@ export default function ReadingHome({
 					<SaveLinkDialog />
 				</div>
 			</header>
+			{topicsReady ? <TopicsCard /> : null}
 			{finished ? <FinishedLately {...finished} /> : null}
 			{timeChoice ? <TimeChoice minutes={minutes} /> : null}
 			<div className="space-y-10">
@@ -290,6 +301,38 @@ function ReviewCard() {
 					<input type="hidden" name="intent" value="snooze" />
 					<Button type="submit" variant="ghost">
 						{t("review.card.later")}
+					</Button>
+				</later.Form>
+			</div>
+		</section>
+	)
+}
+
+/** The first topics are ready: a way to them, or "Not now", which puts the card away (the dot stays). */
+function TopicsCard() {
+	const { t } = useTranslation("library")
+	const later = useFetcher()
+	if (later.state !== "idle" || later.data) return null
+	return (
+		<section
+			aria-labelledby="home-topics"
+			data-testid="home-topics"
+			className="mb-8 rounded-xl border border-border bg-card p-5"
+		>
+			<h2 id="home-topics" className="font-medium">
+				{t("topics.card.title")}
+			</h2>
+			<p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-fg">
+				{t("topics.card.body")}
+			</p>
+			<div className="mt-4 flex flex-wrap items-center gap-2">
+				<Link to="/topics" className={buttonVariants({ variant: "secondary" })}>
+					{t("topics.card.open")}
+				</Link>
+				<later.Form method="post" action="/topics">
+					<input type="hidden" name="intent" value="dismiss" />
+					<Button type="submit" variant="ghost">
+						{t("topics.card.later")}
 					</Button>
 				</later.Form>
 			</div>

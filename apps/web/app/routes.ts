@@ -26,6 +26,8 @@ export default [
 		route("add", "routes/add.tsx"),
 		route("highlights", "routes/highlights.tsx"),
 		route("tags", "routes/tags.tsx"),
+		route("topics", "routes/topics.tsx"),
+		route("topics/:id", "routes/topics.topic.tsx"),
 		route("editions", "routes/editions.tsx"),
 		route("editions/:id", "routes/editions.edit.tsx"),
 		route("editions/:id/preview", "routes/editions.preview.tsx"),

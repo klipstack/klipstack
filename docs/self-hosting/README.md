@@ -140,6 +140,8 @@ work. Keep the bucket private: the app serves images itself, after checking who 
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | unset | Google sign-in. See [sign-in-providers.md](sign-in-providers.md). |
 | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | unset | GitHub sign-in. |
 | `ANTHROPIC_API_KEY` | unset | AI answers in the reader. See [ai.md](ai.md). |
+| `TYPESAFE_API_KEY` | unset | With `ANTHROPIC_API_KEY`, automatic topics. See [ai.md](ai.md#automatic-topics). |
+| `LIMIT_TOPICS_PER_MONTH` | `100` | Haiku's work on one account's topics per month. |
 | `LIMIT_SAVES_PER_MONTH` | `300` | Saves per account per month. |
 | `LIMIT_STORAGE_MB` | `250` | Image storage per account. |
 | `LIMIT_FEEDS` | `100` | Feeds per account. |

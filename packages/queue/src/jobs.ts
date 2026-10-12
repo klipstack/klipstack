@@ -14,6 +14,7 @@ export const QUEUES = {
 	sweep: "sweep",
 	inviteDigest: "invite-digest",
 	reportDigest: "report-digest",
+	topics: "topics",
 } as const
 
 export type QueueName = (typeof QUEUES)[keyof typeof QUEUES]
@@ -33,11 +34,23 @@ export interface JobPayloads {
 	"invite-digest": Record<string, never>
 	/** Scheduled hourly: emails the admins when new reports on public editions arrived. */
 	"report-digest": Record<string, never>
+	/**
+	 * Brings a reader's automatic topics up to date: proposes the first ones, sorts the articles not
+	 * sorted yet, grows and reviews the topics, whichever is due. Sent with the reader as its
+	 * `singletonKey`: one runs at a time, and one more waits for what arrives meanwhile.
+	 */
+	topics: { userId: string }
 }
 
 export const QUEUE_OPTIONS: Record<
 	QueueName,
-	{ retryLimit: number; retryDelay: number; retryBackoff: boolean; expireInSeconds: number }
+	{
+		retryLimit: number
+		retryDelay: number
+		retryBackoff: boolean
+		expireInSeconds: number
+		policy?: "stately"
+	}
 > = {
 	// Expiry is when pg-boss gives up on a running job and starts its retry beside it: well past the
 	// worst case (extract: a 15 s fetch, X thread lookups, then parsing; images: 60 images four at a
@@ -53,4 +66,13 @@ export const QUEUE_OPTIONS: Record<
 	// A retry resends the whole digest: an admin may get it twice, never not at all.
 	"invite-digest": { retryLimit: 2, retryDelay: 600, retryBackoff: false, expireInSeconds: 300 },
 	"report-digest": { retryLimit: 2, retryDelay: 600, retryBackoff: false, expireInSeconds: 300 },
+	// A run sorts what is due, up to a batch, and asks for another: a whole library re-sorted after
+	// a new topic is a few minutes of Jev's 100 ms answers. A retry does what is still due.
+	topics: {
+		retryLimit: 3,
+		retryDelay: 60,
+		retryBackoff: true,
+		expireInSeconds: 1800,
+		policy: "stately",
+	},
 }

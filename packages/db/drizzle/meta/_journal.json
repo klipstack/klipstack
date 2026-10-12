@@ -281,6 +281,13 @@
 			"when": 1791733702120,
 			"tag": "0039_edition_items_included",
 			"breakpoints": true
+		},
+		{
+			"idx": 40,
+			"version": "7",
+			"when": 1791766028496,
+			"tag": "0040_premium_rick_jones",
+			"breakpoints": true
 		}
 	]
 }

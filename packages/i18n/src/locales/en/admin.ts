@@ -227,6 +227,11 @@ export default {
 			turnOff: "Turn off",
 			none: "No features are in testing.",
 			flags: {
+				topics: {
+					name: "Automatic topics",
+					description:
+						"Topics proposed from the library and kept up to date, on a page of their own. Sends article text to TypeSafe and Anthropic once the reader turns them on.",
+				},
 				ai: {
 					name: "AI in the reader",
 					description:

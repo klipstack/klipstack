@@ -9,6 +9,8 @@ export type Policy = {
 	contentsLabel: string
 	/** Linked wherever the text names it. */
 	email: string
+	/** Phrases linked wherever the text names them, to the page each names (a provider's terms). */
+	links?: Record<string, string>
 	sections: Array<{ id: string; title: string; blocks: PolicyBlock[] }>
 }
 

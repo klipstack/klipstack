@@ -28,12 +28,15 @@ export function getBoss(): Promise<PgBoss> {
 
 /**
  * Creates the queues, and gives existing ones the options in QUEUE_OPTIONS: `createQueue` leaves
- * an existing queue as it is, so a changed option would otherwise never reach production.
+ * an existing queue as it is, so a changed option would otherwise never reach production. A
+ * queue's policy is the exception: pg-boss sets it when the queue is created, and refuses to change
+ * it after.
  */
 export async function ensureQueues(boss: PgBoss) {
 	for (const name of Object.values(QUEUES)) {
-		await boss.createQueue(name, QUEUE_OPTIONS[name])
-		await boss.updateQueue(name, QUEUE_OPTIONS[name])
+		const { policy, ...options } = QUEUE_OPTIONS[name]
+		await boss.createQueue(name, { ...options, ...(policy ? { policy } : {}) })
+		await boss.updateQueue(name, options)
 	}
 }
 
