@@ -331,6 +331,10 @@ export default {
 		takenOut: "Lo sacaste de {{name}}. No se volverá a añadir.",
 		turnOff: "Desactivar los temas",
 		turnOffConfirm: "Toca otra vez: esto borra tus temas",
+		turnOffSaved_one:
+			"{{count}} búsqueda guardada nombra temas y no encontrará nada en ellos: {{names}}.",
+		turnOffSaved_other:
+			"{{count}} búsquedas guardadas nombran temas y no encontrarán nada en ellos: {{names}}.",
 		turnedOff: "Los temas están desactivados y borrados.",
 		back: "Temas",
 		topicEmpty: "Ahora no hay artículos en este tema.",
@@ -416,6 +420,13 @@ export default {
 			finished: "Terminados",
 			highlights: "Subrayados",
 			note: "Nota",
+		},
+		missingTopic: {
+			saved: "El tema «{{name}}» terminó. Esta búsqueda guardada no encuentra nada en él.",
+			unsaved: "Ninguno de tus temas se llama «{{name}}».",
+			remove: "Quitarlo de esta búsqueda",
+			delete: "Eliminar esta búsqueda guardada",
+			without: "Buscar sin él",
 		},
 		tipRows: {
 			phrase: "Las comillas buscan las palabras exactas. También funcionan or y -palabra.",

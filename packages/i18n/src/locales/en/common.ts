@@ -269,6 +269,7 @@ export default {
 		rename: "Rename",
 		more: "More for “{{name}}”",
 		deleted: "Deleted “{{name}}”",
+		topicEnded: "The topic “{{name}}” ended",
 		undo: "Undo",
 		errors: {
 			invalid_name: "A name has 1 to 50 characters.",

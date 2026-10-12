@@ -1,5 +1,10 @@
-import { Id, SavedSearchName, SavedSearchQuery } from "@klipstack/api-contract"
-import { cleanSavedSearchName, SAVED_SEARCHES_PER_USER_MAX } from "@klipstack/api-contract/names"
+import { Id, SavedSearchName, SavedSearchQuery, TopicName } from "@klipstack/api-contract"
+import {
+	cleanSavedSearchName,
+	cleanTopicName,
+	SAVED_SEARCHES_PER_USER_MAX,
+} from "@klipstack/api-contract/names"
+import { renameTopicOperator } from "@klipstack/api-contract/search-query"
 import { and, db, eq, ne, savedSearches, sql } from "@klipstack/db"
 import { z } from "zod"
 import { AppError, notFound, parseInput } from "~/lib/app-error"
@@ -94,4 +99,39 @@ export async function deleteSavedSearch(userId: string, id: string): Promise<voi
 		.where(and(eq(savedSearches.id, parseInput(Id, id)), eq(savedSearches.userId, userId)))
 		.returning({ id: savedSearches.id })
 	if (gone.length === 0) throw notFound(NO_SAVED_SEARCH)
+}
+
+/**
+ * Takes a topic out of a saved search's query (its `topic:` and `-topic:`, whatever the case): the
+ * topic ended, and the search found nothing in it. A query left with nothing would find everything:
+ * refused, so that the reader deletes the search instead.
+ */
+export async function dropTopicFromSavedSearch(
+	userId: string,
+	id: string,
+	topic: string,
+): Promise<SavedSearchRow> {
+	const searchId = parseInput(Id, id)
+	const name = cleanTopicName(parseInput(TopicName, topic))!
+	return db.transaction(async (tx) => {
+		const [row] = await tx
+			.select(columns)
+			.from(savedSearches)
+			.where(and(eq(savedSearches.id, searchId), eq(savedSearches.userId, userId)))
+			.for("update")
+		if (!row) throw notFound(NO_SAVED_SEARCH)
+		const query = renameTopicOperator(row.query, name, [])
+		if (query === row.query) return row
+		if (!query)
+			throw new AppError(
+				"invalid_request",
+				"Without this topic the search would find everything: delete it instead.",
+			)
+		const [changed] = await tx
+			.update(savedSearches)
+			.set({ query })
+			.where(eq(savedSearches.id, searchId))
+			.returning(columns)
+		return changed!
+	})
 }

@@ -328,6 +328,10 @@ export default {
 		takenOut: "Taken out of {{name}}. It won't be put back.",
 		turnOff: "Turn off topics",
 		turnOffConfirm: "Tap again: this deletes your topics",
+		turnOffSaved_one:
+			"{{count}} saved search names topics and will find nothing in them: {{names}}.",
+		turnOffSaved_other:
+			"{{count}} saved searches name topics and will find nothing in them: {{names}}.",
 		turnedOff: "Topics are off, and deleted.",
 		back: "Topics",
 		topicEmpty: "No articles in this topic right now.",
@@ -411,6 +415,13 @@ export default {
 			finished: "Finished",
 			highlights: "Highlights",
 			note: "Note",
+		},
+		missingTopic: {
+			saved: "The topic “{{name}}” ended. This saved search finds nothing in it.",
+			unsaved: "None of your topics is called “{{name}}”.",
+			remove: "Remove it from this search",
+			delete: "Delete this saved search",
+			without: "Search without it",
 		},
 		tipRows: {
 			phrase: "Quotes find the exact words. or and -word work too.",

@@ -3,13 +3,14 @@ import {
 	canSaveSearch,
 	parseSearchQuery,
 	removeOperator,
+	renameTopicOperator,
 	type SearchKey,
 	textOnly,
 } from "@klipstack/api-contract/search-query"
-import { Bookmark, BookmarkCheck, SearchX } from "lucide-react"
+import { Bookmark, BookmarkCheck, CircleAlert, SearchX } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { Link, useFetcher, useLocation, useRouteLoaderData } from "react-router"
+import { Link, useFetcher, useLocation, useNavigate, useRouteLoaderData } from "react-router"
 import { DocumentList } from "~/components/document-list"
 import { LayoutToggle } from "~/components/layout-toggle"
 import { MoreMenu } from "~/components/more-menu"
@@ -30,7 +31,9 @@ import type { PageBarHandle } from "~/lib/page-bar"
 import { pageTitle } from "~/lib/page-title"
 import { awaitsWords, searchOrigin, searchPath } from "~/lib/search-page"
 import { requireUser } from "~/lib/session.server"
+import { showToast } from "~/lib/toast"
 import { keepsArchived, SEARCH_LIMIT, searchDocuments } from "~/services/search.server"
+import { missingTopics } from "~/services/topics.server"
 import type { Route } from "./+types/search"
 import type { loader as layoutLoader } from "./app-layout"
 
@@ -59,12 +62,15 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 	// As typed: a query that ends with a space awaits its words, and the field takes the keyboard.
 	const q = url.searchParams.get("q") ?? ""
 	const page = Math.max(1, Math.floor(Number(url.searchParams.get("page")) || 1))
-	const result = await searchDocuments({
-		userId: user.id,
-		q,
-		offset: (page - 1) * SEARCH_LIMIT,
-		timeZone: timeZoneFromCookie(request.headers.get("cookie")),
-	})
+	const [result, [missing = []]] = await Promise.all([
+		searchDocuments({
+			userId: user.id,
+			q,
+			offset: (page - 1) * SEARCH_LIMIT,
+			timeZone: timeZoneFromCookie(request.headers.get("cookie")),
+		}),
+		missingTopics(user.id, [q.trim()]),
+	])
 	return {
 		q,
 		items: result.items,
@@ -72,6 +78,8 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 		ignored: result.ignored,
 		trash: result.trash,
 		keepsArchived: keepsArchived(q),
+		/** Topics the query names that the reader no longer has. */
+		missing,
 	}
 }
 
@@ -119,6 +127,9 @@ export default function SearchPage({ loaderData }: Route.ComponentProps) {
 					{cards.length > 0 ? <SelectButton className="md:hidden" /> : null}
 				</div>
 			</PinnedControls>
+			{loaderData.missing.map((name) => (
+				<MissingTopic key={name} q={query} name={name} />
+			))}
 			{ignored.length > 0 ? (
 				<p data-testid="search-ignored" className="mt-3 text-sm text-muted-fg">
 					{t("search.ignored", { tokens: ignored.join(" ") })}{" "}
@@ -194,6 +205,85 @@ export default function SearchPage({ loaderData }: Route.ComponentProps) {
 			) : null}
 			<SelectionBar items={cards} selection={selection} />
 		</main>
+	)
+}
+
+/**
+ * The query names a topic the reader no longer has, so it finds nothing in it. A saved search
+ * offers to drop the topic from it, or to go; any other query, to search without it.
+ */
+function MissingTopic({ q, name }: { q: string; name: string }) {
+	const { t } = useTranslation("library")
+	const { t: tc } = useTranslation()
+	const location = useLocation()
+	const navigate = useNavigate()
+	const layout = useRouteLoaderData<typeof layoutLoader>("routes/app-layout")
+	const fetcher = useFetcher<{ ok: boolean; saved?: SavedSearchItem }>()
+	const saved = layout?.savedSearches.find((s) => s.query === q)
+	const rest = renameTopicOperator(q, name, [])
+	const changed = fetcher.data?.ok ? fetcher.data.saved : undefined
+	useEffect(() => {
+		if (changed) void navigate(searchPath(changed.query), { replace: true, state: location.state })
+	}, [changed, navigate, location.state])
+	const button =
+		"rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-muted disabled:opacity-50"
+	return (
+		<div
+			role="status"
+			data-testid="search-missing-topic"
+			className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-border p-3 text-sm"
+		>
+			<p className="flex min-w-0 flex-1 basis-64 items-start gap-2">
+				<CircleAlert className="mt-0.5 size-4 shrink-0 text-muted-fg" aria-hidden />
+				{t(saved ? "search.missingTopic.saved" : "search.missingTopic.unsaved", { name })}
+			</p>
+			{saved ? (
+				<fetcher.Form method="post" action="/saved-searches" className="flex flex-wrap gap-2">
+					<input type="hidden" name="id" value={saved.id} />
+					<input type="hidden" name="topic" value={name} />
+					{rest ? (
+						<button
+							type="submit"
+							name="intent"
+							value="drop-topic"
+							disabled={fetcher.state !== "idle"}
+							className={button}
+						>
+							{t("search.missingTopic.remove")}
+						</button>
+					) : null}
+					<button
+						type="submit"
+						name="intent"
+						value="delete"
+						disabled={fetcher.state !== "idle"}
+						onClick={() =>
+							showToast({
+								message: tc("savedSearches.deleted", { name: saved.name }),
+								undo: {
+									action: "/saved-searches",
+									intent: "create",
+									label: tc("savedSearches.undo"),
+									fields: { name: saved.name, query: saved.query },
+								},
+							})
+						}
+						className={button}
+					>
+						{t("search.missingTopic.delete")}
+					</button>
+				</fetcher.Form>
+			) : rest ? (
+				<Link
+					to={searchPath(rest)}
+					replace
+					state={location.state}
+					className="text-link hover:underline"
+				>
+					{t("search.missingTopic.without")}
+				</Link>
+			) : null}
+		</div>
 	)
 }
 

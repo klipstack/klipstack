@@ -14,6 +14,8 @@ export interface SavedSearchItem {
 	id: string
 	name: string
 	query: string
+	/** Topics it names that the reader no longer has: it finds nothing in them. */
+	endedTopics?: string[]
 }
 
 /** The dialog's text for a refusal (`savedSearches.errors.*`). */

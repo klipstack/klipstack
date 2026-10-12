@@ -2,6 +2,7 @@ import {
 	Archive,
 	ArrowLeft,
 	Bookmark,
+	CircleAlert,
 	Highlighter,
 	House,
 	LibraryBig,
@@ -308,6 +309,17 @@ function SavedSearchRow({
 			>
 				<NavIcon icon={Bookmark} />
 				<span className="truncate">{saved.name}</span>
+				{saved.endedTopics?.length ? (
+					<span
+						role="img"
+						data-testid="saved-search-ended"
+						aria-label={t("savedSearches.topicEnded", { name: saved.endedTopics[0] })}
+						{...tooltip(t("savedSearches.topicEnded", { name: saved.endedTopics[0] }))}
+						className="ml-auto shrink-0 text-muted-fg"
+					>
+						<CircleAlert className="size-3.5" aria-hidden />
+					</span>
+				) : null}
 			</Link>
 			<MoreMenu
 				ref={menuRef}

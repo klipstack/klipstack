@@ -317,12 +317,16 @@ export function renameTagOperator(q: string, from: string, to: string): string {
 	return out.length > QUERY_MAX ? q : out
 }
 
-/** A topic's name as `topic:` can hold it: cleaned, without the quotes a name may have. */
-const topicKey = (name: string) => cleanTopicName(name.replaceAll('"', ""))?.toLowerCase()
+/**
+ * A topic's name as `topic:` can hold it, to compare: cleaned, lowercased, without the quotes a
+ * name may have. Undefined when it cannot be a name.
+ */
+export const topicKey = (name: string) => cleanTopicName(name.replaceAll('"', ""))?.toLowerCase()
 
 /**
  * The same query with every `topic:` and `-topic:` of one topic pointing at the topics that took
- * its place: renamed, merged into another, or split into several (one token each, which widen).
+ * its place: renamed, merged into another, or split into several (one token each, which widen);
+ * with none, the topic's tokens go.
  * Names match whatever their case and quotes. A token the change made a repeat of another one
  * goes; the rest stays as typed. A result past `QUERY_MAX` leaves the query as it was.
  */

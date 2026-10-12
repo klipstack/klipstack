@@ -1,4 +1,5 @@
 import { TOPIC_RULES } from "@klipstack/ai"
+import { topicKey, topicsNamedIn } from "@klipstack/api-contract/search-query"
 import {
 	and,
 	asc,
@@ -239,6 +240,21 @@ export async function topicNames(userId: string, typed: string, limit: number): 
 		.orderBy(desc(articles), asc(topics.name))
 		.limit(limit)
 	return rows.map((r) => r.name)
+}
+
+/**
+ * For each query, the topics it names (`topic:` or `-topic:`, as written) that are none of the
+ * reader's now: ended, removed, or never one. One read, and none when no query names a topic.
+ */
+export async function missingTopics(userId: string, queries: string[]): Promise<string[][]> {
+	const named = queries.map(topicsNamedIn)
+	if (named.every((names) => names.length === 0)) return named
+	const rows = await db
+		.select({ name: topics.name })
+		.from(topics)
+		.where(and(eq(topics.userId, userId), eq(topics.status, "active")))
+	const live = new Set(rows.map((row) => topicKey(row.name)))
+	return named.map((names) => names.filter((name) => !live.has(topicKey(name))))
 }
 
 /** A topic of the reader's with its articles, most fitting first. Null for none of theirs. */

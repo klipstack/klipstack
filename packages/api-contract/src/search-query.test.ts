@@ -335,6 +335,13 @@ describe("a topic renamed, merged or split in a query", () => {
 		expect(renameTopicOperator(q, "Writing", ["Craft"])).toBe(q)
 	})
 
+	it("drops the topic's tokens when nothing takes its place", () => {
+		expect(renameTopicOperator("topic:Writing is:unread -topic:writing", "Writing", [])).toBe(
+			"is:unread",
+		)
+		expect(renameTopicOperator("topic:Writing", "Writing", [])).toBe("")
+	})
+
 	it("leaves a query past the limit as it was", () => {
 		const q = `${"z".repeat(QUERY_MAX - 8)} topic:a`
 		expect(renameTopicOperator(q, "a", ["bbbbbbbb"])).toBe(q)
