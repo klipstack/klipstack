@@ -133,8 +133,8 @@ enum Klipstack {
     }
   }
 
-  /// The articles the large widget lists after the big card.
-  static let maxMore = 3
+  /// The articles the large widget shows after the big card, side by side.
+  static let maxMore = 2
 
   private struct Page: Decodable {
     var items: [Article]
@@ -349,8 +349,8 @@ enum Keychain {
 }
 
 /// The articles last shown and the first one's picture, in the app group's caches, for when the
-/// server can't be reached. The app deletes them on signing out (src/lib/widget.ts), and so does the
-/// widget when it finds no session.
+/// server can't be reached. The app deletes them on signing out (src/lib/widget.ts), and so does
+/// the widget when it finds no session.
 enum Cache {
   private static var dir: URL? {
     FileManager.default

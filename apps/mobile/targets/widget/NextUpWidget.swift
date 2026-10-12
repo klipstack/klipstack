@@ -2,7 +2,7 @@ import SwiftUI
 import WidgetKit
 
 /// The home screen's "Next up": one article to read, as Home's big card picks it, and in the large
-/// size a few more after it, as Home's shelves. No counts and no nudges; a tap opens the article in
+/// size two more after it, as Home's shelves. No counts and no nudges; a tap opens the article in
 /// the reader. The app reloads it on its way to the background
 /// and on signing in or out, the share extension after a save (`kind` is the name they use).
 @main
@@ -68,10 +68,6 @@ extension Article {
     Article(
       id: "", title: "A Field Guide to Slow Software", url: "https://example.com",
       site: "Increment", readingMinutes: 9, progress: 0, status: "ready", savedAt: "",
-      leadImage: nil),
-    Article(
-      id: "", title: "The Quiet Return of the Personal Website", url: "https://example.com",
-      site: "The Verge", readingMinutes: 6, progress: 0, status: "ready", savedAt: "",
       leadImage: nil),
   ]
 }
@@ -146,10 +142,12 @@ private func meta(_ article: Article) -> String {
 
 struct SmallArticle: View {
   let article: Article
+  /// The words over the title: Home's big card's, unless given.
+  var eyebrow: String?
 
   var body: some View {
     VStack(alignment: .leading, spacing: 6) {
-      Eyebrow(text: label(article))
+      Eyebrow(text: eyebrow ?? label(article))
       Text(article.title ?? article.url)
         .font(.custom("Iowan Old Style", size: 17, relativeTo: .headline).weight(.semibold))
         .foregroundStyle(Palette.foreground)
@@ -202,59 +200,51 @@ struct MediumArticle: View {
   }
 }
 
-/// The medium widget's card, then the articles after it, each opening its own.
+/// The medium widget's card, then two small widgets' cards side by side: the articles after it,
+/// each opening its own.
 struct LargeArticles: View {
   let article: Article
   let image: Data?
   let more: [Article]
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 0) {
+    VStack(alignment: .leading, spacing: 16) {
       MediumArticle(article: article, image: image)
-        .frame(height: 112)
-      Rectangle()
-        .fill(Palette.track)
-        .frame(height: 1)
-        .padding(.vertical, 14)
-      if more.isEmpty {
-        Text("Nothing else waiting. Share an article to Klipstack to read it next.")
+        .frame(height: 138)
+      Rule().frame(height: 1)
+      HStack(alignment: .top, spacing: 16) {
+        tile(more.first)
+        Rule().frame(width: 1)
+        tile(more.dropFirst().first)
+      }
+    }
+  }
+
+  /// An article, or where there is none, the way to add one.
+  @ViewBuilder private func tile(_ article: Article?) -> some View {
+    Group {
+      if let article {
+        let card = SmallArticle(
+          article: article, eyebrow: article.started ? "Continue reading" : "Recently saved")
+        if let url = reader(article) {
+          Link(destination: url) { card }
+        } else {
+          card
+        }
+      } else {
+        Text("Share an article to Klipstack to read it next.")
           .font(.caption)
           .foregroundStyle(Palette.muted)
-          .lineLimit(2)
-      } else {
-        VStack(alignment: .leading, spacing: 12) {
-          Eyebrow(text: "Also on your list")
-          ForEach(Array(more.enumerated()), id: \.offset) { _, item in
-            Row(article: item)
-          }
-        }
       }
-      Spacer(minLength: 0)
     }
+    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
   }
 }
 
-/// One article after the big card: its title and where it's from.
-struct Row: View {
-  let article: Article
-
+/// A thin line between the large widget's cards.
+struct Rule: View {
   var body: some View {
-    let row = VStack(alignment: .leading, spacing: 2) {
-      Text(article.title ?? article.url)
-        .font(.custom("Iowan Old Style", size: 15, relativeTo: .subheadline).weight(.semibold))
-        .foregroundStyle(Palette.foreground)
-        .lineLimit(2)
-      Text(meta(article))
-        .font(.caption)
-        .foregroundStyle(Palette.muted)
-        .lineLimit(1)
-    }
-    .frame(maxWidth: .infinity, alignment: .leading)
-    if let url = reader(article) {
-      Link(destination: url) { row }
-    } else {
-      row
-    }
+    Rectangle().fill(Palette.track)
   }
 }
 
@@ -355,6 +345,7 @@ enum Palette {
   NextUpWidget()
 } timeline: {
   Entry(date: .now, nextUp: .article(.sample, image: nil, more: Article.moreSamples))
+  Entry(date: .now, nextUp: .article(.sample, image: nil, more: [Article.moreSamples[0]]))
   Entry(date: .now, nextUp: .article(.sample, image: nil, more: []))
   Entry(date: .now, nextUp: .nothing)
 }
