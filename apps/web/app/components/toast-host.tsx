@@ -9,11 +9,11 @@ import {
 	releaseToast,
 	restoreFocusFromToast,
 	type Toast,
+	UNDO_FETCHER,
 	useToasts,
 } from "~/lib/toast"
 
 const TYPING = "input, textarea, select, [contenteditable]:not([contenteditable='false'])"
-const UNDO_FETCHER = "toast-undo"
 
 /**
  * Renders toasts from `~/lib/toast` (mounted once, in the root). Undo posts through a fetcher.

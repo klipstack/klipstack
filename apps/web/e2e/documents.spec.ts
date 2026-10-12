@@ -849,7 +849,8 @@ test.describe(() => {
 			const undone = stateSaved(page, "undo-archive")
 			await toast.getByRole("button", { name: "Undo" }).click()
 			await expect.poll(() => held.length).toBe(1)
-			await expect(card).toBeVisible()
+			await expect(card.getByRole("button", { name: "Archive", exact: true })).toBeVisible()
+			await expect(card).toHaveAttribute("data-cursor")
 			await release()
 			await undone
 			await expect.poll(async () => await archivedAt(id)).toBeNull()

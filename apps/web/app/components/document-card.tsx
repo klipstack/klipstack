@@ -23,7 +23,7 @@ import { useCommands } from "~/lib/commands"
 import { copyLink } from "~/lib/copy-link"
 import { type ArticleShortcut, articleShortcut, SELECT_HINT, SHORTCUT_HINTS } from "~/lib/shortcuts"
 import { safeHost, siteLabel } from "~/lib/site-label"
-import { showToast } from "~/lib/toast"
+import { showToast, UNDO_FETCHER } from "~/lib/toast"
 import { cn } from "~/lib/utils"
 import type { LibraryCard } from "~/services/documents.server"
 import { ArticleImage } from "./article-image"
@@ -72,7 +72,14 @@ export function DocumentCard({
 	const from = location.pathname + location.search
 	const pending = doc.status === "queued" || doc.status === "processing"
 	const failed = doc.status === "failed"
-	const optimisticIntent = fetcher.formData?.get("intent") ?? pendingIntent
+	// The toast's Undo of an archive or unarchive of this card, on its way: it comes after the card's
+	// own change, so it wins.
+	const undo = useFetcher({ key: UNDO_FETCHER })
+	const undoIntent = undo.formAction?.split("?")[0] === action ? undo.formData?.get("intent") : null
+	const optimisticIntent =
+		(undoIntent === "undo-archive" || undoIntent === "archive" ? undoIntent : null) ??
+		fetcher.formData?.get("intent") ??
+		pendingIntent
 	const starred =
 		optimisticIntent === "star"
 			? true
@@ -89,7 +96,7 @@ export function DocumentCard({
 	const archived =
 		optimisticIntent === "archive" || optimisticIntent === "finish"
 			? true
-			: optimisticIntent === "unarchive"
+			: optimisticIntent === "unarchive" || optimisticIntent === "undo-archive"
 				? false
 				: Boolean(doc.archivedAt)
 	const hidden =
