@@ -188,6 +188,7 @@ export default {
 			saves: "Guardados este mes",
 			feeds: "Feeds que sigue",
 			ai: "Preguntas a la IA este mes",
+			topicCost: "Costo de los temas este mes",
 		},
 		refused: "Límites alcanzados",
 		storage: "Almacenamiento",
@@ -197,13 +198,26 @@ export default {
 		ai: "Preguntas a la IA",
 		aiCost: "Costo de IA",
 		aiCostUnder: "< {{amount}}",
-		aiCostTotal: "IA este mes, todas las cuentas: {{amount}}",
+		aiCostTotal: "Preguntas a la IA este mes, todas las cuentas: {{amount}}",
+		topicCost: "Costo de temas",
+		topicCostTotal: "Temas este mes, todas las cuentas: {{amount}}",
 		editionsThisMonth: "Ediciones este mes",
 		aiThisMonth: "Preguntas a la IA este mes",
 		empty: "Aún no hay cuentas.",
 		month: "Guardados, ediciones, preguntas a la IA y límites alcanzados son de {{month}}, en UTC.",
 		aiCostNote:
 			"El costo de IA es una estimación en dólares estadounidenses (USD), a partir de los tokens de cada respuesta terminada. La factura está en la consola de Anthropic.",
+		topicCostNote:
+			"El costo de temas es la misma estimación para los temas: Haiku proponiéndolos, haciéndolos crecer y revisándolos, y Jev clasificando artículos (la factura de TypeSafe). Se cuenta aparte desde octubre de 2026; antes, iba en el costo de IA.",
+		topics: {
+			title: "Temas este mes",
+			description:
+				"Las {{count}} cuentas de arriba que usaron temas este mes, de la que más costó a la que menos.",
+			sorts: "Artículos clasificados",
+			work: "Trabajo de Haiku",
+			cost: "Costo",
+			empty: "Ninguna cuenta usó temas este mes.",
+		},
 	},
 	users: {
 		title: "Cuentas",
