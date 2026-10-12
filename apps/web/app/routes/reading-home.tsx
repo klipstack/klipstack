@@ -233,7 +233,7 @@ export default function ReadingHome({
 						<SectionHeading
 							id="home-reading"
 							title={t("continueReading.title")}
-							to="/library?show=progress"
+							to={`/library${listSearch("progress", "recent", chosen?.id)}`}
 						/>
 						<HomeArticle doc={featured} featured topic={labels[featured.id]} />
 						{timed && !fitsIn(featured, minutes) ? (
@@ -254,7 +254,11 @@ export default function ReadingHome({
 				) : null}
 				{recent.length ? (
 					<section aria-labelledby="home-recent">
-						<SectionHeading id="home-recent" title={t("home.recent")} to="/library?show=unread" />
+						<SectionHeading
+							id="home-recent"
+							title={t("home.recent")}
+							to={`/library${listSearch("unread", "newest", chosen?.id)}`}
+						/>
 						{lead ? <HomeArticle doc={lead} featured topic={labels[lead.id]} /> : null}
 						{moreRecent.length ? (
 							<ul
@@ -274,7 +278,7 @@ export default function ReadingHome({
 						<SectionHeading
 							id="home-rediscover"
 							title={t("home.rediscover.title")}
-							to={`/library${listSearch("unread", "oldest")}`}
+							to={`/library${listSearch("unread", "oldest", chosen?.id)}`}
 						/>
 						<p className="-mt-2 mb-5 text-sm text-muted-fg">
 							{t("home.rediscover.description", { count: REDISCOVER_AFTER_DAYS })}

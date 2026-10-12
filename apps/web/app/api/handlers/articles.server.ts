@@ -31,7 +31,7 @@ import {
 	listContentLinks,
 } from "~/services/links.server"
 import { searchDocuments } from "~/services/search.server"
-import { readerTopics } from "~/services/topics.server"
+import { readerTopics, topicAsked } from "~/services/topics.server"
 import { articleCursor } from "../cursors.server"
 import { ApiError, notFound, rateLimited } from "../errors.server"
 import type { Handler } from "../handler.server"
@@ -39,7 +39,11 @@ import { articleRef, highlightShape } from "./shapes.server"
 
 export const NO_ARTICLE = "No article with that id in the library."
 
+export const NO_TOPIC = "No topic with that id: see GET /topics. Topics may be off."
+
 export const list: Handler<typeof listArticles> = async ({ userId, query }) => {
+	const topic = query.topic ? await topicAsked(userId, query.topic) : null
+	if (query.topic && !topic) throw notFound(NO_TOPIC)
 	const page = await listDocuments({
 		userId,
 		view: query.view,
@@ -47,6 +51,7 @@ export const list: Handler<typeof listArticles> = async ({ userId, query }) => {
 		sort: query.sort,
 		limit: query.limit,
 		cursor: articleCursor(query.cursor),
+		topic,
 	})
 	return { items: page.items.map(articleSummary), nextCursor: page.nextCursor }
 }

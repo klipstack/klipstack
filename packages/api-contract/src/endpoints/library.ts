@@ -1,7 +1,7 @@
 import { z } from "zod"
 import { binary, defineEndpoint, json } from "../endpoint"
 import { HIGHLIGHT_FILTERS } from "../enums"
-import { FeedPage, FollowedFeed, Highlight, Id, page, SavedSearch, Tag } from "../schemas"
+import { FeedPage, FollowedFeed, Highlight, Id, page, SavedSearch, Tag, Topic } from "../schemas"
 
 export const getAsset = defineEndpoint({
 	id: "assets.get",
@@ -70,6 +70,17 @@ export const listTags = defineEndpoint({
 	summary:
 		"Every tag, by name, with how many articles have it. Search with tag:<name> for the articles; PATCH /articles puts tags on articles and takes them off.",
 	response: json(z.object({ items: z.array(Tag) })),
+	errors: [],
+})
+
+export const listTopics = defineEndpoint({
+	id: "topics.list",
+	method: "GET",
+	path: "/topics",
+	scope: "read",
+	summary:
+		"The user's automatic topics, which the app keeps up to date, most articles first: empty while topics are off. Search with topic:<name> (repeated, any of them), or list one with GET /articles?topic=<id>.",
+	response: json(z.object({ items: z.array(Topic) })),
 	errors: [],
 })
 

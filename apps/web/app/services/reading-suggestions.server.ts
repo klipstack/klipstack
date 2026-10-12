@@ -2,9 +2,7 @@ import {
 	and,
 	db,
 	documents,
-	documentTopics,
 	eq,
-	exists,
 	isNotNull,
 	isNull,
 	lt,
@@ -23,6 +21,7 @@ import {
 	type LibraryCard,
 	libraryCardColumns,
 } from "./documents.server"
+import { inTopic } from "./topic-scope.server"
 
 type TimeChoice = (typeof TIME_CHOICES)[number]
 
@@ -49,23 +48,6 @@ function suggestable(userId: string) {
 		isNull(documents.deletedAt),
 		isNull(documents.archivedAt),
 		eq(documents.status, "ready"),
-	)
-}
-
-/** In a topic: listed under it, and not taken out of it by the reader. */
-function inTopic(topicId: string) {
-	return exists(
-		db
-			.select({ one: sql`1` })
-			.from(documentTopics)
-			.where(
-				and(
-					eq(documentTopics.documentId, documents.id),
-					eq(documentTopics.topicId, topicId),
-					eq(documentTopics.level, "applied"),
-					isNull(documentTopics.refusedAt),
-				),
-			),
 	)
 }
 

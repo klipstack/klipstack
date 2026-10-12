@@ -30,6 +30,7 @@ import {
 	listHighlights,
 	listSavedSearches,
 	listTags,
+	listTopics,
 } from "./endpoints/library"
 import { getOpenApi } from "./endpoints/meta"
 import {
@@ -102,6 +103,7 @@ export const endpoints = {
 	"tags.create": createTag,
 	"tags.rename": renameTag,
 	"tags.delete": deleteTag,
+	"topics.list": listTopics,
 	"savedSearches.list": listSavedSearches,
 	"savedSearches.create": createSavedSearch,
 	"savedSearches.rename": renameSavedSearch,

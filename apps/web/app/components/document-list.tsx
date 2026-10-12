@@ -19,6 +19,7 @@ export function DocumentList({
 	selection,
 	cardMenu,
 	keepsArchived = false,
+	topics,
 	className,
 }: {
 	items: LibraryCard[]
@@ -32,6 +33,8 @@ export function DocumentList({
 	cardMenu?: (doc: LibraryCard) => React.ReactNode
 	/** The list shows archived and unarchived articles alike: archiving one does not take it out. */
 	keepsArchived?: boolean
+	/** The topic each card is in, by id, shown beside its source. */
+	topics?: Record<string, string>
 	className?: string
 }) {
 	const { t, i18n } = useTranslation("library")
@@ -70,6 +73,7 @@ export function DocumentList({
 								typeof bulkIntent === "string" && bulkIds.has(doc.id) ? bulkIntent : null
 							}
 							menuItems={cardMenu?.(doc)}
+							topic={topics?.[doc.id]}
 						/>
 					</Fragment>
 				)

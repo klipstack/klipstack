@@ -328,6 +328,10 @@ export default {
 		takenOut: "Taken out of {{name}}. It won't be put back.",
 		turnOff: "Turn off topics",
 		turnOffConfirm: "Tap again: this deletes your topics",
+		turnOffSaved_one:
+			"{{count}} saved search names topics and will find nothing in them: {{names}}.",
+		turnOffSaved_other:
+			"{{count}} saved searches name topics and will find nothing in them: {{names}}.",
 		turnedOff: "Topics are off, and deleted.",
 		back: "Topics",
 		topicEmpty: "No articles in this topic right now.",
@@ -412,12 +416,21 @@ export default {
 			highlights: "Highlights",
 			note: "Note",
 		},
+		missingTopic: {
+			saved: "The topic “{{name}}” ended. This saved search finds nothing in it.",
+			unsaved: "None of your topics is called “{{name}}”.",
+			remove: "Remove it from this search",
+			delete: "Delete this saved search",
+			without: "Search without it",
+		},
 		tipRows: {
 			phrase: "Quotes find the exact words. or and -word work too.",
 			in: "Where it is: library, archive, trash or anywhere. Without it, the library and the archive.",
 			is: "starred, shortlisted (for your next edition), unread, reading, finished, quick, long or failed.",
 			has: "highlights, note or tags.",
 			tag: "The whole name of a tag. Quote a name that has spaces.",
+			topic:
+				"In none of your topics. topic: takes the whole name of one, and repeated, finds any of them; has:topic is in one.",
 			site: "Part of the site's name or address.",
 			author: "Part of the author's name. Quote a value that has spaces.",
 			title: "Text that must be in the title.",
@@ -463,6 +476,19 @@ export default {
 	},
 	trash: { banner: "Articles in the trash are deleted permanently after {{days}} days." },
 	layout: { grid: "Grid view", list: "List view" },
+	topicFilter: {
+		label: "Topic",
+		choose: "Choose a topic",
+		chosen: "Topic: {{topic}}",
+		clear: "Show every topic",
+		none: "No topic",
+		noneDescription: "Articles sorted into none of your topics. New topics grow from these.",
+		sorting_one: "{{count}} more is still being sorted.",
+		sorting_other: "{{count}} more are still being sorted.",
+		search: "Search this topic",
+		page: "Everything in {{topic}}",
+		gone: "That topic ended, so this shows every topic.",
+	},
 	filters: {
 		label: "Show",
 		all: "All",

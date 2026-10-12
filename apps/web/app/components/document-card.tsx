@@ -49,6 +49,7 @@ export function DocumentCard({
 	pendingIntent = null,
 	menuItems,
 	keepsArchived = false,
+	topic,
 }: {
 	doc: LibraryCard
 	cursor?: boolean
@@ -62,6 +63,8 @@ export function DocumentCard({
 	/** What the list the card is in adds to its menu, before Delete: a topic's "Take out". */
 	menuItems?: React.ReactNode
 	keepsArchived?: boolean
+	/** The topic it is in, beside its source, as Home's cards show it. */
+	topic?: string
 }) {
 	const { t } = useTranslation("library")
 	const { t: tc } = useTranslation()
@@ -391,6 +394,12 @@ export function DocumentCard({
 					<span className="truncate">
 						{[siteLabel(doc.siteName, host), doc.author].filter(Boolean).join(" · ")}
 					</span>
+					{/* Its own span: a long source is cut, the topic stays. */}
+					{topic ? (
+						<span data-testid="card-topic" className="max-w-1/2 shrink-0 truncate">
+							{`· ${topic}`}
+						</span>
+					) : null}
 					{doc.readingMinutes ? (
 						// Always readable: the site and the author give way first.
 						<span className="shrink-0">

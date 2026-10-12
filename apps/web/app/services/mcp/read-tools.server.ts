@@ -27,6 +27,7 @@ import { listNoteLinks } from "../links.server"
 import { listSavedSearches } from "../saved-searches.server"
 import { searchDocuments } from "../search.server"
 import { listTags } from "../tags.server"
+import { topicAsked, topicList } from "../topics.server"
 import { uuid } from "./ids"
 import { imagesMarkdown } from "./images"
 import { viewImages } from "./images.server"
@@ -81,7 +82,7 @@ function validModificationRange(value: { updated_since?: string; updated_before?
 }
 
 /** The query language of `@klipstack/api-contract/search-query`, for the assistant. */
-const SEARCH_OPERATORS = `The query also takes operators, which filter and may stand alone: in:${SEARCH_LOCATIONS.join("|")} (default: library and archive), is:${SEARCH_IS.join("|")}, has:${SEARCH_HAS.join("|")}, site:, author:, title: (substrings; quote values with spaces), tag: (the whole name of one of the user's tags, from list_tags; repeat it to narrow; quote a name with spaces), via:${CAPTURE_SOURCES.join("|")}, saved: and published: (2026, 2026-08, 2026-08-15, >=2026-08, 2026-01..2026-03, or 7d, 2w, 3m, 1y for the last days, weeks, months, years; days count in UTC), before: and after: (a saved date), sort:${SEARCH_SORTS.join("|")}. A dash negates all but dates and sort (-is:finished). Operators that were not understood come back in "ignored" and filtered nothing: correct them and search again.`
+const SEARCH_OPERATORS = `The query also takes operators, which filter and may stand alone: in:${SEARCH_LOCATIONS.join("|")} (default: library and archive), is:${SEARCH_IS.join("|")}, has:${SEARCH_HAS.join("|")}, site:, author:, title: (substrings; quote values with spaces), tag: (the whole name of one of the user's tags, from list_tags; repeat it to narrow; quote a name with spaces), topic: (the whole name of one of the user's automatic topics; repeat it to widen to any of them; quote a name with spaces; has:topic is any topic, -has:topic none), via:${CAPTURE_SOURCES.join("|")}, saved: and published: (2026, 2026-08, 2026-08-15, >=2026-08, 2026-01..2026-03, or 7d, 2w, 3m, 1y for the last days, weeks, months, years; days count in UTC), before: and after: (a saved date), sort:${SEARCH_SORTS.join("|")}. A dash negates all but dates and sort (-is:finished). Operators that were not understood come back in "ignored" and filtered nothing: correct them and search again.`
 
 /** Tools that only read the library (scope library:read). */
 export function registerReadTools(server: McpServer, userId: string) {
@@ -135,6 +136,18 @@ export function registerReadTools(server: McpServer, userId: string) {
 	)
 
 	server.registerTool(
+		"list_topics",
+		{
+			title: "List topics",
+			description:
+				"The user's automatic topics: shelves the app sorts their articles into, and keeps up to date (renamed, merged or split as the library grows), most articles first, each with its id, name, description and article count. Empty while the user has topics off. For a topic's articles, list_library with topic (its id, or none for the articles sorted into no topic), or search_library with topic:<name>. Unlike tags, the user does not put topics on articles.",
+			inputSchema: z.object({}),
+			annotations: READ_ONLY,
+		},
+		async () => json({ items: await topicList(userId) }),
+	)
+
+	server.registerTool(
 		"list_saved_searches",
 		{
 			title: "List saved searches",
@@ -158,6 +171,12 @@ export function registerReadTools(server: McpServer, userId: string) {
 				.object({
 					view: z.enum(["inbox", "archive", "starred"]).default("inbox"),
 					filter: z.enum([...new Set([...INBOX_FILTERS, ...ARCHIVE_FILTERS])]).optional(),
+					topic: z
+						.union([uuid(), z.literal("none")])
+						.optional()
+						.describe(
+							"A topic's id from list_topics: only its articles. none: the articles sorted into no topic.",
+						),
 					has_note_links: z
 						.boolean()
 						.optional()
@@ -176,9 +195,12 @@ export function registerReadTools(server: McpServer, userId: string) {
 				}),
 			annotations: READ_ONLY,
 		},
-		async ({ view, filter, has_note_links, sort, limit, cursor }) => {
+		async ({ view, filter, topic: asked, has_note_links, sort, limit, cursor }) => {
 			const decoded = decodeCursor(cursor)
 			if (cursor && !decoded) return toolError("Invalid cursor. Use nextCursor from list_library.")
+			const topic = asked ? await topicAsked(userId, asked) : null
+			if (asked && !topic)
+				return toolError("No topic with that id. Use an id from list_topics; topics may be off.")
 			const page = await listDocuments({
 				userId,
 				view,
@@ -187,6 +209,7 @@ export function registerReadTools(server: McpServer, userId: string) {
 				limit,
 				hasNoteLinks: has_note_links,
 				cursor: decoded,
+				topic,
 			})
 			return json({ items: page.items.map(articleSummary), nextCursor: page.nextCursor })
 		},

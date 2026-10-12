@@ -1,8 +1,9 @@
 import { TOPIC_NAME_MAX } from "@klipstack/api-contract/names"
+import { topicsNamedIn } from "@klipstack/api-contract/search-query"
 import { Shapes } from "lucide-react"
 import { useEffect, useEffectEvent, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { Link, redirect, useFetcher, useRevalidator } from "react-router"
+import { Link, redirect, useFetcher, useRevalidator, useRouteLoaderData } from "react-router"
 import {
 	confirmTopics,
 	disableTopics,
@@ -41,6 +42,7 @@ import {
 	topicsState,
 } from "~/services/topics.server"
 import type { Route } from "./+types/topics"
+import type { loader as layoutLoader } from "./app-layout"
 
 export function meta({ matches }: Route.MetaArgs) {
 	return [{ title: pageTitle(matches, "common:nav.topics") }]
@@ -447,15 +449,20 @@ function MoreBooks({
 
 /** Turning topics off deletes them: a second tap, as removing a topic. */
 function TurnOff() {
-	const { t } = useTranslation("library")
+	const { t, i18n } = useTranslation("library")
 	const fetcher = useFetcher<typeof action>()
 	useTopicRefusals(fetcher.data)
 	const [armed, setArmed] = useState(false)
+	// Saved searches that name topics would find nothing in them: the second tap says which.
+	const layout = useRouteLoaderData<typeof layoutLoader>("routes/app-layout")
+	const naming = (layout?.savedSearches ?? [])
+		.filter((s) => topicsNamedIn(s.query).length > 0)
+		.map((s) => s.name)
 	useEffect(() => {
 		if (!armed) return
-		const id = window.setTimeout(() => setArmed(false), 4000)
+		const id = window.setTimeout(() => setArmed(false), naming.length ? 10000 : 4000)
 		return () => window.clearTimeout(id)
-	}, [armed])
+	}, [armed, naming.length])
 	const onAnswer = useEffectEvent((result: typeof fetcher.data) => {
 		if (result?.ok && "disabled" in result) showToast({ message: t("topics.turnedOff") })
 	})
@@ -475,6 +482,14 @@ function TurnOff() {
 			<Button type="submit" variant={armed ? "danger" : "secondary"} size="sm">
 				{armed ? t("topics.turnOffConfirm") : t("topics.turnOff")}
 			</Button>
+			{armed && naming.length ? (
+				<p data-testid="topics-off-saved" role="status" className="mt-2 text-sm text-muted-fg">
+					{t("topics.turnOffSaved", {
+						count: naming.length,
+						names: new Intl.ListFormat(i18n.language, { type: "conjunction" }).format(naming),
+					})}
+				</p>
+			) : null}
 		</fetcher.Form>
 	)
 }

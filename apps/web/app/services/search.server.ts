@@ -41,6 +41,8 @@ import {
 	SORT_KEY,
 } from "./documents.server"
 import { articleHasTag, tagArticleCount } from "./tags.server"
+import { articleInTopic } from "./topic-scope.server"
+import { topicNames } from "./topics.server"
 
 export const SEARCH_LIMIT = 30
 /** Matches in the trash shown under the results. */
@@ -192,7 +194,7 @@ export async function quickFind({
 const urlHost = sql`substring(${documents.sourceUrl} from '^[a-zA-Z]+://([^/:?#]+)')`
 
 /**
- * What the search field offers after `site:`, `author:` or `tag:`: the library's own values that
+ * What the search field offers after `site:`, `author:`, `tag:` or `topic:`: the library's own values that
  * contain what is typed, most articles first. A site is its address without "www.": no spaces, and just
  * what `site:` will match.
  */
@@ -203,11 +205,12 @@ export async function operatorValues({
 	limit = 8,
 }: {
 	userId: string
-	key: "site" | "author" | "tag"
+	key: "site" | "author" | "tag" | "topic"
 	q: string
 	limit?: number
 }): Promise<string[]> {
 	const typed = q.replaceAll("\u0000", "").trim().slice(0, QUERY_MAX)
+	if (key === "topic") return topicNames(userId, typed, limit)
 	if (key === "tag") {
 		// A tag with no articles is still a tag; it comes last.
 		const rows = await db
@@ -260,6 +263,7 @@ function filterWhere(filter: Filter, zone: string): SQL {
 			return IS_WHERE[filter.value]
 		case "has":
 			if (filter.value === "tags") return articleHasTag()
+			if (filter.value === "topic") return articleInTopic()
 			return filter.value === "note"
 				? (and(isNotNull(documents.note), ne(documents.note, "")) as SQL)
 				: exists(
@@ -279,6 +283,8 @@ function filterWhere(filter: Filter, zone: string): SQL {
 			return contains(sql`${documents.title}`, filter.value)
 		case "tag":
 			return articleHasTag(filter.value)
+		case "topic":
+			return articleInTopic(filter.value)
 		case "via":
 			return eq(documents.captureSource, filter.value)
 		case "saved":
@@ -294,8 +300,11 @@ function filterWhere(filter: Filter, zone: string): SQL {
 	}
 }
 
-/** An article is in one place, from one site, by one author: repeats of these widen the search. */
-const OR_KEYS: ReadonlySet<Filter["key"]> = new Set(["in", "site", "author", "via"])
+/**
+ * An article is in one place, from one site, by one author, and in a topic or two: repeats of these
+ * widen the search.
+ */
+const OR_KEYS: ReadonlySet<Filter["key"]> = new Set(["in", "site", "author", "via", "topic"])
 
 /**
  * The query's filters as conditions. Without an `in:`, the inbox and the archive. `inTrash` looks

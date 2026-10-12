@@ -50,6 +50,7 @@ export function MoreMenu({
 	label,
 	tooltipSide,
 	side,
+	align,
 	icon,
 	className,
 	children,
@@ -60,6 +61,8 @@ export function MoreMenu({
 	tooltipSide?: "right"
 	/** Opens beside the button instead of under it: a flyout from the collapsed sidebar. */
 	side?: "right"
+	/** Under the button from its left edge, as long as it fits: a menu at the start of a row. */
+	align?: "start"
 	/** Replaces the "…" icon. */
 	icon?: React.ReactNode
 	className?: string
@@ -114,13 +117,15 @@ export function MoreMenu({
 			setPosition(
 				side === "right"
 					? { top: rect.top, left: rect.right + SIDE_GAP }
-					: { top: rect.bottom + 4, right: window.innerWidth - rect.right },
+					: align === "start"
+						? { top: rect.bottom + 4, left: rect.left }
+						: { top: rect.bottom + 4, right: window.innerWidth - rect.right },
 			)
 		}
 		place()
 		window.addEventListener("resize", place)
 		return () => window.removeEventListener("resize", place)
-	}, [open, point, side])
+	}, [open, point, side, align])
 
 	// Keep the menu inside the window once its size is known: clamped at a point, above its button
 	// when there is no room below (a row at the bottom of the screen), and against the button's left
@@ -149,17 +154,18 @@ export function MoreMenu({
 		const below = rect.bottom + 4
 		const above = rect.top - height - 4
 		const top = below + height > window.innerHeight - 8 && above >= 8 ? above : below
-		const next: Position =
-			rect.right - width < 8
-				? { top, left: rect.left }
-				: { top, right: window.innerWidth - rect.right }
+		const fromLeft =
+			align === "start" ? rect.left + width <= window.innerWidth - 8 : rect.right - width < 8
+		const next: Position = fromLeft
+			? { top, left: rect.left }
+			: { top, right: window.innerWidth - rect.right }
 		const same =
 			next.top === position.top &&
 			("left" in next
 				? "left" in position && next.left === position.left
 				: "right" in position && next.right === position.right)
 		if (!same) setPosition(next)
-	}, [point, position, portalTarget, side])
+	}, [point, position, portalTarget, side, align])
 
 	// Opened, the focus moves into the menu: keyboard and screen reader users land on its items.
 	const shown = open && position !== null && portalTarget !== null

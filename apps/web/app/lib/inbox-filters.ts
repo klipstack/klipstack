@@ -61,16 +61,29 @@ export function parseSort(value: string | null, filter: ListFilter | null = null
 		: defaultSort(filter)
 }
 
-/** Query string for a filter and sort; defaults are left out. */
-export function listSearch(filter: ListFilter | null, sort: ListSort): string {
+/**
+ * Query string for a topic (an id, or `none`), a filter and a sort; defaults are left out. The
+ * topic is checked by the server: one that is not the reader's shows every topic.
+ */
+export function listSearch(
+	filter: ListFilter | null,
+	sort: ListSort,
+	topic: string | null = null,
+): string {
 	const params = new URLSearchParams()
+	if (topic) params.set("topic", topic)
 	if (filter) params.set("show", filter)
 	if (sort !== defaultSort(filter)) params.set("sort", sort)
 	const s = params.toString()
 	return s ? `?${s}` : ""
 }
 
-/** Follow the new filter's default, but keep an explicit alternative order. */
-export function filterSearch(from: ListFilter | null, to: ListFilter | null, sort: ListSort) {
-	return listSearch(to, sort === defaultSort(from) ? defaultSort(to) : sort)
+/** Follow the new filter's default, but keep an explicit alternative order, and the topic. */
+export function filterSearch(
+	from: ListFilter | null,
+	to: ListFilter | null,
+	sort: ListSort,
+	topic: string | null = null,
+) {
+	return listSearch(to, sort === defaultSort(from) ? defaultSort(to) : sort, topic)
 }

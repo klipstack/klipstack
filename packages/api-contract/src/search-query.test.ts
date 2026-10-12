@@ -3,12 +3,15 @@ import {
 	addOperator,
 	canSaveSearch,
 	defaultSavedSearchName,
+	findsEverything,
 	OPERATORS_MAX,
 	parseSearchQuery,
 	QUERY_MAX,
 	removeOperator,
 	renameTagOperator,
+	renameTopicOperator,
 	textOnly,
+	topicsNamedIn,
 } from "./search-query"
 
 const filters = (q: string) => parseSearchQuery(q).filters
@@ -72,6 +75,25 @@ describe("parseSearchQuery", () => {
 		)
 		expect(removeOperator('rust tag:"machine learning" tag:web', "tag", "Machine Learning")).toBe(
 			"rust tag:web",
+		)
+	})
+
+	it("reads topics as whole names, cleaned the way names are", () => {
+		expect(
+			filters('topic:Writing -topic:"Personal  Growth" TOPIC:ai has:topic -has:topic'),
+		).toEqual([
+			{ key: "topic", value: "Writing", negated: false },
+			{ key: "topic", value: "Personal Growth", negated: true },
+			{ key: "topic", value: "ai", negated: false },
+			{ key: "has", value: "topic", negated: false },
+			{ key: "has", value: "topic", negated: true },
+		])
+		// No topic can have that name: reported, not searched as text.
+		const bad = parseSearchQuery(`topic:${"x".repeat(61)} rust`)
+		expect(bad.filters).toEqual([])
+		expect(bad.ignored).toEqual([`topic:${"x".repeat(61)}`])
+		expect(addOperator("is:unread", "topic", "Personal Growth")).toBe(
+			'is:unread topic:"Personal Growth"',
 		)
 	})
 
@@ -277,6 +299,75 @@ describe("a tag renamed in a query", () => {
 	})
 })
 
+describe("a topic renamed, merged or split in a query", () => {
+	it("points topic: and -topic: at the new name, quoting it when it has a space", () => {
+		expect(renameTopicOperator("is:unread topic:Writing site:x", "Writing", ["Craft"])).toBe(
+			"is:unread topic:Craft site:x",
+		)
+		expect(renameTopicOperator('-topic:"personal growth" zebra', "Personal Growth", ["Self"])).toBe(
+			"-topic:Self zebra",
+		)
+		expect(renameTopicOperator("topic:ml", "ML", ["Machine Learning"])).toBe(
+			'topic:"Machine Learning"',
+		)
+	})
+
+	it("matches names with quotes without them", () => {
+		expect(renameTopicOperator('topic:"Say No"', 'Say "No"', ['Say "Yes"'])).toBe('topic:"Say Yes"')
+	})
+
+	it("writes one token for each topic a split made, which widen", () => {
+		expect(renameTopicOperator("topic:Writing is:unread", "Writing", ["Craft", "Audience"])).toBe(
+			"topic:Craft topic:Audience is:unread",
+		)
+		expect(renameTopicOperator("-topic:Writing", "Writing", ["Craft", "Audience"])).toBe(
+			"-topic:Craft -topic:Audience",
+		)
+	})
+
+	it("drops the repeats a merge makes, and leaves other tokens alone", () => {
+		expect(renameTopicOperator("topic:Writing topic:Startups", "Writing", ["Startups"])).toBe(
+			"topic:Startups",
+		)
+		expect(renameTopicOperator("topic:Startups topic:Writing x", "Writing", ["Startups"])).toBe(
+			"topic:Startups x",
+		)
+		const q = 'topic:Writer topic:"Writing club" tag:Writing Writing "topic:Writing"'
+		expect(renameTopicOperator(q, "Writing", ["Craft"])).toBe(q)
+	})
+
+	it("drops the topic's tokens when nothing takes its place", () => {
+		expect(renameTopicOperator("topic:Writing is:unread -topic:writing", "Writing", [])).toBe(
+			"is:unread",
+		)
+		expect(renameTopicOperator("topic:Writing", "Writing", [])).toBe("")
+	})
+
+	it("leaves a query past the limit as it was", () => {
+		const q = `${"z".repeat(QUERY_MAX - 8)} topic:a`
+		expect(renameTopicOperator(q, "a", ["bbbbbbbb"])).toBe(q)
+	})
+})
+
+describe("topicsNamedIn", () => {
+	it("lists each topic once, as written, negated or not", () => {
+		expect(topicsNamedIn('topic:Writing -topic:"Personal Growth" topic:writing tag:x')).toEqual([
+			"Writing",
+			"Personal Growth",
+		])
+		expect(topicsNamedIn('Writing "topic:Writing"')).toEqual([])
+	})
+})
+
+describe("findsEverything", () => {
+	it("holds for a query with no words and no filter", () => {
+		expect(findsEverything("")).toBe(true)
+		expect(findsEverything("sort:oldest")).toBe(true)
+		expect(findsEverything("in:archive")).toBe(false)
+		expect(findsEverything("wombat sort:oldest")).toBe(false)
+	})
+})
+
 describe("canSaveSearch", () => {
 	it("refuses a query the search would cut", () => {
 		expect(canSaveSearch("z".repeat(200))).toBe(true)
@@ -289,6 +380,8 @@ describe("defaultSavedSearchName", () => {
 		expect(defaultSavedSearchName("  deep   work ")).toBe("deep work")
 		expect(defaultSavedSearchName('tag:"work advice"')).toBe("work advice")
 		expect(defaultSavedSearchName("-tag:ai")).toBe("-tag:ai")
+		expect(defaultSavedSearchName('topic:"Personal Growth"')).toBe("Personal Growth")
+		expect(defaultSavedSearchName("-topic:Writing")).toBe("-topic:Writing")
 		expect(defaultSavedSearchName("z".repeat(80))).toHaveLength(50)
 	})
 })

@@ -331,6 +331,10 @@ export default {
 		takenOut: "Lo sacaste de {{name}}. No se volverá a añadir.",
 		turnOff: "Desactivar los temas",
 		turnOffConfirm: "Toca otra vez: esto borra tus temas",
+		turnOffSaved_one:
+			"{{count}} búsqueda guardada nombra temas y no encontrará nada en ellos: {{names}}.",
+		turnOffSaved_other:
+			"{{count}} búsquedas guardadas nombran temas y no encontrarán nada en ellos: {{names}}.",
 		turnedOff: "Los temas están desactivados y borrados.",
 		back: "Temas",
 		topicEmpty: "Ahora no hay artículos en este tema.",
@@ -417,12 +421,21 @@ export default {
 			highlights: "Subrayados",
 			note: "Nota",
 		},
+		missingTopic: {
+			saved: "El tema «{{name}}» terminó. Esta búsqueda guardada no encuentra nada en él.",
+			unsaved: "Ninguno de tus temas se llama «{{name}}».",
+			remove: "Quitarlo de esta búsqueda",
+			delete: "Eliminar esta búsqueda guardada",
+			without: "Buscar sin él",
+		},
 		tipRows: {
 			phrase: "Las comillas buscan las palabras exactas. También funcionan or y -palabra.",
 			in: "Dónde está: library, archive, trash o anywhere. Sin él, la biblioteca y el archivo.",
 			is: "starred, shortlisted (para tu próxima edición), unread, reading, finished, quick, long o failed.",
 			has: "highlights, note o tags.",
 			tag: "El nombre completo de una etiqueta. Pon entre comillas un nombre con espacios.",
+			topic:
+				"En ninguno de tus temas. topic: lleva el nombre completo de uno y, repetido, encuentra cualquiera de ellos; has:topic, en alguno.",
 			site: "Parte del nombre o de la dirección del sitio.",
 			author: "Parte del nombre del autor. Pon entre comillas un valor con espacios.",
 			title: "Texto que debe estar en el título.",
@@ -474,6 +487,20 @@ export default {
 		banner: "Los artículos de la papelera se eliminan definitivamente a los {{days}} días.",
 	},
 	layout: { grid: "Vista en cuadrícula", list: "Vista en lista" },
+	topicFilter: {
+		label: "Tema",
+		choose: "Elige un tema",
+		chosen: "Tema: {{topic}}",
+		clear: "Mostrar todos los temas",
+		none: "Sin tema",
+		noneDescription:
+			"Artículos que no están en ninguno de tus temas. De ellos nacen los temas nuevos.",
+		sorting_one: "{{count}} más aún se está ordenando.",
+		sorting_other: "{{count}} más aún se están ordenando.",
+		search: "Buscar en este tema",
+		page: "Todo en {{topic}}",
+		gone: "Ese tema terminó, así que se muestran todos los temas.",
+	},
 	filters: {
 		label: "Mostrar",
 		all: "Todo",

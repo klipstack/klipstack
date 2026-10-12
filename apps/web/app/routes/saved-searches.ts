@@ -2,6 +2,7 @@ import { data } from "react-router"
 import {
 	createSavedSearch,
 	deleteSavedSearch,
+	dropTopicFromSavedSearch,
 	renameSavedSearch,
 } from "~/commands/saved-searches.server"
 import { AppError } from "~/lib/app-error"
@@ -11,9 +12,9 @@ import { answer } from "~/lib/web-action.server"
 import type { Route } from "./+types/saved-searches"
 
 /**
- * POST /saved-searches  intent=create|rename|delete. The search page and the sidebar post here,
- * through the same commands as the API. The sidebar reads its rows from the layout loader, which
- * runs again after this.
+ * POST /saved-searches  intent=create|rename|delete|drop-topic (`topic`, one that ended). The
+ * search page and the sidebar post here, through the same commands as the API. The sidebar reads
+ * its rows from the layout loader, which runs again after this.
  */
 export async function action({ request, context }: Route.ActionArgs) {
 	const user = requireUser(context, request)
@@ -27,6 +28,8 @@ export async function action({ request, context }: Route.ActionArgs) {
 				}
 			case "rename":
 				return { saved: await renameSavedSearch(user.id, field("id"), field("name")) }
+			case "drop-topic":
+				return { saved: await dropTopicFromSavedSearch(user.id, field("id"), field("topic")) }
 			case "delete":
 				await deleteSavedSearch(user.id, field("id"))
 				return { deleted: field("id") }

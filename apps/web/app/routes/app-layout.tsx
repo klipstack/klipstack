@@ -10,7 +10,7 @@ import { requireUser } from "~/lib/session.server"
 import { editionNudge } from "~/services/editions.server"
 import { countNewFeedItems } from "~/services/feeds.server"
 import { listSavedSearches } from "~/services/saved-searches.server"
-import { firstTopicsNotice, hasTopics } from "~/services/topics.server"
+import { firstTopicsNotice, hasTopics, missingTopics } from "~/services/topics.server"
 import type { Route } from "./+types/app-layout"
 
 export async function loader({ context, request }: Route.LoaderArgs) {
@@ -18,7 +18,14 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 	const [feedNew, nudge, savedSearches, features] = await Promise.all([
 		countNewFeedItems(user.id),
 		editionNudge(user.id),
-		listSavedSearches(user.id),
+		listSavedSearches(user.id).then(async (searches) => {
+			// A saved search that names a topic the reader no longer has finds nothing in it.
+			const ended = await missingTopics(
+				user.id,
+				searches.map((s) => s.query),
+			)
+			return searches.map((s, i) => ({ ...s, endedTopics: ended[i] ?? [] }))
+		}),
 		listFeatures(user.id),
 	])
 	// Topics show for an account with the feature, on a server with both providers' keys; and for

@@ -70,6 +70,27 @@ describe("suggest", () => {
 		expect(at("-tag:ru")?.remote).toEqual({ key: "tag", prefix: "ru", negated: true })
 	})
 
+	it("offers topics only to a reader who has them, and asks the library for their names", () => {
+		const withTopics = (q: string) => suggest(q, q.length, TODAY, { topics: true })
+		expect(inserts("to")).toBeNull()
+		expect(at("topic:wr")).toBeNull()
+		expect(withTopics("to")?.items.map((i) => i.insert)).toEqual(["topic:"])
+		expect(withTopics('-topic:"personal g')?.remote).toEqual({
+			key: "topic",
+			prefix: "personal g",
+			negated: true,
+		})
+		expect(withTopics("has:")?.items.map((i) => i.insert)).toEqual([
+			"has:highlights ",
+			"has:note ",
+			"has:tags ",
+			"has:topic ",
+		])
+		expect(
+			valueItems({ key: "topic", prefix: "", negated: false }, ['Say "No"', "Writing"]),
+		).toEqual([{ insert: 'topic:"Say No" ' }, { insert: "topic:Writing " }])
+	})
+
 	it("completes only the token that ends at the caret, and says where it is", () => {
 		const q = "wombat is:un in:archive"
 		expect(suggest(q, 12, TODAY)).toMatchObject({ start: 7, end: 12 })

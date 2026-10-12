@@ -15,7 +15,7 @@ import {
 	type SearchLocation,
 	type SearchSort,
 } from "./enums"
-import { cleanTagName, SAVED_SEARCH_NAME_MAX } from "./names"
+import { cleanTagName, cleanTopicName, SAVED_SEARCH_NAME_MAX } from "./names"
 
 /** Characters of a query that count; the rest is cut before parsing. */
 export const QUERY_MAX = 200
@@ -34,6 +34,7 @@ export const SEARCH_KEYS = [
 	"author",
 	"title",
 	"tag",
+	"topic",
 	"via",
 	"saved",
 	"published",
@@ -70,6 +71,8 @@ export type Filter =
 	| { key: "site" | "author" | "title"; value: string; negated: boolean }
 	/** A whole tag name, cleaned as names are. */
 	| { key: "tag"; value: string; negated: boolean }
+	/** A whole topic name, cleaned as names are. */
+	| { key: "topic"; value: string; negated: boolean }
 	| { key: "via"; value: CaptureSource; negated: boolean }
 	| { key: "saved" | "published"; value: DateRange; negated: false }
 
@@ -176,6 +179,10 @@ function toFilter(key: Exclude<SearchKey, "sort">, value: string, negated: boole
 			return { key, value, negated }
 		case "tag": {
 			const name = cleanTagName(value)
+			return name === null ? null : { key, value: name, negated }
+		}
+		case "topic": {
+			const name = cleanTopicName(value)
 			return name === null ? null : { key, value: name, negated }
 		}
 		case "saved":
@@ -310,6 +317,71 @@ export function renameTagOperator(q: string, from: string, to: string): string {
 	return out.length > QUERY_MAX ? q : out
 }
 
+/**
+ * A topic's name as `topic:` can hold it, to compare: cleaned, lowercased, without the quotes a
+ * name may have. Undefined when it cannot be a name.
+ */
+export const topicKey = (name: string) => cleanTopicName(name.replaceAll('"', ""))?.toLowerCase()
+
+/**
+ * The same query with every `topic:` and `-topic:` of one topic pointing at the topics that took
+ * its place: renamed, merged into another, or split into several (one token each, which widen);
+ * with none, the topic's tokens go.
+ * Names match whatever their case and quotes. A token the change made a repeat of another one
+ * goes; the rest stays as typed. A result past `QUERY_MAX` leaves the query as it was.
+ */
+export function renameTopicOperator(q: string, from: string, to: string[]): string {
+	if (q.length > QUERY_MAX) return q
+	const old = topicKey(from)
+	const targets = new Set(to.map((name) => topicKey(name)))
+	const topicOf = (t: Token) => (t.key === "topic" && t.value ? topicKey(t.value) : undefined)
+	const tokens = parseSearchQuery(q).tokens
+	if (!old || !tokens.some((t) => topicOf(t) === old)) return q
+	// Of the topics that stay: one `topic:` and one `-topic:` of each at most.
+	const kept = new Set<string>()
+	let out = ""
+	let end = 0
+	for (const token of tokens) {
+		const topic = topicOf(token)
+		const dash = token.raw.startsWith("-") ? "-" : ""
+		let text = token.raw
+		if (topic === old) {
+			const fresh = to.filter((name) => !kept.has(`${dash}${topicKey(name)}`))
+			for (const name of fresh) kept.add(`${dash}${topicKey(name)}`)
+			text = fresh.map((name) => `${dash}${operatorText("topic", name)}`).join(" ")
+		} else if (topic !== undefined && targets.has(topic)) {
+			if (kept.has(`${dash}${topic}`)) text = ""
+			kept.add(`${dash}${topic}`)
+		}
+		if (!text) {
+			// A repeat goes with the space before it.
+			end = token.end
+			continue
+		}
+		out += q.slice(end, token.start) + text
+		end = token.end
+	}
+	out = (out + q.slice(end)).trim()
+	return out.length > QUERY_MAX ? q : out
+}
+
+/** The topics a query names in `topic:` or `-topic:`, as written, once each whatever the case. */
+export function topicsNamedIn(q: string): string[] {
+	const names = new Map<string, string>()
+	for (const token of parseSearchQuery(q).tokens)
+		if (token.kind === "operator" && token.key === "topic" && token.value) {
+			const key = topicKey(token.value) ?? token.value
+			if (!names.has(key)) names.set(key, token.value)
+		}
+	return [...names.values()]
+}
+
+/** A query with no words and no filter, a sort at most: it finds the whole library. */
+export function findsEverything(q: string): boolean {
+	const { text, filters } = parseSearchQuery(q)
+	return text.trim() === "" && filters.length === 0
+}
+
 /** Only the words, as typed. */
 export function textOnly(q: string): string {
 	return joined(parseSearchQuery(q).tokens.filter((t) => t.kind === "text"))
@@ -322,11 +394,17 @@ export function canSaveSearch(q: string): boolean {
 	return parseSearchQuery(query).tokens.some((t) => t.kind !== "ignored")
 }
 
-/** The name saving a search starts from (the web's dialog, the app's prompt): the query, or the tag when the query is one `tag:`. */
+/**
+ * The name saving a search starts from (the web's dialog, the app's prompt): the query, or the tag
+ * or topic when the query is one `tag:` or `topic:`.
+ */
 export function defaultSavedSearchName(q: string): string {
 	const { tokens } = parseSearchQuery(q)
 	const only = tokens.length === 1 ? tokens[0] : undefined
-	const tag = only?.kind === "operator" && only.key === "tag" && !only.raw.startsWith("-")
-	const name = tag ? (only?.value ?? "") : q
+	const named =
+		only?.kind === "operator" &&
+		(only.key === "tag" || only.key === "topic") &&
+		!only.raw.startsWith("-")
+	const name = named ? (only?.value ?? "") : q
 	return name.replace(/\s+/g, " ").trim().slice(0, SAVED_SEARCH_NAME_MAX).trim()
 }

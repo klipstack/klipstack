@@ -7,6 +7,7 @@ import type {
 	listHighlights,
 	listSavedSearches as listSavedSearchesEndpoint,
 	listTags as listTagsEndpoint,
+	listTopics as listTopicsEndpoint,
 } from "@klipstack/api-contract"
 import { and, assets, db, eq } from "@klipstack/db"
 import { getStorage } from "@klipstack/storage"
@@ -17,6 +18,7 @@ import { listFeedPage, listFollowedFeeds } from "~/services/feeds.server"
 import { listUserHighlights } from "~/services/highlights.server"
 import { listSavedSearches } from "~/services/saved-searches.server"
 import { listTags } from "~/services/tags.server"
+import { topicList } from "~/services/topics.server"
 import {
 	encodeFeedCursor,
 	encodeHighlightCursor,
@@ -140,6 +142,10 @@ export const exportAll: Handler<typeof exportLibrary> = async ({ userId, query }
 
 export const tags: Handler<typeof listTagsEndpoint> = async ({ userId }) => ({
 	items: await listTags(userId),
+})
+
+export const topics: Handler<typeof listTopicsEndpoint> = async ({ userId }) => ({
+	items: await topicList(userId),
 })
 
 export const savedSearches: Handler<typeof listSavedSearchesEndpoint> = async ({ userId }) => ({

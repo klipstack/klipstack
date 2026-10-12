@@ -30,15 +30,22 @@ export const listArticles = defineEndpoint({
 			filter: z.enum(LIST_FILTERS).optional(),
 			/** Defaults to recent for inbox/progress, newest otherwise. */
 			sort: z.enum(LIST_SORTS).optional(),
+			/** One of the user's topics (GET /topics), or `none`: sorted into no topic. Not in the trash. */
+			topic: z.union([Id, z.literal("none")]).optional(),
 			limit: z.coerce.number().int().min(1).max(100).default(20),
 			cursor: Cursor.optional(),
 		})
 		.refine((q) => !q.filter || filtersFor(q.view).includes(q.filter), {
 			message: `Library filters: ${INBOX_FILTERS.join(", ")}. Archive and starred filters: ${ARCHIVE_FILTERS.join(", ")}. The trash takes none.`,
 			path: ["filter"],
+		})
+		.refine((q) => !q.topic || q.view !== "trash", {
+			message: "The trash has no topics.",
+			path: ["topic"],
 		}),
 	response: json(page(ArticleSummary)),
-	errors: [],
+	/** `not_found`: `topic` is none of the user's topics now. */
+	errors: ["not_found"],
 })
 
 export const searchArticles = defineEndpoint({

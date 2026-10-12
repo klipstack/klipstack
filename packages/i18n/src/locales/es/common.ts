@@ -268,6 +268,7 @@ export default {
 		rename: "Cambiar nombre",
 		more: "Más opciones de «{{name}}»",
 		deleted: "Se eliminó «{{name}}»",
+		topicEnded: "El tema «{{name}}» terminó",
 		undo: "Deshacer",
 		errors: {
 			invalid_name: "Un nombre tiene de 1 a 50 caracteres.",

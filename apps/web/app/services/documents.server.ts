@@ -52,6 +52,7 @@ import { type LibraryView, viewFromPath, viewPath } from "~/lib/library-views"
 import { checkStorage, countMonthly } from "~/lib/limits.server"
 import { cursorFields, isCursorTime, isInt4, isUuid } from "~/lib/page-cursor"
 import { articleHasNoteLinks, syncNoteLinks } from "./links.server"
+import { inNoTopic, inTopic } from "./topic-scope.server"
 
 export type SaveSource = "web" | "extension" | "api" | "feed"
 
@@ -316,7 +317,7 @@ export const ARCHIVE_FILTER_WHERE: Record<ArchiveFilter, SQL> = {
 	x: isX,
 }
 
-function filterWhere(view: LibraryView, filter: ListFilter): SQL | undefined {
+export function filterWhere(view: LibraryView, filter: ListFilter): SQL | undefined {
 	if (view === "inbox") return INBOX_FILTER_WHERE[filter as InboxFilter]
 	if (view === "archive" || view === "starred") return ARCHIVE_FILTER_WHERE[filter as ArchiveFilter]
 	return undefined
@@ -324,6 +325,22 @@ function filterWhere(view: LibraryView, filter: ListFilter): SQL | undefined {
 
 const inInbox = isNull(documents.archivedAt)
 const inArchive = isNotNull(documents.archivedAt)
+
+/** What a list view holds, out of the trash. */
+export function viewWhere(view: FilterableView): SQL {
+	return view === "archive"
+		? inArchive
+		: view === "starred"
+			? isNotNull(documents.starredAt)
+			: inInbox
+}
+
+/** A topic of the reader's (its id), or no topic: what the lists narrow to (`?topic=`). */
+export type TopicScope = string | "none"
+
+export function topicWhere(topic: TopicScope): SQL {
+	return topic === "none" ? inNoTopic : inTopic(topic)
+}
 
 /** Articles without a length (still extracting, failed) go last in both length orders. */
 export const SORT_KEY: Record<ListSort, { key: SQL | null; dir: "asc" | "desc" }> = {
@@ -344,10 +361,13 @@ export async function listDocuments({
 	hasNoteLinks,
 	readyOnly = false,
 	excludeIds = [],
+	topic = null,
 }: {
 	userId: string
 	view: LibraryView
 	filter?: ListFilter | null
+	/** Only the articles in a topic of the reader's (its id), or in none (`"none"`). */
+	topic?: TopicScope | null
 	sort?: ListSort
 	cursor?: Cursor | null
 	limit?: number
@@ -402,6 +422,7 @@ export async function listDocuments({
 				readyOnly ? eq(documents.status, "ready") : undefined,
 				excludeIds.length ? notInArray(documents.id, excludeIds) : undefined,
 				filter ? filterWhere(view, filter) : undefined,
+				topic ? topicWhere(topic) : undefined,
 				hasNoteLinks === undefined
 					? undefined
 					: hasNoteLinks
@@ -422,10 +443,11 @@ export async function listDocuments({
 	return { items, nextCursor }
 }
 
-/** Articles per filter in a list view, for the filter chips. */
+/** Articles per filter in a list view, for the filter chips; in a topic, of the topic's. */
 export async function countFilters(
 	userId: string,
 	view: FilterableView,
+	topic: TopicScope | null = null,
 ): Promise<Partial<Record<ListFilter, number>>> {
 	const filters = filtersFor(view)
 	const [row] = await db
@@ -439,11 +461,8 @@ export async function countFilters(
 			and(
 				eq(documents.userId, userId),
 				isNull(documents.deletedAt),
-				view === "archive"
-					? inArchive
-					: view === "starred"
-						? isNotNull(documents.starredAt)
-						: inInbox,
+				viewWhere(view),
+				topic ? topicWhere(topic) : undefined,
 			),
 		)
 	return Object.fromEntries(filters.map((f) => [f, Number(row?.[f] ?? 0)]))
