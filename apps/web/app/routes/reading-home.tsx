@@ -29,19 +29,51 @@ import { isSearchShortcut } from "~/lib/shortcuts"
 import { cn } from "~/lib/utils"
 import { finishedLately } from "~/services/reading-history.server"
 import { readingHome } from "~/services/reading-home.server"
-import { firstTopicsNotice } from "~/services/topics.server"
+import { firstTopicsNotice, homeTopics, topicLabels } from "~/services/topics.server"
 import type { Route } from "./+types/reading-home"
 
 export async function loader({ context, request }: Route.LoaderArgs) {
 	const user = requireUser(context, request)
 	const t = getInstance(context).getFixedT(null, "library")
 	const timeZone = timeZoneFromCookie(request.headers.get("cookie"))
-	const [home, finished, topicsReady] = await Promise.all([
-		readingHome(user.id),
+	const [topics, finished, topicsReady] = await Promise.all([
+		topicChoice(user.id, new URL(request.url).searchParams.get("topic")),
 		finishedLately(user.id, { timeZone }),
 		firstTopicsReady(user.id),
 	])
-	return { ...home, finished, topicsReady, title: `${t("home.title")} · Klipstack` }
+	const home = await readingHome(user.id, { topicId: topics?.chosen?.id })
+	// Each article's topic, when Home is not already about one.
+	const labels =
+		topics && !topics.chosen
+			? await topicLabels(user.id, [
+					...new Set(
+						[
+							...home.candidates.reading,
+							...home.candidates.recent,
+							...home.candidates.rediscover,
+						].map((d) => d.id),
+					),
+				])
+			: {}
+	return { ...home, finished, topicsReady, topics, labels, title: `${t("home.title")} · Klipstack` }
+}
+
+/**
+ * The reader's topics to choose from, and the one chosen (`?topic=`: a topic's id, or `different`
+ * for the one read from least lately). Null without topics. A topic that is not one of theirs, or
+ * has nothing to read, is no choice: Home shows everything.
+ */
+async function topicChoice(userId: string, param: string | null) {
+	if (!topicModels.available || !(await hasFeature(userId, "topics"))) return null
+	const { topics, different } = await homeTopics(userId)
+	if (!topics.length) return null
+	const id = param === "different" ? different : param
+	const chosen = topics.find((topic) => topic.id === id)
+	return {
+		list: topics.map(({ id, name, toRead }) => ({ id, name, toRead })),
+		different,
+		chosen: chosen ? { ...chosen, different: param === "different" } : null,
+	}
 }
 
 /** The first topics wait for the reader, who has not opened them: Home says so, once. */

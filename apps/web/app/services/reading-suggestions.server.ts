@@ -2,7 +2,9 @@ import {
 	and,
 	db,
 	documents,
+	documentTopics,
 	eq,
+	exists,
 	isNotNull,
 	isNull,
 	lt,
@@ -47,6 +49,23 @@ function suggestable(userId: string) {
 		isNull(documents.deletedAt),
 		isNull(documents.archivedAt),
 		eq(documents.status, "ready"),
+	)
+}
+
+/** In a topic: listed under it, and not taken out of it by the reader. */
+function inTopic(topicId: string) {
+	return exists(
+		db
+			.select({ one: sql`1` })
+			.from(documentTopics)
+			.where(
+				and(
+					eq(documentTopics.documentId, documents.id),
+					eq(documentTopics.topicId, topicId),
+					eq(documentTopics.level, "applied"),
+					isNull(documentTopics.refusedAt),
+				),
+			),
 	)
 }
 
@@ -136,12 +155,17 @@ async function candidates(
 /**
  * The articles in progress (read last first), the unread saves (newest first) and the unread
  * saves from a while ago (the day's pick) Home chooses from, and when "a while ago" starts: with a
- * time chosen, Recently saved keeps to the saves after it. `keep` is for tests, to compare with
+ * time chosen, Recently saved keeps to the saves after it. With `topicId`, only the articles in
+ * that topic (the reader's own: the documents are theirs). `keep` is for tests, to compare with
  * everything.
  */
 export async function homeCandidates(
 	userId: string,
-	{ now = new Date(), keep = KEEP }: { now?: Date; keep?: typeof KEEP } = {},
+	{
+		now = new Date(),
+		keep = KEEP,
+		topicId,
+	}: { now?: Date; keep?: typeof KEEP; topicId?: string } = {},
 ): Promise<{
 	reading: HomeCard[]
 	recent: HomeCard[]
@@ -149,18 +173,24 @@ export async function homeCandidates(
 	recentSince: Date
 }> {
 	const older = rediscover(now)
+	const topic = topicId ? inTopic(topicId) : undefined
 	const [reading, recent, rediscovered] = await Promise.all([
 		candidates(
 			userId,
-			INBOX_FILTER_WHERE.progress,
+			and(INBOX_FILTER_WHERE.progress, topic) as SQL,
 			{
 				key: sql`coalesce(${documents.lastReadAt}, ${documents.firstOpenedAt}, ${documents.createdAt})`,
 				desc: true,
 			},
 			keep.reading,
 		),
-		candidates(userId, unread, { key: sql`${documents.createdAt}`, desc: true }, keep.recent),
-		candidates(userId, older.where, older.order, keep.rediscover),
+		candidates(
+			userId,
+			and(unread, topic) as SQL,
+			{ key: sql`${documents.createdAt}`, desc: true },
+			keep.recent,
+		),
+		candidates(userId, and(older.where, topic) as SQL, older.order, keep.rediscover),
 	])
 	return { reading, recent, rediscover: rediscovered, recentSince: older.savedBefore }
 }

@@ -8,6 +8,7 @@ import {
 	documents,
 	documentTopics,
 	eq,
+	inArray,
 	isNull,
 	ne,
 	not,
@@ -338,4 +339,81 @@ export async function readerTopics(userId: string, documentId: string): Promise<
 		return { topics: applied, shelf: { topic, unread, items } }
 	}
 	return { topics: applied, shelf: null }
+}
+
+/** A topic as Home offers it: what is left to read in it, and when the reader last read from it. */
+export interface HomeTopic {
+	id: string
+	name: string
+	/** Articles in it, in the library, not finished: unread or in progress. */
+	toRead: number
+	lastRead: Date | null
+}
+
+/**
+ * The reader's topics with something to read, most to read first, for Home's topic choice; and the
+ * one to offer as something different: the topic read from least lately, never read first. Only
+ * offered with two topics or more to choose from.
+ */
+export async function homeTopics(
+	userId: string,
+): Promise<{ topics: HomeTopic[]; different: string | null }> {
+	const toRead = sql<number>`count(${documents.id}) filter (where ${documents.archivedAt} is null and not ${finished})::int`
+	const lastRead = sql<Date | null>`greatest(max(${documents.lastReadAt}), max(${documents.readAt}))`
+	const rows = await db
+		.select({ id: topics.id, name: topics.name, toRead, lastRead })
+		.from(topics)
+		.innerJoin(
+			documentTopics,
+			and(
+				eq(documentTopics.topicId, topics.id),
+				eq(documentTopics.level, "applied"),
+				isNull(documentTopics.refusedAt),
+			),
+		)
+		.innerJoin(documents, and(eq(documents.id, documentTopics.documentId), inLibrary(userId)))
+		.where(and(eq(topics.userId, userId), eq(topics.status, "active")))
+		.groupBy(topics.id)
+		.having(sql`${toRead} > 0`)
+		.orderBy(desc(toRead), asc(topics.name))
+	const list = rows.map((row) => ({
+		...row,
+		lastRead: row.lastRead ? new Date(row.lastRead) : null,
+	}))
+	const different =
+		list.length < 2
+			? null
+			: list.toSorted(
+					(a, b) =>
+						(a.lastRead?.getTime() ?? 0) - (b.lastRead?.getTime() ?? 0) ||
+						b.toRead - a.toRead ||
+						a.name.localeCompare(b.name),
+				)[0]!.id
+	return { topics: list, different }
+}
+
+/** For each of the reader's articles given, the name of the topic it fits best, if any. */
+export async function topicLabels(
+	userId: string,
+	documentIds: string[],
+): Promise<Record<string, string>> {
+	if (!documentIds.length) return {}
+	const rows = await db
+		.selectDistinctOn([documentTopics.documentId], {
+			documentId: documentTopics.documentId,
+			name: topics.name,
+		})
+		.from(documentTopics)
+		.innerJoin(topics, eq(topics.id, documentTopics.topicId))
+		.where(
+			and(
+				inArray(documentTopics.documentId, documentIds),
+				eq(topics.userId, userId),
+				eq(topics.status, "active"),
+				eq(documentTopics.level, "applied"),
+				isNull(documentTopics.refusedAt),
+			),
+		)
+		.orderBy(documentTopics.documentId, desc(documentTopics.probability), asc(topics.name))
+	return Object.fromEntries(rows.map((row) => [row.documentId, row.name]))
 }
