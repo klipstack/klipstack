@@ -16,7 +16,7 @@ export interface SuggestionItem {
 }
 
 export interface RemoteValues {
-	key: "site" | "author" | "tag"
+	key: "site" | "author" | "tag" | "topic"
 	prefix: string
 	negated: boolean
 }
@@ -68,8 +68,14 @@ function dateValues(key: SearchKey, today: string): SuggestionItem[] {
 /**
  * Completions for the token that ends at the caret; null when there is nothing to offer. One
  * letter offers nothing (most words start like some key), and neither does a finished value.
+ * `topics`: the reader has topics, so `topic:` and `has:topic` are worth offering.
  */
-export function suggest(q: string, caret: number, today: string): Suggestions | null {
+export function suggest(
+	q: string,
+	caret: number,
+	today: string,
+	{ topics = false }: { topics?: boolean } = {},
+): Suggestions | null {
 	const token = parseSearchQuery(q).tokens.find((t) => t.end === caret)
 	if (!token) return null
 	const dash = token.raw.startsWith("-") ? "-" : ""
@@ -80,21 +86,25 @@ export function suggest(q: string, caret: number, today: string): Suggestions | 
 	if (m[2] === undefined) {
 		if (word.length < 2) return null
 		const items = SEARCH_KEYS.filter(
-			(key) => key.startsWith(word) && !(dash && NOT_NEGATED.has(key)),
+			(key) =>
+				key.startsWith(word) && !(dash && NOT_NEGATED.has(key)) && (topics || key !== "topic"),
 		).map((key) => ({ insert: `${dash}${key}:`, hint: KEY_HINT(key) }))
 		return items.length > 0 ? { ...range, items } : null
 	}
 	const key = SEARCH_KEYS.find((k) => k === word)
-	if (!key || key === "title" || (dash && NOT_NEGATED.has(key))) return null
+	if (!key || key === "title" || (dash && NOT_NEGATED.has(key)) || (key === "topic" && !topics))
+		return null
 	// An open quote is a value still being typed; a closed one is finished.
 	const quoted = m[2].startsWith('"')
 	const typed = quoted ? m[2].slice(1) : m[2]
 	if (typed.includes('"')) return null
-	if (key === "site" || key === "author" || key === "tag")
+	if (key === "site" || key === "author" || key === "tag" || key === "topic")
 		return { ...range, items: [], remote: { key, prefix: typed, negated: dash !== "" } }
 	if (quoted) return null
 	const values =
-		FIXED_VALUES[key]?.map((value): SuggestionItem => ({ insert: value })) ?? dateValues(key, today)
+		FIXED_VALUES[key]
+			?.filter((value) => topics || key !== "has" || value !== "topic")
+			.map((value): SuggestionItem => ({ insert: value })) ?? dateValues(key, today)
 	const prefix = typed.toLowerCase()
 	const items = values
 		.filter((v) => v.insert.startsWith(prefix) && v.insert !== prefix)
@@ -102,7 +112,7 @@ export function suggest(q: string, caret: number, today: string): Suggestions | 
 	return items.length > 0 ? { ...range, items } : null
 }
 
-/** The library's values for `site:`, `author:` or `tag:`, as items. A value with a space is quoted. */
+/** The library's values for `site:`, `author:`, `tag:` or `topic:`, as items. A value with a space is quoted. */
 export function valueItems(remote: RemoteValues, values: string[]): SuggestionItem[] {
 	return values.map((value) => {
 		const clean = value.replaceAll('"', "").trim()

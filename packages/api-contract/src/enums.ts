@@ -53,7 +53,7 @@ export const SEARCH_IS = [
 ] as const
 export type SearchIs = (typeof SEARCH_IS)[number]
 
-export const SEARCH_HAS = ["highlights", "note", "tags"] as const
+export const SEARCH_HAS = ["highlights", "note", "tags", "topic"] as const
 export type SearchHas = (typeof SEARCH_HAS)[number]
 
 export const SEARCH_SORTS = ["relevance", ...SAVED_SORTS] as const

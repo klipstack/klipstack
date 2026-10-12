@@ -12,6 +12,7 @@ import {
 	isNull,
 	ne,
 	not,
+	type SQL,
 	sql,
 	topicLibraries,
 	topicSorts,
@@ -208,6 +209,36 @@ export async function hasTopics(userId: string): Promise<boolean> {
 		.from(topicLibraries)
 		.where(eq(topicLibraries.userId, userId))
 	return !!row
+}
+
+/**
+ * For `has:topic` and `topic:` in the search: the article is in one of its reader's topics (with
+ * that name). A topic name may hold a quote, which `topic:"…"` cannot: names match without them.
+ */
+export function articleInTopic(name?: string): SQL {
+	return sql`exists (select 1 from ${documentTopics} inner join ${topics} on ${topics.id} = ${documentTopics.topicId} where ${documentTopics.documentId} = ${documents.id} and ${topics.userId} = ${documents.userId} and ${topics.status} = 'active' and ${documentTopics.level} = 'applied' and ${documentTopics.refusedAt} is null${name === undefined ? sql`` : sql` and lower(replace(${topics.name}, '"', '')) = lower(${name})`})`
+}
+
+/** The reader's topics whose names contain what is typed, most articles first: for `topic:`. */
+export async function topicNames(userId: string, typed: string, limit: number): Promise<string[]> {
+	const articles = sql<number>`count(${documents.id})`
+	const pattern = `%${typed.replace(/[\\%_]/g, "\\$&")}%`
+	const rows = await db
+		.select({ name: topics.name })
+		.from(topics)
+		.leftJoin(documentTopics, applied)
+		.leftJoin(documents, and(eq(documents.id, documentTopics.documentId), inLibrary(userId)))
+		.where(
+			and(
+				eq(topics.userId, userId),
+				eq(topics.status, "active"),
+				typed ? sql`unaccent(${topics.name}) ilike unaccent(${pattern})` : undefined,
+			),
+		)
+		.groupBy(topics.id)
+		.orderBy(desc(articles), asc(topics.name))
+		.limit(limit)
+	return rows.map((r) => r.name)
 }
 
 /** A topic of the reader's with its articles, most fitting first. Null for none of theirs. */

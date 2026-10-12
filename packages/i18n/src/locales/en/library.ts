@@ -418,6 +418,8 @@ export default {
 			is: "starred, shortlisted (for your next edition), unread, reading, finished, quick, long or failed.",
 			has: "highlights, note or tags.",
 			tag: "The whole name of a tag. Quote a name that has spaces.",
+			topic:
+				"In none of your topics. topic: takes the whole name of one, and repeated, finds any of them; has:topic is in one.",
 			site: "Part of the site's name or address.",
 			author: "Part of the author's name. Quote a value that has spaces.",
 			title: "Text that must be in the title.",

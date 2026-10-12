@@ -15,7 +15,7 @@ import {
 	type SearchLocation,
 	type SearchSort,
 } from "./enums"
-import { cleanTagName, SAVED_SEARCH_NAME_MAX } from "./names"
+import { cleanTagName, cleanTopicName, SAVED_SEARCH_NAME_MAX } from "./names"
 
 /** Characters of a query that count; the rest is cut before parsing. */
 export const QUERY_MAX = 200
@@ -34,6 +34,7 @@ export const SEARCH_KEYS = [
 	"author",
 	"title",
 	"tag",
+	"topic",
 	"via",
 	"saved",
 	"published",
@@ -70,6 +71,8 @@ export type Filter =
 	| { key: "site" | "author" | "title"; value: string; negated: boolean }
 	/** A whole tag name, cleaned as names are. */
 	| { key: "tag"; value: string; negated: boolean }
+	/** A whole topic name, cleaned as names are. */
+	| { key: "topic"; value: string; negated: boolean }
 	| { key: "via"; value: CaptureSource; negated: boolean }
 	| { key: "saved" | "published"; value: DateRange; negated: false }
 
@@ -176,6 +179,10 @@ function toFilter(key: Exclude<SearchKey, "sort">, value: string, negated: boole
 			return { key, value, negated }
 		case "tag": {
 			const name = cleanTagName(value)
+			return name === null ? null : { key, value: name, negated }
+		}
+		case "topic": {
+			const name = cleanTopicName(value)
 			return name === null ? null : { key, value: name, negated }
 		}
 		case "saved":
@@ -322,11 +329,17 @@ export function canSaveSearch(q: string): boolean {
 	return parseSearchQuery(query).tokens.some((t) => t.kind !== "ignored")
 }
 
-/** The name saving a search starts from (the web's dialog, the app's prompt): the query, or the tag when the query is one `tag:`. */
+/**
+ * The name saving a search starts from (the web's dialog, the app's prompt): the query, or the tag
+ * or topic when the query is one `tag:` or `topic:`.
+ */
 export function defaultSavedSearchName(q: string): string {
 	const { tokens } = parseSearchQuery(q)
 	const only = tokens.length === 1 ? tokens[0] : undefined
-	const tag = only?.kind === "operator" && only.key === "tag" && !only.raw.startsWith("-")
-	const name = tag ? (only?.value ?? "") : q
+	const named =
+		only?.kind === "operator" &&
+		(only.key === "tag" || only.key === "topic") &&
+		!only.raw.startsWith("-")
+	const name = named ? (only?.value ?? "") : q
 	return name.replace(/\s+/g, " ").trim().slice(0, SAVED_SEARCH_NAME_MAX).trim()
 }

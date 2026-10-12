@@ -329,6 +329,7 @@ const TIPS = [
 	{ row: "is", example: "is:unread" },
 	{ row: "has", example: "has:highlights" },
 	{ row: "tag", example: "tag:later" },
+	{ row: "topic", example: "-has:topic" },
 	{ row: "site", example: "site:wikipedia.org" },
 	{ row: "author", example: 'author:"Paul Graham"' },
 	{ row: "title", example: "title:schedule" },
@@ -343,6 +344,8 @@ const TIPS = [
 function Tips() {
 	const { t } = useTranslation("library")
 	const location = useLocation()
+	// `topic:` is for readers who have topics, as the sidebar's link is.
+	const topics = !!useRouteLoaderData<typeof layoutLoader>("routes/app-layout")?.topics
 	return (
 		<section data-testid="search-tips" aria-labelledby="search-tips-heading" className="mt-8">
 			<h2 id="search-tips-heading" className="text-lg font-medium">
@@ -350,7 +353,7 @@ function Tips() {
 			</h2>
 			<p className="mt-1 text-sm text-muted-fg">{t("search.tipsIntro")}</p>
 			<dl className="mt-4 grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-[auto_1fr]">
-				{TIPS.map(({ row, example }) => (
+				{TIPS.filter(({ row }) => topics || row !== "topic").map(({ row, example }) => (
 					<div key={row} className="contents">
 						<dt>
 							<Link

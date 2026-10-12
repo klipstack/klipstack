@@ -423,6 +423,8 @@ export default {
 			is: "starred, shortlisted (para tu próxima edición), unread, reading, finished, quick, long o failed.",
 			has: "highlights, note o tags.",
 			tag: "El nombre completo de una etiqueta. Pon entre comillas un nombre con espacios.",
+			topic:
+				"En ninguno de tus temas. topic: lleva el nombre completo de uno y, repetido, encuentra cualquiera de ellos; has:topic, en alguno.",
 			site: "Parte del nombre o de la dirección del sitio.",
 			author: "Parte del nombre del autor. Pon entre comillas un valor con espacios.",
 			title: "Texto que debe estar en el título.",

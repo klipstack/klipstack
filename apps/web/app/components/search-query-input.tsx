@@ -8,9 +8,11 @@ import {
 import type { i18n as I18n } from "i18next"
 import { type Ref, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { useRouteLoaderData } from "react-router"
 import { Input } from "~/components/ui/input"
 import { isNsKey, type NsKey, useKeyTranslation } from "~/lib/i18n-keys"
 import { cn } from "~/lib/utils"
+import type { loader as layoutLoader } from "~/routes/app-layout"
 
 type InputProps = Omit<
 	React.ComponentProps<"input">,
@@ -86,9 +88,11 @@ export function SearchQueryInput({
 	// After a completion the caret goes behind what was inserted, once React has written the value.
 	const caretAfter = useRef<number | null>(null)
 
+	// `topic:` is offered to readers who have topics, as the sidebar's link is.
+	const topics = !!useRouteLoaderData<typeof layoutLoader>("routes/app-layout")?.topics
 	const offered = useMemo(
-		() => (caret === null ? null : suggest(text, caret, localToday())),
-		[text, caret],
+		() => (caret === null ? null : suggest(text, caret, localToday(), { topics })),
+		[text, caret, topics],
 	)
 	const wanted = offered?.remote
 	const items: SuggestionItem[] = wanted

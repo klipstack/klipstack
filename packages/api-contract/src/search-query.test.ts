@@ -75,6 +75,25 @@ describe("parseSearchQuery", () => {
 		)
 	})
 
+	it("reads topics as whole names, cleaned the way names are", () => {
+		expect(
+			filters('topic:Writing -topic:"Personal  Growth" TOPIC:ai has:topic -has:topic'),
+		).toEqual([
+			{ key: "topic", value: "Writing", negated: false },
+			{ key: "topic", value: "Personal Growth", negated: true },
+			{ key: "topic", value: "ai", negated: false },
+			{ key: "has", value: "topic", negated: false },
+			{ key: "has", value: "topic", negated: true },
+		])
+		// No topic can have that name: reported, not searched as text.
+		const bad = parseSearchQuery(`topic:${"x".repeat(61)} rust`)
+		expect(bad.filters).toEqual([])
+		expect(bad.ignored).toEqual([`topic:${"x".repeat(61)}`])
+		expect(addOperator("is:unread", "topic", "Personal Growth")).toBe(
+			'is:unread topic:"Personal Growth"',
+		)
+	})
+
 	it("keeps unknown keys, URLs, times and quoted tokens as text", () => {
 		for (const q of [
 			"https://example.com/a?b=1",
@@ -289,6 +308,8 @@ describe("defaultSavedSearchName", () => {
 		expect(defaultSavedSearchName("  deep   work ")).toBe("deep work")
 		expect(defaultSavedSearchName('tag:"work advice"')).toBe("work advice")
 		expect(defaultSavedSearchName("-tag:ai")).toBe("-tag:ai")
+		expect(defaultSavedSearchName('topic:"Personal Growth"')).toBe("Personal Growth")
+		expect(defaultSavedSearchName("-topic:Writing")).toBe("-topic:Writing")
 		expect(defaultSavedSearchName("z".repeat(80))).toHaveLength(50)
 	})
 })
