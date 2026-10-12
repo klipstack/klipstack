@@ -9,6 +9,7 @@ import {
 	disableTopics,
 	dismissTopicsCard,
 	enableTopics,
+	endTopicsInvitation,
 	markTopicsSeen,
 	removeTopic,
 	renameTopic,
@@ -39,6 +40,7 @@ import {
 	type TopicShelf,
 	type TopicSummary,
 	type TopicsState,
+	topicsInvitationEnded,
 	topicsState,
 } from "~/services/topics.server"
 import type { Route } from "./+types/topics"
@@ -55,11 +57,14 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 	// Without the feature, or the providers, a reader who has topics may still turn them off.
 	const usable = topicModels.available && (await hasFeature(user.id, "topics"))
 	if (!usable && !(await hasTopics(user.id))) throw new Response(null, { status: 404 })
-	return { state: await topicsState(user.id), paused: !usable }
+	const state = await topicsState(user.id)
+	// Topics off, offered here: Home's invitation to them has done its work.
+	const invited = usable && state.stage === "off" && !(await topicsInvitationEnded(user.id))
+	return { state, paused: !usable, invited }
 }
 
 /**
- * POST /topics  intent=enable|disable|seen|confirm|rename|remove. `confirm` takes the proposed
+ * POST /topics  intent=enable|disable|seen|dismiss|end-invitation|confirm|rename|remove. `confirm` takes the proposed
  * topics kept (`keep`, ids) and their names (`name:<id>`); `rename` and `remove` an `id`.
  */
 export async function action({ request, context }: Route.ActionArgs) {
@@ -83,6 +88,9 @@ export async function action({ request, context }: Route.ActionArgs) {
 			case "dismiss":
 				await dismissTopicsCard(user.id)
 				return {}
+			case "end-invitation":
+				await endTopicsInvitation(user.id)
+				return {}
 			case "confirm":
 				await confirmTopics(user.id, {
 					keep: form.getAll("keep").map((kept) => ({
@@ -105,7 +113,7 @@ export async function action({ request, context }: Route.ActionArgs) {
 export default function Topics({ loaderData }: Route.ComponentProps) {
 	const { t } = useTranslation("library")
 	const { t: tc } = useTranslation()
-	const { state, paused } = loaderData
+	const { state, paused, invited } = loaderData
 	// While the worker is on it, the page asks again now and then.
 	const { revalidate } = useRevalidator()
 	const busy =
@@ -124,7 +132,7 @@ export default function Topics({ loaderData }: Route.ComponentProps) {
 					{t("topics.paused")}
 				</p>
 			) : null}
-			{state.stage === "off" && !paused ? <TurnOn state={state} /> : null}
+			{state.stage === "off" && !paused ? <TurnOn state={state} invited={invited} /> : null}
 			{state.stage === "waiting" && !paused ? (
 				<section
 					data-testid="topics-waiting"
@@ -161,10 +169,18 @@ export default function Topics({ loaderData }: Route.ComponentProps) {
 	)
 }
 
-function TurnOn({ state }: { state: TopicsState }) {
+function TurnOn({ state, invited }: { state: TopicsState; invited: boolean }) {
 	const { t } = useTranslation("library")
 	const fetcher = useFetcher<typeof action>()
 	useTopicRefusals(fetcher.data)
+	// Seeing this offer ends Home's invitation to it.
+	const ended = useFetcher()
+	const endInvitation = useEffectEvent(() =>
+		ended.submit({ intent: "end-invitation" }, { method: "post" }),
+	)
+	useEffect(() => {
+		if (invited) endInvitation()
+	}, [invited])
 	return (
 		<section
 			data-testid="topics-off"

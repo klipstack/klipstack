@@ -17,6 +17,7 @@ import {
 	topicLibraries,
 	topicSorts,
 	topics,
+	user as userTable,
 } from "@klipstack/db"
 import { topicModels } from "~/lib/ai.server"
 import { hasFeature } from "~/lib/features.server"
@@ -216,6 +217,39 @@ export async function firstTopicsNotice(userId: string): Promise<{ dot: boolean;
 			),
 		)
 	return { dot: !!row, card: !!row && !row.cardDismissedAt }
+}
+
+/**
+ * Home's invitation to turn topics on: for a reader with the feature, on a server with the models,
+ * whose topics are off and whose library is big enough for the first topics (`count`, its size).
+ * Null once the invitation is over (`endTopicsInvitation`).
+ */
+export async function topicsInvitation(userId: string): Promise<{ count: number } | null> {
+	if (!topicModels.available || !(await hasFeature(userId, "topics"))) return null
+	const [row] = await db
+		.select({
+			ended: invitationEnded,
+			on: sql<boolean>`exists (select 1 from ${topicLibraries} where ${topicLibraries.userId} = ${userId})`,
+		})
+		.from(userTable)
+		.where(eq(userTable.id, userId))
+	if (!row || row.ended || row.on) return null
+	const [{ total } = { total: 0 }] = await db
+		.select({ total: count() })
+		.from(documents)
+		.where(inLibrary(userId))
+	return total >= TOPIC_RULES.bootstrapSize ? { count: total } : null
+}
+
+const invitationEnded = sql<string | null>`${userTable.prefs}->>'topicsInvitationEndedAt'`
+
+/** Whether Home's invitation to turn topics on is over, whatever the library's size. */
+export async function topicsInvitationEnded(userId: string): Promise<boolean> {
+	const [row] = await db
+		.select({ ended: invitationEnded })
+		.from(userTable)
+		.where(eq(userTable.id, userId))
+	return !!row?.ended
 }
 
 /** Whether the reader confirmed their topics, which are kept up to date since: lists narrow by them. */

@@ -27,14 +27,16 @@ const {
 	disableTopics,
 	dismissTopicsCard,
 	enableTopics,
+	endTopicsInvitation,
 	markTopicsSeen,
 	queueTopicsIfOn,
 	removeTopic,
 	renameTopic,
 	takeOutOfTopic,
 } = await import("./topics.server")
-const { firstTopicsNotice, topicsState, topicWithArticles } =
+const { firstTopicsNotice, topicsInvitation, topicsState, topicWithArticles } =
 	await import("~/services/topics.server")
+const { topicModels } = await import("~/lib/ai.server")
 
 const tag = `test-topics-${randomUUID().slice(0, 8)}`
 let userId: string
@@ -384,6 +386,7 @@ describe("names, other readers and the feature", () => {
 			() => takeOutOfTopic(userId, topic, doc),
 			() => markTopicsSeen(userId),
 			() => dismissTopicsCard(userId),
+			() => endTopicsInvitation(userId),
 			() => confirmTopics(userId, { keep: [] }),
 		])
 			await expect(change()).rejects.toMatchObject({ code: "forbidden" })
@@ -398,6 +401,59 @@ describe("names, other readers and the feature", () => {
 		expect(await firstTopicsNotice(userId)).toEqual({ dot: true, card: false })
 		await markTopicsSeen(userId)
 		expect(await firstTopicsNotice(userId)).toEqual({ dot: false, card: false })
+	})
+})
+
+describe("Home's invitation to topics", () => {
+	it("comes with 25 ready articles while topics are off, and only for an account with the feature", async () => {
+		for (let i = 0; i < 24; i++) await article()
+		await article(userId, { deleted: true })
+		expect(await topicsInvitation(userId)).toBeNull()
+		await article()
+		expect(await topicsInvitation(userId)).toEqual({ count: 25 })
+
+		// A server without both model keys invites nobody, whatever the account's flag.
+		const available = vi.spyOn(topicModels, "available", "get").mockReturnValue(false)
+		try {
+			expect(await topicsInvitation(userId)).toBeNull()
+		} finally {
+			available.mockRestore()
+		}
+
+		await db.delete(userFeatures).where(eq(userFeatures.userId, userId))
+		expect(await topicsInvitation(userId)).toBeNull()
+	})
+
+	it("ends for good once declined, or the Topics page opened: nobody else's", async () => {
+		for (let i = 0; i < 25; i++) await article()
+		for (let i = 0; i < 25; i++) await article(otherId)
+		await endTopicsInvitation(userId)
+		expect(await topicsInvitation(userId)).toBeNull()
+		expect(await topicsInvitation(otherId)).toEqual({ count: 25 })
+		// It keeps the first time it ended.
+		const endedAt = async () =>
+			(
+				await db.select({ prefs: userTable.prefs }).from(userTable).where(eq(userTable.id, userId))
+			)[0]!.prefs.topicsInvitationEndedAt
+		const first = await endedAt()
+		expect(first).toBeTruthy()
+		await new Promise((resolve) => setTimeout(resolve, 5))
+		await endTopicsInvitation(userId)
+		expect(await endedAt()).toBe(first)
+	})
+
+	it("goes while topics are on, and does not come back once they are turned off", async () => {
+		for (let i = 0; i < 25; i++) await article()
+		await enableTopics(userId)
+		expect(await topicsInvitation(userId)).toBeNull()
+		await disableTopics(userId)
+		expect(await topicsInvitation(userId)).toBeNull()
+	})
+
+	it("is not shown to a reader whose topics are on from before it existed", async () => {
+		for (let i = 0; i < 25; i++) await article()
+		await db.insert(topicLibraries).values({ userId })
+		expect(await topicsInvitation(userId)).toBeNull()
 	})
 })
 

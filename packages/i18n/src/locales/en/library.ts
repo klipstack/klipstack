@@ -335,6 +335,13 @@ export default {
 		turnedOff: "Topics are off, and deleted.",
 		back: "Topics",
 		topicEmpty: "No articles in this topic right now.",
+		invitation: {
+			title: "Your library is big enough to sort itself",
+			body: "You've saved {{count}} articles: enough for topics to sort them into shelves, like a bookstore's sections, and keep them sorted as you save more.",
+			privacy: "Once you turn topics on, article text is sent to TypeSafe and Anthropic.",
+			open: "See topics",
+			decline: "No thanks",
+		},
 		card: {
 			title: "Your first topics are ready",
 			body: "Klipstack found topics in your library. Look them over and confirm them.",

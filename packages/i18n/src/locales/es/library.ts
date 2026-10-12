@@ -338,6 +338,14 @@ export default {
 		turnedOff: "Los temas están desactivados y borrados.",
 		back: "Temas",
 		topicEmpty: "Ahora no hay artículos en este tema.",
+		invitation: {
+			title: "Tu biblioteca ya puede ordenarse sola",
+			body: "Has guardado {{count}} artículos: suficientes para que los temas los ordenen en estantes, como las secciones de una librería, y los mantengan ordenados mientras guardas más.",
+			privacy:
+				"Cuando actives los temas, el texto de los artículos se enviará a TypeSafe y a Anthropic.",
+			open: "Ver los temas",
+			decline: "No, gracias",
+		},
 		card: {
 			title: "Tus primeros temas están listos",
 			body: "Klipstack encontró temas en tu biblioteca. Revísalos y confírmalos.",
