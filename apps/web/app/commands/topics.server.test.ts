@@ -36,6 +36,7 @@ const {
 } = await import("./topics.server")
 const { firstTopicsNotice, topicsInvitation, topicsState, topicWithArticles } =
 	await import("~/services/topics.server")
+const { topicModels } = await import("~/lib/ai.server")
 
 const tag = `test-topics-${randomUUID().slice(0, 8)}`
 let userId: string
@@ -411,6 +412,14 @@ describe("Home's invitation to topics", () => {
 		await article()
 		expect(await topicsInvitation(userId)).toEqual({ count: 25 })
 
+		// A server without both model keys invites nobody, whatever the account's flag.
+		const available = vi.spyOn(topicModels, "available", "get").mockReturnValue(false)
+		try {
+			expect(await topicsInvitation(userId)).toBeNull()
+		} finally {
+			available.mockRestore()
+		}
+
 		await db.delete(userFeatures).where(eq(userFeatures.userId, userId))
 		expect(await topicsInvitation(userId)).toBeNull()
 	})
@@ -421,6 +430,16 @@ describe("Home's invitation to topics", () => {
 		await endTopicsInvitation(userId)
 		expect(await topicsInvitation(userId)).toBeNull()
 		expect(await topicsInvitation(otherId)).toEqual({ count: 25 })
+		// It keeps the first time it ended.
+		const endedAt = async () =>
+			(
+				await db.select({ prefs: userTable.prefs }).from(userTable).where(eq(userTable.id, userId))
+			)[0]!.prefs.topicsInvitationEndedAt
+		const first = await endedAt()
+		expect(first).toBeTruthy()
+		await new Promise((resolve) => setTimeout(resolve, 5))
+		await endTopicsInvitation(userId)
+		expect(await endedAt()).toBe(first)
 	})
 
 	it("goes while topics are on, and does not come back once they are turned off", async () => {

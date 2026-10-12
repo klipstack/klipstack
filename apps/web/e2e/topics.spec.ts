@@ -217,13 +217,25 @@ test("topics: home invites a reader with topics off, once the library is big eno
 	await expect(invitation).toHaveCount(0)
 
 	await library(email, { Aeon: 1 })
+	// With reading times, Home offers to choose how long to read.
+	const [owner] = await db.select({ id: user.id }).from(user).where(eq(user.email, email))
+	await db.update(documents).set({ readingMinutes: 10 }).where(eq(documents.userId, owner!.id))
 	await page.goto("/home")
 	await expect(invitation).toContainText("You've saved 25 articles")
 	// Honest from the start: where the text goes, before the reader goes on.
 	await expect(invitation).toContainText("article text is sent to TypeSafe and Anthropic")
+	// The reader came to read: with a time chosen, no invitation.
+	await page.getByTestId("home-time").getByRole("link", { name: "15 min" }).click()
+	await expect(page).toHaveURL(/time=15/)
+	await expect(invitation).toHaveCount(0)
+	await page.goto("/home")
 	await waitForHydration(page)
+	const declined = page.waitForResponse(
+		(res) => res.request().method() === "POST" && new URL(res.url()).pathname.startsWith("/topics"),
+	)
 	await invitation.getByRole("button", { name: "No thanks" }).click()
 	await expect(invitation).toHaveCount(0)
+	await declined
 	// For good.
 	await page.reload()
 	await expect(page.locator("#home-recent")).toBeVisible()

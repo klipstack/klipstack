@@ -342,7 +342,7 @@ export default {
 			title: "Tu biblioteca ya puede ordenarse sola",
 			body: "Has guardado {{count}} artículos: suficientes para que los temas los ordenen en estantes, como las secciones de una librería, y los mantengan ordenados mientras guardas más.",
 			privacy:
-				"Cuando activas los temas, el texto de los artículos se envía a TypeSafe y a Anthropic.",
+				"Cuando actives los temas, el texto de los artículos se enviará a TypeSafe y a Anthropic.",
 			open: "Ver los temas",
 			decline: "No, gracias",
 		},
