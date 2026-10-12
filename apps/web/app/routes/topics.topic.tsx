@@ -1,22 +1,18 @@
-import { ArrowLeft, X } from "lucide-react"
-import { useEffect, useEffectEvent } from "react"
+import { ArrowLeft, CircleMinus } from "lucide-react"
+import { useEffect, useEffectEvent, useMemo } from "react"
 import { useTranslation } from "react-i18next"
-import {
-	type FetcherWithComponents,
-	Link,
-	type ShouldRevalidateFunctionArgs,
-	useFetcher,
-	useNavigate,
-} from "react-router"
+import { Link, type ShouldRevalidateFunctionArgs, useFetcher, useNavigate } from "react-router"
 import { takeOutOfTopic } from "~/commands/topics.server"
-import { tooltip } from "~/components/tooltip-host"
+import { DocumentList } from "~/components/document-list"
+import { LayoutToggle } from "~/components/layout-toggle"
+import { MenuAction } from "~/components/more-menu"
 import {
 	TopicMenu,
 	TopicRemoveConfirm,
 	TopicRenameForm,
 	useTopicActions,
 } from "~/components/topic-actions"
-import { Button } from "~/components/ui/button"
+import { useListCursor } from "~/hooks/use-list-cursor"
 import { topicModels } from "~/lib/ai.server"
 import { AppError } from "~/lib/app-error"
 import { requireFeature } from "~/lib/features.server"
@@ -26,7 +22,6 @@ import { readForm } from "~/lib/request-body.server"
 import { requireUser } from "~/lib/session.server"
 import { showToast } from "~/lib/toast"
 import { answer } from "~/lib/web-action.server"
-import type { LibraryCard } from "~/services/documents.server"
 import { topicWithArticles } from "~/services/topics.server"
 import type { Route } from "./+types/topics.topic"
 
@@ -34,7 +29,9 @@ export function meta({ matches }: Route.MetaArgs) {
 	return [{ title: pageTitle(matches, "common:nav.topics") }]
 }
 
-export const handle: PageBarHandle = { pageBar: { titleKey: "common:nav.topics" } }
+export const handle: PageBarHandle = {
+	pageBar: { titleKey: "common:nav.topics", layoutToggle: true },
+}
 
 export async function loader({ context, request, params }: Route.LoaderArgs) {
 	const user = requireUser(context, request)
@@ -65,7 +62,10 @@ export function shouldRevalidate({
 	return defaultShouldRevalidate
 }
 
-/** A topic's articles, newest first, each with the way to take it out; ⋯ renames or removes it. */
+/**
+ * A topic's articles, newest first, as the library lists them (list or grid, the same cards), each
+ * card's ⋯ with the way to take it out of the topic. The topic's own ⋯ renames or removes it.
+ */
 export default function TopicPage({ loaderData }: Route.ComponentProps) {
 	const { t } = useTranslation("library")
 	const { t: tc } = useTranslation()
@@ -89,9 +89,11 @@ export default function TopicPage({ loaderData }: Route.ComponentProps) {
 	const navigate = useNavigate()
 	const actions = useTopicActions(topic, { onRemoved: () => void navigate("/topics") })
 	const leaving = fetcher.formData ? String(fetcher.formData.get("article")) : null
-	const shown = items.filter((item) => item.id !== leaving)
+	const shown = useMemo(() => items.filter((item) => item.id !== leaving), [items, leaving])
+	const ids = useMemo(() => shown.map((item) => item.id), [shown])
+	const { cursorId, listRef, onVanish } = useListCursor(ids)
 	return (
-		<main className="mx-auto w-full max-w-2xl flex-1 px-4 pt-3 pb-8 md:pt-4 md:pb-8">
+		<main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-3 pb-6 md:px-8 md:pt-4 md:pb-8">
 			<Link
 				to="/topics"
 				className="inline-flex items-center gap-1 text-sm text-muted-fg hover:underline"
@@ -104,10 +106,11 @@ export default function TopicPage({ loaderData }: Route.ComponentProps) {
 					<TopicRenameForm actions={actions} />
 				</div>
 			) : (
-				<div className="mt-2 flex items-start gap-2">
+				<div className="mt-2 flex items-center gap-2">
 					<h1 data-testid="topic-name" className="min-w-0 flex-1 text-2xl font-semibold">
 						{actions.name}
 					</h1>
+					<LayoutToggle className="hidden md:block" />
 					<TopicMenu actions={actions} className="shrink-0 text-muted-fg" />
 				</div>
 			)}
@@ -122,48 +125,26 @@ export default function TopicPage({ loaderData }: Route.ComponentProps) {
 					{t("topics.topicEmpty")}
 				</p>
 			) : (
-				<ul data-testid="topic-articles" className="mt-6 divide-y divide-border">
-					{shown.map((item) => (
-						<ArticleRow key={item.id} item={item} fetcher={fetcher} />
-					))}
-				</ul>
+				<div data-testid="topic-articles">
+					<DocumentList
+						items={shown}
+						listRef={listRef}
+						cursorId={cursorId}
+						onVanish={onVanish}
+						cardMenu={(doc) => (
+							<MenuAction
+								fetcher={fetcher}
+								action={`/topics/${topic.id}`}
+								intent="take-out"
+								fields={{ article: doc.id }}
+								icon={<CircleMinus className="size-4" aria-hidden />}
+							>
+								{t("topics.takeOutItem")}
+							</MenuAction>
+						)}
+					/>
+				</div>
 			)}
 		</main>
-	)
-}
-
-function ArticleRow({
-	item,
-	fetcher,
-}: {
-	item: LibraryCard
-	fetcher: FetcherWithComponents<unknown>
-}) {
-	const { t } = useTranslation("library")
-	const title = item.title ?? item.siteName ?? item.sourceUrl
-	return (
-		<li className="flex items-center gap-3 py-3">
-			<Link to={`/read/${item.id}`} className="min-w-0 flex-1">
-				<span className="block truncate font-medium hover:underline">{title}</span>
-				{item.siteName ? (
-					<span className="block truncate text-sm text-muted-fg">{item.siteName}</span>
-				) : null}
-			</Link>
-			<fetcher.Form method="post">
-				<input type="hidden" name="intent" value="take-out" />
-				<input type="hidden" name="article" value={item.id} />
-				<Button
-					type="submit"
-					variant="ghost"
-					size="sm"
-					disabled={fetcher.state !== "idle"}
-					aria-label={t("topics.takeOut", { title })}
-					{...tooltip(t("topics.takeOut", { title }))}
-					className="text-muted-fg"
-				>
-					<X className="size-4" aria-hidden />
-				</Button>
-			</fetcher.Form>
-		</li>
 	)
 }

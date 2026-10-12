@@ -307,7 +307,7 @@ export default {
 		seeAll_other: "See all {{count}} articles in {{name}}",
 		remove: "Remove the topic {{name}}",
 		removed: "Removed {{name}}. It won't be proposed again.",
-		takeOut: "Take {{title}} out of this topic",
+		takeOutItem: "Take out of this topic",
 		takenOut: "Taken out of {{name}}. It won't be put back.",
 		turnOff: "Turn off topics",
 		turnOffConfirm: "Tap again: this deletes your topics",

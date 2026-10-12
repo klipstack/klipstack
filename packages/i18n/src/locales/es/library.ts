@@ -310,7 +310,7 @@ export default {
 		seeAll_other: "Ver los {{count}} artículos de {{name}}",
 		remove: "Quitar el tema {{name}}",
 		removed: "Quitaste {{name}}. No se volverá a proponer.",
-		takeOut: "Sacar {{title}} de este tema",
+		takeOutItem: "Sacar de este tema",
 		takenOut: "Lo sacaste de {{name}}. No se volverá a añadir.",
 		turnOff: "Desactivar los temas",
 		turnOffConfirm: "Toca otra vez: esto borra tus temas",

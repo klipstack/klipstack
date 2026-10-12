@@ -17,6 +17,7 @@ export function DocumentList({
 	cursorId,
 	onVanish,
 	selection,
+	cardMenu,
 	className,
 }: {
 	items: LibraryCard[]
@@ -26,6 +27,8 @@ export function DocumentList({
 	cursorId?: string | null
 	onVanish?: (id: string) => void
 	selection?: ListSelection
+	/** Menu items the list adds to each card's ⋯ (`DocumentCard`'s `menuItems`). */
+	cardMenu?: (doc: LibraryCard) => React.ReactNode
 	className?: string
 }) {
 	const { t, i18n } = useTranslation("library")
@@ -62,6 +65,7 @@ export function DocumentList({
 							pendingIntent={
 								typeof bulkIntent === "string" && bulkIds.has(doc.id) ? bulkIntent : null
 							}
+							menuItems={cardMenu?.(doc)}
 						/>
 					</Fragment>
 				)

@@ -46,6 +46,7 @@ export function DocumentCard({
 	selecting = false,
 	onCheck,
 	pendingIntent = null,
+	menuItems,
 }: {
 	doc: LibraryCard
 	cursor?: boolean
@@ -56,6 +57,8 @@ export function DocumentCard({
 	onCheck?: (id: string, range: boolean) => void
 	/** A bulk change on its way that includes this card. */
 	pendingIntent?: string | null
+	/** What the list the card is in adds to its menu, before Delete: a topic's "Take out". */
+	menuItems?: React.ReactNode
 }) {
 	const { t } = useTranslation("library")
 	const { t: tc } = useTranslation()
@@ -568,6 +571,7 @@ export function DocumentCard({
 						>
 							{tc("palette.copyLink")}
 						</MenuButton>
+						{menuItems}
 						<MenuAction
 							fetcher={fetcher}
 							action={action}

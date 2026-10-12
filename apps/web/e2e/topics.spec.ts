@@ -68,7 +68,21 @@ test("topics: turned on, proposed, confirmed, sorted, corrected and turned off",
 	await page.getByRole("link", { name: "See all 18 articles in Minds" }).click()
 	await expect(page.getByTestId("topic-name")).toHaveText("Minds")
 	await expect(page.getByTestId("topic-articles").getByRole("listitem")).toHaveCount(18)
-	await page.getByRole("button", { name: "Take Psyche essay 1 out of this topic" }).click()
+	// The library's cards, as a list or a grid, and the library's switch between them.
+	const articles = page.getByTestId("topic-articles")
+	await waitForHydration(page)
+	const toggle = page.getByTestId("layout-toggle").filter({ visible: true })
+	await toggle.click()
+	await expect(articles.locator("ul")).toHaveAttribute("data-layout", "grid")
+	await toggle.click()
+	await expect(articles.locator("ul")).toHaveAttribute("data-layout", "list")
+	// Taking an article out is in its card's menu.
+	await articles
+		.getByRole("listitem")
+		.filter({ has: page.getByRole("link", { name: "Psyche essay 18", exact: true }) })
+		.getByRole("button", { name: "More actions" })
+		.click()
+	await page.getByRole("menuitem", { name: "Take out of this topic" }).click()
 	await expect(page.getByText("Taken out of Minds. It won't be put back.")).toBeVisible()
 	await page.reload()
 	await expect(page.getByTestId("topic-articles").getByRole("listitem")).toHaveCount(17)
