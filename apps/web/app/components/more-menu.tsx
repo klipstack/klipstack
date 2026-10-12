@@ -26,6 +26,17 @@ export interface MoreMenuHandle {
 
 type Position = { top: number; right: number } | { top: number; left: number }
 
+/** Whether some of `rect` is inside the window: a hidden button has no size. */
+export function inWindow(rect: DOMRect) {
+	return (
+		rect.width > 0 &&
+		rect.bottom > 0 &&
+		rect.right > 0 &&
+		rect.top < window.innerHeight &&
+		rect.left < window.innerWidth
+	)
+}
+
 /** Between a button and a menu opened beside it: clears the collapsed sidebar's edge. */
 const SIDE_GAP = 16
 
@@ -62,6 +73,8 @@ export function MoreMenu({
 	const [point, setPoint] = useState<{ x: number; y: number } | null>(null)
 	// Which item takes the focus when the menu opens: the last one after ArrowUp on the button.
 	const firstFocus = useRef<"first" | "last">("first")
+	// Where the button was when the menu was last placed: a scroll moves the menu as far as the button.
+	const anchor = useRef<{ top: number; left: number } | null>(null)
 
 	/**
 	 * Closes the menu. Focus that was in it goes back to the button (the menu is portaled to the end
@@ -90,11 +103,14 @@ export function MoreMenu({
 		if (!open) return
 		// A modal makes body-level menus inert and covers them with its backdrop.
 		setPortalTarget(buttonRef.current?.closest("dialog") ?? document.body)
+		const rect = buttonRef.current?.getBoundingClientRect()
+		anchor.current = rect ? { top: rect.top, left: rect.left } : null
 		// At a point, `openAt` has placed it already.
 		if (point) return
 		const place = () => {
 			const rect = buttonRef.current?.getBoundingClientRect()
 			if (!rect) return
+			anchor.current = { top: rect.top, left: rect.left }
 			setPosition(
 				side === "right"
 					? { top: rect.top, left: rect.right + SIDE_GAP }
@@ -129,8 +145,10 @@ export function MoreMenu({
 				setPosition({ top, left: rect.right + SIDE_GAP })
 			return
 		}
+		// Under the button when it fits, else above it when that fits; chosen again as a scroll moves it.
+		const below = rect.bottom + 4
 		const above = rect.top - height - 4
-		const top = position.top + height > window.innerHeight - 8 && above >= 8 ? above : position.top
+		const top = below + height > window.innerHeight - 8 && above >= 8 ? above : below
 		const next: Position =
 			rect.right - width < 8
 				? { top, left: rect.left }
@@ -187,9 +205,31 @@ export function MoreMenu({
 				buttonRef.current?.focus({ preventScroll: true })
 			}
 		}
-		// A scroll moves the button away. A long menu scrolling its own list does not.
+		// The menu follows its button through a scroll, and closes once the button leaves the window.
+		// The browser reports a scroll a frame late: the one that brought the button into view for
+		// the click arrives after the menu opened, and moved nothing since. A long menu scrolling its
+		// own list moves nothing either.
 		const onScroll = (e: Event) => {
-			if (!menuRef.current?.contains(e.target as Node)) setOpen(false)
+			if (menuRef.current?.contains(e.target as Node)) return
+			const rect = buttonRef.current?.getBoundingClientRect()
+			if (!rect || !inWindow(rect)) {
+				setOpen(false)
+				return
+			}
+			const from = anchor.current
+			anchor.current = { top: rect.top, left: rect.left }
+			if (!from) return
+			const dy = rect.top - from.top
+			const dx = rect.left - from.left
+			if (dx === 0 && dy === 0) return
+			setPoint((p) => (p ? { x: p.x + dx, y: p.y + dy } : p))
+			setPosition((p) =>
+				!p
+					? p
+					: "left" in p
+						? { top: p.top + dy, left: p.left + dx }
+						: { top: p.top + dy, right: p.right - dx },
+			)
 		}
 		document.addEventListener("pointerdown", onDown)
 		document.addEventListener("keydown", onKey)
