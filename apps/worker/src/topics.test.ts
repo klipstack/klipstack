@@ -581,6 +581,32 @@ describe("reviews", () => {
 		expect(await topicsOf(cats[0]!)).toEqual([])
 	})
 
+	it("clean what a merge brings as a proposal's: one line, cut to size", async () => {
+		let changes: ReviewChange[] = []
+		const { deps, calls } = await reviewing(() => changes)
+		const [catsTopic, dogsTopic] = [await topicNamed("Cats"), await topicNamed("Dogs")]
+		changes = [
+			{
+				op: "merge",
+				topicIds: [catsTopic.id, dogsTopic.id],
+				into: [
+					spec(
+						"Pets",
+						"Articles about\u0000 cats and   dogs.",
+						` Owls belong in   Birds. ${"z".repeat(5000)}`,
+					),
+				],
+				reason: "",
+			},
+		]
+		await many(20, "cats")
+		await settle(deps, calls)
+		const pets = await topicNamed("Pets")
+		expect(pets.description).toBe("Articles about cats and dogs.")
+		expect(pets.boundary.startsWith("Owls belong in Birds. zzz")).toBe(true)
+		expect(pets.boundary).toHaveLength(600)
+	})
+
 	it("split a topic into parts, copying its refusals to each", async () => {
 		let changes: ReviewChange[] = []
 		const { deps, calls, cats, dogs } = await reviewing(() => changes)

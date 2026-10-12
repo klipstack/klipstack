@@ -370,8 +370,13 @@ class Run {
 
 	/** One change from a review, all of it or nothing. Refusals pass to what replaces a topic. */
 	async apply(change: ReviewChange) {
+		// A fresh spec is cleaned as a proposal's is; one that is not keeps the model's words, for a
+		// rename to sharpen the description with.
 		const into = await Promise.all(
-			change.into.map(async (spec) => ({ spec, fresh: (await this.fresh([spec])).length > 0 })),
+			change.into.map(async (spec) => {
+				const [clean] = await this.fresh([spec])
+				return { spec: clean ?? spec, fresh: !!clean }
+			}),
 		)
 		const description = (spec: TopicSpec | undefined) => cleanDescription(spec?.description ?? "")
 		await this.write(async (tx) => {

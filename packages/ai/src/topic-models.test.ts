@@ -182,8 +182,8 @@ describe("the topic models", () => {
 				{
 					id: "A",
 					name: "Alpha",
-					description: "a",
-					boundary: "",
+					description: "a.",
+					boundary: "Not b.",
 					articles: 3,
 					lastAt: 12,
 					titles: ["x"],
@@ -202,6 +202,7 @@ describe("the topic models", () => {
 			language: "en",
 		})
 		expect(sent[0]!.prompt).toContain("Alpha + Beta: 2 articles")
+		expect(sent[0]!.prompt).toContain("Alpha (3 articles, last at 12): a. Not b.")
 		expect(result.value.changes.map((c) => c.topicIds)).toEqual([["B"], ["A"]])
 	})
 
@@ -296,6 +297,16 @@ describe("the topic models", () => {
 			topics: [topic],
 		})
 		expect(asked[0]).toContain("On writing well. Poetry belongs in Literature.")
+		const main: string[] = []
+		const mainJev = jev((q) => {
+			main.push(q)
+			return 0.5
+		})
+		await createTopicModels(
+			{ ...keys, fetch: mainJev.fetch },
+			{ ...TOPIC_RULES, question: "main" },
+		).sort({ article: article("a", "A"), topics: [topic] })
+		expect(main[0]).toContain("Writing: On writing well. Poetry belongs in Literature.")
 	})
 
 	it("fake: a description and a boundary in the reader's language", async () => {
