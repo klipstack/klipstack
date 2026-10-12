@@ -16,6 +16,7 @@ export const handlers: HandlerTable<Endpoints> = {
 	"articles.get": articles.get,
 	"articles.markdown": articles.markdown,
 	"articles.html": articles.html,
+	"articles.topics": articles.topics,
 	"articles.save": writes.save,
 	"articles.update": writes.update,
 	"articles.undo": writes.undo,

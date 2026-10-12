@@ -367,6 +367,43 @@ export const ArticleDetails = z
 	.meta({ id: "ArticleDetails" })
 export type ArticleDetails = z.infer<typeof ArticleDetails>
 
+/** A topic an article is in: one of the user's automatic topics, as its web page names it. */
+export const ArticleTopic = z.object({ id: Id, name: z.string() }).meta({ id: "ArticleTopic" })
+
+/**
+ * An article's topics, and what to read next in them. Empty (no topics, no shelf) for accounts
+ * without topics, and on servers without topic models.
+ */
+export const ArticleTopics = z
+	.object({
+		/** The topics the article is in, strongest first. Not suggested or refused ones. */
+		topics: z.array(ArticleTopic),
+		/**
+		 * Up to 3 unread articles (not finished, archived or trashed, and ready) of the article's
+		 * strongest topic that has any, closest to this one first, then newest. Articles in progress
+		 * count as unread. Null when none of its topics has one.
+		 */
+		shelf: z
+			.object({
+				topic: ArticleTopic,
+				/** How many unread articles the topic holds, besides this one. */
+				unread: z.number().int(),
+				items: z.array(
+					z.object({
+						id: Id,
+						title: z.string().nullable(),
+						siteName: z.string().nullable(),
+						url: z.string(),
+						readingMinutes: z.number().int().nullable(),
+						readerUrl: z.string(),
+					}),
+				),
+			})
+			.nullable(),
+	})
+	.meta({ id: "ArticleTopics" })
+export type ArticleTopics = z.infer<typeof ArticleTopics>
+
 export const FeedPost = z
 	.object({
 		id: Id,

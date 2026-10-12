@@ -1,0 +1,135 @@
+import { db, documents, documentTopics, eq, topics, userFeatures } from "@klipstack/db"
+import { stopBoss } from "@klipstack/queue"
+import type { KlipstackApiError } from "@klipstack/sdk"
+import { afterAll, describe, expect, it, vi } from "vitest"
+import { topicModels } from "~/lib/ai.server"
+import { env } from "~/lib/env.server"
+import { apiUsers } from "~/test/api-harness"
+import { insertArticle, urlHash } from "../../e2e/seed"
+
+// Topic models, as on a server with both keys.
+vi.hoisted(() => {
+	process.env.AI_FAKE = "1"
+})
+
+/** GET /api/v1/articles/{id}/topics, through the SDK as the iPhone app calls it. */
+
+const origin = new URL(env.APP_URL).origin
+const MISSING = "00000000-0000-4000-8000-000000000000"
+const users = apiUsers("api-topics")
+afterAll(async () => {
+	await users.cleanup()
+	await stopBoss()
+})
+
+const errorOf = (promise: Promise<unknown>) =>
+	promise.then(
+		() => {
+			throw new Error("expected the call to fail")
+		},
+		(e: unknown) => e as KlipstackApiError,
+	)
+
+async function topic(userId: string, name: string) {
+	const [row] = await db
+		.insert(topics)
+		.values({ userId, name, description: "d", status: "active", origin: "first" })
+		.returning({ id: topics.id })
+	return row!.id
+}
+
+function place(documentId: string, scores: [string, number][]) {
+	return db.insert(documentTopics).values(
+		scores.map(([topicId, probability]) => ({
+			documentId,
+			topicId,
+			probability,
+			level: probability >= 0.6 ? ("applied" as const) : ("suggested" as const),
+		})),
+	)
+}
+
+describe("an article's topics in the API", () => {
+	it("names its topics and the shelf of what to read next, with the feature", async () => {
+		const me = await users.create("Topics")
+		await db.insert(userFeatures).values({ userId: me.id, feature: "topics" })
+		const [growth, writing] = [await topic(me.id, "Personal Growth"), await topic(me.id, "Writing")]
+		const open = await insertArticle(me.id, "Open", "<p>Open.</p>")
+		await place(open, [
+			[growth, 0.95],
+			[writing, 0.7],
+		])
+		const near = await insertArticle(me.id, "Near", "<p>Near.</p>")
+		await place(near, [
+			[growth, 0.9],
+			[writing, 0.65],
+		])
+		const far = await insertArticle(me.id, "Far", "<p>Far.</p>")
+		await place(far, [[growth, 0.7]])
+		await db.update(documents).set({ readingMinutes: 7 }).where(eq(documents.id, near))
+
+		const answer = await me.client.articles.topics(open)
+		expect(answer).toEqual({
+			topics: [
+				{ id: growth, name: "Personal Growth" },
+				{ id: writing, name: "Writing" },
+			],
+			shelf: {
+				topic: { id: growth, name: "Personal Growth" },
+				unread: 2,
+				items: [
+					expect.objectContaining({ id: near, title: "Near", readingMinutes: 7 }),
+					expect.objectContaining({ id: far, title: "Far", readingMinutes: null }),
+				],
+			},
+		})
+		expect(answer.shelf?.items[0]).toEqual({
+			id: near,
+			title: "Near",
+			siteName: null,
+			url: expect.stringMatching(/^https:\/\/example\.com\/near-/),
+			readingMinutes: 7,
+			readerUrl: `${origin}/read/${near}`,
+		})
+	})
+
+	it("is empty without the feature, without topic models, or for an article without text yet", async () => {
+		const me = await users.create("No topics")
+		const growth = await topic(me.id, "Personal Growth")
+		const open = await insertArticle(me.id, "Open", "<p>Open.</p>")
+		await place(open, [[growth, 0.95]])
+		await place(await insertArticle(me.id, "Next", "<p>Next.</p>"), [[growth, 0.9]])
+		expect(await me.client.articles.topics(open)).toEqual({ topics: [], shelf: null })
+
+		await db.insert(userFeatures).values({ userId: me.id, feature: "topics" })
+		expect((await me.client.articles.topics(open)).topics).toHaveLength(1)
+		// A server without both model keys has no topics to show, whatever the account's flag.
+		const available = vi.spyOn(topicModels, "available", "get").mockReturnValue(false)
+		try {
+			expect(await me.client.articles.topics(open)).toEqual({ topics: [], shelf: null })
+		} finally {
+			available.mockRestore()
+		}
+		const url = `https://example.com/queued-${open}`
+		const [queued] = await db
+			.insert(documents)
+			.values({ userId: me.id, sourceUrl: url, urlHash: urlHash(url), status: "queued" })
+			.returning({ id: documents.id })
+		await place(queued!.id, [[growth, 0.95]])
+		expect(await me.client.articles.topics(queued!.id)).toEqual({ topics: [], shelf: null })
+	})
+
+	it("is not_found for a missing, trashed or foreign article", async () => {
+		const me = await users.create("Mine")
+		const other = await users.create("Theirs")
+		await db.insert(userFeatures).values({ userId: me.id, feature: "topics" })
+		const theirs = await insertArticle(other.id, "Theirs", "<p>Theirs.</p>")
+		const trashed = await insertArticle(me.id, "Trashed", "<p>Trashed.</p>")
+		await db.update(documents).set({ deletedAt: new Date() }).where(eq(documents.id, trashed))
+		for (const id of [MISSING, theirs, trashed])
+			expect(await errorOf(me.client.articles.topics(id))).toMatchObject({
+				status: 404,
+				code: "not_found",
+			})
+	})
+})

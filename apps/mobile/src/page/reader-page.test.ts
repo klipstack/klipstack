@@ -1,7 +1,7 @@
 import { canonicalText } from "@klipstack/anchor"
 import { JSDOM } from "jsdom"
 import { describe, expect, it } from "vitest"
-import { type ReaderHighlight, readerHtml } from "../lib/reader-html"
+import { type ReaderHighlight, type ReaderPage, readerHtml } from "../lib/reader-html"
 import type { PageMessage, PageSelection } from "./messages"
 
 /**
@@ -9,10 +9,14 @@ import type { PageMessage, PageSelection } from "./messages"
  * reader-page.generated.ts, which a test keeps in step with src/page), and the messages it posts.
  * jsdom has no CSS Custom Highlight API: a registry stands in, to see what is painted.
  */
-function openPage(html: string, highlights: ReaderHighlight[] = []) {
+function openPage(
+	html: string,
+	highlights: ReaderHighlight[] = [],
+	more: Partial<ReaderPage> = {},
+) {
 	const messages: PageMessage[] = []
 	const registry = new Map<string, { ranges: Range[] }>()
-	const dom = new JSDOM(readerHtml({ title: "Title", byline: "", html, highlights }), {
+	const dom = new JSDOM(readerHtml({ title: "Title", byline: "", html, highlights, ...more }), {
 		runScripts: "dangerously",
 		pretendToBeVisual: true,
 		beforeParse(window) {
@@ -66,6 +70,33 @@ function highlightOf(
 		start,
 		end,
 	}
+}
+
+const TOPIC = "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b"
+const NEXT = "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5c"
+
+const SHELF = {
+	topic: { id: TOPIC, name: "Writing" },
+	unread: 1,
+	items: [
+		{
+			id: NEXT,
+			title: "Next",
+			siteName: null,
+			url: "https://example.com/next",
+			readingMinutes: 4,
+			readerUrl: `https://klipstack.test/read/${NEXT}`,
+		},
+	],
+}
+
+/** A page of 3,000 points on a screen of 1,000, with its shelf (if any) 400 tall. jsdom lays nothing out. */
+function sized(window: ReturnType<typeof openPage>["window"]) {
+	const el = window.document.documentElement
+	Object.defineProperty(el, "scrollHeight", { value: 3000 })
+	Object.defineProperty(el, "clientHeight", { value: 1000 })
+	const after = window.document.querySelector("[data-after-reading]")
+	if (after) Object.defineProperty(after, "offsetHeight", { value: 400 })
 }
 
 const settle = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -210,6 +241,69 @@ describe("the reader page: reading and links", () => {
 		await settle(300)
 		expect(messages).toContainEqual(expect.objectContaining({ type: "reading" }))
 		expect(messages.some((m) => m.type === "selection")).toBe(false)
+	})
+
+	it("measures reading to the end of the article, not through the shelf after it", async () => {
+		const reported = async (topics: ReaderPage["topics"]) => {
+			const { window, messages } = openPage("<p>Text.</p>", [], { topics })
+			sized(window)
+			Object.defineProperty(window, "scrollY", { value: 1300 })
+			await settle(50)
+			messages.length = 0
+			window.dispatchEvent(new window.Event("scroll"))
+			await settle(300)
+			const last = messages.findLast((m) => m.type === "reading")
+			return last?.type === "reading" ? last.position : null
+		}
+		// Scrolled to 1,300: (1,300 + a fifth of the screen) over 3,000 − 1,000, three quarters.
+		expect(await reported(null)).toBeCloseTo(0.75)
+		// Over 3,000 − 1,000 − 400 − its 40 points of margin.
+		expect(await reported({ topics: [], shelf: SHELF })).toBeCloseTo(1500 / 1560)
+	})
+
+	it("opens at the saved position measured the same way, without the shelf", async () => {
+		const openedAt = async (topics: ReaderPage["topics"]) => {
+			const { window } = openPage("<p>Text.</p>", [], { topics, position: 0.9 })
+			sized(window)
+			const tops: number[] = []
+			Object.assign(window, { scrollTo: (_x: number, y: number) => tops.push(y) })
+			await settle(100)
+			return tops[0]
+		}
+		// 0.9 of the span, less a fifth of the screen.
+		expect(await openedAt(null)).toBeCloseTo(0.9 * 2000 - 200)
+		expect(await openedAt({ topics: [], shelf: SHELF })).toBeCloseTo(0.9 * 1560 - 200)
+	})
+
+	it("hands a tap on a shelf card to the app as a link to its reader page", () => {
+		const { window, messages } = openPage("<p>Text.</p>", [], {
+			topics: {
+				topics: [{ id: TOPIC, name: "Writing" }],
+				shelf: {
+					topic: { id: TOPIC, name: "Writing" },
+					unread: 5,
+					items: [
+						{
+							id: NEXT,
+							title: "Next",
+							siteName: "Example",
+							url: "https://example.com/next",
+							readingMinutes: null,
+							readerUrl: `https://klipstack.test/read/${NEXT}`,
+						},
+					],
+				},
+			},
+		})
+		const card = window.document.querySelector(".shelf-card")!
+		expect(
+			card.dispatchEvent(new window.MouseEvent("click", { bubbles: true, cancelable: true })),
+		).toBe(false)
+		expect(messages).toContainEqual({
+			type: "link",
+			href: `https://klipstack.test/read/${NEXT}`,
+			text: "ExampleNext",
+		})
 	})
 
 	it("hands a mail link to the app, and follows no other scheme", () => {

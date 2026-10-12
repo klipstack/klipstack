@@ -1,7 +1,15 @@
 import { z } from "zod"
 import { defineEndpoint, json, text } from "../endpoint"
 import { ARCHIVE_FILTERS, INBOX_FILTERS, LIST_FILTERS, LIST_SORTS, VIEWS } from "../enums"
-import { ArticleDetails, ArticleSummary, BATCH_MAX, Id, LinkPreview, page } from "../schemas"
+import {
+	ArticleDetails,
+	ArticleSummary,
+	ArticleTopics,
+	BATCH_MAX,
+	Id,
+	LinkPreview,
+	page,
+} from "../schemas"
 import { QUERY_MAX, SEARCH_LIMIT_MAX, SEARCH_OFFSET_MAX } from "../search-query"
 
 const Cursor = z.string().max(500)
@@ -94,6 +102,18 @@ export const getArticle = defineEndpoint({
 	summary: "An article's details: note, highlights, links and images. No text.",
 	params: z.object({ id: Id }),
 	response: json(ArticleDetails),
+	errors: ["not_found"],
+})
+
+export const articleTopics = defineEndpoint({
+	id: "articles.topics",
+	method: "GET",
+	path: "/articles/:id/topics",
+	scope: "read",
+	summary:
+		"The automatic topics an article is in, strongest first, and a shelf of what to read next: unread articles of its strongest topic that has any, closest first. Ranked by the topic scores already stored; nothing is generated. Empty for accounts without topics.",
+	params: z.object({ id: Id }),
+	response: json(ArticleTopics),
 	errors: ["not_found"],
 })
 

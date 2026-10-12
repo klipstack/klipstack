@@ -36,6 +36,8 @@ export function createClient(options: ClientOptions) {
 			call("articles.markdown", { params: { id }, query }),
 		/** The stored HTML the reader shows; highlight offsets index its text. */
 		html: (id: string) => call("articles.html", { params: { id } }),
+		/** Its automatic topics, and up to 3 unread articles of its strongest topic to read next. */
+		topics: (id: string) => call("articles.topics", { params: { id } }),
 		/** Saves a page; with `html`, the server extracts that capture instead of fetching the URL. */
 		save: (body: BodyOf<"articles.save">) => call("articles.save", { body }),
 		/** Moves, stars, finishes or tags (`addTags`, `removeTags`) any number of articles. */
@@ -172,6 +174,7 @@ export const FACADE: Record<EndpointId, string> = {
 	"articles.get": "articles.get",
 	"articles.markdown": "articles.markdown",
 	"articles.html": "articles.html",
+	"articles.topics": "articles.topics",
 	"articles.save": "articles.save",
 	"articles.update": "articles.update",
 	"articles.undo": "articles.undo",
