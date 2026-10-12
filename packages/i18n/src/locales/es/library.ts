@@ -487,6 +487,20 @@ export default {
 		banner: "Los artículos de la papelera se eliminan definitivamente a los {{days}} días.",
 	},
 	layout: { grid: "Vista en cuadrícula", list: "Vista en lista" },
+	topicFilter: {
+		label: "Tema",
+		choose: "Elige un tema",
+		chosen: "Tema: {{topic}}",
+		clear: "Mostrar todos los temas",
+		none: "Sin tema",
+		noneDescription:
+			"Artículos que no están en ninguno de tus temas. De ellos nacen los temas nuevos.",
+		sorting_one: "{{count}} más aún se está ordenando.",
+		sorting_other: "{{count}} más aún se están ordenando.",
+		search: "Buscar en este tema",
+		page: "Todo en {{topic}}",
+		gone: "Ese tema terminó, así que se muestran todos los temas.",
+	},
 	filters: {
 		label: "Mostrar",
 		all: "Todo",

@@ -18,7 +18,15 @@ import {
 	topicSorts,
 	topics,
 } from "@klipstack/db"
-import { finished, type LibraryCard, libraryCardColumns } from "./documents.server"
+import type { FilterableView, ListFilter } from "~/lib/inbox-filters"
+import {
+	filterWhere,
+	finished,
+	type LibraryCard,
+	libraryCardColumns,
+	viewWhere,
+} from "./documents.server"
+import { inNoTopic, notSorted } from "./topic-scope.server"
 
 /**
  * Where a reader's topics stand. `waiting`: fewer articles than the first topics need (`count` of
@@ -202,6 +210,15 @@ export async function firstTopicsNotice(userId: string): Promise<{ dot: boolean;
 	return { dot: !!row, card: !!row && !row.cardDismissedAt }
 }
 
+/** Whether the reader confirmed their topics, which are kept up to date since: lists narrow by them. */
+export async function topicsConfirmed(userId: string): Promise<boolean> {
+	const [row] = await db
+		.select({ confirmedAt: topicLibraries.confirmedAt })
+		.from(topicLibraries)
+		.where(eq(topicLibraries.userId, userId))
+	return !!row?.confirmedAt
+}
+
 /** Whether the reader has topics, on or waiting: they may turn them off even without the feature. */
 export async function hasTopics(userId: string): Promise<boolean> {
 	const [row] = await db
@@ -246,6 +263,65 @@ export async function missingTopics(userId: string, queries: string[]): Promise<
 		.where(and(eq(topics.userId, userId), eq(topics.status, "active")))
 	const live = new Set(rows.map((row) => topicKey(row.name)))
 	return named.map((names) => names.filter((name) => !live.has(topicKey(name))))
+}
+
+/** A topic in the library's topic choice: how many of the list's articles it holds. */
+export interface ListTopic {
+	id: string
+	name: string
+	description: string
+	count: number
+}
+
+export interface ListTopics {
+	/** Every active topic, most articles in the list first; those with none last. */
+	topics: ListTopic[]
+	/** Articles in the list sorted into no topic. */
+	none: number
+	/** Articles in the list not sorted yet: neither in a topic nor in none. */
+	sorting: number
+}
+
+/**
+ * The reader's topics for a list view and its filter, with what each holds of the list: the
+ * library's topic choice. An article in two topics counts in both.
+ */
+export async function listTopics(
+	userId: string,
+	view: FilterableView,
+	filter: ListFilter | null,
+): Promise<ListTopics> {
+	const scope = and(
+		eq(documents.userId, userId),
+		isNull(documents.deletedAt),
+		viewWhere(view),
+		filter ? filterWhere(view, filter) : undefined,
+	)
+	const counted = sql<number>`count(${documents.id})::int`
+	const [rows, [rest]] = await Promise.all([
+		db
+			.select({
+				id: topics.id,
+				name: topics.name,
+				description: topics.description,
+				count: counted,
+			})
+			.from(topics)
+			.leftJoin(documentTopics, applied)
+			.leftJoin(documents, and(eq(documents.id, documentTopics.documentId), scope))
+			.where(and(eq(topics.userId, userId), eq(topics.status, "active")))
+			.groupBy(topics.id)
+			.orderBy(desc(counted), asc(topics.name)),
+		db
+			.select({
+				none: sql<number>`count(*) filter (where ${inNoTopic})::int`,
+				// Only ready articles are sorted: the rest would wait for ever.
+				sorting: sql<number>`count(*) filter (where ${notSorted} and ${documents.status} = 'ready' and ${documents.type} = 'article')::int`,
+			})
+			.from(documents)
+			.where(scope),
+	])
+	return { topics: rows, none: rest?.none ?? 0, sorting: rest?.sorting ?? 0 }
 }
 
 /** A topic of the reader's with its articles, most fitting first. Null for none of theirs. */
