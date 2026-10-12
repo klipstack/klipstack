@@ -33,6 +33,10 @@ Options:
   --question main|shelf  What Jev is asked about each topic (default main)
   --widen             Let unsorted articles widen an existing topic's description
   --sample N          Ask Haiku again instead of reusing its cached answers (default 0)
+  --reader            A simulated reader corrects the topics; the run ends with its audit
+  --taste lenient|strict  How picky the reader is (default lenient)
+  --attention P       The share of articles the reader looks at (default ${DEFAULT_CONFIG.attention})
+  --reader-every N    The reader looks after every N articles (default ${DEFAULT_CONFIG.readerEvery})
   --limit N           run: only the first N articles
   --run NAME          compare: the run whose final topics both classifiers use (default: jev)
   --out PATH          report: the HTML file (default: <dir>/report.html)
@@ -58,6 +62,10 @@ async function main() {
 			style: { type: "string" },
 			sample: { type: "string" },
 			widen: { type: "boolean" },
+			reader: { type: "boolean" },
+			attention: { type: "string" },
+			taste: { type: "string" },
+			"reader-every": { type: "string" },
 			question: { type: "string" },
 			featured: { type: "string" },
 			urls: { type: "string" },
@@ -174,6 +182,10 @@ async function main() {
 		sample: count("sample", values.sample, 0, 0),
 		widen: values.widen ?? false,
 		question: oneOf("question", values.question, ["main", "shelf"], DEFAULT_CONFIG.question),
+		reader: values.reader ?? false,
+		taste: oneOf("taste", values.taste, ["lenient", "strict"], DEFAULT_CONFIG.taste),
+		attention: probability("attention", values.attention, DEFAULT_CONFIG.attention),
+		readerEvery: count("reader-every", values["reader-every"], DEFAULT_CONFIG.readerEvery),
 	}
 	const name = values.name ?? config.classifier
 	// The name becomes a file name in the runs directory.
@@ -181,7 +193,8 @@ async function main() {
 	const sim = new Simulation(config, models, (line) => console.log(line))
 	const articles = corpus.slice(0, count("limit", values.limit, corpus.length))
 	for (const article of articles) await sim.arrive(article)
-	const saved: ReportRun = { ...sim.result(name), calls: models.calls }
+	const audit = config.reader ? await sim.audit() : undefined
+	const saved: ReportRun = { ...sim.result(name), audit, calls: models.calls }
 	await mkdir(resolve(dir, "runs"), { recursive: true })
 	await writeFile(resolve(dir, "runs", `${name}.json`), JSON.stringify(saved, null, "\t"))
 	const cost = models.calls.reduce((sum, c) => sum + c.cost, 0)
@@ -189,6 +202,10 @@ async function main() {
 	console.log(
 		`\n${name}: ${sim.topics.filter((t) => t.retiredAt === undefined).length} topics, ${models.calls.length} calls (${fresh} new), $${cost.toFixed(4)}`,
 	)
+	if (audit)
+		console.log(
+			`audit: ${audit.agreed}/${audit.applied} placements the reader agrees with, ${audit.found}/${audit.wanted} of theirs found; ${sim.refusals.filter((r) => !r.carried).length} taken out`,
+		)
 }
 
 /**

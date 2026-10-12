@@ -27,14 +27,20 @@ const id = (n: number) => article(n).id
 function fakeModels(
 	haiku: Record<string, (prompt: string) => unknown>,
 	score?: (animals: string[], instructions: string) => number,
+	reader: Record<string, (prompt: string) => unknown> = {},
 ) {
 	const jevQuestions: string[] = []
 	const haikuPurposes: string[] = []
-	const models: Pick<Models, "haiku" | "jev"> = {
+	const models: Pick<Models, "haiku" | "jev" | "reader"> = {
 		async haiku(purpose, input) {
 			haikuPurposes.push(purpose)
 			const answer = haiku[purpose]
 			if (!answer) throw new Error(`Unexpected Haiku call: ${purpose}`)
+			return answer(input.prompt) as never
+		},
+		async reader(purpose, input) {
+			const answer = reader[purpose]
+			if (!answer) throw new Error(`Unexpected reader call: ${purpose}`)
 			return answer(input.prompt) as never
 		},
 		async jev(_purpose, state, questions) {
@@ -400,5 +406,159 @@ describe("the review of topics", () => {
 		})
 		expect(sortedInto(sim, id(1))).toEqual([])
 		expect(sim.result("test").unsorted).toHaveLength(4)
+	})
+})
+
+describe("a simulated reader", () => {
+	const dogs = { name: "Dogs", description: "Articles about dogs.", reason: "" }
+	const pets = { name: "Pets", description: "Articles about cats and dogs.", reason: "" }
+	const arrivals = [
+		[1, "cats"],
+		[2, "dogs"],
+		[3, "cats"],
+		[4, "dogs"],
+	] as const
+	const reading = (overrides: Partial<Config> = {}) =>
+		config({ reader: true, attention: 1, readerEvery: 4, maintainEvery: 4, ...overrides })
+	/** The reader looks for an article on a topic when its name names the article's animal. */
+	const judge = (prompt: string) => {
+		const animal = /Title: About (\w+)/.exec(prompt)![1]!
+		const ids = [...prompt.matchAll(/^- (t\d+): ([^:]+):/gm)]
+			.filter(([, , name]) => name!.toLowerCase().includes(animal))
+			.map(([, ref]) => ref!)
+		return { topicIds: ids }
+	}
+	const none = () => ({ change: { op: "none", topicId: "", name: "" } })
+	const noChange = () => ({ changes: [], note: "" })
+
+	it("takes articles out of a topic where it would not look for them", async () => {
+		const { models } = fakeModels(
+			{
+				propose: () => ({ topics: [pets] }),
+				maintain: noChange,
+				grow: () => ({ topics: [], note: "" }),
+			},
+			undefined,
+			{ judge, tidy: none },
+		)
+		const sim = new Simulation(reading({ readerEvery: 3 }), models)
+		for (const [n, animal] of arrivals) await sim.arrive(article(n, animal))
+
+		// The reader looks for nothing on "Pets": every article is taken out of it.
+		expect(sortedInto(sim, id(1))).toEqual([])
+		expect(sim.refusals.map((r) => r.articleId).sort()).toEqual([id(1), id(2), id(3)].sort())
+	})
+
+	it("never lets a review rename, merge, split or retire a topic the reader named", async () => {
+		const { models } = fakeModels(
+			{
+				propose: () => ({ topics: [cats, dogs] }),
+				maintain: () => ({
+					changes: [
+						{
+							op: "rename",
+							topicIds: ["t1"],
+							into: [{ name: "Kittens", description: "Articles about kittens.", boundary: "" }],
+							reason: "",
+						},
+						{ op: "merge", topicIds: ["t1", "t2"], into: [pets], reason: "" },
+						{ op: "retire", topicIds: ["t1"], into: [], reason: "" },
+					],
+					note: "",
+				}),
+			},
+			undefined,
+			{
+				judge,
+				tidy: (prompt) =>
+					prompt.includes("proposes")
+						? { change: { op: "rename", topicId: "t1", name: "Cats of mine" } }
+						: none(),
+			},
+		)
+		const sim = new Simulation(reading({ readerEvery: 1000 }), models)
+		for (const [n, animal] of arrivals) await sim.arrive(article(n, animal))
+
+		expect(sim.topics.filter((t) => t.retiredAt === undefined)).toMatchObject([
+			{
+				id: "t1",
+				name: "Cats of mine",
+				namedByReader: true,
+				description: "Articles about kittens.",
+			},
+			{ id: "t2", name: "Dogs" },
+		])
+	})
+
+	it("never brings back the name of a topic the reader removed", async () => {
+		const { models } = fakeModels(
+			{
+				propose: () => ({ topics: [pets, dogs] }),
+				maintain: () => ({
+					changes: [
+						{
+							op: "split",
+							topicIds: ["t1"],
+							into: [
+								{ name: "Cats", description: "Articles about cats.", boundary: "" },
+								{ name: "dogs", description: "Articles about dogs.", boundary: "" },
+							],
+							reason: "",
+						},
+					],
+					note: "",
+				}),
+			},
+			undefined,
+			{
+				judge: () => ({ topicIds: ["t1", "t2"] }),
+				tidy: (prompt) =>
+					prompt.includes("proposes")
+						? { change: { op: "remove", topicId: "t2", name: "" } }
+						: none(),
+			},
+		)
+		const sim = new Simulation(reading({ readerEvery: 1000 }), models)
+		for (const [n, animal] of arrivals) await sim.arrive(article(n, animal))
+
+		// A split needs two new topics: with "dogs" refused, it does not happen.
+		expect(sim.topics.filter((t) => t.retiredAt === undefined).map((t) => t.name)).toEqual(["Pets"])
+		expect(sim.topics.find((t) => t.id === "t2")).toMatchObject({ removed: true })
+	})
+
+	it("keeps an article out of what replaces a topic the reader took it out of", async () => {
+		const { models } = fakeModels(
+			{
+				propose: () => ({ topics: [cats, dogs] }),
+				maintain: () => ({
+					changes: [{ op: "merge", topicIds: ["t1", "t2"], into: [pets], reason: "" }],
+					note: "",
+				}),
+			},
+			undefined,
+			{
+				judge: (prompt) => (prompt.includes("About cats 1") ? { topicIds: [] } : judge(prompt)),
+				tidy: none,
+			},
+		)
+		const sim = new Simulation(reading(), models)
+		for (const [n, animal] of arrivals) await sim.arrive(article(n, animal))
+
+		expect(sim.topics.find((t) => t.name === "Pets")).toBeDefined()
+		expect(sortedInto(sim, id(1))).toEqual([])
+		expect(sortedInto(sim, id(3))).toEqual(["t3"])
+	})
+
+	it("audits the final topics: how many placements the reader agrees with, and finds", async () => {
+		const { models } = fakeModels(
+			{ propose: () => ({ topics: [pets] }) },
+			undefined,
+			// Cats only: the dogs are on Pets, but the reader would not look for them there.
+			{ audit: (prompt) => ({ topicIds: prompt.includes("About cats") ? ["t1"] : [] }) },
+		)
+		const sim = new Simulation(config(), models)
+		for (const [n, animal] of arrivals) await sim.arrive(article(n, animal))
+
+		expect(await sim.audit()).toMatchObject({ applied: 4, agreed: 2, wanted: 2, found: 2 })
 	})
 })

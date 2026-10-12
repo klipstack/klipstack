@@ -10,6 +10,9 @@ import type { z } from "zod"
 export const PRICES = {
 	haiku: { model: "claude-haiku-5-5", input: 0.1, output: 0.5 },
 	jev: { model: "jev-1.13.0", input: 0.042, output: 0 },
+	// The simulated reader: another model than the ones it corrects. Not priced: it is no cost of
+	// the feature.
+	reader: { model: "claude-sonnet-5-5", input: 0, output: 0 },
 } as const
 
 export type Provider = keyof typeof PRICES
@@ -76,19 +79,36 @@ export class Models {
 		purpose: string,
 		input: { system: string; prompt: string; schema: S; sample?: number },
 	): Promise<z.infer<S>> {
+		return this.anthropic("haiku", purpose, input)
+	}
+
+	/** A structured answer from the simulated reader. */
+	async reader<S extends z.ZodType>(
+		purpose: string,
+		input: { system: string; prompt: string; schema: S; sample?: number },
+	): Promise<z.infer<S>> {
+		return this.anthropic("reader", purpose, input)
+	}
+
+	private async anthropic<S extends z.ZodType>(
+		provider: "haiku" | "reader",
+		purpose: string,
+		input: { system: string; prompt: string; schema: S; sample?: number },
+	): Promise<z.infer<S>> {
+		const model = PRICES[provider].model
 		const request = {
-			model: PRICES.haiku.model,
+			model,
 			system: input.system,
 			prompt: input.prompt,
 			schema: input.schema.toJSONSchema(),
 			// Only in the cache key: another sample asks again.
 			...(input.sample ? { sample: input.sample } : {}),
 		}
-		return this.cached("haiku", purpose, request, async () => {
+		return this.cached(provider, purpose, request, async () => {
 			if (!this.keys.anthropic) throw notRetryable("ANTHROPIC_API_KEY is not set")
 			const anthropic = createAnthropic({ apiKey: this.keys.anthropic })
 			const result = await generateText({
-				model: anthropic(PRICES.haiku.model),
+				model: anthropic(model),
 				maxOutputTokens: 16000,
 				system: input.system,
 				prompt: input.prompt,

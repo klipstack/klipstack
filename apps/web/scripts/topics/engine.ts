@@ -13,6 +13,7 @@ import {
 	type TopicStyle,
 } from "@klipstack/ai"
 import type { Models } from "./models"
+import { judgeRequest, type Taste, tidyRequest } from "./reader"
 
 /** An article of the corpus, as it arrives. */
 export interface Article {
@@ -52,6 +53,14 @@ export interface Config {
 	widen: boolean
 	/** Another sample of the same run: Haiku is asked again instead of answering from the cache. */
 	sample: number
+	/** A simulated reader corrects the topics: takes articles out, renames and removes topics. */
+	reader: boolean
+	/** How picky the reader is. */
+	taste: Taste
+	/** The share of articles the reader looks at, the same ones in every run. */
+	attention: number
+	/** The reader looks at the topics after every this many arrivals, and when confirming them. */
+	readerEvery: number
 }
 
 export const DEFAULT_CONFIG: Config = {
@@ -68,6 +77,10 @@ export const DEFAULT_CONFIG: Config = {
 	question: "main",
 	widen: false,
 	sample: 0,
+	reader: false,
+	taste: "lenient",
+	attention: 0.5,
+	readerEvery: 10,
 }
 
 export interface Topic {
@@ -84,6 +97,29 @@ export interface Topic {
 	retiredAt?: number
 	retiredReason?: string
 	renamedFrom?: string[]
+	/** The reader named it: a review never renames, merges, splits or retires it. */
+	namedByReader?: boolean
+	/** The reader removed it (it is retired too): its name never comes back. */
+	removed?: boolean
+}
+
+/** An article the reader took out of a topic: it never comes back to it. */
+export interface Refusal {
+	articleId: string
+	topicId: string
+	at: number
+	/** Passed on from a topic this one replaced, not taken out of it by the reader. */
+	carried?: boolean
+}
+
+/** The final topics as the reader judges them, every article of the library looked at. */
+export interface Audit {
+	/** Placements applied, and how many of them the reader would look for there. */
+	applied: number
+	agreed: number
+	/** Placements the reader would look for, and how many of them are applied. */
+	wanted: number
+	found: number
 }
 
 export interface Assignment {
@@ -114,6 +150,12 @@ export type SimEvent =
 			ops: MaintenanceOp[]
 			note: string
 	  }
+	| {
+			step: number
+			type: "reader"
+			takenOut: { articleId: string; topicId: string }[]
+			change?: { op: "rename" | "remove"; topicId: string; from: string; to?: string }
+	  }
 
 export type MaintenanceOp =
 	| { op: "merge"; topicIds: string[]; into: string; reason: string }
@@ -139,6 +181,8 @@ export interface RunResult {
 	unsorted: string[]
 	events: SimEvent[]
 	snapshots: Snapshot[]
+	refusals: Refusal[]
+	audit?: Audit
 }
 
 /** How the models see an article: named by the start of its id, as the cached answers know it. */
@@ -151,6 +195,9 @@ export class Simulation {
 	readonly scores = new Map<string, Record<string, number>>()
 	readonly events: SimEvent[] = []
 	readonly snapshots: Snapshot[] = []
+	readonly refusals: Refusal[] = []
+	/** What the reader has judged: an article against a topic's name and description. */
+	private readonly judged = new Set<string>()
 	private readonly library: Article[] = []
 	private unsorted: string[] = []
 	private lastAttemptPool = 0
@@ -162,7 +209,7 @@ export class Simulation {
 	constructor(
 		private readonly config: Config,
 		/** The models' calls; tests pass fakes. */
-		private readonly models: Pick<Models, "haiku" | "jev">,
+		private readonly models: Pick<Models, "haiku" | "jev" | "reader">,
 		private readonly log: (line: string) => void = () => {},
 	) {}
 
@@ -204,6 +251,13 @@ export class Simulation {
 			)
 				await this.growFromPool()
 		}
+		if (
+			this.config.reader &&
+			step % this.config.readerEvery === 0 &&
+			this.active().length > 0 &&
+			!this.events.some((e) => e.type === "bootstrap" && e.step === step)
+		)
+			await this.read(false)
 		if (step % this.config.maintainEvery === 0 && this.active().length > 0) await this.maintain()
 		this.snapshot()
 	}
@@ -299,7 +353,12 @@ export class Simulation {
 		const scores = await this.score(article, topics)
 		this.scores.set(article.id, { ...this.scores.get(article.id), ...scores })
 		const scored = Object.fromEntries(topics.map((t) => [t.id, scores[t.id] ?? 0]))
-		const placed = place(this.assignments.get(article.id) ?? [], scored, this.config)
+		const placed = place(
+			this.assignments.get(article.id) ?? [],
+			scored,
+			this.config,
+			this.refusedFor(article.id),
+		)
 		// What was already there keeps the step it was decided at.
 		this.assignments.set(
 			article.id,
@@ -313,15 +372,18 @@ export class Simulation {
 			...proposeRequest(this.library.map(view), { style: this.config.style }),
 			sample: this.config.sample,
 		})
-		const topics = answer.topics.map((t) => this.addTopic(t, "bootstrap", t.reason))
+		const topics = this.fresh(answer.topics).map((t) => this.addTopic(t, "bootstrap", t.reason))
 		this.events.push({ step: this.step, type: "bootstrap", topicIds: topics.map((t) => t.id) })
 		this.log(`  ★ first topics: ${topics.map((t) => t.name).join(", ")}`)
-		for (const article of this.library) await this.sort(article, topics)
+		// The reader confirms the first topics, perhaps renaming or removing one of them.
+		if (this.config.reader && topics.length > 0) await this.tidy(true)
+		for (const article of this.library) await this.sort(article, this.active())
 		this.unsorted = this.library.filter((a) => !this.isSorted(a.id)).map((a) => a.id)
 		this.lastAttemptPool = this.unsorted.length
 		this.log(
 			`  sorted ${this.library.length - this.unsorted.length}, unsorted ${this.unsorted.length}`,
 		)
+		if (this.config.reader && topics.length > 0) await this.read(false, false)
 	}
 
 	/** Asks for new topics that would hold the unsorted articles, then sorts the library into them. */
@@ -357,8 +419,10 @@ export class Simulation {
 		}
 		// Only the pool's own articles count, each once: the model may repeat or invent ids.
 		const poolRefs = new Set(pool.map((a) => view(a).ref))
-		const accepted = answer.topics.filter((t) =>
-			holdsEnough(t.articleIds, poolRefs, this.config.minNewTopicArticles),
+		const accepted = this.fresh(
+			answer.topics.filter((t) =>
+				holdsEnough(t.articleIds, poolRefs, this.config.minNewTopicArticles),
+			),
 		)
 		const topics = accepted.map((t) => this.addTopic(t, "pool", t.reason))
 		if (topics.length > 0) {
@@ -387,18 +451,21 @@ export class Simulation {
 		this.lastAttemptPool = this.unsorted.length
 	}
 
+	/** Each active topic's applied articles, in the order they arrived. */
+	private members(id: string): Article[] {
+		return this.library.filter((a) =>
+			(this.assignments.get(a.id) ?? []).some((x) => x.topicId === id && x.level === "applied"),
+		)
+	}
+
 	private async maintain() {
 		const active = this.active()
-		const members = (id: string) =>
-			this.library.filter((a) =>
-				(this.assignments.get(a.id) ?? []).some((x) => x.topicId === id && x.level === "applied"),
-			)
+		const members = (id: string) => this.members(id)
 		const pairs: { a: string; b: string; count: number }[] = []
 		for (let i = 0; i < active.length; i++)
 			for (let j = i + 1; j < active.length; j++) {
 				const a = new Set(members(active[i]!.id).map((x) => x.id))
-				const b = members(active[j]!.id).map((x) => x.id)
-				const both = b.filter((id) => a.has(id)).length
+				const both = members(active[j]!.id).filter((x) => a.has(x.id)).length
 				if (both >= 2) pairs.push({ a: active[i]!.name, b: active[j]!.name, count: both })
 			}
 		const sorted = this.library.filter((a) => this.isSorted(a.id)).length
@@ -432,27 +499,34 @@ export class Simulation {
 				.map((id) => active.find((t) => t.id === id))
 				.filter((t): t is Topic => !!t && t.retiredAt === undefined)
 			if (targets.length === 0) continue
+			// As production does: a reader's topic is only ever described again, never replaced.
+			const theirs = targets.some((t) => t.namedByReader)
 			if (change.op === "rename" && change.into[0]) {
 				const t = targets[0]!
-				ops.push({
-					op: "rename",
-					topicId: t.id,
-					from: t.name,
-					to: change.into[0].name,
-					reason: change.reason,
-				})
-				t.renamedFrom = [...(t.renamedFrom ?? []), t.name]
-				t.name = change.into[0].name
-				t.description = change.into[0].description
-				t.boundary = change.into[0].boundary ?? ""
-				// Renamed in place; the whole library is judged again against the new description.
+				const spec = change.into[0]
+				// The reader's name, or one already taken, stays; the description is sharpened all the same.
+				const [named] = t.namedByReader ? [] : this.fresh([spec])
+				const from = t.name
+				if (named) {
+					t.renamedFrom = [...(t.renamedFrom ?? []), t.name]
+					t.name = named.name
+				}
+				t.description = spec.description
+				t.boundary = spec.boundary ?? ""
+				ops.push({ op: "rename", topicId: t.id, from, to: t.name, reason: change.reason })
+				// Described again; the whole library is judged again against the new description.
 				for (const a of this.library) await this.sort(a, [t])
+			} else if (theirs) {
+				continue
 			} else if (change.op === "retire") {
 				this.retire(targets, change.reason)
 				ops.push({ op: "retire", topicIds: targets.map((t) => t.id), reason: change.reason })
-			} else if (change.op === "merge" && targets.length >= 2 && change.into[0]) {
+			} else if (change.op === "merge" && targets.length >= 2) {
+				const [spec] = this.fresh(change.into.slice(0, 1))
+				if (!spec) continue
 				this.retire(targets, `merged: ${change.reason}`)
-				const merged = this.addTopic(change.into[0], "merge", change.reason)
+				const merged = this.addTopic(spec, "merge", change.reason)
+				this.carryRefusals(targets, [merged])
 				ops.push({
 					op: "merge",
 					topicIds: targets.map((t) => t.id),
@@ -460,10 +534,13 @@ export class Simulation {
 					reason: change.reason,
 				})
 				for (const a of this.library) await this.sort(a, [merged])
-			} else if (change.op === "split" && change.into.length >= 2) {
+			} else if (change.op === "split") {
+				const specs = this.fresh(change.into)
+				if (specs.length < 2) continue
 				const t = targets[0]!
 				this.retire([t], `split: ${change.reason}`)
-				const parts = change.into.map((spec) => this.addTopic(spec, "split", change.reason))
+				const parts = specs.map((spec) => this.addTopic(spec, "split", change.reason))
+				this.carryRefusals([t], parts)
 				ops.push({
 					op: "split",
 					topicId: t.id,
@@ -479,6 +556,164 @@ export class Simulation {
 		this.log(
 			`  ⚙ maintenance: ${ops.length ? ops.map((o) => o.op).join(", ") : "no change"}. ${answer.note}`,
 		)
+	}
+
+	/**
+	 * The model's topics that can be, as production keeps them: no name of a topic in use, or one
+	 * the reader removed, or one that comes twice.
+	 */
+	private fresh<T extends TopicSpec>(specs: T[]): T[] {
+		const names = new Set(
+			this.topics
+				.filter((t) => t.retiredAt === undefined || t.removed)
+				.map((t) => t.name.toLocaleLowerCase()),
+		)
+		return specs.filter((t) => {
+			const name = t.name.trim().toLocaleLowerCase()
+			if (!name || names.has(name)) return false
+			names.add(name)
+			return true
+		})
+	}
+
+	private refusedFor(articleId: string): Set<string> {
+		return new Set(this.refusals.filter((r) => r.articleId === articleId).map((r) => r.topicId))
+	}
+
+	/** An article the reader took out of any of `from` stays out of each of `to`. */
+	private carryRefusals(from: Topic[], to: Topic[]) {
+		const ids = new Set(from.map((t) => t.id))
+		const articles = new Set(
+			this.refusals.filter((r) => ids.has(r.topicId)).map((r) => r.articleId),
+		)
+		for (const articleId of articles)
+			for (const t of to)
+				this.refusals.push({ articleId, topicId: t.id, at: this.step, carried: true })
+	}
+
+	/** Whether the reader looks at this article: the same articles in every run. */
+	private attends(articleId: string): boolean {
+		const h = [...articleId].reduce((sum, c) => (sum * 31 + c.charCodeAt(0)) >>> 0, 7)
+		return (h % 1000) / 1000 < this.config.attention
+	}
+
+	/** The topics the reader would look for an article on, among `topics`. */
+	private async judge(article: Article, topics: Topic[], purpose: string): Promise<Set<string>> {
+		if (topics.length === 0) return new Set()
+		const answer = await this.models.reader(purpose, {
+			...judgeRequest(
+				article,
+				topics.map((t) => ({ ref: t.id, name: t.name, description: t.description })),
+				this.config.taste,
+			),
+			sample: this.config.sample,
+		})
+		return new Set(answer.topicIds)
+	}
+
+	/**
+	 * The reader's look at their topics: perhaps a rename or a removal (`tidy`), then the articles
+	 * they look at taken out of topics where they would not look for them.
+	 */
+	private async read(confirming: boolean, tidy = true) {
+		const change = tidy ? await this.tidy(confirming) : undefined
+		const takenOut: { articleId: string; topicId: string }[] = []
+		const active = this.active()
+		for (const article of this.library) {
+			if (!this.attends(article.id)) continue
+			const applied = (this.assignments.get(article.id) ?? []).filter((a) => a.level === "applied")
+			const unjudged = applied.filter((a) => {
+				const t = active.find((x) => x.id === a.topicId)
+				return t && !this.judged.has(`${article.id}|${t.id}|${t.name}|${t.description}`)
+			})
+			if (unjudged.length === 0) continue
+			const wanted = await this.judge(article, active, "judge")
+			for (const a of unjudged) {
+				const t = active.find((x) => x.id === a.topicId)!
+				this.judged.add(`${article.id}|${t.id}|${t.name}|${t.description}`)
+				if (wanted.has(t.id)) continue
+				this.refusals.push({ articleId: article.id, topicId: t.id, at: this.step })
+				takenOut.push({ articleId: article.id, topicId: t.id })
+			}
+			this.assignments.set(
+				article.id,
+				(this.assignments.get(article.id) ?? []).filter(
+					(a) => !takenOut.some((o) => o.articleId === article.id && o.topicId === a.topicId),
+				),
+			)
+		}
+		this.unsorted = this.library.filter((a) => !this.isSorted(a.id)).map((a) => a.id)
+		if (takenOut.length || change)
+			this.events.push({ step: this.step, type: "reader", takenOut, ...(change ? { change } : {}) })
+		if (takenOut.length)
+			this.log(
+				`  ✋ reader took out ${takenOut.map((o) => `${this.topicName(o.topicId)}`).join(", ")}`,
+			)
+	}
+
+	/** Perhaps the reader renames or removes one topic; at confirmation, one of the first topics. */
+	private async tidy(confirming: boolean) {
+		const active = this.active()
+		const answer = await this.models.reader("tidy", {
+			...tidyRequest(
+				active.map((t) => {
+					const list = this.members(t.id)
+					return {
+						ref: t.id,
+						name: t.name,
+						description: t.description,
+						articles: list.length,
+						titles: list.slice(-5).map((a) => a.title),
+					}
+				}),
+				confirming,
+				this.config.taste,
+			),
+			sample: this.config.sample,
+		})
+		const { op, topicId, name } = answer.change
+		const t = active.find((x) => x.id === topicId)
+		if (!t || op === "none") return undefined
+		if (op === "remove") {
+			this.retire([t], "removed by the reader")
+			t.removed = true
+			this.events.push({
+				step: this.step,
+				type: "reader",
+				takenOut: [],
+				change: { op, topicId: t.id, from: t.name },
+			})
+			this.log(`  ✋ reader removed ${t.name}`)
+			return undefined
+		}
+		const clean = name.trim()
+		if (!clean || this.fresh([{ name: clean, description: "", boundary: "" }]).length === 0)
+			return undefined
+		const from = t.name
+		t.renamedFrom = [...(t.renamedFrom ?? []), t.name]
+		t.name = clean
+		t.namedByReader = true
+		this.log(`  ✋ reader renamed ${from} to ${clean}`)
+		return { op, topicId: t.id, from, to: clean }
+	}
+
+	/** The final topics, each article of the library judged by the reader against all of them. */
+	async audit(): Promise<Audit> {
+		const active = this.active()
+		const audit: Audit = { applied: 0, agreed: 0, wanted: 0, found: 0 }
+		for (const article of this.library) {
+			const wanted = await this.judge(article, active, "audit")
+			const applied = new Set(
+				(this.assignments.get(article.id) ?? [])
+					.filter((a) => a.level === "applied")
+					.map((a) => a.topicId),
+			)
+			audit.applied += applied.size
+			audit.wanted += wanted.size
+			for (const id of applied) if (wanted.has(id)) audit.agreed++
+			for (const id of wanted) if (applied.has(id)) audit.found++
+		}
+		return audit
 	}
 
 	private retire(topics: Topic[], reason: string) {
@@ -504,6 +739,7 @@ export class Simulation {
 			unsorted: this.unsorted,
 			events: this.events,
 			snapshots: this.snapshots,
+			refusals: this.refusals,
 		}
 	}
 }
