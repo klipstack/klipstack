@@ -40,6 +40,11 @@ test("topics: turned on, proposed, confirmed, sorted, corrected and turned off",
 	await page.getByRole("link", { name: "See your topics" }).click()
 	await expect(page.getByLabel("Keep Psyche")).toBeChecked()
 	await page.getByLabel("Keep Aeon").uncheck()
+	// Left out: its card dims, and its name can't be edited.
+	const aeon = page.getByTestId("proposed-topic").filter({ has: page.getByLabel("Keep Aeon") })
+	await expect(aeon).toHaveAttribute("data-kept", "false")
+	await expect(aeon).toHaveCSS("opacity", "0.5")
+	await expect(page.getByLabel("Name of the topic Aeon")).toBeDisabled()
 	await page.getByRole("button", { name: "Confirm topics" }).click()
 
 	// The library is sorted into the topic kept. Aeon's articles fit none, and growing new topics

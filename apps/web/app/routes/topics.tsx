@@ -23,6 +23,7 @@ import { pageTitle } from "~/lib/page-title"
 import { readForm } from "~/lib/request-body.server"
 import { requireUser } from "~/lib/session.server"
 import { showToast } from "~/lib/toast"
+import { cn } from "~/lib/utils"
 import { answer } from "~/lib/web-action.server"
 import {
 	hasTopics,
@@ -126,17 +127,20 @@ export default function Topics({ loaderData }: Route.ComponentProps) {
 		return () => window.clearInterval(id)
 	}, [busy, revalidate])
 	return (
-		<main className="mx-auto w-full max-w-2xl flex-1 px-4 pt-3 pb-8 md:pt-4 md:pb-8">
+		<main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-3 pb-8 md:px-8 md:pt-4 md:pb-8">
 			<h1 className="hidden text-2xl font-semibold md:block md:leading-10">{tc("nav.topics")}</h1>
-			<p className="text-sm text-muted-fg md:mt-2">{t("topics.description")}</p>
+			<p className="max-w-2xl text-sm text-muted-fg md:mt-2">{t("topics.description")}</p>
 			{paused ? (
-				<p data-testid="topics-paused" className="mt-6 text-sm text-muted-fg">
+				<p data-testid="topics-paused" className="mt-6 max-w-2xl text-sm text-muted-fg">
 					{t("topics.paused")}
 				</p>
 			) : null}
 			{state.stage === "off" && !paused ? <TurnOn state={state} /> : null}
 			{state.stage === "waiting" && !paused ? (
-				<section data-testid="topics-waiting" className="mt-6 rounded-xl border border-border p-4">
+				<section
+					data-testid="topics-waiting"
+					className="mt-6 max-w-2xl rounded-xl border border-border p-4"
+				>
 					<h2 className="font-medium">{t("topics.waiting.title")}</h2>
 					<p className="mt-1 text-sm text-muted-fg">
 						{t("topics.waiting.body", { needed: state.needed })}
@@ -155,7 +159,7 @@ export default function Topics({ loaderData }: Route.ComponentProps) {
 			{state.stage === "proposing" && !paused ? (
 				<section
 					data-testid="topics-proposing"
-					className="mt-6 rounded-xl border border-border p-4"
+					className="mt-6 max-w-2xl rounded-xl border border-border p-4"
 				>
 					<h2 className="font-medium">{t("topics.proposing.title")}</h2>
 					<p className="mt-1 text-sm text-muted-fg">{t("topics.proposing.body")}</p>
@@ -173,7 +177,10 @@ function TurnOn({ state }: { state: TopicsState }) {
 	const fetcher = useFetcher<typeof action>()
 	useRefusals(fetcher.data)
 	return (
-		<section data-testid="topics-off" className="mt-6 rounded-xl border border-border p-4">
+		<section
+			data-testid="topics-off"
+			className="mt-6 max-w-2xl rounded-xl border border-border p-4"
+		>
 			<h2 className="flex items-center gap-2 font-medium">
 				<Shapes className="size-4 text-accent" aria-hidden />
 				{t("topics.off.title")}
@@ -204,38 +211,19 @@ function Proposal({ state }: { state: TopicsState }) {
 	}, [unseen])
 	if (state.topics.length === 0)
 		return (
-			<p data-testid="topics-none" className="mt-6 text-sm text-muted-fg">
+			<p data-testid="topics-none" className="mt-6 max-w-2xl text-sm text-muted-fg">
 				{t("topics.proposed.none")}
 			</p>
 		)
 	return (
 		<section data-testid="topics-proposal" className="mt-6">
 			<h2 className="font-medium">{t("topics.proposed.title")}</h2>
-			<p className="mt-1 text-sm text-muted-fg">{t("topics.proposed.body")}</p>
+			<p className="mt-1 max-w-2xl text-sm text-muted-fg">{t("topics.proposed.body")}</p>
 			<fetcher.Form method="post" className="mt-4">
 				<input type="hidden" name="intent" value="confirm" />
-				<ul className="divide-y divide-border">
+				<ul data-testid="topics-proposal-grid" className="grid gap-3 md:grid-cols-2">
 					{state.topics.map((topic) => (
-						<li key={topic.id} className="flex items-start gap-3 py-3">
-							<input
-								type="checkbox"
-								name="keep"
-								value={topic.id}
-								defaultChecked
-								aria-label={t("topics.proposed.keep", { name: topic.name })}
-								className="mt-2.5 size-4 accent-accent"
-							/>
-							<div className="min-w-0 flex-1">
-								<Input
-									name={`name:${topic.id}`}
-									defaultValue={topic.name}
-									maxLength={TOPIC_NAME_MAX}
-									aria-label={t("topics.proposed.nameLabel", { name: topic.name })}
-									autoComplete="off"
-								/>
-								<p className="mt-1 text-sm text-muted-fg">{topic.description}</p>
-							</div>
-						</li>
+						<ProposedTopic key={topic.id} topic={topic} />
 					))}
 				</ul>
 				<Button type="submit" className="mt-4" disabled={fetcher.state !== "idle"}>
@@ -246,22 +234,66 @@ function Proposal({ state }: { state: TopicsState }) {
 	)
 }
 
+/**
+ * One proposed topic, as a card: kept while checked, its name editable. Unchecked, it dims and its
+ * name can't be edited (nor is it sent): a topic left out needs no name.
+ */
+function ProposedTopic({ topic }: { topic: TopicSummary }) {
+	const { t } = useTranslation("library")
+	const [kept, setKept] = useState(true)
+	return (
+		<li
+			data-testid="proposed-topic"
+			data-kept={kept}
+			className={cn(
+				"flex items-start gap-3 rounded-xl border border-border bg-card p-4 transition-opacity",
+				!kept && "opacity-50",
+			)}
+		>
+			<input
+				type="checkbox"
+				name="keep"
+				value={topic.id}
+				checked={kept}
+				onChange={(e) => setKept(e.target.checked)}
+				aria-label={t("topics.proposed.keep", { name: topic.name })}
+				className="mt-2.5 size-4 shrink-0 accent-accent"
+			/>
+			<div className="min-w-0 flex-1">
+				<Input
+					name={`name:${topic.id}`}
+					defaultValue={topic.name}
+					disabled={!kept}
+					maxLength={TOPIC_NAME_MAX}
+					aria-label={t("topics.proposed.nameLabel", { name: topic.name })}
+					autoComplete="off"
+				/>
+				<p className="mt-2 text-sm leading-relaxed text-muted-fg">{topic.description}</p>
+			</div>
+		</li>
+	)
+}
+
 function TopicList({ state }: { state: TopicsState }) {
 	const { t } = useTranslation("library")
 	const [editingId, setEditingId] = useState<string | null>(null)
 	return (
 		<>
 			{state.sorting > 0 ? (
-				<p data-testid="topics-sorting" role="status" className="mt-6 text-sm text-muted-fg">
+				<p
+					data-testid="topics-sorting"
+					role="status"
+					className="mt-6 max-w-2xl text-sm text-muted-fg"
+				>
 					{t("topics.sorting", { count: state.sorting })}
 				</p>
 			) : null}
 			{state.topics.length === 0 ? (
-				<p data-testid="topics-empty" className="mt-6 text-sm text-muted-fg">
+				<p data-testid="topics-empty" className="mt-6 max-w-2xl text-sm text-muted-fg">
 					{t("topics.empty")}
 				</p>
 			) : (
-				<ul data-testid="topics-list" className="mt-6 divide-y divide-border">
+				<ul data-testid="topics-list" className="mt-6 max-w-2xl divide-y divide-border">
 					{state.topics.map((topic) => (
 						<TopicRow
 							key={topic.id}
@@ -406,7 +438,7 @@ function TurnOff() {
 	return (
 		<fetcher.Form
 			method="post"
-			className="mt-10 border-t border-border pt-4"
+			className="mt-10 max-w-2xl border-t border-border pt-4"
 			onSubmit={(e) => {
 				if (!armed) {
 					e.preventDefault()
