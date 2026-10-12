@@ -1,6 +1,6 @@
 import { TOPIC_NAME_MAX } from "@klipstack/api-contract/names"
-import { Pencil, Shapes, Trash2 } from "lucide-react"
-import { useEffect, useEffectEvent, useRef, useState } from "react"
+import { Shapes } from "lucide-react"
+import { useEffect, useEffectEvent, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link, redirect, useFetcher, useRevalidator } from "react-router"
 import {
@@ -13,6 +13,13 @@ import {
 	renameTopic,
 } from "~/commands/topics.server"
 import { tooltip } from "~/components/tooltip-host"
+import {
+	TopicMenu,
+	TopicRemoveConfirm,
+	TopicRenameForm,
+	useTopicActions,
+	useTopicRefusals,
+} from "~/components/topic-actions"
 import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
 import { topicModels } from "~/lib/ai.server"
@@ -27,6 +34,8 @@ import { cn } from "~/lib/utils"
 import { answer } from "~/lib/web-action.server"
 import {
 	hasTopics,
+	type TopicBook,
+	type TopicShelf,
 	type TopicSummary,
 	type TopicsState,
 	topicsState,
@@ -90,28 +99,6 @@ export async function action({ request, context }: Route.ActionArgs) {
 	})
 }
 
-/** What an action answered, as a fetcher has it: a refusal carries its code. */
-type Answered = { ok: true } | { ok: false; error: { code: string; message: string } }
-
-/** Says a refusal in the reader's words. */
-function useRefusals(data: Answered | undefined) {
-	const { t } = useTranslation("library")
-	const { t: tc } = useTranslation()
-	const words = {
-		name_taken: t("topics.errors.name_taken"),
-		invalid_request: t("topics.errors.invalid_name"),
-		not_found: t("topics.errors.not_found"),
-		already_done: t("topics.errors.already_done"),
-		forbidden: t("topics.errors.forbidden"),
-		unavailable: t("topics.errors.unavailable"),
-	} as Record<string, string>
-	const onData = useEffectEvent((result: Answered | undefined) => {
-		if (!result || result.ok) return
-		showToast({ message: words[result.error.code] ?? tc("errors.generic") })
-	})
-	useEffect(() => onData(data), [data])
-}
-
 /** The reader's topics, in whichever stage they are: off, waiting, proposing, proposed, active. */
 export default function Topics({ loaderData }: Route.ComponentProps) {
 	const { t } = useTranslation("library")
@@ -166,7 +153,7 @@ export default function Topics({ loaderData }: Route.ComponentProps) {
 				</section>
 			) : null}
 			{state.stage === "proposed" && !paused ? <Proposal state={state} /> : null}
-			{state.stage === "active" && !paused ? <TopicList state={state} /> : null}
+			{state.stage === "active" && !paused ? <Shelves state={state} /> : null}
 			{state.stage === "off" ? null : <TurnOff />}
 		</main>
 	)
@@ -175,7 +162,7 @@ export default function Topics({ loaderData }: Route.ComponentProps) {
 function TurnOn({ state }: { state: TopicsState }) {
 	const { t } = useTranslation("library")
 	const fetcher = useFetcher<typeof action>()
-	useRefusals(fetcher.data)
+	useTopicRefusals(fetcher.data)
 	return (
 		<section
 			data-testid="topics-off"
@@ -201,7 +188,7 @@ function TurnOn({ state }: { state: TopicsState }) {
 function Proposal({ state }: { state: TopicsState }) {
 	const { t } = useTranslation("library")
 	const fetcher = useFetcher<typeof action>()
-	useRefusals(fetcher.data)
+	useTopicRefusals(fetcher.data)
 	// Opening the proposal is seeing it: the sidebar's dot and Home's card go.
 	const seen = useFetcher()
 	const unseen = state.unseen
@@ -274,9 +261,8 @@ function ProposedTopic({ topic }: { topic: TopicSummary }) {
 	)
 }
 
-function TopicList({ state }: { state: TopicsState }) {
+function Shelves({ state }: { state: TopicsState }) {
 	const { t } = useTranslation("library")
-	const [editingId, setEditingId] = useState<string | null>(null)
 	return (
 		<>
 			{state.sorting > 0 ? (
@@ -293,129 +279,167 @@ function TopicList({ state }: { state: TopicsState }) {
 					{t("topics.empty")}
 				</p>
 			) : (
-				<ul data-testid="topics-list" className="mt-6 max-w-2xl divide-y divide-border">
-					{state.topics.map((topic) => (
-						<TopicRow
-							key={topic.id}
-							topic={topic}
-							editing={editingId === topic.id}
-							onEdit={() => setEditingId(topic.id)}
-							onDone={() => setEditingId((id) => (id === topic.id ? null : id))}
-						/>
-					))}
-				</ul>
+				<>
+					<ul data-testid="topics-shelves" className="mt-6 grid gap-x-10 gap-y-7 xl:grid-cols-2">
+						{state.topics.map((topic) => (
+							<Shelf key={topic.id} topic={topic} />
+						))}
+					</ul>
+					<p className="mt-6 text-xs text-muted-fg">{t("topics.legend")}</p>
+				</>
 			)}
 		</>
 	)
 }
 
-/** A topic: its name (the pencil renames it), its articles, and the way to remove it. */
-function TopicRow({
-	topic,
-	editing,
-	onEdit,
-	onDone,
-}: {
-	topic: TopicSummary
-	editing: boolean
-	onEdit: () => void
-	onDone: () => void
-}) {
-	const { t } = useTranslation("library")
-	const fetcher = useFetcher<typeof action>()
-	useRefusals(fetcher.data)
-	const [armed, setArmed] = useState(false)
-	useEffect(() => {
-		if (!armed) return
-		const id = window.setTimeout(() => setArmed(false), 4000)
-		return () => window.clearTimeout(id)
-	}, [armed])
-	const onAnswer = useEffectEvent((result: typeof fetcher.data) => {
-		if (!result?.ok) return
-		if ("removed" in result) showToast({ message: t("topics.removed", { name: result.removed }) })
-		if (editing) onDone()
-	})
-	useEffect(() => onAnswer(fetcher.data), [fetcher.data])
-	const editRef = useRef<HTMLButtonElement>(null)
+/** A phone's shelf holds this many books; a larger screen's, what the server sends. */
+const PHONE_SHELF = 12
 
-	if (fetcher.formData?.get("intent") === "remove") return null
-	if (editing)
-		return (
-			<li className="py-3">
-				<fetcher.Form method="post" className="flex gap-2">
-					<input type="hidden" name="intent" value="rename" />
-					<input type="hidden" name="id" value={topic.id} />
-					<Input
-						name="name"
-						defaultValue={topic.name}
-						autoFocus
-						onFocus={(e) => e.target.select()}
-						onKeyDown={(e) => {
-							if (e.key === "Escape") onDone()
-						}}
-						maxLength={TOPIC_NAME_MAX}
-						aria-label={t("topics.proposed.nameLabel", { name: topic.name })}
-						autoComplete="off"
-						className="min-w-0"
-					/>
-					<Button type="submit" disabled={fetcher.state !== "idle"}>
-						{t("topics.rename")}
-					</Button>
-					<Button type="button" variant="secondary" onClick={onDone}>
-						{t("topics.cancel")}
-					</Button>
-				</fetcher.Form>
-			</li>
-		)
-	const renamingTo =
-		fetcher.formData?.get("intent") === "rename" ? String(fetcher.formData.get("name")) : null
+/**
+ * A topic as a shelf: its name, its size, and a book per article, newest first. A full shelf ends
+ * in a book that says how many more there are, and opens the topic. On a phone a book is too narrow
+ * to aim at, so the whole shelf opens the topic; on a larger screen, each book opens its article.
+ */
+function Shelf({ topic }: { topic: TopicShelf }) {
+	const { t } = useTranslation("library")
+	const actions = useTopicActions(topic)
+	if (actions.removing) return null
+	const href = `/topics/${topic.id}`
+	// The server sends a full shelf at most: past it, the last place says how many more.
+	const full = topic.articles > topic.books.length
+	const shown = full ? topic.books.length - 1 : topic.books.length
+	const phoneFull = topic.articles > PHONE_SHELF
+	const seeAll = t("topics.seeAll", { count: topic.articles, name: actions.name })
 	return (
-		<li className="flex flex-wrap items-center gap-2 py-3">
-			<span className="flex min-w-0 flex-1 flex-col">
-				<span className="flex min-w-0 items-center gap-1">
-					<Link to={`/topics/${topic.id}`} className="min-w-0 truncate font-medium hover:underline">
-						{renamingTo?.trim() || topic.name}
-					</Link>
-					<Button
-						ref={editRef}
-						type="button"
-						variant="ghost"
-						size="sm"
-						onClick={onEdit}
-						aria-label={t("topics.edit", { name: topic.name })}
-						{...tooltip(t("topics.rename"))}
-						className="shrink-0 text-muted-fg"
-					>
-						<Pencil className="size-3.5" aria-hidden />
-					</Button>
-				</span>
-				<span className="truncate text-sm text-muted-fg">{topic.description}</span>
-			</span>
-			<span className="shrink-0 text-sm text-muted-fg">
-				{t("topics.articles", { count: topic.articles })}
-			</span>
-			<fetcher.Form
-				method="post"
-				onSubmit={(e) => {
-					if (!armed) {
-						e.preventDefault()
-						setArmed(true)
-					}
-				}}
-			>
-				<input type="hidden" name="intent" value="remove" />
-				<input type="hidden" name="id" value={topic.id} />
-				<Button
-					type="submit"
-					variant={armed ? "danger" : "ghost"}
-					size="sm"
-					aria-label={armed ? undefined : t("topics.remove", { name: topic.name })}
-					className={armed ? undefined : "text-muted-fg"}
+		<li data-testid="topic-shelf" className="min-w-0">
+			{actions.mode === "rename" ? (
+				<TopicRenameForm actions={actions} />
+			) : (
+				<div className="flex items-center gap-2">
+					<div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3 gap-y-0.5">
+						<h2 className="font-serif text-xl leading-tight font-semibold">
+							<Link to={href} className="decoration-1 underline-offset-2 hover:underline">
+								{actions.name}
+							</Link>
+						</h2>
+						<span className="text-sm text-muted-fg">
+							{t("topics.articles", { count: topic.articles })}
+						</span>
+						{topic.recent > 0 ? (
+							<span
+								className="inline-flex items-center gap-1 text-xs font-medium text-link"
+								{...tooltip(t("topics.recentLong", { count: topic.recent }))}
+							>
+								<span aria-hidden className="size-1.5 rounded-full bg-current" />
+								{t("topics.recent", { count: topic.recent })}
+							</span>
+						) : null}
+					</div>
+					<TopicMenu actions={actions} className="shrink-0 text-muted-fg" />
+				</div>
+			)}
+			{actions.mode === "remove" ? (
+				<div className="mt-2">
+					<TopicRemoveConfirm actions={actions} />
+				</div>
+			) : null}
+			<div className="relative mt-2">
+				<ul
+					aria-label={t("topics.shelf", { name: actions.name })}
+					className="flex min-h-32 items-end gap-0.5 overflow-x-auto overflow-y-hidden border-b-[7px] border-shelf px-1.5 [scrollbar-width:thin] md:min-h-36"
 				>
-					<Trash2 className="size-4" aria-hidden />
-					{armed ? t("topics.removeConfirm") : null}
-				</Button>
-			</fetcher.Form>
+					{topic.books.slice(0, shown).map((book, i) => (
+						<Book
+							key={book.id}
+							book={book}
+							className={phoneFull && i >= PHONE_SHELF - 1 ? "max-md:hidden" : undefined}
+						/>
+					))}
+					{phoneFull ? (
+						<MoreBooks
+							href={href}
+							label={seeAll}
+							count={topic.articles - (PHONE_SHELF - 1)}
+							className="md:hidden"
+						/>
+					) : null}
+					{full ? (
+						<MoreBooks
+							href={href}
+							label={seeAll}
+							count={topic.articles - shown}
+							className="max-md:hidden"
+						/>
+					) : null}
+				</ul>
+				{/* Phones: the shelf is one target, the topic. */}
+				<Link to={href} tabIndex={-1} aria-hidden className="absolute inset-0 md:hidden" />
+			</div>
+		</li>
+	)
+}
+
+/** A small, stable number for a text: a book keeps its height and color from one visit to the next. */
+function hash(text: string) {
+	let h = 7
+	for (const c of text) h = (h * 31 + c.charCodeAt(0)) >>> 0
+	return h
+}
+
+/**
+ * An article as a book's spine: thicker for a longer read, colored by its site, its title down the
+ * spine. One saved this week has a blue top.
+ */
+function Book({ book, className }: { book: TopicBook; className?: string }) {
+	const title = book.title ?? book.siteName ?? ""
+	const words = Math.max(200, book.wordCount ?? 1000)
+	const style = {
+		"--k": Math.min(1, Math.max(0, (Math.log10(words) - 2.5) / 1.6)).toFixed(2),
+		"--h": hash(book.id) % 30,
+		"--hue": (hash(book.siteName ?? book.id) % 12) * 30,
+	} as React.CSSProperties
+	return (
+		<li className={cn("flex shrink-0", className)}>
+			<Link
+				to={`/read/${book.id}`}
+				aria-label={book.siteName ? `${title}, ${book.siteName}` : title}
+				{...tooltip(title)}
+				style={style}
+				className={cn(
+					"block h-[calc(92px+var(--h)*1px)] w-[calc(14px+var(--k)*9px)] overflow-hidden rounded-t-[3px] rounded-b-[1px] bg-[oklch(var(--k-book-l)_var(--k-book-c)_var(--hue))] py-2 text-[11px] leading-none font-medium text-ellipsis whitespace-nowrap text-book-fg [writing-mode:vertical-rl] motion-safe:transition-transform hover:-translate-y-1 focus-visible:-translate-y-1 md:h-[calc(104px+var(--h)*1px)] md:w-[calc(18px+var(--k)*14px)]",
+					book.recent
+						? "pt-3 shadow-[inset_0_4px_0_var(--color-link)]"
+						: "shadow-[inset_-2px_0_0_rgb(0_0_0/0.06),inset_2px_0_0_rgb(255_255_255/0.18)]",
+				)}
+			>
+				{title}
+			</Link>
+		</li>
+	)
+}
+
+/** The last place on a full shelf: how many more, and the way to the topic that has them all. */
+function MoreBooks({
+	href,
+	label,
+	count,
+	className,
+}: {
+	href: string
+	label: string
+	count: number
+	className?: string
+}) {
+	return (
+		<li className={cn("flex shrink-0", className)}>
+			<Link
+				to={href}
+				aria-label={label}
+				{...tooltip(label)}
+				className="grid h-24 w-[34px] place-items-center rounded-t-[3px] border border-dashed border-muted-fg/50 bg-muted text-[13px] font-semibold"
+			>
+				+{count}
+			</Link>
 		</li>
 	)
 }
@@ -424,7 +448,7 @@ function TopicRow({
 function TurnOff() {
 	const { t } = useTranslation("library")
 	const fetcher = useFetcher<typeof action>()
-	useRefusals(fetcher.data)
+	useTopicRefusals(fetcher.data)
 	const [armed, setArmed] = useState(false)
 	useEffect(() => {
 		if (!armed) return

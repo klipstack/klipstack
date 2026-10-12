@@ -1,9 +1,21 @@
 import { ArrowLeft, X } from "lucide-react"
 import { useEffect, useEffectEvent } from "react"
 import { useTranslation } from "react-i18next"
-import { type FetcherWithComponents, Link, useFetcher } from "react-router"
+import {
+	type FetcherWithComponents,
+	Link,
+	type ShouldRevalidateFunctionArgs,
+	useFetcher,
+	useNavigate,
+} from "react-router"
 import { takeOutOfTopic } from "~/commands/topics.server"
 import { tooltip } from "~/components/tooltip-host"
+import {
+	TopicMenu,
+	TopicRemoveConfirm,
+	TopicRenameForm,
+	useTopicActions,
+} from "~/components/topic-actions"
 import { Button } from "~/components/ui/button"
 import { topicModels } from "~/lib/ai.server"
 import { AppError } from "~/lib/app-error"
@@ -44,7 +56,16 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 	})
 }
 
-/** A topic's articles, newest first, each with the way to take it out. */
+/** Removed from its own page, the topic is left for /topics: its loader would only find it gone. */
+export function shouldRevalidate({
+	formData,
+	defaultShouldRevalidate,
+}: ShouldRevalidateFunctionArgs) {
+	if (formData?.get("intent") === "remove") return false
+	return defaultShouldRevalidate
+}
+
+/** A topic's articles, newest first, each with the way to take it out; ⋯ renames or removes it. */
 export default function TopicPage({ loaderData }: Route.ComponentProps) {
 	const { t } = useTranslation("library")
 	const { t: tc } = useTranslation()
@@ -65,6 +86,8 @@ export default function TopicPage({ loaderData }: Route.ComponentProps) {
 		})
 	})
 	useEffect(() => onAnswer(fetcher.data), [fetcher.data])
+	const navigate = useNavigate()
+	const actions = useTopicActions(topic, { onRemoved: () => void navigate("/topics") })
 	const leaving = fetcher.formData ? String(fetcher.formData.get("article")) : null
 	const shown = items.filter((item) => item.id !== leaving)
 	return (
@@ -76,9 +99,23 @@ export default function TopicPage({ loaderData }: Route.ComponentProps) {
 				<ArrowLeft className="size-4" aria-hidden />
 				{t("topics.back")}
 			</Link>
-			<h1 data-testid="topic-name" className="mt-2 text-2xl font-semibold">
-				{topic.name}
-			</h1>
+			{actions.mode === "rename" ? (
+				<div className="mt-2">
+					<TopicRenameForm actions={actions} />
+				</div>
+			) : (
+				<div className="mt-2 flex items-start gap-2">
+					<h1 data-testid="topic-name" className="min-w-0 flex-1 text-2xl font-semibold">
+						{actions.name}
+					</h1>
+					<TopicMenu actions={actions} className="shrink-0 text-muted-fg" />
+				</div>
+			)}
+			{actions.mode === "remove" ? (
+				<div className="mt-2">
+					<TopicRemoveConfirm actions={actions} />
+				</div>
+			) : null}
 			<p className="mt-1 text-sm text-muted-fg">{topic.description}</p>
 			{shown.length === 0 ? (
 				<p data-testid="topic-empty" className="mt-8 text-sm text-muted-fg">

@@ -37,6 +37,8 @@ export interface TopicBook {
 	title: string | null
 	siteName: string | null
 	wordCount: number | null
+	/** Saved in the last seven days. */
+	recent: boolean
 }
 
 /** A topic on the Topics page: its newest articles, and how many were saved this week. */
@@ -114,13 +116,14 @@ async function sortedCount(userId: string): Promise<number> {
 
 async function summaries(userId: string, status: "active" | "proposed"): Promise<TopicShelf[]> {
 	const articles = sql<number>`count(${documents.id})::int`
+	const recent = sql<number>`(count(${documents.id}) filter (where ${savedThisWeek}))::int`
 	const rows = await db
 		.select({
 			id: topics.id,
 			name: topics.name,
 			description: topics.description,
 			articles,
-			recent: sql<number>`(count(${documents.id}) filter (where ${documents.createdAt} > now() - interval '7 days'))::int`,
+			recent,
 		})
 		.from(topics)
 		.leftJoin(documentTopics, applied)
@@ -131,6 +134,9 @@ async function summaries(userId: string, status: "active" | "proposed"): Promise
 	const shelved = await books(userId, status)
 	return rows.map((row) => ({ ...row, books: shelved.get(row.id) ?? [] }))
 }
+
+/** "New" on a shelf: saved in the last seven days. */
+const savedThisWeek = sql`${documents.createdAt} > now() - interval '7 days'`
 
 /** A topic's articles: those sorted into it, less the ones the reader took out. */
 const applied = and(
@@ -148,6 +154,7 @@ async function books(userId: string, status: "active" | "proposed") {
 			title: documents.title,
 			siteName: documents.siteName,
 			wordCount: documents.wordCount,
+			recent: sql<boolean>`${savedThisWeek}`.as("recent"),
 			rank: sql<number>`row_number() over (partition by ${documentTopics.topicId} order by ${documents.createdAt} desc, ${documents.id})`.as(
 				"rank",
 			),
@@ -163,9 +170,9 @@ async function books(userId: string, status: "active" | "proposed") {
 		.where(sql`${ranked.rank} <= ${SHELF_BOOKS}`)
 		.orderBy(asc(ranked.rank))
 	const shelves = new Map<string, TopicBook[]>()
-	for (const { topicId, id, title, siteName, wordCount } of rows) {
+	for (const { topicId, rank: _, ...book } of rows) {
 		const shelf = shelves.get(topicId) ?? []
-		shelf.push({ id, title, siteName, wordCount })
+		shelf.push(book)
 		shelves.set(topicId, shelf)
 	}
 	return shelves

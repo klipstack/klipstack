@@ -230,7 +230,9 @@ describe("where topics stand", () => {
 			title: "Article 17",
 			siteName: "site-2",
 			wordCount: 1800,
+			recent: true,
 		})
+		expect(shelf!.books.filter((b) => b.recent)).toHaveLength(3)
 		expect(shelf!.books.map((b) => b.id)).toEqual(ids.slice(2).reverse())
 	})
 })
