@@ -11,6 +11,7 @@ import { z } from "zod"
 import { HIGHLIGHT_COLOR_NAMES } from "~/lib/highlight-colors"
 import {
 	ARCHIVE_FILTERS,
+	type FilterableView,
 	INBOX_FILTERS,
 	LIST_SORTS,
 	LONG_MIN_MINUTES,
@@ -166,10 +167,10 @@ export function registerReadTools(server: McpServer, userId: string) {
 		"list_library",
 		{
 			title: "List library",
-			description: `Lists saved articles in a view: library (view "inbox", saved articles), archive (done) or starred, the same lists and filters the app has. Library filters: unread (never opened), progress (opened, not finished), read (finished, still in the library), quick (articles of at most ${QUICK_MAX_MINUTES} minutes), long (at least ${LONG_MIN_MINUTES} minutes), x (posts from X); quick, long and x leave out what is read. Archive and starred filters: unfinished, finished, quick, long, x. Sorts: newest and oldest go by when articles were saved (library), archived (archive) or starred (starred); shortest and longest by reading time. Paginate with nextCursor.`,
+			description: `Lists saved articles in a view: library (view "inbox", saved articles), archive (done), starred, or all (the library and the archive together), the same lists and filters the app has. Library filters: unread (never opened), progress (opened, not finished), read (finished, still in the library), quick (articles of at most ${QUICK_MAX_MINUTES} minutes), long (at least ${LONG_MIN_MINUTES} minutes), x (posts from X); quick, long and x leave out what is read. Archive, starred and all filters: unfinished, finished, quick, long, x. Sorts: newest and oldest go by when articles were saved (library, all), archived (archive) or starred (starred); shortest and longest by reading time. Paginate with nextCursor.`,
 			inputSchema: z
 				.object({
-					view: z.enum(["inbox", "archive", "starred"]).default("inbox"),
+					view: z.enum(["inbox", "archive", "starred", "all"]).default("inbox"),
 					filter: z.enum([...new Set([...INBOX_FILTERS, ...ARCHIVE_FILTERS])]).optional(),
 					topic: z
 						.union([uuid(), z.literal("none")])
@@ -190,8 +191,8 @@ export function registerReadTools(server: McpServer, userId: string) {
 					limit: z.number().int().min(1).max(50).default(20),
 					cursor: z.string().max(500).optional().describe("nextCursor from the previous page"),
 				})
-				.refine((v) => !v.filter || parseFilter(v.filter, v.view) !== null, {
-					message: `Library filters: ${INBOX_FILTERS.join(", ")}. Archive and starred filters: ${ARCHIVE_FILTERS.join(", ")}.`,
+				.refine((v) => !v.filter || parseFilter(v.filter, filtersOf(v.view)) !== null, {
+					message: `Library filters: ${INBOX_FILTERS.join(", ")}. Archive, starred and all filters: ${ARCHIVE_FILTERS.join(", ")}.`,
 				}),
 			annotations: READ_ONLY,
 		},
@@ -204,7 +205,7 @@ export function registerReadTools(server: McpServer, userId: string) {
 			const page = await listDocuments({
 				userId,
 				view,
-				filter: filter ? parseFilter(filter, view) : null,
+				filter: filter ? parseFilter(filter, filtersOf(view)) : null,
 				sort,
 				limit,
 				hasNoteLinks: has_note_links,
@@ -433,3 +434,7 @@ export function registerReadTools(server: McpServer, userId: string) {
 		},
 	)
 }
+
+/** All takes the archive's filters: read or not, everything counts. */
+const filtersOf = (view: FilterableView | "all"): FilterableView =>
+	view === "all" ? "archive" : view

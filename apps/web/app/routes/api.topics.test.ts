@@ -157,6 +157,60 @@ describe("GET /topics and GET /articles?topic=", () => {
 		expect(titles(await reader.client.articles.list({ topic: "none" }))).toEqual(["Loose"])
 	})
 
+	it("lists a topic's articles across the whole library with view all, newest first", async () => {
+		const [old] = await db
+			.insert(documents)
+			.values({
+				userId: reader.id,
+				sourceUrl: `https://example.com/${newId()}`,
+				urlHash: newId(),
+				status: "ready",
+				title: "Old atoms",
+				createdAt: new Date("2020-01-01"),
+			})
+			.returning({ id: documents.id })
+		const [trashed] = await db
+			.insert(documents)
+			.values({
+				userId: reader.id,
+				sourceUrl: `https://example.com/${newId()}`,
+				urlHash: newId(),
+				status: "ready",
+				title: "Trashed atoms",
+				deletedAt: new Date(),
+			})
+			.returning({ id: documents.id })
+		for (const doc of [old!, trashed!])
+			await db.insert(documentTopics).values({
+				documentId: doc.id,
+				topicId: ids["reader:Science"]!,
+				probability: 0.9,
+				level: "applied",
+			})
+		// Archived: in the whole library, out of the inbox.
+		await db.update(documents).set({ archivedAt: new Date() }).where(eq(documents.id, old!.id))
+		try {
+			const all = await reader.client.articles.list({ view: "all", topic: ids["reader:Science"] })
+			expect(all.items.map((a) => a.title)).toEqual(["Atoms", "Old atoms"])
+			const inbox = await reader.client.articles.list({ topic: ids["reader:Science"] })
+			expect(inbox.items.map((a) => a.title)).toEqual(["Atoms"])
+			// The archive's filters: finished or not.
+			const unfinished = await reader.client.articles.list({
+				view: "all",
+				filter: "unfinished",
+				topic: ids["reader:Science"],
+			})
+			expect(unfinished.items.map((a) => a.title)).toEqual(["Atoms", "Old atoms"])
+			const unread = await request("/api/v1/articles?view=all&filter=unread", {
+				token: reader.key,
+			})
+			expect(unread.status).toBe(400)
+		} finally {
+			await db.delete(documents).where(eq(documents.id, old!.id))
+			await db.delete(documents).where(eq(documents.id, trashed!.id))
+		}
+	})
+
 	it("refuses a topic that ended, another reader's, or any while topics are off", async () => {
 		for (const [client, topic] of [
 			[reader.client, ids["reader:Ended"]],
@@ -195,6 +249,13 @@ describe("MCP list_topics and list_library's topic", () => {
 			}),
 		)
 		expect(titles(page)).toEqual(["Atoms"])
+		const all = json(
+			await mcp.callTool({
+				name: "list_library",
+				arguments: { view: "all", topic: ids["reader:Writing"] },
+			}),
+		)
+		expect(titles(all)).toEqual(["Draft one", "Draft two"])
 		const refused = (await mcp.callTool({
 			name: "list_library",
 			arguments: { topic: ids["reader:Ended"] },

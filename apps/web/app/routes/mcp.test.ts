@@ -169,7 +169,7 @@ describe("MCP with an API key", () => {
 		expect((await call(mcp, "list_library")).items[0].opened).toBe(true)
 		expect(await ids({ view: "archive", filter: "unfinished" })).toEqual([])
 		expect(await callError(mcp, "list_library", { view: "archive", filter: "unread" })).toContain(
-			"Archive and starred filters: unfinished, finished, quick, long, x",
+			"Archive, starred and all filters: unfinished, finished, quick, long, x",
 		)
 
 		const article = text(await mcp.callTool({ name: "get_article", arguments: { id: joel } }))

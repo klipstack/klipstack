@@ -317,9 +317,10 @@ export const ARCHIVE_FILTER_WHERE: Record<ArchiveFilter, SQL> = {
 	x: isX,
 }
 
-export function filterWhere(view: LibraryView, filter: ListFilter): SQL | undefined {
+export function filterWhere(view: ListView, filter: ListFilter): SQL | undefined {
 	if (view === "inbox") return INBOX_FILTER_WHERE[filter as InboxFilter]
-	if (view === "archive" || view === "starred") return ARCHIVE_FILTER_WHERE[filter as ArchiveFilter]
+	if (view === "archive" || view === "starred" || view === "all")
+		return ARCHIVE_FILTER_WHERE[filter as ArchiveFilter]
 	return undefined
 }
 
@@ -351,6 +352,9 @@ export const SORT_KEY: Record<ListSort, { key: SQL | null; dir: "asc" | "desc" }
 	longest: { key: sql`coalesce(${documents.readingMinutes}, -1)`, dir: "desc" },
 }
 
+/** A library view, or `all`: the library and the archive together (the API's). */
+export type ListView = LibraryView | "all"
+
 export async function listDocuments({
 	userId,
 	view,
@@ -364,7 +368,7 @@ export async function listDocuments({
 	topic = null,
 }: {
 	userId: string
-	view: LibraryView
+	view: ListView
 	filter?: ListFilter | null
 	/** Only the articles in a topic of the reader's (its id), or in none (`"none"`). */
 	topic?: TopicScope | null
@@ -383,7 +387,9 @@ export async function listDocuments({
 				? isNotNull(documents.starredAt)
 				: view === "archive"
 					? inArchive
-					: inInbox
+					: view === "all"
+						? undefined
+						: inInbox
 	const deletedFilter = view === "trash" ? undefined : isNull(documents.deletedAt)
 	const { key, dir } = SORT_KEY[sort]
 	// Recent reading falls back for older/imported articles without a last-read timestamp.
