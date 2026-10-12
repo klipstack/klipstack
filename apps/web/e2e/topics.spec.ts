@@ -117,6 +117,30 @@ test("topics: turned on, proposed, confirmed, sorted, corrected and turned off",
 	await page.reload()
 	await expect(page.getByTestId("topic-articles").getByRole("listitem")).toHaveCount(17)
 
+	// The reader names the article's topic above its title, and ends with its unread articles.
+	await page
+		.getByTestId("topic-articles")
+		.getByRole("link", { name: "Psyche essay 2", exact: true })
+		.click()
+	await expect(page.getByTestId("reader-topics")).toHaveText("Minds")
+	// On a phone's screen, where the shelf takes the short article past one screen.
+	await page.setViewportSize({ width: 390, height: 600 })
+	await page.reload()
+	const next = page.getByTestId("reader-shelf")
+	await expect(next.getByRole("heading")).toHaveText("More in Minds")
+	await expect(next).toContainText("16 unread · See all")
+	await expect(next.getByRole("listitem")).toHaveCount(3)
+	// The shelf comes after the article: with the article and its end in view, it is all read.
+	await expect(page.getByTestId("reading-progress")).toHaveAttribute("style", /scaleX\(1\)/)
+	await expect(next).not.toContainText("Psyche essay 2")
+	await next.getByRole("listitem").first().getByRole("link").click()
+	await expect(page).not.toHaveURL(/\/topics\//)
+	await expect(page.getByRole("heading", { level: 1 })).toContainText("Psyche essay")
+	await expect(page.getByRole("heading", { level: 1 })).not.toHaveText("Psyche essay 2")
+	await page.getByTestId("reader-topics").getByRole("link", { name: "Minds" }).click()
+	await expect(page.getByTestId("topic-name")).toHaveText("Minds")
+	await page.setViewportSize({ width: 1280, height: 720 })
+
 	// On a phone a shelf holds 11 books and "+6", and a book is too narrow to aim at: the shelf
 	// opens the topic.
 	await page.setViewportSize({ width: 390, height: 844 })
@@ -139,26 +163,6 @@ test("topics: turned on, proposed, confirmed, sorted, corrected and turned off",
 	await expect(page).toHaveURL(/\/topics$/)
 	await expect(page.getByText("Removed Minds. It won't be proposed again.")).toBeVisible()
 	await expect(page.getByTestId("topics-empty")).toBeVisible()
-
-	// The reader names the article's topic above its title, and ends with its unread articles. On a
-	// phone's screen, where the shelf takes the page past one screen.
-	await page.setViewportSize({ width: 390, height: 600 })
-	await page.getByTestId("topic-articles").getByText("Psyche essay 2", { exact: true }).click()
-	await expect(page.getByTestId("reader-topics")).toHaveText("Minds")
-	const shelf = page.getByTestId("reader-shelf")
-	await expect(shelf.getByRole("heading")).toHaveText("More in Minds")
-	await expect(shelf).toContainText("11 unread · See all")
-	await expect(shelf.getByRole("listitem")).toHaveCount(3)
-	// The shelf comes after the article: with the article and its end in view, it is all read.
-	await expect(page.getByTestId("reading-progress")).toHaveAttribute("style", /scaleX\(1\)/)
-	await expect(shelf).not.toContainText("Psyche essay 2")
-	await shelf.getByRole("listitem").first().getByRole("link").click()
-	await expect(page).not.toHaveURL(/\/topics\//)
-	await expect(page.getByRole("heading", { level: 1 })).toContainText("Psyche essay")
-	await expect(page.getByRole("heading", { level: 1 })).not.toHaveText("Psyche essay 2")
-	await page.getByTestId("reader-topics").getByRole("link", { name: "Minds" }).click()
-	await expect(page.getByTestId("topic-name")).toHaveText("Minds")
-	await page.setViewportSize({ width: 1280, height: 720 })
 
 	await page.goto("/topics")
 	// The second tap is the page's script: it must be running first.
