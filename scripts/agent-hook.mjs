@@ -10,6 +10,9 @@
 //   agent-hook.mjs guard <command>            exit 2, with the reason on stderr, for a shell
 //                                             command that breaks a rule of AGENTS.md
 //   agent-hook.mjs mark-verified <tree>       record a tree `pnpm verify` passed (scripts/verify)
+//   agent-hook.mjs change-id <base>           print the change since <base> (a patch id), when
+//                                             it is all committed; nothing otherwise
+//   agent-hook.mjs mark-ci-passed <change>    record a change `pnpm ci:local` passed (scripts/ci-local)
 //   agent-hook.mjs fingerprint                print the working tree's fingerprint
 //
 // A fingerprint is the tree hash of the working tree, untracked files included (.gitignore
@@ -118,6 +121,63 @@ export function turnEnd(session) {
 		"it affects (.claude/skills/verify/SKILL.md), and report what you ran and saw. If you are",
 		"stopping on purpose with work unfinished or unverified, say so plainly and say what is left.",
 	].join(" ")
+}
+
+// A change's patch id (`git patch-id --verbatim`: whitespace counts, binary files too). It ignores
+// line numbers, so a commit rebased without conflicts keeps it: what `pnpm ci:local` passed before
+// another agent's push is the same change after the rebase.
+function patchId(from, to) {
+	const maxBuffer = 1 << 30
+	const diff = execFileSync("git", ["diff", "--binary", from, to], { maxBuffer })
+	const out = execFileSync("git", ["patch-id", "--verbatim"], { input: diff, maxBuffer })
+	return out.toString().split(" ")[0].trim()
+}
+
+// The change from where HEAD left <base> to HEAD, when the working tree holds nothing else.
+export function changeId(base) {
+	if (fingerprint() !== git(["rev-parse", "HEAD^{tree}"])) return ""
+	return patchId(git(["merge-base", base, "HEAD"]), "HEAD")
+}
+
+const isAncestor = (a, b) => {
+	try {
+		git(["merge-base", "--is-ancestor", a, b])
+		return true
+	} catch {
+		return false
+	}
+}
+
+// What `main` must not carry (AGENTS.md): an agent as author or co-author, links to its threads.
+const agentCredit =
+	/^(co-authored-by:.*\b(amp|claude)\b.*|amp-thread-id:.*)$|@(ampcode|anthropic)\.com|ampcode\.com\/threads|claude\.ai\/|generated with \W*(amp|claude)/im
+
+// Why the commit <rev> may not be pushed to `main` yet; null when it may (.claude/skills/release).
+// One commit on top of origin/main, crediting no agent, whose tree passed `pnpm verify` and whose
+// change passed `pnpm ci:local`.
+export function shipProblem(rev) {
+	const commit = git(["rev-parse", "--verify", `${rev}^{commit}`])
+	const main = "refs/remotes/origin/main"
+	const release = "(.claude/skills/release/SKILL.md)"
+	if (!isAncestor(main, commit)) {
+		return `${rev} is not on top of \`origin/main\`: \`git fetch origin && git rebase origin/main\`, then \`pnpm verify\`, and push again ${release}.`
+	}
+	const ahead = Number(git(["rev-list", "--count", `${main}..${commit}`]))
+	if (ahead === 0) return null
+	if (ahead > 1) {
+		return `${rev} is ${ahead} commits ahead of \`origin/main\`: \`main\` takes one commit per change. Squash them: \`git reset --soft origin/main && git commit -m "<type>: <what changed>"\` ${release}.`
+	}
+	if (agentCredit.test(git(["log", "-1", "--format=%an <%ae>%n%cn <%ce>%n%B", commit]))) {
+		return `${rev} credits an agent (author, Co-authored-by, Amp-Thread-ID or a thread link), which \`main\` must not carry (AGENTS.md). Rewrite it: \`git commit --amend --reset-author -m "<type>: <what changed>"\`, with no trailers.`
+	}
+	if (git(["rev-parse", `${commit}^{tree}`]) !== readState("verified")) {
+		return `\`pnpm verify\` has not passed on ${rev} as it is. Check it out with a clean working tree, run \`pnpm verify\`, and push again ${release}.`
+	}
+	const change = patchId(`${commit}^`, commit)
+	if (!change || change !== readState("ci-passed")) {
+		return `\`pnpm ci:local\` has not passed on this change. Run it on ${rev}, with a clean working tree, and push again. A rebase without conflicts keeps a pass ${release}.`
+	}
+	return null
 }
 
 // Splits a shell line into simple commands and their words. Rough, but enough to find `git`
@@ -240,11 +300,13 @@ function gitInvocation(words) {
 		i++
 	if (words[i] !== "git" && !words[i]?.endsWith("/git")) return null
 	i++
+	let elsewhere = false
 	while (i < words.length && words[i].startsWith("-")) {
+		if (["-C", "--git-dir", "--work-tree"].includes(words[i])) elsewhere = true
 		if (["-C", "-c", "--git-dir", "--work-tree"].includes(words[i])) i++
 		i++
 	}
-	return i < words.length ? { sub: words[i], args: words.slice(i + 1) } : null
+	return i < words.length ? { sub: words[i], args: words.slice(i + 1), elsewhere } : null
 }
 
 const isBranch = (name) => {
@@ -319,11 +381,14 @@ const skipsHooks = (sub, args) =>
 		? commitSkipsHooks(args)
 		: args.some((a) => a.length > 6 && "--no-verify".startsWith(a))
 
-// `branch` stands in for the current branch, for tests. A line that switches branches before it
-// commits or pushes is read in order: `git switch -c x && git commit` commits on x.
-export function guard(line, branch = currentBranch()) {
+// `branch` stands in for the current branch, and `ship` for shipProblem, for tests. A line that
+// switches branches before it commits or pushes is read in order: `git switch -c x && git commit`
+// commits on x.
+export function guard(line, branch = currentBranch(), ship = shipProblem) {
 	let current = branch
+	let moved = false
 	for (const words of commands(line)) {
+		if (words[0] === "cd" || words[0] === "pushd") moved = true
 		const call = gitInvocation(words)
 		if (!call) continue
 		const { sub, args } = call
@@ -348,7 +413,7 @@ export function guard(line, branch = currentBranch()) {
 		}
 		if (sub === "push") {
 			if (args.includes("--all") || args.includes("--mirror")) {
-				return "`git push --all` or `--mirror` would push `main`. Push the branch: `git push -u origin HEAD`."
+				return "`git push --all` or `--mirror` would push every branch. Push one: `git push origin HEAD:main` to release (release skill), `git push -u origin HEAD` for a branch."
 			}
 			const refspecs = positionals(args, [
 				"-o",
@@ -358,15 +423,33 @@ export function guard(line, branch = currentBranch()) {
 				"--exec",
 			]).slice(1)
 			if (refspecs.length === 0 && args.includes("--tags")) continue
-			const targets = refspecs.length
-				? refspecs.map((r) => r.replace(/^\+/, "").split(":").pop())
-				: [current]
-			if (
-				targets.some(
-					(t) => t === "main" || t === "refs/heads/main" || (t === "HEAD" && current === "main"),
-				)
-			) {
-				return "Never push to `main`: every change reaches it through a pull request (.claude/skills/release/SKILL.md)."
+			const deletes = args.includes("--delete") || args.includes("-d")
+			const forced = args.some(
+				(a) =>
+					/^-[A-Za-z]*f/.test(a) ||
+					a === "--force" ||
+					a.startsWith("--force-with-lease") ||
+					a === "--force-if-includes",
+			)
+			const pushes = (refspecs.length ? refspecs : [current]).map((r) => {
+				const [source, target = source] = r.replace(/^\+/, "").split(":")
+				return { source: deletes ? "" : source, target, forced: forced || r.startsWith("+") }
+			})
+			for (const { source, target, forced } of pushes) {
+				if (target.includes("*")) {
+					return "A pattern refspec can push `main`. Push one branch: `git push origin HEAD:main` to release (release skill), `git push -u origin HEAD` for a branch."
+				}
+				const name = target.replace(/^(refs\/)?heads\//, "")
+				const toMain = name === "main" || (["HEAD", "@"].includes(name) && current === "main")
+				if (!toMain) continue
+				if (!source) return "Never delete `main`."
+				if (forced)
+					return "Never force-push `main`, nor rewrite a commit pushed to it. Fix forward."
+				if (call.elsewhere || moved) {
+					return "Push to `main` from the branch's own checkout, without `cd` or `git -C` on the same line: the hook checks the commit it can see (release skill)."
+				}
+				const problem = ship(["HEAD", "@"].includes(source) && current === "main" ? "main" : source)
+				if (problem) return problem
 			}
 		}
 	}
@@ -393,6 +476,10 @@ async function main() {
 				return console.log(fingerprint())
 			case "mark-verified":
 				return writeState("verified", arg || fingerprint())
+			case "change-id":
+				return console.log(changeId(arg || "origin/main"))
+			case "mark-ci-passed":
+				return arg ? writeState("ci-passed", arg) : undefined
 			case "turn-start":
 				return turnStart(arg)
 			case "turn-end":
@@ -417,7 +504,9 @@ async function main() {
 	} catch (error) {
 		// Fail open, but say why: a broken guardrail must not stop work, nor go unnoticed.
 		process.stderr.write(`agent-hook ${command}: ${error.message}\n`)
-		process.exit(command === "mark-verified" || command === "fingerprint" ? 1 : 0)
+		process.exit(
+			["mark-verified", "mark-ci-passed", "change-id", "fingerprint"].includes(command) ? 1 : 0,
+		)
 	}
 }
 

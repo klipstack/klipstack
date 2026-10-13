@@ -1,8 +1,10 @@
 name: CI
 
-# Every pull request runs every check; so does every push to main, which then deploys klipstack.com
-# when app code changed. The unit and browser tests are the exception: each runs only when something
-# it reads changed (`scripts/ci-needs`). A skipped `unit` counts as passed; `e2e result` reports on
+# Every push to main runs every check, then deploys klipstack.com when app code changed. Runs on
+# main queue, and a newer push replaces a queued one: what deploys is the latest commit, checked.
+# Changes reach main as direct pushes, checked first with `scripts/ci-local` (release skill); a
+# pull request, when there is one, runs the same checks. The unit and browser tests are the
+# exception: each runs only when something it reads changed (`scripts/ci-needs`). A skipped `unit` counts as passed; `e2e result` reports on
 # the browser tests either way.
 # `scripts/ci-local` runs the same checks on a developer's machine. Change both together.
 #
@@ -146,9 +148,9 @@ jobs:
           path: apps/web/playwright-report
           retention-days: 7
 
-  # The branch rules require this, not the shards above: a skipped matrix job reports no check
-  # under its shards' names, so requiring those would block every pull request that skips them.
-  # Passes when every shard passed, or when `changes` found nothing they test.
+  # One check for the browser tests, for a pull request to show: a skipped matrix job reports no
+  # check under its shards' names. Passes when every shard passed, or when `changes` found nothing
+  # they test.
   e2e-result:
     name: e2e result
     needs: [changes, e2e]

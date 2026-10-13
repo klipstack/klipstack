@@ -8,7 +8,7 @@ For changes under `packages/db/` (the schema and `drizzle/`), report:
 
 - A migration that drops or rewrites data: `DROP TABLE`, `DROP COLUMN`, a type change that can
   fail or truncate, an `UPDATE` or `DELETE` over existing rows. These need the owner's agreement
-  before the pull request (`AGENTS.md`), and the pull request must say so under Risk.
+  before the push to `main` (`AGENTS.md`), and the release report must say so.
 - A rename that drizzle-kit wrote as drop-and-add, which loses the column's data.
 - A new `NOT NULL` column without a default or a backfill, on a table that has rows.
 - An index on a large table created without `CONCURRENTLY` where a lock would block writes, or a

@@ -2,16 +2,17 @@
 // Code and Amp run.
 import assert from "node:assert/strict"
 import { execFileSync, spawnSync } from "node:child_process"
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs"
+import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, beforeEach, describe, test } from "node:test"
-import { fingerprint, guard, turnEnd } from "./agent-hook.mjs"
+import { changeId, fingerprint, guard, shipProblem, turnEnd } from "./agent-hook.mjs"
 
 const script = join(import.meta.dirname, "agent-hook.mjs")
 
 describe("guard", () => {
-	const refused = (line, branch = "feat/x") => guard(line, branch) !== null
+	// A push to main goes through shipProblem, tested below; here it always finds a problem.
+	const refused = (line, branch = "feat/x") => guard(line, branch, () => "not ready") !== null
 
 	test("refuses commits on main, allows them on a branch", () => {
 		assert.ok(refused("git add -A && git commit -m 'x'", "main"))
@@ -19,13 +20,56 @@ describe("guard", () => {
 		assert.ok(!refused("git commit -m 'merge main into the plan'"))
 	})
 
-	test("refuses pushes that reach main", () => {
+	test("checks every push that reaches main", () => {
 		assert.ok(refused("git push origin main"))
 		assert.ok(refused("git push origin HEAD:main"))
 		assert.ok(refused("git push origin +main"))
 		assert.ok(refused("git push origin feat/x:refs/heads/main"))
 		assert.ok(refused("git push", "main"))
 		assert.ok(refused("git push -u origin HEAD", "main"))
+	})
+
+	test("allows a push to main that is ready, never a forced one or a deletion", () => {
+		const ready = (line, branch = "feat/x") => guard(line, branch, () => null) === null
+		assert.ok(ready("git push origin HEAD:main"))
+		assert.ok(ready("git push origin main", "main"))
+		assert.ok(!ready("git push --force origin HEAD:main"))
+		assert.ok(!ready("git push --force-with-lease origin HEAD:main"))
+		assert.ok(!ready("git push origin +HEAD:main"))
+		assert.ok(!ready("git push origin --delete main"))
+		assert.ok(!ready("git push origin :main"))
+		assert.ok(!ready("git push -uf origin HEAD:main"))
+		assert.ok(!ready("git push -fu origin HEAD:main"))
+		assert.ok(!ready("git push -f origin HEAD:main"))
+		assert.ok(!ready("git push -d origin main"))
+	})
+
+	test("finds main however the push names it", () => {
+		assert.ok(refused("git push origin HEAD:heads/main"))
+		assert.ok(refused("git push origin @", "main"))
+		assert.ok(refused("git push origin 'refs/heads/*:refs/heads/*'"))
+	})
+
+	test("checks a push to main only from the checkout it runs in", () => {
+		const ready = (line) => guard(line, "feat/x", () => null) === null
+		assert.ok(!ready("git -C ../other push origin HEAD:main"))
+		assert.ok(!ready("cd ../other && git push origin HEAD:main"))
+		assert.ok(ready("cd ../other && git push -u origin HEAD"))
+	})
+
+	test("checks the commit that a push to main sends", () => {
+		const sent = (line, branch = "feat/x") => {
+			let rev
+			guard(line, branch, (r) => {
+				rev = r
+				return null
+			})
+			return rev
+		}
+		assert.equal(sent("git push origin HEAD:main"), "HEAD")
+		assert.equal(sent("git push origin feat/y:refs/heads/main"), "feat/y")
+		assert.equal(sent("git push origin HEAD", "main"), "main")
+		assert.equal(sent("git push -u origin HEAD"), undefined)
 	})
 
 	test("allows pushing a branch", () => {
@@ -234,11 +278,11 @@ describe("turnEnd", () => {
 			const event = {
 				hook_event_name: "PreToolUse",
 				tool_name: "Bash",
-				tool_input: { command: "git push origin main" },
+				tool_input: { command: "git switch main && git commit -am x" },
 			}
 			const result = claude(event)
 			assert.equal(result.status, 2)
-			assert.match(result.stderr, /Never push to `main`/)
+			assert.match(result.stderr, /Never commit on `main`/)
 		})
 
 		test("fails open, saying why, outside a git repository", () => {
@@ -252,5 +296,186 @@ describe("turnEnd", () => {
 			assert.equal(result.status, 0)
 			assert.match(result.stderr, /agent-hook claude/)
 		})
+	})
+})
+
+describe("shipProblem", () => {
+	const cwd = process.cwd()
+	let repo
+	const git = (...args) =>
+		execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@example.com", ...args], {
+			encoding: "utf8",
+			stdio: ["ignore", "pipe", "ignore"],
+		}).trim()
+	const write = (file, text) => writeFileSync(join(repo, file), text)
+	const hook = (...args) =>
+		execFileSync(process.execPath, [script, ...args], { encoding: "utf8" }).trim()
+	const commit = (file, text, message = "feat: x") => {
+		write(file, text)
+		git("add", "-A")
+		git("commit", "-qm", message)
+	}
+	// What a full `pnpm ci:local` records (scripts/ci-local).
+	const ciPassed = () => {
+		hook("mark-verified", fingerprint())
+		hook("mark-ci-passed", changeId("origin/main"))
+	}
+	// Another agent's push, then this branch rebased on it.
+	const theirPush = (file, text) => {
+		git("switch", "-q", "--detach", "origin/main")
+		commit(file, text, "feat: theirs")
+		git("update-ref", "refs/remotes/origin/main", "HEAD")
+		git("switch", "-q", "feat/x")
+		git("rebase", "-q", "origin/main")
+	}
+
+	const globalConfig = process.env.GIT_CONFIG_GLOBAL
+
+	beforeEach(() => {
+		// The developer's own settings (signing, rebase options) must not change what runs here.
+		process.env.GIT_CONFIG_GLOBAL = "/dev/null"
+		repo = mkdtempSync(join(tmpdir(), "agent-hook-ship-"))
+		process.chdir(repo)
+		git("init", "-q", "-b", "main")
+		commit("a.ts", "export const a = 1\n", "init")
+		git("update-ref", "refs/remotes/origin/main", "HEAD")
+		git("switch", "-qc", "feat/x")
+	})
+	afterEach(() => {
+		process.chdir(cwd)
+		rmSync(repo, { recursive: true, force: true })
+		if (globalConfig === undefined) delete process.env.GIT_CONFIG_GLOBAL
+		else process.env.GIT_CONFIG_GLOBAL = globalConfig
+	})
+
+	test("passes one commit that passed pnpm ci:local", () => {
+		commit("b.ts", "export const b = 1\n")
+		ciPassed()
+		assert.equal(shipProblem("HEAD"), null)
+	})
+
+	test("refuses the push itself until the commit passed, as the hook runs it", () => {
+		commit("b.ts", "export const b = 1\n")
+		const push = () =>
+			spawnSync(process.execPath, [script, "guard", "git push origin HEAD:main"], {
+				encoding: "utf8",
+			})
+		assert.equal(push().status, 2)
+		assert.match(push().stderr, /pnpm verify/)
+		ciPassed()
+		assert.equal(push().status, 0)
+	})
+
+	test("reads a change of any size", () => {
+		commit("big.txt", `${"x".repeat(100)}\n`.repeat(30_000))
+		ciPassed()
+		assert.equal(shipProblem("HEAD"), null)
+	})
+
+	test("passes nothing to push", () => {
+		assert.equal(shipProblem("HEAD"), null)
+	})
+
+	test("asks for pnpm verify and pnpm ci:local on the commit as it is", () => {
+		commit("b.ts", "export const b = 1\n")
+		assert.match(shipProblem("HEAD"), /pnpm verify/)
+		hook("mark-verified", fingerprint())
+		assert.match(shipProblem("HEAD"), /pnpm ci:local/)
+		ciPassed()
+		write("b.ts", "export const b = 2\n")
+		git("commit", "-qam", "feat: x", "--amend")
+		hook("mark-verified", fingerprint())
+		assert.match(shipProblem("HEAD"), /pnpm ci:local/)
+	})
+
+	test("asks for pnpm ci:local again after a change of whitespace only", () => {
+		commit("b.yml", "a:\n  b: 1\n")
+		ciPassed()
+		write("b.yml", "a:\nb: 1\n")
+		git("commit", "-qam", "feat: x", "--amend")
+		hook("mark-verified", fingerprint())
+		assert.match(shipProblem("HEAD"), /pnpm ci:local/)
+	})
+
+	test("records what a full pnpm ci:local passed, and only that", () => {
+		mkdirSync(join(repo, "scripts"))
+		for (const file of ["ci-local", "agent-hook.mjs"])
+			copyFileSync(join(import.meta.dirname, file), join(repo, "scripts", file))
+		git("add", "-A")
+		git("commit", "-qm", "chore: the scripts")
+		git("update-ref", "refs/remotes/origin/main", "HEAD")
+		const ciLocal = (...args) =>
+			spawnSync("bash", ["scripts/ci-local", ...args], { encoding: "utf8" })
+		// Only Markdown: the one change ci-local passes without pnpm, PostgreSQL or browsers.
+		commit("notes.md", "# notes\n", "docs: notes")
+		assert.equal(ciLocal("--only", "static").status, 0)
+		assert.match(shipProblem("HEAD"), /pnpm verify/)
+		write("draft.md", "# draft\n")
+		assert.match(ciLocal().stdout, /uncommitted/)
+		rmSync(join(repo, "draft.md"))
+		hook("mark-verified", fingerprint())
+		assert.match(shipProblem("HEAD"), /pnpm ci:local/)
+		assert.equal(ciLocal().status, 0)
+		assert.equal(shipProblem("HEAD"), null)
+	})
+
+	test("does not record a pnpm ci:local pass of uncommitted work", () => {
+		commit("b.ts", "export const b = 1\n")
+		write("c.ts", "export const c = 1\n")
+		assert.equal(changeId("origin/main"), "")
+	})
+
+	test("asks for a rebase when origin/main moved", () => {
+		commit("b.ts", "export const b = 1\n")
+		ciPassed()
+		git("switch", "-q", "--detach", "origin/main")
+		commit("c.ts", "export const c = 1\n", "feat: theirs")
+		git("update-ref", "refs/remotes/origin/main", "HEAD")
+		git("switch", "-q", "feat/x")
+		assert.match(shipProblem("HEAD"), /git rebase origin\/main/)
+	})
+
+	test("keeps a pnpm ci:local pass across a rebase, asks for pnpm verify again", () => {
+		commit("b.ts", "export const b = 1\n")
+		ciPassed()
+		theirPush("c.ts", "export const c = 1\n")
+		assert.match(shipProblem("HEAD"), /pnpm verify/)
+		hook("mark-verified", fingerprint())
+		assert.equal(shipProblem("HEAD"), null)
+	})
+
+	test("asks for a squash of more than one commit", () => {
+		commit("b.ts", "export const b = 1\n")
+		commit("c.ts", "export const c = 1\n")
+		ciPassed()
+		assert.match(shipProblem("HEAD"), /2 commits ahead/)
+		git("reset", "-q", "--soft", "origin/main")
+		git("commit", "-qm", "feat: b and c")
+		hook("mark-verified", fingerprint())
+		assert.equal(shipProblem("HEAD"), null)
+	})
+
+	test("refuses a commit that credits an agent", () => {
+		for (const trailer of [
+			"Co-authored-by: Amp <amp@ampcode.com>",
+			"Amp-Thread-ID: https://ampcode.com/threads/T-1",
+			"Co-Authored-By: Claude <noreply@anthropic.com>",
+			"Generated with [Claude Code](https://claude.ai/code)",
+		]) {
+			git("reset", "-q", "--hard", "origin/main")
+			commit("b.ts", "export const b = 1\n", `feat: x\n\n${trailer}`)
+			ciPassed()
+			assert.match(shipProblem("HEAD"), /credits an agent/, trailer)
+		}
+		git("reset", "-q", "--hard", "origin/main")
+		write("b.ts", "export const b = 1\n")
+		git("add", "-A")
+		git("commit", "-qm", "feat: x", "--author", "Amp <amp@ampcode.com>")
+		ciPassed()
+		assert.match(shipProblem("HEAD"), /credits an agent/, "author")
+		git("reset", "-q", "--hard", "origin/main")
+		commit("b.ts", "export const b = 1\n", "feat: a sample generated with a script, for an example")
+		ciPassed()
+		assert.equal(shipProblem("HEAD"), null)
 	})
 })

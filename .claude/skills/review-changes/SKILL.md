@@ -1,6 +1,6 @@
 ---
 name: review-changes
-description: Reviews a branch's changes with fresh eyes before a pull request. Subagents that did not write the code check the diff against the task and against each check in .agents/checks/. The findings are then confirmed, fixed and verified again. Use when the owner says the work is ready for a pull request, asks to release it, or asks for a review. Not while the work is in progress.
+description: Reviews a branch's changes with fresh eyes before they go to main. Subagents that did not write the code check the diff against the task and against each check in .agents/checks/. The findings are then confirmed, fixed and verified again. Use when the owner says the work is ready, asks to release it, or asks for a review. Not while the work is in progress.
 ---
 
 # Review the changes
@@ -8,7 +8,7 @@ description: Reviews a branch's changes with fresh eyes before a pull request. S
 Whoever wrote the code shares its blind spots. Reviewers start fresh: they see the task and the
 diff, and none of your reasoning.
 
-Run it once the work is complete: when the owner says it is ready for a pull request, asks to
+Run it once the work is complete: when the owner says it is ready, asks to
 release it, or asks for a review. Each review costs several agent runs, so not after every
 slice or commit. While you work, `pnpm verify` and the `verify` skill are the checks.
 
@@ -76,10 +76,10 @@ Dismiss false ones with a one-line reason.
 
 ## 5. Record it
 
-In the pull request's Verification section, say:
+In your report when you release, say:
 - that the review ran
 - what it found and fixed
 - what was dismissed, and why
 
-A finding that meets the bar in "Tell the owner before the pull request" (`AGENTS.md`) goes to
-the owner before the pull request is opened.
+A finding that meets the bar in "Tell the owner before pushing to main" (`AGENTS.md`) goes to
+the owner before anything is pushed.

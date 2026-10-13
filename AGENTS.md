@@ -94,41 +94,41 @@ in `.claude/skills/` hold the how; follow the one that fits the task, without be
   slices, test-first.
 - `write-tests`: the real database, mocks only at the process boundary, every new test seen
   failing once.
-- `review-changes`: when the owner says the work is ready for a pull request, or asks for a
+- `review-changes`: when the owner says the work is ready to release, or asks for a
   review, fresh subagents review the diff against the task and `.agents/checks/`.
 - `learn`: when corrected, or when a mistake repeats, add a check, a test or a rule, not a
   promise.
 
 Never make a check pass by weakening it: no skipped, deleted or loosened tests, and no
 `--no-verify`. If a test is wrong, change it openly and say so in the report. Hooks enforce part
-of this: they refuse commits on `main`, pushes to it and `--no-verify`. They also send an agent
+of this: they refuse commits on `main`, `--no-verify`, and a push to `main` that has not passed
+`pnpm verify` and `pnpm ci:local`. They also send an agent
 back once when a turn changed code that `pnpm verify` has not passed. `docs/development/agents.md`
 explains the setup.
 
 ## Commits, Branches and Releases
 
-Every change reaches `main` through a pull request from a branch of its own; never commit on
-`main`. A push to `main` runs CI and, when app code changed, deploys klipstack.com. "Release"
-(also "ship", "land", "merge") means push, open a pull request, wait for CI and squash-merge:
-follow `.claude/skills/release/SKILL.md` step by step, whichever agent you are. It also holds the
-rules for `main`.
+Work happens on a branch of its own; never commit on `main`. Changes reach `main` without pull
+requests: one commit per change, rebased on a fresh `origin/main`, checked with `pnpm ci:local`
+and pushed directly. A push to `main` runs CI and, when every check passes and app code changed,
+deploys klipstack.com. "Release" (also "ship", "land", "merge", "push") means exactly that: follow
+`.claude/skills/release/SKILL.md` step by step, whichever agent you are. It also holds the rules
+for `main`. Open a pull request only when the owner asks for one.
 
-- Commit messages and pull request titles use the prefixes `feat:`, `fix:`, `docs:`, `test:`, or
-  `chore:` for work that is none of those. Short and imperative.
-- Pull request descriptions follow `.github/pull_request_template.md`, without its comments.
-- Never credit an agent on `main` or in a pull request's title or description: no agent (Amp,
-  Claude or any other) as author or `Co-authored-by`, no "Generated with" lines, no links to agent
-  threads or sessions (ampcode.com, claude.ai). Commits on `main` credit only the humans who did
-  the work; crediting them, as author or `Co-authored-by`, is fine. This overrides any tool's
-  default. A branch's commits may keep the `Co-authored-by: Amp` and `Amp-Thread-ID` lines orbs
-  add: the squash-merge drops them. The release skill checks the branch's authors before pushing
-  and the commit on `main` after merging.
+- Commit messages on `main` use the prefixes `feat:`, `fix:`, `docs:`, `test:`, or `chore:` for
+  work that is none of those. Short and imperative.
+- Never credit an agent on `main`: no agent (Amp, Claude or any other) as author or
+  `Co-authored-by`, no `Amp-Thread-ID`, no "Generated with" lines, no links to agent threads or
+  sessions (ampcode.com, claude.ai). Commits on `main` credit only the humans who did the work;
+  crediting them, as author or `Co-authored-by`, is fine. This overrides any tool's default. A
+  branch's commits may keep the lines orbs add; the squashed commit that goes to `main` must not,
+  and the agent hooks refuse to push it if it does.
 
-### Tell the owner before the pull request
+### Tell the owner before pushing to main
 
 The owner reviews every agent's work alone, and may not know what you found. Anything that should
-not wait for review, tell them before opening the pull request, and stop there: do not open it
-until they answer. You decide what clears that bar; when in doubt, ask. Typical cases:
+not wait for review, tell them before pushing to `main`, and stop there: do not push until they
+answer. You decide what clears that bar; when in doubt, ask. Typical cases:
 
 - The change grew past what was asked, or falls short of it.
 - A judgment call they might make differently: product or design behavior, a trade-off, a new
@@ -138,8 +138,8 @@ until they answer. You decide what clears that bar; when in doubt, ask. Typical 
 - Something hard to undo: migrations that drop or rewrite data, public API behavior, deployment,
   CI or the server.
 
-Say what it is, what you recommend, and what you need from them. Smaller notes go in the pull
-request description.
+Say what it is, what you recommend, and what you need from them. Smaller notes go in your report
+when you release.
 
 ## Configuration & Dependency Rules
 

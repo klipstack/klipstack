@@ -41,7 +41,7 @@ thing will drift apart.
 
 ## 5. Ship it on its own
 
-Use its own branch and pull request (`chore:`, or `docs:` when it is only words). Keep it out of
+Use its own branch and commit on `main` (`chore:`, or `docs:` when it is only words). Keep it out of
 feature work, so the owner reviews the rule as a rule. Say what mistake it prevents.
 
 Personal memory files reach neither the owner's other tools nor other agents. The repository

@@ -3,7 +3,7 @@
 import type { PluginAPI } from "@ampcode/plugin"
 
 export const description =
-	"Klipstack: asks the agent to run `pnpm verify` before ending a turn that changed code, blocks commits on main, pushes to main and --no-verify, and points Ship at the release skill."
+	"Klipstack: asks the agent to run `pnpm verify` before ending a turn that changed code, blocks commits on main, --no-verify and pushes to main that have not passed the checks, and points Ship at the release skill."
 
 export default function (amp: PluginAPI) {
 	const root = amp.system.workspaceRoot
@@ -36,6 +36,6 @@ export default function (amp: PluginAPI) {
 
 	amp.on("changes.prompt", async () => ({
 		append:
-			"This repository releases through .claude/skills/release/SKILL.md: follow it step by step. Run `pnpm verify` and the review in .claude/skills/review-changes/SKILL.md before pushing.",
+			"This repository releases through .claude/skills/release/SKILL.md: follow it step by step. No pull request: it ends with a push to main. Run `pnpm verify` and the review in .claude/skills/review-changes/SKILL.md before pushing.",
 	}))
 }

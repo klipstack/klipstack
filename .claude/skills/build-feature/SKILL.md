@@ -14,7 +14,7 @@ description: Builds a feature or behavior change in Klipstack end to end. It set
   that is kept or deleted, and anything hard to undo.
   - Ask them all in one message, numbered, each with your recommendation, so that "yes" accepts
     all of it.
-  - Decide small, reversible choices yourself and list them in the pull request.
+  - Decide small, reversible choices yourself and list them in your report.
 - Write down what done means: behaviors a user or API client can observe, each one checkable.
   "Works well" is not checkable. "A tag over 64 characters is refused with `invalid_request`" is.
 - Write down what is out of scope.
@@ -56,7 +56,7 @@ run `pnpm verify` and commit: one logical change per commit.
 - Prove the whole feature where users meet it: its Playwright spec and the page (the `verify`
   skill).
 - Check the result against the done list from step 1, one item at a time, and report any gap.
-- When the owner says the work is ready for a pull request, review the diff (the
+- When the owner says the work is ready, review the diff (the
   `review-changes` skill).
 
 Keep to the task. Unrequested features, refactors, renames and dependency upgrades belong in a
