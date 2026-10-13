@@ -1,12 +1,16 @@
 import "@fontsource-variable/newsreader"
 import { ArrowRight } from "lucide-react"
-import { useState } from "react"
+import { type ReactNode, useState } from "react"
 import { Trans, useTranslation } from "react-i18next"
 import { Link } from "react-router"
-import { EditionPreview } from "~/components/landing/edition-preview"
+import { ChooseDemo } from "~/components/landing/choose-demo"
+import { FinishDemo, type FinishState } from "~/components/landing/finish-demo"
 import { HighlightDemo } from "~/components/landing/highlight-demo"
 import { InviteForm } from "~/components/landing/invite-form"
-import { INITIAL_MARKS, type Marks } from "~/components/landing/sample"
+import { KeepDemo } from "~/components/landing/keep-demo"
+import { PhonePreview } from "~/components/landing/phone-preview"
+import { INITIAL_MARKS, type Marks, type SentenceId } from "~/components/landing/sample"
+import { PostIt } from "~/components/post-it"
 import { PublicPage } from "~/components/public-page"
 import { buttonVariants } from "~/components/ui/button"
 import { env, invitesRequired } from "~/lib/env.server"
@@ -27,11 +31,16 @@ export async function loader({ context }: Route.LoaderArgs) {
 		// The invite forms post to /request-invite, which checks this token's age.
 		invite: waitlist ? { token: formToken(), noteMax: INVITE_REQUEST_NOTE_MAX } : null,
 		// The hero headline without its markup.
-		title: `${t("appName")} · ${t("home.headline").replace(/<[^>]+>/g, "")}`,
-		description: t("home.description"),
+		title: `${t("appName")} · ${plain(t("home.headline"))}`,
+		description: plain(t("home.description")),
 		url: `${env.APP_URL}/`,
 		card: shareCard(i18n.language),
 	}
+}
+
+/** A string without its markup, for the page's title and description. */
+function plain(text: string) {
+	return text.replace(/<[^>]+>/g, "")
 }
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -54,60 +63,81 @@ export function meta({ loaderData }: Route.MetaArgs) {
 	]
 }
 
-const steps = ["save", "read", "mark", "publish"] as const
-const extras = ["find", "ask", "assistant", "phone"] as const
-/** Extras in testing, or not out yet, and their badge. */
-const badges: Partial<
-	Record<
-		(typeof extras)[number],
-		"home.steps.ask.badge" | "home.steps.assistant.badge" | "home.steps.phone.badge"
-	>
-> = {
-	ask: "home.steps.ask.badge",
-	assistant: "home.steps.assistant.badge",
-	phone: "home.steps.phone.badge",
-}
-const commitments = ["private", "export", "delete", "source", "copy", "assistant"] as const
-const questions = ["free", "invite", "import", "apps", "extension", "privacy"] as const
+const REPO_URL = "https://github.com/klipstack/klipstack"
+const SELF_HOSTING_URL = `${REPO_URL}/tree/main/docs/self-hosting`
+
+/** The walkthrough's steps, in the order a reader meets them; each is a section of the page. */
+const journey = [
+	{ key: "choose", id: "choose" },
+	{ key: "read", id: "read" },
+	{ key: "capture", id: "capture" },
+	{ key: "keep", id: "keep" },
+] as const
+const basics = ["save", "read", "find"] as const
+const phoneFeatures = ["save", "listen", "widget"] as const
+const commitments = ["private", "ads", "export", "delete", "copy", "source"] as const
+const questions = [
+	"free",
+	"invite",
+	"note",
+	"notes",
+	"quotes",
+	"import",
+	"apps",
+	"extension",
+	"search",
+	"ai",
+	"privacy",
+] as const
 
 const eyebrow = "text-xs font-semibold tracking-[0.08em] text-muted-fg uppercase"
 const sectionTitle = "font-display text-3xl tracking-tight text-balance sm:text-4xl"
+const link =
+	"inline-flex items-center gap-1.5 text-sm font-medium text-link underline-offset-4 hover:underline"
+
+const INITIAL_FINISH: FinishState = {
+	note: "",
+	editionNote: "",
+	starred: false,
+	shortlisted: false,
+}
 
 export default function Home({ loaderData }: Route.ComponentProps) {
 	const { t } = useTranslation()
 	const { loggedIn, inviteOnly, invite } = loaderData
-	// The hero's highlights, which the sample edition quotes.
+	// One sample article, followed through every step: what is marked and written in one step shows
+	// in the next.
 	const [marks, setMarks] = useState<Marks>(INITIAL_MARKS)
+	const [finish, setFinish] = useState<FinishState>(INITIAL_FINISH)
+	const [quoted, setQuoted] = useState<SentenceId[]>([])
 	return (
 		<PublicPage loggedIn={loggedIn}>
 			<main className="pb-20">
-				<section className="grid gap-10 pt-4 pb-16 sm:pt-10 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] lg:items-end lg:gap-16 lg:pb-24">
-					<div>
-						{inviteOnly ? <p className={eyebrow}>{t("home.hero.eyebrow")}</p> : null}
-						<h1 className="mt-4 font-display text-[clamp(3.1rem,8.6vw,7.75rem)] leading-[0.94] font-[640] tracking-[-0.03em] text-balance">
-							<Trans
-								i18nKey="home.headline"
-								components={{
-									mark: <mark className="marker swipe" />,
-									em: <em className="font-[480] tracking-[-0.02em]" />,
-								}}
-							/>
-						</h1>
-					</div>
-					<div className="max-w-xl">
-						<p className="text-lg leading-relaxed text-muted-fg">
-							{t("home.description")} {t("home.hero.lede")}
-						</p>
-						<div className="mt-8">
+				<section className="pt-4 pb-14 sm:pt-10 lg:pb-20">
+					<p className={eyebrow}>
+						{t(inviteOnly ? "home.hero.eyebrowInvite" : "home.hero.eyebrow")}
+					</p>
+					<h1 className="mt-4 max-w-5xl font-display text-[clamp(2.75rem,6.6vw,6rem)] leading-[0.98] font-[620] tracking-[-0.03em] text-balance">
+						<Trans
+							i18nKey="home.headline"
+							components={{ mark: <mark className="marker swipe" /> }}
+						/>
+					</h1>
+					<div className="mt-10 grid gap-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:gap-16">
+						<div className="max-w-xl">
+							<p className="text-lg leading-relaxed">
+								<Trans
+									i18nKey="home.description"
+									components={{ strong: <strong className="font-semibold" /> }}
+								/>
+							</p>
+							<p className="mt-3 leading-relaxed text-muted-fg">{t("home.hero.private")}</p>
+						</div>
+						<div className="lg:pt-1">
 							{invite ? (
 								<>
 									<InviteForm token={invite.token} noteMax={invite.noteMax} />
-									<p className="mt-3 text-sm text-muted-fg">
-										{t("home.hero.admission")} {t("home.hero.haveCode")}{" "}
-										<Link to="/signup" className="text-link hover:underline">
-											{t("home.signup")}
-										</Link>
-									</p>
+									<p className="mt-3 text-sm text-muted-fg">{t("home.hero.admission")}</p>
 								</>
 							) : (
 								<div className="flex flex-wrap items-center gap-x-4 gap-y-3">
@@ -118,82 +148,168 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 										{t(loggedIn ? "home.openApp" : "home.signup")}
 										<ArrowRight className="size-4" aria-hidden />
 									</Link>
-									{loggedIn || !inviteOnly ? null : (
-										<span className="text-sm text-muted-fg">{t("home.inviteOnly")}</span>
-									)}
 								</div>
 							)}
 						</div>
 					</div>
+					<nav aria-label={t("home.journey.label")} className="mt-14">
+						<ol className="grid gap-px overflow-hidden rounded-2xl border border-border bg-border sm:grid-cols-2 lg:grid-cols-4">
+							{journey.map(({ key, id }, i) => (
+								<li key={key} className="bg-bg">
+									<a
+										href={`#${id}`}
+										className="group flex h-full items-baseline gap-3 px-5 py-4 hover:bg-muted"
+									>
+										<span className="font-display text-2xl text-muted-fg" aria-hidden>
+											{i + 1}
+										</span>
+										<span className="font-medium group-hover:underline">
+											{t(`home.journey.steps.${key}`)}
+										</span>
+									</a>
+								</li>
+							))}
+						</ol>
+					</nav>
+				</section>
+
+				<section aria-labelledby="journey" className="border-t border-border pt-14">
+					<p className={eyebrow}>{t("home.journey.eyebrow")}</p>
+					<h2 id="journey" className={`mt-3 ${sectionTitle}`}>
+						{t("home.journey.title")}
+					</h2>
+					<p className="mt-5 max-w-2xl leading-relaxed text-muted-fg">
+						{t("home.journey.description")}
+					</p>
+
+					<Step
+						id="choose"
+						eyebrowText={t("home.choose.eyebrow")}
+						title={t("home.choose.title")}
+						demo={<ChooseDemo readHref="#read" />}
+					>
+						<p>{t("home.choose.body")}</p>
+						<p>{t("home.choose.more")}</p>
+						<p className="text-sm text-muted-fg">{t("home.choose.source")}</p>
+					</Step>
+
+					<Step
+						id="read"
+						eyebrowText={t("home.read.eyebrow")}
+						title={t("home.read.title")}
+						demo={
+							<HighlightDemo
+								marks={marks}
+								onChange={(next) => {
+									setMarks(next)
+									// A highlight removed is out of the edition: marked again, it starts unquoted.
+									setQuoted(quoted.filter((id) => next[id]))
+								}}
+							/>
+						}
+					>
+						<p>{t("home.read.body")}</p>
+						<p>{t("home.read.more")}</p>
+					</Step>
+
+					<Step
+						id="capture"
+						eyebrowText={t("home.capture.eyebrow")}
+						title={t("home.capture.title")}
+						subtitle={t("home.capture.prompt")}
+						demo={<FinishDemo state={finish} onChange={setFinish} nextHref="#keep" />}
+					>
+						<p>{t("home.capture.body")}</p>
+						<p>{t("home.capture.optional")}</p>
+						<p className="text-muted-fg">{t("home.capture.edition")}</p>
+					</Step>
+
+					<Step
+						id="keep"
+						eyebrowText={t("home.keep.eyebrow")}
+						title={t("home.keep.title")}
+						demo={
+							<KeepDemo
+								marks={marks}
+								finish={finish}
+								quoted={quoted}
+								onQuote={setQuoted}
+								onShortlist={() => setFinish({ ...finish, shortlisted: true })}
+							/>
+						}
+					>
+						<p>{t("home.keep.body")}</p>
+						<div className="mt-8 border-t border-border pt-6">
+							<p className={eyebrow}>{t("home.keep.edition.eyebrow")}</p>
+							<h3 className="mt-2 font-display text-2xl tracking-tight">
+								{t("home.keep.edition.title")}
+							</h3>
+							<p className="mt-3">{t("home.keep.edition.body")}</p>
+							<p className="mt-3 text-sm text-muted-fg">{t("home.keep.edition.private")}</p>
+						</div>
+					</Step>
 				</section>
 
 				<section
-					aria-labelledby="try"
-					className="grid items-start gap-10 border-t border-border pt-14 pb-20 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:gap-14"
+					id="iphone"
+					aria-labelledby="iphone-title"
+					className="mt-20 grid items-center gap-12 rounded-2xl bg-muted px-6 py-12 sm:px-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] lg:gap-14"
 				>
-					<div className="lg:pt-6">
-						<p className={eyebrow}>{t("home.try.eyebrow")}</p>
-						<h2 id="try" className={`mt-3 ${sectionTitle}`}>
-							{t("home.try.title")}
+					<div>
+						<p className={eyebrow}>{t("home.phone.eyebrow")}</p>
+						<h2 id="iphone-title" className={`mt-3 ${sectionTitle}`}>
+							{t("home.phone.title")}
 						</h2>
-						<p className="mt-5 max-w-xl leading-relaxed">{t("home.try.description")}</p>
-					</div>
-					<HighlightDemo marks={marks} onChange={setMarks} />
-				</section>
-
-				<section
-					aria-labelledby="editions"
-					className="grid items-start gap-10 border-t border-border pt-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:gap-14"
-				>
-					<div className="lg:pt-6">
-						<p className={eyebrow}>{t("home.edition.eyebrow")}</p>
-						<h2 id="editions" className={`mt-3 ${sectionTitle}`}>
-							{t("home.edition.title")}
-						</h2>
-						<p className="mt-5 max-w-xl leading-relaxed">{t("home.edition.description")}</p>
-						<p className="mt-4 max-w-xl leading-relaxed text-muted-fg">{t("home.edition.tryIt")}</p>
-						<p className="mt-4 max-w-xl text-sm leading-relaxed text-muted-fg">
-							{t("home.edition.private")}
+						<p className="mt-5 max-w-xl leading-relaxed">{t("home.phone.body")}</p>
+						<ul className="mt-8 grid max-w-xl gap-5">
+							{phoneFeatures.map((key) => (
+								<li key={key}>
+									<h3 className="font-medium">{t(`home.phone.${key}.title`)}</h3>
+									<p className="mt-1 text-sm leading-relaxed text-muted-fg">
+										{t(`home.phone.${key}.description`)}
+									</p>
+								</li>
+							))}
+						</ul>
+						<p className="mt-8 max-w-xl text-sm leading-relaxed text-muted-fg">
+							{t("home.phone.account")}
 						</p>
 					</div>
-					<EditionPreview marks={marks} />
+					<PhonePreview />
 				</section>
 
-				<section aria-labelledby="how" className="mt-20 border-t border-border pt-14">
-					<p className={eyebrow}>{t("home.steps.eyebrow")}</p>
-					<h2 id="how" className={`mt-3 ${sectionTitle}`}>
-						{t("home.steps.title")}
+				<section aria-labelledby="basics" className="mt-20 border-t border-border pt-14">
+					<p className={eyebrow}>{t("home.basics.eyebrow")}</p>
+					<h2 id="basics" className={`mt-3 ${sectionTitle}`}>
+						{t("home.basics.title")}
 					</h2>
-					<ol className="mt-10 grid gap-x-10 gap-y-8 sm:grid-cols-2 lg:grid-cols-4">
-						{steps.map((key, i) => (
+					<ul className="mt-10 grid gap-x-10 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
+						{basics.map((key) => (
 							<li key={key}>
-								<span className="font-display text-3xl text-muted-fg" aria-hidden>
-									{i + 1}
-								</span>
-								<h3 className="mt-1 font-medium">{t(`home.steps.${key}.title`)}</h3>
+								<h3 className="font-medium">{t(`home.basics.${key}.title`)}</h3>
 								<p className="mt-1.5 text-sm leading-relaxed text-muted-fg">
-									{t(`home.steps.${key}.description`)}
-								</p>
-							</li>
-						))}
-					</ol>
-					<ul className="mt-10 grid gap-x-10 gap-y-6 border-t border-border pt-8 sm:grid-cols-2 lg:grid-cols-4">
-						{extras.map((key) => (
-							<li key={key}>
-								<h3 className="flex flex-wrap items-baseline gap-x-2 gap-y-1 font-medium">
-									{t(`home.steps.${key}.title`)}
-									{badges[key] ? (
-										<span className="shrink-0 whitespace-nowrap rounded-full border border-border px-2 py-0.5 text-xs font-normal text-muted-fg">
-											{t(badges[key])}
-										</span>
-									) : null}
-								</h3>
-								<p className="mt-1.5 text-sm leading-relaxed text-muted-fg">
-									{t(`home.steps.${key}.description`)}
+									{t(`home.basics.${key}.description`)}
 								</p>
 							</li>
 						))}
 					</ul>
+				</section>
+
+				<section
+					aria-labelledby="maker"
+					className="mt-20 grid items-center gap-10 border-t border-border pt-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:gap-14"
+				>
+					<div>
+						<p className={eyebrow}>{t("home.maker.eyebrow")}</p>
+						<h2 id="maker" className={`mt-3 ${sectionTitle}`}>
+							{t("home.maker.title")}
+						</h2>
+					</div>
+					<PostIt tilt={1} className="max-w-xl text-lg leading-relaxed sm:px-8 sm:pt-9 sm:pb-7">
+						<p>{t("home.maker.body")}</p>
+						<p className="mt-4">{t("home.maker.more")}</p>
+						<p className="mt-4 text-right">— {t("home.maker.signature")}</p>
+					</PostIt>
 				</section>
 
 				<section
@@ -217,13 +333,20 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 							</li>
 						))}
 					</ul>
-					<Link
-						to="/privacy"
-						className="mt-8 inline-flex items-center gap-1.5 text-sm font-medium text-link underline-offset-4 hover:underline"
-					>
-						{t("home.commitments.privacy")}
-						<ArrowRight className="size-3.5" aria-hidden />
-					</Link>
+					<div className="mt-8 flex flex-wrap gap-x-8 gap-y-3">
+						<Link to="/privacy" className={link}>
+							{t("home.commitments.privacy")}
+							<ArrowRight className="size-3.5" aria-hidden />
+						</Link>
+						<a href={REPO_URL} className={link}>
+							{t("home.commitments.code")}
+							<ArrowRight className="size-3.5" aria-hidden />
+						</a>
+						<a href={SELF_HOSTING_URL} className={link}>
+							{t("home.commitments.selfHost")}
+							<ArrowRight className="size-3.5" aria-hidden />
+						</a>
+					</div>
 				</section>
 
 				<section
@@ -268,7 +391,13 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 								{t(invite ? "home.invite.title" : "home.invite.signupTitle")}
 							</h2>
 							<p className="mt-5 max-w-xl leading-relaxed text-muted-fg">
-								{t(invite ? "home.invite.description" : "home.invite.signupDescription")}
+								{t(
+									invite
+										? "home.invite.description"
+										: inviteOnly
+											? "home.invite.signupDescription"
+											: "home.invite.openDescription",
+								)}
 							</p>
 						</div>
 						{invite ? (
@@ -288,5 +417,42 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 				)}
 			</main>
 		</PublicPage>
+	)
+}
+
+/** One step of the walkthrough: what it does for the reader, beside the sample that shows it. */
+function Step({
+	id,
+	eyebrowText,
+	title,
+	subtitle,
+	demo,
+	children,
+}: {
+	id: string
+	eyebrowText: string
+	title: string
+	subtitle?: string
+	demo: ReactNode
+	children: ReactNode
+}) {
+	return (
+		<section
+			id={id}
+			aria-labelledby={`${id}-title`}
+			className="mt-14 grid scroll-mt-6 items-start gap-8 border-t border-border pt-12 lg:mt-16 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:gap-14"
+		>
+			<div className="lg:sticky lg:top-8">
+				<p className={eyebrow}>{eyebrowText}</p>
+				<h3 id={`${id}-title`} className={`mt-3 ${sectionTitle}`}>
+					{title}
+				</h3>
+				{subtitle ? (
+					<p className="mt-3 font-display text-xl text-muted-fg italic">{subtitle}</p>
+				) : null}
+				<div className="mt-5 max-w-xl space-y-4 leading-relaxed">{children}</div>
+			</div>
+			<div className="min-w-0">{demo}</div>
+		</section>
 	)
 }

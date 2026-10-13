@@ -13,15 +13,18 @@ import {
 	waitForHydration,
 } from "./helpers"
 
-test("public home explains the app and links to sign-up, login, terms, privacy and support", async ({
+test("public home explains the app and links to the invite request, login, terms, privacy and support", async ({
 	page,
 }) => {
 	const response = await page.goto("/")
 	expect(response?.status()).toBe(200)
-	await expect(page.getByRole("heading", { level: 1 })).toHaveText("What did you read this week?")
-	// The playwright server runs the wait list: the page asks for an email, and keeps a way in for codes.
+	await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+		"Read more of what interests you. Keep what matters.",
+	)
+	// The playwright server runs the wait list: the page asks for an email. Invites arrive with
+	// their own sign-up link, so the page offers none.
 	await expect(page.getByRole("button", { name: "Request an invite" }).first()).toBeVisible()
-	await expect(page.getByRole("link", { name: "Sign up" })).toHaveAttribute("href", "/signup")
+	await expect(page.getByRole("link", { name: "Sign up" })).toHaveCount(0)
 	await page.getByRole("link", { name: "Terms", exact: true }).click()
 	await expect(page).toHaveURL(/\/terms$/)
 	await expect(page.getByRole("heading", { level: 1 })).toHaveText("Terms of use")
@@ -69,7 +72,9 @@ test("home and login render in Spanish when the browser prefers it", async ({ br
 	const context = await browser.newContext({ locale: "es-ES" })
 	const page = await context.newPage()
 	await page.goto("/")
-	await expect(page.getByRole("heading", { level: 1 })).toHaveText("¿Qué leíste esta semana?")
+	await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+		"Lee más de lo que te interesa. Quédate con lo que importa.",
+	)
 	await page.getByRole("link", { name: "Iniciar sesión", exact: true }).click()
 	await expect(page.getByRole("heading", { name: "Iniciar sesión" })).toBeVisible()
 	await expect(page).toHaveTitle("Iniciar sesión · Klipstack")

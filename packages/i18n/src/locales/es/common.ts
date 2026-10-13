@@ -1,149 +1,213 @@
 export default {
 	appName: "Klipstack",
 	home: {
-		headline: "¿Qué <mark>leíste</mark> <em>esta semana?</em>",
+		headline: "Lee más de lo que te interesa. <mark>Quédate con lo que importa.</mark>",
 		description:
-			"Klipstack guarda los artículos que quieres leer y te da un lugar tranquilo para leerlos. Tus subrayados y notas se quedan con ellos, enlazados entre sí.",
+			"Klipstack es una app para leer después, pensada para gente curiosa. Te ayuda a elegir qué leer, te da una página tranquila para leerlo y <strong>hace fácil detenerte al final y guardar lo que te quedó</strong>.",
 		login: "Iniciar sesión",
 		openApp: "Abrir Klipstack",
 		signup: "Crear cuenta",
-		inviteOnly: "Solo con invitación, por ahora.",
 		requestInvite: "Pide una invitación",
 		hero: {
-			eyebrow: "Una app para leer después · Solo con invitación, por ahora",
+			eyebrow: "Una app para leer después",
+			eyebrowInvite: "Una app para leer después · Solo con invitación, por ahora",
 			emailLabel: "Correo electrónico",
 			admission: "Klipstack deja entrar a la gente de a poco.",
-			haveCode: "¿Tienes un código de invitación?",
-			lede: "Cuando una semana de lecturas merece compartirse, publícala como una edición.",
+			private: "Tu biblioteca es privada. Solo compartes lo que decides publicar.",
 		},
-		try: {
-			eyebrow: "Pruébalo",
-			title: "Marca lo que importa.",
+		journey: {
+			label: "Un artículo, de principio a fin",
+			eyebrow: "Un artículo, de principio a fin",
+			title: "Sigue un artículo a través de Klipstack.",
 			description:
-				"Así se lee un artículo en Klipstack. Subraya una frase y aparecerá en la edición de muestra de abajo.",
+				"Los ejemplos de abajo funcionan como la app, con un ensayo de muestra. Pruébalos: nada de lo que hagas aquí se guarda ni se publica.",
+			steps: {
+				choose: "Elige qué leer",
+				read: "Disfruta la lectura",
+				capture: "Anota lo que te quedó",
+				keep: "Vuelve a ello o compártelo",
+			},
+		},
+		choose: {
+			eyebrow: "Paso 1 · Elige",
+			title: "Encuentra algo que quieras leer ahora.",
+			body: "Inicio parte con una pregunta simple: ¿cuánto tiempo tienes? Elige quince minutos y ves lo que cabe, contando solo los minutos que faltan en los artículos que empezaste.",
+			more: "Retoma donde quedaste, mira lo que guardaste hace poco y reencuentra algunos artículos guardados hace tiempo que quizá olvidaste, unos distintos cada día. Sigue el feed de un sitio y sus publicaciones nuevas esperan junto a tu biblioteca hasta que decidas guardar alguna.",
+			source:
+				"Todo viene de lo que guardaste y de los sitios que sigues. Sin listas de tendencias ni recomendaciones pagadas.",
+			demoLabel: "Una muestra de Inicio, en Klipstack",
+			readIt: "Leerlo",
+			items: {
+				walk: {
+					site: "cuaderno-de-campo.example",
+					title: "Los placeres lentos de una caminata larga",
+				},
+				essay: { site: "ensayos.example", title: "Lo que nos queda de lo que leemos" },
+				benches: { site: "calles.example", title: "Por qué las ciudades necesitan más bancas" },
+				bread: {
+					site: "notas-de-cocina.example",
+					title: "Cómo el pan me enseñó a tener paciencia",
+				},
+				cards: {
+					site: "rastros-de-papel.example",
+					title: "Breve historia de la ficha de cartulina",
+				},
+			},
+		},
+		read: {
+			eyebrow: "Paso 2 · Lee",
+			title: "Disfruta leerlo.",
+			body: "Klipstack guarda una copia limpia de cada artículo: sin anuncios ni ventanas emergentes, con la letra y el tamaño que prefieras, clara u oscura. Recuerda dónde quedaste, y los artículos sin leer están listos sin conexión.",
+			more: "Subraya las líneas que quieres recordar y escribe en el margen. Los subrayados son privados: marcar una línea nunca la comparte.",
 		},
 		demo: {
 			label: "Un artículo de muestra que puedes subrayar",
-			hint: "Esto funciona como un artículo en Klipstack. Toca una frase para subrayarla. Toca un subrayado para quitarlo.",
+			hint: "Toca una frase para subrayarla. Toca un subrayado para quitarlo.",
 			clear: "Borrar",
 			site: "ensayos.example",
-			readingTime: "3 min de lectura",
 			title: "Lo que nos queda de lo que leemos",
 			sentences: {
 				s1: "Casi todo lo que leemos se nos va en una semana.",
 				s2: "El artículo era bueno y asentimos al leerlo.",
-				s3: "Después quedó enterrado bajo todo lo que vino.",
+				s3: "Después se abrió la siguiente pestaña y quedó enterrado bajo todo lo que vino.",
 				s4: "Los lectores resolvieron esto hace mucho, con un lápiz.",
 				s5: "Una frase marcada es una nota para tu yo del futuro.",
-				s6: "Escribe una línea al lado y empiezas una conversación que puedes retomar años después.",
-				s7: "Klipstack hace lo mismo con lo que lees en una pantalla.",
-				s8: "Guarda cada marca que haces junto a las palabras donde la hiciste.",
+				s6: "Una línea en el margen empieza una conversación que puedes retomar años después.",
+				s7: "Nada de eso toma mucho: un minuto al final, antes de lo siguiente.",
+				s8: "Lo que escribes ahí es la parte del artículo que se vuelve tuya.",
 			},
 			marginNote: "Por esto subrayo.",
-			articleNote: "Va bien con",
-			linkedTitle: "En defensa de releer",
-			backlinks: "Enlazado desde 2 artículos",
 		},
-		edition: {
-			eyebrow: "Ediciones",
-			title: "Comparte una semana de lectura.",
-			description:
-				"Una edición es una página con lo que leíste en una semana o un mes: los enlaces, una breve introducción y los pocos subrayados y notas que eliges compartir. Lleva a los lectores a los artículos originales y nunca los vuelve a publicar.",
-			tryIt:
-				"Los subrayados que hiciste arriba ya están en esta. Marca más y mira el límite: una edición cita como mucho una décima parte de un artículo, nunca más de 150 palabras, para que no pueda reconstruirlo.",
-			private:
-				"Nada es público hasta que lo publicas. El enlace no aparece en ningún listado y pide a los buscadores que no lo indexen. Las ediciones están en beta.",
-			previewLabel: "Una edición de muestra con tus subrayados",
-			kicker: "Una edición",
-			name: "Semana 40, 2026",
-			intro: "Un solo ensayo esta semana, y fue suficiente.",
-			empty: "Subraya una frase arriba y aparecerá aquí.",
-			counter: "{{count}} / {{max}} palabras citadas",
-			over: "Fuera: supera el límite",
+		capture: {
+			eyebrow: "Paso 3 · Anota",
+			title: "¿Qué te quedó?",
+			prompt: "Una idea, una pregunta o algo que quieras probar.",
+			body: "Cuando llegas al final, Klipstack te deja un momento antes de lo siguiente: una nota sobre el artículo, solo para ti. Escríbela con tus palabras, y enlaza otro artículo que guardaste si este te lo recordó.",
+			optional:
+				"Escribe una línea u omítela. Si sales sin nota, el artículo igual queda terminado y en tu archivo, con todos sus subrayados, una vez que llegaste al final. Puedes añadir una nota cuando vuelvas.",
+			edition:
+				"Si vale la pena compartirlo, márcalo para tu próxima edición. Tienes una segunda nota, aparte, para tus lectores, que puede partir de la tuya y pulirse después.",
+			demoLabel: "El final del artículo de muestra",
+			demoHint: "Escribe una línea, o no. Las dos cosas están bien.",
+			next: "Mira dónde termina",
 		},
-		steps: {
-			eyebrow: "Cómo funciona",
-			title: "Guarda, lee, marca. Publica si quieres.",
+		keep: {
+			eyebrow: "Paso 4 · Vuelve o comparte",
+			title: "Una biblioteca tuya. Comparte cuando quieras.",
+			body: "Tus subrayados y notas se reúnen en tu cuaderno, por artículo, y la búsqueda los cubre junto con cada palabra que guardaste. Cada día, Inicio te trae de vuelta algunos subrayados de hace un tiempo, para mirarlos otra vez.",
+			demoLabel: "Dónde termina el artículo de muestra",
+			notebook: {
+				title: "Cuaderno",
+				onlyYou: "Solo tú",
+				empty: "Los subrayados y notas que hagas arriba aparecen aquí.",
+				highlights_one: "{{count}} subrayado",
+				highlights_other: "{{count}} subrayados",
+			},
+			edition: {
+				eyebrow: "Ediciones",
+				title: "¿Qué leíste esta semana?",
+				body: "Una edición es una colección de buenas lecturas para compartir, con lo que pensaste de ellas. Reúne los artículos que marcaste, elige algunos subrayados para citar, añade una o dos líneas y publica un enlace. Lleva a los lectores a los artículos originales; no los vuelve a publicar.",
+				private:
+					"Tu biblioteca es privada. Una edición se hace pública solo cuando la publicas, muestra solo lo que elegiste y pide a los buscadores que no la indexen. Las ediciones están en beta.",
+				notIn: "No está en una edición",
+				notInBody:
+					"El artículo se queda en tu biblioteca, privado. Márcalo para tu próxima edición y verás cómo se vería una.",
+				draft: "Borrador · sin publicar",
+				kicker: "Una edición",
+				name: "Lo que leí esta semana",
+				quoteHint: "Elige hasta {{count}} subrayados para citar.",
+				noHighlights: "No hay subrayados para citar. El enlace y tu nota bastan.",
+				publishNote: "Nadie ve esto hasta que lo publicas desde la página de la edición.",
+			},
+		},
+		phone: {
+			eyebrow: "Muy pronto · iPhone",
+			title: "Klipstack llega a tu iPhone.",
+			body: "La app para iPhone ya está hecha y en pruebas, en camino a la App Store. Te acompaña con la misma lectura: las próximas lecturas de Inicio, el lector limpio, tus subrayados y la nota al final de cada artículo.",
+			account:
+				"Una cuenta, una biblioteca: lo que guardas en el teléfono te espera en el computador, y al revés.",
 			save: {
-				title: "Guarda",
+				title: "Guarda desde cualquier app",
 				description:
-					"Pega un enlace, sigue el feed de un sitio o usa la extensión para Chrome y Firefox. La extensión guarda la página tal como la ves, aunque requiera iniciar sesión.",
+					"Comparte un enlace desde Safari, o desde cualquier app con botón de compartir, y va directo a tu biblioteca.",
+			},
+			listen: {
+				title: "Escucha cuando no puedes leer",
+				description:
+					"Klipstack lee los artículos en voz alta, en inglés o español, marcando cada frase a medida que avanza. La voz funciona en tu teléfono, así que tras una descarga inicial también sirve sin conexión.",
+			},
+			widget: {
+				title: "Tu próxima lectura, en la pantalla de inicio",
+				description: "Un widget muestra lo que sigue, a un toque de leerlo.",
+			},
+			shotAlt:
+				"La app de Klipstack para iPhone leyendo un artículo en voz alta, con la frase que lee marcada.",
+			caption: "Leyendo en voz alta, en la app para iPhone.",
+		},
+		basics: {
+			eyebrow: "Lo básico",
+			title: "Ante todo, una buena app para leer después.",
+			save: {
+				title: "Guarda desde cualquier parte",
+				description:
+					"Pega un enlace, usa la extensión para Chrome y Firefox o sigue el feed de un sitio. La extensión guarda la página tal como la ves, aunque requiera iniciar sesión.",
 			},
 			read: {
-				title: "Lee",
+				title: "Lee a tu manera",
 				description:
-					"Una página limpia, con la letra y el tamaño que prefieras, clara u oscura. Klipstack recuerda dónde quedaste y deja los artículos sin leer listos sin conexión.",
-			},
-			mark: {
-				title: "Marca",
-				description:
-					"Subraya y escribe en el margen. Escribe [[ en una nota para enlazar otro artículo. Los enlaces entre artículos guardados se conectan solos.",
-			},
-			publish: {
-				title: "Publica, si quieres",
-				description:
-					"Elige una semana, un mes o las fechas que quieras, decide qué va en la página y comparte un enlace. O guárdalo todo para ti.",
+					"Serif, sans o una letra para lectores con dislexia, tres anchos, clara u oscura. Los artículos sin leer y destacados se quedan en tu dispositivo para leer sin conexión.",
 			},
 			find: {
 				title: "Encuéntralo de nuevo",
 				description:
-					"Busca en cada palabra que guardaste, también en tus notas. Filtra con tag:, fija las búsquedas que repites y salta a cualquier parte con ⌘K.",
-			},
-			ask: {
-				title: "Pregunta al leer",
-				badge: "Beta",
-				description:
-					"Selecciona una palabra o un pasaje y recibe en el margen una explicación, una definición o una respuesta, citando los párrafos en que se basa. O lee un resumen del artículo y conversa sobre él.",
-			},
-			assistant: {
-				title: "Trae a tu asistente",
-				badge: "Beta",
-				description:
-					"Conecta Claude u otro cliente MCP para buscar y leer tu biblioteca. Tú decides si además puede guardar y etiquetar, y puedes desconectarlo en Ajustes.",
-			},
-			phone: {
-				title: "En tu teléfono",
-				badge: "Muy pronto",
-				description:
-					"Klipstack funciona en el navegador de tu teléfono, también sin conexión. Viene una app para iPhone.",
+					"Busca en cada palabra que guardaste, también en tus subrayados y notas. Etiqueta lo que quieras y deja en la barra lateral las búsquedas que repites.",
 			},
 		},
+		maker: {
+			eyebrow: "Quién lo hace",
+			title: "Hecho por un lector.",
+			body: "Hola, soy Ernesto. Hice Klipstack para mis propias lecturas. Quería una forma más fácil de elegir qué leer, una página tranquila para leerlo y una razón para detenerme un minuto al final y anotar lo que me llevé, antes de pasar a lo siguiente.",
+			more: "Ahora lo abro a otras personas a las que quizá les guste leer así. Lo construyo y lo mantengo yo mismo, así que las invitaciones salen de a poco, a medida que hay lugar.",
+			signature: "Ernesto",
+		},
 		commitments: {
-			eyebrow: "Compromisos",
-			title: "Hecho para que puedas irte.",
+			eyebrow: "Tus lecturas, tus reglas",
+			title: "Privado por defecto. Fácil de dejar.",
 			intro:
-				"Pocket cerró en julio de 2025. Omnivore cerró en noviembre de 2024. Sus lectores tuvieron que mudar años de lectura en el plazo de otros. Klipstack es nuevo y pequeño, así que en vez de pedirte que confíes en que dure para siempre, hace que irse sea fácil.",
+				"Pocket cerró en julio de 2025 y Omnivore en noviembre de 2024, y sus lectores tuvieron que mudar años de lectura en el plazo de otros. En vez de pedirte que confíes en que dure para siempre, Klipstack hace que irse sea fácil.",
 			private: {
-				title: "Sin anuncios. Sin rastreo.",
+				title: "Privado salvo que publiques.",
 				description:
-					"Klipstack nunca muestra anuncios ni vende lo que lees. Ninguna analítica te sigue.",
+					"Tu biblioteca, tus subrayados y tus notas son solo tuyos. Solo es pública una edición que publicas, y solo lo que pones en ella.",
+			},
+			ads: {
+				title: "Sin anuncios. Sin rastreadores.",
+				description:
+					"Klipstack nunca muestra anuncios ni vende lo que lees, y no usa servicios de analítica.",
 			},
 			export: {
 				title: "Exporta todo, cuando quieras.",
 				description:
-					"Una descarga desde Ajustes: un archivo Markdown por artículo con sus subrayados, más un paquete JSON con todo.",
+					"Una descarga desde Ajustes: un archivo Markdown por artículo con sus subrayados y notas, más un paquete JSON con todo.",
 			},
 			delete: {
 				title: "Eliminar es eliminar.",
 				description:
-					"Los artículos eliminados esperan 30 días en la papelera y luego desaparecen. Elimina tu cuenta y todo se va con ella, ediciones incluidas.",
-			},
-			source: {
-				title: "Las ediciones enlazan a la fuente.",
-				description:
-					"Una edición muestra títulos, las citas que elegiste y tus notas, y lleva a los lectores al sitio original.",
+					"Los artículos eliminados esperan 30 días en la papelera y luego desaparecen. Elimina tu cuenta y todo se va con ella, ediciones incluidas; las copias de respaldo caducan en 30 días.",
 			},
 			copy: {
 				title: "Tu copia sobrevive al enlace.",
 				description:
 					"Klipstack guarda una copia limpia de cada artículo y sus imágenes, para que siga legible cuando el original cambia o desaparece.",
 			},
-			assistant: {
-				title: "Tu asistente, con tus reglas.",
+			source: {
+				title: "Código abierto.",
 				description:
-					"Un asistente de IA entra solo después de que lo apruebas. Tú eliges si puede cambiar algo, y puedes cortarle el acceso.",
+					"El código es público bajo la licencia AGPL, y hay una guía para correr tu propia copia con Docker si prefieres alojarlo tú.",
 			},
 			privacy: "Lee la política de privacidad",
+			code: "Ver el código",
+			selfHost: "Alójalo tú",
 		},
 		faq: {
 			eyebrow: "Preguntas",
@@ -156,7 +220,22 @@ export default {
 			invite: {
 				question: "¿Por qué solo con invitación?",
 				answer:
-					"Una sola persona construye y mantiene Klipstack. Cada lector nuevo suma almacenamiento y trabajo de servidor, así que la gente entra de a poco. Pide una invitación y te llegará un correo cuando haya lugar.",
+					"Una sola persona construye y mantiene Klipstack. Cada lector nuevo suma almacenamiento y trabajo de servidor, así que la gente entra de a poco, con una invitación por correo, a medida que hay lugar.",
+			},
+			note: {
+				question: "¿Tengo que escribir algo después de cada artículo?",
+				answer:
+					"No. La nota del final es una invitación, no un paso. Lee hasta el final, ciérralo y queda terminado, con o sin nota. Muchos artículos no la necesitan.",
+			},
+			notes: {
+				question: "¿Mi nota es lo que muestra una edición?",
+				answer:
+					"No. Tu nota sobre un artículo es privada. Al marcar un artículo para una edición tienes una nota aparte para tus lectores, que puede partir de la tuya. Una edición muestra tu nota privada solo si decides incluirla.",
+			},
+			quotes: {
+				question: "¿Cuánto de un artículo puede citar una edición?",
+				answer:
+					"Hasta tres subrayados por artículo, y no más de una décima parte de sus palabras, 150 como máximo. Una edición apunta a la buena escritura; no puede reconstruir el texto.",
 			},
 			import: {
 				question: "¿Puedo importar desde Pocket u Omnivore?",
@@ -166,12 +245,22 @@ export default {
 			apps: {
 				question: "¿Hay una app?",
 				answer:
-					"Klipstack funciona en el navegador de tu computador y de tu teléfono, y los artículos sin leer y destacados siguen disponibles sin conexión. Viene una app para iPhone. No hay app para Android.",
+					"Klipstack funciona en el navegador de tu computador y de tu teléfono, y los artículos sin leer y destacados siguen disponibles sin conexión. Una app para iPhone está en pruebas: guarda desde el menú Compartir y lee los artículos en voz alta. No hay app para Android.",
 			},
 			extension: {
 				question: "¿Hay una extensión para el navegador?",
 				answer:
-					"Sí, para Chrome y Firefox. Aún no está en las tiendas de extensiones: cuando entres, la instalas desde Ajustes.",
+					"Sí, para Chrome y Firefox. Aún no está en las tiendas de extensiones, así que por ahora la compilas desde el código fuente y la cargas tú. Ajustes tiene el enlace.",
+			},
+			search: {
+				question: "¿Cómo encuentro las cosas después?",
+				answer:
+					"La búsqueda cubre cada palabra guardada, tus subrayados y tus notas. Acótala con filtros como tag:, site: o before:, guarda las búsquedas que repites y presiona ⌘K (Ctrl K) para saltar a cualquier parte.",
+			},
+			ai: {
+				question: "¿Klipstack usa IA?",
+				answer:
+					"Leer, anotar y armar ediciones no la necesitan. Algunos lectores prueban funciones opcionales en beta: preguntar por un pasaje mientras lees, un resumen breve de un artículo y ordenar la biblioteca en temas. También puedes conectar un asistente como Claude para buscar en tu biblioteca, decidir si además puede hacer cambios, como guardar, etiquetar y escribir notas, y desconectarlo cuando quieras.",
 			},
 			privacy: {
 				question: "¿Quién puede ver lo que leo?",
@@ -183,10 +272,11 @@ export default {
 			eyebrow: "Solo con invitación, por ahora",
 			title: "Pide una invitación.",
 			description:
-				"Deja tu correo y te llegará una invitación cuando haya lugar. Las invitaciones salen de a pocas, para que la app siga rápida.",
-			privacy: "Tu correo se usa para la invitación y nada más. Sin boletines.",
+				"Deja tu correo y, si quieres, una línea sobre lo que te gusta leer. Cuando haya lugar, te llegará un solo correo con tu invitación. Puede tardar: la gente entra de a poco.",
+			privacy: "Tu correo se usa para la invitación y nada más. Sin boletines ni publicidad.",
 			signupTitle: "Empieza a leer.",
 			signupDescription: "¿Tienes un código de invitación? Crea tu cuenta.",
+			openDescription: "Crea tu cuenta y guarda tu primer artículo.",
 		},
 		footer: {
 			label: "Sitio",

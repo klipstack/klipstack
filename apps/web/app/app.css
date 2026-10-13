@@ -539,6 +539,30 @@ body {
 	}
 }
 
+/* The landing page's iPhone: the read-aloud highlight moves on to the next sentence, and back. */
+.speak-next {
+	animation: speak-next 7s ease-in-out infinite;
+}
+@keyframes speak-next {
+	0%,
+	42% {
+		opacity: 0;
+	}
+	50%,
+	92% {
+		opacity: 1;
+	}
+	100% {
+		opacity: 0;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.speak-next {
+		animation: none;
+	}
+}
+
 .reader-content ::selection {
 	background-color: var(--k-ring);
 	color: var(--k-accent-fg);

@@ -1,10 +1,11 @@
-import { Link2 } from "lucide-react"
 import { useState } from "react"
 import { createPortal } from "react-dom"
 import { useTranslation } from "react-i18next"
 import { HighlightToolbar } from "~/components/highlight-toolbar"
+import { MARGIN_NOTE } from "~/components/margin-notes"
+import { PostIt } from "~/components/post-it"
 import { cn } from "~/lib/utils"
-import { HL_BG, HL_SOLID_BORDER, type Marks, NOTED, PARAGRAPHS, type SentenceId } from "./sample"
+import { ESSAY_MINUTES, HL_BG, type Marks, NOTED, PARAGRAPHS, type SentenceId } from "./sample"
 
 interface Open {
 	id: SentenceId
@@ -15,7 +16,7 @@ interface Open {
 }
 
 /**
- * The landing page's hero: a sample article the visitor highlights. A tap, a click or the keyboard
+ * The walkthrough's sample article, which the visitor highlights. A tap, a click or the keyboard
  * (Tab, then Enter or Space) marks a sentence and opens the reader's own highlight toolbar, to
  * remove it. The sentence in focus stands out as in the reader.
  * Plain markup rather than a screenshot, so it follows the theme and the language.
@@ -28,6 +29,7 @@ export function HighlightDemo({
 	onChange: (marks: Marks) => void
 }) {
 	const { t } = useTranslation()
+	const { t: tr } = useTranslation("reader")
 	const [open, setOpen] = useState<Open | null>(null)
 	const row = "grid gap-x-5 sm:grid-cols-[6.5rem_minmax(0,1fr)]"
 	const text = "sm:col-start-2"
@@ -61,9 +63,10 @@ export function HighlightDemo({
 	return (
 		<figure
 			aria-label={t("home.demo.label")}
-			className="relative overflow-hidden rounded-2xl border border-border bg-card px-5 pt-5 pb-5 shadow-sm sm:px-7 sm:pt-6"
+			className="relative overflow-hidden rounded-2xl border border-border bg-card px-5 pt-5 pb-7 shadow-sm sm:px-7 sm:pt-6"
 		>
-			<div className="flex flex-wrap items-center justify-end gap-3 border-b border-border pb-4">
+			<div className="flex items-start justify-between gap-3 border-b border-border pb-4">
+				<p className="pt-1 text-sm text-muted-fg">{t("home.demo.hint")}</p>
 				<button
 					type="button"
 					onClick={() => {
@@ -71,17 +74,16 @@ export function HighlightDemo({
 						onChange({})
 					}}
 					disabled={Object.keys(marks).length === 0}
-					className="rounded-md px-2 py-1 text-sm text-muted-fg hover:bg-muted hover:text-fg disabled:opacity-40 disabled:hover:bg-transparent"
+					className="shrink-0 rounded-md px-2 py-1 text-sm text-muted-fg hover:bg-muted hover:text-fg disabled:opacity-40 disabled:hover:bg-transparent"
 				>
 					{t("home.demo.clear")}
 				</button>
 			</div>
-			<p className="mt-3 text-sm text-muted-fg">{t("home.demo.hint")}</p>
 
 			<div className={`${row} mt-5`}>
 				<div className={text}>
 					<p className="text-xs text-muted-fg">
-						{t("home.demo.site")} · {t("home.demo.readingTime")}
+						{t("home.demo.site")} · {tr("meta.minutes", { count: ESSAY_MINUTES })}
 					</p>
 					<p className="mt-2 font-display text-2xl leading-tight text-balance">
 						{t("home.demo.title")}
@@ -128,32 +130,21 @@ export function HighlightDemo({
 								})}
 							</p>
 							{hasNote ? (
-								<p
+								<PostIt
+									variant="compact"
+									fit={t("home.demo.marginNote")}
+									tilt={1}
 									className={cn(
-										"mt-2 self-start border-l-2 pl-3 font-sans text-sm leading-snug text-muted-fg sm:col-start-1 sm:row-start-1 sm:mt-1",
-										HL_SOLID_BORDER,
+										MARGIN_NOTE,
+										"mt-3 self-start sm:col-start-1 sm:row-start-1 sm:mt-1",
 									)}
 								>
 									{t("home.demo.marginNote")}
-								</p>
+								</PostIt>
 							) : null}
 						</div>
 					)
 				})}
-			</div>
-			<div className={`${row} mt-6`}>
-				<div className={`${text} border-t border-border pt-4 text-sm`}>
-					<p className="text-muted-fg">
-						{t("home.demo.articleNote")}{" "}
-						<span className="text-link underline decoration-link/40 underline-offset-2">
-							{t("home.demo.linkedTitle")}
-						</span>
-					</p>
-					<p className="mt-2 flex items-center gap-1.5 text-xs text-muted-fg">
-						<Link2 className="size-3.5" aria-hidden />
-						{t("home.demo.backlinks")}
-					</p>
-				</div>
 			</div>
 			{open && marks[open.id]
 				? createPortal(

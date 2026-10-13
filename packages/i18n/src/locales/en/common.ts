@@ -1,149 +1,204 @@
 export default {
 	appName: "Klipstack",
 	home: {
-		headline: "What did you <mark>read</mark> <em>this week?</em>",
+		headline: "Read more of what interests you. <mark>Keep what matters.</mark>",
 		description:
-			"Klipstack saves the articles you want to read and gives you a quiet place to read them. Your highlights and notes stay with them, linked to each other.",
+			"Klipstack is a read-later app for curious people. It helps you choose what to read next, gives you a calm page to read it on, and <strong>makes it easy to pause at the end and keep what stayed with you</strong>.",
 		login: "Log in",
 		openApp: "Open Klipstack",
 		signup: "Sign up",
-		inviteOnly: "Invite only, for now.",
 		requestInvite: "Request an invite",
 		hero: {
-			eyebrow: "A read-later app · Invite only, for now",
+			eyebrow: "A read-later app",
+			eyebrowInvite: "A read-later app · Invite only, for now",
 			emailLabel: "Email address",
 			admission: "Klipstack lets people in a few at a time.",
-			haveCode: "Have an invite code?",
-			lede: "When a week of reading is worth passing on, publish it as an edition.",
+			private: "Your library is private. You share only what you choose to publish.",
 		},
-		try: {
-			eyebrow: "Try it",
-			title: "Mark what matters.",
+		journey: {
+			label: "One article, start to finish",
+			eyebrow: "One article, start to finish",
+			title: "Follow one article through Klipstack.",
 			description:
-				"This is how an article reads in Klipstack. Highlight a sentence, and it turns up in the sample edition below.",
+				"The examples below work like the app, with a sample essay. Try them: nothing you do here is saved or published.",
+			steps: {
+				choose: "Choose your next read",
+				read: "Enjoy reading",
+				capture: "Capture what stayed with you",
+				keep: "Revisit it or share it",
+			},
+		},
+		choose: {
+			eyebrow: "Step 1 · Choose",
+			title: "Find something you want to read now.",
+			body: "Home starts with a simple question: how much time do you have? Pick fifteen minutes and you see what fits, counting only the minutes left in articles you've started.",
+			more: "Pick up where you left off, see what you saved lately, and meet a few older saves you may have forgotten, a different few each day. Follow a site's feed, and its new posts wait beside your library until you decide to save one.",
+			source:
+				"Everything here comes from what you saved and the sites you follow. No trending lists, no sponsored picks.",
+			demoLabel: "A sample of Klipstack's home",
+			readIt: "Read it",
+			items: {
+				walk: { site: "field-notes.example", title: "The slow pleasures of a long walk" },
+				essay: { site: "essays.example", title: "What we keep from what we read" },
+				benches: { site: "streets.example", title: "Why cities need more benches" },
+				bread: { site: "kitchen-notes.example", title: "How bread taught me patience" },
+				cards: { site: "paper-trails.example", title: "A short history of the index card" },
+			},
+		},
+		read: {
+			eyebrow: "Step 2 · Read",
+			title: "Enjoy reading it.",
+			body: "Klipstack keeps a clean copy of each article: no ads or pop-ups, in the font and size you like, light or dark. It remembers where you stopped, and unread articles are ready offline.",
+			more: "Highlight the lines you want to remember and write in the margin. Highlights are private: marking a line never shares it.",
 		},
 		demo: {
 			label: "A sample article you can highlight",
-			hint: "This works like an article in Klipstack. Tap a sentence to highlight it. Tap a highlight to remove it.",
+			hint: "Tap a sentence to highlight it. Tap a highlight to remove it.",
 			clear: "Clear",
 			site: "essays.example",
-			readingTime: "3 min read",
 			title: "What we keep from what we read",
 			sentences: {
 				s1: "Most of what we read is gone within a week.",
 				s2: "The article was good, and we nodded along.",
-				s3: "Then it slid under everything that came after.",
+				s3: "Then the next tab opened, and it slid under everything that came after.",
 				s4: "Readers solved this long ago, with a pencil.",
 				s5: "A marked sentence is a note to your future self.",
-				s6: "Write a line beside it and you start a conversation you can pick up years later.",
-				s7: "Klipstack does the same for what you read on a screen.",
-				s8: "It keeps every mark you make next to the words you made it on.",
+				s6: "A line in the margin starts a conversation you can pick up years later.",
+				s7: "None of it takes long: a minute at the end, before the next thing.",
+				s8: "What you write there is the part of the article that becomes yours.",
 			},
 			marginNote: "This is why I highlight at all.",
-			articleNote: "Pairs with",
-			linkedTitle: "The case for rereading",
-			backlinks: "Linked from 2 articles",
 		},
-		edition: {
-			eyebrow: "Editions",
-			title: "Pass on a week of reading.",
-			description:
-				"An edition is a page of what you read in a week or a month: the links, a short intro, and the few highlights and notes you choose to share. It sends readers to the original articles and never republishes them.",
-			tryIt:
-				"The highlights you made above are already in this one. Mark more and watch the limit: an edition quotes a tenth of an article at most, never more than 150 words, so it can't rebuild the piece.",
-			private:
-				"Nothing is public until you publish it. The link is unlisted and asks search engines to skip it. Editions are in beta.",
-			previewLabel: "A sample edition with your highlights",
-			kicker: "An edition",
-			name: "Week 40, 2026",
-			intro: "One essay this week, and it was enough.",
-			empty: "Highlight a sentence above and it appears here.",
-			counter: "{{count}} / {{max}} words quoted",
-			over: "Left out: over the limit",
+		capture: {
+			eyebrow: "Step 3 · Capture",
+			title: "What stayed with you?",
+			prompt: "A thought, a question, or something you want to try.",
+			body: "When you reach the end, Klipstack leaves room for a moment before the next thing: a note on the article, for you alone. Write it in your own words, and link another article you saved if this one reminded you of it.",
+			optional:
+				"Write a line or skip it. Leave without a note and the article is still finished and filed in your archive, highlights and all, once you've reached the end. You can add a note whenever you come back.",
+			edition:
+				"If it's worth passing on, mark it for your next edition. You get a second, separate note for your readers, which can start from your private one and be polished later.",
+			demoLabel: "The end of the sample article",
+			demoHint: "Write a line, or don't. Both are fine.",
+			next: "See where it ends up",
 		},
-		steps: {
-			eyebrow: "How it works",
-			title: "Save, read, mark. Publish if you want.",
+		keep: {
+			eyebrow: "Step 4 · Revisit or share",
+			title: "A library that's yours. Share when you want to.",
+			body: "Your highlights and notes collect in your notebook, by article, and search covers them along with every word you saved. Each day, Home brings back a few highlights from a while back, for another look.",
+			demoLabel: "Where the sample article ends up",
+			notebook: {
+				title: "Notebook",
+				onlyYou: "Only you",
+				empty: "Highlights and notes you make above show up here.",
+				highlights_one: "{{count}} highlight",
+				highlights_other: "{{count}} highlights",
+			},
+			edition: {
+				eyebrow: "Editions",
+				title: "What did you read this week?",
+				body: "An edition is a shareable collection of good reads, with your thoughts attached. Gather the articles you marked, choose a few highlights to quote, add a line or two, and publish one link. It sends readers to the original articles; it doesn't republish them.",
+				private:
+					"Your library is private. An edition goes public only when you publish it, shows only what you chose, and asks search engines to skip it. Editions are in beta.",
+				notIn: "Not in an edition",
+				notInBody:
+					"The article stays in your library, private. Mark it for your next edition to see how one would look.",
+				draft: "Draft · not published",
+				kicker: "An edition",
+				name: "What I read this week",
+				quoteHint: "Choose up to {{count}} highlights to quote.",
+				noHighlights: "No highlights to quote. The link and your note are enough.",
+				publishNote: "Nobody sees this until you publish it from the edition's page.",
+			},
+		},
+		phone: {
+			eyebrow: "Coming soon · iPhone",
+			title: "Klipstack is coming to your iPhone.",
+			body: "The iPhone app is built and in testing now, on its way to the App Store. It brings the same reading with you: Home's next reads, the clean reader, your highlights, and the note at the end of every article.",
+			account:
+				"One account, one library: what you save on your phone is waiting on your computer, and the other way around.",
 			save: {
-				title: "Save",
+				title: "Save from any app",
 				description:
-					"Paste a link, follow a site's feed, or use the browser extension for Chrome and Firefox. The extension saves the page as you see it, even behind a login.",
+					"Share a link from Safari, or any app with a share button, and it goes straight to your library.",
+			},
+			listen: {
+				title: "Listen when you can't read",
+				description:
+					"Klipstack reads articles aloud, in English or Spanish, marking each sentence as it goes. The voice runs on your phone, so after a one-time download it works offline too.",
+			},
+			widget: {
+				title: "Your next read, on your home screen",
+				description: "A widget shows what's next, one tap away from reading it.",
+			},
+			shotAlt:
+				"The Klipstack iPhone app reading an article aloud, with the sentence it is reading highlighted.",
+			caption: "Reading aloud, in the iPhone app.",
+		},
+		basics: {
+			eyebrow: "The basics",
+			title: "A good read-later app, first of all.",
+			save: {
+				title: "Save from anywhere",
+				description:
+					"Paste a link, use the browser extension for Chrome and Firefox, or follow a site's feed. The extension saves the page as you see it, even behind a login.",
 			},
 			read: {
-				title: "Read",
+				title: "Read your way",
 				description:
-					"A clean page in the font and size you like, light or dark. Klipstack keeps your place and keeps unread articles ready offline.",
-			},
-			mark: {
-				title: "Mark",
-				description:
-					"Highlight and write in the margin. Type [[ in a note to link another article. Links between saved articles connect on their own.",
-			},
-			publish: {
-				title: "Publish, if you want",
-				description:
-					"Pick a week, a month or any dates, choose what goes on the page, and share one link. Or keep it all to yourself.",
+					"Serif, sans or a font for dyslexic readers, three widths, light or dark. Unread and starred articles stay on your device for reading offline.",
 			},
 			find: {
 				title: "Find it again",
 				description:
-					"Search every word you saved, your notes too. Filter with tag:, pin the searches you repeat, and jump anywhere with ⌘K.",
-			},
-			ask: {
-				title: "Ask as you read",
-				badge: "Beta",
-				description:
-					"Select a word or a passage to have it explained, defined or answered in the margin, citing the paragraphs it draws on. Or read a brief of the article and chat about it.",
-			},
-			assistant: {
-				title: "Bring your assistant",
-				badge: "Beta",
-				description:
-					"Connect Claude or another MCP client to search and read your library. You decide whether it may also save and tag, and you can disconnect it in Settings.",
-			},
-			phone: {
-				title: "On your phone",
-				badge: "Coming soon",
-				description:
-					"Klipstack works in your phone's browser, offline too. An iPhone app is coming.",
+					"Search every word you saved, your highlights and notes too. Tag what you like and keep the searches you repeat in the sidebar.",
 			},
 		},
+		maker: {
+			eyebrow: "Who makes it",
+			title: "Made by one reader.",
+			body: "Hi, I'm Ernesto. I built Klipstack for my own reading. I wanted an easier way to choose the next thing to read, a calm page to read it on, and a reason to stop for a minute at the end and write down what I took from it, before moving on.",
+			more: "Now I'm opening it to other people who might like reading this way. I build and run it myself, so invites go out a few at a time, as there's room.",
+			signature: "Ernesto",
+		},
 		commitments: {
-			eyebrow: "Commitments",
-			title: "Built so you can leave.",
+			eyebrow: "Your reading, your terms",
+			title: "Private by default. Easy to leave.",
 			intro:
-				"Pocket closed in July 2025. Omnivore closed in November 2024. Their readers had to move years of reading on someone else's deadline. Klipstack is new and small, so it makes leaving easy instead of asking you to trust that it lasts forever.",
+				"Pocket closed in July 2025 and Omnivore in November 2024, and their readers had to move years of reading on someone else's deadline. Klipstack makes leaving easy instead of asking you to trust that it lasts forever.",
 			private: {
-				title: "No ads. No tracking.",
+				title: "Private unless you publish.",
 				description:
-					"Klipstack never shows ads or sells what you read. No analytics follow you around.",
+					"Your library, highlights and notes are yours alone. Only an edition you publish is public, and only what you put in it.",
+			},
+			ads: {
+				title: "No ads. No trackers.",
+				description:
+					"Klipstack never shows ads or sells what you read, and it uses no analytics services.",
 			},
 			export: {
 				title: "Export everything, any time.",
 				description:
-					"One download from Settings: a Markdown file for every article with its highlights, plus a JSON bundle of it all.",
+					"One download from Settings: a Markdown file for every article with its highlights and notes, plus a JSON bundle of it all.",
 			},
 			delete: {
 				title: "Delete means deleted.",
 				description:
-					"Deleted articles wait 30 days in the trash, then they're gone. Delete your account and everything goes with it, editions included.",
-			},
-			source: {
-				title: "Editions link to the source.",
-				description:
-					"An edition shows titles, your chosen quotes and your notes, and sends readers to the original site.",
+					"Deleted articles wait 30 days in the trash, then they're gone. Delete your account and everything goes with it, editions included; backups age out within 30 days.",
 			},
 			copy: {
 				title: "Your copy outlives the link.",
 				description:
 					"Klipstack keeps a clean copy of each article and its images, so it stays readable when the original changes or disappears.",
 			},
-			assistant: {
-				title: "Your assistant, on your terms.",
+			source: {
+				title: "Open source.",
 				description:
-					"An AI assistant gets in only after you approve it. You choose whether it can change anything, and you can cut it off.",
+					"The code is public under the AGPL, and there's a guide to running your own copy with Docker if you'd rather host it yourself.",
 			},
 			privacy: "Read the privacy policy",
+			code: "See the code",
+			selfHost: "Host it yourself",
 		},
 		faq: {
 			eyebrow: "Questions",
@@ -156,7 +211,22 @@ export default {
 			invite: {
 				question: "Why is it invite-only?",
 				answer:
-					"One person builds and runs Klipstack. Every new reader adds storage and server work, so people come in a few at a time. Request an invite and you'll get an email when there's room.",
+					"One person builds and runs Klipstack. Every new reader adds storage and server work, so people come in a few at a time, by email invite, as there's room.",
+			},
+			note: {
+				question: "Do I have to write something after every article?",
+				answer:
+					"No. The note at the end is an invitation, not a step. Read to the end and close it, and it's finished, with or without a note. Plenty of articles don't need one.",
+			},
+			notes: {
+				question: "Is my note what an edition shows?",
+				answer:
+					"No. Your note on an article is private. Marking an article for an edition gives you a separate note for your readers, which you can start from your private one. An edition shows your private note only if you choose to include it.",
+			},
+			quotes: {
+				question: "How much of an article can an edition quote?",
+				answer:
+					"Up to three highlights per article, and no more than a tenth of its words, 150 at most. An edition points to good writing; it can't rebuild the piece.",
 			},
 			import: {
 				question: "Can I import from Pocket or Omnivore?",
@@ -166,12 +236,22 @@ export default {
 			apps: {
 				question: "Is there an app?",
 				answer:
-					"Klipstack runs in the browser on your computer and your phone, and unread and starred articles stay available offline. An iPhone app is coming. There's no Android app.",
+					"Klipstack runs in the browser on your computer and your phone, and unread and starred articles stay available offline. An iPhone app is in testing; it saves from the share sheet and reads articles aloud. There's no Android app.",
 			},
 			extension: {
 				question: "Is there a browser extension?",
 				answer:
-					"Yes, for Chrome and Firefox. It isn't in the browser stores yet: once you're in, you install it from Settings.",
+					"Yes, for Chrome and Firefox. It isn't in the browser stores yet, so for now you build it from the source code and load it yourself. Settings links to it.",
+			},
+			search: {
+				question: "How do I find things later?",
+				answer:
+					"Search covers every saved word, your highlights and your notes. Narrow it with filters such as tag:, site: or before:, keep the searches you repeat, and press ⌘K (Ctrl K) to jump anywhere.",
+			},
+			ai: {
+				question: "Does Klipstack use AI?",
+				answer:
+					"Reading, notes and editions don't need it. Some readers are trying optional features in beta: asking about a passage as you read, a short brief of an article, and sorting the library into topics. You can also connect an assistant such as Claude to search your library, decide whether it may also make changes, such as saving, tagging and writing notes, and disconnect it any time.",
 			},
 			privacy: {
 				question: "Who can see what I read?",
@@ -183,10 +263,11 @@ export default {
 			eyebrow: "Invite only, for now",
 			title: "Request an invite.",
 			description:
-				"Leave your email and you'll get an invite when there's room. Invites go out a few at a time, so the app stays quick.",
-			privacy: "Your email is used for the invite and nothing else. No newsletter.",
+				"Leave your email, and a line about what you like to read if you want. When there's room, you'll get one email with your invite. It may take a while: people come in a few at a time.",
+			privacy: "Your email is used for the invite and nothing else. No newsletter, no marketing.",
 			signupTitle: "Start reading.",
 			signupDescription: "Have an invite code? Create your account.",
+			openDescription: "Create your account and save your first article.",
 		},
 		footer: {
 			label: "Site",

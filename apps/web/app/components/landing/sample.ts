@@ -1,6 +1,8 @@
+import { fitsIn, homeShelves } from "~/lib/home-shelves"
+
 /**
- * The landing page's sample article: its sentences (copy in `home.demo.sentences`), the marks it
- * opens with, and the quote limit an edition of it would have.
+ * The landing page's walkthrough: one sample essay (copy in `home.demo`) followed from Home to the
+ * notebook and an edition, and the few saves around it (copy in `home.choose.items`).
  */
 export const PARAGRAPHS = [
 	["s1", "s2", "s3"],
@@ -20,39 +22,54 @@ export const INITIAL_MARKS: Marks = { s5: true, s8: true }
 /** The sentence that carries the sample margin note, while it is highlighted. */
 export const NOTED: SentenceId = "s5"
 
+/** An edition quotes at most this many highlights of one article, as the edition editor does. */
+export const EDITION_HIGHLIGHTS_MAX = 3
+
+/** Which of Home's shelves a save sits on. */
+export type Shelf = "reading" | "recent" | "rediscover"
+
+export interface SampleSave {
+	id: "walk" | "essay" | "benches" | "bread" | "cards"
+	shelf: Shelf
+	/** Minutes left to read: all of it, unless started. */
+	minutesLeft: number
+	/** Read so far, 0 to 1. */
+	progress: number
+}
+
+/** The sample essay's length, in minutes. */
+export const ESSAY_MINUTES = 4
+
+/** The sample library, in Home's order within each shelf. `essay` is the article that follows. */
+export const SAVES: readonly SampleSave[] = [
+	{ id: "walk", shelf: "reading", minutesLeft: 9, progress: 0.5 },
+	{ id: "essay", shelf: "recent", minutesLeft: ESSAY_MINUTES, progress: 0 },
+	{ id: "benches", shelf: "recent", minutesLeft: 12, progress: 0 },
+	{ id: "bread", shelf: "rediscover", minutesLeft: 7, progress: 0 },
+	{ id: "cards", shelf: "rediscover", minutesLeft: 26, progress: 0 },
+]
+
+/** A date for the sample: every save counts as saved after Home's "recent" cut-off. */
+const SAVED = new Date(0)
+
 /**
- * The quote limit of an edition: a tenth of the article, never more than 150 words. The sample
- * stands for a 600-word article, so marking most of it shows the limit.
+ * Home's shelves for the time chosen (null: any), filled by Home's own rules (`homeShelves`).
+ * `pickUp`: nothing started fits, so the article read last stays, as where the reader left off.
  */
-export const QUOTE_MAX = Math.min(150, Math.floor(0.1 * 600))
-
-export function countWords(text: string): number {
-	return text.split(/\s+/).filter(Boolean).length
-}
-
-export interface Quote {
-	id: SentenceId
-	text: string
-	/** False once the quote would pass QUOTE_MAX: the edition leaves it out. */
-	fits: boolean
-}
-
-/** The edition's quotes, in article order, and the words they use. */
-export function editionQuotes(
-	marks: Marks,
-	textOf: (id: SentenceId) => string,
-): { quotes: Quote[]; used: number } {
-	let used = 0
-	const quotes: Quote[] = []
-	for (const id of SENTENCES) {
-		if (!marks[id]) continue
-		const text = textOf(id)
-		const words = countWords(text)
-		const fits = used + words <= QUOTE_MAX
-		if (fits) used += words
-		quotes.push({ id, text, fits })
-	}
-	return { quotes, used }
+export function sampleShelves(minutes: number | null) {
+	const timed = (shelf: Shelf) =>
+		SAVES.filter((s) => s.shelf === shelf).map((s) => ({ ...s, createdAt: SAVED }))
+	const shelves = homeShelves(
+		{
+			reading: timed("reading"),
+			recent: timed("recent"),
+			rediscover: timed("rediscover"),
+			recentSince: SAVED,
+		},
+		minutes,
+	)
+	const last = shelves.reading[0]
+	return { ...shelves, pickUp: last !== undefined && !fitsIn(last, minutes) }
 }
 
 /** The highlight color (`--hl` in app.css), and its solid form for lines. */
