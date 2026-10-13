@@ -69,6 +69,7 @@ export function createTakeaway(post: (message: PageMessage) => void): {
 		const text = fieldText(field)
 		changed(text)
 		post({ type: "note", text })
+		keepInView()
 	})
 	field.addEventListener("focus", () => post({ type: "note-focus", focused: true }))
 	field.addEventListener("blur", () => {
@@ -91,12 +92,26 @@ export function createTakeaway(post: (message: PageMessage) => void): {
 		post({ type: "note-link", id: link.dataset.link! })
 	})
 
+	/**
+	 * While written in, the paper stays above the keyboard: WebKit scrolls to the caret when the
+	 * field is tapped, but not when the keyboard comes back (after an alert) or the paper grows.
+	 */
+	function keepInView() {
+		if (!focused()) return
+		const view = window.visualViewport
+		const bottom = view ? view.offsetTop + view.height : window.innerHeight
+		const below = paper.getBoundingClientRect().bottom + 16 - bottom
+		if (below > 0) window.scrollBy({ top: below })
+	}
+	window.visualViewport?.addEventListener("resize", keepInView)
+
 	function update(note: PageNote) {
 		const replaced = latest !== null && note.rev !== latest.rev
 		latest = note
 		status.innerHTML = statusHtml(note.status)
 		if (focused() && !replaced) return
 		if (fieldText(field) !== note.text || !focused()) show(note.text, note.links)
+		keepInView()
 	}
 
 	return { element, update }
