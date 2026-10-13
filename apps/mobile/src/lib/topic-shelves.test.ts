@@ -5,6 +5,7 @@ import {
 	PHONE_SHELF,
 	phoneShelf,
 	spine,
+	topicsBusy,
 	topicsNotice,
 	type TopicsAnswer,
 } from "./topic-shelves"
@@ -138,5 +139,25 @@ describe("topicsNotice", () => {
 		expect(topicsNotice(answer({ sorting: 0 }))?.body).toBe(
 			"No topics right now. New ones appear as you save more articles.",
 		)
+	})
+})
+
+describe("topicsBusy", () => {
+	const answer = (extra: Partial<TopicsAnswer>): TopicsAnswer => ({
+		stage: "active",
+		items: [],
+		...extra,
+	})
+
+	it("asks again while the server is on it: proposing, or sorting and not paused", () => {
+		expect(topicsBusy(answer({ stage: "proposing" }))).toBe(true)
+		expect(topicsBusy(answer({ sorting: 3, sortingPaused: null }))).toBe(true)
+	})
+
+	it("waits for the reader otherwise", () => {
+		expect(topicsBusy(answer({ sorting: 3, sortingPaused: { resumesAt: null } }))).toBe(false)
+		expect(topicsBusy(answer({ sorting: 0, sortingPaused: null }))).toBe(false)
+		for (const stage of ["unavailable", "off", "waiting", "proposed"] as const)
+			expect(topicsBusy(answer({ stage }))).toBe(false)
 	})
 })

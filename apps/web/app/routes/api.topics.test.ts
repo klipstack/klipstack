@@ -198,8 +198,11 @@ describe("GET /topics and GET /articles?topic=", () => {
 				probability: 0.9,
 				level: "applied",
 			})
-		// Archived: in the whole library, out of the inbox.
-		await db.update(documents).set({ archivedAt: new Date() }).where(eq(documents.id, old!.id))
+		// Archived and finished: in the whole library, out of the inbox.
+		await db
+			.update(documents)
+			.set({ archivedAt: new Date(), readAt: new Date() })
+			.where(eq(documents.id, old!.id))
 		try {
 			const all = await reader.client.articles.list({ view: "all", topic: ids["reader:Science"] })
 			expect(all.items.map((a) => a.title)).toEqual(["Atoms", "Old atoms"])
@@ -211,7 +214,18 @@ describe("GET /topics and GET /articles?topic=", () => {
 				filter: "unfinished",
 				topic: ids["reader:Science"],
 			})
-			expect(unfinished.items.map((a) => a.title)).toEqual(["Atoms", "Old atoms"])
+			expect(unfinished.items.map((a) => a.title)).toEqual(["Atoms"])
+			const finished = await reader.client.articles.list({
+				view: "all",
+				filter: "finished",
+				topic: ids["reader:Science"],
+			})
+			expect(finished.items.map((a) => a.title)).toEqual(["Old atoms"])
+			// On its shelf too: the archived one counts, from 2020 it is not new, and the trash is out.
+			const { items } = await reader.client.topics.list({ latest: 16 })
+			const science = items.find((t) => t.name === "Science")!
+			expect(science).toMatchObject({ articles: 2, savedThisWeek: 1 })
+			expect(science.latest!.map((a) => a.title)).toEqual(["Atoms", "Old atoms"])
 			const unread = await request("/api/v1/articles?view=all&filter=unread", {
 				token: reader.key,
 			})
@@ -244,11 +258,15 @@ describe("GET /topics: the stage, and each topic's latest articles", () => {
 	it("says which stage the reader's topics are in, and what each stage needs", async () => {
 		const off = await users.create("Off")
 		const waiting = await users.create("Waiting")
+		const proposing = await users.create("Proposing")
 		const proposed = await users.create("Proposed")
-		for (const user of [off, waiting, proposed])
+		for (const user of [off, waiting, proposing, proposed])
 			await db.insert(userFeatures).values({ userId: user.id, feature: "topics" })
 		await db.insert(topicLibraries).values({ userId: waiting.id })
 		await article(waiting.id, "One")
+		// Enough articles for the first topics: the worker is on it.
+		await db.insert(topicLibraries).values({ userId: proposing.id })
+		for (let i = 0; i < 25; i++) await article(proposing.id, `Article ${i}`)
 		await db.insert(topicLibraries).values({ userId: proposed.id, proposedAt: new Date() })
 		const [first] = await db
 			.insert(topics)
@@ -267,6 +285,11 @@ describe("GET /topics: the stage, and each topic's latest articles", () => {
 			stage: "waiting",
 			items: [],
 			progress: { count: 1, needed: 25 },
+		})
+		expect(await proposing.client.topics.list()).toEqual({
+			stage: "proposing",
+			items: [],
+			progress: { count: 25, needed: 25 },
 		})
 		expect(await proposed.client.topics.list()).toEqual({
 			stage: "proposed",
@@ -303,10 +326,45 @@ describe("GET /topics: the stage, and each topic's latest articles", () => {
 				sorting: 1,
 				sortingPaused: { resumesAt: resetsAt.toISOString() },
 			})
+			// A server that sorts none at all: no month brings sorting back.
+			vi.stubEnv("LIMIT_TOPIC_SORTS_PER_MONTH", "0")
+			expect(await reader.client.topics.list()).toMatchObject({
+				sorting: 1,
+				sortingPaused: { resumesAt: null },
+			})
 		} finally {
+			vi.unstubAllEnvs()
 			await db.delete(documents).where(eq(documents.id, fresh!.id))
 			await db.delete(usageCounts).where(eq(usageCounts.userId, reader.id))
 		}
+	})
+
+	it("counts one list's articles still to sort with view, even without a topic yet", async () => {
+		const empty = await users.create("No topics yet")
+		await db.insert(userFeatures).values({ userId: empty.id, feature: "topics" })
+		await db
+			.insert(topicLibraries)
+			.values({ userId: empty.id, proposedAt: new Date(), confirmedAt: new Date() })
+		// Neither sorted yet: one in the library, one archived.
+		for (const title of ["Inbox", "Archived"]) {
+			const [doc] = await db
+				.insert(documents)
+				.values({
+					userId: empty.id,
+					sourceUrl: `https://example.com/${newId()}`,
+					urlHash: newId(),
+					status: "ready",
+					title,
+					archivedAt: title === "Archived" ? new Date() : null,
+				})
+				.returning({ id: documents.id })
+			void doc
+		}
+		expect(await empty.client.topics.list()).toMatchObject({ items: [], sorting: 2 })
+		expect(await empty.client.topics.list({ view: "archive" })).toMatchObject({
+			items: [],
+			sorting: 1,
+		})
 	})
 
 	it("gives each topic its newest articles with latest, as the library lists them", async () => {
@@ -346,13 +404,27 @@ describe("MCP list_topics and list_library's topic", () => {
 			}),
 		)
 		expect(titles(page)).toEqual(["Atoms"])
-		const all = json(
-			await mcp.callTool({
-				name: "list_library",
-				arguments: { view: "all", topic: ids["reader:Writing"] },
-			}),
-		)
-		expect(titles(all)).toEqual(["Draft one", "Draft two"])
+		// Archived: out of the library's list, in the whole library's.
+		const [draft] = await db
+			.select({ id: documents.id })
+			.from(documents)
+			.where(and(eq(documents.userId, reader.id), eq(documents.title, "Draft one")))
+		await db.update(documents).set({ archivedAt: new Date() }).where(eq(documents.id, draft!.id))
+		try {
+			const list = async (view: string) =>
+				titles(
+					json(
+						await mcp.callTool({
+							name: "list_library",
+							arguments: { view, topic: ids["reader:Writing"], filter: "unfinished" },
+						}),
+					),
+				)
+			expect(await list("all")).toEqual(["Draft one", "Draft two"])
+			expect(await list("archive")).toEqual(["Draft one"])
+		} finally {
+			await db.update(documents).set({ archivedAt: null }).where(eq(documents.id, draft!.id))
+		}
 		const refused = (await mcp.callTool({
 			name: "list_library",
 			arguments: { topic: ids["reader:Ended"] },

@@ -158,3 +158,12 @@ export function topicsNotice(
 		}
 	}
 }
+
+/**
+ * Whether the server is on it, so the screen asks again now and then, as the web's page does:
+ * the first topics being proposed, or the library being sorted (not paused for the month).
+ */
+export function topicsBusy(answer: TopicsAnswer): boolean {
+	if (answer.stage === "proposing") return true
+	return answer.stage === "active" && (answer.sorting ?? 0) > 0 && !answer.sortingPaused
+}

@@ -180,7 +180,8 @@ export const topics: Handler<typeof listTopicsEndpoint> = async ({ userId, query
 				}
 			: {}),
 	}
-	if (!query.view || items.length === 0) return answer
+	// With `view`, `sorting` is always that list's, topics or none yet; only while topics are on.
+	if (!query.view || !active) return answer
 	// One list's share, in the web's order: most in the list first.
 	const { topics, none, sorting } = await listTopics(userId, query.view, null)
 	const byId = new Map(items.map((t) => [t.id, t]))

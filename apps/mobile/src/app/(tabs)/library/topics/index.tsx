@@ -20,15 +20,19 @@ import {
 	phoneShelf,
 	spine,
 	type TopicsAnswer,
+	topicsBusy,
 	topicsNotice,
 } from "@/lib/topic-shelves"
+
+const BUSY_EVERY_MS = 5000
 
 /**
  * The reader's topics as shelves, as the web's Topics page shows them on a phone: each topic its
  * name, its size, and a book per article, newest first, a full shelf ending in how many more. A
  * book is too narrow to aim at, so a tap anywhere on a topic opens its articles. Read-only: turning
  * topics on, confirming, renaming and removing them are the web's, and the screen says so where it
- * matters. Loaded on each return here: topics change as the library grows.
+ * matters. Loaded on each return here: topics change as the library grows; and every few seconds
+ * while the server proposes or sorts them.
  */
 export default function Topics() {
 	const colors = useColors()
@@ -51,13 +55,18 @@ export default function Topics() {
 			if (mine === asked.current) setError(e instanceof Error ? e.message : String(e))
 		}
 	}, [client])
+	const answer = loaded?.answer ?? null
+	// While the server proposes or sorts, every 5 seconds, as the web's page; only while in view.
+	const busy = answer ? topicsBusy(answer) : false
 	useFocusEffect(
 		useCallback(() => {
 			void load()
-		}, [load]),
+			if (!busy) return
+			const id = setInterval(() => void load(), BUSY_EVERY_MS)
+			return () => clearInterval(id)
+		}, [load, busy]),
 	)
 
-	const answer = loaded?.answer ?? null
 	const notice = answer ? topicsNotice(answer) : null
 	return (
 		<ScrollView
