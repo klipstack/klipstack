@@ -70,7 +70,8 @@ export function MarkerText({
 							borderBottomRightRadius: s.corners[2],
 							borderBottomLeftRadius: s.corners[3],
 							overflow: "hidden",
-							transform: s.tilt ? [{ rotate: `${s.tilt}deg` }] : undefined,
+							// Always a rotation, 0° when straight: a recycled row's stroke must not drop its transform.
+							transform: [{ rotate: `${s.tilt ?? 0}deg` }],
 							experimental_backgroundImage: `linear-gradient(to right, ${landing} 0%, ${ink} ${start.toFixed(1)}%, ${ink} ${end.toFixed(1)}%, ${lifting} 100%)`,
 						}}
 					/>

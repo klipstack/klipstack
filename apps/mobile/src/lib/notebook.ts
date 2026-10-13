@@ -164,3 +164,74 @@ export function newSeed(random: () => number = Math.random): string {
 		seed += "abcdefghijklmnopqrstuvwxyz0123456789"[Math.floor(random() * 36)]
 	return seed
 }
+
+/** The zoomed-out choice as stored; anything unknown is zoomed in. */
+export function parseZoomed(raw: string | null | undefined): boolean {
+	try {
+		return JSON.parse(raw ?? "") === true
+	} catch {
+		return false
+	}
+}
+
+/**
+ * The Notebook zoomed out, as one flat list for a two-column wall: small cards (`tile`), and,
+ * across both columns, an article's or a topic's heading and an article's "Show all" (`more`).
+ * Flat, so the list draws only what is on screen however much is kept.
+ */
+export type ZoomTile =
+	| { kind: "article"; id: string; entry: NotebookEntry }
+	| { kind: "topic"; id: string; group: NotebookGroup }
+	| { kind: "tile"; id: string; item: NotebookItem; withArticle: boolean }
+	| { kind: "more"; id: string; articleId: string; count: number; open: boolean }
+
+/** Small cards an article shows before "Show all". */
+export const ZOOM_COLLAPSED = 6
+
+/**
+ * The rows as a wall: By article, each article's heading, then its note and highlights (the first
+ * few, unless `open` holds it), then "Show all"; By topic, each topic's heading, then its cards;
+ * Stream and Shuffle, their cards. Ids are unique: a card in two topics is two tiles.
+ */
+export function zoomTiles(rows: NotebookRow[], open: ReadonlySet<string>): ZoomTile[] {
+	const tiles: ZoomTile[] = []
+	for (const row of rows) {
+		if (row.kind === "item") {
+			tiles.push({ kind: "tile", id: row.id, item: row.item, withArticle: true })
+		} else if (row.kind === "topic") {
+			tiles.push({ kind: "topic", id: row.id, group: row.group })
+			for (const item of row.group.items)
+				tiles.push({ kind: "tile", id: `${row.id}/${itemId(item)}`, item, withArticle: true })
+		} else {
+			const { entry } = row
+			const { article } = entry
+			const items: NotebookItem[] = entry.highlights.map((highlight) => ({
+				kind: "highlight",
+				highlight,
+				article,
+			}))
+			if (entry.note)
+				items.unshift({
+					kind: "note",
+					note: entry.note,
+					noteUpdatedAt: entry.noteUpdatedAt,
+					writtenAt: entry.noteUpdatedAt ?? "",
+					editable: false,
+					article,
+				})
+			const isOpen = open.has(article.id)
+			tiles.push({ kind: "article", id: `article:${article.id}`, entry })
+			for (const item of isOpen ? items : items.slice(0, ZOOM_COLLAPSED))
+				tiles.push({ kind: "tile", id: `${article.id}/${itemId(item)}`, item, withArticle: false })
+			if (items.length > ZOOM_COLLAPSED)
+				tiles.push({
+					kind: "more",
+					id: `more:${article.id}`,
+					articleId: article.id,
+					count: items.length,
+					open: isOpen,
+				})
+		}
+	}
+	return tiles
+}

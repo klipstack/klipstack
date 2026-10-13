@@ -6,6 +6,9 @@ import {
 	filterLabel,
 	type NotebookRow,
 	newSeed,
+	parseZoomed,
+	ZOOM_COLLAPSED,
+	zoomTiles,
 	notebookRows,
 	withArticleNote,
 	withHighlight,
@@ -199,5 +202,60 @@ describe("newSeed", () => {
 		expect(newSeed(() => 0)).toMatch(NOTEBOOK_SEED)
 		expect(newSeed(() => 0.9999)).toMatch(NOTEBOOK_SEED)
 		expect(newSeed(() => 0.9999)).toBe("99999999")
+	})
+})
+
+describe("zoomTiles", () => {
+	const entry = (id: string, note: string | null, n: number) => ({
+		kind: "article" as const,
+		id,
+		entry: {
+			article: article(id),
+			note,
+			noteUpdatedAt: null,
+			highlights: Array.from({ length: n }, (_, i) => highlight(`${id}-h${i}`, id)),
+		},
+	})
+
+	it("heads each article, its note first, and folds what is past the first few", () => {
+		// The note and six highlights: seven cards, one past the fold.
+		const tiles = zoomTiles([entry("a1", "Mine", ZOOM_COLLAPSED), entry("a2", null, 1)], new Set())
+		expect(tiles.map((t) => t.kind)).toEqual([
+			"article",
+			...Array.from({ length: ZOOM_COLLAPSED }, () => "tile"),
+			"more",
+			"article",
+			"tile",
+		])
+		const first = tiles[1]
+		expect(first?.kind === "tile" && first.item.kind).toBe("note")
+		const more = tiles[ZOOM_COLLAPSED + 1]
+		expect(more?.kind === "more" && more.count).toBe(ZOOM_COLLAPSED + 1)
+	})
+
+	it("shows every card of an article opened, with the way to fold it again", () => {
+		const tiles = zoomTiles([entry("a1", "Mine", ZOOM_COLLAPSED)], new Set(["a1"]))
+		expect(tiles.filter((t) => t.kind === "tile")).toHaveLength(ZOOM_COLLAPSED + 1)
+		expect(tiles.at(-1)?.kind === "more" && tiles.at(-1)).toMatchObject({ open: true })
+	})
+
+	it("gives a card in two topics two different ids", () => {
+		const item = highlightItem(highlight("h1", "a1"))
+		const group = (id: string) => ({
+			kind: "topic" as const,
+			id: `topic:${id}`,
+			group: { topic: { id, name: id }, highlights: 1, notes: 0, items: [item] },
+		})
+		const ids = zoomTiles([group("t1"), group("t2")], new Set()).map((t) => t.id)
+		expect(new Set(ids).size).toBe(ids.length)
+	})
+})
+
+describe("parseZoomed", () => {
+	it("is zoomed out only when stored so", () => {
+		expect(parseZoomed("true")).toBe(true)
+		expect(parseZoomed("false")).toBe(false)
+		expect(parseZoomed(null)).toBe(false)
+		expect(parseZoomed("{not json")).toBe(false)
 	})
 })

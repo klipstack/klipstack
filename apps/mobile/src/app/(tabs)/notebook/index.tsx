@@ -25,6 +25,7 @@ import {
 	type CardContext,
 	TopicSection,
 } from "@/components/notebook-cards"
+import { NotebookWall } from "@/components/notebook-mini"
 import { usePagedList } from "@/components/paged-list"
 import { useAuth } from "@/lib/auth"
 import {
@@ -35,7 +36,9 @@ import {
 	withArticleNote,
 	withHighlight,
 	withoutHighlight,
+	zoomTiles,
 } from "@/lib/notebook"
+import { loadNotebookZoom, saveNotebookZoom } from "@/lib/reader-files"
 import { useColors } from "@/lib/theme"
 
 /** Articles a By article page holds, and cards a Stream page holds. */
@@ -79,6 +82,21 @@ export default function Notebook() {
 	const headers = useImageHeaders()
 	const client = state.status === "signed-in" ? state.client : null
 	const [view, setView] = useState<NotebookView>("articles")
+	// Zoomed out: small cards in two columns, read-only; a tap opens the reader. Kept on the phone.
+	const [zoomed, setZoomed] = useState(loadNotebookZoom)
+	function zoom(next: boolean) {
+		setZoomed(next)
+		saveNotebookZoom(next)
+	}
+	// Zoomed out, the articles showing all their cards.
+	const [open, setOpen] = useState<ReadonlySet<string>>(new Set())
+	function toggle(articleId: string) {
+		setOpen((shown) => {
+			const next = new Set(shown)
+			if (!next.delete(articleId)) next.add(articleId)
+			return next
+		})
+	}
 	const [filter, setFilter] = useState<NotebookFilter | null>(null)
 	const [tag, setTag] = useState<string | null>(null)
 	const [topic, setTopic] = useState<string | null>(null)
@@ -266,6 +284,34 @@ export default function Notebook() {
 		</View>
 	)
 
+	const footer = list.loadingMore ? (
+		<ActivityIndicator style={styles.more} color={colors.mutedFg} />
+	) : null
+
+	const empty = blank ? (
+		<View style={styles.blank}>
+			<BlankPostIt colors={colors} />
+			<Text style={[styles.blankTitle, { color: colors.fg }]}>Your notebook is empty</Text>
+			<Text style={[styles.blankText, { color: colors.mutedFg }]}>
+				Everything you keep from what you read lands here, by article: the passages you highlight,
+				and the notes you write on them and on whole articles.
+			</Text>
+			<Pressable
+				accessibilityRole="button"
+				onPress={() => router.navigate("/library")}
+				style={[styles.deal, styles.open, { backgroundColor: colors.accent }]}
+			>
+				<Text style={[styles.dealText, { color: colors.accentFg }]}>Open Your Library</Text>
+			</Pressable>
+		</View>
+	) : (
+		<Text style={[styles.empty, { color: colors.mutedFg }]}>
+			{error ?? (!items ? "Loading…" : q ? "Nothing matches that search." : "Nothing here.")}
+		</Text>
+	)
+
+	const refreshControl = <RefreshControl refreshing={list.refreshing} onRefresh={list.refresh} />
+
 	return (
 		<>
 			<Stack.Screen
@@ -295,6 +341,15 @@ export default function Notebook() {
 								{v.label}
 							</Stack.Toolbar.MenuAction>
 						))}
+						<Stack.Toolbar.Menu inline>
+							<Stack.Toolbar.MenuAction
+								icon="square.grid.2x2"
+								isOn={zoomed}
+								onPress={() => zoom(!zoomed)}
+							>
+								Zoom Out
+							</Stack.Toolbar.MenuAction>
+						</Stack.Toolbar.Menu>
 					</Stack.Toolbar.Menu>
 					<Stack.Toolbar.Menu
 						icon={
@@ -374,74 +429,66 @@ export default function Notebook() {
 					</Stack.Toolbar.Menu>
 				</Stack.Toolbar>
 			)}
-			<FlatList
-				data={ctx ? (items ?? []) : []}
-				keyExtractor={(row) => row.id}
-				contentInsetAdjustmentBehavior="automatic"
-				automaticallyAdjustKeyboardInsets
-				keyboardShouldPersistTaps="handled"
-				keyboardDismissMode="on-drag"
-				style={{ backgroundColor: colors.bg }}
-				contentContainerStyle={styles.list}
-				renderItem={({ item: row, index }) =>
-					!ctx ? null : row.kind === "article" ? (
-						<ArticleSection entry={row.entry} ctx={ctx} />
-					) : row.kind === "topic" ? (
-						<TopicSection
-							group={row.group}
-							ctx={ctx}
-							onSeeAll={(id) => {
-								setTopic(id)
-								setView("stream")
-							}}
+			{zoomed && ctx ? (
+				<NotebookWall
+					tiles={zoomTiles(items ?? [], open)}
+					ctx={ctx}
+					onToggle={toggle}
+					onSeeAll={(id) => {
+						setTopic(id)
+						setView("stream")
+					}}
+					header={header}
+					empty={empty}
+					footer={footer}
+					refreshControl={refreshControl}
+					onEndReached={list.loadMore}
+				/>
+			) : (
+				<FlatList
+					data={ctx ? (items ?? []) : []}
+					keyExtractor={(row) => row.id}
+					contentInsetAdjustmentBehavior="automatic"
+					automaticallyAdjustKeyboardInsets
+					keyboardShouldPersistTaps="handled"
+					keyboardDismissMode="on-drag"
+					style={{ backgroundColor: colors.bg }}
+					contentContainerStyle={styles.list}
+					renderItem={({ item: row, index }) =>
+						!ctx ? null : row.kind === "article" ? (
+							<ArticleSection entry={row.entry} ctx={ctx} />
+						) : row.kind === "topic" ? (
+							<TopicSection
+								group={row.group}
+								ctx={ctx}
+								onSeeAll={(id) => {
+									setTopic(id)
+									setView("stream")
+								}}
+							/>
+						) : (
+							<Card item={row.item} dealt={shownView === "shuffle" ? index : undefined} ctx={ctx} />
+						)
+					}
+					ItemSeparatorComponent={() => (
+						<View
+							style={
+								shownView === "articles"
+									? [styles.rule, { backgroundColor: colors.divider }]
+									: shownView === "topics"
+										? styles.topicGap
+										: styles.cardGap
+							}
 						/>
-					) : (
-						<Card item={row.item} dealt={shownView === "shuffle" ? index : undefined} ctx={ctx} />
-					)
-				}
-				ItemSeparatorComponent={() => (
-					<View
-						style={
-							shownView === "articles"
-								? [styles.rule, { backgroundColor: colors.divider }]
-								: shownView === "topics"
-									? styles.topicGap
-									: styles.cardGap
-						}
-					/>
-				)}
-				refreshControl={<RefreshControl refreshing={list.refreshing} onRefresh={list.refresh} />}
-				onEndReached={list.loadMore}
-				onEndReachedThreshold={0.5}
-				ListHeaderComponent={header}
-				ListFooterComponent={
-					list.loadingMore ? <ActivityIndicator style={styles.more} color={colors.mutedFg} /> : null
-				}
-				ListEmptyComponent={
-					blank ? (
-						<View style={styles.blank}>
-							<BlankPostIt colors={colors} />
-							<Text style={[styles.blankTitle, { color: colors.fg }]}>Your notebook is empty</Text>
-							<Text style={[styles.blankText, { color: colors.mutedFg }]}>
-								Everything you keep from what you read lands here, by article: the passages you
-								highlight, and the notes you write on them and on whole articles.
-							</Text>
-							<Pressable
-								accessibilityRole="button"
-								onPress={() => router.navigate("/library")}
-								style={[styles.deal, styles.open, { backgroundColor: colors.accent }]}
-							>
-								<Text style={[styles.dealText, { color: colors.accentFg }]}>Open Your Library</Text>
-							</Pressable>
-						</View>
-					) : (
-						<Text style={[styles.empty, { color: colors.mutedFg }]}>
-							{error ??
-								(!items ? "Loading…" : q ? "Nothing matches that search." : "Nothing here.")}
-						</Text>
-					)
-				}
-			/>
+					)}
+					refreshControl={refreshControl}
+					onEndReached={list.loadMore}
+					onEndReachedThreshold={0.5}
+					ListHeaderComponent={header}
+					ListFooterComponent={footer}
+					ListEmptyComponent={empty}
+				/>
+			)}
 		</>
 	)
 }

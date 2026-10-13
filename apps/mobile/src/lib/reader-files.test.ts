@@ -88,14 +88,17 @@ describe("reader files", () => {
 
 	it("reads back saved settings, and the defaults for missing or damaged ones", () => {
 		expect(files.loadListLayout()).toBe("grid")
+		expect(files.loadNotebookZoom()).toBe(false)
 		expect(files.loadColorScheme()).toBe("system")
 		expect(files.loadClipboardSeen()).toBeNull()
 
 		files.saveListLayout("list")
+		files.saveNotebookZoom(true)
 		files.saveColorScheme("dark")
 		files.saveClipboardSeen(42)
 		files.saveTypePrefs({ ...files.loadTypePrefs(), sans: true })
 		expect(files.loadListLayout()).toBe("list")
+		expect(files.loadNotebookZoom()).toBe(true)
 		expect(files.loadColorScheme()).toBe("dark")
 		expect(files.loadClipboardSeen()).toBe(42)
 		expect(files.loadTypePrefs().sans).toBe(true)

@@ -2,6 +2,7 @@ import type { KlipstackClient } from "@klipstack/sdk"
 import { Directory, File, Paths } from "expo-file-system"
 import { parseColorScheme } from "./color-scheme"
 import { parseListLayout } from "./list-layout"
+import { parseZoomed } from "./notebook"
 import { parseTypePrefs } from "./reader-type"
 import { parseSpeechPrefs } from "./speech"
 
@@ -115,3 +116,8 @@ export const saveClipboardSeen: (count: number) => void = clipboardSeen.save
 const listLayout = jsonSetting("list-layout.json", parseListLayout)
 export const loadListLayout = listLayout.load
 export const saveListLayout = listLayout.save
+
+/** Whether the Notebook is zoomed out to two columns of small cards; not until chosen. */
+const notebookZoom = jsonSetting("notebook-zoom.json", parseZoomed)
+export const loadNotebookZoom = notebookZoom.load
+export const saveNotebookZoom = notebookZoom.save
