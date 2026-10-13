@@ -74,7 +74,10 @@ function NoteTextarea({
 				}
 			}}
 			placeholder={placeholder}
-			className={cn("block w-full resize-none bg-transparent [field-sizing:content]", className)}
+			className={cn(
+				"block w-full resize-none bg-transparent [field-sizing:content] placeholder:text-[color:var(--note-placeholder,var(--k-muted-fg))]",
+				className,
+			)}
 		/>
 	)
 }

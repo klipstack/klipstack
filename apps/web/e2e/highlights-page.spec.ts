@@ -47,7 +47,7 @@ test("highlights page: filters, word search, stream and by article", async ({ pa
 	await expect(page.getByRole("heading", { level: 2, name: TITLE })).toBeVisible()
 	await expect(page.getByText("3 highlights")).toBeVisible()
 	await expect(cards.first()).toContainText("one hour intervals")
-	// one color on the web: no color chips, only All and With notes
+	// no color chips (yet): only All and With notes
 	await expect(filters.getByRole("link")).toHaveText(["All", "With notes1"])
 
 	await filters.getByRole("link", { name: "With notes 1" }).click()

@@ -34,7 +34,7 @@ interface Props {
 }
 
 /** The color picker's width: five swatches and the line after them. */
-const COLORS_WIDTH = 150
+const COLORS_WIDTH = 160
 
 /** A highlight's actions: pick its color, add or edit its note, copy its text, delete. */
 export function HighlightToolbar({
@@ -130,13 +130,14 @@ function ColorPicker({
 							aria-label={label}
 							{...tooltip(label)}
 							onClick={() => !pressed && onColor(index)}
-							className="group/swatch rounded-full p-1.5 disabled:cursor-not-allowed disabled:opacity-40"
+							// Bigger to the finger, in the touch sheet.
+							className="group/swatch rounded-full p-1.5 pointer-coarse:p-2.5 disabled:cursor-not-allowed disabled:opacity-40"
 						>
 							<span
 								aria-hidden
 								{...highlightColor(index)}
 								className={cn(
-									"block size-4 rounded-full ring-offset-2 ring-offset-card transition-shadow",
+									"block size-4 rounded-full pointer-coarse:size-5 ring-offset-2 ring-offset-card transition-shadow",
 									HIGHLIGHT_SWATCH,
 									pressed
 										? "ring-2 ring-fg/70"

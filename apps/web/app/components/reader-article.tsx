@@ -155,6 +155,8 @@ export function ReaderArticle({
 	// Where the note being edited belongs. Its highlight cannot be resized while the editor is open.
 	const [editingRange, setEditingRange] = useState<Range | undefined>(undefined)
 	const [hoveredId, setHoveredId] = useState<string | null>(null)
+	// A hovered margin note marks its highlight in full (`klip-active`); hovered text does not.
+	const [hoveredNote, setHoveredNote] = useState<string | null>(null)
 	const [resizeFocus, setResizeFocus] = useState<string | null>(null)
 	// A just-created highlight opens its toolbar once the server has given it an id.
 	const pendingOpen = useRef<{ start: number; end: number } | null>(null)
@@ -301,6 +303,7 @@ export function ReaderArticle({
 		const range = rangesRef.current.get(id)
 		setPopover(null)
 		setHoveredId(null)
+		setHoveredNote(null)
 		setEditingId(id)
 		setEditingRange(range)
 		setActiveId(id)
@@ -309,6 +312,7 @@ export function ReaderArticle({
 	const closeNote = useCallback(() => {
 		setEditingId(null)
 		setHoveredId(null)
+		setHoveredNote(null)
 		setActiveHighlight(null)
 		setActiveId(null)
 	}, [])
@@ -528,8 +532,8 @@ export function ReaderArticle({
 	// The highlight that stands out: the one hovered, else the one in focus.
 	const outlinedId = resize.state === "pointer" ? null : (hoveredId ?? activeId)
 	const outlined = outlinedId ? items.find((h) => h.id === outlinedId) : null
-	// The mark at full strength while one is in focus: the one hovered, else the one in focus.
-	const marked = outlined ?? focusItem
+	// The mark at full strength while one is in focus: a hovered note's highlight, else the one in focus.
+	const marked = (hoveredNote ? items.find((h) => h.id === hoveredNote) : null) ?? focusItem
 
 	// ---- notes in the margin, next to their highlights ----
 	const marginRoom = useMarginRoom(articleRef, supported)
@@ -565,6 +569,7 @@ export function ReaderArticle({
 	const hoverNote = (id: string | null) => {
 		if (resize.guard.current) return
 		setHoveredId(id)
+		setHoveredNote(id)
 		const shown = id ?? activeId
 		setActiveHighlight(shown ? (rangesRef.current.get(shown) ?? null) : null)
 	}

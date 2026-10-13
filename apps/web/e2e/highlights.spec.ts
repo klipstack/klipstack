@@ -375,7 +375,12 @@ test("a highlight's color: picked in its toolbar, shown on the text, its note an
 	await expect.poll(() => painted(page, "green")).toEqual([QUOTE])
 	expect(await painted(page, "yellow")).toEqual([])
 	const greenLine = await cssColor(page, "var(--hl-green-solid)")
+	// Its own color, not yellow's under another name.
+	expect(greenLine).not.toBe(await cssColor(page, "var(--hl-yellow-solid)"))
+	expect(await cssColor(page, "var(--hl-green)")).not.toBe(await cssColor(page, "var(--hl-yellow)"))
 	await expect(page.locator('[data-hl="green"] > .hl-outline')).not.toHaveCount(0)
+	// The mark in focus is full strength in its own color.
+	await expect(page.locator(".reader-content")).toHaveAttribute("data-hl", "green")
 	const margin = page.getByRole("region", { name: "Highlight notes" })
 	const marginNote = margin.getByRole("button", { name: NOTE })
 	await expect(marginNote).toHaveCSS("border-left-color", greenLine)
