@@ -1,4 +1,4 @@
-import { db, documents, documentTags, eq, tags } from "@klipstack/db"
+import { db, documents, documentTags, eq, tags, user } from "@klipstack/db"
 import { expect, type Page, test } from "@playwright/test"
 import { signupUser, waitForHydration } from "./helpers"
 import { insertArticle } from "./seed"
@@ -110,4 +110,17 @@ test("the notebook lists every note as a post-it, edits it in place, and finds i
 		.getByRole("option", { name: "Notebook", exact: true })
 		.click()
 	await expect(page).toHaveURL(/\/notebook$/)
+})
+
+test("a Spanish reader's empty notebook, on a phone", async ({ browser }) => {
+	const context = await browser.newContext({ viewport: { width: 390, height: 844 } })
+	const page = await context.newPage()
+	const email = await signupUser(page, "Cuaderno")
+	await db.update(user).set({ locale: "es" }).where(eq(user.email, email))
+	await page.goto("/notebook")
+	await expect(page.getByRole("heading", { name: "Tu cuaderno está vacío" })).toBeVisible()
+	await expect(page.getByRole("link", { name: "Abrir tu biblioteca" })).toBeVisible()
+	if (process.env.SHOT_DIR)
+		await page.screenshot({ path: `${process.env.SHOT_DIR}/notebook-empty-es.png` })
+	await context.close()
 })

@@ -37,33 +37,35 @@ export function NotebookNote({
 	const rev = useRef(0)
 	const [conflict, setConflict] = useState<Saved | null>(null)
 
-	const save = (editorRev: number) => async (text: string, opts: { keepalive: boolean }) => {
-		if (editorRev !== rev.current) return
-		const sentExpected = expected.current
-		const body = JSON.stringify({ note: text, expectedUpdatedAt: sentExpected })
-		const res = await fetch(`/documents/${documentId}/note`, {
-			method: "POST",
-			headers: { "content-type": "application/json" },
-			body,
-			keepalive: opts.keepalive && fitsKeepalive(body),
-		})
-		const answer = (await res.json().catch(() => null)) as {
-			noteUpdatedAt?: string | null
-			error?: { code?: string; details?: { note: string | null; noteUpdatedAt: string | null } }
-		} | null
-		if (res.status === 409 && answer?.error?.code === "note_changed" && answer.error.details) {
+	const save =
+		(editorRev: number) =>
+		async (text: string, opts: { keepalive: boolean }): Promise<void> => {
 			if (editorRev !== rev.current) return
-			// The writer chose meanwhile to keep theirs: send it again over the note they saw.
-			if (expected.current !== sentExpected) return save(editorRev)(text, opts)
-			setConflict({
-				note: answer.error.details.note ?? "",
-				noteUpdatedAt: answer.error.details.noteUpdatedAt,
+			const sentExpected = expected.current
+			const body = JSON.stringify({ note: text, expectedUpdatedAt: sentExpected })
+			const res = await fetch(`/documents/${documentId}/note`, {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body,
+				keepalive: opts.keepalive && fitsKeepalive(body),
 			})
-			throw new Error("note_changed")
+			const answer = (await res.json().catch(() => null)) as {
+				noteUpdatedAt?: string | null
+				error?: { code?: string; details?: { note: string | null; noteUpdatedAt: string | null } }
+			} | null
+			if (res.status === 409 && answer?.error?.code === "note_changed" && answer.error.details) {
+				if (editorRev !== rev.current) return
+				// The writer chose meanwhile to keep theirs: send it again over the note they saw.
+				if (expected.current !== sentExpected) return save(editorRev)(text, opts)
+				setConflict({
+					note: answer.error.details.note ?? "",
+					noteUpdatedAt: answer.error.details.noteUpdatedAt,
+				})
+				throw new Error("note_changed")
+			}
+			if (!res.ok) throw new Error(`note save failed: ${res.status}`)
+			expected.current = answer?.noteUpdatedAt ?? null
 		}
-		if (!res.ok) throw new Error(`note save failed: ${res.status}`)
-		expected.current = answer?.noteUpdatedAt ?? null
-	}
 
 	const takeSaved = () => {
 		if (!conflict) return
