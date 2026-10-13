@@ -24,6 +24,8 @@ interface Props {
 	tilt?: number
 	/** `compact` (the default) has the margin's colored edge; `full` is the board's larger paper. */
 	variant?: PostItVariant
+	/** On the paper: where it stands in its place, such as against the article. */
+	className?: string
 	placement: NoteEditorPlacement
 	/** The article being read: the link menu never offers it. */
 	documentId: string
@@ -48,6 +50,7 @@ export function HighlightNoteEditor({
 	color,
 	tilt = 0,
 	variant = "compact",
+	className,
 	placement,
 	documentId,
 	linkTargets,
@@ -119,7 +122,7 @@ export function HighlightNoteEditor({
 				{...highlightColor(color)}
 				className={cn(
 					variant === "compact" && MARGIN_NOTE,
-					placement.kind === "margin" && "ml-auto",
+					className,
 					placement.kind === "floating" && "shadow-lg",
 				)}
 			>

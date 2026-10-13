@@ -107,6 +107,7 @@ export function QuoteCard({
 						variant="full"
 						tilt={tiltFor(h.id)}
 						placement={{ kind: "margin" }}
+						className="ml-auto"
 						documentId={h.documentId}
 						linkTargets={linkTargets}
 						onSave={saveNote}

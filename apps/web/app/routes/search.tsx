@@ -296,6 +296,9 @@ function GroupHeading({ id, label, more }: { id: string; label: string; more?: R
 }
 
 /** A snippet with the words the search found in bold. */
+/** A snippet's text, for the size of its paper. */
+const snippetText = (runs: Snippet) => runs.map((run) => run.text).join("")
+
 function Marked({ runs }: { runs: Snippet }) {
 	let at = 0
 	return runs.map((run) => {
@@ -382,7 +385,7 @@ function HighlightGroup({ group, q }: { group: Group<HighlightHit>; q: string })
 								</span>
 							</Link>
 							{h.note ? (
-								<PostIt variant="compact" className="mt-2 text-sm">
+								<PostIt variant="compact" fit={snippetText(h.note)} className="mt-2 text-sm">
 									<Marked runs={h.note} />
 								</PostIt>
 							) : null}
@@ -413,7 +416,7 @@ function NoteGroup({ group, q }: { group: Group<NoteHit>; q: string }) {
 			<ul className="grid items-start gap-x-6 gap-y-4 sm:grid-cols-2">
 				{group.items.map((n) => (
 					<li key={n.documentId} className="relative isolate">
-						<PostIt variant="compact" className="text-sm leading-relaxed">
+						<PostIt variant="compact" fit={snippetText(n.note)} className="text-sm leading-relaxed">
 							<Marked runs={n.note} />
 						</PostIt>
 						<Link

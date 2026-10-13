@@ -594,6 +594,8 @@ export function ReaderArticle({
 			color={item.color}
 			tilt={tiltFor(item.id)}
 			placement={placement}
+			// In the margin, against the article, as the note it edits.
+			className={placement.kind === "margin" ? "ml-auto" : undefined}
 			documentId={doc.id}
 			linkTargets={linkTargets}
 			onSave={(text) => {
