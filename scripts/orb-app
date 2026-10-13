@@ -8,7 +8,8 @@ usage() {
 Usage: pnpm orb:app [--reset]
 
 In an Amp orb, starts Klipstack behind a portal with the demo account in place
-(docs/development/demo-account.md):
+(docs/development/demo-account.md), on a database of its own, klipstack_demo (scripts/demo-database):
+the browser tests use the one in .env, and its worker would take their jobs.
 
   1. the demo account: created when missing, from the article captures .agents/setup made
      (captured here when there are none)
@@ -56,21 +57,27 @@ run() {
   fi
 }
 
-# missing | incomplete | ready, from the demo ownership record (scripts/demo/local.ts). The orb
-# has one database, so one record.
+# missing | incomplete | ready, from the demo ownership record of $DATABASE_URL: named after the
+# database as statePath in scripts/demo/local.ts names it.
 demo_state() {
   node -e '
     const fs = require("node:fs")
-    const files = fs.existsSync(".demo.local")
-      ? fs.readdirSync(".demo.local").filter((f) => /^reader-[0-9a-f]+\.json$/.test(f))
-      : []
-    const state = files.length
-      ? JSON.parse(fs.readFileSync(`.demo.local/${files[0]}`, "utf8"))
-      : null
+    const { createHash } = require("node:crypto")
+    const url = new URL(process.env.DATABASE_URL)
+    const database = `${url.hostname}:${url.port || "5432"}${url.pathname}`
+    const hash = createHash("sha256").update(database).digest("hex").slice(0, 16)
+    const file = `.demo.local/reader-${hash}.json`
+    const state = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : null
     const entries = state ? [...Object.values(state.documents), ...Object.values(state.feeds)] : []
     console.log(!state ? "missing" : entries.every((e) => e.complete) ? "ready" : "incomplete")
   '
 }
+
+step "Demo database"
+run database scripts/demo-database
+DATABASE_URL=$(tail -n 1 "$logs/database.log")
+export DATABASE_URL
+echo "klipstack_demo, migrated."
 
 step "Demo account"
 if [ -z "$(ls -A .demo.local/captures 2>/dev/null)" ]; then
@@ -102,7 +109,7 @@ service() {
 # server.js listens on $PORT; the portal proxy is its only client (TRUST_PROXY=loopback).
 web_out=$(service klipstack-web --port 5190 --portal --title Klipstack \
   --description "Sign in as reader@demo.klipstack.test, password local-reader-only" \
-  --command 'cd apps/web && APP_URL="$PUBLIC_URL" NODE_ENV=production exec node server.js') || {
+  --command "cd apps/web && DATABASE_URL='$DATABASE_URL' APP_URL=\"\$PUBLIC_URL\" NODE_ENV=production exec node server.js") || {
   echo "$web_out" >&2
   exit 1
 }
@@ -110,7 +117,7 @@ url=$(printf '%s\n' "$web_out" | grep -Eo 'https://[^[:space:]]+' | tail -n 1)
 [ -n "$url" ] || { echo "$web_out" >&2; echo "No portal address in that output" >&2; exit 1; }
 # Without a portal, the worker gets an unused $PORT. Its links (e.g. in emails) use APP_URL too.
 worker_out=$(service klipstack-worker \
-  --command "cd apps/worker && APP_URL='$url' exec pnpm start") || {
+  --command "cd apps/worker && DATABASE_URL='$DATABASE_URL' APP_URL='$url' exec pnpm start") || {
   echo "$worker_out" >&2
   exit 1
 }
@@ -123,5 +130,6 @@ cat <<EOF
 Klipstack:       $url
 Sign in:         reader@demo.klipstack.test / local-reader-only
 One-time link:   $link
-                 (signs in without the form; valid 24 hours. New one: pnpm demo:login-link --url $url)
+                 (signs in without the form; valid 24 hours. New one:
+                 DATABASE_URL=$DATABASE_URL pnpm demo:login-link --url $url)
 EOF

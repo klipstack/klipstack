@@ -57,6 +57,7 @@ export function checkDate(value: string): string {
 		throw new Error("--date must be a calendar date (YYYY-MM-DD)")
 	return value
 }
+// scripts/orb-app (demo_state) finds the record by this name too: change both together.
 export const statePath = (root: string, database: string) =>
 	join(root, `reader-${hash(database).slice(0, 16)}.json`)
 export async function loadState(

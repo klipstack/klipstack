@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# scripts/demo-database: the database the orb's demo app runs on (`pnpm orb:app`), `klipstack_demo`
+# beside the one in .env. Creates it when missing, applies the migrations, and prints its URL.
+#
+# The demo app has a database of its own so that its worker does not take the jobs of
+# `pnpm test:e2e`, whose worker uses the database in .env: pg-boss hands each job to whichever
+# worker asks first, and the tests' would wait for jobs that never come. See
+# docs/development/demo-account.md.
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+
+[ -f .env ] || { echo "No .env here: copy .env.example." >&2; exit 1; }
+admin_url=${DATABASE_URL:-$(grep -E '^DATABASE_URL=' .env | head -n 1 | cut -d= -f2- | tr -d "\"'" || true)}
+admin_url=${admin_url%%\?*}
+[ -n "$admin_url" ] || { echo "DATABASE_URL is not set, in the environment or .env." >&2; exit 1; }
+if ! printf '%s' "$admin_url" | grep -E '@(localhost|127\.0\.0\.1)(:[0-9]+)?/' >/dev/null; then
+  echo "DATABASE_URL must name a local PostgreSQL: the demo database is made beside it." >&2
+  exit 1
+fi
+name=klipstack_demo
+url="${admin_url%/*}/$name"
+
+if [ -z "$(scripts/test-database "$admin_url" list "$name" | grep -Fx "$name" || true)" ]; then
+  scripts/test-database "$admin_url" create "$name" >&2
+fi
+DATABASE_URL="$url" pnpm --silent db:migrate >&2
+echo "$url"

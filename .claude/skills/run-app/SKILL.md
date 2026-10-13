@@ -19,7 +19,9 @@ The user wants to open Klipstack in their browser and use it. Other agents follo
 
 Do not start `pnpm dev` for the user, set `APP_URL` yourself or create accounts of your own:
 `pnpm orb:app` does all of it, and the demo account already has articles, highlights, tags, notes
-and feeds. A new sign-in link: `pnpm demo:login-link --url <portal address>`.
+and feeds. A new sign-in link: `DATABASE_URL=$(scripts/demo-database) pnpm demo:login-link --url <portal
+address>` (the demo app has a database of its own, `klipstack_demo`). The app can keep running
+while `pnpm test:e2e` runs: the tests use the database in `.env`.
 
 If something fails, read `amp orb service logs klipstack-web` (or `klipstack-worker`). Run
 `pnpm orb:app --reset` only when the user asks for a fresh demo account: it removes every change
