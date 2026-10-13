@@ -15,8 +15,10 @@ async function readBody(request: Request): Promise<Record<string, unknown>> {
 }
 
 /**
- * POST /documents/:id/note — JSON or form body `{ note }`. Blank or null clears the note. The
- * reader's autosave: the last save wins, as typing in one place expects.
+ * POST /documents/:id/note — JSON or form body `{ note, expectedUpdatedAt? }`. Blank or null
+ * clears the note. The reader's autosave sends no `expectedUpdatedAt`: the last save wins, as typing
+ * in one place expects. The Notebook sends it, and gets `note_changed` (409) with the current note
+ * when the note was saved elsewhere meanwhile.
  */
 export async function action({ request, context, params }: Route.ActionArgs) {
 	const user = requireUser(context, request)
@@ -27,7 +29,12 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 		if (error instanceof Response) throw error
 		return refused(new AppError("invalid_request", "The body is not valid JSON."))
 	}
-	return answer(() => setArticleNote(user.id, params.id, { note: body.note as string | null }))
+	return answer(() =>
+		setArticleNote(user.id, params.id, {
+			note: body.note as string | null,
+			expectedUpdatedAt: body.expectedUpdatedAt as string | null | undefined,
+		}),
+	)
 }
 
 export async function loader() {

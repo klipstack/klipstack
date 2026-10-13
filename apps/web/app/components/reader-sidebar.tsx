@@ -11,6 +11,7 @@ import { cn } from "~/lib/utils"
 import { LinkArticleButton } from "./link-article-button"
 import type { NoteEditorApi } from "./note-editor"
 import { NoteField } from "./note-field"
+import { NoteStatus } from "./note-status"
 import { NoteText } from "./note-text"
 import { PostIt } from "./post-it"
 
@@ -310,22 +311,4 @@ function LinkSection({
 			</ul>
 		</section>
 	)
-}
-
-function NoteStatus({ status, onRetry }: { status: NoteSaveStatus; onRetry: () => void }) {
-	const { t } = useTranslation("reader")
-	if (status === "saving")
-		return <span className="text-muted-fg">{t("highlights.sidebar.noteSaving")}</span>
-	if (status === "saved")
-		return <span className="text-muted-fg">{t("highlights.sidebar.noteSaved")}</span>
-	if (status === "error")
-		return (
-			<span role="alert" className="text-danger">
-				{t("highlights.sidebar.noteFailed")} ·{" "}
-				<button type="button" onClick={onRetry} className="text-link underline">
-					{t("highlights.sidebar.noteRetry")}
-				</button>
-			</span>
-		)
-	return null
 }

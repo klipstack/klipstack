@@ -262,5 +262,31 @@ export default {
 		trash: "En la papelera",
 		missing: "No encontrado",
 	},
+	notebook: {
+		search: {
+			placeholder: "Busca en tus notas…",
+			label: "Buscar notas",
+			results: "Notas con «{{q}}»",
+			empty: "Ninguna nota coincide con esa búsqueda.",
+			clear: "Borrar búsqueda",
+		},
+		tags: { label: "Etiquetas", all: "Todas" },
+		tagEmpty: "No hay notas en artículos con esta etiqueta.",
+		empty: {
+			title: "Tu cuaderno está vacío",
+			description:
+				"Cada nota que escribes sobre un artículo aparece aquí, como un pósit junto a su artículo. Abre un artículo y escribe lo que piensas en la nota de arriba del panel lateral.",
+			action: "Abrir tu biblioteca",
+		},
+		noteLabel: "Nota sobre {{title}}",
+		open: "Abrir {{title}}",
+		edited: "Editada el {{day}}",
+		loadMore: "Notas anteriores",
+		changed: {
+			message: "Esta nota cambió en otro lugar mientras escribías.",
+			theirs: "Usar la nota guardada",
+			mine: "Quedarme con la mía",
+		},
+	},
 	notFound: "Este artículo no existe o fue eliminado.",
 } satisfies typeof import("../en/reader").default

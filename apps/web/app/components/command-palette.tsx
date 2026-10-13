@@ -172,6 +172,13 @@ export function CommandPalette() {
 			icon: Highlighter,
 			run: () => go("/highlights"),
 		},
+		{
+			id: "go-notebook",
+			label: t("nav.notebook"),
+			icon: NotebookPen,
+			keywords: [t("palette.notes")],
+			run: () => go("/notebook"),
+		},
 		{ id: "go-editions", label: t("nav.editions"), icon: Newspaper, run: () => go("/editions") },
 		{ id: "go-tags", label: t("nav.tags"), icon: Tag, run: () => go("/tags") },
 		{ id: "go-trash", label: t("nav.trash"), icon: Trash2, run: () => go("/trash") },

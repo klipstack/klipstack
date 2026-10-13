@@ -8,6 +8,7 @@ import {
 	LibraryBig,
 	Menu,
 	Newspaper,
+	NotebookPen,
 	PanelLeftClose,
 	PanelLeftOpen,
 	Rss,
@@ -52,6 +53,7 @@ const items = [
 	{ to: "/archive", key: "nav.archive", icon: Archive },
 	{ to: "/starred", key: "nav.starred", icon: Star },
 	{ to: "/highlights", key: "nav.highlights", icon: Highlighter },
+	{ to: "/notebook", key: "nav.notebook", icon: NotebookPen },
 	{ to: "/editions", key: "nav.editions", icon: Newspaper },
 	// One link, not the tags themselves: a library can have hundreds. The command menu finds one.
 	{ to: "/tags", key: "nav.tags", icon: Tag },
