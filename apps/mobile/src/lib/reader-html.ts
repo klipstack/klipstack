@@ -224,12 +224,14 @@ const css = `
 	color-scheme: light dark;
 	--bg: oklch(0.985 0.004 85); --fg: oklch(0.23 0.012 260); --muted-fg: oklch(0.5 0.014 260);
 	--muted: oklch(0.955 0.006 90); --border: oklch(0.9 0.008 90); --link: oklch(0.48 0.16 257);
-	--hl-0: oklch(0.93 0.16 95 / 0.55); --hl-1: oklch(0.9 0.14 145 / 0.5);
-	--hl-2: oklch(0.9 0.1 240 / 0.55); --hl-3: oklch(0.9 0.12 350 / 0.55);
-	--hl-4: oklch(0.9 0.14 55 / 0.55);
-	--hl-0-solid: oklch(0.9 0.17 95); --hl-1-solid: oklch(0.85 0.16 145);
-	--hl-2-solid: oklch(0.85 0.12 240); --hl-3-solid: oklch(0.85 0.14 350);
-	--hl-4-solid: oklch(0.85 0.16 55);
+	/* The highlights' marker inks and solid lines, by index in HIGHLIGHT_COLORS: the web's --hl-*. */
+	--hl-0: oklch(0.92 0.16 99); --hl-1: oklch(0.89 0.12 152); --hl-2: oklch(0.87 0.08 232);
+	--hl-3: oklch(0.87 0.09 355); --hl-4: oklch(0.87 0.11 62);
+	--hl-0-solid: oklch(0.9 0.17 95); --hl-1-solid: oklch(0.8 0.15 150);
+	--hl-2-solid: oklch(0.75 0.12 240); --hl-3-solid: oklch(0.76 0.14 355);
+	--hl-4-solid: oklch(0.79 0.15 60);
+	/* Where two strokes cross: the inks mixed, and deeper. */
+	--hl-deepen: oklch(0.25 0.03 60) 15%;
 	--speaking: oklch(0.48 0.16 257 / 0.13);
 	--accent: oklch(0.37 0.085 260); --accent-fg: oklch(0.99 0 0); --favorite: oklch(0.58 0.12 78);
 	--selected: oklch(0.838517 0.042484 255.026856); --selected-fg: oklch(0.362349 0.098058 256.863103);
@@ -241,9 +243,11 @@ const css = `
 	:root {
 		--bg: oklch(0.19 0.012 260); --fg: oklch(0.93 0.006 90); --muted-fg: oklch(0.7 0.015 260);
 		--muted: oklch(0.265 0.015 260); --border: oklch(0.33 0.015 260); --link: oklch(0.78 0.105 250);
-		--hl-0: oklch(0.7 0.14 95 / 0.4); --hl-1: oklch(0.65 0.13 145 / 0.4);
-		--hl-2: oklch(0.65 0.1 240 / 0.45); --hl-3: oklch(0.65 0.12 350 / 0.45);
-		--hl-4: oklch(0.65 0.14 55 / 0.45);
+		--hl-0: oklch(0.5 0.1 95); --hl-1: oklch(0.46 0.1 152); --hl-2: oklch(0.46 0.11 248);
+		--hl-3: oklch(0.47 0.12 355); --hl-4: oklch(0.5 0.12 55);
+		--hl-1-solid: oklch(0.82 0.15 150); --hl-2-solid: oklch(0.78 0.12 240);
+		--hl-3-solid: oklch(0.79 0.13 355); --hl-4-solid: oklch(0.82 0.14 60);
+		--hl-deepen: oklch(0.95 0.02 90) 8%;
 		--speaking: oklch(0.78 0.105 250 / 0.2);
 		--accent: oklch(0.74 0.1 255); --accent-fg: oklch(0.19 0.025 260); --favorite: oklch(0.78 0.12 80);
 		--selected: oklch(0.364043 0.071354 255.403282); --selected-fg: oklch(0.875271 0.061525 257.523997);
@@ -308,14 +312,15 @@ img[data-asset]:not([src]) { width: 100%; aspect-ratio: 3 / 2; background: var(-
 @keyframes ink-in-rtl { from { clip-path: inset(0 0 0 100%); } to { clip-path: inset(0 0 0 0); } }
 @media (prefers-reduced-motion: reduce) { .hl-ink[data-fresh], .hl-ink[data-fresh][data-rtl] { animation: none; } }
 /* A highlight with a note: a tab of its color at the right of its first line, past the text, like a
-   sticky tab poking out of a book. A finger wide to tap, though it shows small. */
+   sticky tab poking out of a book. A finger wide to tap, though it shows small, and within the
+   page's margin: nothing past the screen's edge. */
 .hl-tabs { position: absolute; top: 0; left: 0; z-index: 1; pointer-events: none; }
 .hl-tab {
-	position: absolute; width: 36px; margin-left: -8px; pointer-events: auto;
+	position: absolute; width: 36px; margin-left: -16px; pointer-events: auto;
 	-webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none;
 }
 .hl-tab::after {
-	content: ""; position: absolute; left: 11px; top: 12%; bottom: 12%; width: 9px;
+	content: ""; position: absolute; left: 19px; top: 12%; bottom: 12%; width: 9px;
 	border-radius: 1px 4px 4px 1px; background: var(--hl-solid);
 	box-shadow: 0 1px 2px rgb(0 0 0 / 0.18);
 }
@@ -325,7 +330,8 @@ article[data-focus], article[data-focus] * { color: color-mix(in oklch, var(--fg
 article[data-focus] ::highlight(klip-active) { color: var(--fg); }
 .hl-inks[data-focus] > :is(.hl-ink, .hl-cross):not([data-active]),
 .hl-tabs[data-focus] > :not([data-active]) { opacity: 0.3; }
-.hl-layer { position: absolute; top: 0; left: 0; pointer-events: none; }
+/* Over the tabs: a handle at the end of a line with a note's tab is the handle. */
+.hl-layer { position: absolute; top: 0; left: 0; z-index: 2; pointer-events: none; }
 .hl-pop {
 	position: absolute; border-radius: 3px;
 	box-shadow: 0 0 0 1.5px var(--hl-solid), 0 3px 8px -3px oklch(0.2 0.05 262 / 0.35);

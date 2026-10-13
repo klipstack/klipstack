@@ -1,5 +1,12 @@
 import { type ReactNode, useState } from "react"
-import { type StyleProp, StyleSheet, type TextStyle, View, type ViewStyle } from "react-native"
+import {
+	type StyleProp,
+	StyleSheet,
+	type TextStyle,
+	useWindowDimensions,
+	View,
+	type ViewStyle,
+} from "react-native"
 import {
 	growingFit,
 	LEAST_HEIGHT,
@@ -93,10 +100,15 @@ export function PostIt({
 	style?: StyleProp<ViewStyle>
 	children: ReactNode
 }) {
+	// Never wider than the screen, and never taller for the width it would have had.
+	const room = useWindowDimensions().width - 32
 	const width =
 		fit === undefined
 			? undefined
-			: postItChars(fit) * TEXT[variant].fontSize * CH + PADDING[variant].paddingHorizontal * 2
+			: Math.min(
+					room,
+					postItChars(fit) * TEXT[variant].fontSize * CH + PADDING[variant].paddingHorizontal * 2,
+				)
 	return (
 		<View
 			style={[

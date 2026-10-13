@@ -36,13 +36,20 @@ function openPage(
 				},
 			})
 			Object.assign(window.CSS, { highlights: registry })
+			// The article's column ends 600 points in.
+			const box = window.HTMLElement.prototype.getBoundingClientRect
+			window.HTMLElement.prototype.getBoundingClientRect = function (this: HTMLElement) {
+				if (this.tagName !== "ARTICLE") return box.call(this)
+				return { ...box.call(this), right: 600 - window.scrollX } as DOMRect
+			}
 			Object.assign(window.Range.prototype, {
 				getClientRects(this: Range) {
 					const node = this.startContainer
 					if (node.nodeType !== 3 || node !== this.endContainer) return []
 					const block = node.parentElement!
 					const blocks = Array.from(block.ownerDocument.querySelectorAll("article *"))
-					const top = 100 * blocks.indexOf(block)
+					// Where it is on screen: the page scrolled moves it up.
+					const top = 100 * blocks.indexOf(block) - window.scrollY
 					return [
 						{ left: 10 * this.startOffset, right: 10 * this.endOffset, top, bottom: top + 20 },
 					].map((r) => ({ ...r, width: r.right - r.left, height: 20 }))
@@ -224,7 +231,7 @@ describe("the reader page: highlights", () => {
 		expect(page.window.document.querySelectorAll(".hl-ink")).toHaveLength(0)
 	})
 
-	it("draws in a highlight made while the page is open, not those it opened with", () => {
+	it("draws in a highlight made while the page is open, not those it opened with", async () => {
 		const old = highlightOf(HTML, "old", "Alpha")
 		const page = openPage(HTML, [old])
 		const made = highlightOf(HTML, "made", "Eta theta", "pink")
@@ -233,6 +240,9 @@ describe("the reader page: highlights", () => {
 			page.window.document.querySelector<HTMLElement>(`.hl-ink[data-key="${id}"]`)!.dataset.fresh
 		expect(fresh("old")).toBeUndefined()
 		expect(fresh("made")).toBe("")
+		// Once drawn in, never again: a band shown again comes back without the mark.
+		await new Promise((resolve) => setTimeout(resolve, 1600))
+		expect(fresh("made")).toBeUndefined()
 	})
 
 	it("tabs a highlight with a note at its first line, and a tap on the tab opens it", () => {
@@ -240,9 +250,16 @@ describe("the reader page: highlights", () => {
 		const plain = highlightOf(HTML, "plain", "Eta")
 		const page = openPage(HTML, [noted, plain])
 		const tabs = Array.from(page.window.document.querySelectorAll<HTMLElement>(".hl-tab"))
-		expect(tabs.map((tab) => [tab.dataset.id, tab.dataset.color, tab.style.top])).toEqual([
-			["noted", "2", "0px"],
-		])
+		// Past the column's right edge, as tall as the first line's text.
+		expect(
+			tabs.map((tab) => [
+				tab.dataset.id,
+				tab.dataset.color,
+				tab.style.left,
+				tab.style.top,
+				tab.style.height,
+			]),
+		).toEqual([["noted", "2", "600px", "0px", "20px"]])
 		tabs[0]!.dispatchEvent(new page.window.MouseEvent("click", { bubbles: true }))
 		expect(page.messages).toContainEqual({ type: "highlight", id: "noted" })
 		// The note gone, the tab goes.
@@ -252,28 +269,66 @@ describe("the reader page: highlights", () => {
 
 	it("puts the one being edited in focus, in its color, with a line around each stroke", () => {
 		const page = openPage(HTML, [
-			highlightOf(HTML, "blue", "Delta epsilon zeta.", "blue"),
-			highlightOf(HTML, "other", "Eta"),
+			highlightOf(HTML, "blue", "zeta.Eta", "blue"),
+			{ ...highlightOf(HTML, "other", "epsilon zeta."), note: "Mine" },
+			highlightOf(HTML, "third", "theta"),
 		])
+		const all = (selector: string) =>
+			Array.from(page.window.document.querySelectorAll<HTMLElement>(selector))
 		page.window.eval('window.klipActive("blue")')
 		expect(page.article.getAttribute("data-focus")).toBe("2")
 		expect(page.registry.get("klip-active")).toMatchObject({ priority: 1 })
-		const boxes = Array.from(page.window.document.querySelectorAll<HTMLElement>(".hl-pop"))
-		const stroke = page.window.document.querySelector<HTMLElement>('.hl-ink[data-key="blue"]')!
-		expect(boxes.map((box) => [box.dataset.color, box.style.top])).toEqual([
-			["2", stroke.style.top],
+		// Two lines, two strokes, a line around each.
+		const strokes = all('.hl-ink[data-key="blue"]').map((el) => el.style.top)
+		expect(strokes).toHaveLength(2)
+		expect(all(".hl-pop").map((box) => [box.dataset.color, box.style.top])).toEqual([
+			["2", strokes[0]],
+			["2", strokes[1]],
 		])
-		// The others fade.
-		const active = Array.from(page.window.document.querySelectorAll<HTMLElement>(".hl-ink"))
-		expect(active.map((el) => [el.dataset.key, el.dataset.active])).toEqual([
+		// The others fade: their strokes and tabs aren't marked; where another crosses it, it is.
+		expect(page.window.document.querySelector(".hl-inks")!.hasAttribute("data-focus")).toBe(true)
+		expect(page.window.document.querySelector(".hl-tabs")!.hasAttribute("data-focus")).toBe(true)
+		expect(all(".hl-ink").map((el) => [el.dataset.key, el.dataset.active])).toEqual([
+			["blue", ""],
 			["blue", ""],
 			["other", undefined],
+			["third", undefined],
 		])
+		expect(all(".hl-tab").map((el) => el.dataset.active)).toEqual([undefined])
+		expect(all(".hl-cross").map((el) => [el.dataset.key, el.dataset.active])).toEqual([
+			["blue other", ""],
+		])
+		// The crossing is the other's too.
+		page.window.eval('window.klipActive("other")')
+		expect(all(".hl-tab").map((el) => el.dataset.active)).toEqual([""])
+		expect(all(".hl-cross").map((el) => el.dataset.active)).toEqual([""])
 		page.window.eval("window.klipActive(null)")
 		expect(page.article.hasAttribute("data-focus")).toBe(false)
 		expect(page.registry.has("klip-active")).toBe(false)
-		expect(page.window.document.querySelectorAll(".hl-pop")).toHaveLength(0)
-		expect(page.window.document.querySelector(".hl-ink[data-active]")).toBeNull()
+		expect(page.window.document.querySelector(".hl-inks")!.hasAttribute("data-focus")).toBe(false)
+		expect(all(".hl-pop")).toHaveLength(0)
+		expect(page.window.document.querySelector("[data-active]")).toBeNull()
+	})
+
+	it("keeps in the page only the strokes near the screen, as it scrolls", async () => {
+		// Forty paragraphs, a hundred points apart: the last ones are far below the first screen.
+		const html = Array.from({ length: 40 }, (_, i) => `<p>Line number ${i}.</p>`).join("")
+		const page = openPage(html, [
+			highlightOf(html, "top", "Line number 1."),
+			highlightOf(html, "far", "Line number 38."),
+		])
+		const shown = () =>
+			Array.from(
+				page.window.document.querySelectorAll<HTMLElement>(".hl-ink"),
+				(el) => el.dataset.key,
+			)
+		expect(shown()).toEqual(["top"])
+		// Painted all the same: the far one waits for the screen to come near.
+		expect(page.painted(0)).toEqual(["top", "far"])
+		Object.defineProperty(page.window, "scrollY", { value: 3400, configurable: true })
+		page.window.dispatchEvent(new page.window.Event("scroll"))
+		await new Promise((resolve) => setTimeout(resolve, 100))
+		expect(shown()).toEqual(["far"])
 	})
 
 	it("a tap on overlapping highlights opens the smaller; just after one, none", () => {

@@ -43,8 +43,9 @@ export function MarkerText({
 	const shown = numberOfLines ? lines.slice(0, numberOfLines) : lines
 	const strokes = inkLines(
 		shown.map((line) => {
-			// The text's own height, centered in the line: what the web measures.
-			const height = line.ascender + line.descender || fontSize * 1.2
+			// The text's own height, centered in the line: what the web measures. The line's ascender and
+			// descender can span the whole line box, so no more than the font's own.
+			const height = Math.min(line.ascender + line.descender || Infinity, fontSize * 1.2)
 			const top = line.y + (line.height - height) / 2
 			return { left: line.x, right: line.x + line.width, top, bottom: top + height }
 		}),

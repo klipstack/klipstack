@@ -45,7 +45,8 @@ export function NotesSheet({
 	colors: Colors
 }) {
 	const field = useRef<NoteFieldHandle>(null)
-	const fit = useGrowingFit(note.value)
+	// Sized afresh each time the sheet opens: a note cleared last time is small again.
+	const fit = useGrowingFit(note.value, String(visible))
 	return (
 		<Modal
 			visible={visible}

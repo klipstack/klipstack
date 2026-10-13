@@ -119,6 +119,16 @@ describe("readerHtml", () => {
 		])
 	})
 
+	it("paints the web's marker inks: opaque, so they lie under the text, deeper where they cross", () => {
+		const html = readerHtml(page)
+		const inks = html.match(/--hl-[0-4]: [^;]*;/g) ?? []
+		// Five in light mode, five in dark.
+		expect(inks).toHaveLength(10)
+		for (const ink of inks) expect(ink).not.toContain("/")
+		expect(html).toContain("--hl-0: oklch(0.92 0.16 99);")
+		expect(html.match(/--hl-deepen: [^;]+;/g)).toHaveLength(2)
+	})
+
 	it("runs only its own script: the policy names its hash", () => {
 		const html = readerHtml(page)
 		const hash = createHash("sha256").update(pageScript).digest("base64")

@@ -1,7 +1,11 @@
 import { type Crossing, inkCrossings, inkLines, inkStroke, type Stroke } from "../lib/highlight-ink"
 
-/** How long after it is made a highlight's strokes are still drawn in (`.hl-ink[data-fresh]`). */
-const DRAWN_IN_MS = 1500
+/**
+ * How long after it is made a highlight's strokes are still drawn in (`.hl-ink[data-fresh]`): at
+ * least 1.5 s, and long enough for its last line, each line starting 0.12 s after the one before
+ * and taking 0.32 s.
+ */
+const drawingIn = (lines: number) => Math.max(1500, lines * 120 + 400)
 /** Strokes go in bands this tall: scrolling adds or drops a band, and leaves the others alone. */
 const BAND = 1000
 
@@ -129,8 +133,12 @@ export function createInk(root: HTMLElement, onMeasured: () => void) {
 		}
 		const now = performance.now()
 		const keep = new Set<string>()
+		// When the last stroke of the newest drawn in is done.
+		let drawnUntil = Number.NEGATIVE_INFINITY
 		for (const p of painted) {
-			const fresh = now - (seen.get(p.id) ?? Number.NEGATIVE_INFINITY) < DRAWN_IN_MS
+			const until = (seen.get(p.id) ?? Number.NEGATIVE_INFINITY) + drawingIn(p.strokes.length)
+			const fresh = now < until
+			drawnUntil = Math.max(drawnUntil, until)
 			for (const s of p.strokes) {
 				if (!shown(s.top)) continue
 				// Same line, same element: a reflow moves the stroke without drawing it again.
@@ -178,16 +186,12 @@ export function createInk(root: HTMLElement, onMeasured: () => void) {
 			el.remove()
 			strokes.delete(key)
 		}
-		// Once the newest is drawn in, again without the mark: a band shown again won't draw it in again.
-		const newest = Math.max(...seen.values())
+		// Once drawn in, again without the mark: a band shown again won't draw it in again.
 		clearTimeout(drawnIn)
-		if (now - newest < DRAWN_IN_MS)
-			drawnIn = setTimeout(
-				() => {
-					for (const el of strokes.values()) delete el.dataset.fresh
-				},
-				DRAWN_IN_MS - (now - newest),
-			)
+		if (now < drawnUntil)
+			drawnIn = setTimeout(() => {
+				for (const el of strokes.values()) delete el.dataset.fresh
+			}, drawnUntil - now)
 	}
 	let drawnIn: ReturnType<typeof setTimeout> | undefined
 
@@ -231,6 +235,8 @@ export function createInk(root: HTMLElement, onMeasured: () => void) {
 	document.fonts?.addEventListener?.("loadingdone", remeasure)
 	// A code block or a wide table scrolled sideways moves its text.
 	root.addEventListener("scroll", remeasure, { capture: true, passive: true })
+	// Something in the text opens or grows (a disclosure, an image without its size): it moves.
+	if (typeof ResizeObserver !== "undefined") new ResizeObserver(remeasure).observe(root)
 
 	return {
 		set,

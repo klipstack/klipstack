@@ -21,8 +21,9 @@ describe("inkLines", () => {
 			rect(100, 10, 200, 30),
 			// Bold or a link on the same line, a little taller.
 			rect(200, 8, 260, 31),
-			// The end of a line: nothing to paint.
+			// The end of a line, and an empty one: nothing to paint.
 			rect(260, 10, 260, 30),
+			rect(40, 100, 40, 120),
 			rect(40, 40, 300, 60),
 			rect(40, 70, 120, 90),
 		])
