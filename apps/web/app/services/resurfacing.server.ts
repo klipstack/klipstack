@@ -17,8 +17,9 @@ import {
 
 /**
  * Highlights brought back to the reader, a few a day: Home's "From your highlights" (and, later, an
- * email digest). `dailyHighlights(userId, day)` picks the day's once and keeps them, so every look
- * at the same day shows the same ones. Its state is `highlight_resurfacing`: the day each highlight
+ * email digest). `pickDay` picks a day's once and records them, `listDay` reads them, so every look
+ * at the same day shows the same ones; the command `dailyHighlights` (`~/commands/resurfacing.server`)
+ * does both. Its state is `highlight_resurfacing`: the day each highlight
  * was last picked for, and when the reader said it is not useful anymore.
  */
 export const RESURFACING = {
@@ -131,44 +132,55 @@ export interface ResurfacedHighlight {
 	sourceUrl: string
 }
 
+/** A day as `dailyHighlights` takes it: YYYY-MM-DD, and a real date. */
+export const isDay = (day: string) =>
+	DAY.test(day) && !Number.isNaN(Date.parse(day)) && new Date(day).toISOString().startsWith(day)
+
 /**
- * The user's highlights for `day` (their local day, YYYY-MM-DD), up to `RESURFACING.perDay`. The
- * first call for a day picks them (`pickHighlights`, among those at least `RESURFACING.minAgeDays`
- * old) and records the day on each; later calls return the same ones, less any deleted, dismissed
- * or trashed since. A day whose picks are all gone stays empty. Oldest first.
+ * Picks the user's highlights for `day` (their local day, YYYY-MM-DD), once: up to
+ * `RESURFACING.perDay` (`pickHighlights`, among those at least `RESURFACING.minAgeDays` old), each
+ * recorded with the day. Nothing when the day has picks already, even if all are gone since. Holds
+ * a lock per user until `tx` ends, so two pages loading at once pick once.
  */
-export async function dailyHighlights(userId: string, day: string): Promise<ResurfacedHighlight[]> {
-	if (!DAY.test(day) || Number.isNaN(Date.parse(day))) throw new Error(`Not a day: ${day}`)
-	await db.transaction(async (tx) => {
-		// Two pages loading at once pick once.
-		await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`resurfacing:${userId}`}))`)
-		const [picked] = await tx
-			.select({ id: highlightResurfacing.highlightId })
-			.from(highlightResurfacing)
-			.where(and(eq(highlightResurfacing.userId, userId), eq(highlightResurfacing.shownOn, day)))
-			.limit(1)
-		if (picked) return
-		const candidates = await tx
-			.select({
-				id: highlights.id,
-				documentId: highlights.documentId,
-				hasNote: sql<boolean>`coalesce(${highlights.note}, '') <> ''`,
-				shownOn: highlightResurfacing.shownOn,
-			})
-			.from(highlights)
-			.innerJoin(documents, eq(documents.id, highlights.documentId))
-			.leftJoin(highlightResurfacing, eq(highlightResurfacing.highlightId, highlights.id))
-			.where(
-				and(
-					resurfacable(userId),
-					lt(highlights.createdAt, sql`${day}::date - ${RESURFACING.minAgeDays}::int`),
-				),
-			)
-			.orderBy(asc(highlights.id))
-		const ids = pickHighlights(candidates, { day, seed: `${userId}:${day}` })
-		if (ids.length) await markShown(tx, userId, ids, day)
-	})
-	return db
+export async function pickDay(tx: Tx, userId: string, day: string): Promise<void> {
+	await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`resurfacing:${userId}`}))`)
+	const [picked] = await tx
+		.select({ id: highlightResurfacing.highlightId })
+		.from(highlightResurfacing)
+		.where(and(eq(highlightResurfacing.userId, userId), eq(highlightResurfacing.shownOn, day)))
+		.limit(1)
+	if (picked) return
+	const candidates = await tx
+		.select({
+			id: highlights.id,
+			documentId: highlights.documentId,
+			hasNote: sql<boolean>`coalesce(${highlights.note}, '') <> ''`,
+			shownOn: highlightResurfacing.shownOn,
+		})
+		.from(highlights)
+		.innerJoin(documents, eq(documents.id, highlights.documentId))
+		.leftJoin(highlightResurfacing, eq(highlightResurfacing.highlightId, highlights.id))
+		.where(
+			and(
+				resurfacable(userId),
+				lt(highlights.createdAt, sql`${day}::date - ${RESURFACING.minAgeDays}::int`),
+			),
+		)
+		.orderBy(asc(highlights.id))
+	const ids = pickHighlights(candidates, { day, seed: `${userId}:${day}` })
+	if (ids.length) await markShown(tx, userId, ids, day)
+}
+
+/**
+ * The highlights picked for `day` (`pickDay`), less any deleted, dismissed or trashed since. Oldest
+ * first.
+ */
+export async function listDay(
+	userId: string,
+	day: string,
+	q: Db | Tx = db,
+): Promise<ResurfacedHighlight[]> {
+	return q
 		.select({
 			id: highlights.id,
 			documentId: highlights.documentId,
@@ -194,20 +206,23 @@ async function markShown(tx: Db | Tx, userId: string, ids: string[], day: string
 }
 
 /**
- * "Not useful anymore" (`at`), or its undo (null). The caller checks the highlight is the user's.
+ * "Not useful anymore" (`at`), or its undo (null), in one statement with the check that the
+ * highlight is the user's, not deleted, and its article not in the trash. False when it is not.
  */
 export async function setResurfacingDismissed(
 	tx: Db | Tx,
 	userId: string,
 	highlightId: string,
 	at: Date | null,
-): Promise<void> {
-	await tx
-		.insert(highlightResurfacing)
-		.values({ highlightId, userId, dismissedAt: at })
-		.onConflictDoUpdate({
-			target: highlightResurfacing.highlightId,
-			set: { dismissedAt: at },
-			where: eq(highlightResurfacing.userId, userId),
-		})
+): Promise<boolean> {
+	const rows = await tx.execute<{ highlight_id: string }>(sql`
+		insert into ${highlightResurfacing} (highlight_id, user_id, dismissed_at)
+		select ${highlights.id}, ${userId}, ${at?.toISOString() ?? null}::timestamptz
+		from ${highlights} join ${documents} on ${documents.id} = ${highlights.documentId}
+		where ${highlights.id} = ${highlightId} and ${highlights.userId} = ${userId}
+			and ${documents.userId} = ${userId} and ${highlights.deletedAt} is null
+			and ${documents.deletedAt} is null
+		on conflict (highlight_id) do update set dismissed_at = excluded.dismissed_at
+		returning highlight_id`)
+	return rows.rows.length > 0
 }

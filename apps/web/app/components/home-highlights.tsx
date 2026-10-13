@@ -1,5 +1,5 @@
 import { EyeOff, StickyNote } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link, useFetcher, useFetchers } from "react-router"
 import { highlightColor } from "~/lib/highlight-colors"
@@ -13,6 +13,15 @@ import { NoteText } from "./note-text"
 import { PostIt } from "./post-it"
 
 const ACTION = "/home/highlights"
+
+/** An article without a title or a site name goes by its address's host. */
+function hostOf(url: string): string {
+	try {
+		return new URL(url).hostname.replace(/^www\./, "")
+	} catch {
+		return url
+	}
+}
 
 /** Highlights on their way out ("Not useful anymore" pressed, not yet answered). */
 function useLeaving(): Set<string> {
@@ -62,7 +71,13 @@ function HighlightCard({ h, linkTargets }: { h: ResurfacedHighlight; linkTargets
 	// The note being saved shows at once.
 	const pending = save.formData?.get("note")
 	const note = typeof pending === "string" ? pending.trim() || null : h.note
-	const title = h.documentTitle || h.siteName || t("home.highlights.untitled")
+	const title = h.documentTitle || h.siteName || hostOf(h.sourceUrl)
+	// A note that did not save says so.
+	const answer = save.data as { ok?: boolean } | undefined
+	useEffect(() => {
+		if (save.state !== "idle" || !answer || answer.ok) return
+		showToast({ message: t("home.highlights.noteFailed"), warn: true })
+	}, [save.state, answer, t])
 	const href = `/read/${h.documentId}#h=${h.id}`
 	const saveNote = (text: string) => {
 		setEditing(false)

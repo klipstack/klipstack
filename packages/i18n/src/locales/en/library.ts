@@ -58,7 +58,7 @@ export default {
 			addNote: "Add a note",
 			dismiss: "Not useful anymore",
 			dismissed: "It won't come back here. The highlight stays.",
-			untitled: "Untitled",
+			noteFailed: "The note was not saved. Try again.",
 		},
 		resume: "Resume reading",
 		start: "Start reading",

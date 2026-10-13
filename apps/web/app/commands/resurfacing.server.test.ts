@@ -1,9 +1,8 @@
 import { db, documents, documentVersions, eq, highlights, user as userTable } from "@klipstack/db"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
-import { dailyHighlights } from "~/services/resurfacing.server"
 import { deleteHighlight } from "./annotations.server"
 import { trashArticles } from "./articles.server"
-import { resumeResurfacing, stopResurfacing } from "./resurfacing.server"
+import { dailyHighlights, resumeResurfacing, stopResurfacing } from "./resurfacing.server"
 
 const run = `test-resurfacing-cmd-${Date.now()}`
 const [userId, otherId] = [`${run}-a`, `${run}-b`]
@@ -55,6 +54,13 @@ beforeAll(async () => {
 
 afterAll(async () => {
 	for (const id of [userId, otherId]) await db.delete(userTable).where(eq(userTable.id, id))
+})
+
+describe("dailyHighlights", () => {
+	it("refuses what is not a day", async () => {
+		for (const day of ["13/10/2026", "2026-13-40", "2026-02-30", ""])
+			await expect(dailyHighlights(userId, day)).rejects.toMatchObject({ code: "invalid_request" })
+	})
 })
 
 describe("stopResurfacing", () => {

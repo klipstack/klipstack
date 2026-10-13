@@ -73,12 +73,28 @@ test("Home brings back highlights, with their notes written in place and a way t
 	await second.getByRole("button", { name: "Save" }).click()
 	await expect(second.getByTestId("home-highlight-note")).toHaveText("Or just plants.")
 
-	// Not useful anymore, undone, then for good: the highlight itself stays.
-	await second.getByRole("button", { name: "Not useful anymore" }).click()
+	// A save that does not reach the server says so.
+	await page.route("**/documents/*/highlights*", (route) => route.abort(), { times: 1 })
+	await second.getByTestId("home-highlight-note").click()
+	await second.getByRole("textbox", { name: "Note" }).fill("Lost on the way.")
+	await second.getByRole("button", { name: "Save" }).click()
+	await expect(page.getByText("The note was not saved. Try again.")).toBeVisible()
+	await expect(second.getByTestId("home-highlight-note")).toHaveText("Or just plants.")
+
+	// Not useful anymore, undone, then for good: the highlight itself stays. Each waits for its answer.
+	const answered = () =>
+		page.waitForResponse((r) => new URL(r.url()).pathname.startsWith("/home/highlights") && r.ok())
+	await Promise.all([
+		answered(),
+		second.getByRole("button", { name: "Not useful anymore" }).click(),
+	])
 	await expect(second).toHaveCount(0)
-	await page.getByRole("button", { name: "Undo" }).click()
+	await Promise.all([answered(), page.getByRole("button", { name: "Undo" }).click()])
 	await expect(second).toHaveCount(1)
-	await second.getByRole("button", { name: "Not useful anymore" }).click()
+	await Promise.all([
+		answered(),
+		second.getByRole("button", { name: "Not useful anymore" }).click(),
+	])
 	await expect(second).toHaveCount(0)
 	await page.reload()
 	await waitForHydration(page)
@@ -87,7 +103,7 @@ test("Home brings back highlights, with their notes written in place and a way t
 	expect(kept).toMatchObject({ deletedAt: null, note: "Or just plants." })
 
 	// The last one let go: no card at all.
-	await first.getByRole("button", { name: "Not useful anymore" }).click()
+	await Promise.all([answered(), first.getByRole("button", { name: "Not useful anymore" }).click()])
 	await page.reload()
 	await waitForHydration(page)
 	await expect(page.getByRole("heading", { name: "From your highlights" })).toHaveCount(0)

@@ -9,7 +9,8 @@ import {
 } from "@klipstack/db"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import {
-	dailyHighlights,
+	listDay,
+	pickDay,
 	pickHighlights,
 	RESURFACING,
 	type ResurfacingCandidate,
@@ -75,6 +76,13 @@ async function highlight(
 		.returning({ id: highlights.id })
 	return row!.id
 }
+
+/** What the command does: the day's picks, picked on the first call. */
+const dailyHighlights = (userId: string, day: string) =>
+	db.transaction(async (tx) => {
+		await pickDay(tx, userId, day)
+		return listDay(userId, day, tx)
+	})
 
 const ids = (list: Array<{ id: string }>) => list.map((h) => h.id).sort()
 
@@ -167,8 +175,12 @@ describe("dailyHighlights", () => {
 		await highlight(userId, doc, { createdAt: new Date("2026-10-10T12:00:00Z") })
 		await highlight(userId, trashed)
 		await db.update(documents).set({ deletedAt: new Date() }).where(eq(documents.id, trashed.id))
-		const dismissed = await highlight(userId, doc)
-		await setResurfacingDismissed(db, userId, dismissed, new Date())
+		const dismissed: string[] = []
+		for (let i = 0; i < 4; i++) {
+			const id = await highlight(userId, doc)
+			expect(await setResurfacingDismissed(db, userId, id, new Date())).toBe(true)
+			dismissed.push(id)
+		}
 		await highlight(other, await article(other))
 
 		expect(await dailyHighlights(userId, DAY)).toEqual([
@@ -183,17 +195,32 @@ describe("dailyHighlights", () => {
 				sourceUrl: expect.any(String),
 			},
 		])
+		// Dismissed ones were not picked and hidden: they never took one of the day's places.
+		const rows = await db
+			.select()
+			.from(highlightResurfacing)
+			.where(eq(highlightResurfacing.userId, userId))
+		expect(rows.filter((r) => r.shownOn).map((r) => r.highlightId)).toEqual([kept])
+		// Someone else's highlight is not the user's to dismiss.
+		const [theirs] = await db
+			.select({ id: highlights.id })
+			.from(highlights)
+			.where(eq(highlights.userId, other))
+		expect(await setResurfacingDismissed(db, userId, theirs!.id, new Date())).toBe(false)
 	})
 
 	it("keeps the day's picks, records the day, and picks again the next day", async () => {
 		const userId = users[2]!
 		const doc = await article(userId)
 		for (let i = 0; i < 6; i++) await highlight(userId, doc)
-		const first = await dailyHighlights(userId, DAY)
+		// Two first loads at once pick once.
+		const [first, alongside] = await Promise.all([
+			dailyHighlights(userId, DAY),
+			dailyHighlights(userId, DAY),
+		])
 		expect(first).toHaveLength(RESURFACING.perDay)
-		// Two loads at once, and later ones, see the same.
-		const again = await Promise.all([dailyHighlights(userId, DAY), dailyHighlights(userId, DAY)])
-		expect(again.map(ids)).toEqual([ids(first), ids(first)])
+		expect(ids(alongside!)).toEqual(ids(first!))
+		expect(ids(await dailyHighlights(userId, DAY))).toEqual(ids(first!))
 		const shown = await db
 			.select()
 			.from(highlightResurfacing)
@@ -202,7 +229,7 @@ describe("dailyHighlights", () => {
 			shown
 				.map((r) => ({ id: r.highlightId, shownOn: r.shownOn }))
 				.sort((a, b) => (a.id < b.id ? -1 : 1)),
-		).toEqual(ids(first).map((id) => ({ id, shownOn: DAY })))
+		).toEqual(ids(first!).map((id) => ({ id, shownOn: DAY })))
 		const next = await dailyHighlights(userId, "2026-10-14")
 		expect(next).toHaveLength(RESURFACING.perDay)
 	})
@@ -224,8 +251,7 @@ describe("dailyHighlights", () => {
 		expect(later.map((h) => h.id)).not.toContain(rest[0]!.id)
 	})
 
-	it("is empty without highlights, and refuses what is not a day", async () => {
+	it("is empty without highlights", async () => {
 		expect(await dailyHighlights(users[4]!, DAY)).toEqual([])
-		await expect(dailyHighlights(users[4]!, "13/10/2026")).rejects.toThrow()
 	})
 })

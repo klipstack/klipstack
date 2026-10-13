@@ -57,7 +57,7 @@ export default {
 			addNote: "Añadir una nota",
 			dismiss: "Ya no me sirve",
 			dismissed: "No volverá a aparecer aquí. El subrayado se queda.",
-			untitled: "Sin título",
+			noteFailed: "La nota no se guardó. Inténtalo de nuevo.",
 		},
 		resume: "Seguir leyendo",
 		start: "Empezar a leer",

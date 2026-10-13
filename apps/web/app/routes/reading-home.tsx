@@ -9,6 +9,7 @@ import {
 	useNavigate,
 	useSearchParams,
 } from "react-router"
+import { dailyHighlights } from "~/commands/resurfacing.server"
 import { FeedArticle } from "~/components/feed-article"
 import { HomeArticle } from "~/components/home-article"
 import { FinishedLately } from "~/components/home-finished"
@@ -34,7 +35,7 @@ import { cn } from "~/lib/utils"
 import { linkTargetStatus } from "~/services/links.server"
 import { finishedLately } from "~/services/reading-history.server"
 import { readingHome } from "~/services/reading-home.server"
-import { dailyHighlights, resurfacingDay } from "~/services/resurfacing.server"
+import { resurfacingDay } from "~/services/resurfacing.server"
 import {
 	firstTopicsNotice,
 	homeTopics,
