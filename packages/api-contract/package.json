@@ -13,7 +13,8 @@
 		"./note-links": "./src/note-links.ts",
 		"./search-query": "./src/search-query.ts",
 		"./search-suggest": "./src/search-suggest.ts",
-		"./reading": "./src/reading.ts"
+		"./reading": "./src/reading.ts",
+		"./topics": "./src/topics.ts"
 	},
 	"scripts": {
 		"typecheck": "tsc -p tsconfig.json",

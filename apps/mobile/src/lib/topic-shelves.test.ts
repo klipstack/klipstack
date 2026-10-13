@@ -30,6 +30,8 @@ function topic(articles: number, latest: number): Topic {
 		description: "On writing.",
 		articles,
 		savedThisWeek: 0,
+		toRead: 0,
+		lastReadAt: null,
 		latest: Array.from({ length: latest }, (_, i) => article(String(i))),
 	}
 }
