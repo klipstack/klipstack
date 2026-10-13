@@ -1,3 +1,4 @@
+import { NOTE_MAX } from "@klipstack/api-contract/names"
 import { describe, expect, it } from "vitest"
 import { editionFromNote } from "./edition-note"
 
@@ -9,6 +10,10 @@ describe("editionFromNote", () => {
 			"Read it.\n\nSee The other too.",
 		)
 		expect(editionFromNote("Why it matters. \n", "Mine.")).toBe("Why it matters.\n\nMine.")
+	})
+
+	it("stops at the longest note the server takes", () => {
+		expect(editionFromNote("a".repeat(NOTE_MAX - 3), "Mine.")).toHaveLength(NOTE_MAX)
 	})
 
 	it("offers nothing without a note, or once the note is in", () => {

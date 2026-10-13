@@ -1,8 +1,10 @@
 import { canonicalText } from "@klipstack/anchor"
+import { NOTE_MAX } from "@klipstack/api-contract/names"
 import { JSDOM } from "jsdom"
 import { describe, expect, it } from "vitest"
 import { type ReaderHighlight, type ReaderPage, readerHtml } from "../lib/reader-html"
 import type { PageMessage, PageSelection } from "./messages"
+import { fieldText, postItSize } from "./takeaway"
 
 /**
  * The reader page as the app writes it, with the bundled script running (src/lib/
@@ -496,6 +498,66 @@ describe("the reader page: the note at the end", () => {
 			{ type: "note-link", id: LINKED },
 			{ type: "end", action: "note-retry" },
 		])
+	})
+
+	it("reads WebKit's line breaks as the note's lines", () => {
+		const { window, field } = openEnd()
+		const text = (html: string) => {
+			field.innerHTML = html
+			return fieldText(field)
+		}
+		expect(text("a\nb")).toBe("a\nb")
+		expect(text("a<br>b<br>")).toBe("a\nb")
+		expect(text("a<br><br>")).toBe("a\n")
+		expect(text("a<div>b</div><div><br></div>")).toBe("a\nb\n")
+		expect(text("a<div>b<br></div>")).toBe("a\nb")
+		expect(text("a\u00a0b")).toBe("a b")
+		expect(window).toBeTruthy()
+	})
+
+	it("takes no text past the longest note the server keeps, pasted or typed", () => {
+		const { window, page, field } = openEnd()
+		page.klipNote(note("a".repeat(NOTE_MAX - 2)))
+		const input = (data: string) =>
+			field.dispatchEvent(
+				new window.InputEvent("beforeinput", { inputType: "insertText", data, cancelable: true }),
+			)
+		expect(input("ab")).toBe(true)
+		expect(input("abc")).toBe(false)
+	})
+
+	it("doesn't open a link tapped while writing", () => {
+		const { window, page, field, messages } = openEnd()
+		page.klipNote(note(`[The other](/read/${LINKED})`))
+		field.focus()
+		field.dispatchEvent(new window.Event("touchstart"))
+		messages.length = 0
+		field
+			.querySelector(".takeaway-link")!
+			.dispatchEvent(new window.MouseEvent("click", { bubbles: true }))
+		expect(messages.filter((m) => m.type === "note-link")).toEqual([])
+	})
+
+	it("keeps the paper above the keyboard while writing", () => {
+		const { window, page, field } = openEnd()
+		page.klipNote(note("Mine."))
+		const scrolled: number[] = []
+		Object.assign(window, {
+			scrollBy: ({ top }: { top: number }) => scrolled.push(top),
+			visualViewport: Object.assign(new window.EventTarget(), { offsetTop: 0, height: 400 }),
+		})
+		const paper = window.document.querySelector(".post-it")!
+		paper.getBoundingClientRect = () => ({ bottom: 500 }) as DOMRect
+		field.focus()
+		field.dispatchEvent(new window.Event("input"))
+		// 500 + 16 points of room, less the 400 the keyboard leaves.
+		expect(scrolled).toEqual([116])
+	})
+
+	it("sizes the paper to its text: a small square for a short note, wider for a long one", () => {
+		expect(postItSize("").width).toBe("min(100%, calc(14ch + 2.5rem))")
+		expect(postItSize("a".repeat(2000)).width).toBe("min(100%, calc(52ch + 2.5rem))")
+		expect(postItSize(`[A title](/read/${LINKED})`).width).toBe(postItSize("A title").width)
 	})
 
 	it("stays as written when the rest of the end block is drawn again", () => {

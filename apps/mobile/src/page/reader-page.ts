@@ -721,7 +721,7 @@ export function endParts(end: PageEnd): { head: string; rest: string } {
 	// Marked: it says so, and offers the note for the edition's readers, which the app edits.
 	const written = end.editionNote?.trim() ? linkText(end.editionNote) : null
 	const card = end.shortlisted
-		? `<div class="end-edition"><div class="end-edition-title"><span class="end-check">${CHECK}</span>Added to your next edition</div><div class="end-edition-label">For your edition's readers</div><button type="button" class="end-edition-note${written ? "" : " empty"}" data-end="edition-note" aria-label="For your edition's readers">${escapeText(written ?? EDITION_NOTE_PLACEHOLDER)}</button></div>`
+		? `<div class="end-edition"><div class="end-edition-title"><span class="end-check">${CHECK}</span>Added to your next edition</div><div class="end-edition-label">For your edition's readers</div><button type="button" class="end-edition-note${written ? "" : " empty"}" data-end="edition-note">${escapeText(written ?? EDITION_NOTE_PLACEHOLDER)}</button></div>`
 		: ""
 	return {
 		head: `<p class="end-status">${heading}${state}</p>${finish}`,

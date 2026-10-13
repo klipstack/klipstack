@@ -19,7 +19,7 @@ export function createTakeaway(post: (message: PageMessage) => void): {
 } {
 	const element = document.createElement("div")
 	element.className = "takeaway"
-	element.innerHTML = `<div class="takeaway-label">Your note <span>· only you</span></div><div class="post-it"><span class="tape" aria-hidden="true"></span><div class="takeaway-field" contenteditable="plaintext-only" role="textbox" aria-multiline="true" aria-label="Your note" autocapitalize="sentences" data-placeholder="${TAKEAWAY_PLACEHOLDER}"></div></div><div class="takeaway-status" aria-live="polite"></div>`
+	element.innerHTML = `<div class="takeaway-label">Your note <span>· only you</span></div><div class="post-it"><span class="tape" aria-hidden="true"></span><div class="takeaway-field" contenteditable="plaintext-only" role="textbox" aria-multiline="true" aria-label="Your note" aria-placeholder="${TAKEAWAY_PLACEHOLDER}" autocapitalize="sentences" data-placeholder="${TAKEAWAY_PLACEHOLDER}"></div></div><div class="takeaway-status"></div>`
 	const paper = element.querySelector<HTMLElement>(".post-it")!
 	const field = element.querySelector<HTMLElement>(".takeaway-field")!
 	const status = element.querySelector<HTMLElement>(".takeaway-status")!
@@ -59,9 +59,10 @@ export function createTakeaway(post: (message: PageMessage) => void): {
 
 	changed("")
 
+	// A paste brings its text in `dataTransfer`, not `data`.
 	field.addEventListener("beforeinput", (event) => {
 		if (!event.inputType.startsWith("insert")) return
-		const adding = event.data?.length ?? 1
+		const adding = (event.data ?? event.dataTransfer?.getData("text/plain") ?? " ").length
 		const selected = window.getSelection()?.toString().length ?? 0
 		if (fieldText(field).length + adding - selected > NOTE_MAX) event.preventDefault()
 	})
@@ -108,7 +109,11 @@ export function createTakeaway(post: (message: PageMessage) => void): {
 	function update(note: PageNote) {
 		const replaced = latest !== null && note.rev !== latest.rev
 		latest = note
-		status.innerHTML = statusHtml(note.status)
+		// Drawn when it changes: a failure is announced once.
+		if (status.dataset.state !== note.status) {
+			status.dataset.state = note.status
+			status.innerHTML = statusHtml(note.status)
+		}
 		if (focused() && !replaced) return
 		if (fieldText(field) !== note.text || !focused()) show(note.text, note.links)
 		keepInView()
@@ -119,8 +124,8 @@ export function createTakeaway(post: (message: PageMessage) => void): {
 
 /**
  * The note as stored, from the post-it's text: links back to `[Title](/read/<id>)`. WebKit may
- * break lines with `<br>` or blocks instead of newlines; the `<br>` it keeps last, to show an
- * empty last line, adds nothing.
+ * break lines with `<br>` or blocks instead of newlines. A block starts a line; a `<br>` last in
+ * the field or in a block adds nothing (it only keeps an empty line open).
  */
 export function fieldText(field: Element): string {
 	let out = ""
@@ -134,7 +139,7 @@ export function fieldText(field: Element): string {
 			const el = child as HTMLElement
 			if (el.dataset.link) out += `[${el.textContent ?? ""}](/read/${el.dataset.link})`
 			else if (el.tagName === "BR") {
-				if (el !== field.lastChild) out += "\n"
+				if (el !== el.parentNode?.lastChild) out += "\n"
 			} else {
 				if (out && !out.endsWith("\n")) out += "\n"
 				walk(el)
@@ -166,6 +171,6 @@ function statusHtml(status: PageNote["status"]): string {
 	if (status === "saving") return "Saving…"
 	if (status === "saved") return "Saved"
 	if (status === "error")
-		return 'Not saved · <button type="button" class="end-link" data-end="note-retry">Retry</button>'
+		return '<span role="alert">Not saved · <button type="button" class="end-link" data-end="note-retry">Retry</button></span>'
 	return ""
 }

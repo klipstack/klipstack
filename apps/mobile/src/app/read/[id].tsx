@@ -1,7 +1,6 @@
 import type { HighlightColor } from "@klipstack/api-contract/enums"
 import { endState, secondsToFinish } from "@klipstack/api-contract/reading"
 import type { ArticleDetails, ArticleTopics, Highlight, KlipstackClient } from "@klipstack/sdk"
-import { errorDetails } from "@klipstack/sdk"
 import { createNoteAutosave, type NoteSaveStatus } from "@klipstack/sdk/note-autosave"
 import { router, Stack, useLocalSearchParams, useNavigation } from "expo-router"
 import { useCallback, useEffect, useRef, useState } from "react"
@@ -42,6 +41,7 @@ import { afterMarking, withUndone } from "@/lib/draft-undo"
 import { finishOnLeave, showFinished } from "@/lib/finish-on-leave"
 import { minutesLeft } from "@/lib/home"
 import { inTime } from "@/lib/in-time"
+import { guardNoteSaves, type SavedNote } from "@/lib/note-guard"
 import {
 	canUseOffline,
 	loadArticle,
@@ -110,10 +110,9 @@ export default function Reader() {
 	const [noteStatus, setNoteStatus] = useState<NoteSaveStatus>("idle")
 	const noteSave = useRef<ReturnType<typeof createNoteAutosave> | null>(null)
 	const flushNote = () => void noteSave.current?.flush()
-	// Which note the next save replaces (`expectedUpdatedAt`): a note changed elsewhere meanwhile
-	// (the web, the share extension) is never written over unseen. Undefined: not known (a copy
-	// kept by an older version), so no check.
-	const noteAt = useRef<string | null | undefined>(undefined)
+	// Which note the next save replaces: a note changed elsewhere meanwhile is never written over
+	// unseen (src/lib/note-guard.ts).
+	const noteGuard = useRef<ReturnType<typeof guardNoteSaves> | null>(null)
 	// Moves when the note is replaced here by the one saved elsewhere: the end block's post-it shows
 	// it even while it is written in (`PageNote.rev`).
 	const [noteRev, setNoteRev] = useState(0)
@@ -337,8 +336,7 @@ export default function Reader() {
 				if (!live) return
 				setArticle(details)
 				setNote(details.note ?? "")
-				noteAt.current = details.noteUpdatedAt
-				noteSaveFrom.current(client, details.note ?? "")
+				noteSaveFrom.current(client, details.note ?? "", details.noteUpdatedAt)
 				setEditionNote(details.editionNote ?? "")
 				editionSave.current?.dispose()
 				editionSave.current = createNoteAutosave({
@@ -430,38 +428,23 @@ export default function Reader() {
 		setGeneration((n) => n + 1)
 	}
 
-	/** The note's autosave, from `initial`: each save says which note it replaces (`noteAt`). */
-	function startNoteSave(c: KlipstackClient, initial: string) {
+	/** The note's autosave, from `initial`, saved when it was `at` (undefined: not known). */
+	function startNoteSave(c: KlipstackClient, initial: string, at: string | null | undefined) {
 		noteSave.current?.dispose()
-		noteSave.current = createNoteAutosave({
-			initial,
-			onStatus: setNoteStatus,
-			save: async (text) => {
-				const expected = noteAt.current
-				try {
-					const saved = await c.articles.setNote(
-						id,
-						text.trim() ? text : null,
-						expected === undefined ? {} : { expectedUpdatedAt: expected },
-					)
-					noteAt.current = saved.noteUpdatedAt
-				} catch (e) {
-					const now = errorDetails(e, "note_changed")
-					if (now) noteChanged(c, now)
-					throw e
-				}
-			},
+		const guard = guardNoteSaves({
+			at,
+			send: (text, expected) => c.articles.setNote(id, text.trim() ? text : null, expected),
+			onChanged: (now) => noteChanged(c, now),
 		})
+		noteGuard.current = guard
+		noteSave.current = createNoteAutosave({ initial, onStatus: setNoteStatus, save: guard.save })
 	}
 
 	/**
 	 * The note changed elsewhere since it was read, and this save was refused: the reader chooses,
 	 * as in the web's Notebook. The saved note replaces theirs, or theirs goes over it, knowingly.
 	 */
-	function noteChanged(
-		c: KlipstackClient,
-		now: { note: string | null; noteUpdatedAt: string | null },
-	) {
+	function noteChanged(c: KlipstackClient, now: SavedNote) {
 		if (askingNote.current || !mounted.current) return
 		askingNote.current = true
 		Alert.alert(
@@ -472,11 +455,10 @@ export default function Reader() {
 					text: "Use the Saved Note",
 					onPress: () => {
 						askingNote.current = false
-						noteAt.current = now.noteUpdatedAt
 						const text = now.note ?? ""
 						setNote(text)
 						setNoteRev((n) => n + 1)
-						startNoteSave(c, text)
+						startNoteSave(c, text, now.noteUpdatedAt)
 						setNoteStatus("idle")
 					},
 				},
@@ -484,7 +466,7 @@ export default function Reader() {
 					text: "Keep Mine",
 					onPress: () => {
 						askingNote.current = false
-						noteAt.current = now.noteUpdatedAt
+						noteGuard.current?.replaces(now.noteUpdatedAt)
 						flushNote()
 					},
 				},
