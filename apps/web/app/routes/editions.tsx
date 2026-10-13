@@ -5,6 +5,7 @@ import { Fragment } from "react"
 import { useTranslation } from "react-i18next"
 import { Form, Link, redirect, useFetcher, useNavigation } from "react-router"
 import { snoozeEditionNudge, startEdition } from "~/commands/editions.server"
+import { EmptyDrawing } from "~/components/empty-drawing"
 import { MenuRadio, MoreMenu } from "~/components/more-menu"
 import { tooltip } from "~/components/tooltip-host"
 import { Button, buttonVariants } from "~/components/ui/button"
@@ -299,8 +300,10 @@ function NextDesk({ entries, nudge }: { entries: ShortlistEntry[]; nudge: Loader
 			data-testid="editions-desk"
 			className="mt-6 rounded-xl border border-border bg-card p-4"
 		>
+			{/* Nothing on it yet: the desk itself, waiting. */}
+			{entries.length === 0 ? <EmptyDrawing name="desk" className="mb-3 w-32" /> : null}
 			<h2 id="editions-desk" className="flex items-center gap-2 font-medium">
-				<Newspaper className="size-4 text-muted-fg" aria-hidden />
+				{entries.length > 0 ? <Newspaper className="size-4 text-muted-fg" aria-hidden /> : null}
 				{t("desk.heading")}
 				{entries.length > 0 ? (
 					<span className="text-sm font-normal text-muted-fg">{entries.length}</span>

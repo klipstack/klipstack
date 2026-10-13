@@ -310,6 +310,18 @@ test("every account has editions, with no feature to turn on", async ({ page }) 
 	await waitForSidebarPrefetch(page)
 	await expect(page.getByRole("link", { name: /^Editions/ })).toBeVisible()
 	expect((await page.goto("/editions"))?.status()).toBe(200)
+	// Nothing marked yet: the desk is drawn empty, in place of its icon.
+	const desk = page.getByTestId("editions-desk")
+	await expect(desk.locator("[data-empty-drawing=desk] svg")).toBeVisible()
+	await expect(desk.getByRole("heading", { name: "Your next edition" })).toBeVisible()
+	await expect(desk.getByRole("heading", { name: "Your next edition" }).locator("svg")).toHaveCount(
+		0,
+	)
+	if (process.env.SHOT_DIR) {
+		await desk.screenshot({ path: `${process.env.SHOT_DIR}/editions-empty.png` })
+		await page.emulateMedia({ colorScheme: "dark" })
+		await desk.screenshot({ path: `${process.env.SHOT_DIR}/editions-empty-dark.png` })
+	}
 })
 
 test("three marked articles nudge for a new edition, until Not now", async ({ page }) => {
@@ -336,6 +348,8 @@ test("three marked articles nudge for a new edition, until Not now", async ({ pa
 	await expect(nudge).toHaveCount(0)
 	await expect(page.getByTestId("editions-nav-dot")).toHaveCount(0)
 	await expect(page.getByRole("button", { name: "Start the edition with these 3" })).toBeVisible()
+	// A desk with articles on it is not drawn empty.
+	await expect(page.locator("[data-empty-drawing]")).toHaveCount(0)
 })
 
 test("with a draft started, marking adds to it, and a week on the page asks to publish it", async ({

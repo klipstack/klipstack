@@ -42,6 +42,7 @@
 	--color-shelf: var(--k-shelf);
 	--color-book-fg: var(--k-book-fg);
 	--color-stamp: var(--k-stamp);
+	--color-paper: var(--k-paper);
 }
 
 /* List views render as a grid when chosen, or by default on phones ("auto"). Matches the list itself
@@ -91,6 +92,8 @@
 	--k-shelf: oklch(0.86 0.025 70);
 	/* A library's date-stamp ink, on what the reader finished. */
 	--k-stamp: oklch(0.48 0.13 300);
+	/* A blank sheet in a drawing: paper stays light, a little dimmed in the dark. */
+	--k-paper: oklch(0.995 0.003 90);
 	color-scheme: light;
 }
 
@@ -122,6 +125,7 @@
 		--k-book-fg: oklch(0.95 0.01 90);
 		--k-shelf: oklch(0.36 0.03 60);
 		--k-stamp: oklch(0.74 0.1 300);
+		--k-paper: oklch(0.82 0.012 85);
 		color-scheme: dark;
 	}
 }
@@ -153,6 +157,7 @@
 	--k-book-fg: oklch(0.95 0.01 90);
 	--k-shelf: oklch(0.36 0.03 60);
 	--k-stamp: oklch(0.74 0.1 300);
+	--k-paper: oklch(0.82 0.012 85);
 	color-scheme: dark;
 }
 
