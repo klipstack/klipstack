@@ -97,8 +97,8 @@ export const getNotebook = defineEndpoint({
 			topic: z.union([Id, z.literal("none")]).optional(),
 			/** Shuffle's hand: the same seed deals the same cards; a new one deals again. */
 			seed: z.string().regex(NOTEBOOK_SEED).optional(),
-			/** Articles (By article) or cards (Stream) a page holds. */
-			limit: z.coerce.number().int().min(1).max(NOTEBOOK_LIMIT_MAX).default(20),
+			/** Articles (By article, 20 by default) or cards (Stream, 50 by default) a page holds. */
+			limit: z.coerce.number().int().min(1).max(NOTEBOOK_LIMIT_MAX).optional(),
 			cursor: z.string().max(500).optional(),
 		})
 		.refine((q) => (q.view === "shuffle") === (q.seed !== undefined), {
@@ -179,7 +179,7 @@ export const listDailyHighlights = defineEndpoint({
 	path: "/daily-highlights",
 	scope: "read",
 	summary:
-		'Home\'s "From your highlights": a few highlights a day, at least a week old. The first call for a day picks them and records it; every later call for that day answers the same ones, less any deleted, dismissed or trashed since. Notes are edited with PATCH /highlights/{id}.',
+		'Home\'s "From your highlights": a few highlights a day, at least a week old. The first call for a day picks them and records it, as opening Home in the web app does, so a read token changes which ones are picked; every later call for that day answers the same ones, less any deleted, dismissed or trashed since. Notes are edited with PATCH /highlights/{id}.',
 	query: z.object({
 		/**
 		 * The reader's local date (YYYY-MM-DD) on the device: the day starts where they are. A date

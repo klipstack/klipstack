@@ -27,7 +27,7 @@ import {
 import { getTag } from "~/services/tags.server"
 import { topicAsked, topicsInUse } from "~/services/topics.server"
 import { encodeNotebookCursor, notebookCursor } from "../cursors.server"
-import { ApiError, notFound } from "../errors.server"
+import { notFound } from "../errors.server"
 import type { Handler } from "../handler.server"
 import { NO_TOPIC } from "./articles.server"
 import { highlightShape } from "./shapes.server"
@@ -136,14 +136,23 @@ export const notebook: Handler<typeof getNotebook> = async ({ userId, query }) =
 				}
 			}
 			if (view === "stream") {
-				const page = await listNotebookStream({ ...matching, cursor, limit: query.limit })
+				const page = await listNotebookStream({
+					...matching,
+					cursor,
+					// Without one, as the web pages: 50 cards, 20 articles.
+					limit: query.limit,
+				})
 				return {
 					view,
 					items: page.items.map((i) => item(i)),
 					nextCursor: page.nextCursor ? encodeNotebookCursor(page.nextCursor) : null,
 				}
 			}
-			const page = await listNotebookArticles({ ...matching, cursor, limit: query.limit })
+			const page = await listNotebookArticles({
+				...matching,
+				cursor,
+				limit: query.limit,
+			})
 			return {
 				view,
 				articles: page.articles.map((a) => ({
@@ -166,28 +175,8 @@ export const notebook: Handler<typeof getNotebook> = async ({ userId, query }) =
 	return { ...base, counts, linkTargets, ...board }
 }
 
-const DAY_MS = 86_400_000
-
-/**
- * The client's local date. Time zones run from 12 hours behind UTC to 14 ahead, so anyone's today
- * is at most a day from the date in UTC; another day would rewrite when highlights were last shown.
- */
-function clientDay(day: string): string {
-	const today = Date.parse(new Date().toISOString().slice(0, 10))
-	const asked = Date.parse(day)
-	if (Number.isNaN(asked) || Math.abs(asked - today) > DAY_MS)
-		throw ApiError.of(
-			"invalid_request",
-			"`day` is not today anywhere: send the device's local date.",
-			{
-				details: { where: "query", issues: [{ path: ["day"], message: "Not today" }] },
-			},
-		)
-	return day
-}
-
 export const daily: Handler<typeof listDailyHighlights> = async ({ userId, query }) => {
-	const day = clientDay(query.day)
+	const day = query.day
 	const found = await dailyHighlights(userId, day)
 	const linkTargets = await linkTargetStatus(
 		userId,

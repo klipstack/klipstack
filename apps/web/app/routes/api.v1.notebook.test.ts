@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto"
+import type { NotebookItem } from "@klipstack/api-contract"
 import {
 	assets,
 	db,
@@ -45,6 +47,8 @@ const errorOf = (promise: Promise<unknown>) =>
 		},
 		(e: unknown) => e as KlipstackApiError,
 	)
+
+const md5 = (text: string) => createHash("md5").update(text).digest("hex")
 
 const DAY_MS = 86_400_000
 /** `days` days and `minutes` minutes before now. */
@@ -97,6 +101,7 @@ describe("the Notebook in the API", () => {
 	let me: Awaited<ReturnType<typeof users.create>>
 	let other: Awaited<ReturnType<typeof users.create>>
 	const id: Record<string, string> = {}
+	let garden: typeof documents.$inferSelect
 
 	beforeAll(async () => {
 		me = await users.create("Notebook")
@@ -114,7 +119,7 @@ describe("the Notebook in the API", () => {
 			})
 			.returning({ id: assets.id })
 		id.asset = asset!.id
-		const garden = await article(me.id, "Garden", {
+		garden = await article(me.id, "Garden", {
 			siteName: "Gardens",
 			author: "Ann",
 			leadImageAssetId: asset!.id,
@@ -221,7 +226,12 @@ describe("the Notebook in the API", () => {
 			"second passage",
 			"first passage",
 		])
-		expect(stream.items[0]).toMatchObject({ kind: "note", note: "Prune the roses", editable: true })
+		expect(stream.items[0]).toMatchObject({
+			kind: "note",
+			note: "Prune the roses",
+			editable: true,
+			noteUpdatedAt: garden.noteUpdatedAt!.toISOString(),
+		})
 
 		const notes = await me.client.notebook.get({ view: "stream", filter: "notes" })
 		if (notes.view !== "stream") throw new Error("stream")
@@ -257,6 +267,15 @@ describe("the Notebook in the API", () => {
 		expect(tagged.items.map((i) => i.kind === "highlight" && i.highlight.quote)).toEqual([
 			"bread rises",
 		])
+		// A tag of the user's with nothing kept under it stays chosen, with none.
+		const [bare] = await db.insert(tags).values({ userId: me.id, name: "bare" }).returning()
+		const empty = await me.client.notebook.get({ view: "stream", tag: bare!.id })
+		if (empty.view !== "stream") throw new Error("stream")
+		expect(empty.items).toEqual([])
+		expect(empty.tags).toEqual([
+			{ id: id.tag, name: "home", count: 1 },
+			{ id: bare!.id, name: "bare", count: 0 },
+		])
 		expect((await errorOf(me.client.notebook.get({ tag: id.theirTag }))).code).toBe("not_found")
 		expect((await errorOf(me.client.notebook.get({ tag: MISSING }))).code).toBe("not_found")
 		// Topics are not in use for this reader.
@@ -275,6 +294,25 @@ describe("the Notebook in the API", () => {
 		expect(a.seed).toBe("abc123")
 		expect(a.items).toHaveLength(4)
 		expect(b.items).toEqual(a.items)
+
+		// Each seed orders the cards by md5(id || seed): another seed deals them again.
+		const hand = (seed: string) =>
+			[
+				[id.first!, "first passage"],
+				[id.second!, "second passage"],
+				[id.bread!, "bread rises"],
+				[id.garden!, "note: Garden"],
+			]
+				.map(([key, card]) => ({ card, rank: md5(key + seed) }))
+				.sort((x, y) => (x.rank < y.rank ? -1 : 1))
+				.map((x) => x.card)
+		const dealt = (items: NotebookItem[]) =>
+			items.map((i) => (i.kind === "note" ? `note: ${i.article.title}` : i.highlight.quote))
+		for (const seed of ["abc123", "zz9", "q"]) {
+			const page = await me.client.notebook.get({ view: "shuffle", seed })
+			if (page.view !== "shuffle") throw new Error("shuffle")
+			expect(dealt(page.items)).toEqual(hand(seed))
+		}
 
 		const noSeed = await request("/api/v1/notebook?view=shuffle", { token: me.key })
 		expect(noSeed.status).toBe(400)
@@ -400,7 +438,11 @@ describe("Home's daily highlights in the API", () => {
 		})
 		// A device ahead of UTC is fine; a day that is nobody's today is refused.
 		expect((await me.client.dailyHighlights.list(utcDay(1))).day).toBe(utcDay(1))
-		expect((await errorOf(me.client.dailyHighlights.list(utcDay(3)))).code).toBe("invalid_request")
+		expect((await me.client.dailyHighlights.list(utcDay(-1))).day).toBe(utcDay(-1))
+		for (const offset of [-2, 2])
+			expect((await errorOf(me.client.dailyHighlights.list(utcDay(offset)))).code).toBe(
+				"invalid_request",
+			)
 		expect((await errorOf(me.client.dailyHighlights.list("2026-02-30"))).code).toBe(
 			"invalid_request",
 		)
@@ -419,5 +461,30 @@ describe("Home's daily highlights in the API", () => {
 		await db.update(documents).set({ deletedAt: new Date() }).where(eq(documents.id, doc.id))
 		expect((await errorOf(me.client.dailyHighlights.dismiss(old))).code).toBe("not_found")
 		expect((await me.client.dailyHighlights.list(today)).items).toEqual([])
+	})
+})
+
+describe("links in notes", () => {
+	it("says which linked articles are there, or in the trash, in every view and on Home", async () => {
+		const me = await users.create("Links")
+		const live = await article(me.id, "Live")
+		const binned = await article(me.id, "Binned", { deletedAt: new Date() })
+		const link = (a: { id: string }, title: string) => `[${title}](/read/${a.id})`
+		const doc = await article(me.id, "Linking", {
+			note: `See ${link(live, "Live")} and ${link({ id: MISSING }, "Gone")}`,
+			noteUpdatedAt: ago(1),
+		})
+		await highlight(doc, "old linking passage", ago(30), { note: `Also ${link(binned, "Binned")}` })
+		const targets = { [live.id]: "ok", [binned.id]: "trash" }
+
+		for (const view of ["articles", "stream"] as const)
+			expect((await me.client.notebook.get({ view })).linkTargets).toEqual(targets)
+		expect((await me.client.notebook.get({ view: "shuffle", seed: "a" })).linkTargets).toEqual(
+			targets,
+		)
+		// Home's highlight carries only its own note's link.
+		expect((await me.client.dailyHighlights.list(utcDay())).linkTargets).toEqual({
+			[binned.id]: "trash",
+		})
 	})
 })

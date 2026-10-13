@@ -7,6 +7,8 @@ import { dailyHighlights, resumeResurfacing, stopResurfacing } from "./resurfaci
 const run = `test-resurfacing-cmd-${Date.now()}`
 const [userId, otherId] = [`${run}-a`, `${run}-b`]
 const DAY = "2026-10-13"
+/** Noon in UTC on `DAY`: the days these tests ask for are today somewhere then. */
+const NOW = new Date(`${DAY}T12:00:00Z`)
 
 /** A ready article with one highlight, a month old. */
 async function highlighted(owner = userId) {
@@ -59,22 +61,34 @@ afterAll(async () => {
 describe("dailyHighlights", () => {
 	it("refuses what is not a day", async () => {
 		for (const day of ["13/10/2026", "2026-13-40", "2026-02-30", ""])
-			await expect(dailyHighlights(userId, day)).rejects.toMatchObject({ code: "invalid_request" })
+			await expect(dailyHighlights(userId, day, NOW)).rejects.toMatchObject({
+				code: "invalid_request",
+			})
+	})
+
+	it("refuses a day that is nobody's today, which would rewrite when highlights were shown", async () => {
+		for (const day of ["2026-10-11", "2026-10-15"])
+			await expect(dailyHighlights(userId, day, NOW)).rejects.toMatchObject({
+				code: "invalid_request",
+			})
+		// A day behind or ahead of UTC is somebody's today.
+		for (const day of ["2026-10-12", "2026-10-14"])
+			await expect(dailyHighlights(otherId, day, NOW)).resolves.toEqual(expect.any(Array))
 	})
 })
 
 describe("stopResurfacing", () => {
 	it("stops a highlight coming back without touching it, and resumeResurfacing undoes it", async () => {
 		const h = await highlighted()
-		expect((await dailyHighlights(userId, DAY)).map((x) => x.id)).toEqual([h.id])
+		expect((await dailyHighlights(userId, DAY, NOW)).map((x) => x.id)).toEqual([h.id])
 		await stopResurfacing(userId, h.id)
-		expect(await dailyHighlights(userId, DAY)).toEqual([])
+		expect(await dailyHighlights(userId, DAY, NOW)).toEqual([])
 		const [row] = await db.select().from(highlights).where(eq(highlights.id, h.id))
 		expect(row).toMatchObject({ note: "Why it mattered", deletedAt: null })
 		// Again is no error.
 		await stopResurfacing(userId, h.id)
 		await resumeResurfacing(userId, h.id)
-		expect((await dailyHighlights(userId, DAY)).map((x) => x.id)).toEqual([h.id])
+		expect((await dailyHighlights(userId, DAY, NOW)).map((x) => x.id)).toEqual([h.id])
 	})
 
 	it("is not_found for someone else's, a deleted one, or one in a trashed article", async () => {
@@ -91,6 +105,6 @@ describe("stopResurfacing", () => {
 			code: "invalid_request",
 		})
 		// The other reader's highlight still comes back to them.
-		expect((await dailyHighlights(otherId, DAY)).map((x) => x.id)).toEqual([foreign.id])
+		expect((await dailyHighlights(otherId, DAY, NOW)).map((x) => x.id)).toEqual([foreign.id])
 	})
 })
