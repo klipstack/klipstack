@@ -353,7 +353,7 @@ function Cover({
 }
 
 /** A small square of the article's cover, or of its site's mark without one. */
-function Thumb({
+export function Thumb({
 	article,
 	size,
 	colors,
@@ -406,16 +406,16 @@ export function BlankPostIt({ colors }: { colors: Colors }) {
 }
 
 /** The author, unless the site says the same (a personal site). */
-function authorOf(article: NotebookArticle): string | null {
+export function authorOf(article: NotebookArticle): string | null {
 	return article.author && article.author !== siteName(article) ? article.author : null
 }
 
-function titleOf(article: NotebookArticle): string {
+export function titleOf(article: NotebookArticle): string {
 	return article.title || article.url
 }
 
 /** Runs of spaces and line breaks as one space, as the web shows a quote. */
-function oneLine(text: string): string {
+export function oneLine(text: string): string {
 	return text.replace(/\s+/g, " ").trim()
 }
 
@@ -426,7 +426,7 @@ function quoteSize(text: string) {
 	return { fontSize: 17, lineHeight: 25 }
 }
 
-function cardSurface(colors: Colors) {
+export function cardSurface(colors: Colors) {
 	return { backgroundColor: colors.card, borderColor: colors.border }
 }
 

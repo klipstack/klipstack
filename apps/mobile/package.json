@@ -19,6 +19,7 @@
 		"@klipstack/api-contract": "workspace:*",
 		"@klipstack/sdk": "workspace:*",
 		"@react-native-community/slider": "5.2.0",
+		"@shopify/flash-list": "2.0.2",
 		"expo": "~57.0.25",
 		"expo-auth-session": "~57.0.13",
 		"expo-brightness": "~57.0.2",
