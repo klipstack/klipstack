@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { db, documents, documentVersions, eq, user } from "@klipstack/db"
 import { expect, type Locator, type Page, test } from "@playwright/test"
-import { paintedHighlights, signupUser, waitForHydration } from "./helpers"
+import { expectMarked, paintedHighlights, signupUser, waitForHydration } from "./helpers"
 import { insertArticle } from "./seed"
 
 const FIXTURE = join(
@@ -414,11 +414,11 @@ test("a highlight's color: picked in its toolbar, shown on the text, its note an
 	await expect(editor).toBeHidden()
 	expect(await textStart(marginNote)).toEqual(shown)
 
-	// The sidebar's swatch is green, the note under the quote a post-it.
+	// The sidebar's quote is marked in green, the note under it a post-it.
 	await page.getByTestId("toggle-sidebar").click()
 	const sidebar = page.getByRole("complementary", { name: "Notes and highlights" })
 	const row = sidebar.getByRole("button", { name: QUOTE })
-	await expect(row.getByTestId("highlight-swatch")).toHaveCSS("background-color", greenLine)
+	await expectMarked(row.getByTestId("highlight-quote"), "green")
 	await expect(row.locator("[data-post-it]")).toHaveText(NOTE)
 
 	// The highlights page too.

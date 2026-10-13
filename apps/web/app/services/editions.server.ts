@@ -1251,6 +1251,8 @@ export interface ItemArticle {
 		startOffset: number
 		endOffset: number
 		note: string | null
+		/** Index into HIGHLIGHT_COLORS: the pane paints it in its own color, as the reader does. */
+		color: number
 		orphaned: boolean
 		versionId: string
 	}>
@@ -1291,6 +1293,7 @@ export async function itemArticle(
 			startOffset: h.startOffset,
 			endOffset: h.endOffset,
 			note: h.note,
+			color: h.color,
 			orphaned: h.orphaned,
 			versionId: h.versionId,
 		})),

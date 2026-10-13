@@ -1,6 +1,6 @@
 import { db, documents, eq, highlights, user } from "@klipstack/db"
 import { expect, test } from "@playwright/test"
-import { signupUser, waitForHydration } from "./helpers"
+import { expectMarked, signupUser, waitForHydration } from "./helpers"
 import { insertArticle } from "./seed"
 
 const MONTH_AGO = new Date(Date.now() - 30 * 86_400_000)
@@ -48,6 +48,7 @@ test("Home brings back highlights, with their notes written in place and a way t
 	await expect(card).not.toContainText("Fresh from this morning.")
 	const first = card.getByTestId("home-highlight").filter({ hasText: "slow conversation" })
 	await expect(first).toHaveAttribute("data-hl", "blue")
+	await expectMarked(first.locator(".marker"), "blue")
 	await expect(
 		first.getByRole("link", { name: "A garden is a slow conversation." }),
 	).toHaveAttribute("href", `/read/${documentId}#h=${noted!.id}`)

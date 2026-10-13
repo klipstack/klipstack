@@ -15,7 +15,7 @@ import {
 	user,
 	userFeatures,
 } from "@klipstack/db"
-import { expect, type Page } from "@playwright/test"
+import { expect, type Locator, type Page } from "@playwright/test"
 import { changeRole } from "../app/services/admin-roles.server"
 
 /**
@@ -259,11 +259,36 @@ export async function expectNoEmailTo(address: string) {
 	expect(existsSync(mailFile(address))).toBe(false)
 }
 
-/** The text of every highlight painted in the reader, whatever its color (`klip-hl-<color>`). */
+/**
+ * A quote shown as marked text (`.marker` in app.css), its ink the highlight's own color: the one
+ * the reader paints that color with (`--hl-<color>`).
+ */
+export async function expectMarked(quote: Locator, color: string) {
+	await expect(quote).toHaveClass(/\bmarker\b/)
+	const [ink, expected] = await quote.evaluate(
+		(el, name) => [
+			getComputedStyle(el).getPropertyValue("--hl").trim(),
+			getComputedStyle(document.documentElement).getPropertyValue(`--hl-${name}`).trim(),
+		],
+		color,
+	)
+	expect(expected).not.toBe("")
+	expect(ink).toBe(expected)
+	await expect(quote).toHaveCSS("background-image", /gradient/)
+}
+
+/**
+ * The text of every highlight the reader paints, whatever its color: one per group of marker strokes
+ * (`HighlightInk`) with at least one line, read from its color's registry (`klip-hl-<color>`). Only
+ * the strokes near the screen are in the page; `data-lines` counts them all.
+ */
 export function paintedHighlights(page: Page): Promise<string[]> {
 	return page.evaluate(() =>
-		[...CSS.highlights]
-			.filter(([name]) => name.startsWith("klip-hl-"))
-			.flatMap(([, painted]) => [...painted].map((range) => range.toString())),
+		[...document.querySelectorAll<HTMLElement>(".hl-inks > i[data-hl]")]
+			.filter((group) => Number(group.dataset.lines) > 0)
+			.map((group) => {
+				const registry = [...(CSS.highlights.get(`klip-hl-${group.dataset.hl}`) ?? [])]
+				return registry[Number(group.dataset.index)]?.toString() ?? ""
+			}),
 	)
 }

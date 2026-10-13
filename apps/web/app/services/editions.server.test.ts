@@ -844,9 +844,18 @@ describe("itemArticle", () => {
 	it("shows the owner the library's copy of an item's article, with its highlights", async () => {
 		const draft = await insertEdition(userId, { locale: "en", timeZone })
 		const binned = await addDocument({ sourceUrl: "https://binned.example/", title: "Binned" })
+		const bravo = quoteIds["Bravo four five."]!
+		const [before] = await db
+			.select({ color: highlights.color })
+			.from(highlights)
+			.where(eq(highlights.id, bravo))
 		try {
+			await db.update(highlights).set({ color: 3 }).where(eq(highlights.id, bravo))
 			const item = await addItem(userId, draft.id, main.id)
 			const article = await itemArticle(userId, draft.id, item.id)
+			// In their own colors, as the reader paints them.
+			expect(article.highlights.find((h) => h.id === bravo)?.color).toBe(3)
+			expect(article.highlights.find((h) => h.id !== bravo)?.color).toBe(0)
 			expect(article).toMatchObject({
 				documentId: main.id,
 				title: "Main article",
@@ -897,6 +906,7 @@ describe("itemArticle", () => {
 			expect((await getEdition(userId, draft.id)).items.at(-1)?.documentId).toBeNull()
 			expect(await code(itemArticle(userId, draft.id, gone.id))).toBe("document_gone")
 		} finally {
+			await db.update(highlights).set({ color: before!.color }).where(eq(highlights.id, bravo))
 			await deleteEdition(userId, draft.id)
 			await db.delete(documents).where(eq(documents.id, binned.id))
 		}

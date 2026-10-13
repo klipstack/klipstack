@@ -14,7 +14,13 @@ import {
 	user,
 } from "@klipstack/db"
 import { expect, test } from "@playwright/test"
-import { createInviteCode, signupUser, uniqueEmail, waitForHydration } from "./helpers"
+import {
+	createInviteCode,
+	expectMarked,
+	signupUser,
+	uniqueEmail,
+	waitForHydration,
+} from "./helpers"
 import { insertArticle } from "./seed"
 
 const FIXTURE = join(
@@ -61,6 +67,9 @@ test("highlights page: filters, word search, stream and by article", async ({ pa
 	await expect(page.getByRole("heading", { level: 2, name: TITLE })).toBeVisible()
 	await expect(page.getByText("3 highlights")).toBeVisible()
 	await expect(cards.first()).toContainText("one hour intervals")
+	// Each quote marked in its highlight's color.
+	await expectMarked(cards.first().locator(".marker"), "yellow")
+	await expectMarked(cards.filter({ hasText: "half a day" }).locator(".marker"), "green")
 	// All, With notes and a chip per color in use (a dot and its count), in the colors' order.
 	// (This used to say there were no color chips: they came with the board.)
 	const chipNames = () =>

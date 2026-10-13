@@ -56,5 +56,5 @@ export function editionQuotes(
 }
 
 /** The highlight color (`--hl` in app.css), and its solid form for lines. */
-export const HL_BG = "bg-(--hl)"
+export const HL_BG = "marker"
 export const HL_SOLID_BORDER = "border-(--hl-solid)"

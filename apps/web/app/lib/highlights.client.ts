@@ -13,11 +13,96 @@ export interface RenderableHighlight {
 	versionId?: string
 }
 
-/** One registry per color (`klip-hl-yellow`…), each painted its color in app.css. */
+/**
+ * One registry per color (`klip-hl-yellow`…): which ranges are highlighted, in which color. They
+ * have no paint of their own: `HighlightInk` draws a marker stroke for each, from its rectangles
+ * (the API can only paint a background or a line, and WebKit and Firefox cannot move a thick line
+ * up behind the letters).
+ */
 const HIGHLIGHTS = HIGHLIGHT_COLOR_NAMES.map((name) => `klip-hl-${name}`)
 const paintedAs = (item: RenderableHighlight) => `klip-hl-${highlightColorName(item.color)}`
 const ACTIVE = "klip-active"
 const NOTE = "klip-note"
+
+/** How a highlight's ink looks: a seed for its strokes' shape, and its age. */
+interface InkLook {
+	/** Stable for the highlight's life: its id, or the id it had while it was being saved. */
+	seed: string
+	/** When it was made in this page (`performance.now()`), if it was: its strokes are drawn in. */
+	created?: number
+}
+const inkMeta = new WeakMap<Range, InkLook & { id: string }>()
+const looks = new Map<string, InkLook>()
+// A new highlight is painted under a temporary id, then under the server's, at the same place: the
+// saved one takes the look of the temporary one, once. Unclaimed for a minute, it is forgotten.
+const beingSaved = new Map<string, Required<InkLook>>()
+let activeRange: Range | null = null
+
+function remember(item: RenderableHighlight, range: Range, versionId?: string | null) {
+	let look = looks.get(item.id)
+	if (!look) {
+		const now = performance.now()
+		for (const [at, saving] of beingSaved) if (now - saving.created > 60_000) beingSaved.delete(at)
+		const at = `${versionId ?? ""}:${item.startOffset}:${item.endOffset}`
+		if (item.id.startsWith("tmp-")) {
+			const saving = { seed: item.id, created: now }
+			beingSaved.set(at, saving)
+			look = saving
+		} else {
+			look = beingSaved.get(at) ?? { seed: item.id }
+			beingSaved.delete(at)
+		}
+		looks.set(item.id, look)
+	}
+	inkMeta.set(range, { id: item.id, ...look })
+}
+
+const painters = new Set<() => void>()
+/** Calls `listener` whenever what is painted changes. Returns the unsubscribe. */
+export function onPaintChange(listener: () => void): () => void {
+	painters.add(listener)
+	return () => painters.delete(listener)
+}
+const notifyPainters = () => {
+	for (const listener of painters) listener()
+}
+
+export interface PaintedRange {
+	range: Range
+	/** The highlight's id; `null` for a range painted by other means. */
+	id: string | null
+	color: string
+	/** Its position in its color's registry (e2e/helpers.ts reads the text there). */
+	index: number
+	seed: string
+	created?: number
+	/** The mark in focus (`klip-active`). */
+	active: boolean
+}
+
+/** The highlighted ranges inside `root`, by color. */
+export function paintedRanges(root: Node): PaintedRange[] {
+	if (!supportsHighlightApi()) return []
+	const out: PaintedRange[] = []
+	for (const name of HIGHLIGHT_COLOR_NAMES) {
+		let index = 0
+		for (const range of CSS.highlights.get(`klip-hl-${name}`) ?? []) {
+			const at = index++
+			if (!(range instanceof Range) || !root.contains(range.commonAncestorContainer)) continue
+			const meta = inkMeta.get(range)
+			out.push({
+				range,
+				id: meta?.id ?? null,
+				color: name,
+				index: at,
+				seed: meta?.seed ?? `${name}:${at}`,
+				created: meta?.created,
+				active: range === activeRange,
+			})
+		}
+	}
+	return out
+}
 
 export function supportsHighlightApi(): boolean {
 	return typeof CSS !== "undefined" && "highlights" in CSS && typeof Highlight !== "undefined"
@@ -34,7 +119,7 @@ export function renderHighlights(
 ): Map<string, Range> {
 	const ranges = new Map<string, Range>()
 	if (!supportsHighlightApi()) return ranges
-	const painted = new Map<string, Range[]>(HIGHLIGHTS.map((name) => [name, []]))
+	const byColor = new Map<string, Range[]>(HIGHLIGHTS.map((name) => [name, []]))
 	const noted: Range[] = []
 	for (const item of items) {
 		if (item.orphaned || (versionId && item.versionId !== versionId && !item.id.startsWith("tmp-")))
@@ -42,15 +127,17 @@ export function renderHighlights(
 		const range = rangeFromOffsets(root, item.startOffset, item.endOffset)
 		if (!range) continue
 		ranges.set(item.id, range)
-		painted.get(paintedAs(item))!.push(range)
+		remember(item, range, versionId)
+		byColor.get(paintedAs(item))!.push(range)
 		if (item.note) noted.push(range)
 	}
-	for (const [name, list] of painted) {
+	for (const [name, list] of byColor) {
 		if (list.length) CSS.highlights.set(name, new Highlight(...list))
 		else CSS.highlights.delete(name)
 	}
 	if (noted.length) CSS.highlights.set(NOTE, new Highlight(...noted))
 	else CSS.highlights.delete(NOTE)
+	notifyPainters()
 	return ranges
 }
 
@@ -59,17 +146,21 @@ export function clearHighlights() {
 	for (const name of HIGHLIGHTS) CSS.highlights.delete(name)
 	CSS.highlights.delete(ACTIVE)
 	CSS.highlights.delete(NOTE)
+	activeRange = null
+	notifyPainters()
 }
 
 export function setActiveHighlight(range: Range | null) {
 	if (!supportsHighlightApi()) return
-	if (!range) {
-		CSS.highlights.delete(ACTIVE)
-		return
+	if (range === activeRange) return
+	activeRange = range
+	if (!range) CSS.highlights.delete(ACTIVE)
+	else {
+		const active = new Highlight(range)
+		active.priority = 1
+		CSS.highlights.set(ACTIVE, active)
 	}
-	const active = new Highlight(range)
-	active.priority = 1
-	CSS.highlights.set(ACTIVE, active)
+	notifyPainters()
 }
 
 /** Ids of highlights whose range contains the point, smallest first. */
@@ -124,7 +215,10 @@ export function replaceHighlightRange(
 		if (!CSS.highlights.has(NOTE)) CSS.highlights.set(NOTE, new Highlight())
 		CSS.highlights.get(NOTE)!.add(range)
 	}
+	inkMeta.set(range, (old && inkMeta.get(old)) || { id: item.id, seed: item.id })
+	if (old === activeRange) activeRange = null
 	ranges.set(item.id, range)
+	notifyPainters()
 }
 
 const THREAD = "klip-ai"

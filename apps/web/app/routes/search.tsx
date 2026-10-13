@@ -37,7 +37,7 @@ import { SelectionBar } from "~/components/selection-bar"
 import { useListCursor } from "~/hooks/use-list-cursor"
 import { useCommands } from "~/lib/commands"
 import { timeZoneFromCookie } from "~/lib/date-groups"
-import { HIGHLIGHT_SWATCH, highlightColor } from "~/lib/highlight-colors"
+import { highlightColor } from "~/lib/highlight-colors"
 import type { PageBarHandle } from "~/lib/page-bar"
 import { pageTitle } from "~/lib/page-title"
 import { awaitsWords, searchOrigin, searchPath } from "~/lib/search-page"
@@ -368,11 +368,6 @@ function HighlightGroup({ group, q }: { group: Group<HighlightHit>; q: string })
 			<ul className="flex flex-col gap-2">
 				{group.items.map((h) => (
 					<li key={h.id} {...highlightColor(h.color)} className={RESULT_CARD}>
-						<span
-							data-testid="highlight-swatch"
-							className={cn("mt-1 h-auto w-1 shrink-0 rounded", HIGHLIGHT_SWATCH)}
-							aria-hidden
-						/>
 						<div className="min-w-0 flex-1">
 							<Link
 								to={`/read/${h.documentId}#h=${h.id}`}
@@ -380,7 +375,7 @@ function HighlightGroup({ group, q }: { group: Group<HighlightHit>; q: string })
 								className="block text-[0.95rem] leading-relaxed after:absolute after:inset-0 after:content-['']"
 							>
 								{/* The quote as it is marked in the article: in its color. */}
-								<span className="box-decoration-clone bg-(--hl) px-0.5">
+								<span className="marker">
 									<Marked runs={h.quote} />
 								</span>
 							</Link>

@@ -96,7 +96,7 @@ export function QuoteCard({
 				)}
 			>
 				{/* Marked as it is in the article, line by line. */}
-				<span className="rounded-sm bg-(--hl) box-decoration-clone px-0.5">{h.exact}</span>
+				<span className="marker">{h.exact}</span>
 			</Link>
 			{h.orphaned ? <p className="mt-2 text-xs text-danger">{t("highlights.orphaned")}</p> : null}
 			{editing ? (

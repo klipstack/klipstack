@@ -520,6 +520,8 @@ test("an article set aside stays in place, out of the page; its article reads be
 		startOffset: text.indexOf(quote),
 		endOffset: text.indexOf(quote) + quote.length,
 		exact: quote,
+		// Pink: the article beside the editor paints it in its own color.
+		color: 3,
 	})
 	for (const id of [recallId, asideId])
 		await db.update(documents).set({ shortlistedAt: new Date() }).where(eq(documents.id, id))
@@ -557,7 +559,8 @@ test("an article set aside stays in place, out of the page; its article reads be
 	await expect(article.getByRole("heading", { name: "Recall" })).toBeVisible()
 	await expect(article.getByText(quote)).toBeInViewport()
 	await expect(article.getByText("Paragraph 0 of what came first.")).not.toBeInViewport()
-	expect(await paintedHighlights(page)).toHaveLength(1)
+	await expect.poll(() => paintedHighlights(page)).toEqual([quote])
+	await expect(article.locator('.hl-ink[data-hl="pink"]')).toHaveCount(1)
 
 	// While it is open, only its card is within reach: the rest of the editor waits.
 	const inert = (locator: typeof recall) => locator.evaluate((el) => el.closest("[inert]") !== null)
