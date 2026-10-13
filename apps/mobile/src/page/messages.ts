@@ -17,6 +17,8 @@ export type PageHighlight = {
 	suffix: string
 	start: number
 	end: number
+	/** It has a note: a tab beside it says so. */
+	note: boolean
 }
 
 /** The selected passage: what `POST /articles/{id}/highlights` takes to highlight it. */

@@ -14,7 +14,9 @@ const page = {
 			color: "green" as const,
 			start: 0,
 			end: 5,
+			note: "Mine",
 		},
+		{ id: "h2", quote: "Body", color: "blue" as const, start: 0, end: 4, note: " " },
 	],
 }
 
@@ -110,8 +112,21 @@ describe("readerHtml", () => {
 				suffix: "",
 				start: 0,
 				end: 5,
+				// Only whether it has a note: the page draws its tab.
+				note: true,
 			},
+			{ id: "h2", color: 2, quote: "Body", prefix: "", suffix: "", start: 0, end: 4, note: false },
 		])
+	})
+
+	it("paints the web's marker inks: opaque, so they lie under the text, deeper where they cross", () => {
+		const html = readerHtml(page)
+		const inks = html.match(/--hl-[0-4]: [^;]*;/g) ?? []
+		// Five in light mode, five in dark.
+		expect(inks).toHaveLength(10)
+		for (const ink of inks) expect(ink).not.toContain("/")
+		expect(html).toContain("--hl-0: oklch(0.92 0.16 99);")
+		expect(html.match(/--hl-deepen: [^;]+;/g)).toHaveLength(2)
 	})
 
 	it("runs only its own script: the policy names its hash", () => {

@@ -8,6 +8,7 @@ import {
 } from "@klipstack/anchor"
 import { EDITION_NOTE_PLACEHOLDER } from "../lib/edition-note"
 import { controlsStep } from "./controls"
+import { createInk, textRects } from "./ink"
 import { type Box, lineBoxes } from "./line-boxes"
 import type {
 	EndAction,
@@ -30,12 +31,13 @@ import { createTakeaway } from "./takeaway"
  * `window.klip…` functions (`PageApi`).
  * - The article is the stored HTML (`GET /articles/{id}/html`), untouched: the text of its text
  *   nodes is the text highlight offsets index, as in the web reader.
- * - `klipHighlights(list)` paints the highlights with the CSS Custom Highlight API, each at its
- *   offsets, or found by its quote and the text around it when the offsets are from another
- *   version (`resolveSelector`, as the server re-anchors).
+ * - `klipHighlights(list)` paints the highlights as marker strokes under the text (`ink.ts`), each
+ *   at its offsets, or found by its quote and the text around it when the offsets are from another
+ *   version (`resolveSelector`, as the server re-anchors). One with a note gets a tab beside its
+ *   first line; a tap on it opens the highlight.
  * - `klipShow(id)` scrolls a highlight into view; `klipActive(id or null)` puts the one being edited
  *   in focus, as the web reader does: the text and the other highlights fade, and it stands out
- *   in its color with a line of that color around each of its lines, and a handle at each end:
+ *   in its color with a line of that color around each of its strokes, and a handle at each end:
  *   dragging one moves that end to the nearest word (`{ type: "resize", … }` when let go; the app
  *   saves it and paints the list again). A tap off it says so (`{ type: "outside" }`).
  *   `klipReveal(id, covered)` moves it near the top when the bottom `covered` pixels
@@ -110,33 +112,40 @@ export function startReaderPage(): void {
 	let byId = new Map<string, Range>()
 	const colorOf = new Map<string, number>()
 	const offsetsOf = new Map<string, Offsets>()
-	let painted: Range[][] = [[], [], [], [], []]
+	const noted = new Set<string>()
 	let active: string | null = null
-	// Registers the highlights anew: WebKit doesn't repaint when one is only deleted. Nor does it
-	// repaint all of the text one leaves when it spans blocks (the next paragraph kept its color):
-	// the whole article is repainted.
+	// The highlights' marker strokes, under the text (`ink.ts`), and the line around the one in focus
+	// over them, drawn again whenever the strokes are measured.
+	const ink = root ? createInk(root, outline) : null
+	// Paints the highlights anew. The one in focus also gets its text at full strength over the
+	// faded rest (`klip-active`, the CSS Custom Highlight API, whose text WebKit doesn't repaint when
+	// it is taken away: the article is repainted).
 	function paint() {
-		if (!canPaint()) return
-		painted.forEach((ranges, color) => {
-			if (ranges.length) CSS.highlights.set(`klip-c${color}`, new Highlight(...ranges))
-			else CSS.highlights.delete(`klip-c${color}`)
-		})
+		ink?.set(
+			[...byId].map(([id, range]) => ({
+				id,
+				range,
+				color: colorOf.get(id) ?? 0,
+				note: noted.has(id),
+			})),
+		)
+		ink?.setActive(active && byId.has(active) ? active : null)
 		const range = active ? byId.get(active) : undefined
-		if (range) {
-			// Over its own color, whatever order the colors were registered in.
-			const mark = new Highlight(range)
-			mark.priority = 1
-			CSS.highlights.set("klip-active", mark)
-		} else CSS.highlights.delete("klip-active")
+		if (canPaint()) {
+			if (range) {
+				const mark = new Highlight(range)
+				mark.priority = 1
+				CSS.highlights.set("klip-active", mark)
+			} else CSS.highlights.delete("klip-active")
+		}
 		if (range && active) root?.setAttribute("data-focus", String(colorOf.get(active) ?? 0))
 		else root?.removeAttribute("data-focus")
 		outline()
 		repaint(root ?? undefined)
 	}
 
-	// The highlight in focus stands out: a line of its color around each of its lines (`.hl-pop`).
-	// The CSS Custom Highlight API only paints a background, so the boxes are drawn over the page,
-	// in its coordinates, and measured again when the text moves (type, images, rotation).
+	// The highlight in focus stands out: a line of its color around each of its strokes (`.hl-pop`),
+	// over the ink, and a handle at each end of its text.
 	// The handles stay the same elements while dragged: WebKit sends a touch's moves to the
 	// element it started on, and one taken out of the page would get them no more.
 	const layer = document.createElement("div")
@@ -159,44 +168,27 @@ export function startReaderPage(): void {
 		}
 		layer.hidden = false
 		const color = String(colorOf.get(active) ?? 0)
-		const boxes = lineBoxes(textRects(range), {
-			x: window.scrollX,
-			y: window.scrollY,
-		})
-		// The same highlight measured again keeps its boxes: they only appear once.
+		placeHandles(
+			lineBoxes(root ? textRects(range, root) : [], { x: window.scrollX, y: window.scrollY }),
+		)
+		// The same highlight measured again keeps its lines: they only appear once.
 		const same = layer.dataset.id === active && layer.dataset.color === color
 		layer.dataset.id = active
 		layer.dataset.color = color
-		placeHandles(boxes)
 		boxesEl.replaceChildren(
-			...boxes.map((box) => {
+			...(ink?.strokesOf(active) ?? []).map((stroke) => {
 				const el = document.createElement("span")
 				el.className = same ? "hl-pop" : "hl-pop hl-in"
 				el.dataset.color = color
-				el.style.left = `${box.left}px`
-				el.style.top = `${box.top}px`
-				el.style.width = `${box.width}px`
-				el.style.height = `${box.height}px`
+				el.style.left = `${stroke.left}px`
+				el.style.top = `${stroke.top}px`
+				el.style.width = `${stroke.width}px`
+				el.style.height = `${stroke.height}px`
+				el.style.borderRadius = stroke.radius
+				if (stroke.tilt) el.style.transform = `rotate(${stroke.tilt}deg)`
 				return el
 			}),
 		)
-	}
-	// The rectangles of the range's text only: a range across paragraphs also gives the box of each
-	// paragraph it holds whole, which would join its lines into one block.
-	function textRects(range: Range): DOMRect[] {
-		const container = range.commonAncestorContainer
-		if (container.nodeType === Node.TEXT_NODE) return Array.from(range.getClientRects())
-		const rects: DOMRect[] = []
-		const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT)
-		for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-			if (!range.intersectsNode(node)) continue
-			const part = document.createRange()
-			part.selectNodeContents(node)
-			if (node === range.startContainer) part.setStart(node, range.startOffset)
-			if (node === range.endContainer) part.setEnd(node, range.endOffset)
-			rects.push(...Array.from(part.getClientRects()))
-		}
-		return rects
 	}
 
 	// ---- resizing ----
@@ -282,9 +274,6 @@ export function startReaderPage(): void {
 		const range = rangeFromOffsets(root, next.start, next.end)
 		if (!range) return
 		dragging.draft = next
-		const before = byId.get(dragging.id)
-		const color = colorOf.get(dragging.id) ?? 0
-		painted[color] = painted[color]!.map((r) => (r === before ? range : r))
 		byId.set(dragging.id, range)
 		offsetsOf.set(dragging.id, next)
 		paint()
@@ -299,30 +288,20 @@ export function startReaderPage(): void {
 		post({ type: "resize", id: done.id, ...place(done.draft), previous: place(done.from) })
 	}
 
-	let outlineFrame = 0
-	const remeasure = () => {
-		cancelAnimationFrame(outlineFrame)
-		outlineFrame = requestAnimationFrame(outline)
-	}
-	window.addEventListener("resize", remeasure)
-	document.addEventListener("load", remeasure, true)
-	document.fonts?.addEventListener?.("loadingdone", remeasure)
 	page.klipHighlights = (list) => {
-		const ranges: Range[][] = [[], [], [], [], []]
 		byId = new Map()
 		colorOf.clear()
 		offsetsOf.clear()
+		noted.clear()
 		for (const h of list) {
 			const place = placeOf(h)
 			const range = place && root ? rangeFromOffsets(root, place.start, place.end) : null
 			if (!place || !range) continue
 			offsetsOf.set(h.id, place)
-			const color = h.color >= 0 && h.color < 5 ? h.color : 0
-			ranges[color]!.push(range)
 			byId.set(h.id, range)
-			colorOf.set(h.id, color)
+			colorOf.set(h.id, h.color >= 0 && h.color < 5 ? h.color : 0)
+			if (h.note) noted.add(h.id)
 		}
-		painted = ranges
 		paint()
 	}
 	page.klipActive = (id) => {
@@ -415,6 +394,9 @@ export function startReaderPage(): void {
 		const target = event.target instanceof Element ? event.target : null
 		// The end block's buttons answer for themselves.
 		if (target?.closest("#klip-end")) return
+		// A noted highlight's tab opens it.
+		const tab = target?.closest<HTMLElement>(".hl-tab[data-id]")
+		if (tab) return post({ type: "highlight", id: tab.dataset.id! })
 		const link = target?.closest<HTMLAnchorElement>("a[href]")
 		if (link) {
 			if ((link.getAttribute("href") ?? "")[0] === "#") return
@@ -527,7 +509,7 @@ export function startReaderPage(): void {
 		el.style.fontSize = `${fontSize}px`
 		el.classList.toggle("sans", sans)
 		window.scrollTo(0, at * (el.scrollHeight - el.clientHeight))
-		outline()
+		ink?.measure()
 		reportReading()
 	}
 

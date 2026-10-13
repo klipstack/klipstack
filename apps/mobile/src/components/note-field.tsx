@@ -44,6 +44,7 @@ export function NoteField({
 	linking,
 	accessibilityLabel,
 	placeholder,
+	placeholderColor,
 	maxLength,
 	scrollEnabled,
 	style,
@@ -57,6 +58,8 @@ export function NoteField({
 	linking: NoteLinking
 	accessibilityLabel: string
 	placeholder: string
+	/** The placeholder's color, on paper of another color (a post-it); muted by default. */
+	placeholderColor?: string
 	maxLength: number
 	scrollEnabled?: boolean
 	style: StyleProp<TextStyle>
@@ -198,7 +201,7 @@ export function NoteField({
 				scrollEnabled={scrollEnabled}
 				maxLength={maxLength}
 				placeholder={placeholder}
-				placeholderTextColor={colors.mutedFg}
+				placeholderTextColor={placeholderColor ?? colors.mutedFg}
 				style={style}
 			>
 				{state.text
@@ -218,7 +221,14 @@ export function NoteField({
 	)
 }
 
-const TEXT_KEYS = new Set(["color", "fontSize", "lineHeight", "fontFamily", "fontWeight"])
+const TEXT_KEYS = new Set([
+	"color",
+	"fontSize",
+	"lineHeight",
+	"fontFamily",
+	"fontWeight",
+	"fontStyle",
+])
 
 /** A field's style as the text's own and the box's (padding, border, background). */
 function split(style: StyleProp<TextStyle>): { text: TextStyle; box: ViewStyle } {

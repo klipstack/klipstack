@@ -256,7 +256,7 @@ export default function Reader() {
 	useEffect(() => finishIfArmed, [finishIfArmed])
 
 	// Repaint when the highlights change after the page is up (it paints the first ones itself).
-	// Notes aren't painted: a note saved doesn't repaint.
+	// Only whether each has a note is painted (its tab): a note saved repaints when it starts or empties.
 	const painted = article ? highlightsJson(article.highlights) : null
 	useEffect(() => {
 		if (!painted || !loaded.current) return

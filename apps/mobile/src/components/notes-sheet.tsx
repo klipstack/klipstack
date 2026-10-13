@@ -4,12 +4,16 @@ import type { NoteSaveStatus } from "@klipstack/sdk/note-autosave"
 import { SymbolView } from "expo-symbols"
 import { useRef } from "react"
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
+import { MarkerText } from "@/components/marker-text"
 import { NoteField, type NoteFieldHandle, type NoteLinking } from "@/components/note-field"
+import { PostIt, postItText, useGrowingFit } from "@/components/post-it"
 import { fromStored } from "@/lib/note-field"
+import { tiltFor } from "@/lib/post-it"
 import type { Colors } from "@/lib/theme"
 
 /**
- * The web reader's sidebar, as a sheet: the article's note on top, its highlights below, then the
+ * The web reader's sidebar, as a sheet: the article's note on top, a post-it written on in place,
+ * its highlights below, each quote marked in its color with its note on a post-it, then the
  * articles whose notes link here. Tapping a highlight closes the sheet and shows it in the
  * article, with its tools; tapping a link or a linking article opens that article.
  */
@@ -41,6 +45,8 @@ export function NotesSheet({
 	colors: Colors
 }) {
 	const field = useRef<NoteFieldHandle>(null)
+	// Sized afresh each time the sheet opens: a note cleared last time is small again.
+	const fit = useGrowingFit(note.value, String(visible))
 	return (
 		<Modal
 			visible={visible}
@@ -70,22 +76,28 @@ export function NotesSheet({
 						</Text>
 						<NoteStatus status={note.status} onRetry={note.onFlush} colors={colors} />
 					</View>
-					<NoteField
-						ref={field}
-						accessibilityLabel="Your note"
-						value={note.value}
-						onChange={note.onChange}
-						onBlur={note.onFlush}
-						linking={linking}
-						scrollEnabled={false}
-						maxLength={NOTE_MAX}
-						placeholder="Your thoughts on this article"
+					{/* Written straight on the paper: the editor is the note. */}
+					<PostIt
+						variant="compact"
+						fit={fit || ARTICLE_NOTE_PLACEHOLDER}
 						colors={colors}
-						style={[
-							styles.note,
-							{ color: colors.fg, backgroundColor: colors.muted, borderColor: colors.border },
-						]}
-					/>
+						style={styles.paper}
+					>
+						<NoteField
+							ref={field}
+							accessibilityLabel="Your note"
+							value={note.value}
+							onChange={note.onChange}
+							onBlur={note.onFlush}
+							linking={linking}
+							scrollEnabled={false}
+							maxLength={NOTE_MAX}
+							placeholder={ARTICLE_NOTE_PLACEHOLDER}
+							placeholderColor={colors.note.placeholder}
+							colors={colors}
+							style={[postItText(colors, "compact"), styles.note]}
+						/>
+					</PostIt>
 					<Pressable
 						accessibilityRole="button"
 						accessibilityLabel="Link Article"
@@ -112,16 +124,27 @@ export function NotesSheet({
 								onPress={() => onSelect(h.id)}
 								style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.muted }]}
 							>
-								<View style={[styles.swatch, { backgroundColor: colors.highlight[h.color] }]} />
 								<View style={styles.grow}>
-									<Text style={[styles.quote, { color: colors.fg }]} numberOfLines={4}>
-										{h.quote}
-									</Text>
+									{/* Marked as it is in the article, in its color. */}
+									<MarkerText
+										text={oneLine(h.quote)}
+										color={h.color}
+										seed={h.id}
+										numberOfLines={4}
+										colors={colors}
+										style={[styles.quote, { color: colors.fg }]}
+									/>
 									{h.note ? (
-										<Text style={[styles.highlightNote, { color: colors.mutedFg }]}>
+										<PostIt
+											variant="compact"
+											fit={h.note}
+											tilt={tiltFor(h.id)}
+											colors={colors}
+											style={styles.highlightNote}
+										>
 											{/* Links as their titles. */}
-											{fromStored(h.note).text}
-										</Text>
+											<Text style={postItText(colors, "compact")}>{fromStored(h.note).text}</Text>
+										</PostIt>
 									) : null}
 								</View>
 							</Pressable>
@@ -148,7 +171,7 @@ export function NotesSheet({
 										</Text>
 										{link.highlight?.quote ? (
 											<Text
-												style={[styles.highlightNote, { color: colors.mutedFg }]}
+												style={[styles.backlinkQuote, { color: colors.mutedFg }]}
 												numberOfLines={1}
 											>
 												{link.highlight.quote}
@@ -187,6 +210,11 @@ function NoteStatus({
 	return null
 }
 
+const ARTICLE_NOTE_PLACEHOLDER = "Your thoughts on this article"
+
+/** Runs of spaces and line breaks as one space, as the web shows a quote. */
+const oneLine = (text: string) => text.replace(/\s+/g, " ").trim()
+
 const styles = StyleSheet.create({
 	sheet: { flex: 1 },
 	bar: {
@@ -203,16 +231,10 @@ const styles = StyleSheet.create({
 	label: { fontSize: 13, fontWeight: "500", letterSpacing: 0.4, marginBottom: 8 },
 	onlyYou: { fontWeight: "400" },
 	status: { fontSize: 13, marginBottom: 8 },
-	note: {
-		minHeight: 120,
-		fontSize: 17,
-		lineHeight: 23,
-		padding: 12,
-		paddingTop: 12,
-		borderRadius: 10,
-		borderWidth: StyleSheet.hairlineWidth,
-		textAlignVertical: "top",
-	},
+	// Room above for the tape.
+	paper: { marginTop: 6 },
+	// The whole paper takes the tap.
+	note: { flexGrow: 1, minHeight: 66, padding: 0, paddingTop: 0, textAlignVertical: "top" },
 	linkArticle: {
 		flexDirection: "row",
 		alignItems: "center",
@@ -230,9 +252,9 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 6,
 		borderRadius: 10,
 	},
-	swatch: { width: 4, borderRadius: 2 },
 	grow: { flex: 1, gap: 4 },
 	quote: { fontFamily: "Iowan Old Style", fontSize: 17, lineHeight: 24 },
-	highlightNote: { fontSize: 15, lineHeight: 20 },
+	highlightNote: { marginTop: 14, marginBottom: 6 },
+	backlinkQuote: { fontSize: 15, lineHeight: 20 },
 	linkTitle: { fontSize: 17, lineHeight: 22 },
 })
