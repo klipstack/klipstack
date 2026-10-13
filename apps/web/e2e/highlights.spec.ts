@@ -357,8 +357,14 @@ test("a highlight's color: picked in its toolbar, shown on the text, its note an
 	expect(created.status()).toBe(201)
 	await page.reload()
 	await waitForHydration(page)
-	// A new highlight is yellow.
+	// A new highlight is yellow, and its note the classic yellow paper.
 	await expect.poll(() => painted(page, "yellow")).toEqual([QUOTE])
+	const margin = page.getByRole("region", { name: "Highlight notes" })
+	const marginNote = margin.getByRole("button", { name: NOTE })
+	const classicPaper = await cssColor(page, "var(--k-note)")
+	const greenPaper = await cssColor(page, "var(--k-note-green)")
+	expect(greenPaper).not.toBe(classicPaper)
+	await expect(marginNote).toHaveCSS("background-color", classicPaper)
 
 	const point = await pointInText(page, QUOTE)
 	await page.mouse.click(point.x, point.y)
@@ -388,9 +394,10 @@ test("a highlight's color: picked in its toolbar, shown on the text, its note an
 	await expect(page.locator('[data-hl="green"] > .hl-outline')).not.toHaveCount(0)
 	// The mark in focus is full strength in its own color.
 	await expect(page.locator(".reader-content")).toHaveAttribute("data-hl", "green")
-	const margin = page.getByRole("region", { name: "Highlight notes" })
-	const marginNote = margin.getByRole("button", { name: NOTE })
 	await expect(marginNote).toHaveCSS("border-left-color", greenLine)
+	// Its note turns to green paper at once, with the green paper's ink.
+	await expect(marginNote).toHaveCSS("background-color", greenPaper)
+	await expect(marginNote).toHaveCSS("color", await cssColor(page, "var(--k-note-green-fg)"))
 	await page.keyboard.press("Escape")
 	await expect(toolbar).toBeHidden()
 
@@ -409,6 +416,7 @@ test("a highlight's color: picked in its toolbar, shown on the text, its note an
 	await expect(field).toBeFocused()
 	await expect(field).toHaveText(NOTE)
 	await expect(editor.locator("[data-post-it]")).toHaveCSS("border-left-color", greenLine)
+	await expect(editor.locator("[data-post-it]")).toHaveCSS("background-color", greenPaper)
 	await expect(field).toHaveCSS("font-style", "italic")
 	expect(await textStart(field)).toEqual(shown)
 	// Linking an article still works on the post-it.
@@ -426,6 +434,7 @@ test("a highlight's color: picked in its toolbar, shown on the text, its note an
 	const row = sidebar.getByRole("button", { name: QUOTE })
 	await expectMarked(row.getByTestId("highlight-quote"), "green")
 	await expect(row.locator("[data-post-it]")).toHaveText(NOTE)
+	await expect(row.locator("[data-post-it]")).toHaveCSS("background-color", greenPaper)
 
 	// The Notebook too.
 	await page.goto("/notebook")
@@ -433,6 +442,7 @@ test("a highlight's color: picked in its toolbar, shown on the text, its note an
 	// On the board, the card's quote mark is in the color (it was a strip before the board).
 	await expect(card.getByTestId("quote-mark")).toHaveCSS("color", greenLine)
 	await expect(card.locator("[data-post-it]")).toHaveText(NOTE)
+	await expect(card.locator("[data-post-it]")).toHaveCSS("background-color", greenPaper)
 })
 
 test("the highlight popover scrolls with its highlight", async ({ page }) => {

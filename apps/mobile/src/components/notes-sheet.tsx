@@ -139,11 +139,14 @@ export function NotesSheet({
 											variant="compact"
 											fit={h.note}
 											tilt={tiltFor(h.id)}
+											color={h.color}
 											colors={colors}
 											style={styles.highlightNote}
 										>
 											{/* Links as their titles. */}
-											<Text style={postItText(colors, "compact")}>{fromStored(h.note).text}</Text>
+											<Text style={postItText(colors, "compact", h.color)}>
+												{fromStored(h.note).text}
+											</Text>
 										</PostIt>
 									) : null}
 								</View>

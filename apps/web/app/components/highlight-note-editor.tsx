@@ -1,7 +1,7 @@
 import { Check, X } from "lucide-react"
 import { useEffect, useInsertionEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { highlightColor } from "~/lib/highlight-colors"
+import { highlightColor, highlightColorName } from "~/lib/highlight-colors"
 import type { LinkTargets } from "~/lib/note-links"
 import { cn } from "~/lib/utils"
 import { LinkArticleButton } from "./link-article-button"
@@ -18,7 +18,7 @@ export type NoteEditorPlacement =
 
 interface Props {
 	initial: string
-	/** The highlight's color, for the note's edge. */
+	/** The highlight's color, for the note's edge and paper. */
 	color?: number
 	/** The note's lean (`PostIt`'s `tilt`): the note's own, so it does not move when edited. */
 	tilt?: number
@@ -120,6 +120,7 @@ export function HighlightNoteEditor({
 				tilt={tilt}
 				fit={placement.kind === "margin" ? fit : undefined}
 				{...highlightColor(color)}
+				color={highlightColorName(color)}
 				className={cn(
 					variant === "compact" && MARGIN_NOTE,
 					className,

@@ -4,7 +4,7 @@ import { X } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router"
-import { highlightColor } from "~/lib/highlight-colors"
+import { highlightColor, highlightColorName } from "~/lib/highlight-colors"
 import type { RenderableHighlight } from "~/lib/highlights.client"
 import type { LinkTargets } from "~/lib/note-links"
 import { cn } from "~/lib/utils"
@@ -247,6 +247,7 @@ export function ReaderSidebar({
 												as="span"
 												variant="compact"
 												fit={h.note}
+												color={highlightColorName(h.color)}
 												tilt={tiltFor(h.id)}
 												className="mt-3 mb-1 text-base leading-snug"
 											>

@@ -1,9 +1,11 @@
 /**
- * The geometry of a post-it, the paper every note is written on: the web's PostIt
+ * The geometry and paper of a post-it, the paper every note is written on: the web's PostIt
  * (apps/web/app/components/post-it.tsx). The app's `PostIt` component and the reader page's
  * post-it at the end of the article (`src/page/takeaway.ts`) both size and tilt their paper here,
  * so the two agree.
  */
+
+import type { HighlightColor } from "@klipstack/api-contract/enums"
 
 export type PostItVariant = "full" | "compact"
 
@@ -58,3 +60,29 @@ export function postItChars(text: string): number {
 export function growingFit(longest: string, text: string): string {
 	return text.length > longest.length ? text : longest
 }
+
+/** A post-it's paper, the ink written on it, an empty note's placeholder ink and its tape. */
+export type NotePaper = { paper: string; fg: string; placeholder: string; tape: string }
+
+/**
+ * The paper of each color, in light and dark: the web's --k-note and --k-note-<color> (app.css),
+ * converted from oklch to hex. Yellow is the classic paper, every note's but a highlight's; a
+ * highlight's note is paper in its highlight's color, as sticky-note stock comes: paler than the
+ * marker's ink and opaque. Every color has the same clear tape.
+ */
+export const NOTE_PAPER = {
+	light: {
+		yellow: { paper: "#fdf1bf", fg: "#2f2416", placeholder: "#2f24168c", tape: "#ffffff8c" },
+		green: { paper: "#d0f9d9", fg: "#192f1f", placeholder: "#192f1f8c", tape: "#ffffff8c" },
+		blue: { paper: "#d4eefe", fg: "#172b3b", placeholder: "#172b3b8c", tape: "#ffffff8c" },
+		pink: { paper: "#ffe0eb", fg: "#41232f", placeholder: "#41232f8c", tape: "#ffffff8c" },
+		orange: { paper: "#fee7cf", fg: "#412714", placeholder: "#4127148c", tape: "#ffffff8c" },
+	},
+	dark: {
+		yellow: { paper: "#544627", fg: "#f5eedc", placeholder: "#f5eedc8c", tape: "#ffffff26" },
+		green: { paper: "#2e4d39", fg: "#e3f4e6", placeholder: "#e3f4e68c", tape: "#ffffff26" },
+		blue: { paper: "#2d485e", fg: "#e3f1fb", placeholder: "#e3f1fb8c", tape: "#ffffff26" },
+		pink: { paper: "#5c3846", fg: "#fae9ef", placeholder: "#fae9ef8c", tape: "#ffffff26" },
+		orange: { paper: "#624227", fg: "#faecdd", placeholder: "#faecdd8c", tape: "#ffffff26" },
+	},
+} as const satisfies Record<"light" | "dark", Record<HighlightColor, NotePaper>>

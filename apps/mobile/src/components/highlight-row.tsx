@@ -59,10 +59,11 @@ export function HighlightRow({
 								variant="compact"
 								fit={highlight.note}
 								tilt={tiltFor(highlight.id)}
+								color={highlight.color}
 								colors={colors}
 								style={styles.note}
 							>
-								<Text style={postItText(colors, "compact")} numberOfLines={6}>
+								<Text style={postItText(colors, "compact", highlight.color)} numberOfLines={6}>
 									{/* Links as their titles. */}
 									{fromStored(highlight.note).text}
 								</Text>

@@ -19,7 +19,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { HighlighterNibs } from "@/components/highlighter-nibs"
 import { NoteField, type NoteFieldHandle, type NoteLinking } from "@/components/note-field"
-import { PostIt, postItText, useGrowingFit } from "@/components/post-it"
+import { notePaper, PostIt, postItText, useGrowingFit } from "@/components/post-it"
 import { tiltFor } from "@/lib/post-it"
 import type { Colors } from "@/lib/theme"
 
@@ -186,6 +186,7 @@ function HighlightNote({
 				fit={fit || NOTE_PLACEHOLDER}
 				tilt={tiltFor(highlight.id)}
 				blank={!value}
+				color={highlight.color}
 				colors={colors}
 				style={styles.paper}
 			>
@@ -201,9 +202,9 @@ function HighlightNote({
 					linking={linking}
 					maxLength={HIGHLIGHT_NOTE_MAX}
 					placeholder={NOTE_PLACEHOLDER}
-					placeholderColor={colors.note.placeholder}
+					placeholderColor={notePaper(colors, highlight.color).placeholder}
 					colors={colors}
-					style={[postItText(colors), styles.note]}
+					style={[postItText(colors, "full", highlight.color), styles.note]}
 				/>
 			</PostIt>
 			{status === "error" ? (
