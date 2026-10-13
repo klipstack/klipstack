@@ -46,16 +46,18 @@ first: the demo worker would take jobs the tests wait for (extracting an article
 topics), and those tests would time out. On separate databases, the demo app can keep running
 during a test run.
 
-The other demo commands use `.env`'s database, as outside an orb. To run one on the orb's demo
-account, give it the demo database:
+`.agents/setup` seeds the account in both databases: in `.env`'s too, so an agent checking a change
+on `pnpm dev` can sign in to it (`.claude/skills/verify/browser.md`). The two are separate
+accounts. The demo commands use `.env`'s database, as outside an orb. To run one on the account
+`orb:app` shows, give it the demo database:
 
 ```sh
 DATABASE_URL=$(scripts/demo-database) pnpm demo:login-link --url <portal address>
 DATABASE_URL=$(scripts/demo-database) pnpm demo:verify
 ```
 
-An orb made before this change has its demo account in `.env`'s database too. `orb:app` seeds a
-new one in `klipstack_demo` on its first run (about two minutes); the old one is left in place.
+In an orb made before `klipstack_demo` existed, the first `orb:app` run seeds the account there
+(about two minutes); the one in `.env`'s database stays.
 
 ## Sign-in link
 

@@ -10,8 +10,9 @@ set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
 [ -f .env ] || { echo "No .env here: copy .env.example." >&2; exit 1; }
-admin_url=${DATABASE_URL:-$(grep -E '^DATABASE_URL=' .env | head -n 1 | cut -d= -f2- | tr -d "\"'")}
+admin_url=${DATABASE_URL:-$(grep -E '^DATABASE_URL=' .env | head -n 1 | cut -d= -f2- | tr -d "\"'" || true)}
 admin_url=${admin_url%%\?*}
+[ -n "$admin_url" ] || { echo "DATABASE_URL is not set, in the environment or .env." >&2; exit 1; }
 if ! printf '%s' "$admin_url" | grep -E '@(localhost|127\.0\.0\.1)(:[0-9]+)?/' >/dev/null; then
   echo "DATABASE_URL must name a local PostgreSQL: the demo database is made beside it." >&2
   exit 1

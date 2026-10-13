@@ -130,14 +130,17 @@ if [ ! -f "$deps_marker" ]; then
 fi
 done_step
 
-# --- The demo account (docs/development/demo-account.md), so `pnpm orb:app` finds it in place, in
-# the demo app's database (scripts/demo-database). The capture reads public pages: one that fails is
-# left out, and a failed step does not stop setup (`pnpm orb:app` tries again).
+# --- The demo account (docs/development/demo-account.md), in two databases: `.env`'s, for agents
+# checking a change on `pnpm dev` (.claude/skills/verify/browser.md), and the demo app's
+# (scripts/demo-database), so `pnpm orb:app` finds it in place. The capture reads public pages: one
+# that fails is left out, and a failed step does not stop setup (`pnpm orb:app` tries again).
 step "Demo account"
 pnpm demo:capture >/tmp/klipstack-demo-capture.log 2>&1 ||
 	echo "    some pages were not captured: /tmp/klipstack-demo-capture.log"
 pnpm demo:capture-feeds >/tmp/klipstack-demo-feeds.log 2>&1 ||
 	echo "    some feeds were not captured: /tmp/klipstack-demo-feeds.log"
+pnpm demo:seed >/tmp/klipstack-demo-seed-dev.log 2>&1 ||
+	echo "    seeding failed: /tmp/klipstack-demo-seed-dev.log"
 if demo_url=$(scripts/demo-database 2>/tmp/klipstack-demo-database.log); then
 	DATABASE_URL="$demo_url" pnpm demo:seed >/tmp/klipstack-demo-seed.log 2>&1 ||
 		echo "    seeding failed: /tmp/klipstack-demo-seed.log"
