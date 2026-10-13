@@ -72,6 +72,8 @@ export default {
 		keptUnfinished: "It stays unfinished.",
 		finishOnLeave: "Finish when I leave",
 		finish: "Mark as finished",
+		/** On the private note's post-it, while it is empty. */
+		notePlaceholder: "What will you take from this?",
 		star: "Star",
 		starred: "Starred",
 		shortlist: "Share in next edition",
@@ -79,13 +81,15 @@ export default {
 		/** Under the mark, once marked: marking is all it takes. */
 		added: "Added to your next edition",
 		/** Written for the edition's readers, not the private note. */
-		editionNote: "A note for your readers",
+		editionNote: "For your edition's readers",
 		editionNotePlaceholder:
 			"Optional: a rough note for your readers on why it's worth reading. You can polish it later.",
 		editionNoteAutosave: "Saves as you type",
 		editionNoteSaving: "Saving…",
 		editionNoteSaved: "Saved",
 		editionNoteFailed: "Not saved. Check your connection.",
+		/** Copies the private note into the edition note, to edit from there. */
+		startFromNote: "Start from my note",
 		done: "Done",
 		toastArchived: "Finished and archived",
 		toastFinished: "Marked as finished",
@@ -161,7 +165,10 @@ export default {
 		sidebar: {
 			title: "Notes and highlights",
 			toggle: "Notes and highlights",
-			note: "Note",
+			/** The article's private note, here and at the end of the article. */
+			note: "Your note",
+			/** Beside the note's name: no one else reads it. */
+			noteOnlyYou: "only you",
 			notePlaceholder: "Write a note about this article…",
 			noteSaving: "Saving…",
 			noteSaved: "Saved",

@@ -503,11 +503,13 @@ function Reader({ loaderData }: Route.ComponentProps) {
 							) : null}
 						</header>
 					}
-					footer={
+					footer={(note) => (
 						<>
 							<ReaderEnd
 								key={doc.id}
 								documentId={doc.id}
+								note={note}
+								linkTargets={loaderData.linkTargets}
 								editionNote={doc.editionNote}
 								state={ending.state}
 								archived={state.archived}
@@ -521,7 +523,7 @@ function Reader({ loaderData }: Route.ComponentProps) {
 							/>
 							<TopicShelf shelf={loaderData.topics.shelf} from={back.to} />
 						</>
-					}
+					)}
 				/>
 			) : doc.status === "failed" ? (
 				<div className="mx-auto max-w-lg px-4 py-24 text-center">

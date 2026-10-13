@@ -43,6 +43,7 @@ function Textarea({
 	onBlur,
 	onSubmit,
 	placeholder,
+	autoFocus,
 	maxLength,
 	id,
 	"aria-label": ariaLabel,
@@ -55,6 +56,8 @@ function Textarea({
 			aria-label={ariaLabel}
 			aria-labelledby={ariaLabelledBy}
 			value={value}
+			// oxlint-disable-next-line jsx-a11y/no-autofocus -- asked for: the text was just put here to edit
+			autoFocus={autoFocus}
 			maxLength={maxLength}
 			onChange={(e) => onChange(e.target.value)}
 			onBlur={onBlur}

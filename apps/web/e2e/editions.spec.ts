@@ -450,7 +450,7 @@ test("a note written at the end of an article goes into the next edition, in the
 	await expect(field).toContainText("Added to your next edition")
 	await expect(field).toContainText("Saves as you type")
 	const WHY = "One meeting can cost a maker a whole afternoon."
-	const editor = field.getByRole("textbox", { name: "A note for your readers" })
+	const editor = field.getByRole("textbox", { name: "For your edition's readers" })
 	await editor.click()
 	await Promise.all([
 		page.waitForResponse((r) => r.url().endsWith(`/documents/${id}/edition-note`) && r.ok()),

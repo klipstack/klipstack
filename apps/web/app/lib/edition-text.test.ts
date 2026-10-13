@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { parseEditionText, plainEditionText } from "./edition-text"
+import { editionNoteFromNote, parseEditionText, plainEditionText } from "./edition-text"
 
 const text = (t: string) => ({ kind: "text", text: t })
 const link = (t: string, url: string) => ({ kind: "link", text: t, url })
@@ -58,5 +58,32 @@ describe("plainEditionText", () => {
 		expect(plainEditionText("Read [this](https://a.example).\n\nThen  that.")).toBe(
 			"Read this. Then that.",
 		)
+	})
+})
+
+describe("editionNoteFromNote", () => {
+	const ID = "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b"
+
+	it("starts an empty edition note from the private one, links to articles as their titles", () => {
+		expect(editionNoteFromNote("", `  Pairs with [Deep work](/read/${ID}).\nKeep it.  `, 500)).toBe(
+			"Pairs with Deep work.\n\nKeep it.",
+		)
+	})
+
+	it("adds it after what is already written, as a paragraph of its own", () => {
+		expect(editionNoteFromNote("Why read it:\n", "Meetings cost afternoons.", 500)).toBe(
+			"Why read it:\n\nMeetings cost afternoons.",
+		)
+	})
+
+	it("adds nothing when the note is empty or already in", () => {
+		expect(editionNoteFromNote("Draft", "  \n ", 500)).toBeNull()
+		expect(
+			editionNoteFromNote("Intro\n\nMeetings cost afternoons.", "Meetings cost afternoons.", 500),
+		).toBeNull()
+	})
+
+	it("stays within the length the server takes", () => {
+		expect(editionNoteFromNote("abc", "defgh", 6)).toBe("abc\n\nd")
 	})
 })

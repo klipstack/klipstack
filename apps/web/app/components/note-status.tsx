@@ -19,3 +19,14 @@ export function NoteStatus({ status, onRetry }: { status: NoteSaveStatus; onRetr
 		)
 	return null
 }
+
+/** Who reads the article's note: the reader alone, unlike the note for an edition's readers. */
+export function ArticleNoteLabel() {
+	const { t } = useTranslation("reader")
+	return (
+		<span className="font-medium text-muted-fg">
+			{t("highlights.sidebar.note")}
+			<span className="font-normal"> · {t("highlights.sidebar.noteOnlyYou")}</span>
+		</span>
+	)
+}

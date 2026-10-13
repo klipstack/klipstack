@@ -9,7 +9,7 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
 import { Plugin } from "@tiptap/pm/state"
 import { type Editor, EditorContent, useEditor, useEditorState } from "@tiptap/react"
 import { ExternalLink, Link2, Unlink } from "lucide-react"
-import { useInsertionEffect, useRef, useState } from "react"
+import { useEffect, useInsertionEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { usePaletteHint } from "~/lib/commands"
 import { normalizeHref, type RichDoc, toEditionText, toRichDoc } from "~/lib/edition-rich-text"
@@ -25,6 +25,8 @@ export interface EditionTextEditorProps {
 	/** ⌘↵ / Ctrl+Enter: done with the field. Without it, the key does what it always does. */
 	onSubmit?: () => void
 	placeholder?: string
+	/** Takes the keyboard once ready, caret at the end. */
+	autoFocus?: boolean
 	maxLength?: number
 	id?: string
 	"aria-label"?: string
@@ -61,6 +63,7 @@ export default function EditionTextEditor({
 	onBlur,
 	onSubmit,
 	placeholder,
+	autoFocus,
 	maxLength = Number.POSITIVE_INFINITY,
 	id,
 	"aria-label": ariaLabel,
@@ -152,6 +155,10 @@ export default function EditionTextEditor({
 		onUpdate: ({ editor }: { editor: Editor }) => latest.current.onChange(textOf(editor.state.doc)),
 		onBlur: () => latest.current.onBlur?.(),
 	})
+
+	useEffect(() => {
+		if (autoFocus && editor) editor.commands.focus("end")
+	}, [autoFocus, editor])
 
 	// The bar shows while the field, or the bar itself, has the focus.
 	const [focused, setFocused] = useState(false)

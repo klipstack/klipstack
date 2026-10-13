@@ -586,6 +586,12 @@ test("leaving at the end of an article finishes it, with an undo", async ({ page
 	await expect(end).toHaveAttribute("data-state", "finishing")
 	await expect(end).toContainText("Finished")
 	await expect(end).toContainText("It goes to your archive when you leave.")
+	// The heading and what leaving does share one line.
+	const status = end.getByTestId("reader-end-status")
+	await expect(status).toHaveText(
+		"Finished It goes to your archive when you leave. Keep in Library",
+	)
+	expect((await status.boundingBox())!.height).toBeLessThan(40)
 
 	// Star it and mark it for the next edition, by their names.
 	await end.getByRole("button", { name: "Star", exact: true }).click()
