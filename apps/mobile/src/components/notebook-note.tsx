@@ -2,10 +2,18 @@ import { HIGHLIGHT_NOTE_MAX, NOTE_MAX } from "@klipstack/api-contract/names"
 import type { Highlight, KlipstackClient } from "@klipstack/sdk"
 import { createNoteAutosave, type NoteSaveStatus } from "@klipstack/sdk/note-autosave"
 import { useEffect, useRef, useState } from "react"
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native"
+import {
+	Alert,
+	Pressable,
+	type StyleProp,
+	StyleSheet,
+	Text,
+	type TextStyle,
+	View,
+} from "react-native"
 import { type NoteLinking, NoteField } from "@/components/note-field"
 import { notePaper, PostIt, postItText, useGrowingFit } from "@/components/post-it"
-import { fromStored } from "@/lib/note-field"
+import { fromStored, runs } from "@/lib/note-field"
 import { guardNoteSaves, type SavedNote } from "@/lib/note-guard"
 import { tiltFor } from "@/lib/post-it"
 import type { Colors } from "@/lib/theme"
@@ -99,7 +107,12 @@ export function ArticleNote({
 	if (!editable)
 		return (
 			<PostIt tilt={tilt} colors={colors} style={styles.large}>
-				<Text style={[postItText(colors), styles.text]}>{fromStored(note).text}</Text>
+				<NoteText
+					note={note}
+					linking={linking}
+					colors={colors}
+					style={[postItText(colors), styles.text]}
+				/>
 			</PostIt>
 		)
 	return (
@@ -233,7 +246,7 @@ function ArticleNoteEditor({
 								!value && { color: colors.note.placeholder },
 							]}
 						>
-							{value ? fromStored(value).text : ADD_NOTE}
+							{value ? <NoteRuns note={value} linking={linking} colors={colors} /> : ADD_NOTE}
 						</Text>
 					</Pressable>
 				)}
@@ -333,7 +346,7 @@ export function HighlightNote({
 						onPress={() => setEditing(true)}
 					>
 						<Text style={postItText(colors, "compact", highlight.color)}>
-							{fromStored(value).text}
+							<NoteRuns note={value} linking={linking} colors={colors} />
 						</Text>
 					</Pressable>
 				)}
@@ -341,6 +354,62 @@ export function HighlightNote({
 			<SaveStatus status={status} retry={() => void autosave.flush()} colors={colors} />
 		</View>
 	)
+}
+
+/** A note as written: links as their titles, which open their articles, as in the reader. */
+function NoteText({
+	note,
+	linking,
+	colors,
+	style,
+}: {
+	note: string
+	linking: NoteLinking
+	colors: Colors
+	style: StyleProp<TextStyle>
+}) {
+	return (
+		<Text style={style}>
+			<NoteRuns note={note} linking={linking} colors={colors} />
+		</Text>
+	)
+}
+
+/**
+ * The runs of a note's text, inside a `Text`: a link to an article still there opens it; one in the
+ * trash is struck through, and one gone is greyed, as the reader's note field shows them.
+ */
+function NoteRuns({
+	note,
+	linking,
+	colors,
+}: {
+	note: string
+	linking: NoteLinking
+	colors: Colors
+}) {
+	return runs(fromStored(note)).map((run) => {
+		if (!run.link) return run.text
+		const { id } = run.link
+		const status = linking.status(id)
+		return (
+			<Text
+				key={run.start}
+				accessibilityRole="link"
+				onPress={status === "ok" ? () => linking.open(id) : undefined}
+				style={
+					status === "trash"
+						? { color: colors.mutedFg, textDecorationLine: "line-through" }
+						: {
+								color: status === "ok" ? colors.accent : colors.mutedFg,
+								textDecorationLine: "underline",
+							}
+				}
+			>
+				{run.text}
+			</Text>
+		)
+	})
 }
 
 function SaveStatus({

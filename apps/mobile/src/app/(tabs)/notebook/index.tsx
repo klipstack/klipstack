@@ -121,7 +121,9 @@ export default function Notebook() {
 				}))
 				return {
 					items: notebookRows(answer),
-					nextCursor: "nextCursor" in answer ? answer.nextCursor : null,
+					// Only By article and Stream page; By topic answers By article while topics are off,
+					// and its cursor would be refused with `view=topics`.
+					nextCursor: pages && "nextCursor" in answer ? answer.nextCursor : null,
 				}
 			}),
 		[client, view, q, filter, tag, narrowTopic, seed],
@@ -149,7 +151,8 @@ export default function Notebook() {
 	const linkTargets = meta?.linkTargets
 	const linking = useCallback(
 		(articleId: string): NoteLinking => ({
-			status: (id) => linkTargets?.[id] ?? "ok",
+			// An id the answer leaves out is gone.
+			status: (id) => linkTargets?.[id] ?? "missing",
 			open: (id) => router.push({ pathname: "/read/[id]", params: { id } }),
 			search: async (text) =>
 				client ? (await client.articles.search(text, { limit: 20 })).items : [],
@@ -278,7 +281,7 @@ export default function Notebook() {
 			{blank ? null : (
 				<Stack.Toolbar placement="right">
 					<Stack.Toolbar.Menu
-						icon={VIEWS.find((v) => v.view === view)?.icon ?? "rectangle.stack"}
+						icon={VIEWS.find((v) => v.view === shownView)?.icon ?? "rectangle.stack"}
 						accessibilityLabel="View"
 						tintColor={colors.accent}
 					>

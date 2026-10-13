@@ -2,6 +2,8 @@ import { NOTEBOOK_SEED } from "@klipstack/api-contract"
 import type { Highlight, NotebookArticle, NotebookItem } from "@klipstack/sdk"
 import { describe, expect, it } from "vitest"
 import {
+	countLine,
+	filterLabel,
 	type NotebookRow,
 	newSeed,
 	notebookRows,
@@ -88,12 +90,41 @@ describe("withArticleNote", () => {
 		const next = withArticleNote(rows, "a1", saved)
 		const [section, card, other, group] = next
 		expect(section?.kind === "article" && section.entry.note).toBe("Written here")
+		// The editor compares this with what it saved: a stale one would start it over.
+		expect(section?.kind === "article" && section.entry.noteUpdatedAt).toBe(saved.noteUpdatedAt)
 		expect(card?.kind === "item" && card.item.kind === "note" && card.item.noteUpdatedAt).toBe(
 			saved.noteUpdatedAt,
 		)
 		expect(other).toBe(rows[2])
 		const inGroup = group?.kind === "topic" ? group.group.items[0] : null
 		expect(inGroup?.kind === "note" && inGroup.note).toBe("Written here")
+	})
+})
+
+describe("withArticleNote, emptied", () => {
+	it("keeps the section and the card, with no text, to write again", () => {
+		const rows: NotebookRow[] = [
+			{
+				kind: "article",
+				id: "a1",
+				entry: { article: article("a1"), note: "Old", noteUpdatedAt: null, highlights: [] },
+			},
+			{ kind: "item", id: "note:a1", item: noteItem("a1", "Old") },
+		]
+		const [section, card] = withArticleNote(rows, "a1", { note: null, noteUpdatedAt: null })
+		expect(section?.kind === "article" && section.entry.note).toBe(null)
+		expect(card?.kind === "item" && card.item.kind === "note" && card.item.note).toBe("")
+	})
+})
+
+describe("countLine and filterLabel", () => {
+	it("says what a topic holds, in the singular for one, and leaves out none", () => {
+		expect(countLine(3, 1)).toBe("3 highlights · 1 note")
+		expect(countLine(1, 0)).toBe("1 highlight")
+		expect(countLine(0, 2)).toBe("2 notes")
+		expect(filterLabel(null)).toBe("All")
+		expect(filterLabel("notes")).toBe("Notes")
+		expect(filterLabel("pink")).toBe("Pink")
 	})
 })
 
