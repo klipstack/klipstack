@@ -292,3 +292,12 @@ export function paintedHighlights(page: Page): Promise<string[]> {
 			}),
 	)
 }
+
+/**
+ * Put the caret at the end of the focused note, as a reader on this computer would. `End` will not
+ * do on a Mac: there it scrolls the page and leaves the caret where the click put it, often in the
+ * middle of the text.
+ */
+export async function caretToEnd(page: Page) {
+	await page.keyboard.press(process.platform === "darwin" ? "Meta+ArrowDown" : "Control+End")
+}

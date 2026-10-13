@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { expect, type Page, test } from "@playwright/test"
-import { signupUser, waitForHydration } from "./helpers"
+import { caretToEnd, signupUser, waitForHydration } from "./helpers"
 
 const pages = join(import.meta.dirname, "../../../packages/extract/test/fixtures/pages")
 const MAKERS = {
@@ -258,10 +258,10 @@ test("note links: @ and the Link article button open the same menu", async ({ pa
 	await expect(note.getByTestId("doc-chip")).toHaveText(JOEL.title)
 	expect(joel).toBeTruthy()
 
-	// The button types the trigger for you, and leaves the caret in the note. End first: a click in
-	// the middle of the note can land on the link, which selects it instead of placing a caret.
+	// The button types the trigger for you, and leaves the caret in the note. To its end first: a
+	// click in the middle of the note can land on the link, which selects it instead of a caret.
 	await note.click()
-	await page.keyboard.press("End")
+	await caretToEnd(page)
 	await page.getByTestId("link-article").click()
 	await expect(menu).toBeVisible()
 	await expect(menu.getByText("Recent")).toBeVisible()

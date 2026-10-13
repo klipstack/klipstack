@@ -15,6 +15,7 @@ import {
 } from "@klipstack/db"
 import { expect, type Page, test } from "@playwright/test"
 import {
+	caretToEnd,
 	createInviteCode,
 	expectMarked,
 	signupUser,
@@ -237,7 +238,7 @@ test("notebook: each article beside its note, written in place, found and narrow
 	// Written in place, saved on its own.
 	const tidesNote = page.getByLabel("Note on Tides")
 	await tidesNote.click()
-	await page.keyboard.press("End")
+	await caretToEnd(page)
 	await Promise.all([noteSaved(page, tides), page.keyboard.type(" Spring tides are higher.")])
 	await expect(articles.nth(1)).toContainText("Saved")
 	expect(await stored(tides)).toBe("The moon pulls twice a day. Spring tides are higher.")
@@ -264,7 +265,7 @@ test("notebook: each article beside its note, written in place, found and narrow
 
 	await writeNote(page, tides, "The reader's version wins.")
 	await tidesNote.click()
-	await page.keyboard.press("End")
+	await caretToEnd(page)
 	await Promise.all([noteSaved(page, tides, 409), page.keyboard.type("!")])
 	await page.getByRole("button", { name: "Use the saved note" }).click()
 	await expect(page.getByLabel("Note on Tides")).toHaveText("The reader's version wins.")

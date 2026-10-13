@@ -2,7 +2,13 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { db, documents, documentVersions, eq, user } from "@klipstack/db"
 import { expect, type Locator, type Page, test } from "@playwright/test"
-import { expectMarked, paintedHighlights, signupUser, waitForHydration } from "./helpers"
+import {
+	caretToEnd,
+	expectMarked,
+	paintedHighlights,
+	signupUser,
+	waitForHydration,
+} from "./helpers"
 import { insertArticle } from "./seed"
 
 const FIXTURE = join(
@@ -406,7 +412,7 @@ test("a highlight's color: picked in its toolbar, shown on the text, its note an
 	await expect(field).toHaveCSS("font-style", "italic")
 	expect(await textStart(field)).toEqual(shown)
 	// Linking an article still works on the post-it.
-	await page.keyboard.press("End")
+	await caretToEnd(page)
 	await page.keyboard.type(" [[")
 	await expect(page.getByTestId("note-link-menu")).toBeVisible()
 	await page.keyboard.press("Escape")
