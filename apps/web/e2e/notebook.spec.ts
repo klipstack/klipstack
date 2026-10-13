@@ -40,6 +40,14 @@ const TITLE = "Maker's Schedule, Manager's Schedule"
 const noteSaved = (page: Page, id: string, status = 200) =>
 	page.waitForResponse((r) => r.url().endsWith(`/documents/${id}/note`) && r.status() === status)
 
+const highlightSaved = (page: Page, id: string) =>
+	page.waitForResponse(
+		(r) =>
+			new URL(r.url()).pathname.startsWith(`/documents/${id}/highlights`) &&
+			r.request().method() === "POST" &&
+			r.ok(),
+	)
+
 async function writeNote(page: Page, id: string, note: string) {
 	const res = await page.request.post(`/documents/${id}/note`, { data: { note } })
 	expect(res.ok()).toBe(true)
@@ -437,12 +445,7 @@ test("notebook: by topic, a tag, notes written on the card, delete and Shuffle",
 	await editor.getByRole("textbox").fill("Worth a second look.")
 	// The card shows the note before the server has it: reload only once it is saved.
 	await Promise.all([
-		page.waitForResponse(
-			(r) =>
-				new URL(r.url()).pathname.startsWith(`/documents/${kept}/highlights`) &&
-				r.request().method() === "POST" &&
-				r.ok(),
-		),
+		highlightSaved(page, kept),
 		editor.getByRole("button", { name: "Save" }).click(),
 	])
 	const note = card.getByRole("button", { name: "Edit note" })
@@ -475,7 +478,10 @@ test("notebook: by topic, a tag, notes written on the card, delete and Shuffle",
 	await note.click()
 	await editor.getByRole("textbox").press("ControlOrMeta+a")
 	await editor.getByRole("textbox").press("Backspace")
-	await editor.getByRole("button", { name: "Save" }).click()
+	await Promise.all([
+		highlightSaved(page, kept),
+		editor.getByRole("button", { name: "Save" }).click(),
+	])
 	await expect(note).toHaveCount(0)
 	await expect(card.getByTestId("post-it-tape")).toHaveCount(0)
 	await page.reload()
