@@ -1,30 +1,51 @@
-import { Highlighter, ListFilter, Newspaper, Rows3, Trash2 } from "lucide-react"
+import {
+	ChevronDown,
+	Highlighter,
+	ListFilter,
+	Newspaper,
+	Rows3,
+	Shapes,
+	Shuffle,
+	X,
+} from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
-import { data, type FetcherWithComponents, Link, useFetcher } from "react-router"
-import { NoteText } from "~/components/note-text"
+import { data, Link, redirect } from "react-router"
+import { MenuNavLink, MoreMenu } from "~/components/more-menu"
 import { PinnedControls } from "~/components/pinned-controls"
-import { PostIt } from "~/components/post-it"
+import { ArticleThumb, QuoteCard } from "~/components/quote-card"
 import { SearchField } from "~/components/search-field"
 import { tooltip } from "~/components/tooltip-host"
-import { HIGHLIGHT_SWATCH, highlightColor } from "~/lib/highlight-colors"
+import { HIGHLIGHT_COLOR_NAMES, HIGHLIGHT_SWATCH, highlightColor } from "~/lib/highlight-colors"
 import {
 	DEFAULT_HIGHLIGHT_VIEW,
+	HIGHLIGHT_FILTERS,
 	HIGHLIGHT_VIEW_COOKIE,
 	HIGHLIGHT_VIEWS,
 	type HighlightFilter,
+	type HighlightsState,
 	type HighlightView,
-	highlightsSearch,
+	highlightsHref,
+	highlightsKeep,
 	highlightViewFromCookie,
 	parseHighlightFilter,
 	parseHighlightView,
 } from "~/lib/highlight-filters"
+import { extractLinkIds, type LinkTargets } from "~/lib/note-links"
 import type { PageBarHandle } from "~/lib/page-bar"
 import { cursorFields, isCursorTime, isUuid } from "~/lib/page-cursor"
 import { pageTitle } from "~/lib/page-title"
 import { requireUser } from "~/lib/session.server"
-import { LONG_UNDO_MS, showToast } from "~/lib/toast"
+import { sourceLabel } from "~/lib/site-label"
 import { cn } from "~/lib/utils"
+import {
+	activeTopicName,
+	dealHighlights,
+	type HighlightTag,
+	type HighlightTopicGroup,
+	listHighlightTags,
+	listHighlightTopics,
+} from "~/services/highlight-board.server"
 import {
 	countHighlightFilters,
 	type HighlightArticle,
@@ -32,6 +53,8 @@ import {
 	listHighlightArticles,
 	listUserHighlights,
 } from "~/services/highlights.server"
+import { linkTargetStatus } from "~/services/links.server"
+import { topicsInUse } from "~/services/topics.server"
 import type { Route } from "./+types/highlights"
 
 export function meta({ matches }: Route.MetaArgs) {
@@ -46,6 +69,9 @@ function decodeCursor(value: string | null) {
 		: null
 }
 
+/** A Shuffle hand's seed, as the address carries it. */
+const SEED = /^[a-z0-9]{1,16}$/
+
 export const handle: PageBarHandle = {
 	pageBar: {
 		titleKey: "common:nav.highlights",
@@ -59,13 +85,23 @@ export const handle: PageBarHandle = {
 	},
 }
 
+type Board =
+	| { kind: "stream"; items: HighlightListItem[]; nextCursor: string | null }
+	| { kind: "articles"; articles: HighlightArticle[] }
+	| { kind: "topics"; groups: HighlightTopicGroup[] }
+	| { kind: "shuffle"; items: HighlightListItem[] }
+
 export async function loader({ context, request }: Route.LoaderArgs) {
 	const user = requireUser(context, request)
 	const url = new URL(request.url)
-	const q = url.searchParams.get("q")?.trim() ?? ""
-	const filter = parseHighlightFilter(url.searchParams.get("show"))
-	const asked = parseHighlightView(url.searchParams.get("view"))
-	const saved = highlightViewFromCookie(request.headers.get("cookie"))
+	const params = url.searchParams
+	const q = params.get("q")?.trim() ?? ""
+	const filter = parseHighlightFilter(params.get("show"))
+	const [topicsOn, tags] = await Promise.all([topicsInUse(user.id), listHighlightTags(user.id)])
+	// By topic only while the reader's topics are in use: otherwise by article.
+	const usable = (v: HighlightView | null) => (v === "topics" && !topicsOn ? null : v)
+	const asked = usable(parseHighlightView(params.get("view")))
+	const saved = usable(highlightViewFromCookie(request.headers.get("cookie")))
 	const view = asked ?? saved ?? DEFAULT_HIGHLIGHT_VIEW
 	// A view in the URL is a choice: remember it on this device.
 	const headers: HeadersInit =
@@ -74,49 +110,83 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 					"Set-Cookie": `${HIGHLIGHT_VIEW_COOKIE}=${asked}; Path=/; Max-Age=${60 * 60 * 24 * 365}; SameSite=Lax`,
 				}
 			: {}
-	const counts = await countHighlightFilters(user.id, q)
-	if (view === "articles") {
-		const articles = await listHighlightArticles({ userId: user.id, q, filter })
-		return data({ view, q, filter, counts, items: [], articles, nextCursor: null }, { headers })
-	}
-	const cursor = decodeCursor(url.searchParams.get("cursor"))
-	const { items, nextCursor } = await listUserHighlights({ userId: user.id, cursor, q, filter })
+	// A tag or topic that is not the reader's (or not any more) narrows nothing.
+	const tag = tags.find((t) => t.id === params.get("tag"))?.id ?? null
+	const askedTopic = view === "topics" || !topicsOn ? null : params.get("topic")
+	const topicName =
+		askedTopic && askedTopic !== "none" && isUuid(askedTopic)
+			? await activeTopicName(user.id, askedTopic)
+			: null
+	const topic = askedTopic === "none" ? "none" : topicName ? askedTopic : null
+	const state: HighlightsState = { q, filter, view, tag, topic }
+
+	const shuffle = params.get("shuffle")
+	if (shuffle === "new")
+		throw redirect(highlightsHref(state, { shuffle: Math.random().toString(36).slice(2, 10) }), {
+			headers,
+		})
+	const seed = shuffle && SEED.test(shuffle) ? shuffle : null
+
+	const matching = { userId: user.id, q, filter, scope: { tagId: tag, topic } }
+	const [counts, board] = await Promise.all([
+		countHighlightFilters(user.id, q, matching.scope),
+		((): Promise<Board> => {
+			if (seed)
+				return dealHighlights({ ...matching, seed }).then((items) => ({ kind: "shuffle", items }))
+			if (view === "topics")
+				return listHighlightTopics(matching).then((groups) => ({ kind: "topics", groups }))
+			if (view === "articles")
+				return listHighlightArticles(matching).then((articles) => ({ kind: "articles", articles }))
+			return listUserHighlights({ ...matching, cursor: decodeCursor(params.get("cursor")) }).then(
+				({ items, nextCursor }) => ({
+					kind: "stream",
+					items,
+					nextCursor: nextCursor
+						? Buffer.from(JSON.stringify(nextCursor)).toString("base64url")
+						: null,
+				}),
+			)
+		})(),
+	])
+	// The notes' links say whether their articles are still there.
+	const linkTargets = await linkTargetStatus(user.id, extractLinkIds(notesOf(board).join("\n")))
 	return data(
-		{
-			view,
-			q,
-			filter,
-			counts,
-			items,
-			articles: [] as HighlightArticle[],
-			nextCursor: nextCursor ? Buffer.from(JSON.stringify(nextCursor)).toString("base64url") : null,
-		},
+		{ ...state, topicsOn, topicName, tags, counts, board, seed, linkTargets },
 		{ headers },
 	)
+}
+
+function cardsOf(board: Board): HighlightListItem[] {
+	if (board.kind === "articles") return board.articles.flatMap((a) => a.highlights)
+	if (board.kind === "topics") return board.groups.flatMap((g) => g.highlights)
+	return board.items
+}
+
+function notesOf(board: Board): string[] {
+	return cardsOf(board).flatMap((h) => (h.note ? [h.note] : []))
 }
 
 export default function Highlights({ loaderData }: Route.ComponentProps) {
 	const { t } = useTranslation("reader")
 	const { t: tc } = useTranslation()
 	const { t: tl } = useTranslation("library")
-	const fetcher = useFetcher()
-	const { q, filter, view, counts } = loaderData
-	const empty =
-		view === "articles" ? loaderData.articles.length === 0 : loaderData.items.length === 0
-	const anyHighlights = q || filter || !empty
+	const { q, filter, view, tag, topic, board, linkTargets } = loaderData
+	const state: HighlightsState = { q, filter, view, tag, topic }
+	const empty = cardsOf(board).length === 0
+	const narrowed = Boolean(filter || tag || topic)
+	const anyHighlights = q || narrowed || !empty
+	const title = q ? t("highlights.search.results", { q }) : tc("nav.highlights")
 
 	return (
-		<main className="mx-auto w-full max-w-3xl flex-1 px-4 pt-3 pb-6 md:pt-4 md:pb-8">
+		<main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-3 pb-6 md:pt-4 md:pb-8">
 			<div className="hidden min-h-10 flex-wrap items-center justify-between gap-3 md:flex">
-				<h1 className="text-2xl font-semibold">
-					{q ? t("highlights.search.results", { q }) : tc("nav.highlights")}
-				</h1>
+				<h1 className="text-2xl font-semibold">{title}</h1>
 				<div className="flex items-center gap-2">
 					<SearchField
 						action="/highlights"
 						value={q}
-						clearTo={`/highlights${highlightsSearch({ filter, view, q: "" })}`}
-						keep={{ ...(filter ? { show: filter } : {}), view }}
+						clearTo={highlightsHref(state, { q: "" })}
+						keep={highlightsKeep(state)}
 						placeholder={t("highlights.search.placeholder")}
 						label={t("highlights.search.label")}
 						clearLabel={t("highlights.search.clear")}
@@ -124,13 +194,38 @@ export default function Highlights({ loaderData }: Route.ComponentProps) {
 				</div>
 			</div>
 			{anyHighlights ? (
-				<PinnedControls title={q ? t("highlights.search.results", { q }) : tc("nav.highlights")}>
-					<Controls filter={filter} view={view} q={q} counts={counts} />
+				<PinnedControls title={title}>
+					<Controls
+						state={state}
+						counts={loaderData.counts}
+						tags={loaderData.tags}
+						topicsOn={loaderData.topicsOn}
+						topicName={loaderData.topicName}
+						shuffling={board.kind === "shuffle"}
+					/>
 				</PinnedControls>
+			) : null}
+			{board.kind === "shuffle" && !empty ? (
+				<div className="mt-3 mb-5 flex flex-wrap items-center gap-x-4 gap-y-2 md:mt-5">
+					<h2 className="font-serif text-xl italic">{t("highlights.shuffle.title")}</h2>
+					<Link
+						to={highlightsHref(state, { shuffle: "new" })}
+						className="flex items-center gap-1.5 rounded-full bg-accent px-3 py-1 text-sm text-accent-fg hover:opacity-90"
+					>
+						<Shuffle className="size-3.5" aria-hidden />
+						{t("highlights.shuffle.again")}
+					</Link>
+					<Link
+						to={highlightsHref(state)}
+						className="rounded-full px-3 py-1 text-sm text-muted-fg hover:bg-muted hover:text-fg"
+					>
+						{t("highlights.shuffle.done")}
+					</Link>
+				</div>
 			) : null}
 			{empty ? (
 				<div className="mt-12 flex flex-col items-center gap-3 text-center text-muted-fg md:mt-16">
-					{filter ? (
+					{narrowed ? (
 						<ListFilter className="size-10" aria-hidden />
 					) : (
 						<Highlighter className="size-10" aria-hidden />
@@ -138,33 +233,38 @@ export default function Highlights({ loaderData }: Route.ComponentProps) {
 					<h2 className="text-lg font-medium text-fg">
 						{q
 							? t("highlights.search.empty")
-							: filter
+							: narrowed
 								? t("highlights.filters.empty")
 								: t("highlights.pageEmpty.title")}
 					</h2>
-					{q || filter ? null : (
+					{q || narrowed ? null : (
 						<p className="max-w-sm text-sm">{t("highlights.pageEmpty.description")}</p>
 					)}
 				</div>
-			) : view === "articles" ? (
-				<div className="flex flex-col gap-8 md:mt-2">
-					{loaderData.articles.map((article) => (
-						<ArticleGroup key={article.documentId} article={article} fetcher={fetcher} />
+			) : board.kind === "articles" ? (
+				<div className="flex flex-col gap-10 md:mt-4">
+					{board.articles.map((article) => (
+						<ArticleGroup key={article.documentId} article={article} linkTargets={linkTargets} />
+					))}
+				</div>
+			) : board.kind === "topics" ? (
+				<div className="flex flex-col gap-10 md:mt-4">
+					{board.groups.map((group) => (
+						<TopicGroup
+							key={group.topicId ?? "none"}
+							group={group}
+							state={state}
+							linkTargets={linkTargets}
+						/>
 					))}
 				</div>
 			) : (
 				<>
-					<ul className="flex flex-col gap-2 md:mt-2">
-						{loaderData.items.map((h) => (
-							<HighlightCard key={h.id} h={h} fetcher={fetcher} withArticle />
-						))}
-					</ul>
-					{loaderData.nextCursor ? (
+					<Cards items={board.items} linkTargets={linkTargets} dealt={board.kind === "shuffle"} />
+					{board.kind === "stream" && board.nextCursor ? (
 						<div className="mt-6 flex justify-center">
 							<Link
-								to={`/highlights${highlightsSearch({ filter, view, q }) || "?"}${
-									highlightsSearch({ filter, view, q }) ? "&" : ""
-								}cursor=${loaderData.nextCursor}`}
+								to={highlightsHref(state, { cursor: board.nextCursor })}
 								className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-muted"
 							>
 								{tl("loadMore")}
@@ -177,33 +277,94 @@ export default function Highlights({ loaderData }: Route.ComponentProps) {
 	)
 }
 
-/** Filter chips (with counts; empty ones hide unless selected) and the stream / by article switch. */
-function Controls({
-	filter,
-	view,
-	q,
-	counts,
+/** The board: cards in columns, each as tall as its quote and note, like cards pinned to a wall. */
+function Cards({
+	items,
+	linkTargets,
+	withArticle = true,
+	dealt = false,
 }: {
-	filter: HighlightFilter | null
-	view: HighlightView
-	q: string
+	items: HighlightListItem[]
+	linkTargets: LinkTargets
+	withArticle?: boolean
+	dealt?: boolean
+}) {
+	return (
+		<ul className="columns-1 gap-5 pt-2 sm:columns-2 lg:columns-3 md:mt-2">
+			{items.map((h, i) => (
+				<QuoteCard
+					key={h.id}
+					h={h}
+					linkTargets={linkTargets}
+					withArticle={withArticle}
+					dealt={dealt ? i : undefined}
+				/>
+			))}
+		</ul>
+	)
+}
+
+const CHIP =
+	"flex shrink-0 items-center gap-1.5 rounded-full border border-border px-3 py-1 text-sm text-muted-fg hover:bg-muted hover:text-fg aria-[current]:border-selected aria-[current]:bg-selected aria-[current]:text-selected-fg"
+const CHIP_ON =
+	"border-selected bg-selected text-selected-fg hover:bg-selected hover:text-selected-fg"
+
+/**
+ * The filter row: All, With notes and the colors (with counts; empty ones hide unless chosen), the
+ * tag, the topic a group's "See all" chose; then Shuffle and the view switch.
+ */
+function Controls({
+	state,
+	counts,
+	tags,
+	topicsOn,
+	topicName,
+	shuffling,
+}: {
+	state: HighlightsState
 	counts: Record<HighlightFilter, number>
+	tags: HighlightTag[]
+	topicsOn: boolean
+	topicName: string | null
+	shuffling: boolean
 }) {
 	const { t } = useTranslation("reader")
+	const { t: tl } = useTranslation("library")
+	const { filter, view } = state
+	const shown = HIGHLIGHT_FILTERS.filter((f) => f === filter || counts[f] > 0)
 	const chip = (f: HighlightFilter | null) => {
 		const count = f ? counts[f] : 0
+		const color = f && f !== "notes" ? HIGHLIGHT_COLOR_NAMES.indexOf(f) : null
+		const label =
+			f === null
+				? t("highlights.filters.all")
+				: f === "notes"
+					? t("highlights.filters.notes")
+					: t(`highlights.colors.${f}`)
 		return (
 			<Link
 				key={f ?? "all"}
-				to={`/highlights${highlightsSearch({ filter: f, view, q })}`}
+				to={highlightsHref(state, { filter: f })}
 				aria-current={f === filter ? "true" : undefined}
-				className="flex shrink-0 items-center gap-1.5 rounded-full border border-border px-3 py-1 text-sm text-muted-fg hover:bg-muted hover:text-fg aria-[current]:border-selected aria-[current]:bg-selected aria-[current]:text-selected-fg"
+				aria-label={color === null ? undefined : `${label} ${count}`}
+				{...(color === null ? {} : tooltip(label))}
+				className={CHIP}
 			>
-				{f === null ? t("highlights.filters.all") : t("highlights.filters.notes")}
+				{color === null ? (
+					label
+				) : (
+					<span
+						{...highlightColor(color)}
+						data-testid="color-chip"
+						className={cn("size-3 rounded-full", HIGHLIGHT_SWATCH)}
+						aria-hidden
+					/>
+				)}
 				{count ? <span className="tabular-nums">{count}</span> : null}
 			</Link>
 		)
 	}
+	const views = HIGHLIGHT_VIEWS.filter((v) => v !== "topics" || topicsOn)
 	return (
 		<div className="mt-1 mb-3 flex items-center gap-2 md:my-0">
 			<nav
@@ -211,28 +372,52 @@ function Controls({
 				className="-ml-4 flex min-w-0 flex-1 gap-2 overflow-x-auto py-1 pr-8 pl-4 [mask-image:linear-gradient(to_right,black_calc(100%-2rem),transparent)] [scrollbar-width:none] md:ml-0 md:pl-0"
 			>
 				{chip(null)}
-				{filter === "notes" || counts.notes > 0 ? chip("notes") : null}
+				{shown.map((f) => chip(f))}
+				{tags.length > 0 ? <TagChoice state={state} tags={tags} /> : null}
+				{state.topic ? (
+					<Link
+						to={highlightsHref(state, { topic: null })}
+						aria-label={tl("topicFilter.clear")}
+						{...tooltip(tl("topicFilter.clear"))}
+						data-testid="topic-chip"
+						className={cn(CHIP, CHIP_ON)}
+					>
+						<span className="max-w-48 truncate">
+							{tl("topicFilter.chosen", {
+								topic: state.topic === "none" ? t("highlights.topics.other") : topicName,
+							})}
+						</span>
+						<X className="size-3.5 shrink-0" aria-hidden />
+					</Link>
+				) : null}
 			</nav>
+			<Link
+				to={highlightsHref(state, { shuffle: "new" })}
+				aria-current={shuffling ? "true" : undefined}
+				aria-label={t("highlights.shuffle.action")}
+				{...tooltip(t("highlights.shuffle.action"))}
+				className="flex shrink-0 items-center gap-1.5 rounded-lg border border-border p-1.5 text-sm text-muted-fg hover:text-fg aria-[current]:border-selected aria-[current]:bg-selected aria-[current]:text-selected-fg md:px-2.5"
+			>
+				<Shuffle className="size-4" aria-hidden />
+				<span className="hidden md:inline">{t("highlights.shuffle.action")}</span>
+			</Link>
 			<fieldset
 				aria-label={t("highlights.views.label")}
 				className="flex shrink-0 rounded-lg border border-border p-0.5"
 			>
-				{HIGHLIGHT_VIEWS.map((v) => {
+				{views.map((v) => {
 					const label = t(`highlights.views.${v}`)
+					const Icon = v === "stream" ? Rows3 : v === "articles" ? Newspaper : Shapes
 					return (
 						<Link
 							key={v}
-							to={`/highlights${highlightsSearch({ filter, view: v, q })}`}
+							to={highlightsHref(state, { view: v })}
 							aria-label={label}
-							aria-current={v === view ? "true" : undefined}
+							aria-current={v === view && !shuffling ? "true" : undefined}
 							{...tooltip(label)}
 							className="rounded-md p-1.5 text-muted-fg hover:text-fg aria-[current]:bg-selected aria-[current]:text-selected-fg"
 						>
-							{v === "stream" ? (
-								<Rows3 className="size-4" aria-hidden />
-							) : (
-								<Newspaper className="size-4" aria-hidden />
-							)}
+							<Icon className="size-4" aria-hidden />
 						</Link>
 					)
 				})}
@@ -241,15 +426,65 @@ function Controls({
 	)
 }
 
+/** The tag the board keeps to: a menu of the tags whose articles have highlights; × shows all. */
+function TagChoice({ state, tags }: { state: HighlightsState; tags: HighlightTag[] }) {
+	const { t } = useTranslation("reader")
+	const chosen = tags.find((x) => x.id === state.tag)?.name
+	return (
+		<span data-testid="tag-choice" className="flex shrink-0 items-center">
+			<MoreMenu
+				label={
+					chosen
+						? t("highlights.filters.tagChosen", { tag: chosen })
+						: t("highlights.filters.tagChoose")
+				}
+				align="start"
+				className={cn(CHIP, chosen && CHIP_ON, chosen && "rounded-r-none border-r-0 pr-2")}
+				icon={
+					<>
+						<span className="max-w-40 truncate">
+							{chosen ? `#${chosen}` : t("highlights.filters.tag")}
+						</span>
+						<ChevronDown className="size-3.5 shrink-0" aria-hidden />
+					</>
+				}
+			>
+				<div className="flex max-h-80 w-60 max-w-[80vw] flex-col overflow-y-auto">
+					{tags.map((x) => (
+						<MenuNavLink
+							key={x.id}
+							to={highlightsHref(state, { tag: x.id })}
+							current={x.id === state.tag}
+						>
+							<span className="min-w-0 flex-1 truncate">{x.name}</span>
+							<span className="shrink-0 text-xs text-muted-fg tabular-nums">{x.count}</span>
+						</MenuNavLink>
+					))}
+				</div>
+			</MoreMenu>
+			{chosen ? (
+				<Link
+					to={highlightsHref(state, { tag: null })}
+					aria-label={t("highlights.filters.tagClear")}
+					{...tooltip(t("highlights.filters.tagClear"))}
+					className={cn(CHIP, CHIP_ON, "self-stretch rounded-l-none border-l-0 px-2")}
+				>
+					<X className="size-3.5" aria-hidden />
+				</Link>
+			) : null}
+		</span>
+	)
+}
+
 /** Long articles show their first few highlights until opened up. */
-const COLLAPSED = 3
+const COLLAPSED = 6
 
 function ArticleGroup({
 	article,
-	fetcher,
+	linkTargets,
 }: {
 	article: HighlightArticle
-	fetcher: FetcherWithComponents<unknown>
+	linkTargets: LinkTargets
 }) {
 	const { t } = useTranslation("reader")
 	const [open, setOpen] = useState(false)
@@ -257,28 +492,33 @@ function ArticleGroup({
 	const shown = open ? article.highlights : article.highlights.slice(0, COLLAPSED)
 	return (
 		<section>
-			<div className="mb-3">
-				<h2 className="text-base font-medium leading-snug">
-					<Link to={`/read/${article.documentId}`} className="hover:underline">
-						{article.documentTitle ?? article.sourceUrl}
-					</Link>
-				</h2>
-				<p className="text-sm text-muted-fg">
-					{[article.siteName, article.author, t("highlights.article.count", { count })]
-						.filter(Boolean)
-						.join(" · ")}
-				</p>
+			<div className="mb-3 flex items-center gap-3">
+				<ArticleThumb
+					color={article.highlights[0]?.color ?? 0}
+					image={article.image}
+					sourceUrl={article.sourceUrl}
+					siteName={article.siteName}
+					className="size-12"
+				/>
+				<div className="min-w-0">
+					<h2 className="font-serif text-xl leading-snug">
+						<Link to={`/read/${article.documentId}`} className="hover:underline">
+							{article.documentTitle ?? article.sourceUrl}
+						</Link>
+					</h2>
+					<p className="text-sm text-muted-fg">
+						{[sourceLabel(article), article.author, t("highlights.article.count", { count })]
+							.filter(Boolean)
+							.join(" · ")}
+					</p>
+				</div>
 			</div>
-			<ul className="flex flex-col gap-2">
-				{shown.map((h) => (
-					<HighlightCard key={h.id} h={h} fetcher={fetcher} />
-				))}
-			</ul>
+			<Cards items={shown} linkTargets={linkTargets} withArticle={false} />
 			{count > COLLAPSED ? (
 				<button
 					type="button"
 					onClick={() => setOpen((o) => !o)}
-					className="mt-2 rounded-md px-2 py-1 text-sm text-link hover:bg-muted"
+					className="rounded-md px-2 py-1 text-sm text-link hover:bg-muted"
 				>
 					{open ? t("highlights.article.showLess") : t("highlights.article.showAll", { count })}
 				</button>
@@ -287,85 +527,35 @@ function ArticleGroup({
 	)
 }
 
-/** One highlight; the whole card opens it in the reader. `withArticle` adds the source line. */
-function HighlightCard({
-	h,
-	fetcher,
-	withArticle = false,
+/** A topic's newest highlights, and the way to all of them: the stream, narrowed to the topic. */
+function TopicGroup({
+	group,
+	state,
+	linkTargets,
 }: {
-	h: HighlightListItem
-	fetcher: FetcherWithComponents<unknown>
-	withArticle?: boolean
+	group: HighlightTopicGroup
+	state: HighlightsState
+	linkTargets: LinkTargets
 }) {
 	const { t } = useTranslation("reader")
-	const { t: tl } = useTranslation("library")
-	const deleting = fetcher.formData?.get("id") === h.id
+	const name = group.name ?? t("highlights.topics.other")
 	return (
-		<li
-			className={cn(
-				"group relative isolate flex gap-3 rounded-xl border border-border bg-card p-3 transition-colors hover:border-muted-fg/40",
-				deleting && "opacity-40",
-			)}
-		>
-			<span
-				{...highlightColor(h.color)}
-				data-testid="highlight-swatch"
-				className={cn("mt-1 h-auto w-1 shrink-0 rounded", HIGHLIGHT_SWATCH)}
-				aria-hidden
-			/>
-			<div className="min-w-0 flex-1">
-				<Link
-					to={`/read/${h.documentId}#h=${h.id}`}
-					className="block text-[0.95rem] leading-relaxed after:absolute after:inset-0 after:content-['']"
-				>
-					{h.exact}
-				</Link>
-				{h.note ? (
-					<PostIt variant="compact" className="mt-2 w-fit max-w-full text-sm">
-						<NoteText text={h.note} />
-					</PostIt>
-				) : null}
-				{h.orphaned ? <p className="mt-1 text-xs text-danger">{t("highlights.orphaned")}</p> : null}
-				{withArticle ? (
-					<p className="mt-2 line-clamp-1 text-xs text-muted-fg">
-						<Link
-							to={`/read/${h.documentId}`}
-							className="relative z-10 hover:text-fg hover:underline"
-						>
-							{h.documentTitle ?? h.sourceUrl}
-						</Link>
-						{h.siteName ? ` · ${h.siteName}` : null}
-					</p>
+		<section aria-label={name}>
+			<div className="mb-3 flex flex-wrap items-baseline gap-x-3">
+				<h2 className="font-serif text-2xl leading-snug">{name}</h2>
+				<p className="text-sm text-muted-fg">
+					{t("highlights.article.count", { count: group.count })}
+				</p>
+				{group.count > group.highlights.length ? (
+					<Link
+						to={highlightsHref(state, { view: "stream", topic: group.topicId ?? "none" })}
+						className="ml-auto text-sm text-link hover:underline"
+					>
+						{t("highlights.topics.seeAll", { count: group.count })}
+					</Link>
 				) : null}
 			</div>
-			<fetcher.Form
-				method="post"
-				action={`/documents/${h.documentId}/highlights`}
-				className="relative z-10"
-				onSubmit={() =>
-					showToast({
-						message: t(h.note ? "highlights.toast.removedWithNote" : "highlights.toast.removed"),
-						ms: h.note ? LONG_UNDO_MS : undefined,
-						undo: {
-							action: `/documents/${h.documentId}/highlights`,
-							intent: "restore",
-							fields: { id: h.id },
-							label: tl("toast.undo"),
-						},
-					})
-				}
-			>
-				<input type="hidden" name="intent" value="delete" />
-				<input type="hidden" name="id" value={h.id} />
-				<button
-					type="submit"
-					className="rounded-md p-1.5 text-muted-fg opacity-100 hover:bg-muted hover:text-fg md:opacity-0 md:group-hover:opacity-100"
-					aria-label={t("highlights.popover.delete")}
-					{...tooltip(t("highlights.popover.delete"))}
-				>
-					<Trash2 className="size-4" aria-hidden />
-				</button>
-			</fetcher.Form>
-		</li>
+			<Cards items={group.highlights} linkTargets={linkTargets} />
+		</section>
 	)
 }

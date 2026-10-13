@@ -3,7 +3,8 @@ import { HIGHLIGHT_FILTERS, type HighlightFilter } from "@klipstack/api-contract
 
 export { HIGHLIGHT_FILTERS, type HighlightFilter }
 
-export const HIGHLIGHT_VIEWS = ["stream", "articles"] as const
+/** Newest first, by article, and by the articles' topics (only while the reader's topics are in use). */
+export const HIGHLIGHT_VIEWS = ["stream", "articles", "topics"] as const
 export type HighlightView = (typeof HIGHLIGHT_VIEWS)[number]
 
 export function parseHighlightFilter(value: string | null): HighlightFilter | null {
@@ -34,23 +35,46 @@ export function highlightViewFromCookie(
 	return parseHighlightView(match?.[1])
 }
 
-/** Query string for the page; an empty query and no filter are left out. */
-export function highlightsSearch({
-	filter,
-	view,
-	q,
-}: {
+/** What the highlights page shows, from its address. */
+export interface HighlightsState {
+	q: string
 	filter: HighlightFilter | null
 	view: HighlightView
-	q: string
-}): string {
+	/** One of the user's tags, by id: only highlights in articles with it. */
+	tag: string | null
+	/** One of the user's topics, by id, or `none`: the highlights a topic group holds. */
+	topic: string | null
+}
+
+/**
+ * The page's address for a state, changed by `change`. An empty query and no filter are left out.
+ * The topics view is every topic: a topic chosen goes. `shuffle` deals a hand (`new`: a new one);
+ * `cursor` is a page of the stream.
+ */
+export function highlightsHref(
+	state: HighlightsState,
+	change: Partial<HighlightsState> & { shuffle?: string; cursor?: string } = {},
+): string {
+	const next = { ...state, ...change }
 	const params = new URLSearchParams()
-	if (q) params.set("q", q)
-	if (filter) params.set("show", filter)
+	if (next.q) params.set("q", next.q)
+	if (next.filter) params.set("show", next.filter)
+	if (next.tag) params.set("tag", next.tag)
+	if (next.topic && next.view !== "topics") params.set("topic", next.topic)
 	// Always explicit: the default depends on the cookie, and an explicit view is what saves it.
-	params.set("view", view)
-	const s = params.toString()
-	return s ? `?${s}` : ""
+	if (!change.shuffle) params.set("view", next.view)
+	if (change.shuffle) params.set("shuffle", change.shuffle)
+	if (change.cursor) params.set("cursor", change.cursor)
+	return `/highlights?${params}`
+}
+
+/** The parameters a search keeps from the page, as the search form's hidden fields. */
+export function highlightsKeep(state: HighlightsState): Record<string, string> {
+	const keep: Record<string, string> = { view: state.view }
+	if (state.filter) keep.show = state.filter
+	if (state.tag) keep.tag = state.tag
+	if (state.topic && state.view !== "topics") keep.topic = state.topic
+	return keep
 }
 
 export interface SearchTerm {

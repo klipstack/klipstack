@@ -192,8 +192,22 @@ export default {
 			all: "Todos",
 			notes: "Con notas",
 			empty: "No hay subrayados aquí.",
+			tag: "Etiqueta",
+			tagChoose: "Elige una etiqueta",
+			tagChosen: "Etiqueta: {{tag}}",
+			tagClear: "Mostrar todas las etiquetas",
 		},
-		views: { label: "Vista", stream: "Lista", articles: "Por artículo" },
+		views: { label: "Vista", stream: "Lista", articles: "Por artículo", topics: "Por tema" },
+		topics: {
+			other: "Otros",
+			seeAll: "Ver los {{count}}",
+		},
+		shuffle: {
+			action: "Barajar",
+			title: "Un puñado al azar",
+			again: "Repartir otra vez",
+			done: "Listo",
+		},
 		article: {
 			count: "{{count}} subrayados",
 			count_one: "{{count}} subrayado",

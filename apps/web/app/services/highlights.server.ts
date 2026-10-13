@@ -6,8 +6,10 @@ import {
 	db,
 	desc,
 	documents,
+	documentTags,
 	documentVersions,
 	eq,
+	exists,
 	getTableColumns,
 	inArray,
 	type Highlight,
@@ -15,6 +17,7 @@ import {
 	isNotNull,
 	isNull,
 	ne,
+	not,
 	type SQL,
 	sql,
 	termQuery,
@@ -23,7 +26,9 @@ import { HIGHLIGHT_COLOR_NAMES } from "~/lib/highlight-colors"
 import { HIGHLIGHT_FILTERS, type HighlightFilter, searchTerms } from "~/lib/highlight-filters"
 import { type ModificationRange, modificationRange } from "./annotation-dates.server"
 import { getDocument } from "./documents.server"
+import type { TopicScope } from "./documents.server"
 import { syncNoteLinks } from "./links.server"
+import { articleInTopic, inTopic } from "./topic-scope.server"
 
 export const HIGHLIGHT_COLORS = 5
 
@@ -379,6 +384,8 @@ export interface HighlightListItem {
 	author: string | null
 	siteName: string | null
 	sourceUrl: string
+	/** The article's lead image, as an address to show; null without one. */
+	image: string | null
 }
 
 export interface HighlightArticle {
@@ -387,6 +394,7 @@ export interface HighlightArticle {
 	author: string | null
 	siteName: string | null
 	sourceUrl: string
+	image: string | null
 	/** Highlights in reading order. */
 	highlights: HighlightListItem[]
 	latestAt: Date
@@ -396,7 +404,7 @@ export const HIGHLIGHTS_PAGE_SIZE = 50
 /** The "by article" view loads everything that matches; users have hundreds, not thousands. */
 const ARTICLES_VIEW_MAX = 2000
 
-const listColumns = {
+export const listColumns = {
 	id: highlights.id,
 	documentId: highlights.documentId,
 	exact: highlights.exact,
@@ -413,6 +421,10 @@ const listColumns = {
 	author: documents.author,
 	siteName: documents.siteName,
 	sourceUrl: documents.sourceUrl,
+	// Stored images through the app (the bucket is private), others where they are.
+	image: sql<
+		string | null
+	>`case when ${documents.leadImageAssetId} is not null then '/assets/' || ${documents.leadImageAssetId} else ${documents.leadImageUrl} end`,
 }
 
 /**
@@ -432,14 +444,46 @@ function filterWhere(filter: HighlightFilter): SQL {
 	return filter === "notes" ? hasNote : eq(highlights.color, HIGHLIGHT_COLOR_NAMES.indexOf(filter))
 }
 
-function baseWhere(userId: string, q?: string) {
+/**
+ * What the highlights page narrows to besides the search and the filter: an article tag (the
+ * user's, by id), and a topic (an id of the user's, or `none`: in none of their topics).
+ */
+export interface HighlightScope {
+	tagId?: string | null
+	topic?: TopicScope | null
+}
+
+function scopeWhere({ tagId, topic }: HighlightScope = {}): SQL | undefined {
+	return and(
+		tagId
+			? exists(
+					db
+						.select({ one: sql`1` })
+						.from(documentTags)
+						.where(and(eq(documentTags.documentId, documents.id), eq(documentTags.tagId, tagId))),
+				)
+			: undefined,
+		topic === "none" ? not(articleInTopic()) : topic ? inTopic(topic) : undefined,
+	)
+}
+
+function baseWhere(userId: string, q?: string, scope?: HighlightScope) {
 	return and(
 		eq(highlights.userId, userId),
 		eq(documents.userId, userId),
 		isNull(highlights.deletedAt),
 		isNull(documents.deletedAt),
 		searchWhere(q),
+		scopeWhere(scope),
 	)
+}
+
+/** The user's live highlights that match the search, the filter and the scope, joined to their articles. */
+export function matchingWhere(
+	userId: string,
+	{ q, filter, scope }: { q?: string; filter?: HighlightFilter | null; scope?: HighlightScope },
+) {
+	return and(baseWhere(userId, q, scope), filter ? filterWhere(filter) : undefined)
 }
 
 /** created_at to the microsecond: a JavaScript Date would drop the last three digits. */
@@ -454,6 +498,7 @@ export async function listUserHighlights({
 	cursor,
 	q,
 	filter = null,
+	scope,
 	documentId,
 	createdSince,
 	createdBefore,
@@ -465,6 +510,7 @@ export async function listUserHighlights({
 	cursor?: { createdAt: string; id: string } | null
 	q?: string
 	filter?: HighlightFilter | null
+	scope?: HighlightScope
 	/** Only this article's highlights. */
 	documentId?: string
 	createdSince?: string
@@ -480,7 +526,7 @@ export async function listUserHighlights({
 		.innerJoin(documents, eq(documents.id, highlights.documentId))
 		.where(
 			and(
-				baseWhere(userId, q),
+				baseWhere(userId, q, scope),
 				filter ? filterWhere(filter) : undefined,
 				documentId ? eq(highlights.documentId, documentId) : undefined,
 				createdSince ? sql`${highlights.createdAt} >= ${createdSince}::timestamptz` : undefined,
@@ -519,16 +565,18 @@ export async function listHighlightArticles({
 	userId,
 	q,
 	filter = null,
+	scope,
 }: {
 	userId: string
 	q?: string
 	filter?: HighlightFilter | null
+	scope?: HighlightScope
 }): Promise<HighlightArticle[]> {
 	const rows = await db
 		.select(listColumns)
 		.from(highlights)
 		.innerJoin(documents, eq(documents.id, highlights.documentId))
-		.where(and(baseWhere(userId, q), filter ? filterWhere(filter) : undefined))
+		.where(and(baseWhere(userId, q, scope), filter ? filterWhere(filter) : undefined))
 		.orderBy(desc(highlights.createdAt))
 		.limit(ARTICLES_VIEW_MAX)
 	const articles = new Map<string, HighlightArticle>()
@@ -542,6 +590,7 @@ export async function listHighlightArticles({
 				author: h.author,
 				siteName: h.siteName,
 				sourceUrl: h.sourceUrl,
+				image: h.image,
 				highlights: [h],
 				latestAt: h.createdAt,
 			})
@@ -555,6 +604,7 @@ export async function listHighlightArticles({
 export async function countHighlightFilters(
 	userId: string,
 	q?: string,
+	scope?: HighlightScope,
 ): Promise<Record<HighlightFilter, number>> {
 	const [row] = await db
 		.select(
@@ -564,7 +614,7 @@ export async function countHighlightFilters(
 		)
 		.from(highlights)
 		.innerJoin(documents, eq(documents.id, highlights.documentId))
-		.where(baseWhere(userId, q))
+		.where(baseWhere(userId, q, scope))
 	return Object.fromEntries(HIGHLIGHT_FILTERS.map((f) => [f, Number(row?.[f] ?? 0)])) as Record<
 		HighlightFilter,
 		number
