@@ -8,7 +8,12 @@ const DRAWN_IN_MS = 1500
 const BAND = 1000
 
 interface Painted {
+	/** The highlight's id. */
 	key: string
+	/** Its strokes' shape: kept from its temporary id to its saved one. */
+	seed: string
+	/** Right to left: drawn in from the right. */
+	rtl: boolean
 	color: string
 	index: number
 	active: boolean
@@ -18,7 +23,16 @@ interface Painted {
 
 interface Band {
 	index: number
-	strokes: Array<Stroke & { key: string; color: string; active: boolean; fresh: boolean }>
+	strokes: Array<
+		Stroke & {
+			key: string
+			seed: string
+			color: string
+			active: boolean
+			fresh: boolean
+			rtl: boolean
+		}
+	>
 	crossings: Array<Crossing & { active: boolean }>
 }
 
@@ -69,8 +83,12 @@ export function HighlightInk({
 		update()
 		document.addEventListener("scroll", onScroll, { capture: true, passive: true })
 		window.addEventListener("resize", onScroll)
+		// Something above the text grows or shrinks (a card, an image): it moves without a scroll.
+		const observer = new ResizeObserver(onScroll)
+		observer.observe(document.body)
 		return () => {
 			cancelAnimationFrame(frame)
+			observer.disconnect()
 			document.removeEventListener("scroll", onScroll, { capture: true })
 			window.removeEventListener("resize", onScroll)
 		}
@@ -89,13 +107,16 @@ export function HighlightInk({
 			const newest = Math.max(...ranges.map((p) => p.created ?? Number.NEGATIVE_INFINITY))
 			clearTimeout(drawnIn)
 			if (now - newest < DRAWN_IN_MS) drawnIn = setTimeout(measure, DRAWN_IN_MS - (now - newest))
+			const clips = new Map<Element, DOMRect | null>()
 			const next = ranges.map((p) => ({
-				key: p.seed,
+				key: p.id ?? p.seed,
+				seed: p.seed,
+				rtl: getComputedStyle(parentOf(p.range.startContainer) ?? root).direction === "rtl",
 				color: p.color,
 				index: p.index,
 				active: p.active,
 				fresh: p.created !== undefined && now - p.created < DRAWN_IN_MS,
-				strokes: inkLines(p.range.getClientRects()).map((line, i) =>
+				strokes: inkLines(textRects(p.range, root, clips)).map((line, i) =>
 					inkStroke(line, origin, p.seed, i),
 				),
 			}))
@@ -180,12 +201,13 @@ const InkBand = memo(({ band, shown }: { band: Band; shown: boolean }) => {
 			{band.strokes.map((s) => (
 				<span
 					// Same line, same element: a reflow moves the stroke without drawing it again.
-					key={`${s.key}:${s.line}`}
+					key={`${s.seed}:${s.line}`}
 					className="hl-ink"
 					data-key={s.key}
 					data-hl={s.color}
 					data-active={s.active || undefined}
 					data-fresh={s.fresh || undefined}
+					data-rtl={(s.fresh && s.rtl) || undefined}
 					style={{ ...strokeStyle(s), animationDelay: s.fresh ? `${s.line * 0.12}s` : undefined }}
 				/>
 			))}
@@ -225,9 +247,11 @@ function inBands(painted: Painted[], crossings: Crossing[]): Band[] {
 			band(s.top).strokes.push({
 				...s,
 				key: p.key,
+				seed: p.seed,
 				color: p.color,
 				active: p.active,
 				fresh: p.fresh,
+				rtl: p.rtl,
 			})
 	}
 	for (const c of crossings)
@@ -243,3 +267,59 @@ const strokeStyle = (s: Stroke): React.CSSProperties => ({
 	borderRadius: s.radius,
 	transform: s.tilt ? `rotate(${s.tilt}deg)` : undefined,
 })
+
+const parentOf = (node: Node) => (node instanceof Element ? node : node.parentElement)
+
+/**
+ * The rectangles of a range's text, its text alone: `Range.getClientRects` also gives the box of
+ * every element wholly inside it (a paragraph, an image), which would paint as one block. Each is cut
+ * to the box that scrolls it sideways (a code block, a wide table), whose overflow the ink, outside
+ * it, would not be clipped by.
+ */
+function textRects(range: Range, root: Element, clips: Map<Element, DOMRect | null>): DOMRect[] {
+	const rects: DOMRect[] = []
+	const start = range.startContainer
+	const walker = document.createTreeWalker(range.commonAncestorContainer, NodeFilter.SHOW_TEXT)
+	let node: Node | null
+	if (start.nodeType === Node.TEXT_NODE) node = walker.currentNode = start
+	else {
+		walker.currentNode = start.childNodes[range.startOffset] ?? start
+		node = walker.currentNode.nodeType === Node.TEXT_NODE ? walker.currentNode : walker.nextNode()
+	}
+	const part = document.createRange()
+	for (; node; node = walker.nextNode()) {
+		if (range.comparePoint(node, 0) > 0) break
+		if (!range.intersectsNode(node)) continue
+		part.selectNodeContents(node)
+		if (node === start) part.setStart(node, range.startOffset)
+		if (node === range.endContainer) part.setEnd(node, range.endOffset)
+		const clip = clipOf(node.parentElement, root, clips)
+		for (const r of part.getClientRects()) {
+			if (!clip) rects.push(r)
+			else {
+				const left = Math.max(r.left, clip.left)
+				const right = Math.min(r.right, clip.right)
+				if (right > left) rects.push(new DOMRect(left, r.top, right - left, r.height))
+			}
+		}
+	}
+	return rects
+}
+
+/** The box of the nearest element inside `root` that scrolls or clips `el` sideways, if any. */
+function clipOf(
+	el: Element | null,
+	root: Element,
+	clips: Map<Element, DOMRect | null>,
+): DOMRect | null {
+	if (!el || el === root || !root.contains(el)) return null
+	let clip = clips.get(el)
+	if (clip === undefined) {
+		clip =
+			getComputedStyle(el).overflowX !== "visible"
+				? el.getBoundingClientRect()
+				: clipOf(el.parentElement, root, clips)
+		clips.set(el, clip)
+	}
+	return clip
+}

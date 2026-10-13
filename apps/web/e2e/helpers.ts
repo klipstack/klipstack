@@ -15,7 +15,7 @@ import {
 	user,
 	userFeatures,
 } from "@klipstack/db"
-import { expect, type Page } from "@playwright/test"
+import { expect, type Locator, type Page } from "@playwright/test"
 import { changeRole } from "../app/services/admin-roles.server"
 
 /**
@@ -257,6 +257,24 @@ export async function lastEmailTo(
 export async function expectNoEmailTo(address: string) {
 	await new Promise((resolve) => setTimeout(resolve, 1000))
 	expect(existsSync(mailFile(address))).toBe(false)
+}
+
+/**
+ * A quote shown as marked text (`.marker` in app.css), its ink the highlight's own color: the one
+ * the reader paints that color with (`--hl-<color>`).
+ */
+export async function expectMarked(quote: Locator, color: string) {
+	await expect(quote).toHaveClass(/\bmarker\b/)
+	const [ink, expected] = await quote.evaluate(
+		(el, name) => [
+			getComputedStyle(el).getPropertyValue("--hl").trim(),
+			getComputedStyle(document.documentElement).getPropertyValue(`--hl-${name}`).trim(),
+		],
+		color,
+	)
+	expect(expected).not.toBe("")
+	expect(ink).toBe(expected)
+	await expect(quote).toHaveCSS("background-image", /gradient/)
 }
 
 /**

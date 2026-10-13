@@ -230,7 +230,7 @@ body {
 	--tw-prose-code: var(--k-fg);
 	--tw-prose-pre-code: var(--k-fg);
 	/* Translucent: a highlight's ink lies under the text, and shows through. */
-	--tw-prose-pre-bg: color-mix(in oklch, var(--k-muted) 75%, transparent);
+	--tw-prose-pre-bg: color-mix(in oklch, var(--k-muted) 50%, transparent);
 	--tw-prose-th-borders: var(--k-border);
 	--tw-prose-td-borders: var(--k-border);
 	hyphens: auto;
@@ -385,6 +385,18 @@ body {
 		clip-path: inset(0 0 0 0);
 	}
 }
+/* Right-to-left text is written, and marked, from the right. */
+.hl-ink[data-fresh][data-rtl] {
+	animation-name: ink-in-rtl;
+}
+@keyframes ink-in-rtl {
+	from {
+		clip-path: inset(0 0 0 100%);
+	}
+	to {
+		clip-path: inset(0 0 0 0);
+	}
+}
 
 /* Home's greeting: one word marked, drawn in as the page opens. */
 .swipe {
@@ -397,7 +409,8 @@ body {
 }
 @media (prefers-reduced-motion: reduce) {
 	.swipe,
-	.hl-ink[data-fresh] {
+	.hl-ink[data-fresh],
+	.hl-ink[data-fresh][data-rtl] {
 		animation: none;
 	}
 }

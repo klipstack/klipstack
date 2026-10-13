@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { db, documents, documentVersions, eq, user } from "@klipstack/db"
 import { expect, type Locator, type Page, test } from "@playwright/test"
-import { paintedHighlights, signupUser, waitForHydration } from "./helpers"
+import { expectMarked, paintedHighlights, signupUser, waitForHydration } from "./helpers"
 import { insertArticle } from "./seed"
 
 const FIXTURE = join(
@@ -418,9 +418,7 @@ test("a highlight's color: picked in its toolbar, shown on the text, its note an
 	await page.getByTestId("toggle-sidebar").click()
 	const sidebar = page.getByRole("complementary", { name: "Notes and highlights" })
 	const row = sidebar.getByRole("button", { name: QUOTE })
-	const quote = row.getByTestId("highlight-quote")
-	await expect(quote).toHaveAttribute("data-hl", "green")
-	await expect(quote).toHaveCSS("background-image", /gradient/)
+	await expectMarked(row.getByTestId("highlight-quote"), "green")
 	await expect(row.locator("[data-post-it]")).toHaveText(NOTE)
 
 	// The highlights page too.

@@ -1,6 +1,6 @@
 import { db, documents, documentVersions, eq, highlights } from "@klipstack/db"
 import { expect, test } from "@playwright/test"
-import { signupUser, waitForHydration } from "./helpers"
+import { expectMarked, signupUser, waitForHydration } from "./helpers"
 import { insertArticle } from "./seed"
 
 const QUOTE = "The lantern was relit at dusk."
@@ -52,6 +52,7 @@ test("search finds highlights and notes, grouped, and opens each where it is", a
 	await expect(notes).toContainText(ARTICLE_NOTE)
 	// The highlight in its color (blue), its note and the article note on post-its.
 	await expect(found.getByRole("listitem")).toHaveAttribute("data-hl", "blue")
+	await expectMarked(found.locator(".marker"), "blue")
 	await expect(found.locator("[data-post-it]")).toHaveText(HIGHLIGHT_NOTE)
 	await expect(notes.locator("[data-post-it]")).toHaveText(ARTICLE_NOTE)
 	const groups = page.getByTestId("search-groups")

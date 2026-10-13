@@ -10,11 +10,12 @@ import { paintedHighlights, signupUser, waitForHydration } from "./helpers"
  * screen, the darker ink where two cross, and that they follow the text when it reflows.
  */
 
-const html = `<p>Alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike november oscar papa quebec romeo sierra tango uniform victor whiskey xray yankee zulu. Then the alphabet once more: alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima.</p><p>Second paragraph with <strong>bold words</strong> and <code>inline code</code> in it, and a plain ending.</p>${Array.from({ length: 60 }, (_, i) => `<p>Filler ${i}: ${"Plain words to make the article long. ".repeat(8)}</p>`).join("")}<p>The very last words of the article.</p>`
+const html = `<p>Alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike november oscar papa quebec romeo sierra tango uniform victor whiskey xray yankee zulu. Then the alphabet once more: alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima.</p><p>Second paragraph with <strong>bold words</strong> and <code>inline code</code> in it, and a plain ending.</p>${Array.from({ length: 60 }, (_, i) => `<p>Filler ${i}: ${"Plain words to make the article long. ".repeat(8)}</p>`).join("")}<pre>${"code that runs on and on ".repeat(12)}and ends here</pre><p>The very last words of the article.</p>`
 const text = html.replace(/<[^>]*>/g, "")
 let docId: string
 
 const YELLOW = 0
+const GREEN = 1
 const BLUE = 2
 const PINK = 3
 
@@ -69,10 +70,31 @@ interface Box {
 	bottom: number
 }
 
-/** Each painted highlight's strokes on screen, and the lines of its text. */
+/**
+ * Each painted highlight's strokes on screen, and the lines of its text, found letter by letter
+ * (a paragraph wholly inside a highlight has a box of its own, which is not a line).
+ */
 function inkAndText(page: Page) {
 	return page.evaluate(() => {
 		const box = (r: DOMRect) => ({ left: r.left, top: r.top, right: r.right, bottom: r.bottom })
+		const letters = (range: Range) => {
+			const out: DOMRect[] = []
+			const walker = document.createTreeWalker(range.commonAncestorContainer, NodeFilter.SHOW_TEXT)
+			let node: Node | null = walker.currentNode
+			if (node.nodeType !== Node.TEXT_NODE) node = walker.nextNode()
+			for (; node; node = walker.nextNode()) {
+				const text = node as Text
+				for (let i = 0; i < text.length; i++) {
+					if (/\s/.test(text.data[i]!) || range.comparePoint(text, i) !== 0) continue
+					if (range.comparePoint(text, i + 1) > 0) continue
+					const letter = document.createRange()
+					letter.setStart(text, i)
+					letter.setEnd(text, i + 1)
+					out.push(...letter.getClientRects())
+				}
+			}
+			return out
+		}
 		return [...document.querySelectorAll<HTMLElement>(".hl-inks > i[data-hl]")].map((group) => {
 			const range = [...(CSS.highlights.get(`klip-hl-${group.dataset.hl}`) ?? [])][
 				Number(group.dataset.index)
@@ -90,7 +112,7 @@ function inkAndText(page: Page) {
 				}
 			})
 			const lines: Box[] = []
-			for (const r of range.getClientRects()) {
+			for (const r of letters(range)) {
 				if (r.width < 1) continue
 				const mid = (r.top + r.bottom) / 2
 				const line = lines.find((l) => mid > l.top && mid < l.bottom)
@@ -239,6 +261,48 @@ test("the strokes follow the text when it reflows: a narrower window, a larger f
 	expectStrokesOnLines(await inkAndText(page))
 })
 
+test("a highlight across paragraphs: a stroke on each line of its text, none for the paragraph between", async ({
+	page,
+}) => {
+	await seed(page, "once more", "Filler 0", BLUE)
+	await page.setViewportSize({ width: 1000, height: 900 })
+	await open(page, 1)
+	const [painted] = await inkAndText(page)
+	// The end of the first paragraph, the whole second one (two lines or more), the start of the third.
+	expect(painted!.lines.length).toBeGreaterThanOrEqual(3)
+	expectStrokesOnLines([painted!])
+	const tallest = Math.max(...painted!.strokes.map((s) => s.bottom - s.top))
+	const line = painted!.lines[0]!
+	expect(tallest).toBeLessThan((line.bottom - line.top) * 1.2)
+})
+
+test("in a code block that scrolls sideways, the ink stays inside it", async ({ page }) => {
+	await seed(page, "code that runs", "ends here", GREEN)
+	await page.setViewportSize({ width: 1000, height: 900 })
+	await open(page, 1)
+	const pre = page.locator(".reader-content pre")
+	await pre.scrollIntoViewIfNeeded()
+	// Where the strokes start and end, against the block's edges (a pen's overhang of a few pixels).
+	const ends = async () => {
+		const box = (await pre.boundingBox())!
+		const strokes = await page
+			.locator('.hl-ink[data-hl="green"]')
+			.evaluateAll((els) => els.map((el) => el.getBoundingClientRect().toJSON() as DOMRect))
+		if (!strokes.length) return null
+		return {
+			inside: strokes.every((s) => s.left >= box.x - 4 && s.right <= box.x + box.width + 4),
+			fromEdge: Math.round(Math.min(...strokes.map((s) => s.left)) - box.x),
+		}
+	}
+	// Its text runs past the right edge: the stroke stops there, and starts at the text.
+	await expect.poll(async () => (await ends())?.inside).toBe(true)
+	expect((await ends())!.fromEdge).toBeGreaterThan(8)
+	// Scrolled to its end, the text runs past the left edge: the stroke starts there.
+	await pre.evaluate((el) => el.scrollTo({ left: el.scrollWidth }))
+	await expect.poll(async () => (await ends())?.fromEdge).toBeLessThan(4)
+	expect((await ends())!.inside).toBe(true)
+})
+
 test("only the strokes near the screen are in the page; the rest come as it scrolls", async ({
 	page,
 }) => {
@@ -274,6 +338,22 @@ test("a new highlight is drawn in once; with reduced motion, it just appears", a
 	// Already there: no drawing in.
 	await expect(page.locator(".hl-ink[data-fresh]")).toHaveCount(0)
 
+	// Whether a stroke was drawn in, seen as it appears: the drawing in lasts a moment only.
+	const watchDrawIn = () =>
+		page.evaluate(() => {
+			const w = window as unknown as { drawIn: Promise<string> }
+			w.drawIn = new Promise((resolve) => {
+				const observer = new MutationObserver(() => {
+					const fresh = document.querySelector(".hl-ink[data-fresh]")
+					if (!fresh) return
+					observer.disconnect()
+					resolve(getComputedStyle(fresh).animationName)
+				})
+				observer.observe(document.body, { subtree: true, childList: true, attributes: true })
+			})
+		})
+	const drawnIn = () =>
+		page.evaluate(() => (window as unknown as { drawIn: Promise<string> }).drawIn)
 	const create = async () => {
 		await page.evaluate(() => {
 			const node = document.querySelector(".reader-content p")!.firstChild as Text
@@ -292,12 +372,15 @@ test("a new highlight is drawn in once; with reduced motion, it just appears", a
 			toolbar.getByRole("button", { name: "Highlight" }).click(),
 		])
 	}
+	await watchDrawIn()
 	await create()
+	expect(await drawnIn()).toBe("ink-in")
 	await expect.poll(async () => (await paintedHighlights(page)).length).toBe(2)
-	const fresh = page.locator(".hl-ink[data-fresh]")
-	await expect(fresh).toHaveCount(1)
-	expect(await fresh.evaluate((el) => getComputedStyle(el).animationName)).toBe("ink-in")
+	// Saved, with its toolbar open, it stands out like any other: an outline around its strokes.
+	await expect(page.getByRole("dialog", { name: "Edit highlight" })).toBeVisible()
+	await expect(page.locator(".hl-outline")).toHaveCount(1)
 	// Drawn in for a moment only: a reflow later does not draw it again.
+	const fresh = page.locator(".hl-ink[data-fresh]")
 	await expect(fresh).toHaveCount(0, { timeout: 5000 })
 
 	await page.emulateMedia({ reducedMotion: "reduce" })
@@ -306,7 +389,7 @@ test("a new highlight is drawn in once; with reduced motion, it just appears", a
 		.getByRole("button", { name: "Delete highlight" })
 		.click()
 	await expect.poll(async () => (await paintedHighlights(page)).length).toBe(1)
+	await watchDrawIn()
 	await create()
-	await expect(fresh).toHaveCount(1)
-	expect(await fresh.evaluate((el) => getComputedStyle(el).animationName)).toBe("none")
+	expect(await drawnIn()).toBe("none")
 })

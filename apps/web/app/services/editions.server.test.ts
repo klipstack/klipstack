@@ -845,8 +845,12 @@ describe("itemArticle", () => {
 		const draft = await insertEdition(userId, { locale: "en", timeZone })
 		const binned = await addDocument({ sourceUrl: "https://binned.example/", title: "Binned" })
 		const bravo = quoteIds["Bravo four five."]!
-		await db.update(highlights).set({ color: 3 }).where(eq(highlights.id, bravo))
+		const [before] = await db
+			.select({ color: highlights.color })
+			.from(highlights)
+			.where(eq(highlights.id, bravo))
 		try {
+			await db.update(highlights).set({ color: 3 }).where(eq(highlights.id, bravo))
 			const item = await addItem(userId, draft.id, main.id)
 			const article = await itemArticle(userId, draft.id, item.id)
 			// In their own colors, as the reader paints them.
@@ -902,7 +906,7 @@ describe("itemArticle", () => {
 			expect((await getEdition(userId, draft.id)).items.at(-1)?.documentId).toBeNull()
 			expect(await code(itemArticle(userId, draft.id, gone.id))).toBe("document_gone")
 		} finally {
-			await db.update(highlights).set({ color: 0 }).where(eq(highlights.id, bravo))
+			await db.update(highlights).set({ color: before!.color }).where(eq(highlights.id, bravo))
 			await deleteEdition(userId, draft.id)
 			await db.delete(documents).where(eq(documents.id, binned.id))
 		}

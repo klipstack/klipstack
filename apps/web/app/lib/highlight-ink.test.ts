@@ -37,6 +37,7 @@ describe("inkStroke", () => {
 	it("is 80% as tall as the text, low in it, and a little longer than it", () => {
 		const s = inkStroke(line, origin, "h1", 0)
 		expect(INK_HEIGHT).toBe(0.8)
+		expect(INK_DROP).toBe(0.9)
 		expect(s.height).toBeCloseTo(16)
 		const top = 200 + (20 - 16) * INK_DROP
 		expect(Math.abs(s.top - top)).toBeLessThan(16 * 0.03 + 1e-9)

@@ -24,26 +24,37 @@ const paintedAs = (item: RenderableHighlight) => `klip-hl-${highlightColorName(i
 const ACTIVE = "klip-active"
 const NOTE = "klip-note"
 
-/** What the ink needs of a registered range: a seed for its strokes' shape, and its age. */
-interface InkMeta {
+/** How a highlight's ink looks: a seed for its strokes' shape, and its age. */
+interface InkLook {
 	/** Stable for the highlight's life: its id, or the id it had while it was being saved. */
 	seed: string
 	/** When it was made in this page (`performance.now()`), if it was: its strokes are drawn in. */
 	created?: number
 }
-const inkMeta = new WeakMap<Range, InkMeta>()
-// A new highlight is painted under a temporary id, then again under the server's: same offsets.
-const madeHere = new Map<string, InkMeta>()
+const inkMeta = new WeakMap<Range, InkLook & { id: string }>()
+const looks = new Map<string, InkLook>()
+// A new highlight is painted under a temporary id, then under the server's, at the same place: the
+// saved one takes the look of the temporary one, once. Unclaimed for a minute, it is forgotten.
+const beingSaved = new Map<string, Required<InkLook>>()
 let activeRange: Range | null = null
 
-function remember(item: RenderableHighlight, range: Range) {
-	const at = `${item.startOffset}:${item.endOffset}`
-	let meta = madeHere.get(at)
-	if (item.id.startsWith("tmp-") && meta?.seed !== item.id) {
-		meta = { seed: item.id, created: performance.now() }
-		madeHere.set(at, meta)
+function remember(item: RenderableHighlight, range: Range, versionId?: string | null) {
+	let look = looks.get(item.id)
+	if (!look) {
+		const now = performance.now()
+		for (const [at, saving] of beingSaved) if (now - saving.created > 60_000) beingSaved.delete(at)
+		const at = `${versionId ?? ""}:${item.startOffset}:${item.endOffset}`
+		if (item.id.startsWith("tmp-")) {
+			const saving = { seed: item.id, created: now }
+			beingSaved.set(at, saving)
+			look = saving
+		} else {
+			look = beingSaved.get(at) ?? { seed: item.id }
+			beingSaved.delete(at)
+		}
+		looks.set(item.id, look)
 	}
-	inkMeta.set(range, meta ?? { seed: item.id })
+	inkMeta.set(range, { id: item.id, ...look })
 }
 
 const painters = new Set<() => void>()
@@ -58,6 +69,8 @@ const notifyPainters = () => {
 
 export interface PaintedRange {
 	range: Range
+	/** The highlight's id; `null` for a range painted by other means. */
+	id: string | null
 	color: string
 	/** Its position in its color's registry (e2e/helpers.ts reads the text there). */
 	index: number
@@ -79,6 +92,7 @@ export function paintedRanges(root: Node): PaintedRange[] {
 			const meta = inkMeta.get(range)
 			out.push({
 				range,
+				id: meta?.id ?? null,
 				color: name,
 				index: at,
 				seed: meta?.seed ?? `${name}:${at}`,
@@ -113,7 +127,7 @@ export function renderHighlights(
 		const range = rangeFromOffsets(root, item.startOffset, item.endOffset)
 		if (!range) continue
 		ranges.set(item.id, range)
-		remember(item, range)
+		remember(item, range, versionId)
 		byColor.get(paintedAs(item))!.push(range)
 		if (item.note) noted.push(range)
 	}
@@ -201,7 +215,7 @@ export function replaceHighlightRange(
 		if (!CSS.highlights.has(NOTE)) CSS.highlights.set(NOTE, new Highlight())
 		CSS.highlights.get(NOTE)!.add(range)
 	}
-	inkMeta.set(range, (old && inkMeta.get(old)) || { seed: item.id })
+	inkMeta.set(range, (old && inkMeta.get(old)) || { id: item.id, seed: item.id })
 	if (old === activeRange) activeRange = null
 	ranges.set(item.id, range)
 	notifyPainters()
