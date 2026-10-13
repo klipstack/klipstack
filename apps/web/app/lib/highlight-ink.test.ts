@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest"
-import { INK_DROP, INK_HEIGHT, inkLines, inkStroke, randomFrom } from "./highlight-ink"
+import {
+	INK_DROP,
+	INK_HEIGHT,
+	inkCrossings,
+	inkLines,
+	inkStroke,
+	randomFrom,
+} from "./highlight-ink"
 
 const rect = (left: number, top: number, right: number, bottom: number) => ({
 	left,
@@ -56,6 +63,42 @@ describe("inkStroke", () => {
 		expect(inkStroke(line, origin, "h2", 0).radius).not.toBe(
 			inkStroke(line, origin, "h1", 0).radius,
 		)
+	})
+})
+
+describe("inkCrossings", () => {
+	const stroke = (line: number, left: number, top: number, width: number) => ({
+		line,
+		left,
+		top,
+		width,
+		height: 16,
+		tilt: 0,
+		radius: "0",
+	})
+
+	it("finds where two highlights' strokes lie on each other, line by line", () => {
+		const crossings = inkCrossings([
+			{ key: "a", color: "yellow", strokes: [stroke(0, 0, 100, 400), stroke(1, 0, 130, 300)] },
+			// From the middle of the first line to the start of the second.
+			{ key: "b", color: "pink", strokes: [stroke(0, 250, 101, 200), stroke(1, 0, 131, 80)] },
+			// On the third line alone, and its own strokes never cross each other.
+			{ key: "c", color: "blue", strokes: [stroke(0, 0, 160, 50), stroke(1, 40, 160, 50)] },
+		])
+		expect(crossings).toEqual([
+			{ left: 250, top: 101, width: 150, height: 15, colors: ["yellow", "pink"], keys: ["a", "b"] },
+			{ left: 0, top: 131, width: 80, height: 15, colors: ["yellow", "pink"], keys: ["a", "b"] },
+		])
+	})
+
+	it("finds none where strokes only touch, or none cross", () => {
+		expect(
+			inkCrossings([
+				{ key: "a", color: "yellow", strokes: [stroke(0, 0, 100, 100)] },
+				{ key: "b", color: "green", strokes: [stroke(0, 100, 100, 100)] },
+			]),
+		).toEqual([])
+		expect(inkCrossings([])).toEqual([])
 	})
 })
 

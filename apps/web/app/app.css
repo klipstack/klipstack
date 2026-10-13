@@ -229,7 +229,8 @@ body {
 	--tw-prose-captions: var(--k-muted-fg);
 	--tw-prose-code: var(--k-fg);
 	--tw-prose-pre-code: var(--k-fg);
-	--tw-prose-pre-bg: var(--k-muted);
+	/* Translucent: a highlight's ink lies under the text, and shows through. */
+	--tw-prose-pre-bg: color-mix(in oklch, var(--k-muted) 75%, transparent);
 	--tw-prose-th-borders: var(--k-border);
 	--tw-prose-td-borders: var(--k-border);
 	hyphens: auto;
@@ -266,8 +267,8 @@ body {
 
 /* ---------- Highlights: marker ink ---------- */
 /* One ink and one solid line per stored color (HIGHLIGHT_COLORS). The ink is a highlighter's: in
-   light mode a bright, opaque color the text is multiplied into; in dark mode a deep one the light
-   text keeps its lightness over (`lighten`). The lines stay bright in both. */
+   light mode a bright color under dark text; in dark mode a deep one under light text. The lines
+   stay bright in both. */
 :root {
 	--hl-yellow: oklch(0.92 0.16 99);
 	--hl-yellow-solid: oklch(0.9 0.17 95);
@@ -279,7 +280,8 @@ body {
 	--hl-pink-solid: oklch(0.76 0.14 355);
 	--hl-orange: oklch(0.87 0.11 62);
 	--hl-orange-solid: oklch(0.79 0.15 60);
-	--hl-blend: multiply;
+	/* Where two strokes cross: the inks mixed, and deeper. */
+	--hl-deepen: oklch(0.25 0.03 60) 15%;
 }
 @media (prefers-color-scheme: dark) {
 	:root:not([data-theme="light"]) {
@@ -292,7 +294,7 @@ body {
 		--hl-blue-solid: oklch(0.78 0.12 240);
 		--hl-pink-solid: oklch(0.79 0.13 355);
 		--hl-orange-solid: oklch(0.82 0.14 60);
-		--hl-blend: lighten;
+		--hl-deepen: oklch(0.95 0.02 90) 8%;
 	}
 }
 :root[data-theme="dark"] {
@@ -305,7 +307,7 @@ body {
 	--hl-blue-solid: oklch(0.78 0.12 240);
 	--hl-pink-solid: oklch(0.79 0.13 355);
 	--hl-orange-solid: oklch(0.82 0.14 60);
-	--hl-blend: lighten;
+	--hl-deepen: oklch(0.95 0.02 90) 8%;
 }
 /* `--hl` and `--hl-solid` are the color in hand: yellow, or the one of the nearest `data-hl` (a
    swatch, a note's edge, the outline, a quote, the reader while one highlight is in focus). */
@@ -352,18 +354,24 @@ body {
 	-webkit-box-decoration-break: clone;
 	box-decoration-break: clone;
 }
-/* The reader's highlights: strokes drawn by HighlightInk over the text, blended into it. Inside the
-   layer, strokes that cross get darker, as ink over ink does. */
+/* The reader's highlights: strokes drawn by HighlightInk under the text, so the letters keep their
+   full strength. The layer sits behind the article's text (its container isolates it, see
+   HighlightInk). Where two cross, the ink is deeper, as a marker's over another's: drawn as a piece
+   of its own (`.hl-cross`), as blend modes composite slowly in WebKit over a long article. */
 .hl-inks {
 	position: absolute;
 	inset: 0;
+	z-index: -1;
 	pointer-events: none;
-	mix-blend-mode: var(--hl-blend);
 }
 .hl-ink {
 	position: absolute;
 	background: var(--ink);
-	mix-blend-mode: var(--hl-blend);
+}
+.hl-cross {
+	position: absolute;
+	border-radius: 0.25em;
+	background: color-mix(in oklch, color-mix(in oklch, var(--a), var(--b)), var(--hl-deepen));
 }
 /* A highlight just made is drawn in, once, line after line. */
 .hl-ink[data-fresh] {
@@ -422,7 +430,7 @@ body {
 .reader-content[data-focus] ::highlight(klip-active) {
 	color: var(--k-fg);
 }
-.reader-content[data-focus] ~ .hl-inks > :not([data-active]) {
+.reader-content[data-focus] ~ .hl-inks > :is(.hl-ink, .hl-cross):not([data-active]) {
 	opacity: 0.3;
 }
 .reader-content[data-focus]::highlight(klip-note),

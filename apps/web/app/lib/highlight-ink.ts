@@ -88,3 +88,50 @@ export function randomFrom(seed: string): () => number {
 		return ((t ^ (t >>> 14)) >>> 0) / 4294967296
 	}
 }
+
+export interface Crossing {
+	left: number
+	top: number
+	width: number
+	height: number
+	/** The two inks, by color name. */
+	colors: [string, string]
+	/** The two highlights (their seeds). */
+	keys: [string, string]
+}
+
+/**
+ * Where strokes of two highlights lie on each other, on the same line: there the ink is darker, as
+ * a marker's over another's. Drawn as a piece of its own, not with a blend mode, which composites
+ * slowly in WebKit over a long article.
+ */
+export function inkCrossings(
+	painted: Array<{ key: string; color: string; strokes: Stroke[] }>,
+): Crossing[] {
+	const all = painted
+		.flatMap((p) => p.strokes.map((s) => ({ ...s, key: p.key, color: p.color })))
+		.sort((a, b) => a.top - b.top)
+	const out: Crossing[] = []
+	for (let i = 0; i < all.length; i++) {
+		const a = all[i]!
+		for (let j = i + 1; j < all.length; j++) {
+			const b = all[j]!
+			if (b.top >= a.top + a.height / 2) break
+			if (a.key === b.key) continue
+			const left = Math.max(a.left, b.left)
+			const right = Math.min(a.left + a.width, b.left + b.width)
+			if (right - left < 1) continue
+			const top = Math.max(a.top, b.top)
+			const bottom = Math.min(a.top + a.height, b.top + b.height)
+			out.push({
+				left,
+				top,
+				width: right - left,
+				height: bottom - top,
+				colors: [a.color, b.color],
+				keys: [a.key, b.key],
+			})
+		}
+	}
+	return out
+}

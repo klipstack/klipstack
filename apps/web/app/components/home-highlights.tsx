@@ -107,7 +107,7 @@ function HighlightCard({ h, linkTargets }: { h: ResurfacedHighlight; linkTargets
 					data-testid="home-highlight-quote"
 					className="line-clamp-8 [&>span]:box-decoration-clone"
 				>
-					<span className="rounded-sm bg-(--hl) px-0.5 group-hover:underline group-hover:decoration-(--hl-solid)">
+					<span className="marker group-hover:underline group-hover:decoration-(--hl-solid)">
 						{h.exact}
 					</span>
 				</span>

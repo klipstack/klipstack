@@ -10,7 +10,7 @@ import { paintedHighlights, signupUser, waitForHydration } from "./helpers"
  * screen, the darker ink where two cross, and that they follow the text when it reflows.
  */
 
-const html = `<p>Alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike november oscar papa quebec romeo sierra tango uniform victor whiskey xray yankee zulu. Then the alphabet once more: alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima.</p><p>Second paragraph with <strong>bold words</strong> and <code>inline code</code> in it, and a plain ending.</p>`
+const html = `<p>Alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike november oscar papa quebec romeo sierra tango uniform victor whiskey xray yankee zulu. Then the alphabet once more: alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima.</p><p>Second paragraph with <strong>bold words</strong> and <code>inline code</code> in it, and a plain ending.</p>${Array.from({ length: 60 }, (_, i) => `<p>Filler ${i}: ${"Plain words to make the article long. ".repeat(8)}</p>`).join("")}<p>The very last words of the article.</p>`
 const text = html.replace(/<[^>]*>/g, "")
 let docId: string
 
@@ -73,12 +73,14 @@ interface Box {
 function inkAndText(page: Page) {
 	return page.evaluate(() => {
 		const box = (r: DOMRect) => ({ left: r.left, top: r.top, right: r.right, bottom: r.bottom })
-		return [...document.querySelectorAll<HTMLElement>(".hl-inks > [data-hl]")].map((group) => {
+		return [...document.querySelectorAll<HTMLElement>(".hl-inks > i[data-hl]")].map((group) => {
 			const range = [...(CSS.highlights.get(`klip-hl-${group.dataset.hl}`) ?? [])][
 				Number(group.dataset.index)
 			] as Range
 			// Untilted, the stroke's own box: the tilt is a fraction of a degree.
-			const strokes = [...group.querySelectorAll<HTMLElement>(".hl-ink")].map((s) => {
+			const strokes = [
+				...document.querySelectorAll<HTMLElement>(`.hl-ink[data-key="${group.dataset.key}"]`),
+			].map((s) => {
 				const parent = s.offsetParent!.getBoundingClientRect()
 				return {
 					left: parent.left + s.offsetLeft,
@@ -206,8 +208,8 @@ test("a stroke over each line, low in the text, in the highlight's color, darker
 	await expect(page.locator('[data-hl="pink"] > .hl-outline')).toHaveCount(
 		painted.find((p) => p.color === "pink")!.strokes.length,
 	)
-	await expect(page.locator('.hl-inks > [data-hl="blue"]')).toHaveCSS("opacity", "0.3")
-	await expect(page.locator('.hl-inks > [data-hl="pink"]')).toHaveCSS("opacity", "1")
+	await expect(page.locator('.hl-ink[data-hl="blue"]').first()).toHaveCSS("opacity", "0.3")
+	await expect(page.locator('.hl-ink[data-hl="pink"]').first()).toHaveCSS("opacity", "1")
 })
 
 test("the strokes follow the text when it reflows: a narrower window, a larger font", async ({
@@ -235,6 +237,22 @@ test("the strokes follow the text when it reflows: a narrower window, a larger f
 	})
 	await expect.poll(height).toBeGreaterThan(before * 1.4)
 	expectStrokesOnLines(await inkAndText(page))
+})
+
+test("only the strokes near the screen are in the page; the rest come as it scrolls", async ({
+	page,
+}) => {
+	await seed(page, "Alpha", "charlie", PINK)
+	await seed(page, "very last", "article", YELLOW)
+	await page.setViewportSize({ width: 1000, height: 700 })
+	await open(page, 2)
+	const strokesOf = (color: string) => page.locator(`.hl-ink[data-hl="${color}"]`)
+	await expect(strokesOf("pink")).not.toHaveCount(0)
+	await expect(strokesOf("yellow")).toHaveCount(0)
+	await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
+	await expect(strokesOf("yellow")).not.toHaveCount(0)
+	await expect(strokesOf("pink")).toHaveCount(0)
+	expectStrokesOnLines((await inkAndText(page)).filter((p) => p.color === "yellow"))
 })
 
 test("dark mode: the ink lightens the page, not the letters", async ({ page }) => {

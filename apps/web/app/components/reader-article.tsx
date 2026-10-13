@@ -131,6 +131,8 @@ export function ReaderArticle({
 	const html = data.html ?? ""
 	const location = useLocation()
 	const contentRef = useRef<HTMLDivElement>(null)
+	// The text and its ink (HighlightInk).
+	const inkRef = useRef<HTMLDivElement>(null)
 	const articleRef = useRef<HTMLElement>(null)
 	const supported = useClientValue(supportsHighlightApi, true)
 	const touch = useMediaQuery("(pointer: coarse)")
@@ -631,31 +633,34 @@ export function ReaderArticle({
 					) : null}
 					{/* Between the header and the text: it doesn't take the margin's top from the cards. */}
 					{aiEnabled ? briefCard : null}
-					<div
-						ref={contentRef}
-						onClick={onContentClick}
-						onPointerMove={onContentPointerMove}
-						onPointerLeave={(e) => {
-							if (e.pointerType !== "mouse") return
-							resize.hover(null)
-							setHoveredThread(null)
-							if (!resize.guard.current) setHoveredId(null)
-						}}
-						// While a highlight's toolbar or note editor is open, the others dim (app.css).
-						data-focus={resize.state !== "pointer" && focusItem ? "true" : undefined}
-						data-resizing={resize.state === "pointer" ? "true" : undefined}
-						// Its color, for the mark in focus (`klip-active`).
-						{...(marked ? highlightColor(marked.color) : {})}
-						className="reader-content prose max-w-none"
-						dangerouslySetInnerHTML={{ __html: html }}
-					/>
-					{supported ? (
-						<HighlightInk
-							rootRef={contentRef}
-							containerRef={articleRef}
-							outlined={outlined && !isTemporary(outlined.id) ? outlined.id : null}
+					{/* The text and its ink, which goes under it: isolated, so the ink stays above the page. */}
+					<div ref={inkRef} className="relative isolate">
+						<div
+							ref={contentRef}
+							onClick={onContentClick}
+							onPointerMove={onContentPointerMove}
+							onPointerLeave={(e) => {
+								if (e.pointerType !== "mouse") return
+								resize.hover(null)
+								setHoveredThread(null)
+								if (!resize.guard.current) setHoveredId(null)
+							}}
+							// While a highlight's toolbar or note editor is open, the others dim (app.css).
+							data-focus={resize.state !== "pointer" && focusItem ? "true" : undefined}
+							data-resizing={resize.state === "pointer" ? "true" : undefined}
+							// Its color, for the mark in focus (`klip-active`).
+							{...(marked ? highlightColor(marked.color) : {})}
+							className="reader-content prose max-w-none"
+							dangerouslySetInnerHTML={{ __html: html }}
 						/>
-					) : null}
+						{supported ? (
+							<HighlightInk
+								rootRef={contentRef}
+								containerRef={inkRef}
+								outlined={outlined && !isTemporary(outlined.id) ? outlined.id : null}
+							/>
+						) : null}
+					</div>
 					{!touch && supported ? (
 						<HighlightResizeHandles
 							resize={resize}

@@ -4,7 +4,7 @@ import { X } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router"
-import { HIGHLIGHT_SWATCH, highlightColor } from "~/lib/highlight-colors"
+import { highlightColor } from "~/lib/highlight-colors"
 import type { RenderableHighlight } from "~/lib/highlights.client"
 import type { LinkTargets } from "~/lib/note-links"
 import { cn } from "~/lib/utils"
@@ -231,14 +231,17 @@ export function ReaderSidebar({
 										activeId === h.id ? "bg-selected" : "hover:bg-muted",
 									)}
 								>
-									<span
-										{...highlightColor(h.color)}
-										data-testid="highlight-swatch"
-										className={cn("mt-0.5 w-1 shrink-0 self-stretch rounded", HIGHLIGHT_SWATCH)}
-										aria-hidden
-									/>
 									<span className="min-w-0 flex-1">
-										<span className="line-clamp-3 text-sm">{h.exact}</span>
+										{/* Marked as it is in the article, in its color. */}
+										<span className="line-clamp-3 px-0.5 text-sm">
+											<span
+												{...highlightColor(h.color)}
+												data-testid="highlight-quote"
+												className="marker"
+											>
+												{h.exact}
+											</span>
+										</span>
 										{h.note ? (
 											<PostIt
 												as="span"

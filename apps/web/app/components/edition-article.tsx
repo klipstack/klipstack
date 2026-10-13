@@ -59,7 +59,7 @@ export function EditionArticle({
 	const answer = useItemArticle(editionId, reading.itemId)
 	const article = answer?.ok ? answer.article : null
 	const content = useRef<HTMLDivElement>(null)
-	const frame = useRef<HTMLElement>(null)
+	const frame = useRef<HTMLDivElement>(null)
 	const ranges = useRef(new Map<string, Range>())
 	// Asked for a highlight the article no longer has where it was: deleted, or lost in an update.
 	const [missing, setMissing] = useState(false)
@@ -113,10 +113,9 @@ export function EditionArticle({
 	}
 	return (
 		<article
-			ref={frame}
 			data-testid="edition-article"
 			className={cn(
-				"reader reader-size-sm relative mx-auto px-6 pt-6 pb-24",
+				"reader reader-size-sm mx-auto px-6 pt-6 pb-24",
 				`reader-font-${font}`,
 				"max-w-[var(--reader-measure)]",
 			)}
@@ -155,7 +154,8 @@ export function EditionArticle({
 				</p>
 			) : null}
 			{article.html ? (
-				<>
+				// The text and its ink, which goes under it: isolated, so the ink stays above the page.
+				<div ref={frame} className="relative isolate">
 					<div
 						ref={content}
 						className="reader-content prose max-w-none"
@@ -163,7 +163,7 @@ export function EditionArticle({
 						dangerouslySetInnerHTML={{ __html: article.html }}
 					/>
 					<HighlightInk rootRef={content} containerRef={frame} />
-				</>
+				</div>
 			) : (
 				<p className="font-sans text-sm text-muted-fg">{t("article.noText")}</p>
 			)}
