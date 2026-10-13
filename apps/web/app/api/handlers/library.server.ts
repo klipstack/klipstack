@@ -152,12 +152,14 @@ export const topics: Handler<typeof listTopicsEndpoint> = async ({ userId, query
 	const active = state.stage === "active"
 	const latest = active && query.latest ? await latestInTopics(userId, query.latest) : null
 	let items: Topic[] = active
-		? state.topics.map(({ id, name, description, articles, recent }) => ({
+		? state.topics.map(({ id, name, description, articles, recent, toRead, lastRead }) => ({
 				id,
 				name,
 				description,
 				articles,
 				savedThisWeek: recent,
+				toRead,
+				lastReadAt: lastRead?.toISOString() ?? null,
 				...(latest ? { latest: (latest.get(id) ?? []).map(articleSummary) } : {}),
 			}))
 		: []

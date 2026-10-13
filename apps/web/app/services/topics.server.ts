@@ -1,5 +1,6 @@
 import { TOPIC_RULES } from "@klipstack/ai"
 import { topicKey, topicsNamedIn } from "@klipstack/api-contract/search-query"
+import { somethingDifferent } from "@klipstack/api-contract/topics"
 import {
 	and,
 	asc,
@@ -62,6 +63,10 @@ export interface TopicBook {
 
 /** A topic on the Topics page: its newest articles, and how many were saved this week. */
 export interface TopicShelf extends TopicSummary {
+	/** Its articles in the library (not archived), not finished: unread or in progress. */
+	toRead: number
+	/** When the reader last read from it: the latest article opened or finished, archived ones too. */
+	lastRead: Date | null
 	/** The newest `SHELF_BOOKS`, newest first; the topic's page has them all. */
 	books: TopicBook[]
 	/** Articles in it saved in the last seven days. */
@@ -164,6 +169,10 @@ async function summaries(
 ): Promise<TopicShelf[]> {
 	const articles = sql<number>`count(${documents.id})::int`
 	const recent = sql<number>`(count(${documents.id}) filter (where ${savedThisWeek}))::int`
+	const toRead = sql<number>`(count(${documents.id}) filter (where ${documents.archivedAt} is null and not ${finished}))::int`
+	const lastRead = sql<
+		string | null
+	>`greatest(max(${documents.lastReadAt}), max(${documents.readAt}))`
 	const rows = await db
 		.select({
 			id: topics.id,
@@ -171,6 +180,8 @@ async function summaries(
 			description: topics.description,
 			articles,
 			recent,
+			toRead,
+			lastRead,
 		})
 		.from(topics)
 		.leftJoin(documentTopics, applied)
@@ -181,7 +192,11 @@ async function summaries(
 	// The first topics, still proposed, hold no articles yet: only confirmed ones have shelves.
 	const shelved =
 		status === "active" && shelves ? await books(userId) : new Map<string, TopicBook[]>()
-	return rows.map((row) => ({ ...row, books: shelved.get(row.id) ?? [] }))
+	return rows.map((row) => ({
+		...row,
+		lastRead: row.lastRead ? new Date(row.lastRead) : null,
+		books: shelved.get(row.id) ?? [],
+	}))
 }
 
 /** "New" on a shelf: saved in the last seven days. */
@@ -648,15 +663,7 @@ export async function homeTopics(
 		...row,
 		lastRead: row.lastRead ? new Date(row.lastRead) : null,
 	}))
-	const different =
-		list.length < 2
-			? null
-			: list.toSorted(
-					(a, b) =>
-						(a.lastRead?.getTime() ?? 0) - (b.lastRead?.getTime() ?? 0) ||
-						b.toRead - a.toRead ||
-						a.name.localeCompare(b.name),
-				)[0]!.id
+	const different = somethingDifferent(list.map((t) => ({ ...t, lastReadAt: t.lastRead })))
 	return { topics: list, different }
 }
 

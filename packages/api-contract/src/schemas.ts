@@ -187,6 +187,13 @@ export const Topic = z
 		articles: z.number().int(),
 		/** Of those, saved in the last seven days. */
 		savedThisWeek: z.number().int(),
+		/** Of those, in the library (not archived) and not finished: unread or in progress. */
+		toRead: z.number().int(),
+		/**
+		 * When the reader last read from it: the latest of its articles opened or finished, archived
+		 * ones too. Null when they never read one. `somethingDifferent` (`/topics`) picks from these.
+		 */
+		lastReadAt: Time.nullable(),
 		/** With `view`: its articles in that list. */
 		inView: z.number().int().optional(),
 		/** With `latest`: its newest articles, newest saved first, the trash left out. */

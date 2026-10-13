@@ -84,8 +84,10 @@ const topicOf = (name: string, articles: number) => ({
 	name,
 	description: `About ${name}.`,
 	articles,
-	// Every article here was saved just now.
+	// Every article here was saved just now, and none read yet.
 	savedThisWeek: articles,
+	toRead: articles,
+	lastReadAt: null,
 })
 
 const titles = (page: { items: { title: string | null }[] }) =>
@@ -104,8 +106,8 @@ describe("GET /topics and GET /articles?topic=", () => {
 		const response = await request("/api/v1/topics", { token: reader.key })
 		const body = (await response.json()) as { items: Record<string, unknown>[] }
 		expect(body.items.map((t) => Object.keys(t).sort())).toEqual([
-			["articles", "description", "id", "name", "savedThisWeek"],
-			["articles", "description", "id", "name", "savedThisWeek"],
+			["articles", "description", "id", "lastReadAt", "name", "savedThisWeek", "toRead"],
+			["articles", "description", "id", "lastReadAt", "name", "savedThisWeek", "toRead"],
 		])
 	})
 
@@ -132,7 +134,8 @@ describe("GET /topics and GET /articles?topic=", () => {
 				stage: "active",
 				sortingPaused: null,
 				items: [
-					{ ...topicOf("Science", 1), inView: 1 },
+					// Archived: nothing left to read in it.
+					{ ...topicOf("Science", 1), toRead: 0, inView: 1 },
 					{ ...topicOf("Writing", 2), inView: 0 },
 				],
 				none: 0,
@@ -143,7 +146,7 @@ describe("GET /topics and GET /articles?topic=", () => {
 				sortingPaused: null,
 				items: [
 					{ ...topicOf("Writing", 2), inView: 2 },
-					{ ...topicOf("Science", 1), inView: 0 },
+					{ ...topicOf("Science", 1), toRead: 0, inView: 0 },
 				],
 				none: 1,
 				sorting: 1,
@@ -365,6 +368,74 @@ describe("GET /topics: the stage, and each topic's latest articles", () => {
 			items: [],
 			sorting: 1,
 		})
+	})
+
+	it("counts what is left to read in each topic, and says when the reader last read from it", async () => {
+		const [draft] = await db
+			.select({ id: documents.id })
+			.from(documents)
+			.where(and(eq(documents.userId, reader.id), eq(documents.title, "Draft one")))
+		const [atoms] = await db
+			.select({ id: documents.id })
+			.from(documents)
+			.where(and(eq(documents.userId, reader.id), eq(documents.title, "Atoms")))
+		const finishedAt = new Date("2026-10-01T10:00:00Z")
+		const readAt = new Date("2026-10-05T10:00:00Z")
+		// Finished: read, no longer to read. Opened and archived: read from, out of the library.
+		await db.update(documents).set({ readAt: finishedAt }).where(eq(documents.id, draft!.id))
+		await db
+			.update(documents)
+			.set({ lastReadAt: readAt, firstOpenedAt: readAt, archivedAt: new Date() })
+			.where(eq(documents.id, atoms!.id))
+		// In progress: still to read. Trashed, though read last: neither to read nor read from.
+		const extra = async (
+			title: string,
+			topic: string,
+			values: Partial<typeof documents.$inferInsert>,
+		) => {
+			const [doc] = await db
+				.insert(documents)
+				.values({
+					userId: reader.id,
+					sourceUrl: `https://example.com/${newId()}`,
+					urlHash: newId(),
+					status: "ready",
+					title,
+					...values,
+				})
+				.returning({ id: documents.id })
+			await db
+				.insert(documentTopics)
+				.values({ documentId: doc!.id, topicId: topic, probability: 0.9, level: "applied" })
+			return doc!.id
+		}
+		const opened = new Date("2026-09-20T10:00:00Z")
+		const added = [
+			await extra("Draft three", ids["reader:Writing"]!, {
+				firstOpenedAt: opened,
+				lastReadAt: opened,
+				readingProgress: 0.3,
+			}),
+			await extra("Trashed atoms", ids["reader:Science"]!, {
+				firstOpenedAt: new Date("2026-10-09T10:00:00Z"),
+				lastReadAt: new Date("2026-10-09T10:00:00Z"),
+				deletedAt: new Date(),
+			}),
+		]
+		try {
+			const { items } = await reader.client.topics.list()
+			expect(items.map(({ name, toRead, lastReadAt }) => ({ name, toRead, lastReadAt }))).toEqual([
+				{ name: "Writing", toRead: 2, lastReadAt: finishedAt.toISOString() },
+				{ name: "Science", toRead: 0, lastReadAt: readAt.toISOString() },
+			])
+		} finally {
+			for (const id of added) await db.delete(documents).where(eq(documents.id, id))
+			await db.update(documents).set({ readAt: null }).where(eq(documents.id, draft!.id))
+			await db
+				.update(documents)
+				.set({ lastReadAt: null, firstOpenedAt: null, archivedAt: null })
+				.where(eq(documents.id, atoms!.id))
+		}
 	})
 
 	it("gives each topic its newest articles with latest, as the library lists them", async () => {

@@ -1,8 +1,9 @@
-import type { ArticleSummary } from "@klipstack/sdk"
+import type { ArticleSummary, Topic } from "@klipstack/sdk"
 import { router, useFocusEffect } from "expo-router"
 import { SymbolView } from "expo-symbols"
 import { useCallback, useMemo, useRef, useState } from "react"
 import {
+	ActionSheetIOS,
 	ActivityIndicator,
 	AppState,
 	FlatList,
@@ -31,14 +32,27 @@ import { onChange, settled } from "@/lib/article-changes"
 import { articleMeta } from "@/lib/article-meta"
 import { useAuth } from "@/lib/auth"
 import { type HomeSections, homeSections, minutesLeft, withChanges, withTags } from "@/lib/home"
+import {
+	type HomeTopicChoice,
+	homeTopicChoice,
+	type TopicPick,
+	topicHeading,
+} from "@/lib/home-topics"
+import { topicEnded } from "@/lib/library-topics"
 import { canUseOffline, loadList, OFFLINE_NOTE, saveList } from "@/lib/offline"
 import { downloadAhead, keepLibraryLists } from "@/lib/offline-download"
 import { type Colors, useColors } from "@/lib/theme"
+import { chooseTopic } from "@/lib/topic-choices"
 
 /**
  * The home page, as the web's: a big card to continue reading (or, with nothing in progress, to
  * start the newest save), then shelves of more in progress, recent saves and short reads. A long
  * press on an article opens its menu, as in the library.
+ *
+ * For a reader with topics, "About what?" above them, as on the web: a topic narrows every section
+ * to its articles (the lists' `topic`), and says what is left in it, with the way to all of it on
+ * the Topics screen. Something different is the topic read from least lately. Only Home without a
+ * topic is kept for offline reading.
  */
 export default function Home() {
 	const { state } = useAuth()
@@ -49,6 +63,12 @@ export default function Home() {
 	const [error, setError] = useState<string | null>(null)
 	const [refreshing, setRefreshing] = useState(false)
 	const generation = useRef(0)
+	// The reader's topics (none while off or not loaded), and the one Home narrows to.
+	const [topics, setTopics] = useState<Topic[]>([])
+	const [pick, setPick] = useState<TopicPick>(null)
+	const choice = homeTopicChoice(topics, pick)
+	const chosen = choice?.chosen ?? null
+	const topic = chosen?.topic.id
 
 	const load = useCallback(async () => {
 		if (!client) return
@@ -56,11 +76,27 @@ export default function Home() {
 		try {
 			// After a closing reader's change lands (src/lib/article-changes.ts).
 			await settled()
+			// Alongside, and never in the way: Home without them is Home without the choice. A pick
+			// with nothing left to read goes: a later save must not narrow Home again unasked.
+			void client.topics
+				.list()
+				.then((answer) => {
+					if (mine !== generation.current) return
+					setTopics(answer.items)
+					setPick((now) => homeTopicChoice(answer.items, now)?.pick ?? null)
+				})
+				.catch(() => {})
 			// More than a shelf shows: the sections drop what isn't ready or shows above.
 			const [reading, unread, quick] = await Promise.all([
-				client.articles.list({ view: "inbox", filter: "progress", limit: 12 }),
-				client.articles.list({ view: "inbox", filter: "unread", sort: "newest", limit: 20 }),
-				client.articles.list({ view: "inbox", filter: "quick", limit: 30 }),
+				client.articles.list({ view: "inbox", filter: "progress", limit: 12, topic }),
+				client.articles.list({
+					view: "inbox",
+					filter: "unread",
+					sort: "newest",
+					limit: 20,
+					topic,
+				}),
+				client.articles.list({ view: "inbox", filter: "quick", limit: 30, topic }),
 			])
 			if (mine !== generation.current) return
 			const sections = homeSections({
@@ -70,6 +106,8 @@ export default function Home() {
 			})
 			setHome(sections)
 			setError(null)
+			// One topic's share is not Home to keep: offline, and on the widget, Home is all of it.
+			if (topic) return
 			// Kept for offline reading, with Inbox's and Starred's first pages (src/lib/offline.ts).
 			saveList("home-reading", reading.items)
 			saveList("home-unread", unread.items)
@@ -83,6 +121,10 @@ export default function Home() {
 			keepLibraryLists(client)
 		} catch (e) {
 			if (mine !== generation.current) return
+			// The topic ended, or topics were turned off: Home shows everything again.
+			if (topicEnded(topic ?? null, e)) return setPick(null)
+			// Offline, only Home without a topic is kept: none to show for one.
+			if (topic && canUseOffline(e)) return setError(OFFLINE_NOTE)
 			if (canUseOffline(e)) {
 				const [reading, unread, quick] = [
 					loadList("home-reading"),
@@ -96,7 +138,7 @@ export default function Home() {
 			}
 			setError(e instanceof Error ? e.message : String(e))
 		}
-	}, [client])
+	}, [client, topic])
 
 	// Again on each return to the tab and to the app: reading moves articles between sections.
 	useFocusEffect(
@@ -147,6 +189,19 @@ export default function Home() {
 			refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
 		>
 			<ClipboardOffer client={client} onSaved={() => void load()} colors={colors} />
+			{choice ? (
+				<AboutWhat
+					choice={choice}
+					onPick={(next) => {
+						// Another topic's sections, not the last one's under its heading: loading, then them.
+						setHome(null)
+						setError(null)
+						setPick(next)
+					}}
+					colors={colors}
+				/>
+			) : null}
+			{chosen ? <TopicHeading chosen={chosen} colors={colors} /> : null}
 			{home && error ? (
 				<Text style={[styles.inset, styles.banner, { color: colors.mutedFg }]}>{error}</Text>
 			) : null}
@@ -156,6 +211,10 @@ export default function Home() {
 				) : (
 					<ActivityIndicator style={styles.loading} color={colors.mutedFg} />
 				)
+			) : empty && chosen ? (
+				<Text style={[styles.inset, styles.message, { color: colors.mutedFg }]}>
+					Nothing in {chosen.topic.name} to read right now.
+				</Text>
 			) : empty ? (
 				<View style={styles.emptyState}>
 					<SymbolView
@@ -184,7 +243,11 @@ export default function Home() {
 					{home.recent.length ? (
 						<Section
 							title="Recently saved"
-							onMore={() => router.navigate("/library/inbox", { withAnchor: true })}
+							onMore={() => {
+								// Inbox, in the same topic; otherwise as the reader left it.
+								if (topic) chooseTopic("inbox", topic)
+								router.navigate("/library/inbox", { withAnchor: true })
+							}}
 							colors={colors}
 						>
 							<Shelf items={home.recent} colors={colors} headers={headers} menu={menu} />
@@ -201,6 +264,133 @@ export default function Home() {
 			{/* A sheet of its own, over the screen: its place here doesn't matter. */}
 			{tags.sheet}
 		</ScrollView>
+	)
+}
+
+/**
+ * "About what?": Anything, the biggest topics, something different, and More for the rest, in one
+ * line scrolled sideways, so Home's sections stay in view. The chosen one is filled.
+ */
+function AboutWhat({
+	choice,
+	onPick,
+	colors,
+}: {
+	choice: HomeTopicChoice
+	onPick: (next: TopicPick) => void
+	colors: Colors
+}) {
+	const { pick } = choice
+	const chip = (key: string, label: string, on: boolean, next: TopicPick) => (
+		<Pressable
+			key={key}
+			accessibilityRole="button"
+			accessibilityState={{ selected: on }}
+			onPress={() => {
+				if (!on) onPick(next)
+			}}
+			style={({ pressed }) => [
+				styles.chip,
+				{
+					borderColor: on ? colors.fg : colors.border,
+					backgroundColor: on ? colors.fg : colors.bg,
+				},
+				pressed && styles.pressed,
+			]}
+		>
+			<Text style={[styles.chipText, { color: on ? colors.bg : colors.fg }]}>{label}</Text>
+		</Pressable>
+	)
+	const more = () =>
+		ActionSheetIOS.showActionSheetWithOptions(
+			{
+				title: "More topics",
+				options: [...choice.more.map((t) => t.name), "Cancel"],
+				cancelButtonIndex: choice.more.length,
+			},
+			(index) => {
+				const topic = choice.more[index]
+				if (topic) onPick({ id: topic.id, different: false })
+			},
+		)
+	return (
+		<View style={styles.about}>
+			<Text style={[styles.inset, styles.aboutTitle, { color: colors.mutedFg }]}>About what?</Text>
+			<ScrollView
+				horizontal
+				showsHorizontalScrollIndicator={false}
+				contentContainerStyle={styles.chips}
+			>
+				{chip("any", "Anything", !pick, null)}
+				{choice.chips.map((t) =>
+					chip(t.id, t.name, pick?.id === t.id && !pick.different, { id: t.id, different: false }),
+				)}
+				{choice.different
+					? chip("different", "Something different", !!pick?.different, {
+							id: choice.different,
+							different: true,
+						})
+					: null}
+				{choice.more.length ? (
+					<Pressable
+						accessibilityRole="button"
+						accessibilityLabel="More topics"
+						onPress={more}
+						style={({ pressed }) => [
+							styles.chip,
+							styles.moreChip,
+							{ borderColor: colors.border },
+							pressed && styles.pressed,
+						]}
+					>
+						<Text style={[styles.chipText, { color: colors.fg }]}>More</Text>
+						<SymbolView
+							name="chevron.down"
+							tintColor={colors.mutedFg}
+							size={12}
+							accessibilityElementsHidden
+						/>
+					</Pressable>
+				) : null}
+			</ScrollView>
+		</View>
+	)
+}
+
+/** The chosen topic: its name, why it is here, and the way to all of it on the Topics screen. */
+function TopicHeading({
+	chosen,
+	colors,
+}: {
+	chosen: NonNullable<HomeTopicChoice["chosen"]>
+	colors: Colors
+}) {
+	const { title, line, all } = topicHeading(chosen)
+	const { topic } = chosen
+	return (
+		<View style={[styles.topicHeading, { borderBottomColor: colors.border }]}>
+			<Text style={[styles.topicTitle, { color: colors.fg }]}>{title}</Text>
+			<Text style={[styles.note, { color: colors.mutedFg }]}>{line}</Text>
+			<Pressable
+				accessibilityRole="link"
+				hitSlop={8}
+				onPress={() =>
+					router.navigate(
+						{
+							pathname: "/library/topics/[id]",
+							params: { id: topic.id, name: topic.name, description: topic.description },
+						},
+						{ withAnchor: true },
+					)
+				}
+			>
+				{({ pressed }) => (
+					<Text style={[styles.note, { color: colors.accent }, pressed && styles.pressed]}>
+						{all} →
+					</Text>
+				)}
+			</Pressable>
+		</View>
 	)
 }
 
@@ -361,6 +551,24 @@ const styles = StyleSheet.create({
 	grow: { flex: 1 },
 	shrink: { flexShrink: 1 },
 	pressed: { opacity: 0.6 },
+	about: { gap: 8 },
+	aboutTitle: { fontSize: 14 },
+	chips: { paddingHorizontal: PAD, gap: 8 },
+	chip: {
+		borderWidth: 1,
+		borderRadius: 999,
+		paddingHorizontal: 14,
+		paddingVertical: 7,
+	},
+	moreChip: { flexDirection: "row", alignItems: "center", gap: 4 },
+	chipText: { fontSize: 15, fontWeight: "500" },
+	topicHeading: {
+		marginHorizontal: PAD,
+		gap: 4,
+		paddingBottom: 16,
+		borderBottomWidth: StyleSheet.hairlineWidth,
+	},
+	topicTitle: { fontFamily: "Iowan Old Style", fontSize: 28, lineHeight: 33, fontWeight: "600" },
 	shelf: { paddingHorizontal: PAD, paddingVertical: CARD_FRAME, gap: 14 },
 	shelfFrame: { marginVertical: -CARD_FRAME },
 	shelfCard: { marginHorizontal: -CARD_FRAME },

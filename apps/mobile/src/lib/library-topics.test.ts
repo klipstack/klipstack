@@ -19,6 +19,8 @@ const topics: TopicsInList = {
 			description: "On writing.",
 			articles: 9,
 			savedThisWeek: 0,
+			toRead: 0,
+			lastReadAt: null,
 			inView: 3,
 		},
 		{
@@ -27,6 +29,8 @@ const topics: TopicsInList = {
 			description: "On science.",
 			articles: 4,
 			savedThisWeek: 0,
+			toRead: 0,
+			lastReadAt: null,
 			inView: 1,
 		},
 		{
@@ -35,6 +39,8 @@ const topics: TopicsInList = {
 			description: "On history.",
 			articles: 2,
 			savedThisWeek: 0,
+			toRead: 0,
+			lastReadAt: null,
 			inView: 0,
 		},
 	],
