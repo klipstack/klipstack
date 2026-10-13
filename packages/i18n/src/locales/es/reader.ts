@@ -146,6 +146,14 @@ export default {
 			copy: "Copiar texto",
 			copied: "Copiado",
 			delete: "Eliminar subrayado",
+			color: "Color del subrayado",
+		},
+		colors: {
+			yellow: "Amarillo",
+			green: "Verde",
+			blue: "Azul",
+			pink: "Rosa",
+			orange: "Naranja",
 		},
 		margin: { label: "Notas de subrayados" },
 		sidebar: {

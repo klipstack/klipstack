@@ -4,42 +4,10 @@ import type { EditionItemView, EditionLink, EditionView } from "~/lib/edition-vi
 import { cn } from "~/lib/utils"
 import { BrandMarkSmall } from "./brand-mark"
 import { CurrentMarker } from "./edition-current-marker"
+import { PostIt } from "./post-it"
 
 /** Links out of a public page: no endorsement for search engines, no handle on this window. */
 const OUTBOUND = "nofollow ugc noopener"
-
-/** Each note leans its own way, as paper stuck on by hand does. */
-const TILTS = ["-rotate-[1.4deg]", "rotate-[1deg]", "-rotate-[0.6deg]", "rotate-[1.6deg]"]
-
-/**
- * The author speaking, on paper taped to the page: the intro, signed at its end, and each article's
- * note. One look for all of it, unlike the articles' own words and the quotes from them. A note
- * leans square, as paper notes are: as wide as its words up to a point, and at least as tall as
- * wide; a long one grows taller.
- */
-function PostIt({
-	tilt,
-	className,
-	children,
-	...props
-}: { tilt: number; className?: string; children: ReactNode } & React.ComponentProps<"div">) {
-	return (
-		<div
-			{...props}
-			className={cn(
-				"relative bg-note px-5 pt-6 pb-5 font-serif text-note-fg italic shadow-[0_1px_1px_rgb(0_0_0/0.08),0_12px_24px_-12px_rgb(0_0_0/0.4)]",
-				TILTS[tilt % TILTS.length],
-				className,
-			)}
-		>
-			<span
-				aria-hidden="true"
-				className="absolute -top-3 left-1/2 h-6 w-20 -translate-x-1/2 rotate-[-3deg] bg-note-tape shadow-[0_1px_2px_rgb(0_0_0/0.12)]"
-			/>
-			{children}
-		</div>
-	)
-}
 
 /**
  * A published edition, or the preview of a working copy. Server-rendered and readable without

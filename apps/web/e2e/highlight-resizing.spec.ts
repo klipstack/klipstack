@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto"
 import { db, documents, documentVersions, eq, highlights, user } from "@klipstack/db"
 import { expect, type Page, test } from "@playwright/test"
-import { signupUser, waitForHydration } from "./helpers"
+import { paintedHighlights, signupUser, waitForHydration } from "./helpers"
 
 // Network-failure tests must intercept the request itself, outside the offline service worker.
 test.use({ serviceWorkers: "block" })
@@ -55,7 +55,7 @@ async function seed(page: Page, start = START, end = END, note: string | null = 
 async function open(page: Page) {
 	await page.goto(`/read/${docId}`)
 	await waitForHydration(page)
-	await expect.poll(() => page.evaluate(() => CSS.highlights.get("klip-hl")?.size)).toBe(1)
+	await expect.poll(async () => (await paintedHighlights(page)).length).toBe(1)
 }
 /** Use browser layout to drive real mouse events at canonical text offsets. */
 async function point(page: Page, offset: number) {
@@ -119,10 +119,8 @@ function response(page: Page) {
 async function saved() {
 	return db.query.highlights.findFirst({ where: eq(highlights.id, highlightId) })
 }
-/** The painted highlights' text. Every highlight paints in one color, overlapping ones included. */
-async function paint(page: Page) {
-	return page.evaluate(() => [...(CSS.highlights.get("klip-hl") ?? [])].map((r) => r.toString()))
-}
+/** The painted highlights' text, overlapping ones included. */
+const paint = paintedHighlights
 
 test.afterEach(async () => {
 	if (ownerId) await db.delete(user).where(eq(user.id, ownerId))

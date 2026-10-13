@@ -4,9 +4,10 @@ import { useTranslation } from "react-i18next"
 import { data, type FetcherWithComponents, Link, useFetcher } from "react-router"
 import { NoteText } from "~/components/note-text"
 import { PinnedControls } from "~/components/pinned-controls"
+import { PostIt } from "~/components/post-it"
 import { SearchField } from "~/components/search-field"
 import { tooltip } from "~/components/tooltip-host"
-import { HIGHLIGHT_SWATCH } from "~/lib/highlight-colors"
+import { HIGHLIGHT_SWATCH, highlightColor } from "~/lib/highlight-colors"
 import {
 	DEFAULT_HIGHLIGHT_VIEW,
 	HIGHLIGHT_VIEW_COOKIE,
@@ -306,7 +307,12 @@ function HighlightCard({
 				deleting && "opacity-40",
 			)}
 		>
-			<span className={cn("mt-1 h-auto w-1 shrink-0 rounded", HIGHLIGHT_SWATCH)} aria-hidden />
+			<span
+				{...highlightColor(h.color)}
+				data-testid="highlight-swatch"
+				className={cn("mt-1 h-auto w-1 shrink-0 rounded", HIGHLIGHT_SWATCH)}
+				aria-hidden
+			/>
 			<div className="min-w-0 flex-1">
 				<Link
 					to={`/read/${h.documentId}#h=${h.id}`}
@@ -315,9 +321,9 @@ function HighlightCard({
 					{h.exact}
 				</Link>
 				{h.note ? (
-					<p className="mt-2 text-sm text-muted-fg">
+					<PostIt variant="compact" className="mt-2 w-fit max-w-full text-sm">
 						<NoteText text={h.note} />
-					</p>
+					</PostIt>
 				) : null}
 				{h.orphaned ? <p className="mt-1 text-xs text-danger">{t("highlights.orphaned")}</p> : null}
 				{withArticle ? (

@@ -31,7 +31,9 @@ function StaticNote({ value, placeholder, linkTargets, className }: NoteEditorPr
 			{value ? (
 				<NoteText text={value} linkTargets={linkTargets} />
 			) : (
-				<span className="text-muted-fg">{placeholder}</span>
+				<span className="text-[color:var(--note-placeholder,var(--k-muted-fg))]">
+					{placeholder}
+				</span>
 			)}
 		</div>
 	)
@@ -72,7 +74,10 @@ function NoteTextarea({
 				}
 			}}
 			placeholder={placeholder}
-			className={cn("block w-full resize-none bg-transparent [field-sizing:content]", className)}
+			className={cn(
+				"block w-full resize-none bg-transparent [field-sizing:content] placeholder:text-[color:var(--note-placeholder,var(--k-muted-fg))]",
+				className,
+			)}
 		/>
 	)
 }

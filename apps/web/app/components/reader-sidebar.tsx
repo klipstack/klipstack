@@ -4,7 +4,7 @@ import { X } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router"
-import { HIGHLIGHT_SWATCH } from "~/lib/highlight-colors"
+import { HIGHLIGHT_SWATCH, highlightColor } from "~/lib/highlight-colors"
 import type { RenderableHighlight } from "~/lib/highlights.client"
 import type { LinkTargets } from "~/lib/note-links"
 import { cn } from "~/lib/utils"
@@ -12,6 +12,7 @@ import { LinkArticleButton } from "./link-article-button"
 import type { NoteEditorApi } from "./note-editor"
 import { NoteField } from "./note-field"
 import { NoteText } from "./note-text"
+import { PostIt } from "./post-it"
 
 interface Props {
 	note: {
@@ -182,20 +183,26 @@ export function ReaderSidebar({
 						<span className="font-medium text-muted-fg">{t("highlights.sidebar.note")}</span>
 						<NoteStatus status={note.status} onRetry={note.onFlush} />
 					</div>
-					<NoteField
-						key={documentId}
-						id="article-note"
-						aria-label={t("highlights.sidebar.note")}
-						value={note.value}
-						maxLength={NOTE_MAX}
-						onChange={note.onChange}
-						onBlur={note.onFlush}
-						documentId={documentId}
-						linkTargets={linkTargets}
-						placeholder={t("highlights.sidebar.notePlaceholder")}
-						className="block max-h-[50vh] min-h-24 w-full overflow-y-auto rounded-lg border border-border bg-bg px-3 py-2 text-sm focus:ring-2 focus:ring-ring"
-						onApi={setNoteApi}
-					/>
+					{/* Written straight on the paper: the editor is the note. */}
+					<PostIt
+						variant="compact"
+						className="text-[0.9375rem] leading-snug focus-within:ring-2 focus-within:ring-ring"
+					>
+						<NoteField
+							key={documentId}
+							id="article-note"
+							aria-label={t("highlights.sidebar.note")}
+							value={note.value}
+							maxLength={NOTE_MAX}
+							onChange={note.onChange}
+							onBlur={note.onFlush}
+							documentId={documentId}
+							linkTargets={linkTargets}
+							placeholder={t("highlights.sidebar.notePlaceholder")}
+							className="block max-h-[50vh] min-h-20 w-full overflow-y-auto"
+							onApi={setNoteApi}
+						/>
+					</PostIt>
 					<LinkArticleButton api={noteApi} className="-ml-2 mt-1" />
 				</section>
 				<h3 className="px-4 pt-4 text-xs font-medium text-muted-fg">
@@ -221,15 +228,17 @@ export function ReaderSidebar({
 									)}
 								>
 									<span
-										className={`mt-0.5 w-1 shrink-0 self-stretch rounded ${HIGHLIGHT_SWATCH}`}
+										{...highlightColor(h.color)}
+										data-testid="highlight-swatch"
+										className={cn("mt-0.5 w-1 shrink-0 self-stretch rounded", HIGHLIGHT_SWATCH)}
 										aria-hidden
 									/>
-									<span className="min-w-0">
+									<span className="min-w-0 flex-1">
 										<span className="line-clamp-3 text-sm">{h.exact}</span>
 										{h.note ? (
-											<span className="mt-1 block text-xs text-muted-fg">
+											<PostIt as="span" variant="compact" className="mt-2 mb-1 text-[0.8125rem]">
 												<NoteText text={h.note} linkTargets={linkTargets} plainLinks />
-											</span>
+											</PostIt>
 										) : null}
 										{h.orphaned ? (
 											<span className="mt-1 block text-xs text-danger">

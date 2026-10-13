@@ -10,7 +10,7 @@ import {
 	highlights,
 } from "@klipstack/db"
 import { expect, type Page, test } from "@playwright/test"
-import { signupUser, waitForHydration, waitForSidebarPrefetch } from "./helpers"
+import { paintedHighlights, signupUser, waitForHydration, waitForSidebarPrefetch } from "./helpers"
 import { insertArticle } from "./seed"
 
 const FIXTURE = join(
@@ -557,7 +557,7 @@ test("an article set aside stays in place, out of the page; its article reads be
 	await expect(article.getByRole("heading", { name: "Recall" })).toBeVisible()
 	await expect(article.getByText(quote)).toBeInViewport()
 	await expect(article.getByText("Paragraph 0 of what came first.")).not.toBeInViewport()
-	expect(await page.evaluate(() => CSS.highlights.get("klip-hl")?.size)).toBe(1)
+	expect(await paintedHighlights(page)).toHaveLength(1)
 
 	// While it is open, only its card is within reach: the rest of the editor waits.
 	const inert = (locator: typeof recall) => locator.evaluate((el) => el.closest("[inert]") !== null)

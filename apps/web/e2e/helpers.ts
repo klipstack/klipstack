@@ -258,3 +258,12 @@ export async function expectNoEmailTo(address: string) {
 	await new Promise((resolve) => setTimeout(resolve, 1000))
 	expect(existsSync(mailFile(address))).toBe(false)
 }
+
+/** The text of every highlight painted in the reader, whatever its color (`klip-hl-<color>`). */
+export function paintedHighlights(page: Page): Promise<string[]> {
+	return page.evaluate(() =>
+		[...CSS.highlights]
+			.filter(([name]) => name.startsWith("klip-hl-"))
+			.flatMap(([, painted]) => [...painted].map((range) => range.toString())),
+	)
+}

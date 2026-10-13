@@ -51,7 +51,8 @@ export function ReaderToolbar({
 
 	// The sticky top bar covers the first ~60px: no room above there.
 	const above = rect.top > 120
-	const left = Math.min(Math.max(8, rect.left), window.innerWidth - width - 8)
+	// On screen, its start first: in a window narrower than the toolbar, it wraps.
+	const left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8))
 	const top = above ? rect.top + scrollY - 8 : rect.bottom + scrollY + 8
 
 	return (

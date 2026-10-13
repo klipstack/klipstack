@@ -1,18 +1,27 @@
 import type { AiThreadAction } from "@klipstack/db"
 import { Copy, MessageSquarePlus, SquarePen, Trash2 } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import {
+	HIGHLIGHT_COLOR_NAMES,
+	HIGHLIGHT_SWATCH,
+	highlightColor,
+	highlightColorName,
+} from "~/lib/highlight-colors"
 import type { RenderableHighlight } from "~/lib/highlights.client"
 import { COPY_HINT } from "~/lib/shortcuts"
+import { cn } from "~/lib/utils"
 import { AiToolbarButtons } from "./ai-toolbar-buttons"
 import { ReaderToolbar, TOOLBAR_ICON_BUTTON, TOOLBAR_LABEL_BUTTON } from "./reader-toolbar"
 import { tooltip } from "./tooltip-host"
 
 interface Props {
-	highlight: Pick<RenderableHighlight, "note">
+	highlight: Pick<RenderableHighlight, "note" | "color">
 	/** Where the highlight was on screen when measured. */
 	rect: DOMRect
 	/** The page's scroll offset at that moment. */
 	scrollY: number
+	/** Without it, no colors to pick (the landing page's demo). */
+	onColor?: (color: number) => void
 	/** Without it, no note button (the landing page's demo). */
 	onNote?: () => void
 	/** Without it, no copy button. */
@@ -24,11 +33,15 @@ interface Props {
 	onAsk?: (action: AiThreadAction) => void
 }
 
-/** A highlight's actions: add or edit its note, copy its text, delete. */
+/** The color picker's width: five swatches and the line after them. */
+const COLORS_WIDTH = 160
+
+/** A highlight's actions: pick its color, add or edit its note, copy its text, delete. */
 export function HighlightToolbar({
 	highlight,
 	rect,
 	scrollY,
+	onColor,
 	onNote,
 	onCopy,
 	onDelete,
@@ -46,10 +59,13 @@ export function HighlightToolbar({
 			label={t("highlights.popover.label")}
 			rect={rect}
 			scrollY={scrollY}
-			width={onAsk ? 530 : 240}
+			width={(onAsk ? 530 : 240) + (onColor ? COLORS_WIDTH : 0)}
 			onClose={onClose}
 			disabled={disabled}
 		>
+			{onColor ? (
+				<ColorPicker color={highlight.color} onColor={onColor} disabled={disabled} />
+			) : null}
 			{onNote ? (
 				<button type="button" disabled={disabled} onClick={onNote} className={TOOLBAR_LABEL_BUTTON}>
 					{highlight.note ? (
@@ -84,5 +100,55 @@ export function HighlightToolbar({
 			</button>
 			{onAsk ? <AiToolbarButtons onAsk={onAsk} disabled={disabled} /> : null}
 		</ReaderToolbar>
+	)
+}
+
+/** The five colors, the highlight's own pressed. */
+function ColorPicker({
+	color,
+	onColor,
+	disabled,
+}: {
+	color?: number
+	onColor: (color: number) => void
+	disabled?: boolean
+}) {
+	const { t } = useTranslation("reader")
+	const current = highlightColorName(color)
+	return (
+		<>
+			<div role="group" aria-label={t("highlights.popover.color")} className="flex items-center">
+				{HIGHLIGHT_COLOR_NAMES.map((name, index) => {
+					const label = t(`highlights.colors.${name}`)
+					const pressed = name === current
+					return (
+						<button
+							key={name}
+							type="button"
+							disabled={disabled}
+							aria-pressed={pressed}
+							aria-label={label}
+							{...tooltip(label)}
+							onClick={() => !pressed && onColor(index)}
+							// Bigger to the finger, in the touch sheet.
+							className="group/swatch rounded-full p-1.5 pointer-coarse:p-2.5 disabled:cursor-not-allowed disabled:opacity-40"
+						>
+							<span
+								aria-hidden
+								{...highlightColor(index)}
+								className={cn(
+									"block size-4 rounded-full pointer-coarse:size-5 ring-offset-2 ring-offset-card transition-shadow",
+									HIGHLIGHT_SWATCH,
+									pressed
+										? "ring-2 ring-fg/70"
+										: "group-hover/swatch:ring-2 group-hover/swatch:ring-border",
+								)}
+							/>
+						</button>
+					)
+				})}
+			</div>
+			<span aria-hidden className="mx-0.5 h-5 w-px bg-border" />
+		</>
 	)
 }

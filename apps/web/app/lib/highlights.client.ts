@@ -1,4 +1,5 @@
 import { rangeFromOffsets } from "@klipstack/anchor"
+import { HIGHLIGHT_COLOR_NAMES, highlightColorName } from "./highlight-colors"
 import { caretAt } from "./highlight-resize"
 
 export interface RenderableHighlight {
@@ -6,11 +7,15 @@ export interface RenderableHighlight {
 	startOffset: number
 	endOffset: number
 	note?: string | null
+	/** Index into HIGHLIGHT_COLORS; yellow when missing. */
+	color?: number
 	orphaned?: boolean
 	versionId?: string
 }
 
-const HIGHLIGHT = "klip-hl"
+/** One registry per color (`klip-hl-yellow`…), each painted its color in app.css. */
+const HIGHLIGHTS = HIGHLIGHT_COLOR_NAMES.map((name) => `klip-hl-${name}`)
+const paintedAs = (item: RenderableHighlight) => `klip-hl-${highlightColorName(item.color)}`
 const ACTIVE = "klip-active"
 const NOTE = "klip-note"
 
@@ -29,7 +34,7 @@ export function renderHighlights(
 ): Map<string, Range> {
 	const ranges = new Map<string, Range>()
 	if (!supportsHighlightApi()) return ranges
-	const painted: Range[] = []
+	const painted = new Map<string, Range[]>(HIGHLIGHTS.map((name) => [name, []]))
 	const noted: Range[] = []
 	for (const item of items) {
 		if (item.orphaned || (versionId && item.versionId !== versionId && !item.id.startsWith("tmp-")))
@@ -37,11 +42,13 @@ export function renderHighlights(
 		const range = rangeFromOffsets(root, item.startOffset, item.endOffset)
 		if (!range) continue
 		ranges.set(item.id, range)
-		painted.push(range)
+		painted.get(paintedAs(item))!.push(range)
 		if (item.note) noted.push(range)
 	}
-	if (painted.length) CSS.highlights.set(HIGHLIGHT, new Highlight(...painted))
-	else CSS.highlights.delete(HIGHLIGHT)
+	for (const [name, list] of painted) {
+		if (list.length) CSS.highlights.set(name, new Highlight(...list))
+		else CSS.highlights.delete(name)
+	}
 	if (noted.length) CSS.highlights.set(NOTE, new Highlight(...noted))
 	else CSS.highlights.delete(NOTE)
 	return ranges
@@ -49,7 +56,7 @@ export function renderHighlights(
 
 export function clearHighlights() {
 	if (!supportsHighlightApi()) return
-	CSS.highlights.delete(HIGHLIGHT)
+	for (const name of HIGHLIGHTS) CSS.highlights.delete(name)
 	CSS.highlights.delete(ACTIVE)
 	CSS.highlights.delete(NOTE)
 }
@@ -107,11 +114,12 @@ export function replaceHighlightRange(
 ) {
 	if (!supportsHighlightApi()) return
 	const old = ranges.get(item.id)
-	for (const name of [HIGHLIGHT, NOTE, ACTIVE]) {
+	for (const name of [...HIGHLIGHTS, NOTE, ACTIVE]) {
 		if (old) CSS.highlights.get(name)?.delete(old)
 	}
-	if (!CSS.highlights.has(HIGHLIGHT)) CSS.highlights.set(HIGHLIGHT, new Highlight())
-	CSS.highlights.get(HIGHLIGHT)!.add(range)
+	const painted = paintedAs(item)
+	if (!CSS.highlights.has(painted)) CSS.highlights.set(painted, new Highlight())
+	CSS.highlights.get(painted)!.add(range)
 	if (item.note && !dragging) {
 		if (!CSS.highlights.has(NOTE)) CSS.highlights.set(NOTE, new Highlight())
 		CSS.highlights.get(NOTE)!.add(range)

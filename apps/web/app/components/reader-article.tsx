@@ -33,6 +33,7 @@ import { useMediaQuery } from "~/hooks/use-media-query"
 import { useNoteAutosave } from "~/hooks/use-note-autosave"
 import { useAlignForSheet } from "~/hooks/use-reader-bar"
 import { copyText } from "~/lib/copy-link"
+import { highlightColor } from "~/lib/highlight-colors"
 import {
 	clearHighlights,
 	clearThreads,
@@ -154,6 +155,8 @@ export function ReaderArticle({
 	// Where the note being edited belongs. Its highlight cannot be resized while the editor is open.
 	const [editingRange, setEditingRange] = useState<Range | undefined>(undefined)
 	const [hoveredId, setHoveredId] = useState<string | null>(null)
+	// A hovered margin note marks its highlight in full (`klip-active`); hovered text does not.
+	const [hoveredNote, setHoveredNote] = useState<string | null>(null)
 	const [resizeFocus, setResizeFocus] = useState<string | null>(null)
 	// A just-created highlight opens its toolbar once the server has given it an id.
 	const pendingOpen = useRef<{ start: number; end: number } | null>(null)
@@ -300,6 +303,7 @@ export function ReaderArticle({
 		const range = rangesRef.current.get(id)
 		setPopover(null)
 		setHoveredId(null)
+		setHoveredNote(null)
 		setEditingId(id)
 		setEditingRange(range)
 		setActiveId(id)
@@ -308,12 +312,17 @@ export function ReaderArticle({
 	const closeNote = useCallback(() => {
 		setEditingId(null)
 		setHoveredId(null)
+		setHoveredNote(null)
 		setActiveHighlight(null)
 		setActiveId(null)
 	}, [])
 	const saveNote = (id: string, text: string) => {
 		if (resize.blocked(id)) return
 		highlights.change({ intent: "update", id, note: text })
+	}
+	const setColor = (id: string, color: number) => {
+		if (resize.blocked(id)) return
+		highlights.change({ intent: "update", id, color })
 	}
 	const removeHighlight = (id: string) => {
 		if (resize.blocked(id)) return
@@ -523,6 +532,8 @@ export function ReaderArticle({
 	// The highlight that stands out: the one hovered, else the one in focus.
 	const outlinedId = resize.state === "pointer" ? null : (hoveredId ?? activeId)
 	const outlined = outlinedId ? items.find((h) => h.id === outlinedId) : null
+	// The mark at full strength while one is in focus: a hovered note's highlight, else the one in focus.
+	const marked = (hoveredNote ? items.find((h) => h.id === hoveredNote) : null) ?? focusItem
 
 	// ---- notes in the margin, next to their highlights ----
 	const marginRoom = useMarginRoom(articleRef, supported)
@@ -558,6 +569,7 @@ export function ReaderArticle({
 	const hoverNote = (id: string | null) => {
 		if (resize.guard.current) return
 		setHoveredId(id)
+		setHoveredNote(id)
 		const shown = id ?? activeId
 		setActiveHighlight(shown ? (rangesRef.current.get(shown) ?? null) : null)
 	}
@@ -572,12 +584,13 @@ export function ReaderArticle({
 		}
 	}
 	const noteEditor = (
-		item: { id: string; note?: string | null },
+		item: { id: string; note?: string | null; color?: number },
 		placement: NoteEditorPlacement,
 	) => (
 		<HighlightNoteEditor
 			key={item.id}
 			initial={item.note ?? ""}
+			color={item.color}
 			placement={placement}
 			documentId={doc.id}
 			linkTargets={linkTargets}
@@ -627,6 +640,8 @@ export function ReaderArticle({
 						// While a highlight's toolbar or note editor is open, the others dim (app.css).
 						data-focus={resize.state !== "pointer" && focusItem ? "true" : undefined}
 						data-resizing={resize.state === "pointer" ? "true" : undefined}
+						// Its color, for the mark in focus (`klip-active`).
+						{...(marked ? highlightColor(marked.color) : {})}
 						className="reader-content prose max-w-none"
 						dangerouslySetInnerHTML={{ __html: html }}
 					/>
@@ -635,6 +650,7 @@ export function ReaderArticle({
 							articleRef={articleRef}
 							rangesRef={rangesRef}
 							id={outlined && !isTemporary(outlined.id) ? outlined.id : null}
+							color={outlined?.color}
 							version={items}
 						/>
 					) : null}
@@ -706,6 +722,7 @@ export function ReaderArticle({
 						disabled={resize.blocked(popoverItem.id)}
 						rect={popover.rect}
 						scrollY={popover.scrollY}
+						onColor={(color) => setColor(popoverItem.id, color)}
 						onNote={() => openNote(popoverItem.id)}
 						onCopy={() => copyHighlight(popoverItem.id, popoverItem.exact)}
 						onDelete={() => removeHighlight(popoverItem.id)}

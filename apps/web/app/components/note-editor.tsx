@@ -392,7 +392,7 @@ export default function NoteEditor({
 				class: cn(
 					"whitespace-pre-wrap break-words outline-none",
 					// Placeholder, shown on the first line while the note is empty.
-					"[&_p.is-editor-empty:first-child]:before:pointer-events-none [&_p.is-editor-empty:first-child]:before:float-left [&_p.is-editor-empty:first-child]:before:h-0 [&_p.is-editor-empty:first-child]:before:text-muted-fg [&_p.is-editor-empty:first-child]:before:content-[attr(data-placeholder)]",
+					"[&_p.is-editor-empty:first-child]:before:pointer-events-none [&_p.is-editor-empty:first-child]:before:float-left [&_p.is-editor-empty:first-child]:before:h-0 [&_p.is-editor-empty:first-child]:before:text-[color:var(--note-placeholder,var(--k-muted-fg))] [&_p.is-editor-empty:first-child]:before:content-[attr(data-placeholder)]",
 					className,
 				),
 			},

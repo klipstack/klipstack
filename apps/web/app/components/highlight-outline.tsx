@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { highlightColor } from "~/lib/highlight-colors"
 
 interface Box {
 	left: number
@@ -16,11 +17,14 @@ export function HighlightOutline({
 	articleRef,
 	rangesRef,
 	id,
+	color,
 	version,
 }: {
 	articleRef: React.RefObject<HTMLElement | null>
 	rangesRef: React.RefObject<Map<string, Range>>
 	id: string | null
+	/** The highlight's color: the line is drawn in it. */
+	color?: number
 	/** Changes whenever the ranges are rebuilt (the highlight list). */
 	version: unknown
 }) {
@@ -56,7 +60,11 @@ export function HighlightOutline({
 
 	if (id === null || measured.id !== id) return null
 	return (
-		<div aria-hidden className="pointer-events-none absolute inset-0 z-[5]">
+		<div
+			aria-hidden
+			{...highlightColor(color)}
+			className="pointer-events-none absolute inset-0 z-[5]"
+		>
 			{measured.boxes.map((box) => (
 				<span key={`${box.left},${box.top}`} className="hl-pop hl-outline" style={box} />
 			))}
