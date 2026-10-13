@@ -19,11 +19,12 @@ import {
 	ne,
 	not,
 	type SQL,
+	type SQLWrapper,
 	sql,
 	termQuery,
 } from "@klipstack/db"
 import { HIGHLIGHT_COLOR_NAMES } from "~/lib/highlight-colors"
-import { HIGHLIGHT_FILTERS, type HighlightFilter, searchTerms } from "~/lib/highlight-filters"
+import { type HighlightFilter, searchTerms } from "~/lib/highlight-filters"
 import { type ModificationRange, modificationRange } from "./annotation-dates.server"
 import { getDocument } from "./documents.server"
 import type { TopicScope } from "./documents.server"
@@ -388,21 +389,7 @@ export interface HighlightListItem {
 	image: string | null
 }
 
-export interface HighlightArticle {
-	documentId: string
-	documentTitle: string | null
-	author: string | null
-	siteName: string | null
-	sourceUrl: string
-	image: string | null
-	/** Highlights in reading order. */
-	highlights: HighlightListItem[]
-	latestAt: Date
-}
-
 export const HIGHLIGHTS_PAGE_SIZE = 50
-/** The "by article" view loads everything that matches; users have hundreds, not thousands. */
-const ARTICLES_VIEW_MAX = 2000
 
 export const listColumns = {
 	id: highlights.id,
@@ -433,14 +420,19 @@ export const listColumns = {
  * and longer words it starts. Through the highlights' search vector and its index.
  */
 function searchWhere(q: string | undefined): SQL | undefined {
+	return termsMatch(highlights.search, q)
+}
+
+/** Every term of `q` in a search vector (see `searchWhere`); undefined for a query without any. */
+export function termsMatch(vector: SQLWrapper, q: string | undefined): SQL | undefined {
 	const terms = searchTerms(q ?? "")
 	if (terms.length === 0) return undefined
-	return sql`${highlights.search} @@ (${sql.join(terms.map(termQuery), sql` && `)})`
+	return sql`${vector} @@ (${sql.join(terms.map(termQuery), sql` && `)})`
 }
 
 const hasNote = and(isNotNull(highlights.note), ne(highlights.note, "")) as SQL
 
-function filterWhere(filter: HighlightFilter): SQL {
+export function filterWhere(filter: HighlightFilter): SQL {
 	return filter === "notes" ? hasNote : eq(highlights.color, HIGHLIGHT_COLOR_NAMES.indexOf(filter))
 }
 
@@ -453,7 +445,7 @@ export interface HighlightScope {
 	topic?: TopicScope | null
 }
 
-function scopeWhere({ tagId, topic }: HighlightScope = {}): SQL | undefined {
+export function scopeWhere({ tagId, topic }: HighlightScope = {}): SQL | undefined {
 	return and(
 		tagId
 			? exists(
@@ -467,7 +459,7 @@ function scopeWhere({ tagId, topic }: HighlightScope = {}): SQL | undefined {
 	)
 }
 
-function baseWhere(userId: string, q?: string, scope?: HighlightScope) {
+export function baseWhere(userId: string, q?: string, scope?: HighlightScope) {
 	return and(
 		eq(highlights.userId, userId),
 		eq(documents.userId, userId),
@@ -558,65 +550,4 @@ export async function getHighlightWithArticle(
 		.where(and(eq(highlights.id, id), baseWhere(userId)))
 		.limit(1)
 	return row ?? null
-}
-
-/** Articles with matching highlights, most recently highlighted first. */
-export async function listHighlightArticles({
-	userId,
-	q,
-	filter = null,
-	scope,
-}: {
-	userId: string
-	q?: string
-	filter?: HighlightFilter | null
-	scope?: HighlightScope
-}): Promise<HighlightArticle[]> {
-	const rows = await db
-		.select(listColumns)
-		.from(highlights)
-		.innerJoin(documents, eq(documents.id, highlights.documentId))
-		.where(and(baseWhere(userId, q, scope), filter ? filterWhere(filter) : undefined))
-		.orderBy(desc(highlights.createdAt))
-		.limit(ARTICLES_VIEW_MAX)
-	const articles = new Map<string, HighlightArticle>()
-	for (const h of rows) {
-		const article = articles.get(h.documentId)
-		if (article) article.highlights.push(h)
-		else
-			articles.set(h.documentId, {
-				documentId: h.documentId,
-				documentTitle: h.documentTitle,
-				author: h.author,
-				siteName: h.siteName,
-				sourceUrl: h.sourceUrl,
-				image: h.image,
-				highlights: [h],
-				latestAt: h.createdAt,
-			})
-	}
-	for (const article of articles.values())
-		article.highlights.sort((a, b) => a.startOffset - b.startOffset)
-	return [...articles.values()]
-}
-
-/** Matching highlights per filter (search applied), for the filter chips. */
-export async function countHighlightFilters(
-	userId: string,
-	q?: string,
-	scope?: HighlightScope,
-): Promise<Record<HighlightFilter, number>> {
-	const [row] = await db
-		.select(
-			Object.fromEntries(
-				HIGHLIGHT_FILTERS.map((f) => [f, sql<number>`count(*) filter (where ${filterWhere(f)})`]),
-			) as Record<HighlightFilter, SQL<number>>,
-		)
-		.from(highlights)
-		.innerJoin(documents, eq(documents.id, highlights.documentId))
-		.where(baseWhere(userId, q, scope))
-	return Object.fromEntries(HIGHLIGHT_FILTERS.map((f) => [f, Number(row?.[f] ?? 0)])) as Record<
-		HighlightFilter,
-		number
-	>
 }

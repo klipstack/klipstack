@@ -312,21 +312,21 @@ test("highlight → persists → note → sidebar → highlights page → delete
 	})
 	expect(missing.status()).toBe(422)
 
-	// highlights page shows the quote and note; the whole card opens the highlight in the reader
-	await page.goto("/highlights")
+	// the Notebook shows the quote and note; the whole card opens the highlight in the reader
+	await page.goto("/notebook")
 	await expect(page.getByText(QUOTE)).toBeVisible()
 	await expect(page.getByText("Makers need long blocks.")).toBeVisible()
 	await page.getByRole("listitem").filter({ hasText: "Makers need long blocks." }).click()
 	await expect(page).toHaveURL(new RegExp(`/read/${id}#h=`))
 
 	// search covers quotes and notes only
-	await page.goto("/highlights?q=long%20blocks")
+	await page.goto("/notebook?q=long%20blocks")
 	await expect(page.getByText("Makers need long blocks.")).toBeVisible()
-	await page.goto("/highlights?q=types%20of%20schedule")
+	await page.goto("/notebook?q=types%20of%20schedule")
 	await expect(page.getByText(QUOTE)).toBeVisible()
-	await page.goto("/highlights?q=zzzznotthere")
-	await expect(page.getByText("No highlights match that search.")).toBeVisible()
-	await page.goto("/highlights")
+	await page.goto("/notebook?q=zzzznotthere")
+	await expect(page.getByText("Nothing matches that search.")).toBeVisible()
+	await page.goto("/notebook")
 	// Hydrated, the delete stays on the page; before, it would post the form and leave.
 	await waitForHydration(page)
 	const noted = page.getByRole("listitem").filter({ hasText: "Makers need long blocks." })
@@ -421,8 +421,8 @@ test("a highlight's color: picked in its toolbar, shown on the text, its note an
 	await expectMarked(row.getByTestId("highlight-quote"), "green")
 	await expect(row.locator("[data-post-it]")).toHaveText(NOTE)
 
-	// The highlights page too.
-	await page.goto("/highlights")
+	// The Notebook too.
+	await page.goto("/notebook")
 	const card = page.getByRole("listitem").filter({ hasText: QUOTE })
 	// On the board, the card's quote mark is in the color (it was a strip before the board).
 	await expect(card.getByTestId("quote-mark")).toHaveCSS("color", greenLine)

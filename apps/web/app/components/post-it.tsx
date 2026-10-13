@@ -84,6 +84,8 @@ type Props = {
 	fit?: string
 	/** A `span` inside phrasing content, such as a button. */
 	as?: "div" | "span"
+	/** Nothing written on it yet: faint paper with a dashed edge and no tape, to write on. */
+	blank?: boolean
 	className?: string
 	children: ReactNode
 } & Omit<React.HTMLAttributes<HTMLElement>, "children">
@@ -99,6 +101,7 @@ export function PostIt({
 	tilt = 0,
 	fit,
 	as: Tag = "div",
+	blank = false,
 	className,
 	style,
 	children,
@@ -116,17 +119,20 @@ export function PostIt({
 				VARIANTS[variant],
 				tilts[((tilt % tilts.length) + tilts.length) % tilts.length],
 				Tag === "span" && "block",
+				blank && "border-2 border-dashed border-note-fg/30 bg-note/25 shadow-none",
 				className,
 			)}
 		>
-			<span
-				aria-hidden="true"
-				data-testid="post-it-tape"
-				className={cn(
-					"pointer-events-none absolute left-1/2 -translate-x-1/2 rotate-[-3deg] bg-note-tape shadow-[0_1px_2px_rgb(0_0_0/0.12)]",
-					TAPE[variant],
-				)}
-			/>
+			{blank ? null : (
+				<span
+					aria-hidden="true"
+					data-testid="post-it-tape"
+					className={cn(
+						"pointer-events-none absolute left-1/2 -translate-x-1/2 rotate-[-3deg] bg-note-tape shadow-[0_1px_2px_rgb(0_0_0/0.12)]",
+						TAPE[variant],
+					)}
+				/>
+			)}
 			{children}
 		</Tag>
 	)

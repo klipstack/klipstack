@@ -7,7 +7,6 @@ export const PAGE_TITLES = [
 	"common:nav.archive",
 	"common:nav.editions",
 	"common:nav.feed",
-	"common:nav.highlights",
 	"common:nav.notebook",
 	"common:nav.inbox",
 	"common:nav.search",

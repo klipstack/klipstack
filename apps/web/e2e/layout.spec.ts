@@ -202,7 +202,7 @@ test("every page's header row lines up with the sidebar's", async ({ page }) => 
 		"/home",
 		"/library",
 		"/feed",
-		"/highlights",
+		"/notebook",
 		"/editions",
 		"/tags",
 		"/search",

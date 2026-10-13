@@ -87,10 +87,11 @@ test("note links: chips read, navigate, backlink and export", async ({ page }) =
 	await expect(asText).toHaveAttribute("data-status", "ok")
 	await expect(sidebar.getByRole("link", { name: JOEL.title })).toHaveCount(0)
 
-	// On the Highlights page the same note link is a real link, and it opens its article.
-	await page.goto("/highlights")
+	// In the Notebook the highlight's note link is a real link, and it opens its article. (The
+	// article's own note is there too, in its editor: its chip is the editor's.)
+	await page.goto("/notebook")
 	await waitForHydration(page)
-	const pageChip = page.getByTestId("doc-chip").first()
+	const pageChip = page.getByTestId("quote-card").getByTestId("doc-chip").first()
 	await expect(pageChip).toHaveText(JOEL.title)
 	await pageChip.click()
 	await expect(page).toHaveURL(new RegExp(`/read/${joel}$`))
@@ -202,10 +203,12 @@ test("note links: the margin editor links, and Escape leaves the typed text alon
 	])
 	await expect(margin.getByTestId("doc-chip")).toHaveText(JOEL.title)
 
-	// The Highlights page shows the same chip.
-	await page.goto("/highlights")
+	// The Notebook shows the same chip.
+	await page.goto("/notebook")
 	await waitForHydration(page)
-	await expect(page.getByTestId("doc-chip").first()).toHaveText(JOEL.title)
+	await expect(page.getByTestId("quote-card").getByTestId("doc-chip").first()).toHaveText(
+		JOEL.title,
+	)
 
 	// Escape closes the menu and leaves `[[abc` as plain text, which survives a reload.
 	await open(page, makers, MAKERS.quote)
