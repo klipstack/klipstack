@@ -13,7 +13,10 @@
   column.
 - `fonts/`: Newsreader (SIL Open Font License, `fonts/Newsreader-OFL.txt`), fixed at single weights
   and optical sizes and cut down to Latin characters: 500 at 40 for the logo's name, 600 at 18 for
-  the small logo's, 400 at 40 for taglines.
+  the small logo's, 400 at 40 for taglines and sample text, 600 at 72 for the headline on the share
+  cards and the X header (as the landing page's), and italic 400 at 24 for the note on them (as
+  the app's post-its). The last two were instanced from the variable font in
+  `@fontsource-variable/newsreader` with fontTools' `instancer`.
 - `klipstack-logo-light.svg`, `klipstack-logo-dark.svg`: the logo in fixed colors, for places where
   `currentColor` does not reach, such as images in the README: navy on light backgrounds, white on dark.
 
@@ -34,9 +37,9 @@
 `pnpm --filter @klipstack/web icons` writes the PNG icons (web app, PWA, extension, email, the mobile
 app's iOS and Android icons), the mobile app's logo images (`logo.png`, and `splash-logo*.png` for
 its launch screen, in `apps/mobile/assets/`), the
-share cards (`share-<language>.png`, with each language's landing headline, `home.headline` without its markup), `apps/web/public/icons/favicon.svg`
+share cards (`share-<language>.png`) and the X header (`social/x-header.png`), `apps/web/public/icons/favicon.svg`
 and `mark.svg`, both logos, and `apps/web/app/components/brand-mark.tsx`. Run it after
-changing either mark or the headline.
+changing either mark, the headline, or the sample text the cards show.
 
 Then bump the `?v=` on the icon URLs in `apps/web/app/root.tsx`, `apps/web/app/app.css`,
 `apps/web/public/manifest.webmanifest`, `apps/web/app/lib/email.server.ts` and
@@ -46,6 +49,13 @@ old picture.
 
 ## Social
 
-- `social/x-cover-*.png`: header images for the X profile, 1500×500. `b-paper` is the one in use;
-  `a-navy` and `c-stripes` are the alternatives. Text starts about 430px in and stays 60px clear of
-  the top and bottom: the avatar covers the bottom-left corner and phones crop those edges.
+The share cards and the X header say the landing page's promise (`home.headline`, its `<mark>`
+part marked in yellow as on the page) beside the landing page's sample essay: its last sentence
+highlighted (`home.demo`), and a reader's note on a post-it (`home.shareCard.note`). Paper
+background, Newsreader, the accent navy for the logo, which stays small: the promise comes first.
+
+- `share-<language>.png` (1200×630), for link previews of klipstack.com, one per language. The
+  page's `og:image:alt` and `twitter:image:alt` are `home.shareCard.alt`.
+- `social/x-header.png` (1500×500), the header for the X profile, in English. X crops it on some
+  screens and the profile photo covers its lower left corner: the text starts 450px in, and
+  everything stays 60px clear of the top and bottom (the script refuses a header that does not).

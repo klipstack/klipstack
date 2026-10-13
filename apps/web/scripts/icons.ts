@@ -139,7 +139,9 @@ write(`${mobileAssets}/android-icon-foreground.png`, await png(bare(full, 512, "
 write(`${mobileAssets}/android-icon-monochrome.png`, await png(bare(full, 432, "#000000", 0.25)))
 
 /** Newsreader fixed at one weight and optical size (SIL Open Font License, brand/fonts). */
-function newsreader(instance: "400-opsz40" | "500-opsz40" | "600-opsz18"): Font {
+function newsreader(
+	instance: "400-opsz40" | "500-opsz40" | "600-opsz18" | "600-opsz72" | "italic-400-opsz24",
+): Font {
 	const file = readFileSync(resolve(root, `brand/fonts/newsreader-${instance}.ttf`))
 	return parse(file.buffer.slice(file.byteOffset, file.byteOffset + file.byteLength))
 }
@@ -152,6 +154,11 @@ const headlineFont = newsreader("400-opsz40")
  */
 function outline(font: Font, text: string, size: number, places = 1) {
 	const path = font.getPath(text, 0, 0, size, { letterSpacing: -0.01 })
+	return { d: outlineOf(path, places).d, box: path.getBoundingBox() }
+}
+
+/** Path data for an opentype.js path, rounded to `places` decimals (see `outline`). */
+function outlineOf(path: ReturnType<Font["getPath"]>, places = 1) {
 	const k = 10 ** places
 	const n = (v: number) => String(Math.round(v * k) / k + 0)
 	const d = path.commands
@@ -161,7 +168,7 @@ function outline(font: Font, text: string, size: number, places = 1) {
 			return c.type + [...points, c.x, c.y].map((v) => n(v as number)).join(" ")
 		})
 		.join("")
-	return { d, box: path.getBoundingBox() }
+	return { d }
 }
 
 const viewBox = (svg: string) => (/viewBox="([^"]+)"/.exec(svg)?.[1] ?? "").split(" ").map(Number)
@@ -233,32 +240,306 @@ for (const [name, ink] of [
 		await png(logoSvg(logo, ink, ink, `width="${splashW}" height="${splashH}" `)),
 	)
 
-/** The link-preview image: the white logo and the landing headline on the navy tile, 1200×630. */
-function shareCard(headline: string): string {
-	const [w, h] = [1200, 630]
-	const logoH = 150
-	const logoW = (logo.width * logoH) / logo.height
-	const words = outline(headlineFont, headline, 46)
-	const wordsX = (w - words.box.x2 - words.box.x1) / 2
-	const top = 196
-	const placed = logoSvg(
-		logo,
-		"#ffffff",
-		"#ffffff",
-		`x="${(w - logoW) / 2}" y="${top}" width="${logoW}" height="${logoH}" `,
-	)
+// The link-preview images and the X header: the landing headline, its promise marked as on the
+// landing page, beside the sample essay with a highlighted sentence and a reader's note on a
+// post-it. The site's paper, ink, accent, highlight and note colors (app.css, light theme).
+const paper = {
+	bg: "#fbfaf7",
+	ink: "#1a1d23",
+	muted: "#5f646b",
+	border: "#e0ded8",
+	card: "#ffffff",
+	accent: "#243f6c",
+	hl: "#ffe657",
+	hlEdge: "#ecd453",
+	note: "#fdf1bf",
+	noteInk: "#2f2416",
+}
+const display = newsreader("600-opsz72")
+const noteFont = newsreader("italic-400-opsz24")
+
+/** Words in lines no wider than `max` at `size`. */
+function wrap(font: Font, text: string, size: number, max: number, spacing = -0.01): string[] {
+	const width = (line: string) =>
+		font.getPath(line, 0, 0, size, { letterSpacing: spacing }).getBoundingBox().x2
+	const lines: string[] = []
+	for (const word of text.split(/\s+/).filter(Boolean)) {
+		const last = lines.at(-1)
+		if (last !== undefined && width(`${last} ${word}`) <= max)
+			lines[lines.length - 1] = `${last} ${word}`
+		else lines.push(word)
+	}
+	return lines
+}
+
+/** A marker stroke behind a line of text, as `.marker` on the landing page draws it. */
+function stroke(x1: number, x2: number, baseline: number, size: number): string {
+	const [left, right] = [x1 - 0.12 * size, x2 + 0.18 * size]
+	const [top, height] = [baseline - 0.62 * size, 0.8 * size]
 	return (
-		`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}">${gradient}` +
-		`<rect width="${w}" height="${h}" fill="url(#tile)"/>` +
-		`${placed.replace(/\s(xmlns|role|aria-label)="[^"]*"/g, "")}` +
-		`<path fill="#ffffff" fill-opacity="0.85" transform="translate(${wordsX.toFixed(1)} ${top + logoH + 96})" d="${words.d}"/></svg>\n`
+		`<rect x="${left.toFixed(1)}" y="${top.toFixed(1)}" width="${(right - left).toFixed(1)}" ` +
+		`height="${height.toFixed(1)}" rx="${(0.4 * size).toFixed(1)}" ry="${(0.3 * size).toFixed(1)}" fill="url(#marker)"/>`
 	)
 }
-for (const lang of supportedLanguages)
-	write(
-		`${webIcons}/share-${lang}.png`,
-		await png(shareCard(resources[lang].common.home.headline.replace(/<[^>]+>/g, ""))),
+
+/** Lines of text at (x, y), `y` the first baseline; `marked` lines get a marker stroke behind. */
+function textBlock(
+	font: Font,
+	lines: { text: string; marked?: boolean }[],
+	{
+		x,
+		y,
+		size,
+		leading,
+		fill,
+		spacing = -0.01,
+	}: {
+		x: number
+		y: number
+		size: number
+		leading: number
+		fill: string
+		spacing?: number
+	},
+): string {
+	let strokes = ""
+	let paths = ""
+	lines.forEach(({ text, marked }, i) => {
+		const baseline = y + i * leading
+		const path = font.getPath(text, 0, 0, size, { letterSpacing: spacing })
+		const { d } = outlineOf(path)
+		if (marked) {
+			const box = path.getBoundingBox()
+			strokes += stroke(x + box.x1, x + box.x2, baseline, size)
+		}
+		paths += `<path fill="${fill}" transform="translate(${x.toFixed(1)} ${baseline.toFixed(1)})" d="${d}"/>`
+	})
+	return strokes + paths
+}
+
+/**
+ * `plain` then `marked`, wrapped as one paragraph (no letter spacing, so a line's advance places
+ * the highlight): each line, and where on it the marked words start, if they do.
+ */
+function passage(font: Font, plain: string, marked: string, size: number, max: number) {
+	const words = [
+		...plain
+			.split(/\s+/)
+			.filter(Boolean)
+			.map((word) => ({ word, marked: false })),
+		...marked
+			.split(/\s+/)
+			.filter(Boolean)
+			.map((word) => ({ word, marked: true })),
+	]
+	const lines: { text: string; markFrom: number | null }[] = []
+	for (const { word, marked: m } of words) {
+		const last = lines.at(-1)
+		const joined = last ? `${last.text} ${word}` : word
+		if (last && font.getPath(joined, 0, 0, size).getBoundingBox().x2 <= max) {
+			if (m && last.markFrom === null) last.markFrom = font.getAdvanceWidth(`${last.text} `, size)
+			last.text = joined
+		} else lines.push({ text: word, markFrom: m ? 0 : null })
+	}
+	return lines
+}
+
+/** A `passage` at (x, y), `y` the first baseline, its marked words on a marker stroke. */
+function passageBlock(
+	font: Font,
+	lines: ReturnType<typeof passage>,
+	{
+		x,
+		y,
+		size,
+		leading,
+		fill,
+	}: { x: number; y: number; size: number; leading: number; fill: string },
+): string {
+	let strokes = ""
+	let paths = ""
+	lines.forEach(({ text, markFrom }, i) => {
+		const baseline = y + i * leading
+		const path = font.getPath(text, 0, 0, size)
+		if (markFrom !== null)
+			strokes += stroke(x + markFrom, x + path.getBoundingBox().x2, baseline, size)
+		paths += `<path fill="${fill}" transform="translate(${x.toFixed(1)} ${baseline.toFixed(1)})" d="${outlineOf(path).d}"/>`
+	})
+	return strokes + paths
+}
+
+/** The headline in lines: the plain part, then the marked promise on lines of its own. */
+function headlineLines(headline: string, size: number, max: number) {
+	const [, plain = headline, marked = ""] = /^(.*?)\s*<mark>(.*)<\/mark>/.exec(headline) ?? []
+	const spacing = -0.02
+	return [
+		...wrap(display, plain.replace(/<[^>]+>/g, ""), size, max, spacing).map((text) => ({ text })),
+		...wrap(display, marked, size, max, spacing).map((text) => ({ text, marked: true })),
+	]
+}
+
+/** The logo in the accent color, `height` tall, its top left at (x, y). */
+function placedLogo(x: number, y: number, height: number): string {
+	const width = (logo.width * height) / logo.height
+	return logoSvg(
+		logo,
+		paper.accent,
+		paper.accent,
+		`x="${x}" y="${y}" width="${width.toFixed(1)}" height="${height}" `,
+	).replace(/\s(xmlns|role|aria-label)="[^"]*"/g, "")
+}
+
+type Copy = {
+	headline: string
+	site: string
+	title: string
+	before: string
+	marked: string
+	note: string
+}
+
+/**
+ * The sample essay on a card, its last sentence highlighted, and the reader's note on a post-it
+ * over the card's lower left corner: `width` wide, its top left at (x, y). Without `before`, only
+ * the highlighted sentence, for a shorter card. Without `overhang`, the note stays within the
+ * card's height, below the text. Without `site`, no site line. Returns where it ends.
+ */
+function essayCard(
+	copy: Copy,
+	x: number,
+	y: number,
+	width: number,
+	{ before = true, overhang = true, site = true } = {},
+) {
+	const pad = 32
+	const inner = width - pad * 2
+	const meta = !site
+		? ""
+		: textBlock(headlineFont, [{ text: copy.site }], {
+				x: x + pad,
+				y: y + pad + 16,
+				size: 19,
+				leading: 0,
+				fill: paper.muted,
+			})
+	const titleLines = wrap(headlineFont, copy.title, 30, inner)
+	const titleTop = y + pad + (site ? 60 : 24)
+	const title = textBlock(
+		headlineFont,
+		titleLines.map((text) => ({ text })),
+		{
+			x: x + pad,
+			y: titleTop,
+			size: 30,
+			leading: 36,
+			fill: paper.ink,
+		},
 	)
+	const bodySize = 23
+	const bodyLeading = 36
+	// One passage: the highlight starts where the sentence before it ends, as in the reader.
+	const body = passage(headlineFont, before ? copy.before : "", copy.marked, bodySize, inner)
+	const bodyTop = titleTop + (titleLines.length - 1) * 36 + 50
+	const text = passageBlock(headlineFont, body, {
+		x: x + pad,
+		y: bodyTop,
+		size: bodySize,
+		leading: bodyLeading,
+		fill: paper.ink,
+	})
+	const noteSize = 27
+	const noteLines = wrap(noteFont, copy.note, noteSize, 250, 0)
+	const noteW = 300
+	const noteH = 44 + noteLines.length * 34
+	const lastBaseline = bodyTop + (body.length - 1) * bodyLeading
+	// Overhanging, the note covers the card's lower left corner; within it, it sits below the text.
+	const height = overhang ? lastBaseline + pad + 70 - y : lastBaseline + noteH + 40 - y
+	const card =
+		`<rect x="${x}" y="${y}" width="${width}" height="${height}" rx="18" fill="${paper.card}" ` +
+		`stroke="${paper.border}" stroke-width="1.5" filter="url(#lift)"/>`
+	// The note: italic, on its paper, leaning a little, as the post-its in the app do.
+	const noteX = x - 46
+	const noteY = overhang ? y + height - 64 : lastBaseline + 22
+	const note =
+		`<g transform="rotate(-2.5 ${noteX + noteW / 2} ${noteY + noteH / 2})">` +
+		`<rect x="${noteX}" y="${noteY}" width="${noteW}" height="${noteH}" fill="${paper.note}" filter="url(#lift)"/>` +
+		`<rect x="${noteX + noteW / 2 - 42}" y="${noteY - 12}" width="84" height="24" fill="#ffffff" fill-opacity="0.6" transform="rotate(-3 ${noteX + noteW / 2} ${noteY})"/>${textBlock(
+			noteFont,
+			noteLines.map((text) => ({ text })),
+			{
+				x: noteX + 24,
+				y: noteY + 46,
+				size: noteSize,
+				leading: 34,
+				fill: paper.noteInk,
+				spacing: 0,
+			},
+		)}</g>`
+	return { svg: card + meta + title + text + note, bottom: Math.max(y + height, noteY + noteH) }
+}
+
+const defs =
+	`<defs><linearGradient id="marker" x1="0" y1="0" x2="1" y2="0">` +
+	`<stop offset="0" stop-color="${paper.hlEdge}"/><stop offset="0.06" stop-color="${paper.hl}"/>` +
+	`<stop offset="0.94" stop-color="${paper.hl}"/><stop offset="1" stop-color="${paper.hlEdge}"/></linearGradient>` +
+	`<filter id="lift" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#1a1d23" flood-opacity="0.12"/></filter></defs>`
+
+/** The link-preview image, 1200×630: the promise large on the left, the essay and note on the right. */
+function shareCard(copy: Copy): string {
+	const [w, h] = [1200, 630]
+	const size = 70
+	const leading = 78
+	const lines = headlineLines(copy.headline, size, 650)
+	const blockH = (lines.length - 1) * leading
+	const first = (h - blockH) / 2 - 18
+	const card = essayCard(copy, 746, 92, 398)
+	return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}">${defs}<rect width="${w}" height="${h}" fill="${paper.bg}"/>${textBlock(
+		display,
+		lines,
+		{ x: 76, y: first, size, leading, fill: paper.ink, spacing: -0.02 },
+	)}${placedLogo(78, h - 92, 40)}${card.svg}</svg>\n`
+}
+
+/**
+ * The X profile header, 1500×500. X crops it to a narrower band on some screens and the profile
+ * photo covers its lower left corner, so everything sits between x = 430 and 1440 and at least
+ * 60px from the top and bottom (brand/README.md).
+ */
+function xHeader(copy: Copy): string {
+	const [w, h] = [1500, 500]
+	const size = 60
+	const leading = 66
+	const lines = headlineLines(copy.headline, size, 560)
+	const blockH = (lines.length - 1) * leading
+	const first = (h - blockH) / 2 - 22
+	const card = essayCard(copy, 1090, 60, 340, { before: false, overhang: false, site: false })
+	const logoTop = first + blockH + 44
+	// The headline's cap height above its first baseline, the logo below its last.
+	const extent = { top: first - size * 0.75, bottom: Math.max(card.bottom, logoTop + 34) }
+	if (extent.top < 60 || extent.bottom > h - 60)
+		throw new Error(`The X header reaches y = ${extent.top}..${extent.bottom}: keep 60px clear`)
+	return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}">${defs}<rect width="${w}" height="${h}" fill="${paper.bg}"/>${textBlock(
+		display,
+		lines,
+		{ x: 450, y: first, size, leading, fill: paper.ink, spacing: -0.02 },
+	)}${placedLogo(452, logoTop, 34)}${card.svg}</svg>\n`
+}
+
+const copyFor = (lang: (typeof supportedLanguages)[number]): Copy => {
+	const home = resources[lang].common.home
+	return {
+		headline: home.headline,
+		site: home.demo.site,
+		title: home.demo.title,
+		before: home.demo.sentences.s7,
+		marked: home.demo.sentences.s8,
+		note: home.shareCard.note,
+	}
+}
+for (const lang of supportedLanguages)
+	write(`${webIcons}/share-${lang}.png`, await png(shareCard(copyFor(lang))))
+// The X profile is in English.
+write(resolve(root, "brand/social/x-header.png"), await png(xHeader(copyFor("en"))))
 
 // React components: the marks and logos inline, in the current text color. oxfmt formats the file.
 const attrs = (tag: string) =>

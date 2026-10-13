@@ -269,6 +269,12 @@ export default {
 			signupDescription: "Have an invite code? Create your account.",
 			openDescription: "Create your account and save your first article.",
 		},
+		/** The link-preview image and the X header (scripts/icons.ts), and their description. */
+		shareCard: {
+			/** The reader's note on the post-it, beside the sample essay's highlighted sentence. */
+			note: "One line of my own, before the next tab.",
+			alt: "{{appName}}, a read-later app: {{headline}} Beside it, an article with a highlighted sentence and a reader's note on a post-it.",
+		},
 		footer: {
 			label: "Site",
 			terms: "Terms",

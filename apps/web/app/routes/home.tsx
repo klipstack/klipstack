@@ -34,7 +34,10 @@ export async function loader({ context }: Route.LoaderArgs) {
 		title: `${t("appName")} · ${plain(t("home.headline"))}`,
 		description: plain(t("home.description")),
 		url: `${env.APP_URL}/`,
-		card: shareCard(i18n.language),
+		card: {
+			...shareCard(i18n.language),
+			alt: t("home.shareCard.alt", { appName: t("appName"), headline: plain(t("home.headline")) }),
+		},
 	}
 }
 
@@ -58,8 +61,9 @@ export function meta({ loaderData }: Route.MetaArgs) {
 		{ property: "og:image", content: card.url },
 		{ property: "og:image:width", content: String(card.width) },
 		{ property: "og:image:height", content: String(card.height) },
-		{ property: "og:image:alt", content: title },
+		{ property: "og:image:alt", content: card.alt },
 		{ name: "twitter:card", content: "summary_large_image" },
+		{ name: "twitter:image:alt", content: card.alt },
 	]
 }
 

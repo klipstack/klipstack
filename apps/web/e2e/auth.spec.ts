@@ -25,6 +25,15 @@ test("public home explains the app and links to the invite request, login, terms
 	// their own sign-up link, so the page offers none.
 	await expect(page.getByRole("button", { name: "Request an invite" }).first()).toBeVisible()
 	await expect(page.getByRole("link", { name: "Sign up" })).toHaveCount(0)
+	// Link previews: the share card, versioned, described for people who can't see it.
+	const alt =
+		"Klipstack, a read-later app: Read more of what interests you. Keep what matters. Beside it, an article with a highlighted sentence and a reader's note on a post-it."
+	await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
+		"content",
+		/\/icons\/share-en\.png\?v=\d+$/,
+	)
+	await expect(page.locator('meta[property="og:image:alt"]')).toHaveAttribute("content", alt)
+	await expect(page.locator('meta[name="twitter:image:alt"]')).toHaveAttribute("content", alt)
 	await page.getByRole("link", { name: "Terms", exact: true }).click()
 	await expect(page).toHaveURL(/\/terms$/)
 	await expect(page.getByRole("heading", { level: 1 })).toHaveText("Terms of use")
@@ -74,6 +83,14 @@ test("home and login render in Spanish when the browser prefers it", async ({ br
 	await page.goto("/")
 	await expect(page.getByRole("heading", { level: 1 })).toHaveText(
 		"Lee más de lo que te interesa. Quédate con lo que importa.",
+	)
+	await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
+		"content",
+		/\/icons\/share-es\.png\?v=\d+$/,
+	)
+	await expect(page.locator('meta[name="twitter:image:alt"]')).toHaveAttribute(
+		"content",
+		/^Klipstack, una app para leer después: Lee más de lo que te interesa\. Quédate con lo que importa\. Al lado/,
 	)
 	await page.getByRole("link", { name: "Iniciar sesión", exact: true }).click()
 	await expect(page.getByRole("heading", { name: "Iniciar sesión" })).toBeVisible()
