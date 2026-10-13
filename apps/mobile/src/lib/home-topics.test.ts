@@ -60,11 +60,24 @@ describe("homeTopicChoice", () => {
 		const choice = homeTopicChoice(read, { id: "History", different: true })!
 		expect(choice.different).toBe("History")
 		expect(choice.chosen).toMatchObject({ topic: { id: "History" }, different: true })
+		// Under More still: chosen as something different, it is no chip of its own.
+		expect(choice.chips.map((t) => t.id)).toEqual(["Writing", "Startups", "Science", "Cooking"])
+		expect(choice.more.map((t) => t.id)).toEqual(["History"])
+		expect(choice.pick).toEqual({ id: "History", different: true })
 	})
 
 	it("drops a choice that is no topic now, or has nothing to read: Home shows everything", () => {
-		expect(homeTopicChoice(topics, { id: "Gone", different: false })!.chosen).toBeNull()
-		expect(homeTopicChoice(topics, { id: "Done", different: false })!.chosen).toBeNull()
+		for (const pick of [
+			{ id: "Gone", different: false },
+			{ id: "Done", different: false },
+			{ id: "Done", different: true },
+		]) {
+			const choice = homeTopicChoice(topics, pick)!
+			expect(choice.chosen).toBeNull()
+			// Anything is the one filled, and something different is another topic to choose.
+			expect(choice.pick).toBeNull()
+			expect(choice.different).toBe("History")
+		}
 	})
 
 	it("is nothing without a topic to read from", () => {

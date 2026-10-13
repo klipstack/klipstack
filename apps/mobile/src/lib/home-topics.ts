@@ -21,6 +21,8 @@ export interface HomeTopicChoice {
 	different: string | null
 	/** The topic Home narrows to, still one to read from; null for everything. */
 	chosen: { topic: Topic; different: boolean } | null
+	/** The pick as it stands: the chips fill from this, not from what was once picked. */
+	pick: TopicPick
 }
 
 /**
@@ -41,6 +43,7 @@ export function homeTopicChoice(topics: Topic[], pick: TopicPick): HomeTopicChoi
 		more: list.filter((t) => !chips.includes(t)),
 		different: picked && pick!.different ? picked.id : somethingDifferent(list),
 		chosen: picked ? { topic: picked, different: pick!.different } : null,
+		pick: picked ? { id: picked.id, different: pick!.different } : null,
 	}
 }
 

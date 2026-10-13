@@ -387,13 +387,49 @@ describe("GET /topics: the stage, and each topic's latest articles", () => {
 			.update(documents)
 			.set({ lastReadAt: readAt, firstOpenedAt: readAt, archivedAt: new Date() })
 			.where(eq(documents.id, atoms!.id))
+		// In progress: still to read. Trashed, though read last: neither to read nor read from.
+		const extra = async (
+			title: string,
+			topic: string,
+			values: Partial<typeof documents.$inferInsert>,
+		) => {
+			const [doc] = await db
+				.insert(documents)
+				.values({
+					userId: reader.id,
+					sourceUrl: `https://example.com/${newId()}`,
+					urlHash: newId(),
+					status: "ready",
+					title,
+					...values,
+				})
+				.returning({ id: documents.id })
+			await db
+				.insert(documentTopics)
+				.values({ documentId: doc!.id, topicId: topic, probability: 0.9, level: "applied" })
+			return doc!.id
+		}
+		const opened = new Date("2026-09-20T10:00:00Z")
+		const added = [
+			await extra("Draft three", ids["reader:Writing"]!, {
+				firstOpenedAt: opened,
+				lastReadAt: opened,
+				readingProgress: 0.3,
+			}),
+			await extra("Trashed atoms", ids["reader:Science"]!, {
+				firstOpenedAt: new Date("2026-10-09T10:00:00Z"),
+				lastReadAt: new Date("2026-10-09T10:00:00Z"),
+				deletedAt: new Date(),
+			}),
+		]
 		try {
 			const { items } = await reader.client.topics.list()
 			expect(items.map(({ name, toRead, lastReadAt }) => ({ name, toRead, lastReadAt }))).toEqual([
-				{ name: "Writing", toRead: 1, lastReadAt: finishedAt.toISOString() },
+				{ name: "Writing", toRead: 2, lastReadAt: finishedAt.toISOString() },
 				{ name: "Science", toRead: 0, lastReadAt: readAt.toISOString() },
 			])
 		} finally {
+			for (const id of added) await db.delete(documents).where(eq(documents.id, id))
 			await db.update(documents).set({ readAt: null }).where(eq(documents.id, draft!.id))
 			await db
 				.update(documents)

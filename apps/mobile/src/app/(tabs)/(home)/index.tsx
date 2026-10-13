@@ -73,16 +73,19 @@ export default function Home() {
 	const load = useCallback(async () => {
 		if (!client) return
 		const mine = ++generation.current
-		// Alongside, and never in the way: Home without them is Home without the choice.
-		void client.topics
-			.list()
-			.then((answer) => {
-				if (mine === generation.current) setTopics(answer.items)
-			})
-			.catch(() => {})
 		try {
 			// After a closing reader's change lands (src/lib/article-changes.ts).
 			await settled()
+			// Alongside, and never in the way: Home without them is Home without the choice. A pick
+			// with nothing left to read goes: a later save must not narrow Home again unasked.
+			void client.topics
+				.list()
+				.then((answer) => {
+					if (mine !== generation.current) return
+					setTopics(answer.items)
+					setPick((now) => homeTopicChoice(answer.items, now)?.pick ?? null)
+				})
+				.catch(() => {})
 			// More than a shelf shows: the sections drop what isn't ready or shows above.
 			const [reading, unread, quick] = await Promise.all([
 				client.articles.list({ view: "inbox", filter: "progress", limit: 12, topic }),
@@ -120,6 +123,8 @@ export default function Home() {
 			if (mine !== generation.current) return
 			// The topic ended, or topics were turned off: Home shows everything again.
 			if (topicEnded(topic ?? null, e)) return setPick(null)
+			// Offline, only Home without a topic is kept: none to show for one.
+			if (topic && canUseOffline(e)) return setError(OFFLINE_NOTE)
 			if (canUseOffline(e)) {
 				const [reading, unread, quick] = [
 					loadList("home-reading"),
@@ -184,7 +189,18 @@ export default function Home() {
 			refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
 		>
 			<ClipboardOffer client={client} onSaved={() => void load()} colors={colors} />
-			{choice ? <AboutWhat choice={choice} pick={pick} onPick={setPick} colors={colors} /> : null}
+			{choice ? (
+				<AboutWhat
+					choice={choice}
+					onPick={(next) => {
+						// Another topic's sections, not the last one's under its heading: loading, then them.
+						setHome(null)
+						setError(null)
+						setPick(next)
+					}}
+					colors={colors}
+				/>
+			) : null}
 			{chosen ? <TopicHeading chosen={chosen} colors={colors} /> : null}
 			{home && error ? (
 				<Text style={[styles.inset, styles.banner, { color: colors.mutedFg }]}>{error}</Text>
@@ -228,8 +244,8 @@ export default function Home() {
 						<Section
 							title="Recently saved"
 							onMore={() => {
-								// Inbox, in the same topic.
-								chooseTopic("inbox", topic ?? null)
+								// Inbox, in the same topic; otherwise as the reader left it.
+								if (topic) chooseTopic("inbox", topic)
 								router.navigate("/library/inbox", { withAnchor: true })
 							}}
 							colors={colors}
@@ -257,15 +273,14 @@ export default function Home() {
  */
 function AboutWhat({
 	choice,
-	pick,
 	onPick,
 	colors,
 }: {
 	choice: HomeTopicChoice
-	pick: TopicPick
 	onPick: (next: TopicPick) => void
 	colors: Colors
 }) {
+	const { pick } = choice
 	const chip = (key: string, label: string, on: boolean, next: TopicPick) => (
 		<Pressable
 			key={key}
