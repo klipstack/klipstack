@@ -264,6 +264,29 @@ export const highlights = pgTable(
 )
 
 /**
+ * Highlights brought back to the reader (Home's "From your highlights"): the reader's day each was
+ * last picked for, and when they said it is not useful anymore. A row exists once a highlight has
+ * been picked or dismissed. Kept apart from `highlights`, so picking never changes a highlight's
+ * `updatedAt`.
+ */
+export const highlightResurfacing = pgTable(
+	"highlight_resurfacing",
+	{
+		highlightId: uuid("highlight_id")
+			.primaryKey()
+			.references(() => highlights.id, { onDelete: "cascade" }),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		/** The reader's local day (YYYY-MM-DD) it was last picked for. */
+		shownOn: date("shown_on", { mode: "string" }),
+		/** "Not useful anymore": never picked again. The highlight itself stays. */
+		dismissedAt: timestamp("dismissed_at", { withTimezone: true }),
+	},
+	(t) => [index("highlight_resurfacing_user_shown_idx").on(t.userId, t.shownOn)],
+)
+
+/**
  * A link from one article's note to another article. Derived from the note text and rewritten on
  * every note save, so it is a cache, never the source of truth. Soft deletes are handled at read
  * time: deleting a document or a highlight leaves its link rows alone.
