@@ -239,6 +239,7 @@ export default {
 		archive: "Archivo",
 		starred: "Destacados",
 		highlights: "Subrayados",
+		notebook: "Cuaderno",
 		editions: "Ediciones",
 		trash: "Papelera",
 		settings: "Ajustes",

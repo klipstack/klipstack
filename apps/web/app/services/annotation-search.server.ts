@@ -146,6 +146,21 @@ export async function searchHighlights({
 	}
 }
 
+/**
+ * The articles whose note has the query's words, among those its operators allow: the condition
+ * `searchNotes` and the Notebook share. Null for a query without words.
+ */
+export function noteMatch(
+	userId: string,
+	q: string,
+	timeZone?: string,
+): { tsquery: SQL; where: SQL } | null {
+	const scope = annotationScope(userId, q, timeZone)
+	if (!scope) return null
+	const tsquery = searchQuery(scope.text)
+	return { tsquery, where: and(scope.where, sql`${documents.noteSearch} @@ ${tsquery}`) as SQL }
+}
+
 /** Article notes with the query's words, in the articles the query's operators allow. */
 export async function searchNotes({
 	userId,
@@ -158,10 +173,9 @@ export async function searchNotes({
 	limit?: number
 	timeZone?: string
 }): Promise<Group<NoteHit>> {
-	const scope = annotationScope(userId, q, timeZone)
-	if (!scope) return empty()
-	const tsquery = searchQuery(scope.text)
-	const where = and(scope.where, sql`${documents.noteSearch} @@ ${tsquery}`) as SQL
+	const match = noteMatch(userId, q, timeZone)
+	if (!match) return empty()
+	const { tsquery, where } = match
 	const rows = db
 		.select({
 			documentId: documents.id,

@@ -240,6 +240,7 @@ export default {
 		archive: "Archive",
 		starred: "Starred",
 		highlights: "Highlights",
+		notebook: "Notebook",
 		editions: "Editions",
 		trash: "Trash",
 		settings: "Settings",

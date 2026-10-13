@@ -29,6 +29,7 @@ test("search finds highlights and notes, grouped, and opens each where it is", a
 			endOffset: text.indexOf(QUOTE) + QUOTE.length,
 			exact: QUOTE,
 			note: HIGHLIGHT_NOTE,
+			color: 2,
 		})
 		.returning({ id: highlights.id })
 	const harborId = await insertArticle(owner!.id, "Harbor log", "<p>Tides and ships.</p>")
@@ -49,6 +50,10 @@ test("search finds highlights and notes, grouped, and opens each where it is", a
 	const notes = page.getByTestId("search-notes")
 	await expect(notes.getByRole("heading", { name: "Notes" })).toBeVisible()
 	await expect(notes).toContainText(ARTICLE_NOTE)
+	// The highlight in its color (blue), its note and the article note on post-its.
+	await expect(found.getByRole("listitem")).toHaveAttribute("data-hl", "blue")
+	await expect(found.locator("[data-post-it]")).toHaveText(HIGHLIGHT_NOTE)
+	await expect(notes.locator("[data-post-it]")).toHaveText(ARTICLE_NOTE)
 	const groups = page.getByTestId("search-groups")
 	await expect(groups.getByRole("link", { name: "1 highlight" })).toBeVisible()
 	await expect(groups.getByRole("link", { name: "1 note" })).toBeVisible()

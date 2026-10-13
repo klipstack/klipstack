@@ -24,6 +24,7 @@ import { DocumentList } from "~/components/document-list"
 import { LayoutToggle } from "~/components/layout-toggle"
 import { MenuNavLink, MoreMenu } from "~/components/more-menu"
 import { PinnedControls } from "~/components/pinned-controls"
+import { PostIt } from "~/components/post-it"
 import { SaveLinkDialog } from "~/components/save-link-dialog"
 import {
 	SavedSearchDialog,
@@ -36,7 +37,7 @@ import { SelectionBar } from "~/components/selection-bar"
 import { useListCursor } from "~/hooks/use-list-cursor"
 import { useCommands } from "~/lib/commands"
 import { timeZoneFromCookie } from "~/lib/date-groups"
-import { HIGHLIGHT_SWATCH } from "~/lib/highlight-colors"
+import { HIGHLIGHT_SWATCH, highlightColor } from "~/lib/highlight-colors"
 import type { PageBarHandle } from "~/lib/page-bar"
 import { pageTitle } from "~/lib/page-title"
 import { awaitsWords, searchOrigin, searchPath } from "~/lib/search-page"
@@ -363,8 +364,9 @@ function HighlightGroup({ group, q }: { group: Group<HighlightHit>; q: string })
 			/>
 			<ul className="flex flex-col gap-2">
 				{group.items.map((h) => (
-					<li key={h.id} className={RESULT_CARD}>
+					<li key={h.id} {...highlightColor(h.color)} className={RESULT_CARD}>
 						<span
+							data-testid="highlight-swatch"
 							className={cn("mt-1 h-auto w-1 shrink-0 rounded", HIGHLIGHT_SWATCH)}
 							aria-hidden
 						/>
@@ -374,12 +376,15 @@ function HighlightGroup({ group, q }: { group: Group<HighlightHit>; q: string })
 								state={{ from }}
 								className="block text-[0.95rem] leading-relaxed after:absolute after:inset-0 after:content-['']"
 							>
-								<Marked runs={h.quote} />
+								{/* The quote as it is marked in the article: in its color. */}
+								<span className="box-decoration-clone bg-(--hl) px-0.5">
+									<Marked runs={h.quote} />
+								</span>
 							</Link>
 							{h.note ? (
-								<p className="mt-2 text-sm text-muted-fg">
+								<PostIt variant="compact" className="mt-2 text-sm">
 									<Marked runs={h.note} />
-								</p>
+								</PostIt>
 							) : null}
 							<p className="mt-2 line-clamp-1 text-xs text-muted-fg">
 								{h.title}
@@ -404,25 +409,22 @@ function NoteGroup({ group, q }: { group: Group<NoteHit>; q: string }) {
 				label={t("search.groups.notes")}
 				more={<ShowAll q={q} group="notes" shown={group.items.length} total={group.total} />}
 			/>
-			<ul className="flex flex-col gap-2">
+			{/* Each note on its paper, the article it is about beneath. */}
+			<ul className="grid items-start gap-x-6 gap-y-4 sm:grid-cols-2">
 				{group.items.map((n) => (
-					<li key={n.documentId} className={RESULT_CARD}>
-						<div className="min-w-0 flex-1">
-							<Link
-								to={`/read/${n.documentId}#note`}
-								state={{ from }}
-								aria-label={t("search.groups.noteOf", { title: n.title })}
-								className="line-clamp-1 font-medium after:absolute after:inset-0 after:content-['']"
-							>
-								{n.title}
-							</Link>
-							<p className="mt-1 text-sm leading-relaxed text-muted-fg">
-								<Marked runs={n.note} />
-							</p>
-							{n.siteName ? (
-								<p className="mt-2 line-clamp-1 text-xs text-muted-fg">{n.siteName}</p>
-							) : null}
-						</div>
+					<li key={n.documentId} className="relative isolate">
+						<PostIt variant="compact" className="text-sm leading-relaxed">
+							<Marked runs={n.note} />
+						</PostIt>
+						<Link
+							to={`/read/${n.documentId}#note`}
+							state={{ from }}
+							aria-label={t("search.groups.noteOf", { title: n.title })}
+							className="mt-2 line-clamp-1 block text-xs text-muted-fg after:absolute after:inset-0 after:content-[''] hover:text-fg hover:underline"
+						>
+							<span className="font-medium text-fg">{n.title}</span>
+							{n.siteName ? ` · ${n.siteName}` : null}
+						</Link>
 					</li>
 				))}
 			</ul>

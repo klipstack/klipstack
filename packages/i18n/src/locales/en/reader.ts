@@ -258,5 +258,32 @@ export default {
 		trash: "In trash",
 		missing: "Not found",
 	},
+	notebook: {
+		search: {
+			placeholder: "Search your notes…",
+			label: "Search notes",
+			results: "Notes with “{{q}}”",
+			empty: "No notes match that search.",
+			clear: "Clear search",
+		},
+		tags: { label: "Tags", all: "All" },
+		tagEmpty: "No notes on articles with this tag.",
+		empty: {
+			title: "Your notebook is empty",
+			description:
+				"Every note you write on an article lands here, as a post-it next to its article. Open an article, then write what you think of it in the note at the top of the sidebar.",
+			action: "Open your library",
+		},
+		noteLabel: "Note on {{title}}",
+		open: "Open {{title}}",
+		edited: "Edited {{day}}",
+		noMore: "No older notes.",
+		loadMore: "Older notes",
+		changed: {
+			message: "This note changed somewhere else while you were writing.",
+			theirs: "Use the saved note",
+			mine: "Keep mine",
+		},
+	},
 	notFound: "This article does not exist or was deleted.",
 }
