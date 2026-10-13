@@ -96,21 +96,22 @@ describe("NOTE_PAPER", () => {
 
 	it("is the web's paper (app.css), light and dark", () => {
 		const css = readFileSync(new URL("../../../web/app/app.css", import.meta.url), "utf8")
-		// The light tokens, then the dark theme's own block.
-		const blocks = {
-			light: css.slice(css.indexOf(":root {"), css.indexOf("@media (prefers-color-scheme: dark)")),
-			dark: css.slice(css.indexOf(':root[data-theme="dark"] {')),
-		}
-		for (const mode of modes)
+		// The light tokens, the system's dark mode, and the dark theme chosen in Settings.
+		const systemDark = css.indexOf("@media (prefers-color-scheme: dark)")
+		const chosenDark = css.indexOf(':root[data-theme="dark"] {')
+		const blocks = [
+			["light", css.slice(css.indexOf(":root {"), systemDark)],
+			["dark", css.slice(systemDark, chosenDark)],
+			["dark", css.slice(chosenDark)],
+		] as const
+		for (const [mode, block] of blocks)
 			for (const color of HIGHLIGHT_COLORS) {
 				const name = color === "yellow" ? "--k-note" : `--k-note-${color}`
 				for (const [token, hex] of [
 					[name, NOTE_PAPER[mode][color].paper],
 					[`${name}-fg`, NOTE_PAPER[mode][color].fg],
 				] as const) {
-					const m = new RegExp(`${token}: oklch\\(([\\d.]+) ([\\d.]+) ([\\d.]+)\\)`).exec(
-						blocks[mode],
-					)
+					const m = new RegExp(`${token}: oklch\\(([\\d.]+) ([\\d.]+) ([\\d.]+)\\)`).exec(block)
 					expect(m, `${mode} ${token}`).not.toBeNull()
 					const web = oklchHex(Number(m![1]), Number(m![2]), Number(m![3]))
 					rgba(hex).rgb.forEach((c, i) =>
