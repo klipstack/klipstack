@@ -12,7 +12,14 @@ import {
 import { Bookmark, BookmarkCheck, ChevronDown, CircleAlert, SearchX, X } from "lucide-react"
 import { Fragment, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { Link, useFetcher, useLocation, useNavigate, useRouteLoaderData } from "react-router"
+import {
+	Link,
+	useFetcher,
+	useLoaderData,
+	useLocation,
+	useNavigate,
+	useRouteLoaderData,
+} from "react-router"
 import { DocumentList } from "~/components/document-list"
 import { LayoutToggle } from "~/components/layout-toggle"
 import { MenuNavLink, MoreMenu } from "~/components/more-menu"
@@ -107,6 +114,9 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 		trash: result.trash,
 		highlights: highlights as Group<HighlightHit>,
 		notes: notes as Group<NoteHit>,
+		/** The group shown in full (`all=`), and how many that is at most. */
+		expanded: all === "highlights" || all === "notes" ? (all as ResultGroup) : null,
+		groupMax: ANNOTATION_GROUP_MAX,
 		keepsArchived: keepsArchived(q),
 		/** Topics the query names that the reader no longer has. */
 		missing,
@@ -315,14 +325,24 @@ function ShowAll({
 }) {
 	const { t } = useTranslation("library")
 	const location = useLocation()
+	const { expanded, groupMax } = useLoaderData<typeof loader>()
 	if (shown >= total) return null
+	// Shown in full already, up to the most a group shows.
+	if (expanded === group)
+		return (
+			<span className="text-sm text-muted-fg">
+				{t("search.groups.shownOf", { shown, count: total })}
+			</span>
+		)
 	return (
 		<Link
 			to={`${searchPath(q)}&all=${group}#search-${group}`}
 			state={location.state}
 			className="text-sm text-link hover:underline"
 		>
-			{t("search.groups.showAll", { count: total })}
+			{total > groupMax
+				? t("search.groups.showFirst", { count: groupMax })
+				: t("search.groups.showAll", { count: total })}
 		</Link>
 	)
 }

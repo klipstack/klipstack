@@ -435,6 +435,7 @@ function filterWhere(filter: HighlightFilter): SQL {
 function baseWhere(userId: string, q?: string) {
 	return and(
 		eq(highlights.userId, userId),
+		eq(documents.userId, userId),
 		isNull(highlights.deletedAt),
 		isNull(documents.deletedAt),
 		searchWhere(q),

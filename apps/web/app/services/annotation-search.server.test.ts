@@ -237,6 +237,28 @@ describe("the highlight vector stays current", () => {
 		expect(await listed("bookshelf")).toEqual([h.id])
 	})
 
+	it("follows the article's language: its quote is stemmed in it", async () => {
+		const a = await article(userId, "Os gatos dormiam no telhado.")
+		const h = await createHighlight(userId, a.id, { exact: "Os gatos dormiam" })
+		// "dormir" finds "dormiam" only through Portuguese stems, which the article did not have.
+		expect((await searchHighlights({ userId, q: "dormir" })).items).toEqual([])
+		await db.update(documents).set({ language: "pt" }).where(eq(documents.id, a.id))
+		expect(ids((await searchHighlights({ userId, q: "dormir" })).items)).toEqual([h.id])
+	})
+
+	it("keeps the highlights page to the user's live highlights", async () => {
+		const mine = await article(userId, "Basilisk lore, part one. Basilisk lore, part two.")
+		const theirs = await article(otherId, "Basilisk lore, part one.")
+		const kept = await createHighlight(userId, mine.id, { exact: "Basilisk lore, part one." })
+		const gone = await createHighlight(userId, mine.id, { exact: "Basilisk lore, part two." })
+		await createHighlight(otherId, theirs.id, { exact: "Basilisk lore, part one." })
+		await deleteHighlight(userId, gone.id)
+		const listed = async () => ids((await listUserHighlights({ userId, q: "basilisk" })).items)
+		expect(await listed()).toEqual([kept.id])
+		await trashArticles(userId, [mine.id])
+		expect(await listed()).toEqual([])
+	})
+
 	it("matches on the highlights page as typed: word starts, variants, exact phrases", async () => {
 		const a = await article(userId, "Scheduling conflicts were resolved quickly.", {
 			language: "en",
@@ -330,5 +352,12 @@ describe("quickFindAnnotations", () => {
 		// The article's title is the article's result, not its highlights'.
 		expect((await quickFindAnnotations({ userId, q: "tanager" })).highlights).toEqual([])
 		expect(await quickFindAnnotations({ userId, q: " ?! " })).toEqual({ highlights: [], notes: [] })
+	})
+
+	it("finds words Postgres keeps whole, as typed", async () => {
+		const a = await article(userId, "We moved the build to node.js last spring.")
+		const h = await createHighlight(userId, a.id, { exact: "We moved the build to node.js" })
+		expect(ids((await quickFindAnnotations({ userId, q: "node.js" })).highlights)).toEqual([h.id])
+		expect(ids((await quickFindAnnotations({ userId, q: "node" })).highlights)).toEqual([h.id])
 	})
 })

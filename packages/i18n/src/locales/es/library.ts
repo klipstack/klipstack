@@ -486,6 +486,10 @@ export default {
 			notesCount_other: "{{count}} notas",
 			showAll_one: "Ver {{count}}",
 			showAll_other: "Ver los {{count}}",
+			showFirst_one: "Ver los primeros {{count}}",
+			showFirst_other: "Ver los primeros {{count}}",
+			shownOf_one: "{{shown}} de {{count}}",
+			shownOf_other: "{{shown}} de {{count}}",
 			noteOf: "Nota sobre {{title}}",
 		},
 		trash: {

@@ -479,6 +479,10 @@ export default {
 			notesCount_other: "{{count}} notes",
 			showAll_one: "Show all {{count}}",
 			showAll_other: "Show all {{count}}",
+			showFirst_one: "Show the first {{count}}",
+			showFirst_other: "Show the first {{count}}",
+			shownOf_one: "{{shown}} of {{count}}",
+			shownOf_other: "{{shown}} of {{count}}",
 			noteOf: "Note on {{title}}",
 		},
 		trash: {

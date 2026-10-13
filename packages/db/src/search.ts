@@ -42,6 +42,8 @@ const GAP = sql.raw(`'_:16'::tsvector`)
  * Search vector for one text: its exact words, then their variants ("blocked" finds "blocking")
  * in the text's language, or in both app languages when `language` is not one we can stem.
  * Accents never matter. `text` and `language` are repeated in the SQL: pass columns, not values.
+ * The SQL function `search_part` (drizzle/0043_annotation_search.sql) builds the same vector for
+ * highlights and notes: change both together (annotation-search.server.test.ts compares them).
  */
 export function textSearchVector(text: SQL, language: SQL): SQL {
 	const plain = sql`unaccent(coalesce(${text}, ''))`
@@ -133,25 +135,27 @@ export function ownWords(vector: SQLWrapper): SQL {
 	return sql`ts_filter(${vector}, ${sql.raw(`'{${[...HIGHLIGHT_OWN_WEIGHTS].join(",")}}'`)})`
 }
 
-/** Cleaned words for a tsquery: unaccented, without characters to_tsquery reads as syntax. */
-function cleanWords(words: string[]): SQL {
-	return sql`(select w.word from unnest(string_to_array(regexp_replace(unaccent(${words.join(" ")}::text), '[''&|!():<>*\\\\]', '', 'g'), ' ')) w(word) where w.word <> '')`
-}
-
 /** The letters and digits of what is typed, in words. */
 export function typedWords(text: string): string[] {
 	return text.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []
 }
 
+/** Words of a find as you type that count; it is for a few of them. */
+const PREFIX_WORDS_MAX = 8
+
 /**
  * Find as you type: every word, as typed or as the start of a longer one ("sched" finds
- * "schedule"). Exact words only, accents aside. `weights` ("ab") looks only in those parts of a
- * vector. Pass words from `typedWords`; with none, it matches nothing.
+ * "schedule"). Exact words only, accents aside. The words are what the vectors hold: Postgres
+ * reads "node.js" or "example.com" as one. `weights` ("ab") looks only in those parts of a vector.
+ * Text without words matches nothing.
  */
-export function prefixQuery(words: string[], weights = ""): SQL {
+export function prefixQuery(text: string, weights = ""): SQL {
 	if (!/^[a-d]*$/.test(weights)) throw new Error(`bad weights: ${weights}`)
 	const label = sql.raw(`':*${weights.toUpperCase()}'`)
-	return sql`(select to_tsquery('simple'::regconfig, coalesce(string_agg(quote_literal(r.word) || ${label}, ' & '), '')) from ${cleanWords(words)} r)`
+	const max = sql.raw(String(PREFIX_WORDS_MAX))
+	return sql`(select to_tsquery('simple'::regconfig, coalesce(string_agg(quote_literal(w.word) || ${label}, ' & '), ''))
+		from (select replace(t.lexeme, '\\', '') as word from unnest(to_tsvector('simple'::regconfig, unaccent(${text}::text))) t
+			where replace(t.lexeme, '\\', '') <> '' limit ${max}) w)`
 }
 
 /**
@@ -163,7 +167,7 @@ export function termQuery(term: { text: string; phrase: boolean }): SQL {
 	const stems = Object.values(STEM_CONFIGS).map(
 		(config) => sql`plainto_tsquery(${regconfig(config)}, p.q)`,
 	)
-	return sql`(select ${orQueries([prefixQuery(typedWords(term.text)), ...stems])} from (select unaccent(${term.text}::text) as q) p)`
+	return sql`(select ${orQueries([prefixQuery(term.text), ...stems])} from (select unaccent(${term.text}::text) as q) p)`
 }
 
 /**

@@ -189,8 +189,6 @@ export async function searchNotes({
 	}
 }
 
-/** Words of a quick find that count, as `quickFind` takes them. */
-const QUICK_WORDS_MAX = 8
 const QUICK_SNIPPET = 120
 
 export interface QuickHighlight {
@@ -219,7 +217,8 @@ export async function quickFindAnnotations({
 	q: string
 	limit?: number
 }): Promise<{ highlights: QuickHighlight[]; notes: QuickNote[] }> {
-	const words = typedWords(q.replaceAll("\u0000", "").slice(0, QUERY_MAX)).slice(0, QUICK_WORDS_MAX)
+	const typed = q.replaceAll("\u0000", "").slice(0, QUERY_MAX)
+	const words = typedWords(typed)
 	if (words.length === 0) return { highlights: [], notes: [] }
 	const matches = startsWithAny(words)
 	const [found, noted] = await Promise.all([
@@ -238,7 +237,7 @@ export async function quickFindAnnotations({
 					eq(highlights.userId, userId),
 					eq(documents.userId, userId),
 					liveHighlight,
-					sql`${highlights.search} @@ ${prefixQuery(words, "ab")}`,
+					sql`${highlights.search} @@ ${prefixQuery(typed, "ab")}`,
 				),
 			)
 			.orderBy(desc(highlights.updatedAt), desc(highlights.id))
@@ -250,7 +249,7 @@ export async function quickFindAnnotations({
 				and(
 					eq(documents.userId, userId),
 					isNull(documents.deletedAt),
-					sql`${documents.noteSearch} @@ ${prefixQuery(words)}`,
+					sql`${documents.noteSearch} @@ ${prefixQuery(typed)}`,
 				),
 			)
 			.orderBy(sql`${documents.noteUpdatedAt} desc nulls last`, desc(documents.id))
