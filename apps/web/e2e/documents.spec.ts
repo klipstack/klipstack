@@ -588,9 +588,14 @@ test("leaving at the end of an article finishes it, with an undo", async ({ page
 	await expect(end).toContainText("It goes to your archive when you leave.")
 	// The heading and what leaving does share one line.
 	const status = end.getByTestId("reader-end-status")
+	// The heading is stamped "Read", as the card will be; screen readers hear "Finished" once.
 	await expect(status).toHaveText(
-		"Finished It goes to your archive when you leave. Keep in Library",
+		"FinishedRead It goes to your archive when you leave. Keep in Library",
 	)
+	const endStamp = status.getByTestId("read-stamp")
+	await expect(endStamp).toBeVisible()
+	await expect(endStamp).toHaveAttribute("aria-hidden", "true")
+	await expect(endStamp.locator(".sr-only")).toHaveCount(0)
 	expect((await status.boundingBox())!.height).toBeLessThan(40)
 
 	// Star it and mark it for the next edition, by their names.
@@ -620,6 +625,13 @@ test("leaving at the end of an article finishes it, with an undo", async ({ page
 	expect(undone?.archivedAt).toBeNull()
 	expect(undone?.readAt).toBeNull()
 	expect(undone?.starredAt).not.toBeNull()
+	// Not finished any more: no stamp on its card.
+	await expect(
+		page
+			.getByRole("listitem")
+			.filter({ has: page.getByRole("link", { name: title }) })
+			.getByTestId("read-stamp"),
+	).toHaveCount(0)
 
 	// The browser's back button leaves too, and "Keep in Library" keeps it there.
 	await readSoFar(id, 1)
@@ -642,6 +654,18 @@ test("leaving at the end of an article finishes it, with an undo", async ({ page
 	await expect(page).toHaveURL(/\/library$/)
 	await expect(page.getByRole("status").filter({ hasText: "Finished and archived" })).toBeVisible()
 	expect((await stored())?.archivedAt).not.toBeNull()
+
+	// In the archive, its card is stamped "Read", and says "Finished" to a screen reader.
+	await page.goto("/archive")
+	const card = page.getByRole("listitem").filter({ has: page.getByRole("link", { name: title }) })
+	const stamp = card.getByTestId("read-stamp")
+	await expect(stamp).toBeVisible()
+	await expect(stamp.locator("[aria-hidden=true]")).toHaveText("Read")
+	await expect(stamp.locator(".sr-only")).toHaveText("Finished")
+	// Where it is on every card: the top right, beside the card's buttons.
+	const [box, cardBox] = [await stamp.boundingBox(), await card.boundingBox()]
+	expect(box!.y - cardBox!.y).toBeLessThan(30)
+	expect(cardBox!.x + cardBox!.width - (box!.x + box!.width)).toBeLessThan(70)
 })
 
 test("an end reached too fast finishes only by hand, and fits a small phone", async ({ page }) => {

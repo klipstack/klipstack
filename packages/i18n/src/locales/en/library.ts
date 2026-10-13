@@ -207,6 +207,8 @@ export default {
 		deleteForever: "Delete forever",
 		deleteForeverConfirm: "Tap again to delete forever",
 		finished: "Finished",
+		/** The ink stamp on a finished article's card: one short word, in capitals. */
+		stamp: "Read",
 		untitled: "Untitled",
 		unread: "Unread",
 		markUnread: "Mark as unread",

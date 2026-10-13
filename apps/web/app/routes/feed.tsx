@@ -1,4 +1,4 @@
-import { AlertTriangle, ChevronDown, ExternalLink, Pencil, Rss, UserMinus, X } from "lucide-react"
+import { AlertTriangle, ChevronDown, ExternalLink, Pencil, UserMinus, X } from "lucide-react"
 import { useEffect, useId, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useFetcher, useFetchers } from "react-router"
@@ -13,6 +13,7 @@ import {
 } from "~/commands/feeds.server"
 import { saveFeedItem } from "~/commands/saving.server"
 import { AddFeedDialog } from "~/components/add-feed-dialog"
+import { EmptyDrawing } from "~/components/empty-drawing"
 import { FeedArticle } from "~/components/feed-article"
 import { FeedMenu, ImportOpmlButton } from "~/components/feed-opml"
 import { MenuButton, MenuLink, MoreMenu, type MoreMenuHandle } from "~/components/more-menu"
@@ -146,7 +147,7 @@ export default function FeedPage({ loaderData }: Route.ComponentProps) {
 			) : null}
 			{empty ? (
 				<div className="mt-12 flex flex-col items-center gap-3 text-center text-muted-fg md:mt-16">
-					<Rss className="size-10" aria-hidden />
+					<EmptyDrawing name="mailbox" className="mb-1 w-40" />
 					<h2 className="text-lg font-medium text-fg">{t("empty.title")}</h2>
 					<p className="max-w-sm text-sm">{t("empty.description")}</p>
 					<AddFeedDialog className="mt-2" />

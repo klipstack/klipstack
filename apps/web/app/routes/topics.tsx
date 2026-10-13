@@ -14,6 +14,7 @@ import {
 	removeTopic,
 	renameTopic,
 } from "~/commands/topics.server"
+import { EmptyDrawing } from "~/components/empty-drawing"
 import { tooltip } from "~/components/tooltip-host"
 import {
 	TopicMenu,
@@ -322,9 +323,13 @@ function Shelves({
 				</p>
 			) : null}
 			{state.topics.length === 0 ? (
-				<p data-testid="topics-empty" className="mt-6 max-w-2xl text-sm text-muted-fg">
-					{t("topics.empty")}
-				</p>
+				<div
+					data-testid="topics-empty"
+					className="mt-12 flex flex-col items-center gap-4 text-center md:mt-16"
+				>
+					<EmptyDrawing name="shelf" className="w-44" />
+					<p className="max-w-sm text-sm text-muted-fg">{t("topics.empty")}</p>
+				</div>
 			) : (
 				<>
 					<ul data-testid="topics-shelves" className="mt-6 grid gap-x-10 gap-y-7 xl:grid-cols-2">

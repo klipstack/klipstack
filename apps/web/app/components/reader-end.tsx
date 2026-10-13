@@ -8,6 +8,7 @@ import { EditionTextField } from "~/components/edition-text-field"
 import { NoteField } from "~/components/note-field"
 import { ArticleNoteLabel, NoteStatus } from "~/components/note-status"
 import { PostIt, tiltFor, useGrowingFit } from "~/components/post-it"
+import { ReadStamp } from "~/components/read-stamp"
 import { tooltip } from "~/components/tooltip-host"
 import { useAutosaveText } from "~/hooks/use-autosave-text"
 import type { StateIntent } from "~/hooks/use-document-state"
@@ -145,6 +146,8 @@ export function ReaderEnd({
 						</span>
 					) : null}
 					{done ? t("end.finished") : t("end.reached")}
+					{/* Stamped as its card is, the same way: the heading already says it. */}
+					{done ? <ReadStamp tilt={tiltFor(documentId)} decorative className="ml-1" /> : null}
 				</span>{" "}
 				{state === "finishing" ? (
 					<>

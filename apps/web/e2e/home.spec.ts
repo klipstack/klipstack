@@ -31,6 +31,19 @@ test("home adapts to the library, opens articles and returns after finishing", a
 	const owner = await db.query.user.findFirst({ where: eq(user.email, email) })
 	if (!owner) throw new Error("Missing home test user")
 	await expect(page.getByRole("heading", { name: "Your next read starts here" })).toBeVisible()
+	// Nothing saved yet: an empty reading chair, and a drawing for each empty place in the library.
+	await expect(page.locator("[data-empty-drawing=chair] svg")).toBeVisible()
+	for (const [path, drawing] of [
+		["/library", "bookcase"],
+		["/archive", "box"],
+		["/starred", "stickers"],
+		["/trash", "basket"],
+		["/tags", "tags"],
+	] as const) {
+		await page.goto(path)
+		await expect(page.locator(`[data-empty-drawing=${drawing}] svg`)).toBeVisible()
+	}
+	await page.goto("/home")
 	await expect(page.getByRole("link", { name: "Save link", exact: true })).toHaveAttribute(
 		"href",
 		"/add",
@@ -54,6 +67,8 @@ test("home adapts to the library, opens articles and returns after finishing", a
 	await page.reload()
 	await waitForHydration(page)
 	await expect(page.getByRole("heading", { name: "Your next read is on its way" })).toBeVisible()
+	// A status, not an empty place: its icon, no drawing.
+	await expect(page.locator("[data-empty-drawing]")).toHaveCount(0)
 	await expect(page.getByRole("link", { name: "View library", exact: true })).toHaveAttribute(
 		"href",
 		"/library",
@@ -64,6 +79,7 @@ test("home adapts to the library, opens articles and returns after finishing", a
 	await expect(
 		page.getByRole("heading", { name: "Some articles couldn't be prepared" }),
 	).toBeVisible()
+	await expect(page.locator("[data-empty-drawing]")).toHaveCount(0)
 	const [version] = await db
 		.insert(documentVersions)
 		.values({
@@ -107,6 +123,7 @@ test("home adapts to the library, opens articles and returns after finishing", a
 	await expect(page).toHaveURL(/\/home$/)
 	await expect(page.getByTestId("home-article")).toHaveCount(0)
 	await expect(page.getByRole("heading", { name: "Ready for your next read" })).toBeVisible()
+	await expect(page.locator("[data-empty-drawing=chair] svg")).toBeVisible()
 	await page.getByRole("link", { name: "Revisit saved articles", exact: true }).click()
 	await expect(page).toHaveURL(/\/archive$/)
 	await expect(page.getByRole("heading", { name: doc!.title!, exact: true })).toBeVisible()

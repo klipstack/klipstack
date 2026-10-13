@@ -168,6 +168,16 @@ test("topics: turned on, proposed, confirmed, sorted, corrected and turned off",
 	await expect(page).toHaveURL(/\/topics$/)
 	await expect(page.getByText("Removed Minds. It won't be proposed again.")).toBeVisible()
 	await expect(page.getByTestId("topics-empty")).toBeVisible()
+	// None left: an empty shelf is drawn above the words.
+	await expect(
+		page.getByTestId("topics-empty").locator("[data-empty-drawing=shelf] svg"),
+	).toBeVisible()
+	if (process.env.SHOT_DIR) {
+		await page.screenshot({ path: `${process.env.SHOT_DIR}/topics-empty.png` })
+		await page.emulateMedia({ colorScheme: "dark" })
+		await page.screenshot({ path: `${process.env.SHOT_DIR}/topics-empty-dark.png` })
+		await page.emulateMedia({ colorScheme: "light" })
+	}
 
 	await page.goto("/topics")
 	// The second tap is the page's script: it must be running first.

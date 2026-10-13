@@ -10,6 +10,7 @@ import {
 	useRevalidator,
 } from "react-router"
 import { deleteTag, renameTag } from "~/commands/tags.server"
+import { EmptyDrawing } from "~/components/empty-drawing"
 import { tooltip } from "~/components/tooltip-host"
 import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
@@ -82,9 +83,13 @@ export default function Tags({ loaderData }: Route.ComponentProps) {
 			<h1 className="hidden text-2xl font-semibold md:block md:leading-10">{tc("nav.tags")}</h1>
 			<p className="text-sm text-muted-fg md:mt-2">{t("tags.page.description")}</p>
 			{tags.length === 0 ? (
-				<p data-testid="tags-empty" className="mt-8 text-sm text-muted-fg">
-					{t("tags.page.empty")}
-				</p>
+				<div
+					data-testid="tags-empty"
+					className="mt-12 flex flex-col items-center gap-4 text-center md:mt-16"
+				>
+					<EmptyDrawing name="tags" className="w-40" />
+					<p className="max-w-sm text-sm text-muted-fg">{t("tags.page.empty")}</p>
+				</div>
 			) : (
 				<ul data-testid="tags-list" className="mt-6 divide-y divide-border">
 					{tags.map((tag) => (
