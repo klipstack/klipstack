@@ -75,7 +75,8 @@ describe("readerHtml", () => {
 			'<header>\n<p class="kicker"><span>Science &amp; &lt;Tech&gt;</span><span aria-hidden="true">·</span><span>Writing</span></p>\n<h1>',
 		)
 		const shelf = html.slice(html.indexOf('<section id="klip-shelf"'))
-		expect(html.indexOf('<section id="klip-end">')).toBeLessThan(
+		expect(html.indexOf('<section id="klip-end" data-after-reading>')).toBeGreaterThan(0)
+		expect(html.indexOf('<section id="klip-end"')).toBeLessThan(
 			html.indexOf('<section id="klip-shelf"'),
 		)
 		expect(shelf).toContain("data-after-reading")

@@ -1,19 +1,22 @@
 import { NOTE_MAX } from "@klipstack/api-contract/names"
 import type { NoteSaveStatus } from "@klipstack/sdk/note-autosave"
+import { SymbolView } from "expo-symbols"
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native"
-import { EDITION_NOTE_PLACEHOLDER } from "@/lib/edition-note"
+import { EDITION_NOTE_PLACEHOLDER, editionFromNote } from "@/lib/edition-note"
 import type { Colors } from "@/lib/theme"
 
 /**
  * The note for the next edition's readers, from the end of the article: what the edition shows
  * with the article, under the user's name, unlike the private note. It saves as it is typed; Done
- * closes the sheet. The web reader's card under "Added to your next edition".
+ * closes the sheet. The web reader's card under "Added to your next edition". "Start from my note"
+ * copies the private note in, to edit into something for the edition's readers.
  */
 export function EditionNoteSheet({
 	visible,
 	onClose,
 	onDismiss,
 	note,
+	privateNote,
 	colors,
 }: {
 	visible: boolean
@@ -26,8 +29,11 @@ export function EditionNoteSheet({
 		onChange: (text: string) => void
 		onFlush: () => void
 	}
+	/** The article's private note, as stored. */
+	privateNote: string
 	colors: Colors
 }) {
+	const fromNote = editionFromNote(note.value, privateNote)
 	return (
 		<Modal
 			visible={visible}
@@ -38,7 +44,7 @@ export function EditionNoteSheet({
 		>
 			<View style={[styles.sheet, { backgroundColor: colors.bg }]}>
 				<View style={[styles.bar, { borderColor: colors.border }]}>
-					<Text style={[styles.title, { color: colors.fg }]}>Note for Your Readers</Text>
+					<Text style={[styles.title, { color: colors.fg }]}>For Your Edition's Readers</Text>
 					<Pressable accessibilityRole="button" onPress={onClose} hitSlop={12} style={styles.done}>
 						<Text style={[styles.doneText, { color: colors.accent }]}>Done</Text>
 					</Pressable>
@@ -50,7 +56,7 @@ export function EditionNoteSheet({
 					automaticallyAdjustKeyboardInsets
 				>
 					<TextInput
-						accessibilityLabel="Note for your readers"
+						accessibilityLabel="For your edition's readers"
 						value={note.value}
 						onChangeText={note.onChange}
 						onBlur={note.onFlush}
@@ -67,6 +73,21 @@ export function EditionNoteSheet({
 						]}
 					/>
 					<SaveStatus status={note.status} onRetry={note.onFlush} colors={colors} />
+					{fromNote !== null ? (
+						<Pressable
+							accessibilityRole="button"
+							accessibilityLabel="Start from my note"
+							accessibilityHint="Copies your private note here, to edit for your readers"
+							onPress={() => note.onChange(fromNote)}
+							hitSlop={8}
+							style={styles.fromNote}
+						>
+							<SymbolView name="note.text" tintColor={colors.accent} size={17} />
+							<Text style={[styles.fromNoteText, { color: colors.accent }]}>
+								Start from my note
+							</Text>
+						</Pressable>
+					) : null}
 				</ScrollView>
 			</View>
 		</Modal>
@@ -115,4 +136,12 @@ const styles = StyleSheet.create({
 		textAlignVertical: "top",
 	},
 	status: { fontSize: 13, marginTop: 8 },
+	fromNote: {
+		flexDirection: "row",
+		alignItems: "center",
+		alignSelf: "flex-start",
+		gap: 6,
+		marginTop: 16,
+	},
+	fromNoteText: { fontSize: 15 },
 })

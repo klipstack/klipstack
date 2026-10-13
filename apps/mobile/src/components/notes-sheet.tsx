@@ -64,12 +64,15 @@ export function NotesSheet({
 					automaticallyAdjustKeyboardInsets
 				>
 					<View style={styles.heading}>
-						<Text style={[styles.label, { color: colors.mutedFg }]}>NOTE</Text>
+						{/* The same note as the post-it at the end of the article, and as private. */}
+						<Text style={[styles.label, { color: colors.mutedFg }]}>
+							YOUR NOTE<Text style={styles.onlyYou}> · ONLY YOU</Text>
+						</Text>
 						<NoteStatus status={note.status} onRetry={note.onFlush} colors={colors} />
 					</View>
 					<NoteField
 						ref={field}
-						accessibilityLabel="Note"
+						accessibilityLabel="Your note"
 						value={note.value}
 						onChange={note.onChange}
 						onBlur={note.onFlush}
@@ -198,6 +201,7 @@ const styles = StyleSheet.create({
 	content: { padding: 16, paddingBottom: 48 },
 	heading: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
 	label: { fontSize: 13, fontWeight: "500", letterSpacing: 0.4, marginBottom: 8 },
+	onlyYou: { fontWeight: "400" },
 	status: { fontSize: 13, marginBottom: 8 },
 	note: {
 		minHeight: 120,

@@ -1,6 +1,6 @@
 import type { HighlightColor } from "@klipstack/api-contract/enums"
 import { endState, secondsToFinish } from "@klipstack/api-contract/reading"
-import type { ArticleDetails, ArticleTopics, Highlight } from "@klipstack/sdk"
+import type { ArticleDetails, ArticleTopics, Highlight, KlipstackClient } from "@klipstack/sdk"
 import { createNoteAutosave, type NoteSaveStatus } from "@klipstack/sdk/note-autosave"
 import { router, Stack, useLocalSearchParams, useNavigation } from "expo-router"
 import { useCallback, useEffect, useRef, useState } from "react"
@@ -41,6 +41,7 @@ import { afterMarking, withUndone } from "@/lib/draft-undo"
 import { finishOnLeave, showFinished } from "@/lib/finish-on-leave"
 import { minutesLeft } from "@/lib/home"
 import { inTime } from "@/lib/in-time"
+import { guardNoteSaves, type SavedNote } from "@/lib/note-guard"
 import {
 	canUseOffline,
 	loadArticle,
@@ -63,7 +64,7 @@ import { clampScale, highlightsJson, localImages, readerHtml, sampleText } from 
 import { textScale, type TypePrefs } from "@/lib/reader-type"
 import { createReadingSync } from "@/lib/reading-sync"
 import { applyColorScheme, useColors } from "@/lib/theme"
-import type { EndAction, PageEnd, PageMessage, PageSelection } from "@/page/messages"
+import type { EndAction, PageEnd, PageMessage, PageNote, PageSelection } from "@/page/messages"
 import { canLookUp, lookUp } from "../../../modules/klip-lookup"
 
 /**
@@ -109,6 +110,16 @@ export default function Reader() {
 	const [noteStatus, setNoteStatus] = useState<NoteSaveStatus>("idle")
 	const noteSave = useRef<ReturnType<typeof createNoteAutosave> | null>(null)
 	const flushNote = () => void noteSave.current?.flush()
+	// Which note the next save replaces: a note changed elsewhere meanwhile is never written over
+	// unseen (src/lib/note-guard.ts).
+	const noteGuard = useRef<ReturnType<typeof guardNoteSaves> | null>(null)
+	// Moves when the note is replaced here by the one saved elsewhere: the end block's post-it shows
+	// it even while it is written in (`PageNote.rev`).
+	const [noteRev, setNoteRev] = useState(0)
+	// The post-it at the end is being written in: the page's text menu is the system's then.
+	const [noteFocused, setNoteFocused] = useState(false)
+	const askingNote = useRef(false)
+	const mounted = useRef(true)
 	// The note for the next edition's readers, from the end block: saved the same way.
 	const [editionOpen, setEditionOpen] = useState(false)
 	const [editionNote, setEditionNote] = useState("")
@@ -153,6 +164,7 @@ export default function Reader() {
 			}
 		})
 		return () => {
+			mounted.current = false
 			sub.remove()
 			void noteSave.current?.flush()
 			noteSave.current?.dispose()
@@ -207,6 +219,23 @@ export default function Reader() {
 		if (!endJson || !loaded.current) return
 		web.current?.injectJavaScript(`window.klipEnd && window.klipEnd(${endJson}); true;`)
 	}, [endJson])
+	// The article note on the end block's post-it: the notes sheet's note, so an edit in either
+	// shows in the other.
+	const pageNote: PageNote | null = article
+		? {
+				text: note,
+				status: noteStatus,
+				links: Object.fromEntries(
+					article.noteLinks.to.flatMap((l) => (l.status === "ok" ? [] : [[l.id, l.status]])),
+				),
+				rev: noteRev,
+			}
+		: null
+	const noteJson = pageNote ? JSON.stringify(pageNote) : null
+	useEffect(() => {
+		if (!noteJson || !loaded.current) return
+		web.current?.injectJavaScript(`window.klipNote && window.klipNote(${noteJson}); true;`)
+	}, [noteJson])
 	// Leaving finishes it when the end block says so: as the screen goes (back, a swipe), or, if
 	// that was missed, as it unmounts. Once.
 	const armed = useRef(false)
@@ -307,13 +336,7 @@ export default function Reader() {
 				if (!live) return
 				setArticle(details)
 				setNote(details.note ?? "")
-				noteSave.current = createNoteAutosave({
-					initial: details.note ?? "",
-					onStatus: setNoteStatus,
-					save: async (text) => {
-						await client.articles.setNote(id, text.trim() ? text : null)
-					},
-				})
+				noteSaveFrom.current(client, details.note ?? "", details.noteUpdatedAt)
 				setEditionNote(details.editionNote ?? "")
 				editionSave.current?.dispose()
 				editionSave.current = createNoteAutosave({
@@ -405,6 +428,56 @@ export default function Reader() {
 		setGeneration((n) => n + 1)
 	}
 
+	/** The note's autosave, from `initial`, saved when it was `at` (undefined: not known). */
+	function startNoteSave(c: KlipstackClient, initial: string, at: string | null | undefined) {
+		noteSave.current?.dispose()
+		const guard = guardNoteSaves({
+			at,
+			send: (text, expected) => c.articles.setNote(id, text.trim() ? text : null, expected),
+			onChanged: (now) => noteChanged(c, now),
+		})
+		noteGuard.current = guard
+		noteSave.current = createNoteAutosave({ initial, onStatus: setNoteStatus, save: guard.save })
+	}
+
+	/**
+	 * The note changed elsewhere since it was read, and this save was refused: the reader chooses,
+	 * as in the web's Notebook. The saved note replaces theirs, or theirs goes over it, knowingly.
+	 */
+	function noteChanged(c: KlipstackClient, now: SavedNote) {
+		if (askingNote.current || !mounted.current) return
+		askingNote.current = true
+		Alert.alert(
+			"Note Changed Elsewhere",
+			"This note changed somewhere else while you were writing.",
+			[
+				{
+					text: "Use the Saved Note",
+					onPress: () => {
+						askingNote.current = false
+						const text = now.note ?? ""
+						setNote(text)
+						setNoteRev((n) => n + 1)
+						startNoteSave(c, text, now.noteUpdatedAt)
+						setNoteStatus("idle")
+					},
+				},
+				{
+					text: "Keep Mine",
+					onPress: () => {
+						askingNote.current = false
+						noteGuard.current?.replaces(now.noteUpdatedAt)
+						flushNote()
+					},
+				},
+			],
+			{ cancelable: false },
+		)
+	}
+
+	const noteSaveFrom = useRef(startNoteSave)
+	noteSaveFrom.current = startNoteSave
+
 	function changeType(next: TypePrefs) {
 		setType(next)
 		typeAtLoad.current = next
@@ -485,6 +558,17 @@ export default function Reader() {
 			case "end":
 				endAction(message.action)
 				break
+			case "note":
+				setNote(message.text)
+				noteSave.current?.change(message.text)
+				break
+			case "note-focus":
+				setNoteFocused(message.focused)
+				if (!message.focused) flushNote()
+				break
+			case "note-link":
+				openLink({ href: `${apiUrl}/read/${message.id}`, text: "" })
+				break
 			case "highlight":
 				setEditing(message.id)
 				break
@@ -522,6 +606,8 @@ export default function Reader() {
 				return void update({ finished: true })
 			case "edition-note":
 				return setEditionOpen(true)
+			case "note-retry":
+				return flushNote()
 		}
 	}
 
@@ -734,7 +820,11 @@ export default function Reader() {
 							icon="note.text"
 							accessibilityLabel="Notes and highlights"
 							tintColor={colors.accent}
-							onPress={() => setNotesOpen(true)}
+							onPress={() => {
+								// Out of the post-it first: the sheet holds the same note.
+								web.current?.injectJavaScript("document.activeElement?.blur(); true;")
+								setNotesOpen(true)
+							}}
 						/>
 					) : null}
 					<Stack.Toolbar.Menu
@@ -830,12 +920,17 @@ export default function Reader() {
 					onShouldStartLoadWithRequest={onNavigate}
 					onMessage={onMessage}
 					// Custom items replace the system's menu, so Copy, Look Up and Share are ours too.
-					menuItems={[
-						{ label: "Highlight", key: "highlight" },
-						{ label: "Copy", key: "copy" },
-						...(canLookUp ? [{ label: "Look Up", key: "lookup" }] : []),
-						{ label: "Share", key: "share" },
-					]}
+					// While the post-it is written in, the system's menu (Paste, Select All); ours replace it.
+					menuItems={
+						noteFocused
+							? undefined
+							: [
+									{ label: "Highlight", key: "highlight" },
+									{ label: "Copy", key: "copy" },
+									...(canLookUp ? [{ label: "Look Up", key: "lookup" }] : []),
+									{ label: "Share", key: "share" },
+								]
+					}
 					onCustomMenuSelection={(event) => {
 						const { key, selectedText } = event.nativeEvent
 						if (key === "highlight") void highlight(selectedText)
@@ -847,6 +942,10 @@ export default function Reader() {
 						loaded.current = true
 						if (endJson)
 							web.current?.injectJavaScript(`window.klipEnd && window.klipEnd(${endJson}); true;`)
+						if (noteJson)
+							web.current?.injectJavaScript(
+								`window.klipNote && window.klipNote(${noteJson}); true;`,
+							)
 						// Once: the card of the highlight the reader was opened at.
 						if (openAt && !cardOpened.current) {
 							cardOpened.current = true
@@ -925,6 +1024,7 @@ export default function Reader() {
 						},
 						onFlush: flushEditionNote,
 					}}
+					privateNote={note}
 					colors={colors}
 				/>
 			) : null}
