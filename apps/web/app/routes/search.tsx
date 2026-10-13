@@ -24,6 +24,7 @@ import { DocumentList } from "~/components/document-list"
 import { LayoutToggle } from "~/components/layout-toggle"
 import { MenuNavLink, MoreMenu } from "~/components/more-menu"
 import { PinnedControls } from "~/components/pinned-controls"
+import { PostIt } from "~/components/post-it"
 import { SaveLinkDialog } from "~/components/save-link-dialog"
 import {
 	SavedSearchDialog,
@@ -36,7 +37,7 @@ import { SelectionBar } from "~/components/selection-bar"
 import { useListCursor } from "~/hooks/use-list-cursor"
 import { useCommands } from "~/lib/commands"
 import { timeZoneFromCookie } from "~/lib/date-groups"
-import { HIGHLIGHT_SWATCH } from "~/lib/highlight-colors"
+import { HIGHLIGHT_SWATCH, highlightColor } from "~/lib/highlight-colors"
 import type { PageBarHandle } from "~/lib/page-bar"
 import { pageTitle } from "~/lib/page-title"
 import { awaitsWords, searchOrigin, searchPath } from "~/lib/search-page"
@@ -302,7 +303,7 @@ function Marked({ runs }: { runs: Snippet }) {
 		const key = at
 		at += run.text.length
 		return run.match ? (
-			<mark key={key} className="bg-transparent font-semibold text-fg">
+			<mark key={key} className="bg-transparent font-semibold text-inherit">
 				{run.text}
 			</mark>
 		) : (
@@ -365,6 +366,7 @@ function HighlightGroup({ group, q }: { group: Group<HighlightHit>; q: string })
 				{group.items.map((h) => (
 					<li key={h.id} className={RESULT_CARD}>
 						<span
+							{...highlightColor(h.color)}
 							className={cn("mt-1 h-auto w-1 shrink-0 rounded", HIGHLIGHT_SWATCH)}
 							aria-hidden
 						/>
@@ -377,9 +379,9 @@ function HighlightGroup({ group, q }: { group: Group<HighlightHit>; q: string })
 								<Marked runs={h.quote} />
 							</Link>
 							{h.note ? (
-								<p className="mt-2 text-sm text-muted-fg">
+								<PostIt variant="compact" className="mt-2 w-fit max-w-full text-sm">
 									<Marked runs={h.note} />
-								</p>
+								</PostIt>
 							) : null}
 							<p className="mt-2 line-clamp-1 text-xs text-muted-fg">
 								{h.title}
@@ -416,9 +418,9 @@ function NoteGroup({ group, q }: { group: Group<NoteHit>; q: string }) {
 							>
 								{n.title}
 							</Link>
-							<p className="mt-1 text-sm leading-relaxed text-muted-fg">
+							<PostIt variant="compact" className="mt-2 w-fit max-w-full text-sm leading-relaxed">
 								<Marked runs={n.note} />
-							</p>
+							</PostIt>
 							{n.siteName ? (
 								<p className="mt-2 line-clamp-1 text-xs text-muted-fg">{n.siteName}</p>
 							) : null}
