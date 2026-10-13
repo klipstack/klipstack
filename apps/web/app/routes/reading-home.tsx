@@ -9,10 +9,12 @@ import {
 	useNavigate,
 	useSearchParams,
 } from "react-router"
+import { dailyHighlights } from "~/commands/resurfacing.server"
 import { FeedArticle } from "~/components/feed-article"
 import { HomeArticle } from "~/components/home-article"
 import { FinishedLately } from "~/components/home-finished"
 import { HomeGreeting } from "~/components/home-greeting"
+import { HomeHighlights } from "~/components/home-highlights"
 import { MenuNavLink, MoreMenu } from "~/components/more-menu"
 import { SaveLinkDialog } from "~/components/save-link-dialog"
 import { Button, buttonVariants } from "~/components/ui/button"
@@ -23,14 +25,17 @@ import { hasFeature } from "~/lib/features.server"
 import { fitsIn, homeShelves } from "~/lib/home-shelves"
 import { getInstance } from "~/lib/i18n.server"
 import { listSearch, parseTime, REDISCOVER_AFTER_DAYS, TIME_CHOICES } from "~/lib/inbox-filters"
+import { extractLinkIds } from "~/lib/note-links"
 import { warmOffline } from "~/lib/offline.client"
 import type { PageBarHandle } from "~/lib/page-bar"
 import { requireUser } from "~/lib/session.server"
 import { isSearchShortcut } from "~/lib/shortcuts"
 import { countTopicClick } from "~/lib/topic-use"
 import { cn } from "~/lib/utils"
+import { linkTargetStatus } from "~/services/links.server"
 import { finishedLately } from "~/services/reading-history.server"
 import { readingHome } from "~/services/reading-home.server"
+import { resurfacingDay } from "~/services/resurfacing.server"
 import {
 	firstTopicsNotice,
 	homeTopics,
@@ -47,7 +52,7 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 	const topicId = params.get("topic")
 	const choosing = topicChoice(user.id, topicId, params.has("different"))
 	// Without a topic asked for, Home loads alongside the topics; with one, after them, for its id.
-	const [topics, finished, topicsReady, invitation, home] = await Promise.all([
+	const [topics, finished, topicsReady, invitation, home, highlights] = await Promise.all([
 		choosing,
 		finishedLately(user.id, { timeZone }),
 		firstTopicsReady(user.id),
@@ -55,6 +60,8 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 		topicId
 			? choosing.then((choice) => readingHome(user.id, { topicId: choice?.chosen?.id }))
 			: readingHome(user.id),
+		// In a topic, Home is about its articles: no day's highlights picked for it.
+		topicId ? null : homeHighlights(user.id, timeZone),
 	])
 	// Each article's topic, when Home is not already about one.
 	const labels =
@@ -76,8 +83,19 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 		invitation,
 		topics,
 		labels,
+		highlights,
 		title: `${t("home.title")} · Klipstack`,
 	}
+}
+
+/** The day's highlights, and what Home knows of the articles their notes link to. */
+async function homeHighlights(userId: string, timeZone: string) {
+	const items = await dailyHighlights(userId, resurfacingDay(new Date(), timeZone))
+	const linkTargets = await linkTargetStatus(
+		userId,
+		extractLinkIds(items.map((h) => h.note ?? "").join("\n")),
+	)
+	return { items, linkTargets }
 }
 
 /**
@@ -167,6 +185,7 @@ export default function ReadingHome({
 		invitation,
 		topics,
 		labels,
+		highlights,
 	},
 }: Route.ComponentProps) {
 	const { t } = useTranslation(["library", "feed"])
@@ -291,6 +310,8 @@ export default function ReadingHome({
 						) : null}
 					</section>
 				) : null}
+				{/* With a time chosen, the reader came to read. */}
+				{highlights && !timed ? <HomeHighlights {...highlights} /> : null}
 				{rediscover.length ? (
 					<section aria-labelledby="home-rediscover" data-testid="home-rediscover">
 						<SectionHeading
