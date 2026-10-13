@@ -43,7 +43,8 @@ test("the notebook lists every note as a post-it, edits it in place, and finds i
 	await expect(notes.nth(0).getByLabel("Note on Lighthouses")).toContainText("Ask the keeper.")
 	await expect(notes.nth(0).getByRole("link", { name: "Open Lighthouses" })).toBeVisible()
 	await expect(notes.nth(1).getByLabel("Note on Tides")).toHaveText("The moon pulls twice a day.")
-	await expect(notes.nth(0).locator("[data-post-it]")).toContainText("Tides")
+	// The link to Tides is a chip, as in the reader.
+	await expect(notes.nth(0).getByTestId("doc-chip")).toHaveText("Tides")
 	if (process.env.SHOT_DIR)
 		await page.screenshot({ path: `${process.env.SHOT_DIR}/notebook.png`, fullPage: true })
 
@@ -54,6 +55,11 @@ test("the notebook lists every note as a post-it, edits it in place, and finds i
 	await Promise.all([noteSaved(page, tides), page.keyboard.type(" Spring tides are higher.")])
 	await expect(page.getByTestId("notebook-note").nth(1)).toContainText("Saved")
 	expect(await stored(tides)).toBe("The moon pulls twice a day. Spring tides are higher.")
+	// The next save replaces the note this one wrote: no conflict with itself.
+	await Promise.all([noteSaved(page, tides), page.keyboard.type(" Twice a month.")])
+	expect(await stored(tides)).toBe(
+		"The moon pulls twice a day. Spring tides are higher. Twice a month.",
+	)
 
 	// Changed elsewhere meanwhile: nothing is overwritten unseen, and the writer chooses.
 	await writeNote(page, tides, "Rewritten in the reader.")
@@ -67,7 +73,7 @@ test("the notebook lists every note as a post-it, edits it in place, and finds i
 	])
 	await expect(alert).toHaveCount(0)
 	expect(await stored(tides)).toBe(
-		"The moon pulls twice a day. Spring tides are higher. Neap tides too.",
+		"The moon pulls twice a day. Spring tides are higher. Twice a month. Neap tides too.",
 	)
 
 	await writeNote(page, tides, "The reader's version wins.")
@@ -76,6 +82,8 @@ test("the notebook lists every note as a post-it, edits it in place, and finds i
 	await Promise.all([noteSaved(page, tides, 409), page.keyboard.type("!")])
 	await page.getByRole("button", { name: "Use the saved note" }).click()
 	await expect(page.getByLabel("Note on Tides")).toHaveText("The reader's version wins.")
+	// The editor left behind sends nothing: once the page is quiet, the saved note is still there.
+	await page.waitForLoadState("networkidle")
 	expect(await stored(tides)).toBe("The reader's version wins.")
 
 	// Search by the note's words, and the tag filter.

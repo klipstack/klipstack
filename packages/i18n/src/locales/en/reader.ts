@@ -277,6 +277,7 @@ export default {
 		noteLabel: "Note on {{title}}",
 		open: "Open {{title}}",
 		edited: "Edited {{day}}",
+		noMore: "No older notes.",
 		loadMore: "Older notes",
 		changed: {
 			message: "This note changed somewhere else while you were writing.",

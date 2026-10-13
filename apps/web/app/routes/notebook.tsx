@@ -52,7 +52,8 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 	const user = requireUser(context, request)
 	const url = new URL(request.url)
 	const q = url.searchParams.get("q")?.trim() ?? ""
-	const tag = url.searchParams.get("tag")?.trim() || null
+	// Postgres text cannot hold a NUL, and no tag has one.
+	const tag = url.searchParams.get("tag")?.replaceAll("\u0000", "").trim() || null
 	const timeZone = timeZoneFromCookie(request.headers.get("cookie"))
 	const [page, tags, anyNote] = await Promise.all([
 		listNotebook({
@@ -117,14 +118,19 @@ export default function Notebook({ loaderData }: Route.ComponentProps) {
 				<FirstNote />
 			) : items.length === 0 ? (
 				<p className="mt-12 text-center text-muted-fg md:mt-16">
-					{q ? t("notebook.search.empty") : t("notebook.tagEmpty")}
+					{q ? t("notebook.search.empty") : tag ? t("notebook.tagEmpty") : t("notebook.noMore")}
 				</p>
 			) : (
 				<>
 					{/* Row by row, so the order reads as it is: most recently edited first. */}
 					<ul className="mt-4 grid items-start gap-x-10 sm:grid-cols-2 lg:grid-cols-3 md:mt-6">
 						{items.map((n, i) => (
-							<li key={n.documentId} data-testid="notebook-note" className="mb-10 pt-3">
+							<li
+								// A note saved since (elsewhere, or here before a search) starts its editor over.
+								key={`${n.documentId}:${n.noteUpdatedAt}`}
+								data-testid="notebook-note"
+								className="mb-10 pt-3"
+							>
 								<NotebookNote
 									documentId={n.documentId}
 									title={n.title}
