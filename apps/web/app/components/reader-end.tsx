@@ -132,6 +132,8 @@ export function ReaderEnd({
 			ref={ref}
 			data-testid="reader-end"
 			data-state={state}
+			// What comes after the article: reading progress is full above it.
+			data-after-reading
 			className="mt-12 grid gap-4 border-t border-border pt-6 font-sans"
 		>
 			{/* Where the reader stands, in one line: the end, and what leaving does. */}

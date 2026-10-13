@@ -113,10 +113,15 @@ export function useReadingProgress(doc: Doc, ready: boolean) {
 
 /**
  * How far the page scrolls while reading the article: to its end, not through what comes after it
- * (`data-after-reading`, the shelf of what to read next), so an article read to its end is read.
+ * (`data-after-reading`: the end of the article with its note, then the shelf of what to read
+ * next), so an article read to its end is read.
  */
 function scrollSpan(el: HTMLElement): number {
 	const after = document.querySelector<HTMLElement>("[data-after-reading]")
-	const tail = after ? after.offsetHeight + Number.parseFloat(getComputedStyle(after).marginTop) : 0
-	return el.scrollHeight - el.clientHeight - tail
+	if (!after) return el.scrollHeight - el.clientHeight
+	const top =
+		after.getBoundingClientRect().top +
+		window.scrollY -
+		Number.parseFloat(getComputedStyle(after).marginTop)
+	return top - el.clientHeight
 }
