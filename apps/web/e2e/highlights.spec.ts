@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { db, documents, documentVersions, eq, user } from "@klipstack/db"
-import { expect, type Page, test } from "@playwright/test"
-import { signupUser, waitForHydration } from "./helpers"
+import { expect, type Locator, type Page, test } from "@playwright/test"
+import { paintedHighlights, signupUser, waitForHydration } from "./helpers"
 import { insertArticle } from "./seed"
 
 const FIXTURE = join(
@@ -108,7 +108,34 @@ function pointInText(page: Page, text: string) {
 	}, text)
 }
 
-const highlightCount = (page: Page) => page.evaluate(() => CSS.highlights.get("klip-hl")?.size ?? 0)
+const highlightCount = async (page: Page) => (await paintedHighlights(page)).length
+
+/** The text of the highlights painted in one color. */
+const painted = (page: Page, color: string) =>
+	page.evaluate(
+		(name) => [...(CSS.highlights.get(name) ?? [])].map((range) => range.toString()),
+		`klip-hl-${color}`,
+	)
+
+/** A CSS color as the browser computes it, to compare with an element's computed color. */
+const cssColor = (page: Page, value: string) =>
+	page.evaluate((value) => {
+		const probe = document.createElement("span")
+		probe.style.color = value
+		document.body.append(probe)
+		const color = getComputedStyle(probe).color
+		probe.remove()
+		return color
+	}, value)
+
+/** Where the first line of an element's text starts on screen. */
+const textStart = (locator: Locator) =>
+	locator.evaluate((el) => {
+		const range = document.createRange()
+		range.selectNodeContents(el)
+		const rect = range.getClientRects()[0]!
+		return { x: Math.round(rect.left), y: Math.round(rect.top) }
+	})
 
 const highlightSaved = (page: Page) =>
 	page.waitForResponse((r) => r.url().includes("/highlights") && r.request().method() === "POST")
@@ -247,8 +274,10 @@ test("highlight → persists → note → sidebar → highlights page → delete
 	})
 	expect(second.status()).toBe(201)
 	await page.reload()
-	// Any stored color shows in the one color.
+	// A stored color shows as itself: the new one is green, the first one the default yellow.
 	await expect.poll(() => highlightCount(page)).toBe(2)
+	expect(await painted(page, "green")).toEqual([LATER])
+	expect(await painted(page, "yellow")).toEqual([QUOTE])
 	await page.keyboard.press("h")
 	const first = sidebar.getByRole("button", { name: QUOTE })
 	const later = sidebar.getByRole("button", { name: LATER })
@@ -308,6 +337,91 @@ test("highlight → persists → note → sidebar → highlights page → delete
 	await expect(page.getByText(QUOTE)).toHaveCount(0)
 })
 
+test("a highlight's color: picked in its toolbar, shown on the text, its note and in lists", async ({
+	page,
+}) => {
+	// Up to a minute for the extraction it highlights in.
+	test.setTimeout(120_000)
+	const id = await signupAndSave(page)
+	const NOTE = "Makers need long blocks."
+	const created = await page.request.post(`/documents/${id}/highlights`, {
+		data: { intent: "create", exact: QUOTE, note: NOTE },
+	})
+	expect(created.status()).toBe(201)
+	await page.reload()
+	await waitForHydration(page)
+	// A new highlight is yellow.
+	await expect.poll(() => painted(page, "yellow")).toEqual([QUOTE])
+
+	const point = await pointInText(page, QUOTE)
+	await page.mouse.click(point.x, point.y)
+	const toolbar = page.getByRole("dialog", { name: "Edit highlight" })
+	const colors = toolbar.getByRole("group", { name: "Highlight color" })
+	await expect(colors.getByRole("button")).toHaveCount(5)
+	await expect(colors.getByRole("button", { name: "Yellow" })).toHaveAttribute(
+		"aria-pressed",
+		"true",
+	)
+	await Promise.all([highlightSaved(page), colors.getByRole("button", { name: "Green" }).click()])
+	// The toolbar stays for another change; the text, its outline and its note's edge turn green.
+	await expect(colors.getByRole("button", { name: "Green" })).toHaveAttribute(
+		"aria-pressed",
+		"true",
+	)
+	await expect(colors.getByRole("button", { name: "Yellow" })).toHaveAttribute(
+		"aria-pressed",
+		"false",
+	)
+	await expect.poll(() => painted(page, "green")).toEqual([QUOTE])
+	expect(await painted(page, "yellow")).toEqual([])
+	const greenLine = await cssColor(page, "var(--hl-green-solid)")
+	await expect(page.locator('[data-hl="green"] > .hl-outline')).not.toHaveCount(0)
+	const margin = page.getByRole("region", { name: "Highlight notes" })
+	const marginNote = margin.getByRole("button", { name: NOTE })
+	await expect(marginNote).toHaveCSS("border-left-color", greenLine)
+	await page.keyboard.press("Escape")
+	await expect(toolbar).toBeHidden()
+
+	// Stored: it stays green on the next visit.
+	await page.reload()
+	await waitForHydration(page)
+	await expect.poll(() => painted(page, "green")).toEqual([QUOTE])
+
+	// The note is a post-it, and it is edited on that same post-it: its text does not move.
+	await expect(marginNote).toHaveAttribute("data-post-it", "compact")
+	await expect(marginNote).toHaveCSS("font-style", "italic")
+	const shown = await textStart(marginNote)
+	await marginNote.click()
+	const editor = page.getByRole("dialog", { name: "Highlight note" })
+	const field = editor.getByRole("textbox")
+	await expect(field).toBeFocused()
+	await expect(field).toHaveText(NOTE)
+	await expect(editor.locator("[data-post-it]")).toHaveCSS("border-left-color", greenLine)
+	await expect(field).toHaveCSS("font-style", "italic")
+	expect(await textStart(field)).toEqual(shown)
+	// Linking an article still works on the post-it.
+	await page.keyboard.press("End")
+	await page.keyboard.type(" [[")
+	await expect(page.getByTestId("note-link-menu")).toBeVisible()
+	await page.keyboard.press("Escape")
+	await page.keyboard.press("Escape")
+	await expect(editor).toBeHidden()
+	expect(await textStart(marginNote)).toEqual(shown)
+
+	// The sidebar's swatch is green, the note under the quote a post-it.
+	await page.getByTestId("toggle-sidebar").click()
+	const sidebar = page.getByRole("complementary", { name: "Notes and highlights" })
+	const row = sidebar.getByRole("button", { name: QUOTE })
+	await expect(row.getByTestId("highlight-swatch")).toHaveCSS("background-color", greenLine)
+	await expect(row.locator("[data-post-it]")).toHaveText(NOTE)
+
+	// The highlights page too.
+	await page.goto("/highlights")
+	const card = page.getByRole("listitem").filter({ hasText: QUOTE })
+	await expect(card.getByTestId("highlight-swatch")).toHaveCSS("background-color", greenLine)
+	await expect(card.locator("[data-post-it]")).toHaveText(NOTE)
+})
+
 test("the highlight popover scrolls with its highlight", async ({ page }) => {
 	// Up to a minute for the extraction it highlights in.
 	test.setTimeout(90_000)
@@ -317,7 +431,7 @@ test("the highlight popover scrolls with its highlight", async ({ page }) => {
 	await expect(popover).toBeVisible()
 	const gap = () =>
 		page.evaluate(() => {
-			const range = [...(CSS.highlights.get("klip-hl") ?? [])][0] as Range
+			const range = [...(CSS.highlights.get("klip-hl-yellow") ?? [])][0] as Range
 			const toolbar = document.querySelector('[role="dialog"][data-placement="floating"]')
 			return Math.round(
 				(toolbar as Element).getBoundingClientRect().top - range.getBoundingClientRect().top,

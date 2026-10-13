@@ -148,6 +148,14 @@ export default {
 			copy: "Copy text",
 			copied: "Copied",
 			delete: "Delete highlight",
+			color: "Highlight color",
+		},
+		colors: {
+			yellow: "Yellow",
+			green: "Green",
+			blue: "Blue",
+			pink: "Pink",
+			orange: "Orange",
 		},
 		margin: { label: "Highlight notes" },
 		sidebar: {

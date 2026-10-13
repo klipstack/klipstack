@@ -43,6 +43,14 @@ test("article note: write, autosave, reload, keys, clear, export", async ({ page
 
 	// typing saves on its own; j/k type letters, they don't move through highlights
 	const note = sidebar.getByLabel("Note", { exact: true })
+	// The note is written on a post-it, in its hand; so is each highlight's note below it.
+	await expect(
+		sidebar.locator("[data-post-it]").filter({ has: page.getByLabel("Note", { exact: true }) }),
+	).toBeVisible()
+	await expect(note).toHaveCSS("font-style", "italic")
+	await expect(
+		sidebar.locator("[data-post-it]").filter({ hasText: "Makers need long blocks." }),
+	).toBeVisible()
 	await note.click()
 	await Promise.all([noteSaved(page, id), page.keyboard.type("jk my take")])
 	await expect(note).toHaveText("jk my take")

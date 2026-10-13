@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import type { useHighlightResize } from "~/hooks/use-highlight-resize"
+import { highlightColor } from "~/lib/highlight-colors"
 import { endpointRect, endpointVisible, pointerInside, textIndex } from "~/lib/highlight-resize"
 
 type Controller = ReturnType<typeof useHighlightResize>
@@ -105,6 +106,7 @@ export function HighlightResizeHandles({
 		<div
 			data-resize-handles=""
 			data-highlight-id={item.id}
+			{...highlightColor(item.color)}
 			data-resize-state={resize.state}
 			className="pointer-events-none absolute inset-0 z-10"
 		>

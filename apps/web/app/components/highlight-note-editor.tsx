@@ -1,11 +1,14 @@
 import { Check, X } from "lucide-react"
 import { useEffect, useInsertionEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { highlightColor } from "~/lib/highlight-colors"
 import type { LinkTargets } from "~/lib/note-links"
 import { cn } from "~/lib/utils"
 import { LinkArticleButton } from "./link-article-button"
+import { MARGIN_NOTE } from "./margin-notes"
 import type { NoteEditorApi } from "./note-editor"
 import { NoteField } from "./note-field"
+import { PostIt } from "./post-it"
 import { tooltip } from "./tooltip-host"
 
 export type NoteEditorPlacement =
@@ -15,6 +18,8 @@ export type NoteEditorPlacement =
 
 interface Props {
 	initial: string
+	/** The highlight's color, for the note's edge. */
+	color?: number
 	placement: NoteEditorPlacement
 	/** The article being read: the link menu never offers it. */
 	documentId: string
@@ -25,13 +30,18 @@ interface Props {
 
 const WIDTH = 320
 
+/** A button on the note's paper, in its ink. */
+const PAPER_BUTTON = "text-note-fg/70 hover:bg-note-fg/10 hover:text-note-fg"
+
 /**
- * Write or change a highlight's note. In the margin it takes the note's place; without a margin it
+ * Write or change a highlight's note, on the note itself: the same paper, type and edge. In the
+ * margin it takes the note's place, its text exactly where the note's was; without a margin it
  * floats below the highlight (mouse) or sits at the bottom of the screen above the keyboard (touch).
  * Save or ⌘/Ctrl+Enter saves, Cancel or Escape drops the draft, a click outside saves any change.
  */
 export function HighlightNoteEditor({
 	initial,
+	color,
 	placement,
 	documentId,
 	linkTargets,
@@ -88,50 +98,57 @@ export function HighlightNoteEditor({
 			data-placement={placement.kind}
 			style={style}
 			className={cn(
-				"bg-card",
-				placement.kind === "sheet"
-					? "safe-bottom fixed inset-x-0 bottom-0 z-40 rounded-t-2xl border-t border-border p-4 shadow-[0_-8px_24px_rgba(0,0,0,0.18)]"
-					: "z-30 rounded-xl border border-border p-3 shadow-lg",
-				// In the margin, the text lines up with the note it replaces.
-				placement.kind === "margin" && "-mt-2.5",
+				"z-30",
+				placement.kind === "sheet" &&
+					"safe-bottom fixed inset-x-0 bottom-0 z-40 rounded-t-2xl border-t border-border bg-card p-4 shadow-[0_-8px_24px_rgba(0,0,0,0.18)]",
 			)}
 		>
-			<NoteField
-				value={note}
-				onChange={setNote}
-				onSubmit={() => (dirty ? onSave(note) : onCancel())}
-				onEscape={onCancel}
-				autoFocus
-				documentId={documentId}
-				linkTargets={linkTargets}
-				placeholder={t("highlights.popover.notePlaceholder")}
-				aria-label={t("highlights.popover.note")}
-				className="max-h-[40vh] min-h-12 overflow-y-auto font-sans text-sm leading-snug"
-				onApi={setNoteApi}
-			/>
-			{/* Icons, not labels: in the margin the editor is one note wide, and three labels wrapped. */}
-			<div className="mt-2 flex items-center justify-end gap-1">
-				<LinkArticleButton api={noteApi} compact className="mr-auto" />
-				<button
-					type="button"
-					onClick={onCancel}
-					aria-label={t("highlights.popover.cancel")}
-					{...tooltip(t("highlights.popover.cancel"))}
-					className="rounded-lg p-1.5 text-muted-fg hover:bg-muted hover:text-fg"
-				>
-					<X className="size-4" aria-hidden />
-				</button>
-				<button
-					type="button"
-					disabled={!dirty}
-					onClick={() => onSave(note)}
-					aria-label={t("highlights.popover.save")}
-					{...tooltip(t("highlights.popover.save"), "⌘↵")}
-					className="rounded-lg bg-accent p-1.5 text-accent-fg disabled:opacity-50"
-				>
-					<Check className="size-4" aria-hidden />
-				</button>
-			</div>
+			<PostIt
+				variant="compact"
+				{...highlightColor(color)}
+				className={cn(MARGIN_NOTE, placement.kind === "floating" && "shadow-lg")}
+			>
+				<NoteField
+					value={note}
+					onChange={setNote}
+					onSubmit={() => (dirty ? onSave(note) : onCancel())}
+					onEscape={onCancel}
+					autoFocus
+					documentId={documentId}
+					linkTargets={linkTargets}
+					placeholder={t("highlights.popover.notePlaceholder")}
+					aria-label={t("highlights.popover.note")}
+					className="max-h-[40vh] min-h-[2lh] overflow-y-auto outline-none"
+					onApi={setNoteApi}
+				/>
+				{/* Icons, not labels: in the margin the editor is one note wide, and three labels wrapped. */}
+				<div className="mt-1.5 -mr-1.5 -mb-0.5 flex items-center justify-end gap-1 not-italic">
+					<LinkArticleButton
+						api={noteApi}
+						compact
+						className={cn("mr-auto -ml-1.5", PAPER_BUTTON)}
+					/>
+					<button
+						type="button"
+						onClick={onCancel}
+						aria-label={t("highlights.popover.cancel")}
+						{...tooltip(t("highlights.popover.cancel"))}
+						className={cn("rounded-lg p-1.5", PAPER_BUTTON)}
+					>
+						<X className="size-4" aria-hidden />
+					</button>
+					<button
+						type="button"
+						disabled={!dirty}
+						onClick={() => onSave(note)}
+						aria-label={t("highlights.popover.save")}
+						{...tooltip(t("highlights.popover.save"), "⌘↵")}
+						className="rounded-lg bg-accent p-1.5 text-accent-fg disabled:opacity-50"
+					>
+						<Check className="size-4" aria-hidden />
+					</button>
+				</div>
+			</PostIt>
 		</div>
 	)
 }

@@ -293,20 +293,81 @@ body {
 }
 
 /* ---------- Highlights (CSS Custom Highlight API) ---------- */
+/* One wash and one solid line per stored color (HIGHLIGHT_COLORS). In dark mode each wash is darker
+   and less opaque, so light text stays readable on it; the lines stay bright. */
 :root {
-	--hl: oklch(0.93 0.16 95 / 0.55);
-	--hl-solid: oklch(0.9 0.17 95);
+	--hl-yellow: oklch(0.93 0.16 95 / 0.55);
+	--hl-yellow-solid: oklch(0.9 0.17 95);
+	--hl-green: oklch(0.9 0.13 150 / 0.5);
+	--hl-green-solid: oklch(0.8 0.15 150);
+	--hl-blue: oklch(0.87 0.08 235 / 0.6);
+	--hl-blue-solid: oklch(0.75 0.12 240);
+	--hl-pink: oklch(0.88 0.09 355 / 0.6);
+	--hl-pink-solid: oklch(0.76 0.14 355);
+	--hl-orange: oklch(0.87 0.12 60 / 0.6);
+	--hl-orange-solid: oklch(0.79 0.15 60);
 }
 @media (prefers-color-scheme: dark) {
 	:root:not([data-theme="light"]) {
-		--hl: oklch(0.7 0.14 95 / 0.4);
+		--hl-yellow: oklch(0.7 0.14 95 / 0.4);
+		--hl-green: oklch(0.62 0.13 150 / 0.42);
+		--hl-blue: oklch(0.58 0.12 245 / 0.48);
+		--hl-pink: oklch(0.6 0.14 355 / 0.45);
+		--hl-orange: oklch(0.66 0.14 55 / 0.45);
+		--hl-green-solid: oklch(0.82 0.15 150);
+		--hl-blue-solid: oklch(0.78 0.12 240);
+		--hl-pink-solid: oklch(0.79 0.13 355);
+		--hl-orange-solid: oklch(0.82 0.14 60);
 	}
 }
 :root[data-theme="dark"] {
-	--hl: oklch(0.7 0.14 95 / 0.4);
+	--hl-yellow: oklch(0.7 0.14 95 / 0.4);
+	--hl-green: oklch(0.62 0.13 150 / 0.42);
+	--hl-blue: oklch(0.58 0.12 245 / 0.48);
+	--hl-pink: oklch(0.6 0.14 355 / 0.45);
+	--hl-orange: oklch(0.66 0.14 55 / 0.45);
+	--hl-green-solid: oklch(0.82 0.15 150);
+	--hl-blue-solid: oklch(0.78 0.12 240);
+	--hl-pink-solid: oklch(0.79 0.13 355);
+	--hl-orange-solid: oklch(0.82 0.14 60);
 }
-::highlight(klip-hl) {
-	background-color: var(--hl);
+/* `--hl` and `--hl-solid` are the color in hand: yellow, or the one of the nearest `data-hl` (a
+   swatch, a note's edge, the outline, the reader while one highlight is in focus). */
+:root,
+[data-hl="yellow"] {
+	--hl: var(--hl-yellow);
+	--hl-solid: var(--hl-yellow-solid);
+}
+[data-hl="green"] {
+	--hl: var(--hl-green);
+	--hl-solid: var(--hl-green-solid);
+}
+[data-hl="blue"] {
+	--hl: var(--hl-blue);
+	--hl-solid: var(--hl-blue-solid);
+}
+[data-hl="pink"] {
+	--hl: var(--hl-pink);
+	--hl-solid: var(--hl-pink-solid);
+}
+[data-hl="orange"] {
+	--hl: var(--hl-orange);
+	--hl-solid: var(--hl-orange-solid);
+}
+::highlight(klip-hl-yellow) {
+	background-color: var(--hl-yellow);
+}
+::highlight(klip-hl-green) {
+	background-color: var(--hl-green);
+}
+::highlight(klip-hl-blue) {
+	background-color: var(--hl-blue);
+}
+::highlight(klip-hl-pink) {
+	background-color: var(--hl-pink);
+}
+::highlight(klip-hl-orange) {
+	background-color: var(--hl-orange);
 }
 ::highlight(klip-note) {
 	text-decoration: underline dotted;
@@ -337,9 +398,25 @@ body {
 	color: var(--k-fg);
 	background-color: var(--hl);
 }
-.reader-content[data-focus]::highlight(klip-hl),
-.reader-content[data-focus] ::highlight(klip-hl) {
-	background-color: color-mix(in oklch, var(--hl) 25%, transparent);
+.reader-content[data-focus]::highlight(klip-hl-yellow),
+.reader-content[data-focus] ::highlight(klip-hl-yellow) {
+	background-color: color-mix(in oklch, var(--hl-yellow) 25%, transparent);
+}
+.reader-content[data-focus]::highlight(klip-hl-green),
+.reader-content[data-focus] ::highlight(klip-hl-green) {
+	background-color: color-mix(in oklch, var(--hl-green) 25%, transparent);
+}
+.reader-content[data-focus]::highlight(klip-hl-blue),
+.reader-content[data-focus] ::highlight(klip-hl-blue) {
+	background-color: color-mix(in oklch, var(--hl-blue) 25%, transparent);
+}
+.reader-content[data-focus]::highlight(klip-hl-pink),
+.reader-content[data-focus] ::highlight(klip-hl-pink) {
+	background-color: color-mix(in oklch, var(--hl-pink) 25%, transparent);
+}
+.reader-content[data-focus]::highlight(klip-hl-orange),
+.reader-content[data-focus] ::highlight(klip-hl-orange) {
+	background-color: color-mix(in oklch, var(--hl-orange) 25%, transparent);
 }
 .reader-content[data-focus]::highlight(klip-note),
 .reader-content[data-focus] ::highlight(klip-note) {

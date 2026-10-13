@@ -2,11 +2,12 @@ import type { TextSelector } from "@klipstack/anchor"
 import type { Highlight } from "@klipstack/db"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useMutationQueue } from "~/hooks/use-mutation-queue"
+import { DEFAULT_HIGHLIGHT_COLOR } from "~/lib/highlight-colors"
 import type { WebResult } from "~/lib/web-result"
 
 export type HighlightChange =
 	| { intent: "create"; tempId: string; selector: TextSelector }
-	| { intent: "update"; id: string; note: string }
+	| { intent: "update"; id: string; note?: string; color?: number }
 	| { intent: "delete"; id: string }
 
 type Answer = WebResult<{ highlight?: Highlight }>
@@ -34,7 +35,7 @@ function withChange(items: Highlight[], change: HighlightChange, documentId: str
 					exact: selector.exact,
 					prefix: selector.prefix,
 					suffix: selector.suffix,
-					color: 0,
+					color: DEFAULT_HIGHLIGHT_COLOR,
 					note: null,
 					orphaned: false,
 					createdAt: now,
@@ -44,7 +45,15 @@ function withChange(items: Highlight[], change: HighlightChange, documentId: str
 			]
 		}
 		case "update":
-			return items.map((h) => (h.id !== change.id ? h : { ...h, note: change.note.trim() || null }))
+			return items.map((h) =>
+				h.id !== change.id
+					? h
+					: {
+							...h,
+							...(change.note !== undefined ? { note: change.note.trim() || null } : {}),
+							...(change.color !== undefined ? { color: change.color } : {}),
+						},
+			)
 		case "delete":
 			return items.filter((h) => h.id !== change.id)
 	}

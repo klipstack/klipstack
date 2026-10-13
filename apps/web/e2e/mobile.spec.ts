@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { db, documents, eq, user } from "@klipstack/db"
 import { devices, expect, type Page, test } from "@playwright/test"
-import { logout, signupUser, waitForHydration } from "./helpers"
+import { logout, paintedHighlights, signupUser, waitForHydration } from "./helpers"
 
 // Phone emulation (viewport, touch, UA) in the Chromium we run everywhere; drop the WebKit default.
 const { defaultBrowserType: _webkit, ...iphone } = devices["iPhone 13"]
@@ -352,9 +352,7 @@ test("phone: a highlight note links to another article from the bottom sheet", a
 	await expect(page.locator(".reader-content")).toContainText(QUOTE, { timeout: 60_000 })
 	await waitForHydration(page)
 	// The highlight has to be painted before a tap can land on it.
-	await expect
-		.poll(() => page.evaluate(() => CSS.highlights.get("klip-hl")?.size ?? 0))
-		.toBeGreaterThan(0)
+	await expect.poll(async () => (await paintedHighlights(page)).length).toBeGreaterThan(0)
 	// The reader scrolls to it smoothly: a tap while the page moves stops the scroll, not a click.
 	let lastY = -1
 	await expect

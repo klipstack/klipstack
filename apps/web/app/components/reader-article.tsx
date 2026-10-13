@@ -33,6 +33,7 @@ import { useMediaQuery } from "~/hooks/use-media-query"
 import { useNoteAutosave } from "~/hooks/use-note-autosave"
 import { useAlignForSheet } from "~/hooks/use-reader-bar"
 import { copyText } from "~/lib/copy-link"
+import { highlightColor } from "~/lib/highlight-colors"
 import {
 	clearHighlights,
 	clearThreads,
@@ -315,6 +316,10 @@ export function ReaderArticle({
 		if (resize.blocked(id)) return
 		highlights.change({ intent: "update", id, note: text })
 	}
+	const setColor = (id: string, color: number) => {
+		if (resize.blocked(id)) return
+		highlights.change({ intent: "update", id, color })
+	}
 	const removeHighlight = (id: string) => {
 		if (resize.blocked(id)) return
 		const hadNote = Boolean(items.find((h) => h.id === id)?.note)
@@ -523,6 +528,8 @@ export function ReaderArticle({
 	// The highlight that stands out: the one hovered, else the one in focus.
 	const outlinedId = resize.state === "pointer" ? null : (hoveredId ?? activeId)
 	const outlined = outlinedId ? items.find((h) => h.id === outlinedId) : null
+	// The mark at full strength while one is in focus: the one hovered, else the one in focus.
+	const marked = outlined ?? focusItem
 
 	// ---- notes in the margin, next to their highlights ----
 	const marginRoom = useMarginRoom(articleRef, supported)
@@ -572,12 +579,13 @@ export function ReaderArticle({
 		}
 	}
 	const noteEditor = (
-		item: { id: string; note?: string | null },
+		item: { id: string; note?: string | null; color?: number },
 		placement: NoteEditorPlacement,
 	) => (
 		<HighlightNoteEditor
 			key={item.id}
 			initial={item.note ?? ""}
+			color={item.color}
 			placement={placement}
 			documentId={doc.id}
 			linkTargets={linkTargets}
@@ -627,6 +635,8 @@ export function ReaderArticle({
 						// While a highlight's toolbar or note editor is open, the others dim (app.css).
 						data-focus={resize.state !== "pointer" && focusItem ? "true" : undefined}
 						data-resizing={resize.state === "pointer" ? "true" : undefined}
+						// Its color, for the mark in focus (`klip-active`).
+						{...(marked ? highlightColor(marked.color) : {})}
 						className="reader-content prose max-w-none"
 						dangerouslySetInnerHTML={{ __html: html }}
 					/>
@@ -635,6 +645,7 @@ export function ReaderArticle({
 							articleRef={articleRef}
 							rangesRef={rangesRef}
 							id={outlined && !isTemporary(outlined.id) ? outlined.id : null}
+							color={outlined?.color}
 							version={items}
 						/>
 					) : null}
@@ -706,6 +717,7 @@ export function ReaderArticle({
 						disabled={resize.blocked(popoverItem.id)}
 						rect={popover.rect}
 						scrollY={popover.scrollY}
+						onColor={(color) => setColor(popoverItem.id, color)}
 						onNote={() => openNote(popoverItem.id)}
 						onCopy={() => copyHighlight(popoverItem.id, popoverItem.exact)}
 						onDelete={() => removeHighlight(popoverItem.id)}
