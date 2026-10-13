@@ -33,6 +33,30 @@ description in Amp's Portals tab shows the email and password too. The productio
 because the dev server is slow to load through a portal, and Vite's re-bundling can leave an open
 page unresponsive.
 
+### Its own database
+
+The demo app runs on a database of its own, `klipstack_demo`, beside the one in `.env`, on the
+same PostgreSQL. `scripts/demo-database` creates it when missing, applies the migrations (so
+`orb:app` after a change with a new migration has it), and prints its URL; `orb:app` and
+`.agents/setup` use it, and pass it to both services.
+
+The reason is the browser tests. `pnpm test:e2e` starts its own web app and worker on the database
+in `.env`. Two workers on one database share one pg-boss queue, and each job goes to whichever asks
+first: the demo worker would take jobs the tests wait for (extracting an article, proposing
+topics), and those tests would time out. On separate databases, the demo app can keep running
+during a test run.
+
+The other demo commands use `.env`'s database, as outside an orb. To run one on the orb's demo
+account, give it the demo database:
+
+```sh
+DATABASE_URL=$(scripts/demo-database) pnpm demo:login-link --url <portal address>
+DATABASE_URL=$(scripts/demo-database) pnpm demo:verify
+```
+
+An orb made before this change has its demo account in `.env`'s database too. `orb:app` seeds a
+new one in `klipstack_demo` on its first run (about two minutes); the old one is left in place.
+
 ## Sign-in link
 
 `pnpm demo:login-link [--url https://…]` prints a link that signs in to the demo account without
