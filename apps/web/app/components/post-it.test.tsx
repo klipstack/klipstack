@@ -1,9 +1,14 @@
 import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it } from "vitest"
-import { PostIt } from "./post-it"
+import { PostIt, postItSize, tiltFor } from "./post-it"
 
 const classes = (html: string) =>
 	new Set(/class="([^"]*)"/.exec(html)?.[1]?.split(/\s+/).filter(Boolean) ?? [])
+
+const tiltOf = (html: string) => [...classes(html)].find((c) => c.includes("rotate-"))
+
+/** The characters of text a line holds, from the width `postItSize` gives. */
+const lineOf = (text: string) => Number(/calc\((\d+)ch/.exec(String(postItSize(text).width))?.[1])
 
 describe("PostIt", () => {
 	it("full: an edition's note as it always looked, tilted, with tape", () => {
@@ -23,16 +28,13 @@ describe("PostIt", () => {
 	})
 
 	it("full: neighbors lean apart, and the tilts come round again", () => {
-		const tilt = (n: number) =>
-			[...classes(renderToStaticMarkup(<PostIt tilt={n}>x</PostIt>))].find((c) =>
-				c.includes("rotate-"),
-			)
+		const tilt = (n: number) => tiltOf(renderToStaticMarkup(<PostIt tilt={n}>x</PostIt>))
 		expect(tilt(0)).toBe("-rotate-[1.4deg]")
 		expect(tilt(1)).not.toBe(tilt(0))
 		expect(tilt(4)).toBe(tilt(0))
 	})
 
-	it("compact: the same paper and hand, with no tilt and no tape", () => {
+	it("compact: the same paper and hand and tape, leaning barely", () => {
 		const html = renderToStaticMarkup(
 			<PostIt variant="compact" as="span">
 				Note
@@ -41,9 +43,58 @@ describe("PostIt", () => {
 		const names = classes(html)
 		for (const name of ["bg-note", "text-note-fg", "font-serif", "italic", "block"])
 			expect(names).toContain(name)
-		expect([...names].some((c) => c.includes("rotate"))).toBe(false)
-		expect(html).not.toContain("bg-note-tape")
+		expect(html).toContain("bg-note-tape")
 		expect(html).toMatch(/^<span /)
 		expect(html).toContain('data-post-it="compact"')
+		// Under a degree either way, and neighbors lean apart.
+		const tilt = (n: number) =>
+			tiltOf(
+				renderToStaticMarkup(
+					<PostIt variant="compact" tilt={n}>
+						x
+					</PostIt>,
+				),
+			)
+		for (const n of [0, 1, 2, 3])
+			expect(Math.abs(Number(/\[(-?[\d.]+)deg\]/.exec(tilt(n) ?? "")?.[1]))).toBeLessThan(1)
+		expect(tilt(1)).not.toBe(tilt(0))
+	})
+
+	it("a lean per id: the same for a note and its editor, any id", () => {
+		expect(tiltFor("a5b1")).toBe(tiltFor("a5b1"))
+		expect(
+			new Set(["a", "b", "c", "d", "e", "f"].map((id) => tiltFor(id) % 4)).size,
+		).toBeGreaterThan(1)
+		expect(
+			tiltOf(renderToStaticMarkup(<PostIt tilt={tiltFor("0198-ffff-ffff")}>x</PostIt>)),
+		).toBeDefined()
+	})
+
+	it("fit: short notes are small and square-ish, longer ones grow, within bounds", () => {
+		expect(lineOf("Yes!")).toBe(14)
+		const short = lineOf("Why I block mornings.")
+		const medium = lineOf("x".repeat(160))
+		const long = lineOf("x".repeat(600))
+		expect(medium).toBeGreaterThan(short)
+		expect(long).toBeGreaterThan(medium)
+		expect(lineOf("x".repeat(5000))).toBe(52)
+		// At the width given, the text's lines are about as tall as they are wide.
+		const lines = 160 / medium
+		expect(lines * 2.75).toBeGreaterThan(medium * 0.5)
+		expect(lines * 2.75).toBeLessThan(medium * 1.1)
+		// Never wider than the room there is, and never a strip: a least height for the width.
+		expect(postItSize("x").width).toMatch(/^min\(100%, /)
+		expect(postItSize("x").minHeight).toBe("calc(calc(14ch + 2.5rem) * 0.62)")
+		expect(postItSize("x", "compact").minHeight).toBe("calc(calc(14ch + 1.5rem) * 0.5)")
+		// A link counts as its title.
+		const id = "0198c0de-0000-7000-8000-000000000000"
+		expect(lineOf(`See [Maker's schedule](/read/${id}) again`)).toBe(
+			lineOf("See Maker's schedule again"),
+		)
+		// A line break counts as a line of its own.
+		expect(lineOf("a\nb\nc\nd")).toBeGreaterThan(lineOf("abcd"))
+		const html = renderToStaticMarkup(<PostIt fit="Short.">Short.</PostIt>)
+		expect(html).toContain("width:min(100%, calc(14ch + 2.5rem))")
+		expect(html).toContain("min-height:calc(calc(14ch + 2.5rem) * 0.62)")
 	})
 })

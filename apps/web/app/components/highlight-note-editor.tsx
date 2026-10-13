@@ -8,7 +8,7 @@ import { LinkArticleButton } from "./link-article-button"
 import { MARGIN_NOTE } from "./margin-notes"
 import type { NoteEditorApi } from "./note-editor"
 import { NoteField } from "./note-field"
-import { PostIt } from "./post-it"
+import { PostIt, type PostItVariant } from "./post-it"
 import { tooltip } from "./tooltip-host"
 
 export type NoteEditorPlacement =
@@ -20,6 +20,10 @@ interface Props {
 	initial: string
 	/** The highlight's color, for the note's edge. */
 	color?: number
+	/** The note's lean (`PostIt`'s `tilt`): the note's own, so it does not move when edited. */
+	tilt?: number
+	/** `compact` (the default) has the margin's colored edge; `full` is the board's larger paper. */
+	variant?: PostItVariant
 	placement: NoteEditorPlacement
 	/** The article being read: the link menu never offers it. */
 	documentId: string
@@ -42,6 +46,8 @@ const PAPER_BUTTON = "text-note-fg/70 hover:bg-note-fg/10 hover:text-note-fg"
 export function HighlightNoteEditor({
 	initial,
 	color,
+	tilt = 0,
+	variant = "compact",
 	placement,
 	documentId,
 	linkTargets,
@@ -103,10 +109,17 @@ export function HighlightNoteEditor({
 					"safe-bottom fixed inset-x-0 bottom-0 z-40 rounded-t-2xl border-t border-border bg-card p-4 shadow-[0_-8px_24px_rgba(0,0,0,0.18)]",
 			)}
 		>
+			{/* Sized to the longer of the note and the draft: it grows as it is written, never shrinks. */}
 			<PostIt
-				variant="compact"
+				variant={variant}
+				tilt={tilt}
+				fit={note.length > initial.length ? note : initial}
 				{...highlightColor(color)}
-				className={cn(MARGIN_NOTE, placement.kind === "floating" && "shadow-lg")}
+				className={cn(
+					variant === "compact" && MARGIN_NOTE,
+					placement.kind === "margin" && "ml-auto",
+					placement.kind === "floating" && "shadow-lg",
+				)}
 			>
 				<NoteField
 					value={note}
