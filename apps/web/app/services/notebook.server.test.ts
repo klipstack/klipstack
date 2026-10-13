@@ -7,6 +7,7 @@ import {
 	documentVersions,
 	eq,
 	highlights,
+	sql,
 	tags,
 	topics,
 	user as userTable,
@@ -242,6 +243,65 @@ describe("the stream", () => {
 		expect(seen).toEqual(shown((await listNotebookStream({ userId })).items))
 	})
 
+	it("pages through times a microsecond apart, and a highlight and a note at the same one", async () => {
+		const owner = `${userId}-micro`
+		await db.insert(userTable).values({ id: owner, name: "M", email: `${owner}@example.com` })
+		try {
+			const time = (us: number) => sql`${`2026-09-02T00:00:00.000${us}Z`}::timestamptz`
+			const docs = []
+			for (const [title, us] of [
+				["A", 101],
+				["B", 102],
+				["C", 103],
+			] as const) {
+				const doc = await article(owner, title)
+				await db
+					.update(documents)
+					.set({ note: `On ${title}`, noteUpdatedAt: time(us) as unknown as Date })
+					.where(eq(documents.id, doc.id))
+				docs.push(doc)
+			}
+			await db.insert(highlights).values({
+				userId: owner,
+				documentId: docs[0]!.id,
+				versionId: docs[0]!.versionId,
+				startOffset: 0,
+				endOffset: 1,
+				exact: "same instant as B",
+				createdAt: time(102) as unknown as Date,
+			})
+			const seen: string[] = []
+			let cursor = null
+			do {
+				const page: Awaited<ReturnType<typeof listNotebookStream>> = await listNotebookStream({
+					userId: owner,
+					limit: 1,
+					cursor,
+				})
+				seen.push(...shown(page.items))
+				cursor = page.nextCursor
+			} while (cursor)
+			expect(seen).toHaveLength(4)
+			expect(seen[0]).toBe("note: C")
+			expect(seen.at(-1)).toBe("note: A")
+			expect(new Set(seen).size).toBe(4)
+			const articles: string[] = []
+			let next = null
+			do {
+				const page: Awaited<ReturnType<typeof listNotebookArticles>> = await listNotebookArticles({
+					userId: owner,
+					limit: 1,
+					cursor: next,
+				})
+				articles.push(...page.articles.map((a) => a.documentTitle ?? ""))
+				next = page.nextCursor
+			} while (next)
+			expect(articles).toEqual(["C", "B", "A"])
+		} finally {
+			await db.delete(userTable).where(eq(userTable.id, owner))
+		}
+	})
+
 	it("Notes: article notes and highlights with a note; Highlights and a color: no article note", async () => {
 		const list = async (filter: "notes" | "highlights" | "blue") =>
 			shown((await listNotebookStream({ userId, filter })).items)
@@ -391,6 +451,8 @@ describe("by topic", () => {
 		const card = list[1]!.items.find((i) => i.kind === "highlight" && i.exact === "design one")
 		expect(card).toMatchObject({ image: "/assets/0198c0de-0000-7000-8000-0000000000aa" })
 		expect(list[1]!.items[0]).toMatchObject({ kind: "note", noteUpdatedAt: at(7) })
+		// Without a cover, none.
+		expect(list.at(-1)!.items[0]).toMatchObject({ kind: "highlight", image: null })
 	})
 
 	it("shows each group's newest few, and counts them all", async () => {
@@ -405,6 +467,12 @@ describe("by topic", () => {
 		const named = async (m: Parameters<typeof listNotebookTopics>[0]) =>
 			(await listNotebookTopics(m)).map((g) => [g.name, shown(g.items)])
 		expect(await named({ userId, filter: "blue" })).toEqual([["Design", ["design one"]]])
+		// Notes: highlights with a note and article notes, together.
+		expect(await named({ userId, filter: "notes" })).toEqual([
+			["Craft", ["note: Both", "note: Pondered", "both two"]],
+			["Design", ["note: Both", "both two"]],
+			[null, ["note: Imported"]],
+		])
 		expect(await named({ userId, q: "musings" })).toEqual([["Craft", ["note: Pondered"]]])
 		expect(await named({ userId, scope: { tagId: ids.reading } })).toEqual([
 			["Craft", ["note: Both", "both two", "both one"]],

@@ -3,8 +3,9 @@ import { Link, useLocation } from "react-router"
 import type { LinkTargets } from "~/lib/note-links"
 import { sourceLabel } from "~/lib/site-label"
 import { cn } from "~/lib/utils"
+import { NoteText } from "./note-text"
 import { NotebookNote } from "./notebook-note"
-import { tiltFor } from "./post-it"
+import { PostIt, tiltFor } from "./post-it"
 import { ArticleThumb, DEALT } from "./quote-card"
 
 export interface ArticleNoteCardNote {
@@ -23,16 +24,19 @@ export interface ArticleNoteCardNote {
  * An article's note among the Notebook's cards. It is a card like a highlight's, with the article
  * where the quote would be: a small cover, the title set as a book's, author and site in small
  * caps. The note is a large post-it stuck on it, written on in place. `dealt` tilts the card by
- * its place in a Shuffle hand.
+ * its place in a Shuffle hand. `readOnly` shows the note without its editor: where the same note
+ * is on the page twice (an article in two topics), only one may write it.
  */
 export function ArticleNoteCard({
 	n,
 	linkTargets,
 	dealt,
+	readOnly = false,
 }: {
 	n: ArticleNoteCardNote
 	linkTargets: LinkTargets
 	dealt?: number
+	readOnly?: boolean
 }) {
 	const { t } = useTranslation("reader")
 	const location = useLocation()
@@ -70,15 +74,27 @@ export function ArticleNoteCard({
 				</div>
 			</div>
 			<div className="mt-6 -mr-2 ml-1">
-				<NotebookNote
-					documentId={n.documentId}
-					title={title}
-					note={n.note}
-					noteUpdatedAt={n.noteUpdatedAt}
-					linkTargets={linkTargets}
-					tilt={tiltFor(n.documentId)}
-					large
-				/>
+				{readOnly ? (
+					<PostIt
+						fit={n.note}
+						tilt={tiltFor(n.documentId)}
+						style={{ width: "100%" }}
+						data-testid="note-read-only"
+						className="mb-7 text-lg leading-snug"
+					>
+						<NoteText text={n.note} linkTargets={linkTargets} />
+					</PostIt>
+				) : (
+					<NotebookNote
+						documentId={n.documentId}
+						title={title}
+						note={n.note}
+						noteUpdatedAt={n.noteUpdatedAt}
+						linkTargets={linkTargets}
+						tilt={tiltFor(n.documentId)}
+						large
+					/>
+				)}
 			</div>
 		</li>
 	)

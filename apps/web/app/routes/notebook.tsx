@@ -275,12 +275,13 @@ export default function Notebook({ loaderData }: Route.ComponentProps) {
 				</>
 			) : board.kind === "topics" ? (
 				<div className="flex flex-col gap-10 md:mt-4">
-					{board.groups.map((group) => (
+					{board.groups.map((group, i) => (
 						<TopicSection
 							key={group.topicId ?? "none"}
 							group={group}
 							state={state}
 							linkTargets={linkTargets}
+							shownAbove={notesIn(board.groups.slice(0, i))}
 						/>
 					))}
 				</div>
@@ -291,6 +292,13 @@ export default function Notebook({ loaderData }: Route.ComponentProps) {
 				</>
 			)}
 		</main>
+	)
+}
+
+/** The articles whose notes these groups show: an article in two topics shows its note twice. */
+function notesIn(groups: TopicGroup[]): Set<string> {
+	return new Set(
+		groups.flatMap((g) => g.items.flatMap((c) => (c.kind === "note" ? [c.documentId] : []))),
 	)
 }
 
@@ -318,12 +326,15 @@ function Cards({
 	linkTargets,
 	withArticle = true,
 	dealt = false,
+	readOnlyNotes,
 	className = "sm:columns-2 lg:columns-3",
 }: {
 	items: Array<Card | HighlightListItem>
 	linkTargets: LinkTargets
 	withArticle?: boolean
 	dealt?: boolean
+	/** Article notes written on elsewhere on the page: shown, not edited, here. */
+	readOnlyNotes?: Set<string>
 	className?: string
 }) {
 	return (
@@ -336,6 +347,7 @@ function Cards({
 						n={c}
 						linkTargets={linkTargets}
 						dealt={dealt ? i : undefined}
+						readOnly={readOnlyNotes?.has(c.documentId)}
 					/>
 				) : (
 					<QuoteCard
@@ -640,10 +652,13 @@ function TopicSection({
 	group,
 	state,
 	linkTargets,
+	shownAbove,
 }: {
 	group: TopicGroup
 	state: NotebookState
 	linkTargets: LinkTargets
+	/** Article notes an earlier group shows, and writes on. */
+	shownAbove: Set<string>
 }) {
 	const { t } = useTranslation("reader")
 	const name = group.name ?? t("notebook.topics.other")
@@ -669,7 +684,7 @@ function TopicSection({
 					</Link>
 				) : null}
 			</div>
-			<Cards items={group.items} linkTargets={linkTargets} />
+			<Cards items={group.items} linkTargets={linkTargets} readOnlyNotes={shownAbove} />
 		</section>
 	)
 }

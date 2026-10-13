@@ -277,8 +277,16 @@ test("notebook: each article beside its note, written in place, found and narrow
 	const blank = articles.nth(2).locator("[data-post-it]")
 	await expect(articles.nth(2).locator('[data-placeholder="Add your note"]')).toBeVisible()
 	await expect(blank.getByTestId("post-it-tape")).toHaveCount(0)
+	// A note written meanwhile elsewhere is not overwritten unseen, from a blank post-it either.
+	await writeNote(page, harbors, "Written on the phone.")
 	await harborsNote.click()
-	await Promise.all([noteSaved(page, harbors), page.keyboard.type("Fishing boats at dawn.")])
+	await Promise.all([noteSaved(page, harbors, 409), page.keyboard.type("Fishing boats at dawn.")])
+	await expect(alert).toContainText("This note changed somewhere else")
+	expect(await stored(harbors)).toBe("Written on the phone.")
+	await Promise.all([
+		noteSaved(page, harbors),
+		alert.getByRole("button", { name: "Keep mine" }).click(),
+	])
 	expect(await stored(harbors)).toBe("Fishing boats at dawn.")
 	// Written on, it is paper like the others.
 	await expect(blank.getByTestId("post-it-tape")).toHaveCount(1)
@@ -489,11 +497,23 @@ test("notebook: by topic, a tag, notes written on the card, delete and Shuffle",
 	await expect(page.getByRole("heading", { name: "A random handful" })).toHaveCount(0)
 
 	// An article note is a card of its own in every view but by article: by topic, and dealt.
+	// Keepsake is in a second topic too: its note shows under both, written on in the first only.
+	const [keeping] = await db
+		.insert(topics)
+		.values({ userId, name: "Keeping", description: "Kept.", status: "active", origin: "first" })
+		.returning({ id: topics.id })
+	await db
+		.insert(documentTopics)
+		.values({ documentId: kept, topicId: keeping!.id, probability: 0.9, level: "applied" })
 	await writeNote(page, kept, "Keep this one close.")
 	await page.goto("/notebook?view=topics")
 	await expect(craftGroup).toContainText("8 highlights · 1 note")
 	await expect(craftGroup.getByTestId("note-card").first()).toContainText("Keep this one close.")
 	await expect(craftGroup.getByRole("link", { name: "See all 9" })).toBeVisible()
+	await expect(craftGroup.getByLabel("Note on Keepsake")).toBeVisible()
+	const keepingGroup = page.getByRole("region", { name: "Keeping" })
+	await expect(keepingGroup.getByTestId("note-read-only")).toHaveText("Keep this one close.")
+	await expect(keepingGroup.getByLabel("Note on Keepsake")).toHaveCount(0)
 	await shot(page, "notebook-topics")
 	await page.goto("/notebook?shuffle=new")
 	await expect(page.getByTestId("note-card")).toHaveCount(1)

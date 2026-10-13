@@ -32,6 +32,7 @@ const withoutId = `${readerId}-without`
 const ids: Record<string, string> = {}
 
 async function library(owner: string) {
+	let minute = 0
 	await db
 		.insert(topicLibraries)
 		.values({ userId: owner, proposedAt: new Date(), confirmedAt: new Date() })
@@ -86,11 +87,14 @@ async function library(owner: string) {
 				endOffset: 1,
 				exact,
 				note: exact === "Craft two" ? `See [Loose](/read/${doc!.id})` : null,
+				// A minute apart, in order: Craft one, Craft two, Loose one.
+				createdAt: new Date(Date.UTC(2026, 8, 1, 0, ++minute)),
 			})
 		if (title === "Workshop")
 			await db
 				.update(documents)
-				.set({ note: "Workshop thoughts", noteUpdatedAt: new Date() })
+				// Written between Craft two and Loose one.
+				.set({ note: "Workshop thoughts", noteUpdatedAt: new Date(Date.UTC(2026, 8, 1, 0, 2, 30)) })
 				.where(eq(documents.id, doc!.id))
 	}
 }
@@ -209,7 +213,7 @@ describe("the notebook", () => {
 	})
 })
 
-describe("the highlights page, continued", () => {
+describe("the notebook, continued", () => {
 	it("a topic group's See all is a look, not a choice: the view remembered stays", async () => {
 		const seeAll = await page(
 			readerId,
