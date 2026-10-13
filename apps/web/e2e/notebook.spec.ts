@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import {
+	and,
 	db,
 	documents,
 	documentTags,
@@ -434,7 +435,16 @@ test("notebook: by topic, a tag, notes written on the card, delete and Shuffle",
 	await card.getByRole("button", { name: "Add note" }).click()
 	const editor = page.getByRole("dialog", { name: "Highlight note" })
 	await editor.getByRole("textbox").fill("Worth a second look.")
-	await editor.getByRole("button", { name: "Save" }).click()
+	// The card shows the note before the server has it: reload only once it is saved.
+	await Promise.all([
+		page.waitForResponse(
+			(r) =>
+				new URL(r.url()).pathname.startsWith(`/documents/${kept}/highlights`) &&
+				r.request().method() === "POST" &&
+				r.ok(),
+		),
+		editor.getByRole("button", { name: "Save" }).click(),
+	])
 	const note = card.getByRole("button", { name: "Edit note" })
 	await expect(note).toContainText("Worth a second look.")
 	await expect(note).toHaveAttribute("data-post-it", "full")
@@ -457,7 +467,7 @@ test("notebook: by topic, a tag, notes written on the card, delete and Shuffle",
 					await db
 						.select({ note: highlights.note })
 						.from(highlights)
-						.where(eq(highlights.exact, "Kept quote"))
+						.where(and(eq(highlights.userId, userId), eq(highlights.exact, "Kept quote")))
 				)[0]?.note,
 		)
 		.toBe("Worth a third look.")
