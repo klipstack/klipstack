@@ -80,6 +80,9 @@ export function SelectionWatcher({ rootRef, onSelect, disabled, interactionGuard
 			lastTouch.current = Date.now()
 		}
 		const onKey = (e: KeyboardEvent) => {
+			// Escape in a field (a note at the end of the article) is the field's: its caret stays.
+			if ((e.target as Element | null)?.closest?.("input, textarea, [contenteditable='true']"))
+				return
 			if (e.key === "Escape") {
 				window.clearTimeout(timer)
 				window.getSelection()?.removeAllRanges()

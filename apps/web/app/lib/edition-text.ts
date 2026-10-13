@@ -49,14 +49,20 @@ export function plainEditionText(text: string): string {
 /**
  * The edition note started from the reader's private note (`documents.note`): the note's text
  * after what is already written, links to the reader's own articles as their titles, as the
- * edition's readers cannot open them. Null when there is nothing to add: no note, or it is in
+ * edition's readers cannot open them, and its lines as paragraphs. Null when there is nothing to add: no note, or it is in
  * already.
  */
 export function editionNoteFromNote(editionNote: string, note: string, max: number): string | null {
+	// Each line of a note is a paragraph; in an edition note a paragraph ends at a blank line.
 	const text = parse(note)
-		.map((line) => line.map((s) => (s.kind === "text" ? s.text : s.title)).join(""))
-		.join("\n")
-		.trim()
+		.map((line) =>
+			line
+				.map((s) => (s.kind === "text" ? s.text : s.title))
+				.join("")
+				.trim(),
+		)
+		.filter(Boolean)
+		.join("\n\n")
 	if (!text || editionNote.includes(text)) return null
 	const written = editionNote.trimEnd()
 	return (written ? `${written}\n\n${text}` : text).slice(0, max)

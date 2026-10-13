@@ -66,7 +66,7 @@ describe("editionNoteFromNote", () => {
 
 	it("starts an empty edition note from the private one, links to articles as their titles", () => {
 		expect(editionNoteFromNote("", `  Pairs with [Deep work](/read/${ID}).\nKeep it.  `, 500)).toBe(
-			"Pairs with Deep work.\nKeep it.",
+			"Pairs with Deep work.\n\nKeep it.",
 		)
 	})
 

@@ -1,7 +1,9 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
+import { db, eq, user } from "@klipstack/db"
 import { expect, type Page, test } from "@playwright/test"
 import { signupUser, waitForHydration } from "./helpers"
+import { insertArticle } from "./seed"
 
 const FIXTURE = join(
 	import.meta.dirname,
@@ -84,9 +86,12 @@ test("article note: write, autosave, reload, keys, clear, export", async ({ page
 test("the end of the article asks for the note, the sidebar's, and can start the edition's", async ({
 	page,
 }) => {
-	test.setTimeout(120_000)
-	const id = await signupAndSave(page)
-	await page.reload()
+	const email = await signupUser(page, "Noter", { verified: false })
+	const owner = await db.query.user.findFirst({ where: eq(user.email, email) })
+	// Only the end of the article matters: it need not be extracted.
+	const paragraphs = Array.from({ length: 12 }, (_, i) => `<p>Paragraph ${i} of the essay.</p>`)
+	const id = await insertArticle(owner!.id, "Makers", paragraphs.join(""))
+	await page.goto(`/read/${id}`)
 	await waitForHydration(page)
 
 	const end = page.getByTestId("reader-end")
@@ -112,6 +117,14 @@ test("the end of the article asks for the note, the sidebar's, and can start the
 	const inSidebar = sidebar.getByLabel("Your note", { exact: true })
 	await atEnd.click()
 	await page.keyboard.type("Meetings cost a maker the afternoon.")
+	await expect(inSidebar).toHaveText("Meetings cost a maker the afternoon.")
+	// The article menu opens once, in the editor being typed in, not in its twin as well.
+	await page.keyboard.type(" [[")
+	await expect(page.getByTestId("note-link-menu")).toHaveCount(1)
+	await page.keyboard.press("Escape")
+	await expect(page.getByTestId("note-link-menu")).toHaveCount(0)
+	// Escape closed the menu and left the caret in place: Backspace takes back what was typed.
+	for (let i = 0; i < 3; i++) await page.keyboard.press("Backspace")
 	await expect(inSidebar).toHaveText("Meetings cost a maker the afternoon.")
 	await Promise.all([noteSaved(page, id), inSidebar.click()])
 	await page.keyboard.press("ControlOrMeta+End")

@@ -415,16 +415,19 @@ export default function NoteEditor({
 
 	// One note can have two editors at once (the reader's sidebar and the end of the article): what
 	// the other one wrote replaces this one's text, so the two never hold different drafts. The
-	// editor being typed in already holds the text it reported. The caret goes to the start: left
-	// after a `[[` the other one typed, it would open this one's menu too.
+	// editor being typed in is left alone: it holds the text, and may be ahead of what it reported
+	// (a phone keyboard, a composed accent). Not an undo step here. The caret goes to the start:
+	// left after a `[[` the other one typed, it would open this one's menu too.
 	const targets = useRef(linkTargets)
 	useInsertionEffect(() => {
 		targets.current = linkTargets
 	})
 	useEffect(() => {
-		if (!editor || editor.isDestroyed || toText(editor.state.doc) === value) return
+		if (!editor || editor.isDestroyed || editor.isFocused) return
+		if (toText(editor.state.doc) === value) return
 		editor
 			.chain()
+			.setMeta("addToHistory", false)
 			.setContent(toContent(value, targets.current ?? {}), { emitUpdate: false })
 			.setTextSelection(1)
 			.run()
