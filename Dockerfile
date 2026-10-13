@@ -6,6 +6,8 @@ WORKDIR /app
 
 FROM base AS manifests
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json .npmrc ./
+# Patched dependencies (pnpm-workspace.yaml): pnpm needs every patch, even for packages it skips.
+COPY patches/ patches/
 COPY apps/web/package.json apps/web/
 COPY apps/worker/package.json apps/worker/
 COPY packages/ai/package.json packages/ai/
