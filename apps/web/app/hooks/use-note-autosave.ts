@@ -2,6 +2,9 @@ import { createNoteAutosave, type NoteSaveStatus } from "@klipstack/sdk/note-aut
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { fitsKeepalive } from "~/lib/keepalive"
 
+/** The article's note, as `useNoteAutosave` keeps it: one text for every editor on the page. */
+export type ArticleNote = ReturnType<typeof useNoteAutosave>
+
 /**
  * The article note's text and save status. Saves while typing (debounced), on `flush`, when the page
  * goes away, and when the reader unmounts. The sidebar can come and go; the text lives here.

@@ -71,7 +71,7 @@ test("search finds highlights and notes, grouped, and opens each where it is", a
 	await page.getByRole("link", { name: "Note on Harbor log" }).click()
 	await expect(page).toHaveURL(new RegExp(`/read/${harborId}#note$`))
 	const sidebar = page.getByRole("complementary", { name: "Notes and highlights" })
-	await expect(sidebar.getByLabel("Note", { exact: true })).toHaveText(ARTICLE_NOTE)
+	await expect(sidebar.getByLabel("Your note", { exact: true })).toHaveText(ARTICLE_NOTE)
 
 	// Operators narrow every group by the article: none of these is starred.
 	await page.goto("/search?q=lantern+is%3Astarred")
@@ -97,5 +97,5 @@ test("search finds highlights and notes, grouped, and opens each where it is", a
 		await page.screenshot({ path: `${process.env.SHOT_DIR}/search-palette.png` })
 	await palette.getByRole("option", { name: new RegExp(`^${ARTICLE_NOTE}`) }).click()
 	await expect(page).toHaveURL(new RegExp(`/read/${harborId}#note$`))
-	await expect(sidebar.getByLabel("Note", { exact: true })).toHaveText(ARTICLE_NOTE)
+	await expect(sidebar.getByLabel("Your note", { exact: true })).toHaveText(ARTICLE_NOTE)
 })

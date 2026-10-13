@@ -52,7 +52,7 @@ test("note links: chips read, navigate, backlink and export", async ({ page }) =
 	await open(page, makers, MAKERS.quote)
 	await openSidebar(page)
 	const sidebar = page.getByRole("complementary", { name: "Notes and highlights" })
-	const note = sidebar.getByLabel("Note", { exact: true })
+	const note = sidebar.getByLabel("Your note", { exact: true })
 	await note.click()
 	await page.keyboard.type("Compare with ")
 	await page.keyboard.type("[[Joel")
@@ -212,7 +212,7 @@ test("note links: the margin editor links, and Escape leaves the typed text alon
 	await openSidebar(page)
 	const note = page
 		.getByRole("complementary", { name: "Notes and highlights" })
-		.getByLabel("Note", { exact: true })
+		.getByLabel("Your note", { exact: true })
 	await note.fill("")
 	await note.click()
 	// Watch for the save before typing: the note autosaves on a debounce, so on a slow run it has
@@ -241,7 +241,7 @@ test("note links: @ and the Link article button open the same menu", async ({ pa
 	await openSidebar(page)
 	const note = page
 		.getByRole("complementary", { name: "Notes and highlights" })
-		.getByLabel("Note", { exact: true })
+		.getByLabel("Your note", { exact: true })
 	const menu = page.getByTestId("note-link-menu")
 
 	// `@` costs one keyboard layer on a phone, where `[` costs two.

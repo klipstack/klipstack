@@ -11,7 +11,7 @@ import { cn } from "~/lib/utils"
 import { LinkArticleButton } from "./link-article-button"
 import type { NoteEditorApi } from "./note-editor"
 import { NoteField } from "./note-field"
-import { NoteStatus } from "./note-status"
+import { ArticleNoteLabel, NoteStatus } from "./note-status"
 import { NoteText } from "./note-text"
 import { PostIt, tiltFor, useGrowingFit } from "./post-it"
 
@@ -183,7 +183,7 @@ export function ReaderSidebar({
 			<div className={cn("flex-1 overflow-y-auto", chatting && "hidden")}>
 				<section className="border-b border-border p-4">
 					<div className="mb-2 flex items-center justify-between gap-2 text-xs">
-						<span className="font-medium text-muted-fg">{t("highlights.sidebar.note")}</span>
+						<ArticleNoteLabel />
 						<NoteStatus status={note.status} onRetry={note.onFlush} />
 					</div>
 					{/* Written straight on the paper: the editor is the note. */}

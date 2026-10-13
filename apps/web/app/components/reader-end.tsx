@@ -1,26 +1,36 @@
 import { NOTE_MAX } from "@klipstack/api-contract/names"
 import type { EndState } from "@klipstack/api-contract/reading"
-import { Check, Newspaper, Star } from "lucide-react"
-import { useEffect, useRef } from "react"
+import { Check, Newspaper, NotebookPen, Star } from "lucide-react"
+import { useEffect, useId, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link, useNavigate } from "react-router"
 import { EditionTextField } from "~/components/edition-text-field"
+import { NoteField } from "~/components/note-field"
+import { ArticleNoteLabel, NoteStatus } from "~/components/note-status"
+import { PostIt, tiltFor, useGrowingFit } from "~/components/post-it"
 import { tooltip } from "~/components/tooltip-host"
 import { useAutosaveText } from "~/hooks/use-autosave-text"
 import type { StateIntent } from "~/hooks/use-document-state"
+import type { ArticleNote } from "~/hooks/use-note-autosave"
+import { editionNoteFromNote } from "~/lib/edition-text"
 import { fitsKeepalive } from "~/lib/keepalive"
+import type { LinkTargets } from "~/lib/note-links"
 import { SHORTCUT_HINTS, SUBMIT_HINT } from "~/lib/shortcuts"
 import { cn } from "~/lib/utils"
 
 /**
- * The end of the article, in the page after its last paragraph: whether leaving finishes it, a way
- * to keep it as it is, and the star and the mark for the next edition, with their names. Marked,
- * it says so, and offers a rough note for the edition's readers while the article is fresh in mind,
- * and Done, to leave; marked with its button here, the page scrolls to them. `onReached` once it comes into view. Give
- * it a `key` per article: the note is read once.
+ * The end of the article, in the page after its last paragraph: in one line, that it is the end
+ * and whether leaving finishes it, with a way to keep it as it is. Then the reader's own note, on
+ * its post-it, asking what they take from the article (the sidebar's note: one text, either editor),
+ * and the star and the mark for the next edition, with their names. Marked, it says so, and offers
+ * a rough note for the edition's readers while the article is fresh in mind, which can start from
+ * the private one, and Done, to leave; marked with its button here, the page scrolls to them.
+ * `onReached` once it comes into view. Give it a `key` per article: the edition note is read once.
  */
 export function ReaderEnd({
 	documentId,
+	note,
+	linkTargets,
 	editionNote,
 	state,
 	archived,
@@ -33,6 +43,9 @@ export function ReaderEnd({
 	back,
 }: {
 	documentId: string
+	/** The reader's private note on the article, shared with the sidebar's editor. */
+	note: ArticleNote
+	linkTargets: LinkTargets
 	/** What the user wrote for the edition's readers so far. */
 	editionNote: string | null
 	state: EndState
@@ -67,8 +80,11 @@ export function ReaderEnd({
 		return () => observer.disconnect()
 	}, [])
 
+	// An empty note is as wide as its question.
+	const noteFit = useGrowingFit(note.value || t("end.notePlaceholder"), documentId)
+
 	// Kept while unmarked, so marking again shows what was typed.
-	const note = useAutosaveText(editionNote ?? "", async (text, { keepalive }) => {
+	const edition = useAutosaveText(editionNote ?? "", async (text, { keepalive }) => {
 		const body = JSON.stringify({ note: text })
 		const res = await fetch(`/documents/${documentId}/edition-note`, {
 			method: "POST",
@@ -82,7 +98,7 @@ export function ReaderEnd({
 	// ⌘↵ in the note is Done: the note goes out on the way back, as with the link.
 	const navigate = useNavigate()
 	const leave = () => {
-		note.flush()
+		edition.flush()
 		void navigate(back.to, { state: back.state })
 	}
 
@@ -97,6 +113,17 @@ export function ReaderEnd({
 		marked.current?.scrollIntoView({ block: "nearest", behavior: still ? "auto" : "smooth" })
 	}, [shortlisted])
 
+	// "Start from my note": the private note goes into the edition's, to edit there. The editor reads
+	// its text once, so it starts over with the new text, ready to type.
+	const fromNote = editionNoteFromNote(edition.value, note.value, NOTE_MAX)
+	const [editionRev, setEditionRev] = useState(0)
+	const startFromNote = () => {
+		if (fromNote === null) return
+		edition.change(fromNote)
+		setEditionRev((rev) => rev + 1)
+	}
+	const editionLabel = useId()
+
 	const done = state === "finished" || state === "finishing"
 	const link =
 		"font-medium text-fg underline decoration-border underline-offset-2 hover:decoration-fg"
@@ -107,30 +134,33 @@ export function ReaderEnd({
 			data-state={state}
 			className="mt-12 grid gap-4 border-t border-border pt-6 font-sans"
 		>
-			<div className="flex items-center gap-2 text-base font-semibold">
-				{done ? (
-					<span className="grid size-6 place-items-center rounded-full bg-accent text-accent-fg">
-						<Check className="size-3.5" strokeWidth={3} aria-hidden />
-					</span>
+			{/* Where the reader stands, in one line: the end, and what leaving does. */}
+			<p data-testid="reader-end-status" className="text-sm leading-6 text-muted-fg">
+				<span className="mr-1.5 inline-flex items-center gap-2 align-top text-base font-semibold text-fg">
+					{done ? (
+						<span className="grid size-6 place-items-center rounded-full bg-accent text-accent-fg">
+							<Check className="size-3.5" strokeWidth={3} aria-hidden />
+						</span>
+					) : null}
+					{done ? t("end.finished") : t("end.reached")}
+				</span>{" "}
+				{state === "finishing" ? (
+					<>
+						{archived ? t("end.onLeave") : t("end.toArchive")}{" "}
+						<button type="button" className={link} onClick={() => onKeep(true)}>
+							{archived ? t("end.keepUnfinished") : t("end.keep")}
+						</button>
+					</>
 				) : null}
-				{done ? t("end.finished") : t("end.reached")}
-			</div>
-			{state === "finishing" ? (
-				<p className="text-sm text-muted-fg">
-					{archived ? t("end.onLeave") : t("end.toArchive")}{" "}
-					<button type="button" className={link} onClick={() => onKeep(true)}>
-						{archived ? t("end.keepUnfinished") : t("end.keep")}
-					</button>
-				</p>
-			) : null}
-			{state === "kept" ? (
-				<p className="text-sm text-muted-fg">
-					{archived ? t("end.keptUnfinished") : t("end.kept")}{" "}
-					<button type="button" className={link} onClick={() => onKeep(false)}>
-						{t("end.finishOnLeave")}
-					</button>
-				</p>
-			) : null}
+				{state === "kept" ? (
+					<>
+						{archived ? t("end.keptUnfinished") : t("end.kept")}{" "}
+						<button type="button" className={link} onClick={() => onKeep(false)}>
+							{t("end.finishOnLeave")}
+						</button>
+					</>
+				) : null}
+			</p>
 			{state === "early" ? (
 				<button
 					type="button"
@@ -142,6 +172,30 @@ export function ReaderEnd({
 					{t("end.finish")}
 				</button>
 			) : null}
+			{/* The reader's own note, the sidebar's: what they take from the article, for no one else. */}
+			<div data-testid="reader-end-note" className="grid max-w-md gap-2">
+				<div className="flex items-center justify-between gap-2 text-xs">
+					<ArticleNoteLabel />
+					<NoteStatus status={note.status} onRetry={note.flush} />
+				</div>
+				<PostIt
+					fit={noteFit}
+					tilt={tiltFor(documentId)}
+					className="mt-2 mb-2 text-lg leading-snug focus-within:ring-2 focus-within:ring-ring"
+				>
+					<NoteField
+						aria-label={t("highlights.sidebar.note")}
+						value={note.value}
+						maxLength={NOTE_MAX}
+						onChange={note.change}
+						onBlur={note.flush}
+						documentId={documentId}
+						linkTargets={linkTargets}
+						placeholder={t("end.notePlaceholder")}
+						className="block max-h-[60vh] min-h-16 w-full overflow-y-auto"
+					/>
+				</PostIt>
+			</div>
 			<div className="grid max-w-sm grid-cols-2 gap-2">
 				<button
 					type="button"
@@ -191,28 +245,46 @@ export function ReaderEnd({
 						</span>
 						{t("end.added")}
 					</p>
+					<div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+						<span id={editionLabel} className="text-xs font-medium text-muted-fg">
+							{t("end.editionNote")}
+						</span>
+						{fromNote !== null ? (
+							<button
+								type="button"
+								data-testid="reader-end-from-note"
+								onClick={startFromNote}
+								className="-mr-1.5 inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs font-medium text-link hover:bg-muted"
+							>
+								<NotebookPen className="size-3.5" aria-hidden />
+								{t("end.startFromNote")}
+							</button>
+						) : null}
+					</div>
 					<EditionTextField
-						aria-label={t("end.editionNote")}
-						value={note.value}
+						key={editionRev}
+						aria-labelledby={editionLabel}
+						autoFocus={editionRev > 0}
+						value={edition.value}
 						placeholder={t("end.editionNotePlaceholder")}
 						maxLength={NOTE_MAX}
-						onChange={note.change}
-						onBlur={note.flush}
+						onChange={edition.change}
+						onBlur={edition.flush}
 						onSubmit={leave}
 						className="min-h-[5.5rem] w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 					/>
 					<div className="flex items-center justify-between gap-3">
 						{/* Saving is shown, not announced: a screen reader hears only a failure. */}
-						{note.status === "error" ? (
+						{edition.status === "error" ? (
 							<p role="alert" className="text-xs text-danger">
 								{t("end.editionNoteFailed")}
 							</p>
 						) : (
 							<p className="text-xs text-muted-fg">
 								{t(
-									note.status === "saving"
+									edition.status === "saving"
 										? "end.editionNoteSaving"
-										: note.status === "saved"
+										: edition.status === "saved"
 											? "end.editionNoteSaved"
 											: "end.editionNoteAutosave",
 								)}
@@ -223,7 +295,7 @@ export function ReaderEnd({
 							to={back.to}
 							state={back.state}
 							data-testid="reader-end-done"
-							onClick={note.flush}
+							onClick={edition.flush}
 							{...tooltip(t("end.done"), SUBMIT_HINT)}
 							className="rounded-full bg-accent px-4 py-1.5 text-sm font-medium text-accent-fg"
 						>

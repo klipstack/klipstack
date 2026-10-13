@@ -102,7 +102,9 @@ test("the notebook lists every note as a post-it, edits it in place, and finds i
 	await page.getByRole("link", { name: "Open Tides" }).click()
 	await expect(page).toHaveURL(new RegExp(`/read/${tides}#note$`))
 	const sidebar = page.getByRole("complementary", { name: "Notes and highlights" })
-	await expect(sidebar.getByLabel("Note", { exact: true })).toHaveText("The reader's version wins.")
+	await expect(sidebar.getByLabel("Your note", { exact: true })).toHaveText(
+		"The reader's version wins.",
+	)
 
 	// From the sidebar and the command palette.
 	await page.goto("/home")

@@ -48,6 +48,31 @@ function apply(shown: Shown, intent: StateIntent): Shown {
 	}
 }
 
+function shownOf(doc: DocumentFlags): Shown {
+	return {
+		starred: Boolean(doc.starredAt),
+		shortlisted: Boolean(doc.shortlistedAt),
+		archived: Boolean(doc.archivedAt),
+		finished: Boolean(doc.readAt),
+	}
+}
+
+/**
+ * The article loaded again (a live update, a retry, opening it): what the server's row changed is
+ * the truth. What it did not change stays as this page last confirmed it, since a load that began
+ * before a change landed answers with the row from before it: opening the article and marking it
+ * at once must not unmark it.
+ */
+export function reloaded(before: Shown, confirmed: Shown, now: Shown): Shown {
+	const pick = (key: keyof Shown) => (now[key] !== before[key] ? now[key] : confirmed[key])
+	return {
+		starred: pick("starred"),
+		shortlisted: pick("shortlisted"),
+		archived: pick("archived"),
+		finished: pick("finished"),
+	}
+}
+
 /**
  * The reader's article state: star, the mark for the next edition, archive, finish, unread, delete
  * and retry. Changes go out one
@@ -56,19 +81,10 @@ function apply(shown: Shown, intent: StateIntent): Shown {
  * call `onLeave` once the server has them.
  */
 export function useDocumentState(documentId: string, doc: DocumentFlags, onLeave: () => void) {
-	const fromDocument = () => ({
-		doc,
-		shown: {
-			starred: Boolean(doc.starredAt),
-			shortlisted: Boolean(doc.shortlistedAt),
-			archived: Boolean(doc.archivedAt),
-			finished: Boolean(doc.readAt),
-		},
-	})
-	const [confirmed, setConfirmed] = useState(fromDocument)
+	const [confirmed, setConfirmed] = useState(() => ({ doc, shown: shownOf(doc) }))
 	const draftUndo = useDraftUndoToast()
-	// Loaded again (a live update, a retry): the server's row is the truth.
-	if (confirmed.doc !== doc) setConfirmed(fromDocument())
+	if (confirmed.doc !== doc)
+		setConfirmed({ doc, shown: reloaded(shownOf(confirmed.doc), confirmed.shown, shownOf(doc)) })
 	const queue = useMutationQueue<StateIntent, { ok: boolean; undo?: unknown }>({
 		action: `/documents/${documentId}/state`,
 		body: (intent) => ({ intent }),

@@ -31,7 +31,7 @@ import { useHighlightCopy } from "~/hooks/use-highlight-copy"
 import { isTemporary, useHighlightList } from "~/hooks/use-highlight-list"
 import { useHighlightResize } from "~/hooks/use-highlight-resize"
 import { useMediaQuery } from "~/hooks/use-media-query"
-import { useNoteAutosave } from "~/hooks/use-note-autosave"
+import { type ArticleNote, useNoteAutosave } from "~/hooks/use-note-autosave"
 import { useAlignForSheet } from "~/hooks/use-reader-bar"
 import { copyText } from "~/lib/copy-link"
 import { highlightColor } from "~/lib/highlight-colors"
@@ -95,7 +95,8 @@ const resizeError = (failure: string) =>
 /**
  * The article on screen, with everything done in it: the selection's toolbar, highlights (make,
  * note, resize, copy, remove), notes in the margin, the sidebar, and the links' cards. `header` and `footer`
- * go at the top and the bottom of the article.
+ * go at the top and the bottom of the article; `footer` is handed the article's note, which the
+ * sidebar edits too.
  */
 export function ReaderArticle({
 	data,
@@ -123,7 +124,7 @@ export function ReaderArticle({
 	/** The reader shows real interest: the article is no longer new. */
 	engage: () => void
 	header: React.ReactNode
-	footer: React.ReactNode
+	footer: (note: ArticleNote) => React.ReactNode
 }) {
 	const { t } = useTranslation("reader")
 	const { t: tl } = useTranslation("library")
@@ -690,7 +691,7 @@ export function ReaderArticle({
 							cardRangesRef={threadRangesRef}
 						/>
 					) : null}
-					{footer}
+					{footer(note)}
 				</article>
 				<SelectionWatcher
 					rootRef={contentRef}
