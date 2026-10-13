@@ -129,10 +129,11 @@ const cssColor = (page: Page, value: string) =>
 	}, value)
 
 /** Where the first line of an element's text starts on screen. */
+/** Where the element's text starts: its first text, not the post-it's tape before it. */
 const textStart = (locator: Locator) =>
 	locator.evaluate((el) => {
 		const range = document.createRange()
-		range.selectNodeContents(el)
+		range.selectNodeContents(document.createTreeWalker(el, NodeFilter.SHOW_TEXT).nextNode()!)
 		const rect = range.getClientRects()[0]!
 		return { x: Math.round(rect.left), y: Math.round(rect.top) }
 	})
@@ -423,7 +424,8 @@ test("a highlight's color: picked in its toolbar, shown on the text, its note an
 	// The highlights page too.
 	await page.goto("/highlights")
 	const card = page.getByRole("listitem").filter({ hasText: QUOTE })
-	await expect(card.getByTestId("highlight-swatch")).toHaveCSS("background-color", greenLine)
+	// On the board, the card's quote mark is in the color (it was a strip before the board).
+	await expect(card.getByTestId("quote-mark")).toHaveCSS("color", greenLine)
 	await expect(card.locator("[data-post-it]")).toHaveText(NOTE)
 })
 

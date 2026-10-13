@@ -197,7 +197,11 @@ test("highlights board: by topic, a tag, notes written on the card, delete and S
 	await craftGroup.getByRole("link", { name: "See all 8" }).click()
 	await expect(page).toHaveURL(new RegExp(`topic=${craft!.id}&view=stream`))
 	await expect(cards).toHaveCount(8)
+	// Its × goes back to the view remembered: See all was a look at one topic, not a choice.
 	await page.getByTestId("topic-chip").click()
+	await expect(page).toHaveURL(/view=topics/)
+	await expect(cards).toHaveCount(8)
+	await page.getByRole("link", { name: "Stream" }).click()
 	await expect(cards).toHaveCount(10)
 
 	// The tag menu offers the tags whose articles have highlights.
@@ -243,7 +247,8 @@ test("highlights board: by topic, a tag, notes written on the card, delete and S
 		.toBe("Worth a third look.")
 	// Emptied, the note comes off the card.
 	await note.click()
-	await editor.getByRole("textbox").fill("")
+	await editor.getByRole("textbox").press("ControlOrMeta+a")
+	await editor.getByRole("textbox").press("Backspace")
 	await editor.getByRole("button", { name: "Save" }).click()
 	await expect(note).toHaveCount(0)
 	await expect(card.getByTestId("post-it-tape")).toHaveCount(0)

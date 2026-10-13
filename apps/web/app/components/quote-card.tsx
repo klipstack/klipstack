@@ -83,7 +83,7 @@ export function QuoteCard({
 		>
 			<span
 				aria-hidden
-				data-testid="highlight-swatch"
+				data-testid="quote-mark"
 				className="-mb-3 block h-10 font-serif text-6xl leading-none text-(--hl-solid)"
 			>
 				“
