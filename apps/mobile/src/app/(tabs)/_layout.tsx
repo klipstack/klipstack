@@ -30,11 +30,11 @@ export default function TabsLayout() {
 					md="library_books"
 				/>
 			</NativeTabs.Trigger>
-			<NativeTabs.Trigger name="highlights">
-				<NativeTabs.Trigger.Label>Highlights</NativeTabs.Trigger.Label>
+			<NativeTabs.Trigger name="notebook">
+				<NativeTabs.Trigger.Label>Notebook</NativeTabs.Trigger.Label>
 				<NativeTabs.Trigger.Icon
-					sf={{ default: "highlighter", selected: "highlighter" }}
-					md="ink_highlighter"
+					sf={{ default: "book.closed", selected: "book.closed.fill" }}
+					md="menu_book"
 				/>
 			</NativeTabs.Trigger>
 			<NativeTabs.Trigger name="search" role="search">

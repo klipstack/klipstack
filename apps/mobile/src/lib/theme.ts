@@ -9,6 +9,8 @@ const light = {
 	fg: "#1a1d23",
 	muted: "#f2f0ec",
 	mutedFg: "#5f646b",
+	// A card on the page (the Notebook's): the web's card color.
+	card: "#ffffff",
 	border: "#e0ded8",
 	// Between the rows of a list: stronger than a border, so each row reads as its own.
 	divider: "#d3d0c8",
@@ -62,6 +64,7 @@ const dark: typeof light = {
 	fg: "#e9e8e3",
 	muted: "#21252d",
 	mutedFg: "#999fa8",
+	card: "#1a1e25",
 	border: "#31363d",
 	divider: "#3d434c",
 	accent: "#7faee9",

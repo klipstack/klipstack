@@ -47,6 +47,7 @@ export function NoteField({
 	placeholderColor,
 	maxLength,
 	scrollEnabled,
+	autoFocus = false,
 	style,
 	colors,
 	ref,
@@ -62,6 +63,8 @@ export function NoteField({
 	placeholderColor?: string
 	maxLength: number
 	scrollEnabled?: boolean
+	/** Editing from the start, with the caret at the end: the field took the place of the note's text. */
+	autoFocus?: boolean
 	style: StyleProp<TextStyle>
 	colors: Colors
 	ref?: Ref<NoteFieldHandle>
@@ -77,7 +80,7 @@ export function NoteField({
 	}, [value])
 
 	const input = useRef<TextInput>(null)
-	const [editing, setEditing] = useState(false)
+	const [editing, setEditing] = useState(autoFocus)
 	const selection = useRef({ start: state.text.length, end: state.text.length })
 	// Where the cursor must go once the field shows the text it was just given.
 	const cursor = useRef<number | null>(null)
