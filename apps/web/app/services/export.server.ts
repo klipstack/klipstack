@@ -106,11 +106,12 @@ export interface ExportBundle {
 
 export async function buildExport(userId: string): Promise<ExportBundle> {
 	const docs = await db.query.documents.findMany({
-		columns: { search: false },
+		columns: { search: false, noteSearch: false },
 		where: and(eq(documents.userId, userId), isNull(documents.deletedAt)),
 		orderBy: asc(documents.createdAt),
 	})
 	const hls = await db.query.highlights.findMany({
+		columns: { search: false },
 		where: and(eq(highlights.userId, userId), isNull(highlights.deletedAt)),
 		orderBy: asc(highlights.startOffset),
 	})
@@ -181,11 +182,12 @@ export async function buildDocumentExport(
 	prepareHtml?: PrepareHtml,
 ): Promise<ExportedDocument | null> {
 	const d = await db.query.documents.findFirst({
-		columns: { search: false },
+		columns: { search: false, noteSearch: false },
 		where: and(eq(documents.id, id), eq(documents.userId, userId), isNull(documents.deletedAt)),
 	})
 	if (!d) return null
 	const hls = await db.query.highlights.findMany({
+		columns: { search: false },
 		where: and(
 			eq(highlights.documentId, id),
 			eq(highlights.userId, userId),
@@ -220,7 +222,7 @@ function viaOf(where: SQL) {
 }
 
 async function exportDocument(
-	d: Omit<Document, "search">,
+	d: Omit<Document, "search" | "noteSearch">,
 	hls: Highlight[],
 	tagNames: string[],
 	readingHistory: ReadingHistory,

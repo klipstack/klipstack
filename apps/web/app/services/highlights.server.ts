@@ -8,17 +8,16 @@ import {
 	documents,
 	documentVersions,
 	eq,
-	FALLBACK_STEM_CONFIGS,
+	getTableColumns,
 	inArray,
 	type Highlight,
 	highlights,
 	isNotNull,
 	isNull,
 	ne,
-	or,
 	type SQL,
-	STEM_CONFIGS,
 	sql,
+	termQuery,
 } from "@klipstack/db"
 import { HIGHLIGHT_COLOR_NAMES } from "~/lib/highlight-colors"
 import { HIGHLIGHT_FILTERS, type HighlightFilter, searchTerms } from "~/lib/highlight-filters"
@@ -27,6 +26,9 @@ import { getDocument } from "./documents.server"
 import { syncNoteLinks } from "./links.server"
 
 export const HIGHLIGHT_COLORS = 5
+
+/** A highlight's columns but its search vector, which nothing outside a search reads. */
+const { search: _search, ...highlightColumns } = getTableColumns(highlights)
 
 export interface ResizeInput {
 	userId: string
@@ -60,7 +62,7 @@ export async function resizeHighlight(input: ResizeInput): Promise<ResizeResult>
 			.for("update")
 		if (!doc) return { ok: false, error: "not_found" }
 		const [h] = await tx
-			.select()
+			.select(highlightColumns)
 			.from(highlights)
 			.where(
 				and(
@@ -122,7 +124,7 @@ export async function resizeHighlight(input: ResizeInput): Promise<ResizeResult>
 					isNull(highlights.deletedAt),
 				),
 			)
-			.returning()
+			.returning(highlightColumns)
 		return saved ? { ok: true, highlight: saved } : { ok: false, error: "highlight_changed" }
 	})
 }
@@ -193,7 +195,7 @@ export async function createHighlight({
 				color,
 				note: input.note?.trim() || null,
 			})
-			.returning()
+			.returning(highlightColumns)
 		if (!created) throw new Error("highlight insert returned nothing")
 		if (created.note)
 			await syncNoteLinks(
@@ -221,6 +223,7 @@ export async function listDocumentHighlights(
 	const doc = await getDocument(userId, documentId)
 	if (!doc) return []
 	const rows = await db.query.highlights.findMany({
+		columns: { search: false },
 		where: and(
 			eq(highlights.documentId, documentId),
 			eq(highlights.userId, userId),
@@ -266,7 +269,7 @@ export async function listDocumentHighlights(
 						isNull(highlights.deletedAt),
 					),
 				)
-				.returning()
+				.returning(highlightColumns)
 			if (row) updated.set(h.id, row)
 		} else if (!h.orphaned) {
 			const [row] = await db
@@ -282,7 +285,7 @@ export async function listDocumentHighlights(
 						isNull(highlights.deletedAt),
 					),
 				)
-				.returning()
+				.returning(highlightColumns)
 			if (row) updated.set(h.id, row)
 		}
 	}
@@ -299,7 +302,10 @@ export async function updateHighlight(
 	if (typeof patch.color === "number") set.color = clampColor(patch.color)
 	if (Object.keys(set).length === 0)
 		return db.query.highlights
-			.findFirst({ where: and(eq(highlights.id, id), eq(highlights.userId, userId)) })
+			.findFirst({
+				columns: { search: false },
+				where: and(eq(highlights.id, id), eq(highlights.userId, userId)),
+			})
 			.then((r) => r ?? null)
 	return db.transaction(async (tx) => {
 		const [row] = await tx
@@ -308,7 +314,7 @@ export async function updateHighlight(
 			.where(
 				and(eq(highlights.id, id), eq(highlights.userId, userId), isNull(highlights.deletedAt)),
 			)
-			.returning()
+			.returning(highlightColumns)
 		if (row && "note" in patch)
 			await syncNoteLinks(
 				{ userId, fromDocumentId: row.documentId, highlightId: row.id, text: row.note },
@@ -342,6 +348,7 @@ export async function restoreHighlight(userId: string, id: string): Promise<bool
 /** One of the user's highlights, unless it was deleted. */
 export async function getHighlight(userId: string, id: string): Promise<Highlight | null> {
 	const row = await db.query.highlights.findFirst({
+		columns: { search: false },
 		where: and(eq(highlights.id, id), eq(highlights.userId, userId), isNull(highlights.deletedAt)),
 	})
 	return row ?? null
@@ -408,49 +415,15 @@ const listColumns = {
 	sourceUrl: documents.sourceUrl,
 }
 
-const searchedFields = [
-	highlights.exact,
-	highlights.note,
-	documents.title,
-	documents.author,
-	documents.siteName,
-]
-
-/** The term's word variants ("blocked" finds "blocking") in the article's language. */
-function stemMatch(term: string): SQL {
-	const text = sql`unaccent(${sql.join(
-		searchedFields.map((f) => sql`coalesce(${f}, '')`),
-		sql` || ' ' || `,
-	)})`
-	const match = (config: SQL) =>
-		sql`to_tsvector(${config}, ${text}) @@ plainto_tsquery(${config}, unaccent(${term}))`
-	const known = Object.entries(STEM_CONFIGS).map(
-		([lang, config]) => sql`when ${lang} then ${match(sql`${config}::regconfig`)}`,
-	)
-	const fallback = sql.join(
-		FALLBACK_STEM_CONFIGS.map((config) => match(sql`${config}::regconfig`)),
-		sql` or `,
-	)
-	return sql`(case ${documents.language} ${sql.join(known, sql` `)} else ${fallback} end)`
-}
-
 /**
  * Every term (a word, or a "quoted phrase") must appear somewhere: the quote, the note, or the
- * article's title, author or site. Case and accents never matter; words also match their variants.
- * No text index: at a few hundred highlights per user it would go unused.
+ * article's title, author or site. Case and accents never matter; a word also matches its variants
+ * and longer words it starts. Through the highlights' search vector and its index.
  */
 function searchWhere(q: string | undefined): SQL | undefined {
 	const terms = searchTerms(q ?? "")
 	if (terms.length === 0) return undefined
-	return and(
-		...terms.map(({ text, phrase }) => {
-			const pattern = `%${text.replace(/[\\%_]/g, (c) => `\\${c}`)}%`
-			const substring = or(
-				...searchedFields.map((f) => sql`unaccent(${f}) ilike unaccent(${pattern})`),
-			) as SQL
-			return phrase ? substring : or(substring, stemMatch(text))
-		}),
-	)
+	return sql`${highlights.search} @@ (${sql.join(terms.map(termQuery), sql` && `)})`
 }
 
 const hasNote = and(isNotNull(highlights.note), ne(highlights.note, "")) as SQL

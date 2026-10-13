@@ -28,7 +28,6 @@ import {
 	searchQuery,
 	sql,
 	tags,
-	textSearchVector,
 } from "@klipstack/db"
 import { isTimeZone } from "~/lib/date-groups"
 import {
@@ -327,6 +326,25 @@ function filtersWhere(filters: Filter[], zone: string, inTrash: boolean): SQL[] 
 	return conditions
 }
 
+/**
+ * The articles whose highlights and notes a query looks in: the user's, as its operators narrow
+ * them, never in the trash (`in:trash` finds none). With the query's words, or null without any.
+ */
+export function annotationScope(
+	userId: string,
+	q: string,
+	timeZone = "UTC",
+): { text: string; where: SQL } | null {
+	const query = parse(q)
+	if (!query.text) return null
+	const where = and(
+		eq(documents.userId, userId),
+		...filtersWhere(query.filters, zoneName(timeZone), false),
+		notDeleted,
+	) as SQL
+	return { text: query.text, where }
+}
+
 /** Ties break by when the article was saved, then by id, so that pages do not overlap. */
 function sortOrder(sort: Exclude<SearchSort, "relevance">): SQL[] {
 	const { key, dir } = SORT_KEY[sort]
@@ -334,22 +352,16 @@ function sortOrder(sort: Exclude<SearchSort, "relevance">): SQL[] {
 	return [...(key ? [key] : []), documents.createdAt, documents.id].map((c) => direction(c))
 }
 
-// The note may not be in the article's language: both app languages, like an unknown one.
-const noteVector = sql`setweight(${textSearchVector(sql`${documents.note}`, sql`null::text`)}, 'B')`
-const vector = sql`(coalesce(${documents.search}, ''::tsvector) || ${noteVector})`
+const vector = sql`(coalesce(${documents.search}, ''::tsvector) || coalesce(${documents.noteSearch}, ''::tsvector))`
 
 /**
- * Articles whose words match `tsquery`: in the stored vector (title, author, body) or in the note.
+ * Articles whose words match `tsquery`: in the stored vector (title, author, body) or in the note's.
  * Written as `vector @@ tsquery`, Postgres would decompress the stored vector of every article in
- * scope, tens of kilobytes each, on every search. The subquery finds the stored matches once,
- * through the vector's GIN index, and each row is then a hash lookup. The note's vector is built
- * only for articles that have one.
+ * scope, tens of kilobytes each, on every search. The subquery finds the matches once, through
+ * the vectors' GIN indexes, and each row is then a hash lookup.
  */
 function wordsMatch(userId: string, tsquery: SQL): SQL {
-	return or(
-		sql`${documents.id} in (select d.id from ${documents} d where d.user_id = ${userId} and d.search @@ ${tsquery})`,
-		sql`(${documents.note} is not null and ${noteVector} @@ ${tsquery})`,
-	) as SQL
+	return sql`${documents.id} in (select d.id from ${documents} d where d.user_id = ${userId} and (d.search @@ ${tsquery} or d.note_search @@ ${tsquery}))`
 }
 
 /**

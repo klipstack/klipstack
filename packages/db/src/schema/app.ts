@@ -103,6 +103,11 @@ export const documents = pgTable(
 		sharedUrl: text("shared_url"),
 		sharedUrlHash: text("shared_url_hash"),
 		search: tsvector("search"),
+		/**
+		 * The note's search vector, null without a note. A trigger writes it whenever the note changes
+		 * (drizzle/0043_annotation_search.sql): nothing in the app writes it.
+		 */
+		noteSearch: tsvector("note_search"),
 		...timestamps,
 	},
 	(t) => [
@@ -124,6 +129,9 @@ export const documents = pgTable(
 			.on(t.userId, t.urlHash)
 			.where(sql`${t.deletedAt} is null`),
 		index("documents_search_idx").using("gin", t.search),
+		index("documents_note_search_idx")
+			.using("gin", t.noteSearch)
+			.where(sql`${t.noteSearch} is not null`),
 	],
 )
 
@@ -238,10 +246,17 @@ export const highlights = pgTable(
 		color: smallint("color").notNull().default(0),
 		note: text("note"),
 		orphaned: boolean("orphaned").notNull().default(false),
+		/**
+		 * Search vector: the quote (A), the note (B), the article's title, author and site (C).
+		 * Triggers write it when the highlight or its article changes
+		 * (drizzle/0043_annotation_search.sql): nothing in the app writes it, and reads leave it out.
+		 */
+		search: tsvector("search"),
 		...timestamps,
 	},
 	(t) => [
 		index("highlights_document_idx").on(t.documentId),
+		index("highlights_search_idx").using("gin", t.search),
 		index("highlights_user_created_idx").on(t.userId, t.createdAt.desc()),
 		// Deleting a version (with its document) finds its highlights.
 		index("highlights_version_idx").on(t.versionId),
@@ -747,7 +762,8 @@ export type Document = typeof documents.$inferSelect
 export type NewDocument = typeof documents.$inferInsert
 export type DocumentVersion = typeof documentVersions.$inferSelect
 export type DocumentRaw = typeof documentRaw.$inferSelect
-export type Highlight = typeof highlights.$inferSelect
+/** A highlight as the app reads it: without its search vector. */
+export type Highlight = Omit<typeof highlights.$inferSelect, "search">
 export type NewHighlight = typeof highlights.$inferInsert
 export type Asset = typeof assets.$inferSelect
 export type Invite = typeof invites.$inferSelect

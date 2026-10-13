@@ -1,4 +1,4 @@
-import { type SQL, sql } from "drizzle-orm"
+import { type SQL, type SQLWrapper, sql } from "drizzle-orm"
 
 /** Characters of body text that go into the `documents.search` vector (weight D). */
 export const SEARCH_TEXT_MAX = 400_000
@@ -120,4 +120,76 @@ export function anyWordQuery(words: string[]): SQL {
 export function matchedWordCount(vector: SQL, words: string[]): SQL<number> {
 	const queries = QUERY_CONFIGS.map((config) => sql`to_tsquery(${regconfig(config)}, r.word)`)
 	return sql<number>`(select count(*)::int from ${wordRows(words)} r where ${vector} @@ (${orQueries(queries)}))`
+}
+
+/**
+ * The parts of a highlight's vector (drizzle/0043_annotation_search.sql) that are its own: the
+ * quote (A) and the note (B), not its article's title, author and site (C).
+ */
+export const HIGHLIGHT_OWN_WEIGHTS = "ab"
+
+/** A highlight's vector, without its article's words. */
+export function ownWords(vector: SQLWrapper): SQL {
+	return sql`ts_filter(${vector}, ${sql.raw(`'{${[...HIGHLIGHT_OWN_WEIGHTS].join(",")}}'`)})`
+}
+
+/** Cleaned words for a tsquery: unaccented, without characters to_tsquery reads as syntax. */
+function cleanWords(words: string[]): SQL {
+	return sql`(select w.word from unnest(string_to_array(regexp_replace(unaccent(${words.join(" ")}::text), '[''&|!():<>*\\\\]', '', 'g'), ' ')) w(word) where w.word <> '')`
+}
+
+/** The letters and digits of what is typed, in words. */
+export function typedWords(text: string): string[] {
+	return text.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []
+}
+
+/**
+ * Find as you type: every word, as typed or as the start of a longer one ("sched" finds
+ * "schedule"). Exact words only, accents aside. `weights` ("ab") looks only in those parts of a
+ * vector. Pass words from `typedWords`; with none, it matches nothing.
+ */
+export function prefixQuery(words: string[], weights = ""): SQL {
+	if (!/^[a-d]*$/.test(weights)) throw new Error(`bad weights: ${weights}`)
+	const label = sql.raw(`':*${weights.toUpperCase()}'`)
+	return sql`(select to_tsquery('simple'::regconfig, coalesce(string_agg(quote_literal(r.word) || ${label}, ' & '), '')) from ${cleanWords(words)} r)`
+}
+
+/**
+ * One term of a highlight search. A word matches its variants in any language we stem, or the
+ * start of a longer word; a phrase matches as written, case and accents aside.
+ */
+export function termQuery(term: { text: string; phrase: boolean }): SQL {
+	if (term.phrase) return sql`phraseto_tsquery('simple'::regconfig, unaccent(${term.text}::text))`
+	const stems = Object.values(STEM_CONFIGS).map(
+		(config) => sql`plainto_tsquery(${regconfig(config)}, p.q)`,
+	)
+	return sql`(select ${orQueries([prefixQuery(typedWords(term.text)), ...stems])} from (select unaccent(${term.text}::text) as q) p)`
+}
+
+/**
+ * The words of `text` that `tsquery` matches, as written there but unaccented, to mark them in a
+ * snippet. Read in `configs`, which should be those the text was stemmed in: "simple" and the
+ * text's language, or both app languages. `text` is repeated: pass a column.
+ */
+export function matchedWords(text: SQL, tsquery: SQL, configs: SQL): SQL<string[]> {
+	const start = "chr(1)"
+	const stop = "chr(2)"
+	return sql<
+		string[]
+	>`(select coalesce(array_agg(distinct m.word), '{}') from unnest(${configs}) c(config),
+		lateral regexp_matches(
+			ts_headline(c.config::regconfig, unaccent(left(${text}, ${sql.raw(String(STEM_TEXT_MAX))})), ${tsquery},
+				'HighlightAll=true, StartSel=' || ${sql.raw(start)} || ', StopSel=' || ${sql.raw(stop)}),
+			${sql.raw(start)} || '([^' || ${sql.raw(stop)} || ']+)' || ${sql.raw(stop)}, 'g') x,
+		lateral (select x[1] as word) m)`
+}
+
+/** The configs a text was stemmed in (see `textSearchVector`), for `matchedWords`. */
+export function textConfigs(language: SQL): SQL {
+	const known = Object.entries(STEM_CONFIGS).map(
+		([lang, config]) =>
+			sql`when ${sql.raw(`'${lang}'`)} then array['simple', '${sql.raw(config)}']`,
+	)
+	const fallback = `array['simple', ${FALLBACK_STEM_CONFIGS.map((c) => `'${c}'`).join(", ")}]`
+	return sql`(case ${language} ${sql.join(known, sql` `)} else ${sql.raw(fallback)} end)`
 }

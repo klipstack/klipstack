@@ -572,7 +572,7 @@ function live(userId: string, id: string) {
  */
 export async function getDocument(userId: string, id: string) {
 	return db.query.documents.findFirst({
-		columns: { search: false },
+		columns: { search: false, noteSearch: false },
 		where: live(userId, id),
 		extras: { tags: documentTagNames.as("tags") },
 	})
