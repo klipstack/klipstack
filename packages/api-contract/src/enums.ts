@@ -38,6 +38,17 @@ export type HighlightColor = (typeof HIGHLIGHT_COLORS)[number]
 export const HIGHLIGHT_FILTERS = ["notes", ...HIGHLIGHT_COLORS] as const
 export type HighlightFilter = (typeof HIGHLIGHT_FILTERS)[number]
 
+/**
+ * What the Notebook shows besides everything: notes (article notes, and highlights with a note),
+ * highlights alone, or the highlights of one color.
+ */
+export const NOTEBOOK_FILTERS = ["notes", "highlights", ...HIGHLIGHT_COLORS] as const
+export type NotebookFilter = (typeof NOTEBOOK_FILTERS)[number]
+
+/** By article, as one stream, by the articles' topics, or a random hand. */
+export const NOTEBOOK_VIEWS = ["articles", "stream", "topics", "shuffle"] as const
+export type NotebookView = (typeof NOTEBOOK_VIEWS)[number]
+
 /** Search operators (`in:archive`, `is:starred`…): see `./search-query`. */
 export const SEARCH_LOCATIONS = ["library", "archive", "trash", "anywhere"] as const
 export type SearchLocation = (typeof SEARCH_LOCATIONS)[number]

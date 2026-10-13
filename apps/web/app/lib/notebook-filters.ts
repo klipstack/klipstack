@@ -1,12 +1,8 @@
 /** The Notebook's filters and views, from the URL (`?show=…&view=…`); safe to import from client code. */
-import { HIGHLIGHT_COLOR_NAMES } from "./highlight-colors"
+import { NOTEBOOK_FILTERS, type NotebookFilter } from "@klipstack/api-contract/enums"
 
-/**
- * What the Notebook shows besides everything: notes (article notes, and highlights with a note),
- * highlights alone, or the highlights of one color.
- */
-export const NOTEBOOK_FILTERS = ["notes", "highlights", ...HIGHLIGHT_COLOR_NAMES] as const
-export type NotebookFilter = (typeof NOTEBOOK_FILTERS)[number]
+/** The filters the API takes too (`GET /api/v1/notebook`). */
+export { NOTEBOOK_FILTERS, type NotebookFilter }
 
 /** Whether article notes show under a filter: under all, and under notes. */
 export function showsArticleNotes(filter: NotebookFilter | null): boolean {

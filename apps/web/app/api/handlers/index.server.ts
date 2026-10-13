@@ -4,6 +4,7 @@ import { me } from "./account.server"
 import * as articles from "./articles.server"
 import * as library from "./library.server"
 import { openapi } from "./meta.server"
+import * as notebook from "./notebook.server"
 import * as writes from "./writes.server"
 
 /** One handler per endpoint id; a missing one fails the typecheck. */
@@ -11,6 +12,7 @@ export const handlers: HandlerTable<Endpoints> = {
 	"me.get": me,
 	"articles.list": articles.list,
 	"articles.search": articles.search,
+	"annotations.search": notebook.searchKept,
 	"articles.lookup": articles.lookup,
 	"links.preview": articles.preview,
 	"articles.get": articles.get,
@@ -35,6 +37,10 @@ export const handlers: HandlerTable<Endpoints> = {
 	"highlights.update": writes.editHighlight,
 	"highlights.resize": writes.moveHighlight,
 	"highlights.delete": writes.removeOne,
+	"notebook.get": notebook.notebook,
+	"dailyHighlights.list": notebook.daily,
+	"dailyHighlights.dismiss": notebook.dismissDaily,
+	"dailyHighlights.restore": notebook.restoreDaily,
 	"feed.get": library.feed,
 	"feed.saveItems": writes.saveItems,
 	"feed.dismissItems": writes.dismissItems,

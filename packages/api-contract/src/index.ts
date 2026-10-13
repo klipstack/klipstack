@@ -5,6 +5,7 @@ export * from "./endpoints/account"
 export * from "./endpoints/articles"
 export * from "./endpoints/library"
 export * from "./endpoints/meta"
+export * from "./endpoints/notebook"
 export * from "./endpoints/writes"
 export * from "./enums"
 export * from "./errors"
@@ -33,6 +34,13 @@ import {
 	listTopics,
 } from "./endpoints/library"
 import { getOpenApi } from "./endpoints/meta"
+import {
+	dismissDailyHighlight,
+	getNotebook,
+	listDailyHighlights,
+	restoreDailyHighlight,
+	searchAnnotations,
+} from "./endpoints/notebook"
 import {
 	appendNote,
 	createHighlight,
@@ -68,6 +76,7 @@ export const endpoints = {
 	"me.get": getMe,
 	"articles.list": listArticles,
 	"articles.search": searchArticles,
+	"annotations.search": searchAnnotations,
 	"articles.lookup": lookupArticles,
 	"links.preview": previewLink,
 	"articles.get": getArticle,
@@ -92,6 +101,10 @@ export const endpoints = {
 	"highlights.update": updateHighlight,
 	"highlights.resize": resizeHighlight,
 	"highlights.delete": deleteHighlight,
+	"notebook.get": getNotebook,
+	"dailyHighlights.list": listDailyHighlights,
+	"dailyHighlights.dismiss": dismissDailyHighlight,
+	"dailyHighlights.restore": restoreDailyHighlight,
 	"feed.get": getFeed,
 	"feed.saveItems": saveFeedItems,
 	"feed.dismissItems": dismissFeedItems,

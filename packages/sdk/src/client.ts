@@ -94,6 +94,22 @@ export function createClient(options: ClientOptions) {
 		delete: (id: string) => call("highlights.delete", { params: { id } }),
 	}
 
+	const notebook = {
+		/**
+		 * One page of the Notebook (By article by default). `view: "shuffle"` takes a `seed`; By
+		 * article and Stream page with `cursor`.
+		 */
+		get: (query: QueryOf<"notebook.get"> = {}) => call("notebook.get", { query }),
+	}
+
+	const dailyHighlights = {
+		/** The day's highlights for Home; `day` is the device's local date (YYYY-MM-DD). */
+		list: (day: string) => call("dailyHighlights.list", { query: { day } }),
+		/** "Not useful anymore": never brought back again. `restore` undoes it. */
+		dismiss: (id: string) => call("dailyHighlights.dismiss", { params: { id } }),
+		restore: (id: string) => call("dailyHighlights.restore", { params: { id } }),
+	}
+
 	return {
 		call,
 		/** The account behind the token, and what the token may do. */
@@ -105,6 +121,13 @@ export function createClient(options: ClientOptions) {
 		},
 		links,
 		highlights,
+		notebook,
+		dailyHighlights,
+		annotations: {
+			/** Highlights and article notes with the words of `q`, grouped, with snippets. */
+			search: (q: string, query: Omit<QueryOf<"annotations.search">, "q"> = {}) =>
+				call("annotations.search", { query: { ...query, q } }),
+		},
 		feed: {
 			get: (query: QueryOf<"feed.get"> = {}) => call("feed.get", { query }),
 			/** Every post of one feed (with `newOnly`, the new ones not saved yet), page after page. */
@@ -179,6 +202,7 @@ export const FACADE: Record<EndpointId, string> = {
 	"me.get": "me",
 	"articles.list": "articles.list",
 	"articles.search": "articles.search",
+	"annotations.search": "annotations.search",
 	"articles.lookup": "articles.lookup",
 	"links.preview": "links.preview",
 	"articles.get": "articles.get",
@@ -203,6 +227,10 @@ export const FACADE: Record<EndpointId, string> = {
 	"highlights.update": "highlights.update",
 	"highlights.resize": "highlights.resize",
 	"highlights.delete": "highlights.delete",
+	"notebook.get": "notebook.get",
+	"dailyHighlights.list": "dailyHighlights.list",
+	"dailyHighlights.dismiss": "dailyHighlights.dismiss",
+	"dailyHighlights.restore": "dailyHighlights.restore",
 	"feed.get": "feed.get",
 	"feed.saveItems": "feed.saveItems",
 	"feed.dismissItems": "feed.dismissItems",
