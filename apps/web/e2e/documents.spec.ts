@@ -620,6 +620,13 @@ test("leaving at the end of an article finishes it, with an undo", async ({ page
 	expect(undone?.archivedAt).toBeNull()
 	expect(undone?.readAt).toBeNull()
 	expect(undone?.starredAt).not.toBeNull()
+	// Not finished any more: no stamp on its card.
+	await expect(
+		page
+			.getByRole("listitem")
+			.filter({ has: page.getByRole("link", { name: title }) })
+			.getByTestId("read-stamp"),
+	).toHaveCount(0)
 
 	// The browser's back button leaves too, and "Keep in Library" keeps it there.
 	await readSoFar(id, 1)
@@ -642,6 +649,18 @@ test("leaving at the end of an article finishes it, with an undo", async ({ page
 	await expect(page).toHaveURL(/\/library$/)
 	await expect(page.getByRole("status").filter({ hasText: "Finished and archived" })).toBeVisible()
 	expect((await stored())?.archivedAt).not.toBeNull()
+
+	// In the archive, its card is stamped "Read", and says "Finished" to a screen reader.
+	await page.goto("/archive")
+	const card = page.getByRole("listitem").filter({ has: page.getByRole("link", { name: title }) })
+	const stamp = card.getByTestId("read-stamp")
+	await expect(stamp).toBeVisible()
+	await expect(stamp.locator("[aria-hidden=true]")).toHaveText("Read")
+	await expect(stamp.locator(".sr-only")).toHaveText("Finished")
+	// Where it is on every card: the top right, beside the card's buttons.
+	const [box, cardBox] = [await stamp.boundingBox(), await card.boundingBox()]
+	expect(box!.y - cardBox!.y).toBeLessThan(30)
+	expect(cardBox!.x + cardBox!.width - (box!.x + box!.width)).toBeLessThan(70)
 })
 
 test("an end reached too fast finishes only by hand, and fits a small phone", async ({ page }) => {

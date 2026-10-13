@@ -28,6 +28,8 @@ import { cn } from "~/lib/utils"
 import type { LibraryCard } from "~/services/documents.server"
 import { ArticleImage } from "./article-image"
 import { MenuAction, MenuButton, MoreMenu, type MoreMenuHandle } from "./more-menu"
+import { tiltFor } from "./post-it"
+import { ReadStamp } from "./read-stamp"
 import { TagChips, TagDialog } from "./tag-dialog"
 import { tooltip } from "./tooltip-host"
 
@@ -374,7 +376,13 @@ export function DocumentCard({
 				) : null}
 			</div>
 			<div className="flex min-w-0 flex-1 flex-col gap-1">
-				<h3 className="line-clamp-2 font-serif text-xl leading-snug layout-grid:line-clamp-3 layout-grid:text-balance layout-grid:leading-tight lg:layout-grid:text-2xl">
+				<h3
+					className={cn(
+						"line-clamp-2 font-serif text-xl leading-snug layout-grid:line-clamp-3 layout-grid:text-balance layout-grid:leading-tight lg:layout-grid:text-2xl",
+						// Clear of the stamp in a list; in a grid it is on the image.
+						doc.readAt && "pr-14 layout-grid:pr-0",
+					)}
+				>
 					{doc.status === "ready" && !trashed && !selecting ? (
 						<Link
 							to={`/read/${doc.id}`}
@@ -406,7 +414,6 @@ export function DocumentCard({
 							{`· ${t("card.minutes", { count: doc.readingMinutes })}`}
 						</span>
 					) : null}
-					{doc.readAt ? <span className="shrink-0">{`· ${t("card.finished")}`}</span> : null}
 					{shortlisted ? (
 						<span
 							data-testid="card-shortlisted"
@@ -418,6 +425,15 @@ export function DocumentCard({
 						</span>
 					) : null}
 				</p>
+				{/* In the same place on every card: the top right, beside its buttons in a list and over
+				    the image's corner in a grid, where the buttons are below. On a picture it is stamped on
+				    a slip of paper, or a photo would swallow the ink. */}
+				{doc.readAt ? (
+					<ReadStamp
+						tilt={tiltFor(doc.id)}
+						className="absolute top-5 right-13 layout-grid:top-4 layout-grid:right-4 layout-grid:rounded-[4px] layout-grid:bg-bg/90 layout-grid:p-[3px] layout-grid:shadow-sm"
+					/>
+				) : null}
 				{description || picture ? (
 					// Phones in list layout have no room for the image on the left: a square of it goes
 					// beside the description, when there is one, as in the mobile app.
