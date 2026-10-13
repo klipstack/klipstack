@@ -1,6 +1,7 @@
 import type { HighlightColor } from "@klipstack/api-contract/enums"
 import { Appearance, useColorScheme } from "react-native"
 import type { ColorSchemePref } from "./color-scheme"
+import { NOTE_PAPER, type NotePaper } from "./post-it"
 
 // The web app's tokens (apps/web/app/app.css), converted from oklch to hex.
 const light = {
@@ -32,9 +33,11 @@ const light = {
 	// The Topics screen's shelves: the board, the titles on the spines, a new book's top (the web's
 	// --k-shelf, --k-book-fg and --k-link). The spines' own colors come from `topic-shelves.ts`.
 	shelf: { board: "#dccfc0", bookFg: "#212730", recent: "#0f5ab5" },
-	// A note's paper, its ink and its tape (the web's --k-note, --k-note-fg, --k-note-tape): the
-	// same paper for every note (`PostIt`), unlike the article's own words.
-	note: { paper: "#fdf1bf", fg: "#2f2416", placeholder: "#2f24168c", tape: "#ffffff8c" },
+	// A note's paper, its ink and its tape (the web's --k-note, --k-note-fg, --k-note-tape), unlike
+	// the article's own words: the classic paper (`note`), and a highlight's note's paper in its
+	// highlight's color (`notes`; `PostIt`'s `color`).
+	note: NOTE_PAPER.light.yellow as NotePaper,
+	notes: NOTE_PAPER.light as Record<HighlightColor, NotePaper>,
 	// The highlights' marker ink (the web's --hl-N, as the reader page's): opaque, under the text.
 	highlight: {
 		yellow: "#ffe657",
@@ -78,7 +81,8 @@ const dark: typeof light = {
 		accentFg: "#0d141f",
 	},
 	shelf: { board: "#493a2d", bookFg: "#f1eee7", recent: "#83bdf8" },
-	note: { paper: "#544627", fg: "#f5eedc", placeholder: "#f5eedc8c", tape: "#ffffff26" },
+	note: NOTE_PAPER.dark.yellow,
+	notes: NOTE_PAPER.dark,
 	// Deep inks under light text, as a highlighter's in the dark.
 	highlight: {
 		yellow: "#756208",

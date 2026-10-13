@@ -37,7 +37,7 @@ import { SelectionBar } from "~/components/selection-bar"
 import { useListCursor } from "~/hooks/use-list-cursor"
 import { useCommands } from "~/lib/commands"
 import { timeZoneFromCookie } from "~/lib/date-groups"
-import { highlightColor } from "~/lib/highlight-colors"
+import { highlightColor, highlightColorName } from "~/lib/highlight-colors"
 import type { PageBarHandle } from "~/lib/page-bar"
 import { pageTitle } from "~/lib/page-title"
 import { awaitsWords, searchOrigin, searchPath } from "~/lib/search-page"
@@ -380,7 +380,12 @@ function HighlightGroup({ group, q }: { group: Group<HighlightHit>; q: string })
 								</span>
 							</Link>
 							{h.note ? (
-								<PostIt variant="compact" fit={snippetText(h.note)} className="mt-2 text-sm">
+								<PostIt
+									variant="compact"
+									fit={snippetText(h.note)}
+									color={highlightColorName(h.color)}
+									className="mt-2 text-sm"
+								>
 									<Marked runs={h.note} />
 								</PostIt>
 							) : null}

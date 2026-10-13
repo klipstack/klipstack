@@ -2,7 +2,7 @@ import { StickyNote, Trash2 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link, useFetcher } from "react-router"
-import { highlightColor } from "~/lib/highlight-colors"
+import { highlightColor, highlightColorName } from "~/lib/highlight-colors"
 import type { LinkTargets } from "~/lib/note-links"
 import { safeHost, sourceLabel } from "~/lib/site-label"
 import { LONG_UNDO_MS, showToast } from "~/lib/toast"
@@ -127,6 +127,7 @@ export function QuoteCard({
 				// Not a <button>: a note holds links, and a link inside a button is invalid HTML.
 				<PostIt
 					fit={note}
+					color={highlightColorName(h.color)}
 					tilt={tiltFor(h.id)}
 					role="button"
 					tabIndex={0}

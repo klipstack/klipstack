@@ -2,7 +2,7 @@ import { EyeOff, StickyNote } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link, useFetcher, useFetchers } from "react-router"
-import { highlightColor } from "~/lib/highlight-colors"
+import { highlightColor, highlightColorName } from "~/lib/highlight-colors"
 import type { LinkTargets } from "~/lib/note-links"
 import { showToast } from "~/lib/toast"
 import { cn } from "~/lib/utils"
@@ -127,6 +127,7 @@ function HighlightCard({ h, linkTargets }: { h: ResurfacedHighlight; linkTargets
 				<PostIt
 					variant="compact"
 					fit={note}
+					color={highlightColorName(h.color)}
 					role="button"
 					tabIndex={0}
 					data-testid="home-highlight-note"

@@ -1,3 +1,4 @@
+import type { HighlightColor } from "@klipstack/api-contract/enums"
 import { type ReactNode, useState } from "react"
 import { cn } from "~/lib/utils"
 
@@ -86,6 +87,8 @@ type Props = {
 	as?: "div" | "span"
 	/** Nothing written on it yet: faint paper with a dashed edge and no tape, to write on. */
 	blank?: boolean
+	/** A highlight's note: paper in its highlight's color. Without, the classic note paper. */
+	color?: HighlightColor
 	className?: string
 	children: ReactNode
 } & Omit<React.HTMLAttributes<HTMLElement>, "children">
@@ -93,7 +96,7 @@ type Props = {
 /**
  * A note someone wrote, on paper taped to the page: an edition author's words, a highlight's note,
  * an article's note. One look for every note, in light and dark (`--k-note*` in app.css), unlike
- * the article's own words. Its editor sits on the same paper, so writing looks like what is
+ * the article's own words; a highlight's note is paper in its highlight's color (`color`). Its editor sits on the same paper, so writing looks like what is
  * written. Inside, `--note-placeholder` is the ink of an empty note's placeholder.
  */
 export function PostIt({
@@ -102,6 +105,7 @@ export function PostIt({
 	fit,
 	as: Tag = "div",
 	blank = false,
+	color,
 	className,
 	style,
 	children,
@@ -112,6 +116,8 @@ export function PostIt({
 		<Tag
 			{...props}
 			data-post-it={variant}
+			// Yellow is the classic paper itself.
+			data-note-color={color === undefined || color === "yellow" ? undefined : color}
 			style={fit === undefined ? style : { ...postItSize(fit, variant), ...style }}
 			className={cn(
 				PAPER,

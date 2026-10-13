@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs"
+import { HIGHLIGHT_COLORS } from "@klipstack/api-contract/enums"
 import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it } from "vitest"
 import { PostIt, postItSize, tiltFor } from "./post-it"
@@ -96,5 +98,33 @@ describe("PostIt", () => {
 		const html = renderToStaticMarkup(<PostIt fit="Short.">Short.</PostIt>)
 		expect(html).toContain("width:min(100%, calc(14ch + 2.5rem))")
 		expect(html).toContain("min-height:calc(calc(14ch + 2.5rem) * 0.62)")
+	})
+	it("color: a highlight's note is paper in its color; yellow and none are the classic paper", () => {
+		const colorOf = (html: string) => /data-note-color="([^"]*)"/.exec(html)?.[1]
+		expect(colorOf(renderToStaticMarkup(<PostIt color="green">x</PostIt>))).toBe("green")
+		expect(
+			colorOf(
+				renderToStaticMarkup(
+					<PostIt color="pink" variant="compact" blank>
+						x
+					</PostIt>,
+				),
+			),
+		).toBe("pink")
+		expect(colorOf(renderToStaticMarkup(<PostIt color="yellow">x</PostIt>))).toBeUndefined()
+		expect(colorOf(renderToStaticMarkup(<PostIt>x</PostIt>))).toBeUndefined()
+	})
+
+	it("color: every color but yellow has its paper and ink, in light and both dark themes", () => {
+		const css = readFileSync(new URL("../app.css", import.meta.url), "utf8")
+		for (const color of HIGHLIGHT_COLORS.filter((c) => c !== "yellow")) {
+			expect(css).toMatch(
+				new RegExp(
+					`\\[data-note-color="${color}"\\] \\{\\s*--k-note: var\\(--k-note-${color}\\);\\s*--k-note-fg: var\\(--k-note-${color}-fg\\);`,
+				),
+			)
+			for (const name of [`--k-note-${color}:`, `--k-note-${color}-fg:`])
+				expect(css.split(name).length - 1).toBe(3)
+		}
 	})
 })

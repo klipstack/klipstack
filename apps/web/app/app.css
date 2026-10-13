@@ -85,6 +85,16 @@
 	--k-note: oklch(0.955 0.065 96);
 	--k-note-fg: oklch(0.27 0.03 75);
 	--k-note-tape: oklch(1 0 0 / 0.55);
+	/* A highlight's note: paper in its highlight's color (PostIt's `color`), as sticky-note stock
+	   comes: paler than the marker's ink and opaque. Yellow is the classic paper above. */
+	--k-note-green: oklch(0.945 0.06 152);
+	--k-note-green-fg: oklch(0.28 0.04 152);
+	--k-note-blue: oklch(0.935 0.035 235);
+	--k-note-blue-fg: oklch(0.28 0.04 245);
+	--k-note-pink: oklch(0.935 0.036 355);
+	--k-note-pink-fg: oklch(0.3 0.05 355);
+	--k-note-orange: oklch(0.94 0.04 68);
+	--k-note-orange-fg: oklch(0.3 0.05 55);
 	/* Topics as shelves: a book's lightness and chroma; its hue comes from its site. */
 	--k-book-l: 0.8;
 	--k-book-c: 0.055;
@@ -119,6 +129,14 @@
 		--k-note: oklch(0.4 0.05 85);
 		--k-note-fg: oklch(0.95 0.025 90);
 		--k-note-tape: oklch(1 0 0 / 0.15);
+		--k-note-green: oklch(0.39 0.05 155);
+		--k-note-green-fg: oklch(0.95 0.025 150);
+		--k-note-blue: oklch(0.39 0.05 245);
+		--k-note-blue-fg: oklch(0.95 0.02 240);
+		--k-note-pink: oklch(0.39 0.055 355);
+		--k-note-pink-fg: oklch(0.95 0.02 355);
+		--k-note-orange: oklch(0.41 0.06 60);
+		--k-note-orange-fg: oklch(0.95 0.025 70);
 		--k-ring: oklch(0.74 0.1 255);
 		--k-book-l: 0.46;
 		--k-book-c: 0.06;
@@ -151,6 +169,14 @@
 	--k-note: oklch(0.4 0.05 85);
 	--k-note-fg: oklch(0.95 0.025 90);
 	--k-note-tape: oklch(1 0 0 / 0.15);
+	--k-note-green: oklch(0.39 0.05 155);
+	--k-note-green-fg: oklch(0.95 0.025 150);
+	--k-note-blue: oklch(0.39 0.05 245);
+	--k-note-blue-fg: oklch(0.95 0.02 240);
+	--k-note-pink: oklch(0.39 0.055 355);
+	--k-note-pink-fg: oklch(0.95 0.02 355);
+	--k-note-orange: oklch(0.41 0.06 60);
+	--k-note-orange-fg: oklch(0.95 0.025 70);
 	--k-ring: oklch(0.74 0.1 255);
 	--k-book-l: 0.46;
 	--k-book-c: 0.06;
@@ -341,6 +367,31 @@ body {
 [data-hl="orange"] {
 	--hl: var(--hl-orange);
 	--hl-solid: var(--hl-orange-solid);
+}
+/* A post-it in a highlight's color (PostIt's `color`): its paper and ink, in place of the classic
+   note's. The tape is the same clear tape on every color. */
+[data-note-color="green"],
+[data-note-color="blue"],
+[data-note-color="pink"],
+[data-note-color="orange"] {
+	--color-note: var(--k-note);
+	--color-note-fg: var(--k-note-fg);
+}
+[data-note-color="green"] {
+	--k-note: var(--k-note-green);
+	--k-note-fg: var(--k-note-green-fg);
+}
+[data-note-color="blue"] {
+	--k-note: var(--k-note-blue);
+	--k-note-fg: var(--k-note-blue-fg);
+}
+[data-note-color="pink"] {
+	--k-note: var(--k-note-pink);
+	--k-note-fg: var(--k-note-pink-fg);
+}
+[data-note-color="orange"] {
+	--k-note: var(--k-note-orange);
+	--k-note-fg: var(--k-note-orange-fg);
 }
 /* The stroke: 80% as tall as the text, low in it, so the tops of tall letters stand above it; the
    pen lands a little early and lifts a little late, and pools at both ends. INK_HEIGHT and INK_DROP

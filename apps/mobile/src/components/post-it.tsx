@@ -1,3 +1,4 @@
+import type { HighlightColor } from "@klipstack/api-contract/enums"
 import { type ReactNode, useState } from "react"
 import {
 	type StyleProp,
@@ -10,6 +11,7 @@ import {
 import {
 	growingFit,
 	LEAST_HEIGHT,
+	type NotePaper,
 	type PostItVariant,
 	postItChars,
 	tiltDegrees,
@@ -41,16 +43,25 @@ const TAPE = {
 	compact: { top: -8, width: 48, height: 16 },
 } as const
 
+/** The paper of a post-it in `color` (a highlight's note), or the classic note paper without. */
+export function notePaper(colors: Colors, color?: HighlightColor): NotePaper {
+	return color === undefined ? colors.note : colors.notes[color]
+}
+
 /**
  * The text style a note is written in on a post-it: the paper's ink, serif italic. For the text or
- * text field inside a `PostIt`.
+ * text field inside a `PostIt` of the same `color`.
  */
-export function postItText(colors: Colors, variant: PostItVariant = "full"): TextStyle {
+export function postItText(
+	colors: Colors,
+	variant: PostItVariant = "full",
+	color?: HighlightColor,
+): TextStyle {
 	return {
 		...TEXT[variant],
 		fontFamily: "Iowan Old Style",
 		fontStyle: "italic",
-		color: colors.note.fg,
+		color: notePaper(colors, color).fg,
 	}
 }
 
@@ -71,7 +82,9 @@ export function useGrowingFit(text: string, key?: string): string {
 
 /**
  * A note someone wrote, on paper taped to the page: a highlight's note, an article's note. One look
- * for every note, in light and dark (`colors.note`), unlike the article's own words: the web's
+ * for every note, in light and dark (`colors.note`), unlike the article's own words; a highlight's
+ * note is paper in its highlight's color (`color`, `colors.notes`; write in `postItText` and
+ * `notePaper` of the same color). The web's
  * PostIt (apps/web/app/components/post-it.tsx), and the reader page's post-it at the end of the
  * article (`src/page/takeaway.ts`). Its editor sits on the same paper, so writing looks like what
  * is written; write in `postItText`.
@@ -84,6 +97,7 @@ export function PostIt({
 	tilt = 0,
 	fit,
 	blank = false,
+	color,
 	colors,
 	style,
 	children,
@@ -96,12 +110,15 @@ export function PostIt({
 	fit?: string
 	/** Nothing written on it yet: faint paper with a dashed edge and no tape, to write on. */
 	blank?: boolean
+	/** A highlight's note: paper in its highlight's color. Without, the classic note paper. */
+	color?: HighlightColor
 	colors: Colors
 	style?: StyleProp<ViewStyle>
 	children: ReactNode
 }) {
 	// Never wider than the screen, and never taller for the width it would have had.
 	const room = useWindowDimensions().width - 32
+	const paper = notePaper(colors, color)
 	const width =
 		fit === undefined
 			? undefined
@@ -119,12 +136,12 @@ export function PostIt({
 				{ transform: [{ rotate: `${tiltDegrees(tilt, variant)}deg` }] },
 				blank
 					? {
-							backgroundColor: `${colors.note.paper}40`,
+							backgroundColor: `${paper.paper}40`,
 							borderWidth: 2,
 							borderStyle: "dashed",
-							borderColor: colors.note.placeholder,
+							borderColor: paper.placeholder,
 						}
-					: { backgroundColor: colors.note.paper, boxShadow: SHADOW[variant] },
+					: { backgroundColor: paper.paper, boxShadow: SHADOW[variant] },
 				style,
 			]}
 		>
@@ -134,7 +151,7 @@ export function PostIt({
 					style={[
 						styles.tape,
 						TAPE[variant],
-						{ marginLeft: -TAPE[variant].width / 2, backgroundColor: colors.note.tape },
+						{ marginLeft: -TAPE[variant].width / 2, backgroundColor: paper.tape },
 					]}
 				/>
 			)}

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { highlightColor } from "~/lib/highlight-colors"
+import { highlightColor, highlightColorName } from "~/lib/highlight-colors"
 import { firstRect, type RenderableHighlight } from "~/lib/highlights.client"
 import { layoutMargin, sameTops } from "~/lib/margin-layout"
 import type { LinkTargets } from "~/lib/note-links"
@@ -195,6 +195,7 @@ export function MarginNotes({
 								role="button"
 								tabIndex={0}
 								{...highlightColor(item.color)}
+								color={highlightColorName(item.color)}
 								onMouseEnter={() => onHover(item.id)}
 								onMouseLeave={() => onHover(null)}
 								onClick={(e) => {
