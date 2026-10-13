@@ -1,5 +1,6 @@
 import { NOTE_MAX } from "@klipstack/api-contract/names"
 import { parse } from "@klipstack/api-contract/note-links"
+import { LEAST_HEIGHT, postItChars } from "../lib/post-it"
 import type { PageMessage, PageNote } from "./messages"
 
 /** What the post-it asks while the note is empty. */
@@ -150,21 +151,13 @@ export function fieldText(field: Element): string {
 	return out.replace(/ /g, " ")
 }
 
-/** A note's text line, in characters: never a sliver, never wider than reads well. */
-const MIN_CH = 14
-const MAX_CH = 52
-
 /**
- * The paper's size for this text, as the web's `postItSize`: about square for short notes,
- * growing toward a balanced rectangle, up to the room there is.
+ * The paper's size for this text, as the app's `PostIt` (`postItChars`): about square for short
+ * notes, growing toward a balanced rectangle, up to the room there is.
  */
 export function postItSize(text: string): { width: string; minHeight: string } {
-	const shown = text.trim().replace(/\[([^\]]*)\]\(\/read\/[^)\s]*\)/g, "$1")
-	const breaks = shown.split("\n").length - 1
-	const length = shown.length + breaks * 24
-	const ch = Math.round(Math.min(MAX_CH, Math.max(MIN_CH, Math.sqrt(4 * length))))
-	const width = `calc(${ch}ch + 2.5rem)`
-	return { width: `min(100%, ${width})`, minHeight: `calc(${width} * 0.62)` }
+	const width = `calc(${postItChars(text)}ch + 2.5rem)`
+	return { width: `min(100%, ${width})`, minHeight: `calc(${width} * ${LEAST_HEIGHT.full})` }
 }
 
 function statusHtml(status: PageNote["status"]): string {

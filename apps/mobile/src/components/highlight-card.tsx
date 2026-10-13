@@ -19,12 +19,14 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { HighlighterNibs } from "@/components/highlighter-nibs"
 import { NoteField, type NoteFieldHandle, type NoteLinking } from "@/components/note-field"
+import { PostIt, postItText, useGrowingFit } from "@/components/post-it"
+import { tiltFor } from "@/lib/post-it"
 import type { Colors } from "@/lib/theme"
 
 /**
  * One highlight's tools, as a card at the bottom that leaves the article in view: its color (marker
- * tips) and Done, its note (saved as it's typed, like the article note, with a rule in the
- * highlight's color, as the web's margin notes), Copy, Link and Delete. The web reader's toolbar.
+ * tips) and Done, its note (a post-it written on in place, saved as it's typed, like the article
+ * note), Copy, Link and Delete. The web reader's toolbar.
  * Not a modal: the article above it still takes touches, for the highlight's handles, another
  * highlight, or a tap elsewhere that closes it (the page says so). It slides in and out.
  */
@@ -176,28 +178,34 @@ function HighlightNote({
 		[autosave],
 	)
 
+	// The paper grows as the note is written, and leans as the note does wherever it shows.
+	const fit = useGrowingFit(value, highlight.id)
 	return (
 		<View>
-			<NoteField
-				ref={field}
-				accessibilityLabel="Highlight note"
-				value={value}
-				onChange={(text) => {
-					setValue(text)
-					autosave.change(text)
-				}}
-				onBlur={() => void autosave.flush()}
-				linking={linking}
-				maxLength={HIGHLIGHT_NOTE_MAX}
-				placeholder="Add a note"
+			<PostIt
+				fit={fit || NOTE_PLACEHOLDER}
+				tilt={tiltFor(highlight.id)}
+				blank={!value}
 				colors={colors}
-				style={[
-					styles.note,
-					{ color: colors.fg, backgroundColor: colors.muted, borderColor: colors.border },
-					// A rule in the highlight's color ties the note to it.
-					{ borderLeftColor: colors.nib[highlight.color] },
-				]}
-			/>
+				style={styles.paper}
+			>
+				<NoteField
+					ref={field}
+					accessibilityLabel="Highlight note"
+					value={value}
+					onChange={(text) => {
+						setValue(text)
+						autosave.change(text)
+					}}
+					onBlur={() => void autosave.flush()}
+					linking={linking}
+					maxLength={HIGHLIGHT_NOTE_MAX}
+					placeholder={NOTE_PLACEHOLDER}
+					placeholderColor={colors.note.placeholder}
+					colors={colors}
+					style={[postItText(colors), styles.note]}
+				/>
+			</PostIt>
 			{status === "error" ? (
 				<Pressable accessibilityRole="button" onPress={() => void autosave.flush()}>
 					<Text style={[styles.status, { color: colors.danger }]}>Note not saved · Retry</Text>
@@ -208,6 +216,8 @@ function HighlightNote({
 		</View>
 	)
 }
+
+const NOTE_PLACEHOLDER = "Add a note"
 
 function Tool({
 	label,
@@ -254,20 +264,11 @@ const styles = StyleSheet.create({
 		justifyContent: "space-between",
 		paddingRight: 4,
 	},
-	note: {
-		minHeight: 72,
-		maxHeight: 180,
-		fontSize: 16,
-		lineHeight: 21,
-		padding: 10,
-		paddingTop: 10,
-		borderRadius: 10,
-		borderWidth: StyleSheet.hairlineWidth,
-		borderLeftWidth: 3,
-		borderTopLeftRadius: 2,
-		borderBottomLeftRadius: 2,
-	},
-	status: { fontSize: 13, marginTop: 6 },
+	// Room above for the tape; the paper's own size, in the middle.
+	paper: { alignSelf: "center", marginTop: 8, marginBottom: 4 },
+	// The whole paper takes the tap; a long note scrolls.
+	note: { flexGrow: 1, maxHeight: 200, padding: 0, paddingTop: 0 },
+	status: { fontSize: 13, marginTop: 6, textAlign: "center" },
 	actions: { flexDirection: "row", alignItems: "center", gap: 24, paddingHorizontal: 4 },
 	tool: { flexDirection: "row", alignItems: "center", gap: 6 },
 	toolText: { fontSize: 16 },

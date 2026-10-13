@@ -14,7 +14,9 @@ const page = {
 			color: "green" as const,
 			start: 0,
 			end: 5,
+			note: "Mine",
 		},
+		{ id: "h2", quote: "Body", color: "blue" as const, start: 0, end: 4, note: " " },
 	],
 }
 
@@ -110,7 +112,10 @@ describe("readerHtml", () => {
 				suffix: "",
 				start: 0,
 				end: 5,
+				// Only whether it has a note: the page draws its tab.
+				note: true,
 			},
+			{ id: "h2", color: 2, quote: "Body", prefix: "", suffix: "", start: 0, end: 4, note: false },
 		])
 	})
 

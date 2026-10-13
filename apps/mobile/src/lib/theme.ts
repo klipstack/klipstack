@@ -32,22 +32,25 @@ const light = {
 	// The Topics screen's shelves: the board, the titles on the spines, a new book's top (the web's
 	// --k-shelf, --k-book-fg and --k-link). The spines' own colors come from `topic-shelves.ts`.
 	shelf: { board: "#dccfc0", bookFg: "#212730", recent: "#0f5ab5" },
-	// The reader page's highlight colors (reader-html.ts), without their transparency.
+	// A note's paper, its ink and its tape (the web's --k-note, --k-note-fg, --k-note-tape): the
+	// same paper for every note (`PostIt`), unlike the article's own words.
+	note: { paper: "#fdf1bf", fg: "#2f2416", placeholder: "#2f24168c", tape: "#ffffff8c" },
+	// The highlights' marker ink (the web's --hl-N, as the reader page's): opaque, under the text.
 	highlight: {
-		yellow: "#ffe658",
-		green: "#a1f7a3",
-		blue: "#a0e7ff",
-		pink: "#ffbde9",
-		orange: "#ffc480",
+		yellow: "#ffe657",
+		green: "#9cf2b3",
+		blue: "#9edeff",
+		pink: "#ffbcd7",
+		orange: "#ffc487",
 	} satisfies Record<HighlightColor, string>,
-	// The colors at full strength (the web's --hl-N-solid), the same in dark mode: the marker tips,
-	// the line around the highlight in focus, the rule beside its note.
+	// The colors at full strength (the web's --hl-N-solid): the marker tips, the line around the
+	// highlight in focus, a noted highlight's tab.
 	nib: {
 		yellow: "#ffdc3a",
-		green: "#85e98a",
-		blue: "#80d8ff",
-		pink: "#ffa6db",
-		orange: "#ffaf5e",
+		green: "#6ed889",
+		blue: "#5fb8f2",
+		pink: "#f589b6",
+		orange: "#ffa14b",
 	} satisfies Record<HighlightColor, string>,
 }
 
@@ -75,14 +78,22 @@ const dark: typeof light = {
 		accentFg: "#0d141f",
 	},
 	shelf: { board: "#493a2d", bookFg: "#f1eee7", recent: "#83bdf8" },
+	note: { paper: "#544627", fg: "#f5eedc", placeholder: "#f5eedc8c", tape: "#ffffff26" },
+	// Deep inks under light text, as a highlighter's in the dark.
 	highlight: {
-		yellow: "#ba9c13",
-		green: "#57a45b",
-		blue: "#5197c6",
-		pink: "#c56f99",
-		orange: "#cf752d",
+		yellow: "#756208",
+		green: "#22683b",
+		blue: "#185b92",
+		pink: "#8c395e",
+		orange: "#964d09",
 	},
-	nib: light.nib,
+	nib: {
+		yellow: "#ffdc3a",
+		green: "#75df8f",
+		blue: "#69c1fc",
+		pink: "#fc96bf",
+		orange: "#ffad5f",
+	},
 }
 
 export type Colors = typeof light

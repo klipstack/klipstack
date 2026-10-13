@@ -2,14 +2,17 @@ import type { Highlight } from "@klipstack/sdk"
 import { Link } from "expo-router"
 import { useState } from "react"
 import { Pressable, Share, StyleSheet, Text, View } from "react-native"
+import { MarkerText } from "@/components/marker-text"
+import { PostIt, postItText } from "@/components/post-it"
 import { siteName } from "@/lib/article-meta"
 import { copyText } from "@/lib/clipboard"
 import { fromStored } from "@/lib/note-field"
+import { tiltFor } from "@/lib/post-it"
 import type { Colors } from "@/lib/theme"
 
 /**
- * One highlight in the Highlights tab, as the web's highlights page lists it: a bar in its color,
- * the quote, its note, and the article it is from. A tap opens the article at the highlight, with
+ * One highlight in the Highlights tab, as the web's highlights page lists it: the quote marked in
+ * its color, its note on a small post-it, and the article it is from. A tap opens the article at the highlight, with
  * its card (color, note, Delete), as the notes sheet does; a long press, its menu (Copy, Share,
  * Delete).
  */
@@ -42,16 +45,28 @@ export function HighlightRow({
 						pressed && styles.pressed,
 					])}
 				>
-					<View style={[styles.bar, { backgroundColor: colors.highlight[highlight.color] }]} />
 					<View style={styles.body}>
-						<Text style={[styles.quote, { color: colors.fg }]} numberOfLines={12}>
-							{oneLine(highlight.quote)}
-						</Text>
+						<MarkerText
+							text={oneLine(highlight.quote)}
+							color={highlight.color}
+							seed={highlight.id}
+							numberOfLines={12}
+							colors={colors}
+							style={[styles.quote, { color: colors.fg }]}
+						/>
 						{highlight.note ? (
-							<Text style={[styles.note, { color: colors.fg }]} numberOfLines={6}>
-								{/* Links as their titles. */}
-								{fromStored(highlight.note).text}
-							</Text>
+							<PostIt
+								variant="compact"
+								fit={highlight.note}
+								tilt={tiltFor(highlight.id)}
+								colors={colors}
+								style={styles.note}
+							>
+								<Text style={postItText(colors, "compact")} numberOfLines={6}>
+									{/* Links as their titles. */}
+									{fromStored(highlight.note).text}
+								</Text>
+							</PostIt>
 						) : null}
 						<Text style={[styles.source, { color: colors.mutedFg }]} numberOfLines={1}>
 							{[article.title, siteName(article)].filter(Boolean).join(" · ")}
@@ -93,17 +108,15 @@ const INSET = 12
 const styles = StyleSheet.create({
 	// Room around the content, past the list's margin, so the row lifts as one piece under the menu.
 	row: {
-		flexDirection: "row",
-		gap: 14,
 		paddingVertical: 16,
 		marginHorizontal: -INSET,
 		paddingHorizontal: INSET,
 		borderRadius: 12,
 	},
 	pressed: { opacity: 0.6 },
-	bar: { width: 4, borderRadius: 2 },
 	body: { flex: 1, gap: 8 },
 	quote: { fontFamily: "Iowan Old Style", fontSize: 18, lineHeight: 26 },
-	note: { fontSize: 15, lineHeight: 21 },
+	// Room above for its tape.
+	note: { marginTop: 10, marginBottom: 4 },
 	source: { fontSize: 13 },
 })

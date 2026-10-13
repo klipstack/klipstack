@@ -12,6 +12,7 @@ export type ReaderHighlight = {
 	suffix?: string
 	start: number
 	end: number
+	note?: string | null
 }
 
 export type ReaderPage = {
@@ -151,6 +152,7 @@ function pageHighlights(highlights: ReadonlyArray<ReaderHighlight>): PageHighlig
 		suffix: h.suffix ?? "",
 		start: h.start,
 		end: h.end,
+		note: Boolean(h.note?.trim()),
 	}))
 }
 
@@ -272,42 +274,62 @@ img { display: block; max-width: 100%; height: auto; margin: 0 auto; border-radi
 figure { margin-inline: 0; }
 figcaption { font-family: var(--sans); font-size: 0.875rem; color: var(--muted-fg); margin-top: 6px; }
 blockquote { margin-inline: 0; padding-left: 16px; border-left: 3px solid var(--border); }
-pre { background: var(--muted); padding: 12px; border-radius: 8px; overflow-x: auto; font-size: 0.85em; }
+/* Translucent: a highlight's ink lies under the text, and shows through. */
+pre { background: color-mix(in oklch, var(--muted) 50%, transparent); padding: 12px; border-radius: 8px; overflow-x: auto; font-size: 0.85em; }
 code { font-size: 0.9em; }
 pre code { font-size: inherit; }
 table { display: block; overflow-x: auto; border-collapse: collapse; font-size: 0.9em; }
 th, td { border: 1px solid var(--border); padding: 6px 10px; }
 hr { border: 0; border-top: 1px solid var(--border); margin: 2em 0; }
 img[data-asset]:not([src]) { width: 100%; aspect-ratio: 3 / 2; background: var(--muted); }
-::highlight(klip-c0) { background-color: var(--hl-0); }
-::highlight(klip-c1) { background-color: var(--hl-1); }
-::highlight(klip-c2) { background-color: var(--hl-2); }
-::highlight(klip-c3) { background-color: var(--hl-3); }
-::highlight(klip-c4) { background-color: var(--hl-4); }
-/* A highlight's card is open: the text and the other highlights fade; it shows in its own color,
-   with full-strength text, and a line of its color around it (.hl-pop). As the web reader. */
+/* The highlights: marker strokes under the text (src/page/ink.ts, as the web's .hl-ink), one per
+   line, 80% as tall as the text and low in it; the pen lands a little early and lifts a little
+   late, and pools at both ends. The layer lies behind the article's text: the letters keep their
+   full strength. Where two cross, the ink is deeper, drawn as a piece of its own (.hl-cross), as
+   blend modes composite slowly in WebKit. */
+:is(.hl-ink, .hl-tab, .hl-layer, .hl-pop)[data-color="0"] { --hl: var(--hl-0); --hl-solid: var(--hl-0-solid); }
+:is(.hl-ink, .hl-tab, .hl-layer, .hl-pop)[data-color="1"] { --hl: var(--hl-1); --hl-solid: var(--hl-1-solid); }
+:is(.hl-ink, .hl-tab, .hl-layer, .hl-pop)[data-color="2"] { --hl: var(--hl-2); --hl-solid: var(--hl-2-solid); }
+:is(.hl-ink, .hl-tab, .hl-layer, .hl-pop)[data-color="3"] { --hl: var(--hl-3); --hl-solid: var(--hl-3-solid); }
+:is(.hl-ink, .hl-tab, .hl-layer, .hl-pop)[data-color="4"] { --hl: var(--hl-4); --hl-solid: var(--hl-4-solid); }
+.hl-inks { position: absolute; top: 0; left: 0; z-index: -1; pointer-events: none; }
+.hl-ink {
+	position: absolute;
+	background: linear-gradient(90deg, color-mix(in oklch, var(--hl), var(--fg) 9%), var(--hl) 0.6em calc(100% - 0.8em), color-mix(in oklch, var(--hl), var(--fg) 6%));
+}
+.hl-cross {
+	position: absolute; border-radius: 0.25em;
+	background: color-mix(in oklch, color-mix(in oklch, var(--a), var(--b)), var(--hl-deepen));
+}
+/* A highlight just made is drawn in, once, line after line; right-to-left text from the right. */
+.hl-ink[data-fresh] { animation: ink-in 0.32s cubic-bezier(0.3, 0.7, 0.2, 1) both; }
+.hl-ink[data-fresh][data-rtl] { animation-name: ink-in-rtl; }
+@keyframes ink-in { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes ink-in-rtl { from { clip-path: inset(0 0 0 100%); } to { clip-path: inset(0 0 0 0); } }
+@media (prefers-reduced-motion: reduce) { .hl-ink[data-fresh], .hl-ink[data-fresh][data-rtl] { animation: none; } }
+/* A highlight with a note: a tab of its color at the right of its first line, past the text, like a
+   sticky tab poking out of a book. A finger wide to tap, though it shows small. */
+.hl-tabs { position: absolute; top: 0; left: 0; z-index: 1; pointer-events: none; }
+.hl-tab {
+	position: absolute; width: 36px; margin-left: -8px; pointer-events: auto;
+	-webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none;
+}
+.hl-tab::after {
+	content: ""; position: absolute; left: 11px; top: 12%; bottom: 12%; width: 9px;
+	border-radius: 1px 4px 4px 1px; background: var(--hl-solid);
+	box-shadow: 0 1px 2px rgb(0 0 0 / 0.18);
+}
+/* A highlight's card is open: the text and the other highlights fade; it shows at full strength,
+   with full-strength text, and a line of its color around each stroke (.hl-pop). As the web reader. */
 article[data-focus], article[data-focus] * { color: color-mix(in oklch, var(--fg) 55%, transparent); text-decoration-color: currentColor; }
 article[data-focus] ::highlight(klip-active) { color: var(--fg); }
-article[data-focus] ::highlight(klip-c0) { background-color: color-mix(in oklch, var(--hl-0) 25%, transparent); }
-article[data-focus] ::highlight(klip-c1) { background-color: color-mix(in oklch, var(--hl-1) 25%, transparent); }
-article[data-focus] ::highlight(klip-c2) { background-color: color-mix(in oklch, var(--hl-2) 25%, transparent); }
-article[data-focus] ::highlight(klip-c3) { background-color: color-mix(in oklch, var(--hl-3) 25%, transparent); }
-article[data-focus] ::highlight(klip-c4) { background-color: color-mix(in oklch, var(--hl-4) 25%, transparent); }
-article[data-focus="0"] ::highlight(klip-active) { background-color: var(--hl-0); }
-article[data-focus="1"] ::highlight(klip-active) { background-color: var(--hl-1); }
-article[data-focus="2"] ::highlight(klip-active) { background-color: var(--hl-2); }
-article[data-focus="3"] ::highlight(klip-active) { background-color: var(--hl-3); }
-article[data-focus="4"] ::highlight(klip-active) { background-color: var(--hl-4); }
+.hl-inks[data-focus] > :is(.hl-ink, .hl-cross):not([data-active]),
+.hl-tabs[data-focus] > :not([data-active]) { opacity: 0.3; }
 .hl-layer { position: absolute; top: 0; left: 0; pointer-events: none; }
 .hl-pop {
 	position: absolute; border-radius: 3px;
 	box-shadow: 0 0 0 1.5px var(--hl-solid), 0 3px 8px -3px oklch(0.2 0.05 262 / 0.35);
 }
-.hl-layer[data-color="0"] { --hl-solid: var(--hl-0-solid); }
-.hl-layer[data-color="1"] { --hl-solid: var(--hl-1-solid); }
-.hl-layer[data-color="2"] { --hl-solid: var(--hl-2-solid); }
-.hl-layer[data-color="3"] { --hl-solid: var(--hl-3-solid); }
-.hl-layer[data-color="4"] { --hl-solid: var(--hl-4-solid); }
 /* Its ends' handles: a bar the height of the line, with a knob above the start and below the end;
    each a finger wide, and taller than its line. */
 .hl-handle {
