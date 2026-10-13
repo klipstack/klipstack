@@ -8,7 +8,6 @@ import {
 	ChevronDown,
 	History,
 	ListFilter as FilterIcon,
-	LibraryBig,
 	LayoutGrid,
 	List,
 	Search,
@@ -20,6 +19,7 @@ import { Link, redirect, useFetcher, useLocation, useNavigate } from "react-rout
 import { archiveFinished, undoArchive } from "~/commands/articles.server"
 import { saveArticle } from "~/commands/saving.server"
 import { DocumentList } from "~/components/document-list"
+import { EmptyDrawing, type EmptyDrawingName } from "~/components/empty-drawing"
 import { LayoutToggle } from "~/components/layout-toggle"
 import { MenuButton, MenuNavLink, MoreMenu } from "~/components/more-menu"
 import { PinnedControls } from "~/components/pinned-controls"
@@ -179,6 +179,13 @@ export async function action({ context, request }: Route.ActionArgs) {
 	}
 }
 
+const VIEW_DRAWINGS = {
+	inbox: "bookcase",
+	archive: "box",
+	starred: "stickers",
+	trash: "basket",
+} as const satisfies Record<LibraryView, EmptyDrawingName>
+
 export default function Library({ loaderData }: Route.ComponentProps) {
 	const { t } = useTranslation("library")
 	const location = useLocation()
@@ -301,7 +308,8 @@ export default function Library({ loaderData }: Route.ComponentProps) {
 				</div>
 			) : loaderData.items.length === 0 ? (
 				<div className="mt-12 flex flex-col items-center gap-3 text-center text-muted-fg md:mt-16">
-					<LibraryBig className="size-10" aria-hidden />
+					{/* The place itself, empty, or for Starred the stars still unused. */}
+					<EmptyDrawing name={VIEW_DRAWINGS[loaderData.view]} className="mb-1 w-40" />
 					<h2 className="text-lg font-medium text-fg">
 						{t(`empty.${loaderData.view}.title`, { days: TRASH_RETENTION_DAYS })}
 					</h2>

@@ -1,4 +1,4 @@
-import { BookOpen, ChevronDown, CircleAlert, Clock3, Search } from "lucide-react"
+import { ChevronDown, CircleAlert, Clock3, Search } from "lucide-react"
 import { useEffect, useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import {
@@ -10,6 +10,7 @@ import {
 	useSearchParams,
 } from "react-router"
 import { dailyHighlights } from "~/commands/resurfacing.server"
+import { EmptyDrawing } from "~/components/empty-drawing"
 import { FeedArticle } from "~/components/feed-article"
 import { HomeArticle } from "~/components/home-article"
 import { FinishedLately } from "~/components/home-finished"
@@ -208,12 +209,8 @@ export default function ReadingHome({
 	// Without Continue reading, the newest save takes its big card.
 	const lead = featured ? undefined : recent[0]
 	const moreRecent = lead ? recent.slice(1) : recent
-	const EmptyIcon =
-		emptyState?.kind === "processing"
-			? Clock3
-			: emptyState?.kind === "failed"
-				? CircleAlert
-				: BookOpen
+	// Nothing to read draws the reading chair; a status keeps its icon.
+	const EmptyIcon = emptyState?.kind === "processing" ? Clock3 : CircleAlert
 	useEffect(() => {
 		warmOffline(
 			["/home", "/library"],
@@ -377,7 +374,12 @@ export default function ReadingHome({
 				) : null}
 				{emptyState ? (
 					<div className="flex flex-col items-center gap-4 py-14 text-center">
-						<EmptyIcon className="size-9 text-muted-fg" aria-hidden />
+						{/* Nothing to read yet, or now: the reading chair, waiting. */}
+						{emptyState.kind === "new" || emptyState.kind === "caughtUp" ? (
+							<EmptyDrawing name="chair" className="w-44" />
+						) : (
+							<EmptyIcon className="size-9 text-muted-fg" aria-hidden />
+						)}
 						<h2 className="font-serif text-3xl">{t(`home.empty.${emptyState.kind}.title`)}</h2>
 						<p className="max-w-sm text-sm leading-relaxed text-muted-fg">
 							{t(`home.empty.${emptyState.kind}.description`)}

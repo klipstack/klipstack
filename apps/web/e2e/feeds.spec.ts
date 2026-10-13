@@ -158,6 +158,7 @@ test("feed page: empty state offers to add a feed", async ({ page }) => {
 	await page.goto("/feed")
 	await waitForHydration(page)
 	await expect(page.getByRole("heading", { name: "No feeds yet" })).toBeVisible()
+	await expect(page.locator("[data-empty-drawing=mailbox] svg")).toBeVisible()
 	await page.getByRole("button", { name: "Add feed" }).click()
 	const dialog = page.getByRole("dialog", { name: "Follow a blog" })
 	await expect(dialog).toBeVisible()
