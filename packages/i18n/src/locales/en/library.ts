@@ -412,7 +412,7 @@ export default {
 	search: {
 		title: "Search",
 		label: "Search",
-		placeholder: "Search articles…",
+		placeholder: "Search articles, highlights and notes…",
 		clear: "Clear search",
 		empty: "Nothing matches that search.",
 		everywhere: "Search everywhere",
@@ -467,6 +467,19 @@ export default {
 			thisMonth: "This month",
 			thisYear: "This year",
 			today: "Today",
+		},
+		groups: {
+			label: "Results",
+			articles: "Articles",
+			highlights: "Highlights",
+			notes: "Notes",
+			highlightsCount_one: "{{count}} highlight",
+			highlightsCount_other: "{{count}} highlights",
+			notesCount_one: "{{count}} note",
+			notesCount_other: "{{count}} notes",
+			showAll_one: "Show all {{count}}",
+			showAll_other: "Show all {{count}}",
+			noteOf: "Note on {{title}}",
 		},
 		trash: {
 			heading: "In the trash",

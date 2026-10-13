@@ -419,7 +419,7 @@ export default {
 	search: {
 		title: "Buscar",
 		label: "Buscar",
-		placeholder: "Buscar artículos…",
+		placeholder: "Buscar artículos, subrayados y notas…",
 		clear: "Borrar búsqueda",
 		empty: "Nada coincide con esa búsqueda.",
 		everywhere: "Buscar en todas partes",
@@ -474,6 +474,19 @@ export default {
 			thisMonth: "Este mes",
 			thisYear: "Este año",
 			today: "Hoy",
+		},
+		groups: {
+			label: "Resultados",
+			articles: "Artículos",
+			highlights: "Subrayados",
+			notes: "Notas",
+			highlightsCount_one: "{{count}} subrayado",
+			highlightsCount_other: "{{count}} subrayados",
+			notesCount_one: "{{count}} nota",
+			notesCount_other: "{{count}} notas",
+			showAll_one: "Ver {{count}}",
+			showAll_other: "Ver los {{count}}",
+			noteOf: "Nota sobre {{title}}",
 		},
 		trash: {
 			heading: "En la papelera",

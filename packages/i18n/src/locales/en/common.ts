@@ -303,6 +303,8 @@ export default {
 		empty: "No results.",
 		actions: "Actions",
 		results: "Articles",
+		highlights: "Highlights",
+		notes: "Notes",
 		navigate: "Go to",
 		search: "Search",
 		article: "This article",

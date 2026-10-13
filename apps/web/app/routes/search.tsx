@@ -10,7 +10,7 @@ import {
 	textOnly,
 } from "@klipstack/api-contract/search-query"
 import { Bookmark, BookmarkCheck, ChevronDown, CircleAlert, SearchX, X } from "lucide-react"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { Fragment, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link, useFetcher, useLocation, useNavigate, useRouteLoaderData } from "react-router"
 import { DocumentList } from "~/components/document-list"
@@ -29,13 +29,24 @@ import { SelectionBar } from "~/components/selection-bar"
 import { useListCursor } from "~/hooks/use-list-cursor"
 import { useCommands } from "~/lib/commands"
 import { timeZoneFromCookie } from "~/lib/date-groups"
+import { HIGHLIGHT_SWATCH } from "~/lib/highlight-colors"
 import type { PageBarHandle } from "~/lib/page-bar"
 import { pageTitle } from "~/lib/page-title"
 import { awaitsWords, searchOrigin, searchPath } from "~/lib/search-page"
+import type { Snippet } from "~/lib/search-snippet"
 import { requireUser } from "~/lib/session.server"
 import { showToast } from "~/lib/toast"
 import { countTopicClick, countTopicSearch } from "~/lib/topic-use"
 import { cn } from "~/lib/utils"
+import {
+	ANNOTATION_GROUP_LIMIT,
+	ANNOTATION_GROUP_MAX,
+	type Group,
+	type HighlightHit,
+	type NoteHit,
+	searchHighlights,
+	searchNotes,
+} from "~/services/annotation-search.server"
 import { keepsArchived, SEARCH_LIMIT, searchDocuments } from "~/services/search.server"
 import { missingTopics, topicNames, topicsInUse } from "~/services/topics.server"
 import type { Route } from "./+types/search"
@@ -60,6 +71,8 @@ export const handle: PageBarHandle = {
 	pageBar: { titleKey: "library:search.title", search: { ...FIELD, always: true } },
 }
 
+type ResultGroup = "highlights" | "notes"
+
 /** More topics than a library holds: the chip lists them all. */
 const TOPICS_LISTED = 500
 
@@ -69,14 +82,20 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 	// As typed: a query that ends with a space awaits its words, and the field takes the keyboard.
 	const q = url.searchParams.get("q") ?? ""
 	const page = Math.max(1, Math.floor(Number(url.searchParams.get("page")) || 1))
-	const [result, [missing = []]] = await Promise.all([
-		searchDocuments({
-			userId: user.id,
-			q,
-			offset: (page - 1) * SEARCH_LIMIT,
-			timeZone: timeZoneFromCookie(request.headers.get("cookie")),
-		}),
+	const timeZone = timeZoneFromCookie(request.headers.get("cookie"))
+	// `all=highlights` or `all=notes` shows all of that group, not its first few.
+	const all = url.searchParams.get("all")
+	const limit = (group: ResultGroup) =>
+		all === group ? ANNOTATION_GROUP_MAX : ANNOTATION_GROUP_LIMIT
+	// Highlights and notes come with the first page of articles.
+	const none = { items: [], total: 0 }
+	const [result, [missing = []], highlights, notes] = await Promise.all([
+		searchDocuments({ userId: user.id, q, offset: (page - 1) * SEARCH_LIMIT, timeZone }),
 		missingTopics(user.id, [q.trim()]),
+		page === 1
+			? searchHighlights({ userId: user.id, q, timeZone, limit: limit("highlights") })
+			: none,
+		page === 1 ? searchNotes({ userId: user.id, q, timeZone, limit: limit("notes") }) : none,
 	])
 	// The Topic chip's names, most articles first, for a reader whose topics are in use.
 	const topics = (await topicsInUse(user.id)) ? await topicNames(user.id, "", TOPICS_LISTED) : null
@@ -86,6 +105,8 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 		nextPage: result.nextOffset === null ? null : page + 1,
 		ignored: result.ignored,
 		trash: result.trash,
+		highlights: highlights as Group<HighlightHit>,
+		notes: notes as Group<NoteHit>,
 		keepsArchived: keepsArchived(q),
 		/** Topics the query names that the reader no longer has. */
 		missing,
@@ -96,8 +117,9 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 export default function SearchPage({ loaderData }: Route.ComponentProps) {
 	const { t } = useTranslation("library")
 	const location = useLocation()
-	const { q, items, ignored, trash } = loaderData
+	const { q, items, ignored, trash, highlights, notes } = loaderData
 	const query = q.trim()
+	const grouped = highlights.total > 0 || notes.total > 0
 	const words = textOnly(query)
 	const cards = useMemo(() => [...items, ...(trash?.items ?? [])], [items, trash?.items])
 	const ids = useMemo(() => cards.map((d) => d.id), [cards])
@@ -149,9 +171,10 @@ export default function SearchPage({ loaderData }: Route.ComponentProps) {
 					</Link>
 				</p>
 			) : null}
+			{grouped ? <GroupLinks highlights={highlights.total} notes={notes.total} /> : null}
 			{query === "" ? (
 				<Tips />
-			) : items.length === 0 ? (
+			) : items.length === 0 && grouped ? null : items.length === 0 ? (
 				<div className="mt-12 flex flex-col items-center gap-3 text-center text-muted-fg md:mt-16">
 					<SearchX className="size-10" aria-hidden />
 					<h2 className="text-lg font-medium text-fg">{t("search.empty")}</h2>
@@ -166,14 +189,19 @@ export default function SearchPage({ loaderData }: Route.ComponentProps) {
 					) : null}
 				</div>
 			) : (
-				<DocumentList
-					items={items}
-					listRef={listRef}
-					cursorId={cursorId}
-					onVanish={onVanish}
-					selection={selection}
-					keepsArchived={loaderData.keepsArchived}
-				/>
+				<>
+					{grouped ? (
+						<GroupHeading id="search-articles" label={t("search.groups.articles")} />
+					) : null}
+					<DocumentList
+						items={items}
+						listRef={listRef}
+						cursorId={cursorId}
+						onVanish={onVanish}
+						selection={selection}
+						keepsArchived={loaderData.keepsArchived}
+					/>
+				</>
 			)}
 			{loaderData.nextPage ? (
 				<div className="mt-6 flex justify-center">
@@ -186,6 +214,8 @@ export default function SearchPage({ loaderData }: Route.ComponentProps) {
 					</Link>
 				</div>
 			) : null}
+			{highlights.total > 0 ? <HighlightGroup group={highlights} q={q} /> : null}
+			{notes.total > 0 ? <NoteGroup group={notes} q={q} /> : null}
 			{trash ? (
 				<section
 					data-testid="search-trash"
@@ -216,6 +246,167 @@ export default function SearchPage({ loaderData }: Route.ComponentProps) {
 			) : null}
 			<SelectionBar items={cards} selection={selection} />
 		</main>
+	)
+}
+
+/** Where the other groups are, under a long list of articles. */
+function GroupLinks({ highlights, notes }: { highlights: number; notes: number }) {
+	const { t } = useTranslation("library")
+	const link = "rounded-full border border-border px-3 py-1 hover:bg-muted"
+	return (
+		<nav
+			aria-label={t("search.groups.label")}
+			data-testid="search-groups"
+			className="mt-3 flex flex-wrap gap-2 text-sm"
+		>
+			{highlights > 0 ? (
+				<a href="#search-highlights" className={link}>
+					{t("search.groups.highlightsCount", { count: highlights })}
+				</a>
+			) : null}
+			{notes > 0 ? (
+				<a href="#search-notes" className={link}>
+					{t("search.groups.notesCount", { count: notes })}
+				</a>
+			) : null}
+		</nav>
+	)
+}
+
+function GroupHeading({ id, label, more }: { id: string; label: string; more?: ReactNode }) {
+	return (
+		<div className="mt-6 mb-3 flex items-baseline justify-between gap-3 border-b border-border pb-2">
+			<h2 id={id} className="scroll-mt-20 text-sm font-medium text-muted-fg">
+				{label}
+			</h2>
+			{more}
+		</div>
+	)
+}
+
+/** A snippet with the words the search found in bold. */
+function Marked({ runs }: { runs: Snippet }) {
+	let at = 0
+	return runs.map((run) => {
+		// Where the run starts in the snippet: unique, and stable for the same snippet.
+		const key = at
+		at += run.text.length
+		return run.match ? (
+			<mark key={key} className="bg-transparent font-semibold text-fg">
+				{run.text}
+			</mark>
+		) : (
+			<Fragment key={key}>{run.text}</Fragment>
+		)
+	})
+}
+
+/** "Show all", while the group shows only its first few. */
+function ShowAll({
+	q,
+	group,
+	shown,
+	total,
+}: {
+	q: string
+	group: ResultGroup
+	shown: number
+	total: number
+}) {
+	const { t } = useTranslation("library")
+	const location = useLocation()
+	if (shown >= total) return null
+	return (
+		<Link
+			to={`${searchPath(q)}&all=${group}#search-${group}`}
+			state={location.state}
+			className="text-sm text-link hover:underline"
+		>
+			{t("search.groups.showAll", { count: total })}
+		</Link>
+	)
+}
+
+const RESULT_CARD =
+	"relative isolate flex gap-3 rounded-xl border border-border bg-card p-3 transition-colors hover:border-muted-fg/40"
+
+function HighlightGroup({ group, q }: { group: Group<HighlightHit>; q: string }) {
+	const { t } = useTranslation("library")
+	const location = useLocation()
+	const from = location.pathname + location.search
+	return (
+		<section data-testid="search-highlights" aria-labelledby="search-highlights">
+			<GroupHeading
+				id="search-highlights"
+				label={t("search.groups.highlights")}
+				more={<ShowAll q={q} group="highlights" shown={group.items.length} total={group.total} />}
+			/>
+			<ul className="flex flex-col gap-2">
+				{group.items.map((h) => (
+					<li key={h.id} className={RESULT_CARD}>
+						<span
+							className={cn("mt-1 h-auto w-1 shrink-0 rounded", HIGHLIGHT_SWATCH)}
+							aria-hidden
+						/>
+						<div className="min-w-0 flex-1">
+							<Link
+								to={`/read/${h.documentId}#h=${h.id}`}
+								state={{ from }}
+								className="block text-[0.95rem] leading-relaxed after:absolute after:inset-0 after:content-['']"
+							>
+								<Marked runs={h.quote} />
+							</Link>
+							{h.note ? (
+								<p className="mt-2 text-sm text-muted-fg">
+									<Marked runs={h.note} />
+								</p>
+							) : null}
+							<p className="mt-2 line-clamp-1 text-xs text-muted-fg">
+								{h.title}
+								{h.siteName ? ` · ${h.siteName}` : null}
+							</p>
+						</div>
+					</li>
+				))}
+			</ul>
+		</section>
+	)
+}
+
+function NoteGroup({ group, q }: { group: Group<NoteHit>; q: string }) {
+	const { t } = useTranslation("library")
+	const location = useLocation()
+	const from = location.pathname + location.search
+	return (
+		<section data-testid="search-notes" aria-labelledby="search-notes">
+			<GroupHeading
+				id="search-notes"
+				label={t("search.groups.notes")}
+				more={<ShowAll q={q} group="notes" shown={group.items.length} total={group.total} />}
+			/>
+			<ul className="flex flex-col gap-2">
+				{group.items.map((n) => (
+					<li key={n.documentId} className={RESULT_CARD}>
+						<div className="min-w-0 flex-1">
+							<Link
+								to={`/read/${n.documentId}#note`}
+								state={{ from }}
+								aria-label={t("search.groups.noteOf", { title: n.title })}
+								className="line-clamp-1 font-medium after:absolute after:inset-0 after:content-['']"
+							>
+								{n.title}
+							</Link>
+							<p className="mt-1 text-sm leading-relaxed text-muted-fg">
+								<Marked runs={n.note} />
+							</p>
+							{n.siteName ? (
+								<p className="mt-2 line-clamp-1 text-xs text-muted-fg">{n.siteName}</p>
+							) : null}
+						</div>
+					</li>
+				))}
+			</ul>
+		</section>
 	)
 }
 

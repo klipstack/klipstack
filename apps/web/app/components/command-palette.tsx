@@ -12,6 +12,7 @@ import {
 	Monitor,
 	Moon,
 	Newspaper,
+	NotebookPen,
 	Plus,
 	Rss,
 	Search,
@@ -52,10 +53,19 @@ interface SearchItem {
 	archived: boolean
 }
 
+interface SearchAnswer {
+	items: SearchItem[]
+	highlights: Array<{ id: string; documentId: string; title: string; quote: string }>
+	notes: Array<{ documentId: string; title: string; note: string }>
+}
+
 const URL_PATTERN = /^https?:\/\/\S+$/i
 
+/** Rows the server found: they show whatever the menu's own matching thinks of them. */
+const FOUND = ["doc-", "hl-", "note-"]
+
 /**
- * The server already matched the articles, so they always show, but below any command that
+ * The server already matched the articles, highlights and notes, so they always show, but below any command that
  * matches what was typed: "trash" + Enter goes to the trash, not to an article named after it.
  * Last comes the way to the search page: with nothing else found, Enter searches.
  */
@@ -66,7 +76,7 @@ const filter: NonNullable<React.ComponentProps<typeof Command>["filter"]> = (
 ) => {
 	const score = defaultFilter(value, search, keywords)
 	if (value === "search-all") return 0.0005
-	return value.startsWith("doc-") ? Math.max(score, 0.001) : score
+	return FOUND.some((prefix) => value.startsWith(prefix)) ? Math.max(score, 0.001) : score
 }
 
 /**
@@ -80,7 +90,7 @@ export function CommandPalette() {
 	const [query, setQuery] = useState("")
 	const navigate = useNavigate()
 	const submit = useSubmit()
-	const search = useFetcher<{ items: SearchItem[] }>()
+	const search = useFetcher<SearchAnswer>()
 	// Read when the menu mounts and again at every opening. The menu matches them itself as commands
 	// are matched, so they need no request per key, and "wa" finds "Work Advice".
 	const tags = useTagList(open)
@@ -122,7 +132,10 @@ export function CommandPalette() {
 		if (!open) return
 		const q = query.trim()
 		if (q.length < 2 || URL_PATTERN.test(q)) return
-		const timer = window.setTimeout(() => loadSearch(`/api/search?q=${encodeURIComponent(q)}`), 180)
+		const timer = window.setTimeout(
+			() => loadSearch(`/api/search?annotations=1&q=${encodeURIComponent(q)}`),
+			180,
+		)
 		return () => window.clearTimeout(timer)
 	}, [query, open, loadSearch])
 
@@ -140,6 +153,8 @@ export function CommandPalette() {
 	const isUrl = URL_PATTERN.test(trimmed)
 	const searching = trimmed.length >= 2 && !isUrl
 	const results = searching ? (search.data?.items ?? []) : []
+	const highlightResults = searching ? (search.data?.highlights ?? []) : []
+	const noteResults = searching ? (search.data?.notes ?? []) : []
 	// Only once something is typed: a library's tags are many, and nobody opened the menu for a list.
 	const tagItems = trimmed && !isUrl ? tags : []
 	const pendingTheme = prefs.formData?.get("theme")
@@ -290,7 +305,7 @@ export function CommandPalette() {
 								))}
 							</Group>
 						) : null}
-						{searching ? (
+						{results.length > 0 ? (
 							<Group heading={t("palette.results")}>
 								{results.map((r) => (
 									<Item
@@ -304,7 +319,43 @@ export function CommandPalette() {
 										}}
 									/>
 								))}
-								{/* The menu opens articles by title; the search page reads them, and takes operators. */}
+							</Group>
+						) : null}
+						{highlightResults.length > 0 ? (
+							<Group heading={t("palette.highlights")}>
+								{highlightResults.map((h) => (
+									<Item
+										key={h.id}
+										command={{
+											id: `hl-${h.id}`,
+											label: h.quote,
+											detail: h.title,
+											icon: Highlighter,
+											run: () => go(`/read/${h.documentId}#h=${h.id}`),
+										}}
+									/>
+								))}
+							</Group>
+						) : null}
+						{noteResults.length > 0 ? (
+							<Group heading={t("palette.notes")}>
+								{noteResults.map((n) => (
+									<Item
+										key={n.documentId}
+										command={{
+											id: `note-${n.documentId}`,
+											label: n.note,
+											detail: n.title,
+											icon: NotebookPen,
+											run: () => go(`/read/${n.documentId}#note`),
+										}}
+									/>
+								))}
+							</Group>
+						) : null}
+						{searching ? (
+							<Group heading={t("palette.search")}>
+								{/* The menu opens what it found by its words; the search page reads them, and takes operators. */}
 								<Item
 									command={{
 										id: "search-all",
@@ -400,7 +451,9 @@ function Item({
 			<Icon className="size-4 shrink-0 text-muted-fg" aria-hidden />
 			<span className="flex min-w-0 flex-1 items-center">
 				<span className="truncate">{label}</span>
-				{detail ? <span className="ml-2 shrink-0 text-xs text-muted-fg">{detail}</span> : null}
+				{detail ? (
+					<span className="ml-2 max-w-[40%] shrink-0 truncate text-xs text-muted-fg">{detail}</span>
+				) : null}
 			</span>
 			{shortcut ? <Kbd className="pl-4">{shortcut}</Kbd> : null}
 		</Command.Item>
