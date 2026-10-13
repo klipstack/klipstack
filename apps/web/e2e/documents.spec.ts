@@ -740,7 +740,7 @@ test("a malformed id or cursor is not found, not a server error", async ({ page 
 			)
 		)?.status(),
 	).toBe(200)
-	expect((await page.goto("/highlights?cursor=junk"))?.status()).toBe(200)
+	expect((await page.goto("/notebook?view=stream&cursor=junk"))?.status()).toBe(200)
 	const post = (path: string, form: Record<string, string>) =>
 		page.request.post(path, { form, headers: { origin: new URL(page.url()).origin } })
 	// A malformed id is a bad request, as in the API.

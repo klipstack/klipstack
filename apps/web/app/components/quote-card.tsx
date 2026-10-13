@@ -21,7 +21,13 @@ function quoteSize(text: string): string {
 }
 
 /** A dealt hand lies a little askew, as cards on a table do. */
-const DEALT = ["-rotate-1", "rotate-[0.7deg]", "-rotate-[0.4deg]", "rotate-1", "rotate-[0.3deg]"]
+export const DEALT = [
+	"-rotate-1",
+	"rotate-[0.7deg]",
+	"-rotate-[0.4deg]",
+	"rotate-1",
+	"rotate-[0.3deg]",
+]
 
 /**
  * The highlights board's card: the quote large, in its highlight's color, the note a post-it stuck

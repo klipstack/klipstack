@@ -238,7 +238,6 @@ export default {
 		topicsReady: "Tus primeros temas están listos",
 		archive: "Archivo",
 		starred: "Destacados",
-		highlights: "Subrayados",
 		notebook: "Cuaderno",
 		editions: "Ediciones",
 		trash: "Papelera",

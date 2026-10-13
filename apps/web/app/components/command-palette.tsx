@@ -167,16 +167,11 @@ export function CommandPalette() {
 		{ id: "go-archive", label: t("nav.archive"), icon: Archive, run: () => go("/archive") },
 		{ id: "go-starred", label: t("nav.starred"), icon: Star, run: () => go("/starred") },
 		{
-			id: "go-highlights",
-			label: t("nav.highlights"),
-			icon: Highlighter,
-			run: () => go("/highlights"),
-		},
-		{
 			id: "go-notebook",
 			label: t("nav.notebook"),
 			icon: NotebookPen,
-			keywords: [t("palette.notes")],
+			// Highlights live in the Notebook too.
+			keywords: [t("palette.notes"), t("palette.highlights")],
 			run: () => go("/notebook"),
 		},
 		{ id: "go-editions", label: t("nav.editions"), icon: Newspaper, run: () => go("/editions") },

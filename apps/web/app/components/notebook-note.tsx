@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next"
 import { useAutosaveText } from "~/hooks/use-autosave-text"
 import { fitsKeepalive } from "~/lib/keepalive"
 import type { LinkTargets } from "~/lib/note-links"
+import { cn } from "~/lib/utils"
 import { NoteField } from "./note-field"
 import { NoteStatus } from "./note-status"
 import { PostIt, useGrowingFit } from "./post-it"
@@ -15,7 +16,8 @@ interface Saved {
 }
 
 /**
- * An article's note in the Notebook, written straight on its post-it, as in the reader's sidebar.
+ * An article's note in the Notebook, written straight on its post-it, as in the reader's sidebar;
+ * an article without one shows a blank post-it to write it on.
  * Unlike the sidebar, the page may be old: each save says which note it replaces
  * (`expectedUpdatedAt`), so a note written meanwhile elsewhere (the reader, the phone) is never
  * overwritten unseen. When that happens, the writer chooses: the saved note, or theirs.
@@ -27,7 +29,15 @@ export function NotebookNote({
 	noteUpdatedAt,
 	linkTargets,
 	tilt,
-}: Saved & { documentId: string; title: string; linkTargets: LinkTargets; tilt: number }) {
+	large = false,
+}: Saved & {
+	documentId: string
+	title: string
+	linkTargets: LinkTargets
+	tilt: number
+	/** As wide as its column, in larger writing: the note beside an article's highlights. */
+	large?: boolean
+}) {
 	const { t } = useTranslation("reader")
 	// Which note the next save replaces; moved on by every save that lands.
 	const expected = useRef(noteUpdatedAt)
@@ -102,6 +112,7 @@ export function NotebookNote({
 			save={save(start.rev)}
 			linkTargets={linkTargets}
 			tilt={tilt}
+			large={large}
 			conflict={conflict !== null}
 			onTheirs={takeSaved}
 			onMine={(flush) => {
@@ -123,6 +134,7 @@ function Editor({
 	save,
 	linkTargets,
 	tilt,
+	large,
 	conflict,
 	onTheirs,
 	onMine,
@@ -134,6 +146,7 @@ function Editor({
 	save: (text: string, opts: { keepalive: boolean }) => Promise<void>
 	linkTargets: LinkTargets
 	tilt: number
+	large: boolean
 	conflict: boolean
 	onTheirs: () => void
 	/** Handed this editor's flush, to send the writer's text again. */
@@ -147,11 +160,18 @@ function Editor({
 			<PostIt
 				tilt={tilt}
 				fit={fit}
-				className="text-[0.9375rem] leading-snug focus-within:ring-2 focus-within:ring-ring"
+				// Nothing on it yet: an outline to write on, paper from the first letter.
+				blank={!value.trim()}
+				style={large ? { width: "100%" } : undefined}
+				className={cn(
+					"leading-snug focus-within:ring-2 focus-within:ring-ring",
+					large ? "text-lg" : "text-[0.9375rem]",
+				)}
 			>
 				<NoteField
 					id={id}
 					aria-label={label}
+					placeholder={t("notebook.addNote")}
 					value={value}
 					maxLength={NOTE_MAX}
 					onChange={change}

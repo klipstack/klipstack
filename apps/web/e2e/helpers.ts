@@ -63,7 +63,7 @@ const SIDEBAR_ROUTES = [
 	"routes/feed",
 	"routes/archive",
 	"routes/starred",
-	"routes/highlights",
+	"routes/notebook",
 	// Not "routes/editions": its link shows only with the feature, turned on after the page loaded.
 	"routes/tags",
 	"routes/trash",

@@ -24,7 +24,6 @@ export default [
 		route("trash", "routes/library.tsx", { id: "routes/trash" }),
 		route("search", "routes/search.tsx"),
 		route("add", "routes/add.tsx"),
-		route("highlights", "routes/highlights.tsx"),
 		route("notebook", "routes/notebook.tsx"),
 		route("tags", "routes/tags.tsx"),
 		route("topics", "routes/topics.tsx"),

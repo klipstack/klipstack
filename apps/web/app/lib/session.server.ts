@@ -7,8 +7,8 @@ import {
 import { auth, type SessionData } from "./auth.server"
 import { cacheIdentity } from "./cache-identity.server"
 import { BASE_POLICY } from "./csp.server"
-import { HIGHLIGHT_VIEW_COOKIE } from "./highlight-filters"
 import { LAYOUT_COOKIE } from "./list-layout"
+import { NOTEBOOK_VIEW_COOKIE } from "./notebook-filters"
 import { SIDEBAR_COOKIE } from "./sidebar"
 
 export const sessionContext = createContext<SessionData | null>(null)
@@ -109,7 +109,7 @@ export function cookieHeadersFrom(source: Headers, extra?: Headers): Headers {
 export async function signOutHeaders(request: Request): Promise<Headers> {
 	const response = await auth.api.signOut({ headers: request.headers, asResponse: true })
 	const headers = cookieHeadersFrom(response.headers)
-	for (const name of [LAYOUT_COOKIE, SIDEBAR_COOKIE, HIGHLIGHT_VIEW_COOKIE])
+	for (const name of [LAYOUT_COOKIE, SIDEBAR_COOKIE, NOTEBOOK_VIEW_COOKIE])
 		headers.append("Set-Cookie", `${name}=; Path=/; Max-Age=0; SameSite=Lax`)
 	return headers
 }

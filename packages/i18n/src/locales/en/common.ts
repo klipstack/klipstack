@@ -239,7 +239,6 @@ export default {
 		topicsReady: "Your first topics are ready",
 		archive: "Archive",
 		starred: "Starred",
-		highlights: "Highlights",
 		notebook: "Notebook",
 		editions: "Editions",
 		trash: "Trash",
