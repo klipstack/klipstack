@@ -201,6 +201,7 @@ async function applyHistory(state: State, item: Prepared, all: Prepared[]) {
 				})
 	for (const highlight of planned) {
 		let existing = await db.query.highlights.findFirst({
+			columns: { search: false },
 			where: and(
 				eq(highlights.documentId, id),
 				eq(highlights.startOffset, highlight.start),

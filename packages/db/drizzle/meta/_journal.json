@@ -302,6 +302,13 @@
 			"when": 1791810278249,
 			"tag": "0042_topic_boundary",
 			"breakpoints": true
+		},
+		{
+			"idx": 43,
+			"version": "7",
+			"when": 1791850246875,
+			"tag": "0043_annotation_search",
+			"breakpoints": true
 		}
 	]
 }

@@ -286,6 +286,19 @@ function Reader({ loaderData }: Route.ComponentProps) {
 		setSidebarOpen(true)
 	}
 	const toggleSidebar = () => showSidebarTab("notes")
+	// Deep link: /read/:id#note opens the sidebar on the article's note (a note found by search).
+	// Followed once per arrival: closing the sidebar keeps it closed.
+	const followedNote = useRef<string | null>(null)
+	useEffect(() => {
+		if (location.hash !== "#note") {
+			followedNote.current = null
+			return
+		}
+		if (followedNote.current === location.key) return
+		followedNote.current = location.key
+		setSidebarTab("notes")
+		setSidebarOpen(true)
+	}, [location.hash, location.key])
 	// The same test as the reader's (`aiEnabled`): AI needs the browser's highlight painting.
 	const chatting = ready && loaderData.ai.enabled && highlightsPaint
 

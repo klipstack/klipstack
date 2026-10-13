@@ -302,6 +302,8 @@ export default {
 		empty: "Sin resultados.",
 		actions: "Acciones",
 		results: "Artículos",
+		highlights: "Subrayados",
+		notes: "Notas",
 		navigate: "Ir a",
 		search: "Buscar",
 		article: "Este artículo",

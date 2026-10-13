@@ -84,10 +84,11 @@ export function useReadingProgress(doc: Doc, ready: boolean) {
 			timer = window.setTimeout(() => submitProgress(progress), 1500)
 		}
 		// Resume where you left off (inverse of the formula above), unless a highlight link or the
-		// browser's own restoration already positioned the page. Barely-started or finished articles
-		// open at the top.
+		// browser's own restoration already positioned the page. A link to the note (#note) only
+		// opens the sidebar. Barely-started or finished articles open at the top.
 		const stored = doc.readingPosition
-		if (!window.location.hash && window.scrollY === 0 && stored >= 0.05 && stored <= 0.95) {
+		const hash = window.location.hash
+		if ((!hash || hash === "#note") && window.scrollY === 0 && stored >= 0.05 && stored <= 0.95) {
 			const el = document.documentElement
 			const max = scrollSpan(el)
 			window.scrollTo({
