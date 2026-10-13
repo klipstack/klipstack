@@ -31,3 +31,6 @@ onlyBuiltDependencies:
   - esbuild
   - better-sqlite3
   - wxt
+patchedDependencies:
+  # The system text menu (Paste) in the reader page's note field: see the patch.
+  react-native-webview@13.16.1: patches/react-native-webview@13.16.1.patch

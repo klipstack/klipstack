@@ -67,12 +67,34 @@ export type EndAction =
 	| "unkeep"
 	| "finish"
 	| "edition-note"
+	/** Save the article note again, after a save failed. */
+	| "note-retry"
+
+/**
+ * The article note, for its post-it in the end block: the same note as the app's notes sheet.
+ * `rev` moves when the app replaces the note (the reader took the one saved elsewhere): the
+ * post-it shows it even while being written in. Otherwise it keeps what is typed in it.
+ */
+export type PageNote = {
+	/** As stored: links are `[Title](/read/<id>)`. */
+	text: string
+	status: "idle" | "saving" | "saved" | "error"
+	/** Linked articles in the trash or gone; the others are readable. */
+	links: Record<string, "trash" | "missing">
+	rev: number
+}
 
 export type PageMessage =
 	| { type: "selection"; selection: PageSelection | null }
 	/** `ended`: the end of the article (the end block's top) is on screen. */
 	| { type: "reading"; position: number; ended: boolean; moved: boolean }
 	| { type: "end"; action: EndAction }
+	/** The article note, as written on the end block's post-it. */
+	| { type: "note"; text: string }
+	/** The post-it is being written in, or no longer. */
+	| { type: "note-focus"; focused: boolean }
+	/** A link in the post-it, tapped while not writing: open that article. */
+	| { type: "note-link"; id: string }
 	| { type: "highlight"; id: string }
 	/** A tap off the open highlight. */
 	| { type: "outside" }
@@ -103,4 +125,5 @@ export type PageApi = {
 	klipSpeaking(index: number | null): void
 	klipAsset(id: string, name: string): void
 	klipEnd(end: PageEnd): void
+	klipNote(note: PageNote): void
 }

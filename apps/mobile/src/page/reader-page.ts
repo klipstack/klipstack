@@ -21,6 +21,7 @@ import type {
 } from "./messages"
 import { type Endpoint, moveEnd, type Offsets, wordEdges } from "./resize"
 import { splitSentences } from "./sentences"
+import { createTakeaway } from "./takeaway"
 
 /**
  * The reader page's script, in the WebView (`readerHtml` puts it in the page; `scripts/build-page`
@@ -47,9 +48,10 @@ import { splitSentences } from "./sentences"
  *   opens at the saved position, or at a highlight.
  * - Above the title, the article's topics; after the end block, the shelf of what to read next
  *   (`readerHtml`), whose cards are links to the library's reader pages. Reading progress is
- *   measured to the end block, not through the shelf (`readingSpan`).
+ *   measured to the end block, not through it or the shelf (`readingSpan`).
  * - `klipEnd(end)` draws the end block after the article (whether leaving finishes it, the star,
- *   the mark for the next edition); its taps go to the app (`{ type: "end", action }`).
+ *   the mark for the next edition); its taps go to the app (`{ type: "end", action }`). In it, the
+ *   article note's post-it (`takeaway.ts`), which `klipNote(note)` fills.
  * - A tap on a highlight tells the app which (`{ type: "highlight", id }`, the smallest when they
  *   overlap); a tap on a web link, which link (`{ type: "link", href, text }`), instead of
  *   following it.
@@ -441,17 +443,27 @@ export function startReaderPage(): void {
 	// ---- the end of the article ----
 
 	const endBlock = document.getElementById("klip-end")
+	// The block's parts: what is drawn again with each `klipEnd`, around the post-it, which stays (it
+	// may be written in) and is put in once the end is drawn.
+	const endHead = document.createElement("div")
+	const endRest = document.createElement("div")
+	endHead.className = endRest.className = "end-part"
+	const takeaway = createTakeaway(post)
 	// Marked with its button here: what that opens below scrolls into view once the app says so.
 	let showEdition = false
 	page.klipEnd = (end) => {
 		if (!endBlock) return
-		endBlock.innerHTML = endHtml(end)
+		if (!endBlock.firstChild) endBlock.append(endHead, takeaway.element, endRest)
+		const parts = endParts(end)
+		endHead.innerHTML = parts.head
+		endRest.innerHTML = parts.rest
 		if (!end.shortlisted) return
 		const card = showEdition ? endBlock.querySelector(".end-edition") : null
 		showEdition = false
 		const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
 		card?.scrollIntoView({ block: "nearest", behavior: still ? "auto" : "smooth" })
 	}
+	page.klipNote = takeaway.update
 	endBlock?.addEventListener("click", (event) => {
 		const button =
 			event.target instanceof Element ? event.target.closest<HTMLElement>("[data-end]") : null
@@ -653,14 +665,16 @@ export function startReaderPage(): void {
 
 /**
  * How far the page scrolls while reading the article: to its end, not through what comes after it
- * (`data-after-reading`, the shelf of what to read next), so an article read to its end is read.
- * As the web reader's (apps/web/app/hooks/use-reading-progress.ts).
+ * (`data-after-reading`: the end block with the note's post-it, then the shelf of what to read
+ * next), so an article read to its end is read, however tall its note. As the web reader's
+ * (apps/web/app/hooks/use-reading-progress.ts). An end block not drawn yet takes no room.
  */
 export function readingSpan(el: HTMLElement): number {
-	const after = document.querySelector<HTMLElement>("[data-after-reading]")
-	const tail = after
-		? after.offsetHeight + (Number.parseFloat(getComputedStyle(after).marginTop) || 0)
-		: 0
+	let tail = 0
+	for (const after of document.querySelectorAll<HTMLElement>("[data-after-reading]")) {
+		if (!after.offsetHeight) continue
+		tail += after.offsetHeight + (Number.parseFloat(getComputedStyle(after).marginTop) || 0)
+	}
 	return el.scrollHeight - el.clientHeight - tail
 }
 
@@ -682,15 +696,20 @@ const escapeText = (text: string) =>
 /** Links (`[text](https://…)`) as their text, as the note reads. */
 const linkText = (text: string) => text.replace(/\[([^\]\n]*)\]\((https?:\/\/[^\s)]+)\)/g, "$1")
 
-/** The end block's content: the web reader's (apps/web/app/components/reader-end.tsx). */
-export function endHtml(end: PageEnd): string {
+/**
+ * The end block's content, around the post-it of the article note: the web reader's
+ * (apps/web/app/components/reader-end.tsx). `head`, above the post-it: one line that says where
+ * reading left the article, and Mark as Finished while it is early. `rest`, below: the choices,
+ * and once marked, the note for the next edition.
+ */
+export function endParts(end: PageEnd): { head: string; rest: string } {
 	const done = end.state === "finished" || end.state === "finishing"
-	const heading = `<div class="end-heading">${done ? `<span class="end-check">${CHECK}</span>Finished` : "You reached the end"}</div>`
-	const note =
+	const heading = `<span class="end-heading">${done ? `<span class="end-check">${CHECK}</span>Finished` : "You reached the end"}</span>`
+	const state =
 		end.state === "finishing"
-			? `<p class="end-note">${end.archived ? "It's marked as finished when you leave." : "It goes to your archive when you leave."} <button type="button" class="end-link" data-end="keep">${end.archived ? "Keep unfinished" : "Keep in Library"}</button></p>`
+			? ` ${end.archived ? "It's marked as finished when you leave." : "It goes to your archive when you leave."} <button type="button" class="end-link" data-end="keep">${end.archived ? "Keep unfinished" : "Keep in Library"}</button>`
 			: end.state === "kept"
-				? `<p class="end-note">${end.archived ? "It stays unfinished." : "It stays in your Library."} <button type="button" class="end-link" data-end="unkeep">Finish when I leave</button></p>`
+				? ` ${end.archived ? "It stays unfinished." : "It stays in your Library."} <button type="button" class="end-link" data-end="unkeep">Finish when I leave</button>`
 				: ""
 	const finish =
 		end.state === "early"
@@ -702,9 +721,12 @@ export function endHtml(end: PageEnd): string {
 	// Marked: it says so, and offers the note for the edition's readers, which the app edits.
 	const written = end.editionNote?.trim() ? linkText(end.editionNote) : null
 	const card = end.shortlisted
-		? `<div class="end-edition"><div class="end-edition-title"><span class="end-check">${CHECK}</span>Added to your next edition</div><button type="button" class="end-edition-note${written ? "" : " empty"}" data-end="edition-note">${escapeText(written ?? EDITION_NOTE_PLACEHOLDER)}</button></div>`
+		? `<div class="end-edition"><div class="end-edition-title"><span class="end-check">${CHECK}</span>Added to your next edition</div><div class="end-edition-label">For your edition's readers</div><button type="button" class="end-edition-note${written ? "" : " empty"}" data-end="edition-note" aria-label="For your edition's readers">${escapeText(written ?? EDITION_NOTE_PLACEHOLDER)}</button></div>`
 		: ""
-	return `${heading}${note}${finish}<div class="end-choices">${star}${share}${edition}</div>${card}`
+	return {
+		head: `<p class="end-status">${heading}${state}</p>${finish}`,
+		rest: `<div class="end-choices">${star}${share}${edition}</div>${card}`,
+	}
 }
 
 function readConfig(): PageConfig {

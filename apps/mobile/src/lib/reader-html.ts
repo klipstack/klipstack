@@ -75,7 +75,7 @@ ${page.byline ? `<p class="byline">${escapeHtml(page.byline)}</p>` : ""}
 ${(page.via ?? []).map(viaHtml).join("")}
 </header>
 <article>${page.html}</article>
-<section id="klip-end"></section>
+<section id="klip-end" data-after-reading></section>
 ${shelfHtml(page.topics)}<script type="application/json" id="klip-config">${scriptJson(config)}</script>
 <script>${pageScript}</script>
 </body>
@@ -231,6 +231,7 @@ const css = `
 	--speaking: oklch(0.48 0.16 257 / 0.13);
 	--accent: oklch(0.37 0.085 260); --accent-fg: oklch(0.99 0 0); --favorite: oklch(0.58 0.12 78);
 	--selected: oklch(0.838517 0.042484 255.026856); --selected-fg: oklch(0.362349 0.098058 256.863103);
+	--note: oklch(0.955 0.065 96); --note-fg: oklch(0.27 0.03 75); --note-tape: oklch(1 0 0 / 0.55);
 	--serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
 	--sans: ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
 }
@@ -244,6 +245,7 @@ const css = `
 		--speaking: oklch(0.78 0.105 250 / 0.2);
 		--accent: oklch(0.74 0.1 255); --accent-fg: oklch(0.19 0.025 260); --favorite: oklch(0.78 0.12 80);
 		--selected: oklch(0.364043 0.071354 255.403282); --selected-fg: oklch(0.875271 0.061525 257.523997);
+		--note: oklch(0.4 0.05 85); --note-fg: oklch(0.95 0.025 90); --note-tape: oklch(1 0 0 / 0.15);
 	}
 }
 html { -webkit-text-size-adjust: 100%; }
@@ -321,7 +323,7 @@ html.hl-dragging, html.hl-dragging * { -webkit-user-select: none; user-select: n
 .hl-in { animation: hl-pop 0.16s ease-out; }
 @keyframes hl-pop { from { opacity: 0; transform: translateY(1px); } }
 @media (prefers-reduced-motion: reduce) { .hl-in { animation: none; } }
-/* The end of the article (src/page/reader-page.ts, endHtml): as the web reader's. */
+/* The end of the article (src/page/reader-page.ts, endParts): as the web reader's. */
 #klip-end:empty { display: none; }
 #klip-end {
 	margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border);
@@ -330,10 +332,12 @@ html.hl-dragging, html.hl-dragging * { -webkit-user-select: none; user-select: n
 }
 #klip-end button { font: inherit; color: inherit; border: 0; background: none; padding: 0; cursor: pointer; }
 #klip-end svg { width: 18px; height: 18px; flex: none; }
-.end-heading { display: flex; align-items: center; gap: 8px; font-size: 1.0625rem; font-weight: 600; }
+.end-part { display: contents; }
+.end-status { margin: 0; color: var(--muted-fg); }
+.end-heading { color: var(--fg); font-weight: 600; }
 .end-check { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: var(--accent-fg); }
 .end-check svg { width: 14px; height: 14px; }
-.end-note { margin: 0; color: var(--muted-fg); }
+.end-status .end-check { display: inline-grid; vertical-align: -6px; margin-right: 8px; }
 #klip-end .end-link { color: var(--fg); font-weight: 600; text-decoration: underline; text-decoration-color: var(--border); text-underline-offset: 3px; }
 #klip-end .end-finish {
 	justify-self: start; display: inline-flex; align-items: center; gap: 8px;
@@ -363,6 +367,34 @@ html.hl-dragging, html.hl-dragging * { -webkit-user-select: none; user-select: n
 	background: var(--bg); text-align: left; white-space: pre-wrap; overflow-wrap: anywhere;
 }
 #klip-end .end-edition-note.empty { color: var(--muted-fg); }
+.end-edition-label { margin-bottom: -6px; font-size: 0.8125rem; color: var(--muted-fg); }
+/* The article note, on a post-it (src/page/takeaway.ts): the web's PostIt, \`full\`. */
+.takeaway { display: grid; gap: 10px; justify-items: start; margin: 6px 0 4px; }
+.takeaway-label { margin-bottom: 8px; }
+.takeaway-label { font-size: 0.8125rem; font-weight: 600; color: var(--muted-fg); }
+.takeaway-label span { font-weight: 400; }
+.post-it {
+	position: relative; box-sizing: border-box; padding: 24px 20px 20px; transform: rotate(-1deg);
+	background: var(--note); color: var(--note-fg);
+	box-shadow: 0 1px 1px rgb(0 0 0 / 0.08), 0 12px 24px -12px rgb(0 0 0 / 0.4);
+}
+.post-it .tape {
+	position: absolute; top: -12px; left: 50%; width: 80px; height: 24px; pointer-events: none;
+	transform: translateX(-50%) rotate(-3deg); background: var(--note-tape); box-shadow: 0 1px 2px rgb(0 0 0 / 0.12);
+}
+.takeaway-field {
+	position: relative; min-height: 100%; outline: none; white-space: pre-wrap; overflow-wrap: anywhere;
+	font-family: var(--serif); font-style: italic; font-size: 1.0625rem; line-height: 1.45;
+	-webkit-user-select: text; user-select: text; caret-color: currentColor;
+}
+.takeaway-field.empty::before {
+	content: attr(data-placeholder); position: absolute; inset: 0; pointer-events: none;
+	color: color-mix(in oklch, var(--note-fg) 55%, transparent);
+}
+.takeaway-link { text-decoration: underline; text-underline-offset: 3px; }
+.takeaway-link.trash { text-decoration: line-through; opacity: 0.6; }
+.takeaway-link.missing { opacity: 0.6; }
+.takeaway-status { min-height: 1.2em; font-size: 0.8125rem; color: var(--muted-fg); }
 /* The topics above the title, and the shelf after the end block: as the web reader's. */
 .kicker {
 	display: flex; flex-wrap: wrap; gap: 0 8px; margin: 8px 0 0; font-family: var(--sans);

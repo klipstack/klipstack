@@ -95,8 +95,8 @@ function sized(window: ReturnType<typeof openPage>["window"]) {
 	const el = window.document.documentElement
 	Object.defineProperty(el, "scrollHeight", { value: 3000 })
 	Object.defineProperty(el, "clientHeight", { value: 1000 })
-	const after = window.document.querySelector("[data-after-reading]")
-	if (after) Object.defineProperty(after, "offsetHeight", { value: 400 })
+	const shelf = window.document.getElementById("klip-shelf")
+	if (shelf) Object.defineProperty(shelf, "offsetHeight", { value: 400 })
 }
 
 const settle = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -261,6 +261,23 @@ describe("the reader page: reading and links", () => {
 		expect(await reported({ topics: [], shelf: SHELF })).toBeCloseTo(1500 / 1560)
 	})
 
+	it("measures reading to the top of the end block, however tall its note makes it", async () => {
+		const { window, messages } = openPage("<p>Text.</p>")
+		sized(window)
+		const page = window as unknown as { klipEnd: (end: unknown) => void }
+		page.klipEnd({ state: "kept", archived: false, starred: false, shortlisted: false })
+		const end = window.document.getElementById("klip-end")!
+		Object.defineProperty(end, "offsetHeight", { value: 500 })
+		Object.defineProperty(window, "scrollY", { value: 1000 })
+		await settle(50)
+		messages.length = 0
+		window.dispatchEvent(new window.Event("scroll"))
+		await settle(300)
+		const last = messages.findLast((m) => m.type === "reading")
+		// Over 3,000 − 1,000 − 500 − its 40 points of margin.
+		expect(last?.type === "reading" ? last.position : null).toBeCloseTo(1200 / 1460)
+	})
+
 	it("opens at the saved position measured the same way, without the shelf", async () => {
 		const openedAt = async (topics: ReaderPage["topics"]) => {
 			const { window } = openPage("<p>Text.</p>", [], { topics, position: 0.9 })
@@ -394,5 +411,98 @@ describe("the reader page: reading and links", () => {
 		// Drawn again (the note changed), or marked elsewhere: no scroll.
 		page.klipEnd({ ...base, shortlisted: true, editionNote: "Why." })
 		expect(scrolled).toHaveLength(1)
+	})
+})
+
+describe("the reader page: the note at the end", () => {
+	const LINKED = "0190a3c4-1111-7000-8000-000000000002"
+	const base = { state: "kept", archived: false, starred: false, shortlisted: false }
+	const note = (text: string, more: object = {}) => ({
+		text,
+		status: "idle",
+		links: {},
+		rev: 0,
+		...more,
+	})
+	function openEnd() {
+		const opened = openPage("<p>Text.</p>")
+		const page = opened.window as unknown as {
+			klipEnd: (end: unknown) => void
+			klipNote: (note: unknown) => void
+		}
+		page.klipEnd(base)
+		const end = opened.window.document.getElementById("klip-end")!
+		const field = end.querySelector<HTMLElement>(".takeaway-field")!
+		return { ...opened, page, end, field }
+	}
+
+	it("puts the note on a post-it between the line about the end and the choices", () => {
+		const { page, end, field } = openEnd()
+		const order = Array.from(end.querySelectorAll(".end-status, .takeaway, .end-choices"))
+		expect(order.map((el) => el.className)).toEqual(["end-status", "takeaway", "end-choices"])
+		expect(end.querySelector(".takeaway-label")?.textContent).toBe("Your note · only you")
+		page.klipNote(note(""))
+		expect(field.className).toContain("empty")
+		expect(field.dataset.placeholder).toBe("What will you take from this?")
+	})
+
+	it("shows links as their titles, and hands what is written back as stored", () => {
+		const { window, page, field, messages } = openEnd()
+		const stored = `Mine.\nSee [The other](/read/${LINKED}) too.`
+		page.klipNote(note(stored, { links: { [LINKED]: "trash" } }))
+		expect(field.className).not.toContain("empty")
+		const link = field.querySelector<HTMLElement>(".takeaway-link")!
+		expect(link.textContent).toBe("The other")
+		expect(link.className).toContain("trash")
+		expect(link.getAttribute("contenteditable")).toBe("false")
+
+		field.append(" More.")
+		messages.length = 0
+		field.dispatchEvent(new window.Event("input"))
+		expect(messages).toEqual([{ type: "note", text: `${stored} More.` }])
+	})
+
+	it("keeps what is being written when the app's note comes back, unless the app replaced it", () => {
+		const { window, page, field, messages } = openEnd()
+		page.klipNote(note("Saved."))
+		field.focus()
+		expect(window.document.activeElement).toBe(field)
+		field.textContent = "Typed faster."
+		page.klipNote(note("Typed.", { status: "saving" }))
+		expect(field.textContent).toBe("Typed faster.")
+		expect(window.document.querySelector(".takeaway-status")?.textContent).toBe("Saving…")
+		// Taken from elsewhere: shown at once.
+		page.klipNote(note("From the web.", { rev: 1 }))
+		expect(field.textContent).toBe("From the web.")
+		// Out of the field: what the app has, and the app is told.
+		page.klipNote(note("From the sheet.", { rev: 1 }))
+		messages.length = 0
+		field.blur()
+		expect(field.textContent).toBe("From the sheet.")
+		expect(messages).toContainEqual({ type: "note-focus", focused: false })
+	})
+
+	it("opens a linked article on a tap while not writing, and retries a failed save", () => {
+		const { window, page, end, field, messages } = openEnd()
+		page.klipNote(note(`[The other](/read/${LINKED})`, { status: "error" }))
+		messages.length = 0
+		field
+			.querySelector(".takeaway-link")!
+			.dispatchEvent(new window.MouseEvent("click", { bubbles: true }))
+		end
+			.querySelector('[data-end="note-retry"]')!
+			.dispatchEvent(new window.MouseEvent("click", { bubbles: true }))
+		expect(messages).toEqual([
+			{ type: "note-link", id: LINKED },
+			{ type: "end", action: "note-retry" },
+		])
+	})
+
+	it("stays as written when the rest of the end block is drawn again", () => {
+		const { page, field } = openEnd()
+		page.klipNote(note("Kept."))
+		page.klipEnd({ ...base, starred: true })
+		expect(field.isConnected).toBe(true)
+		expect(field.textContent).toBe("Kept.")
 	})
 })
