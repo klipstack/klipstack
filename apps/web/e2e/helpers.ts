@@ -259,11 +259,17 @@ export async function expectNoEmailTo(address: string) {
 	expect(existsSync(mailFile(address))).toBe(false)
 }
 
-/** The text of every highlight painted in the reader, whatever its color (`klip-hl-<color>`). */
+/**
+ * The text of every highlight the reader paints, whatever its color: one per group of marker strokes
+ * (`HighlightInk`) that has at least one stroke, read from its color's registry (`klip-hl-<color>`).
+ */
 export function paintedHighlights(page: Page): Promise<string[]> {
 	return page.evaluate(() =>
-		[...CSS.highlights]
-			.filter(([name]) => name.startsWith("klip-hl-"))
-			.flatMap(([, painted]) => [...painted].map((range) => range.toString())),
+		[...document.querySelectorAll<HTMLElement>(".hl-inks > [data-hl]")]
+			.filter((group) => group.querySelector(".hl-ink"))
+			.map((group) => {
+				const registry = [...(CSS.highlights.get(`klip-hl-${group.dataset.hl}`) ?? [])]
+				return registry[Number(group.dataset.index)]?.toString() ?? ""
+			}),
 	)
 }

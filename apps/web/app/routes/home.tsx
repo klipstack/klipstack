@@ -88,7 +88,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 							<Trans
 								i18nKey="home.headline"
 								components={{
-									mark: <mark className="swipe" />,
+									mark: <mark className="marker swipe" />,
 									em: <em className="font-[480] tracking-[-0.02em]" />,
 								}}
 							/>

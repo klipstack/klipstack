@@ -7,8 +7,8 @@ import { useLocation } from "react-router"
 import { AiCard, type AiCardPlacement } from "~/components/ai-card"
 import { BriefCard } from "~/components/brief-card"
 import { ChatPanel } from "~/components/chat-panel"
+import { HighlightInk } from "~/components/highlight-ink"
 import { HighlightNoteEditor, type NoteEditorPlacement } from "~/components/highlight-note-editor"
-import { HighlightOutline } from "~/components/highlight-outline"
 import { HighlightResizeHandles } from "~/components/highlight-resize-handles"
 import { HighlightToolbar } from "~/components/highlight-toolbar"
 import { LinkPopover } from "~/components/link-popover"
@@ -650,12 +650,10 @@ export function ReaderArticle({
 						dangerouslySetInnerHTML={{ __html: html }}
 					/>
 					{supported ? (
-						<HighlightOutline
-							articleRef={articleRef}
-							rangesRef={rangesRef}
-							id={outlined && !isTemporary(outlined.id) ? outlined.id : null}
-							color={outlined?.color}
-							version={items}
+						<HighlightInk
+							rootRef={contentRef}
+							containerRef={articleRef}
+							outlined={outlined && !isTemporary(outlined.id) ? outlined.id : null}
 						/>
 					) : null}
 					{!touch && supported ? (

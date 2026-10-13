@@ -264,75 +264,51 @@ body {
 	padding-bottom: calc(max(env(safe-area-inset-bottom), 1rem) + 4.25rem);
 }
 
-/* ---------- Landing page: a highlighter swipe across one headline word ---------- */
-.swipe {
-	--swipe: oklch(0.93 0.16 95 / 0.75);
-	color: inherit;
-	background: linear-gradient(var(--swipe), var(--swipe)) no-repeat 0 78% / 100% 52%;
-	padding-inline: 0.05em;
-	margin-inline: -0.05em;
-	animation: swipe 1.1s 0.25s cubic-bezier(0.3, 0.7, 0.2, 1) both;
-}
-@media (prefers-color-scheme: dark) {
-	:root:not([data-theme="light"]) .swipe {
-		--swipe: oklch(0.72 0.15 95 / 0.55);
-	}
-}
-:root[data-theme="dark"] .swipe {
-	--swipe: oklch(0.72 0.15 95 / 0.55);
-}
-@media (prefers-reduced-motion: reduce) {
-	.swipe {
-		animation: none;
-	}
-}
-@keyframes swipe {
-	from {
-		background-size: 0% 52%;
-	}
-}
-
-/* ---------- Highlights (CSS Custom Highlight API) ---------- */
-/* One wash and one solid line per stored color (HIGHLIGHT_COLORS). In dark mode each wash is darker
-   and less opaque, so light text stays readable on it; the lines stay bright. */
+/* ---------- Highlights: marker ink ---------- */
+/* One ink and one solid line per stored color (HIGHLIGHT_COLORS). The ink is a highlighter's: in
+   light mode a bright, opaque color the text is multiplied into; in dark mode a deep one the light
+   text keeps its lightness over (`lighten`). The lines stay bright in both. */
 :root {
-	--hl-yellow: oklch(0.93 0.16 95 / 0.55);
+	--hl-yellow: oklch(0.92 0.16 99);
 	--hl-yellow-solid: oklch(0.9 0.17 95);
-	--hl-green: oklch(0.9 0.13 150 / 0.5);
+	--hl-green: oklch(0.89 0.12 152);
 	--hl-green-solid: oklch(0.8 0.15 150);
-	--hl-blue: oklch(0.87 0.08 235 / 0.6);
+	--hl-blue: oklch(0.87 0.08 232);
 	--hl-blue-solid: oklch(0.75 0.12 240);
-	--hl-pink: oklch(0.88 0.09 355 / 0.6);
+	--hl-pink: oklch(0.87 0.09 355);
 	--hl-pink-solid: oklch(0.76 0.14 355);
-	--hl-orange: oklch(0.87 0.12 60 / 0.6);
+	--hl-orange: oklch(0.87 0.11 62);
 	--hl-orange-solid: oklch(0.79 0.15 60);
+	--hl-blend: multiply;
 }
 @media (prefers-color-scheme: dark) {
 	:root:not([data-theme="light"]) {
-		--hl-yellow: oklch(0.7 0.14 95 / 0.4);
-		--hl-green: oklch(0.62 0.13 150 / 0.42);
-		--hl-blue: oklch(0.58 0.12 245 / 0.48);
-		--hl-pink: oklch(0.6 0.14 355 / 0.45);
-		--hl-orange: oklch(0.66 0.14 55 / 0.45);
+		--hl-yellow: oklch(0.5 0.1 95);
+		--hl-green: oklch(0.46 0.1 152);
+		--hl-blue: oklch(0.46 0.11 248);
+		--hl-pink: oklch(0.47 0.12 355);
+		--hl-orange: oklch(0.5 0.12 55);
 		--hl-green-solid: oklch(0.82 0.15 150);
 		--hl-blue-solid: oklch(0.78 0.12 240);
 		--hl-pink-solid: oklch(0.79 0.13 355);
 		--hl-orange-solid: oklch(0.82 0.14 60);
+		--hl-blend: lighten;
 	}
 }
 :root[data-theme="dark"] {
-	--hl-yellow: oklch(0.7 0.14 95 / 0.4);
-	--hl-green: oklch(0.62 0.13 150 / 0.42);
-	--hl-blue: oklch(0.58 0.12 245 / 0.48);
-	--hl-pink: oklch(0.6 0.14 355 / 0.45);
-	--hl-orange: oklch(0.66 0.14 55 / 0.45);
+	--hl-yellow: oklch(0.5 0.1 95);
+	--hl-green: oklch(0.46 0.1 152);
+	--hl-blue: oklch(0.46 0.11 248);
+	--hl-pink: oklch(0.47 0.12 355);
+	--hl-orange: oklch(0.5 0.12 55);
 	--hl-green-solid: oklch(0.82 0.15 150);
 	--hl-blue-solid: oklch(0.78 0.12 240);
 	--hl-pink-solid: oklch(0.79 0.13 355);
 	--hl-orange-solid: oklch(0.82 0.14 60);
+	--hl-blend: lighten;
 }
 /* `--hl` and `--hl-solid` are the color in hand: yellow, or the one of the nearest `data-hl` (a
-   swatch, a note's edge, the outline, the reader while one highlight is in focus). */
+   swatch, a note's edge, the outline, a quote, the reader while one highlight is in focus). */
 :root,
 [data-hl="yellow"] {
 	--hl: var(--hl-yellow);
@@ -354,21 +330,70 @@ body {
 	--hl: var(--hl-orange);
 	--hl-solid: var(--hl-orange-solid);
 }
-::highlight(klip-hl-yellow) {
-	background-color: var(--hl-yellow);
+/* The stroke: 80% as tall as the text, low in it, so the tops of tall letters stand above it; the
+   pen lands a little early and lifts a little late, and pools at both ends. INK_HEIGHT and INK_DROP
+   (lib/highlight-ink.ts) are the same numbers. */
+.marker,
+.hl-ink {
+	--ink: linear-gradient(
+		90deg,
+		color-mix(in oklch, var(--hl), var(--k-fg) 9%),
+		var(--hl) 0.6em calc(100% - 0.8em),
+		color-mix(in oklch, var(--hl), var(--k-fg) 6%)
+	);
 }
-::highlight(klip-hl-green) {
-	background-color: var(--hl-green);
+/* A quote shown as marked text (an inline element). Each line is its own stroke. */
+.marker {
+	color: inherit;
+	background: var(--ink) no-repeat 0 90% / 100% 80%;
+	padding-inline: 0.12em 0.18em;
+	margin-inline: -0.12em -0.18em;
+	border-radius: 0.35em 0.5em 0.45em 0.3em / 0.6em 0.55em 0.6em 0.5em;
+	-webkit-box-decoration-break: clone;
+	box-decoration-break: clone;
 }
-::highlight(klip-hl-blue) {
-	background-color: var(--hl-blue);
+/* The reader's highlights: strokes drawn by HighlightInk over the text, blended into it. Inside the
+   layer, strokes that cross get darker, as ink over ink does. */
+.hl-inks {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	mix-blend-mode: var(--hl-blend);
 }
-::highlight(klip-hl-pink) {
-	background-color: var(--hl-pink);
+.hl-ink {
+	position: absolute;
+	background: var(--ink);
+	mix-blend-mode: var(--hl-blend);
 }
-::highlight(klip-hl-orange) {
-	background-color: var(--hl-orange);
+/* A highlight just made is drawn in, once, line after line. */
+.hl-ink[data-fresh] {
+	animation: ink-in 0.32s cubic-bezier(0.3, 0.7, 0.2, 1) both;
 }
+@keyframes ink-in {
+	from {
+		clip-path: inset(0 100% 0 0);
+	}
+	to {
+		clip-path: inset(0 0 0 0);
+	}
+}
+
+/* Home's greeting: one word marked, drawn in as the page opens. */
+.swipe {
+	animation: swipe 1.1s 0.25s cubic-bezier(0.3, 0.7, 0.2, 1) both;
+}
+@keyframes swipe {
+	from {
+		background-size: 0% 80%;
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	.swipe,
+	.hl-ink[data-fresh] {
+		animation: none;
+	}
+}
+
 ::highlight(klip-note) {
 	text-decoration: underline dotted;
 	text-underline-offset: 3px;
@@ -396,34 +421,16 @@ body {
 .reader-content[data-focus]::highlight(klip-active),
 .reader-content[data-focus] ::highlight(klip-active) {
 	color: var(--k-fg);
-	background-color: var(--hl);
 }
-.reader-content[data-focus]::highlight(klip-hl-yellow),
-.reader-content[data-focus] ::highlight(klip-hl-yellow) {
-	background-color: color-mix(in oklch, var(--hl-yellow) 25%, transparent);
-}
-.reader-content[data-focus]::highlight(klip-hl-green),
-.reader-content[data-focus] ::highlight(klip-hl-green) {
-	background-color: color-mix(in oklch, var(--hl-green) 25%, transparent);
-}
-.reader-content[data-focus]::highlight(klip-hl-blue),
-.reader-content[data-focus] ::highlight(klip-hl-blue) {
-	background-color: color-mix(in oklch, var(--hl-blue) 25%, transparent);
-}
-.reader-content[data-focus]::highlight(klip-hl-pink),
-.reader-content[data-focus] ::highlight(klip-hl-pink) {
-	background-color: color-mix(in oklch, var(--hl-pink) 25%, transparent);
-}
-.reader-content[data-focus]::highlight(klip-hl-orange),
-.reader-content[data-focus] ::highlight(klip-hl-orange) {
-	background-color: color-mix(in oklch, var(--hl-orange) 25%, transparent);
+.reader-content[data-focus] ~ .hl-inks > :not([data-active]) {
+	opacity: 0.3;
 }
 .reader-content[data-focus]::highlight(klip-note),
 .reader-content[data-focus] ::highlight(klip-note) {
 	text-decoration: none;
 }
 /* The highlight in focus stands out: a thin line around each line of it, and a faint shadow.
-   Drawn by HighlightOutline over the reader, on the marked text in the landing demo. */
+   Drawn by HighlightInk around the strokes in the reader, on the marked text in the landing demo. */
 .hl-pop {
 	border-radius: 3px;
 	box-shadow:
