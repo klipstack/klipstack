@@ -13,7 +13,7 @@ import type { NoteEditorApi } from "./note-editor"
 import { NoteField } from "./note-field"
 import { NoteStatus } from "./note-status"
 import { NoteText } from "./note-text"
-import { PostIt } from "./post-it"
+import { PostIt, tiltFor, useGrowingFit } from "./post-it"
 
 interface Props {
 	note: {
@@ -85,6 +85,8 @@ export function ReaderSidebar({
 }: Props) {
 	const { t } = useTranslation("reader")
 	const [noteApi, setNoteApi] = useState<NoteEditorApi | null>(null)
+	// An empty note is as wide as its placeholder.
+	const noteFit = useGrowingFit(note.value || t("highlights.sidebar.notePlaceholder"), documentId)
 	const asideRef = useRef<HTMLElement>(null)
 	const listRef = useRef<HTMLOListElement>(null)
 
@@ -187,7 +189,8 @@ export function ReaderSidebar({
 					{/* Written straight on the paper: the editor is the note. */}
 					<PostIt
 						variant="compact"
-						className="text-[0.9375rem] leading-snug focus-within:ring-2 focus-within:ring-ring"
+						fit={noteFit}
+						className="text-base leading-snug focus-within:ring-2 focus-within:ring-ring"
 					>
 						<NoteField
 							key={documentId}
@@ -237,7 +240,13 @@ export function ReaderSidebar({
 									<span className="min-w-0 flex-1">
 										<span className="line-clamp-3 text-sm">{h.exact}</span>
 										{h.note ? (
-											<PostIt as="span" variant="compact" className="mt-2 mb-1 text-[0.8125rem]">
+											<PostIt
+												as="span"
+												variant="compact"
+												fit={h.note}
+												tilt={tiltFor(h.id)}
+												className="mt-3 mb-1 text-base leading-snug"
+											>
 												<NoteText text={h.note} linkTargets={linkTargets} plainLinks />
 											</PostIt>
 										) : null}

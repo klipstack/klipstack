@@ -8,7 +8,7 @@ import { LinkArticleButton } from "./link-article-button"
 import { MARGIN_NOTE } from "./margin-notes"
 import type { NoteEditorApi } from "./note-editor"
 import { NoteField } from "./note-field"
-import { PostIt } from "./post-it"
+import { PostIt, type PostItVariant, useGrowingFit } from "./post-it"
 import { tooltip } from "./tooltip-host"
 
 export type NoteEditorPlacement =
@@ -20,6 +20,12 @@ interface Props {
 	initial: string
 	/** The highlight's color, for the note's edge. */
 	color?: number
+	/** The note's lean (`PostIt`'s `tilt`): the note's own, so it does not move when edited. */
+	tilt?: number
+	/** `compact` (the default) has the margin's colored edge; `full` is the board's larger paper. */
+	variant?: PostItVariant
+	/** On the paper: where it stands in its place, such as against the article. */
+	className?: string
 	placement: NoteEditorPlacement
 	/** The article being read: the link menu never offers it. */
 	documentId: string
@@ -42,6 +48,9 @@ const PAPER_BUTTON = "text-note-fg/70 hover:bg-note-fg/10 hover:text-note-fg"
 export function HighlightNoteEditor({
 	initial,
 	color,
+	tilt = 0,
+	variant = "compact",
+	className,
 	placement,
 	documentId,
 	linkTargets,
@@ -53,6 +62,7 @@ export function HighlightNoteEditor({
 	const ref = useRef<HTMLDivElement>(null)
 	const [noteApi, setNoteApi] = useState<NoteEditorApi | null>(null)
 	const dirty = note.trim() !== initial.trim()
+	const fit = useGrowingFit(note.length > initial.length ? note : initial)
 
 	// Latest values for the document listeners, which are attached once.
 	const latest = useRef({ note, dirty, onSave, onCancel })
@@ -103,10 +113,18 @@ export function HighlightNoteEditor({
 					"safe-bottom fixed inset-x-0 bottom-0 z-40 rounded-t-2xl border-t border-border bg-card p-4 shadow-[0_-8px_24px_rgba(0,0,0,0.18)]",
 			)}
 		>
+			{/* In the margin (or on a card), the note's own size, growing as it is written. Floating and
+			    in the sheet, the paper fills its box, as before. */}
 			<PostIt
-				variant="compact"
+				variant={variant}
+				tilt={tilt}
+				fit={placement.kind === "margin" ? fit : undefined}
 				{...highlightColor(color)}
-				className={cn(MARGIN_NOTE, placement.kind === "floating" && "shadow-lg")}
+				className={cn(
+					variant === "compact" && MARGIN_NOTE,
+					className,
+					placement.kind === "floating" && "shadow-lg",
+				)}
 			>
 				<NoteField
 					value={note}

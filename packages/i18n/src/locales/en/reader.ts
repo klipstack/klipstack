@@ -189,8 +189,29 @@ export default {
 			empty: "No highlights match that search.",
 			clear: "Clear search",
 		},
-		filters: { label: "Show", all: "All", notes: "With notes", empty: "No highlights here." },
-		views: { label: "View", stream: "Stream", articles: "By article" },
+		filters: {
+			label: "Show",
+			all: "All",
+			notes: "With notes",
+			empty: "No highlights here.",
+			tag: "Tag",
+			tagChoose: "Choose a tag",
+			tagChosen: "Tag: {{tag}}",
+			tagClear: "Show every tag",
+			/** A color chip, for screen readers: the color and how many highlights have it. */
+			colorCount: "{{color}} ({{count}})",
+		},
+		views: { label: "View", stream: "Stream", articles: "By article", topics: "By topic" },
+		topics: {
+			other: "Other",
+			seeAll: "See all {{count}}",
+		},
+		shuffle: {
+			action: "Shuffle",
+			title: "A random handful",
+			again: "Deal again",
+			done: "Done",
+		},
 		article: {
 			count: "{{count}} highlights",
 			count_one: "{{count}} highlight",

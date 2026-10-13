@@ -14,6 +14,7 @@ import { HighlightToolbar } from "~/components/highlight-toolbar"
 import { LinkPopover } from "~/components/link-popover"
 import { type MarginCard, MarginNotes, useMarginRoom } from "~/components/margin-notes"
 import { prefetchNoteEditor } from "~/components/note-field"
+import { tiltFor } from "~/components/post-it"
 import { ReaderSidebar, type SidebarTab } from "~/components/reader-sidebar"
 import { SelectionToolbar } from "~/components/selection-toolbar"
 import {
@@ -591,7 +592,10 @@ export function ReaderArticle({
 			key={item.id}
 			initial={item.note ?? ""}
 			color={item.color}
+			tilt={tiltFor(item.id)}
 			placement={placement}
+			// In the margin, against the article, as the note it edits.
+			className={placement.kind === "margin" ? "ml-auto" : undefined}
 			documentId={doc.id}
 			linkTargets={linkTargets}
 			onSave={(text) => {

@@ -6,7 +6,7 @@ import { layoutMargin, sameTops } from "~/lib/margin-layout"
 import type { LinkTargets } from "~/lib/note-links"
 import { cn } from "~/lib/utils"
 import { NoteText } from "./note-text"
-import { PostIt } from "./post-it"
+import { PostIt, tiltFor } from "./post-it"
 
 /** Note column width (13rem), its gap to the article (8px, plus the article's own padding) and to the page edge. */
 const NOTE_WIDTH = 208
@@ -14,8 +14,9 @@ const NEEDED = NOTE_WIDTH + 8 + 16
 const GAP = 12
 
 /**
- * A note in the margin, shown or being written: the same paper, edge and type, so the text stays
- * put when one becomes the other. The edge, in the highlight's color, ties it to its highlight.
+ * A note in the margin, shown or being written: the same paper, size, lean, edge and type, so the
+ * text stays put when one becomes the other. The edge, in the highlight's color, ties it to its
+ * highlight. Notes stand against the article, as wide as their text needs.
  */
 export const MARGIN_NOTE = "border-l-[3px] border-(--hl-solid) text-sm leading-snug"
 
@@ -189,6 +190,8 @@ export function MarginNotes({
 							// Not a <button>: a note holds links, and a link inside a button is invalid HTML.
 							<PostIt
 								variant="compact"
+								fit={item.note ?? ""}
+								tilt={tiltFor(item.id)}
 								role="button"
 								tabIndex={0}
 								{...highlightColor(item.color)}
@@ -209,7 +212,7 @@ export function MarginNotes({
 								}}
 								className={cn(
 									MARGIN_NOTE,
-									"block w-full cursor-text select-text text-left transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+									"ml-auto block cursor-text select-text text-left transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
 									hoveredId === item.id && "ring-1 ring-(--hl-solid)",
 								)}
 							>

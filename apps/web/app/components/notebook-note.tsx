@@ -6,7 +6,7 @@ import { fitsKeepalive } from "~/lib/keepalive"
 import type { LinkTargets } from "~/lib/note-links"
 import { NoteField } from "./note-field"
 import { NoteStatus } from "./note-status"
-import { PostIt } from "./post-it"
+import { PostIt, useGrowingFit } from "./post-it"
 
 /** The note as the server has it: its text, and when it was saved (null: never). */
 interface Saved {
@@ -141,10 +141,12 @@ function Editor({
 }) {
 	const { t } = useTranslation("reader")
 	const { value, status, change, flush } = useAutosaveText(initial, save)
+	const fit = useGrowingFit(value, id)
 	return (
 		<div>
 			<PostIt
 				tilt={tilt}
+				fit={fit}
 				className="text-[0.9375rem] leading-snug focus-within:ring-2 focus-within:ring-ring"
 			>
 				<NoteField

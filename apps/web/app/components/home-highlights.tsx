@@ -126,6 +126,7 @@ function HighlightCard({ h, linkTargets }: { h: ResurfacedHighlight; linkTargets
 				// Not a <button>: a note holds links, and a link inside a button is invalid HTML.
 				<PostIt
 					variant="compact"
+					fit={note}
 					role="button"
 					tabIndex={0}
 					data-testid="home-highlight-note"
