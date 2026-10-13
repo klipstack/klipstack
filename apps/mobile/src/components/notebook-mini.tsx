@@ -60,6 +60,9 @@ export function NotebookWall({
 				layout.span = tile.kind === "tile" ? 1 : 2
 			}}
 			contentInsetAdjustmentBehavior="automatic"
+			automaticallyAdjustKeyboardInsets
+			keyboardShouldPersistTaps="handled"
+			keyboardDismissMode="on-drag"
 			style={{ backgroundColor: colors.bg }}
 			contentContainerStyle={styles.list}
 			renderItem={({ item: tile, index }) => {
@@ -67,7 +70,8 @@ export function NotebookWall({
 					case "tile":
 						return (
 							<View style={styles.cell}>
-								<Tile item={tile.item} withArticle={tile.withArticle} ctx={ctx} />
+								{/* Keyed: a reused cell starts fresh, without the last card's strokes or press. */}
+								<Tile key={tile.id} item={tile.item} withArticle={tile.withArticle} ctx={ctx} />
 							</View>
 						)
 					case "article":
@@ -92,9 +96,10 @@ export function NotebookWall({
 			refreshControl={refreshControl}
 			onEndReached={onEndReached}
 			onEndReachedThreshold={0.5}
-			ListHeaderComponent={header}
+			// The page's margin, as the tiles have it: the list's own is less their half gap.
+			ListHeaderComponent={<View style={styles.edge}>{header}</View>}
 			ListFooterComponent={footer}
-			ListEmptyComponent={empty}
+			ListEmptyComponent={<View style={styles.edge}>{empty}</View>}
 		/>
 	)
 }
@@ -283,6 +288,7 @@ const styles = StyleSheet.create({
 	// The page's margin, less the cards' own half gap.
 	list: { paddingHorizontal: 16 - HALF, paddingBottom: 48 },
 	cell: { padding: HALF },
+	edge: { paddingHorizontal: HALF },
 	head: {
 		paddingHorizontal: HALF,
 		paddingTop: 20,

@@ -246,8 +246,43 @@ describe("zoomTiles", () => {
 			id: `topic:${id}`,
 			group: { topic: { id, name: id }, highlights: 1, notes: 0, items: [item] },
 		})
-		const ids = zoomTiles([group("t1"), group("t2")], new Set()).map((t) => t.id)
+		const tiles = zoomTiles([group("t1"), group("t2")], new Set())
+		expect(tiles.map((t) => t.kind)).toEqual(["topic", "tile", "topic", "tile"])
+		const ids = tiles.map((t) => t.id)
 		expect(new Set(ids).size).toBe(ids.length)
+	})
+})
+
+describe("zoomTiles, cards and the fold", () => {
+	it("lays out Stream's cards with where each is from", () => {
+		const tiles = zoomTiles(
+			notebookRows({
+				view: "stream",
+				items: [noteItem("a1", "Mine"), highlightItem(highlight("h1", "a2"))],
+			}),
+			new Set(),
+		)
+		expect(tiles.map((t) => t.kind === "tile" && t.withArticle)).toEqual([true, true])
+	})
+
+	it("folds nothing for an article with just the first few cards, and names no article under its heading", () => {
+		const tiles = zoomTiles(
+			[
+				{
+					kind: "article",
+					id: "a1",
+					entry: {
+						article: article("a1"),
+						note: null,
+						noteUpdatedAt: null,
+						highlights: Array.from({ length: ZOOM_COLLAPSED }, (_, i) => highlight(`h${i}`, "a1")),
+					},
+				},
+			],
+			new Set(),
+		)
+		expect(tiles.some((t) => t.kind === "more")).toBe(false)
+		expect(tiles.filter((t) => t.kind === "tile" && !t.withArticle)).toHaveLength(ZOOM_COLLAPSED)
 	})
 })
 

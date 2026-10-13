@@ -284,6 +284,8 @@ export default function Notebook() {
 		</View>
 	)
 
+	// Zoomed out, the wall's cards; built again only when the list or the opened articles change.
+	const tiles = useMemo(() => (zoomed ? zoomTiles(items ?? [], open) : []), [zoomed, items, open])
 	const footer = list.loadingMore ? (
 		<ActivityIndicator style={styles.more} color={colors.mutedFg} />
 	) : null
@@ -343,7 +345,7 @@ export default function Notebook() {
 						))}
 						<Stack.Toolbar.Menu inline>
 							<Stack.Toolbar.MenuAction
-								icon="square.grid.2x2"
+								icon="minus.magnifyingglass"
 								isOn={zoomed}
 								onPress={() => zoom(!zoomed)}
 							>
@@ -431,7 +433,7 @@ export default function Notebook() {
 			)}
 			{zoomed && ctx ? (
 				<NotebookWall
-					tiles={zoomTiles(items ?? [], open)}
+					tiles={tiles}
 					ctx={ctx}
 					onToggle={toggle}
 					onSeeAll={(id) => {
