@@ -71,3 +71,27 @@ export function feedCursor(value: string | undefined): FeedCursor | null {
 	}
 	throw invalidCursor()
 }
+
+/** Where a Notebook page continues (By article, Stream): the last time and id returned. */
+export interface NotebookCursor {
+	at: string
+	id: string
+}
+
+export function encodeNotebookCursor(cursor: NotebookCursor): string {
+	return Buffer.from(JSON.stringify(cursor)).toString("base64url")
+}
+
+export function notebookCursor(value: string | undefined): NotebookCursor | null {
+	if (!value) return null
+	try {
+		const c = JSON.parse(
+			Buffer.from(value, "base64url").toString("utf8"),
+		) as Partial<NotebookCursor>
+		if (typeof c.at === "string" && isCursorTime(c.at) && typeof c.id === "string" && isUuid(c.id))
+			return { at: c.at, id: c.id }
+	} catch {
+		// fall through
+	}
+	throw invalidCursor()
+}
