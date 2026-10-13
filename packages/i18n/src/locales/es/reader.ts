@@ -196,6 +196,8 @@ export default {
 			tagChoose: "Elige una etiqueta",
 			tagChosen: "Etiqueta: {{tag}}",
 			tagClear: "Mostrar todas las etiquetas",
+			/** A color chip, for screen readers: the color and how many highlights have it. */
+			colorCount: "{{color}} ({{count}})",
 		},
 		views: { label: "Vista", stream: "Lista", articles: "Por artículo", topics: "Por tema" },
 		topics: {

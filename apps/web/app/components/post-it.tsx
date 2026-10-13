@@ -1,4 +1,4 @@
-import type { ReactNode } from "react"
+import { type ReactNode, useState } from "react"
 import { cn } from "~/lib/utils"
 
 /** Each note leans its own way, as paper stuck on by hand does: neighbors lean apart. */
@@ -60,6 +60,19 @@ export function postItSize(text: string, variant: PostItVariant = "full"): React
 		// The least height for that width, wherever the width is: more text makes it taller.
 		minHeight: `calc(${width} * ${LEAST_HEIGHT[variant]})`,
 	}
+}
+
+/**
+ * For an editor's `fit`: the longest text it has held since `key` changed. Its paper grows as it is
+ * written and never shrinks under the caret.
+ */
+export function useGrowingFit(text: string, key?: string): string {
+	const [longest, setLongest] = useState({ key, text })
+	if (longest.key !== key || text.length > longest.text.length) {
+		setLongest({ key, text })
+		return text
+	}
+	return longest.text
 }
 
 type Props = {

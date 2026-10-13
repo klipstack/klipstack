@@ -121,7 +121,10 @@ beforeAll(async () => {
 	await highlight(userId, both, "both one", { color: 1 })
 	await highlight(userId, both, "both two", { note: "A note" })
 
-	const design = await article(userId, "Design only")
+	const design = await article(userId, "Design only", {
+		leadImageAssetId: "0198c0de-0000-7000-8000-0000000000aa",
+		leadImageUrl: "https://img.example.com/ignored.jpg",
+	})
 	await put(design.id, ids.design)
 	await highlight(userId, design, "design one", { color: 2 })
 
@@ -183,6 +186,10 @@ describe("highlights by topic", () => {
 		// Cards carry their article, cover included.
 		const card = groups[0]!.highlights.find((h) => h.exact === "both one")
 		expect(card).toMatchObject({ documentTitle: "Both", image: "https://img.example.com/a.jpg" })
+		// A stored cover goes through the app; without any, none.
+		const stored = groups[0]!.highlights.find((h) => h.exact === "design one")
+		expect(stored!.image).toBe("/assets/0198c0de-0000-7000-8000-0000000000aa")
+		expect(groups.at(-1)!.highlights[0]!.image).toBeNull()
 	})
 
 	it("shows each group's newest few, and counts them all", async () => {

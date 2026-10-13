@@ -49,15 +49,25 @@ export function QuoteCard({
 	const deleting = intent === "delete"
 	// The note as saved, or as being saved: it shows at once.
 	const note = intent === "update" ? String(fetcher.formData?.get("note") ?? "").trim() : h.note
-	const failed = fetcher.state === "idle" && fetcher.data?.ok === false
-
+	// What the last submission was: a note that was not saved says so, and its draft comes back.
+	const [submitted, setSubmitted] = useState<{ intent: string; note?: string } | null>(null)
+	const [draft, setDraft] = useState<string | null>(null)
+	const [failures, setFailures] = useState(0)
+	if (fetcher.state === "idle" && fetcher.data?.ok === false && submitted?.intent === "update") {
+		setDraft(submitted.note ?? "")
+		setEditing(true)
+		setSubmitted(null)
+		setFailures((n) => n + 1)
+	}
 	useEffect(() => {
-		if (failed) showToast({ message: t("highlights.sidebar.noteFailed"), warn: true })
-	}, [failed, t])
+		if (failures) showToast({ message: t("highlights.sidebar.noteFailed"), warn: true })
+	}, [failures, t])
 
 	const saveNote = (text: string) => {
 		setEditing(false)
+		setDraft(null)
 		if (text.trim() === (h.note ?? "").trim()) return
+		setSubmitted({ intent: "update", note: text })
 		void fetcher.submit({ intent: "update", id: h.id, note: text }, { method: "post", action })
 	}
 
@@ -92,7 +102,7 @@ export function QuoteCard({
 			{editing ? (
 				<div className="relative z-10 mt-5 -mr-2 text-base leading-snug">
 					<HighlightNoteEditor
-						initial={note ?? ""}
+						initial={draft ?? note ?? ""}
 						color={h.color}
 						variant="full"
 						tilt={tiltFor(h.id)}
@@ -100,7 +110,10 @@ export function QuoteCard({
 						documentId={h.documentId}
 						linkTargets={linkTargets}
 						onSave={saveNote}
-						onCancel={() => setEditing(false)}
+						onCancel={() => {
+							setEditing(false)
+							setDraft(null)
+						}}
 					/>
 				</div>
 			) : note ? (
@@ -144,7 +157,8 @@ export function QuoteCard({
 				<fetcher.Form
 					method="post"
 					action={action}
-					onSubmit={() =>
+					onSubmit={() => {
+						setSubmitted({ intent: "delete" })
 						showToast({
 							message: t(note ? "highlights.toast.removedWithNote" : "highlights.toast.removed"),
 							ms: note ? LONG_UNDO_MS : undefined,
@@ -155,7 +169,7 @@ export function QuoteCard({
 								label: tl("toast.undo"),
 							},
 						})
-					}
+					}}
 				>
 					<input type="hidden" name="intent" value="delete" />
 					<input type="hidden" name="id" value={h.id} />

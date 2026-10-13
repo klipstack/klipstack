@@ -67,8 +67,8 @@ test("highlights page: filters, word search, stream and by article", async ({ pa
 		filters
 			.getByRole("link")
 			.evaluateAll((links) => links.map((a) => a.getAttribute("aria-label") ?? a.textContent))
-	await expect.poll(chipNames).toEqual(["All", "With notes1", "Yellow 1", "Green 2"])
-	await filters.getByRole("link", { name: "Green 2" }).click()
+	await expect.poll(chipNames).toEqual(["All", "With notes1", "Yellow (1)", "Green (2)"])
+	await filters.getByRole("link", { name: "Green (2)" }).click()
 	await expect(page).toHaveURL(/show=green/)
 	await expect(cards).toHaveCount(2)
 	await expect(cards.first()).toContainText("units of half a day")
@@ -120,7 +120,7 @@ test("highlights page: filters, word search, stream and by article", async ({ pa
 	// no highlight with a note in the results: no notes chip, and only the color found
 	await page.goto("/highlights?q=hour+intervals")
 	await expect(cards).toHaveCount(1)
-	await expect.poll(chipNames).toEqual(["All", "Yellow 1"])
+	await expect.poll(chipNames).toEqual(["All", "Yellow (1)"])
 })
 
 test("highlights board: by topic, a tag, notes written on the card, delete and Shuffle", async ({
@@ -241,6 +241,16 @@ test("highlights board: by topic, a tag, notes written on the card, delete and S
 				)[0]?.note,
 		)
 		.toBe("Worth a third look.")
+	// Emptied, the note comes off the card.
+	await note.click()
+	await editor.getByRole("textbox").fill("")
+	await editor.getByRole("button", { name: "Save" }).click()
+	await expect(note).toHaveCount(0)
+	await expect(card.getByTestId("post-it-tape")).toHaveCount(0)
+	await page.reload()
+	await waitForHydration(page)
+	await expect(cards).toHaveCount(1)
+	await expect(note).toHaveCount(0)
 	await page.getByRole("link", { name: "Show every tag" }).click()
 	await expect(cards).toHaveCount(10)
 

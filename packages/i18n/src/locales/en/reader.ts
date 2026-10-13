@@ -198,6 +198,8 @@ export default {
 			tagChoose: "Choose a tag",
 			tagChosen: "Tag: {{tag}}",
 			tagClear: "Show every tag",
+			/** A color chip, for screen readers: the color and how many highlights have it. */
+			colorCount: "{{color}} ({{count}})",
 		},
 		views: { label: "View", stream: "Stream", articles: "By article", topics: "By topic" },
 		topics: {

@@ -54,6 +54,7 @@ import {
 	listUserHighlights,
 } from "~/services/highlights.server"
 import { linkTargetStatus } from "~/services/links.server"
+import { getTag } from "~/services/tags.server"
 import { topicsInUse } from "~/services/topics.server"
 import type { Route } from "./+types/highlights"
 
@@ -103,15 +104,23 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 	const asked = usable(parseHighlightView(params.get("view")))
 	const saved = usable(highlightViewFromCookie(request.headers.get("cookie")))
 	const view = asked ?? saved ?? DEFAULT_HIGHLIGHT_VIEW
-	// A view in the URL is a choice: remember it on this device.
+	// A view in the URL is a choice: remember it on this device. Not a topic group's "See all",
+	// which is a look at one topic: its chip goes back to the view remembered.
 	const headers: HeadersInit =
-		asked && asked !== saved
+		asked && asked !== saved && !params.get("topic")
 			? {
 					"Set-Cookie": `${HIGHLIGHT_VIEW_COOKIE}=${asked}; Path=/; Max-Age=${60 * 60 * 24 * 365}; SameSite=Lax`,
 				}
 			: {}
-	// A tag or topic that is not the reader's (or not any more) narrows nothing.
-	const tag = tags.find((t) => t.id === params.get("tag"))?.id ?? null
+	// A tag or topic that is not the reader's (or not any more) narrows nothing. A tag of theirs
+	// whose last highlight just went stays chosen, with none.
+	const askedTag = params.get("tag")
+	const ownTag =
+		askedTag && isUuid(askedTag) && !tags.some((t) => t.id === askedTag)
+			? await getTag(user.id, askedTag)
+			: null
+	if (ownTag) tags.push({ id: ownTag.id, name: ownTag.name, count: 0 })
+	const tag = tags.find((t) => t.id === askedTag)?.id ?? null
 	const askedTopic = view === "topics" || !topicsOn ? null : params.get("topic")
 	const topicName =
 		askedTopic && askedTopic !== "none" && isUuid(askedTopic)
@@ -151,7 +160,7 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 	// The notes' links say whether their articles are still there.
 	const linkTargets = await linkTargetStatus(user.id, extractLinkIds(notesOf(board).join("\n")))
 	return data(
-		{ ...state, topicsOn, topicName, tags, counts, board, seed, linkTargets },
+		{ ...state, savedView: saved, topicsOn, topicName, tags, counts, board, seed, linkTargets },
 		{ headers },
 	)
 }
@@ -201,6 +210,7 @@ export default function Highlights({ loaderData }: Route.ComponentProps) {
 						tags={loaderData.tags}
 						topicsOn={loaderData.topicsOn}
 						topicName={loaderData.topicName}
+						savedView={loaderData.savedView}
 						shuffling={board.kind === "shuffle"}
 					/>
 				</PinnedControls>
@@ -319,6 +329,7 @@ function Controls({
 	tags,
 	topicsOn,
 	topicName,
+	savedView,
 	shuffling,
 }: {
 	state: HighlightsState
@@ -326,6 +337,8 @@ function Controls({
 	tags: HighlightTag[]
 	topicsOn: boolean
 	topicName: string | null
+	/** The view remembered on this device: where the topic chip's × goes back to. */
+	savedView: HighlightView | null
 	shuffling: boolean
 }) {
 	const { t } = useTranslation("reader")
@@ -346,7 +359,9 @@ function Controls({
 				key={f ?? "all"}
 				to={highlightsHref(state, { filter: f })}
 				aria-current={f === filter ? "true" : undefined}
-				aria-label={color === null ? undefined : `${label} ${count}`}
+				aria-label={
+					color === null ? undefined : t("highlights.filters.colorCount", { color: label, count })
+				}
 				{...(color === null ? {} : tooltip(label))}
 				className={CHIP}
 			>
@@ -376,7 +391,7 @@ function Controls({
 				{tags.length > 0 ? <TagChoice state={state} tags={tags} /> : null}
 				{state.topic ? (
 					<Link
-						to={highlightsHref(state, { topic: null })}
+						to={highlightsHref(state, { topic: null, view: savedView ?? view })}
 						aria-label={tl("topicFilter.clear")}
 						{...tooltip(tl("topicFilter.clear"))}
 						data-testid="topic-chip"

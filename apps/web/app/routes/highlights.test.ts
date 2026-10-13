@@ -16,6 +16,7 @@ import {
 	userFeatures,
 } from "@klipstack/db"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
+import { highlightsHref } from "~/lib/highlight-filters"
 import { loader } from "./highlights"
 
 const session = vi.hoisted(() => ({ user: { id: "", name: "Reader", locale: "en" } }))
@@ -96,6 +97,12 @@ beforeAll(async () => {
 	await db.insert(userFeatures).values({ userId: readerId, feature: "topics" })
 	await library(readerId)
 	await library(withoutId)
+	// A tag of the reader's whose articles have no highlights (any more).
+	const [emptied] = await db
+		.insert(tags)
+		.values({ userId: readerId, name: "emptied" })
+		.returning({ id: tags.id })
+	ids.emptied = emptied!.id
 })
 afterAll(async () => {
 	for (const id of [readerId, withoutId]) await db.delete(user).where(eq(user.id, id))
@@ -190,5 +197,81 @@ describe("the highlights page", () => {
 		// A seed this page never writes is no hand: the view.
 		const odd = await page(readerId, "/highlights?view=stream&shuffle=NOT-A-SEED")
 		expect(odd.board.kind).toBe("stream")
+	})
+})
+
+describe("the highlights page, continued", () => {
+	it("a topic group's See all is a look, not a choice: the view remembered stays", async () => {
+		const seeAll = await page(
+			readerId,
+			`/highlights?view=stream&topic=${ids[`${readerId}:topic`]}`,
+			"klip_hl_view=topics",
+		)
+		expect(seeAll.setCookie).toBeNull()
+		expect(seeAll.savedView).toBe("topics")
+		expect(seeAll.board.kind).toBe("stream")
+	})
+
+	it("a tag of the reader's with no highlights left stays chosen, and shows none", async () => {
+		const data = await page(readerId, `/highlights?view=stream&tag=${ids.emptied}`)
+		expect(data.tag).toBe(ids.emptied)
+		expect(quotes(data)).toEqual([])
+		expect(data.tags).toContainEqual({ id: ids.emptied, name: "emptied", count: 0 })
+	})
+
+	it("pages the stream through its cursor, keeping the tag", async () => {
+		const pagerId = `${readerId}-pager`
+		await db.insert(user).values({ id: pagerId, name: "Pager", email: `${pagerId}@example.com` })
+		try {
+			const [doc] = await db
+				.insert(documents)
+				.values({
+					userId: pagerId,
+					sourceUrl: "https://example.com/p",
+					urlHash: newId(),
+					title: "P",
+					status: "ready",
+				})
+				.returning({ id: documents.id })
+			const [version] = await db
+				.insert(documentVersions)
+				.values({
+					documentId: doc!.id,
+					version: 1,
+					html: "<p>x</p>",
+					text: "x",
+					textHash: createHash("sha256").update(newId()).digest("hex"),
+					extractor: "test",
+					extractorVersion: "0",
+				})
+				.returning({ id: documentVersions.id })
+			const [tag] = await db
+				.insert(tags)
+				.values({ userId: pagerId, name: "p" })
+				.returning({ id: tags.id })
+			await db.insert(documentTags).values({ documentId: doc!.id, tagId: tag!.id })
+			await db.insert(highlights).values(
+				Array.from({ length: 53 }, (_, i) => ({
+					userId: pagerId,
+					documentId: doc!.id,
+					versionId: version!.id,
+					startOffset: 0,
+					endOffset: 1,
+					exact: `Quote ${i}`,
+					createdAt: new Date(Date.UTC(2026, 8, 1, 0, i)),
+				})),
+			)
+			const first = await page(pagerId, `/highlights?view=stream&tag=${tag!.id}`)
+			if (first.board.kind !== "stream") throw new Error("not the stream")
+			expect(first.board.items).toHaveLength(50)
+			expect(first.board.items[0]!.exact).toBe("Quote 52")
+			const next = highlightsHref(first, { cursor: first.board.nextCursor! })
+			expect(next).toContain(`tag=${tag!.id}`)
+			const second = await page(pagerId, next)
+			expect(quotes(second)).toEqual(["Quote 0", "Quote 1", "Quote 2"])
+			if (second.board.kind === "stream") expect(second.board.nextCursor).toBeNull()
+		} finally {
+			await db.delete(user).where(eq(user.id, pagerId))
+		}
 	})
 })

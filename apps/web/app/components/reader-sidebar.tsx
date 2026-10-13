@@ -13,7 +13,7 @@ import type { NoteEditorApi } from "./note-editor"
 import { NoteField } from "./note-field"
 import { NoteStatus } from "./note-status"
 import { NoteText } from "./note-text"
-import { PostIt, tiltFor } from "./post-it"
+import { PostIt, tiltFor, useGrowingFit } from "./post-it"
 
 interface Props {
 	note: {
@@ -85,6 +85,8 @@ export function ReaderSidebar({
 }: Props) {
 	const { t } = useTranslation("reader")
 	const [noteApi, setNoteApi] = useState<NoteEditorApi | null>(null)
+	// An empty note is as wide as its placeholder.
+	const noteFit = useGrowingFit(note.value || t("highlights.sidebar.notePlaceholder"), documentId)
 	const asideRef = useRef<HTMLElement>(null)
 	const listRef = useRef<HTMLOListElement>(null)
 
@@ -187,7 +189,7 @@ export function ReaderSidebar({
 					{/* Written straight on the paper: the editor is the note. */}
 					<PostIt
 						variant="compact"
-						fit={note.value}
+						fit={noteFit}
 						className="text-base leading-snug focus-within:ring-2 focus-within:ring-ring"
 					>
 						<NoteField
