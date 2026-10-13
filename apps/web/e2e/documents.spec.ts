@@ -588,9 +588,14 @@ test("leaving at the end of an article finishes it, with an undo", async ({ page
 	await expect(end).toContainText("It goes to your archive when you leave.")
 	// The heading and what leaving does share one line.
 	const status = end.getByTestId("reader-end-status")
+	// The heading is stamped "Read", as the card will be; screen readers hear "Finished" once.
 	await expect(status).toHaveText(
-		"Finished It goes to your archive when you leave. Keep in Library",
+		"FinishedRead It goes to your archive when you leave. Keep in Library",
 	)
+	const endStamp = status.getByTestId("read-stamp")
+	await expect(endStamp).toBeVisible()
+	await expect(endStamp).toHaveAttribute("aria-hidden", "true")
+	await expect(endStamp.locator(".sr-only")).toHaveCount(0)
 	expect((await status.boundingBox())!.height).toBeLessThan(40)
 
 	// Star it and mark it for the next edition, by their names.

@@ -35,4 +35,17 @@ describe("ReadStamp", () => {
 		expect(seen[4]).toBe(seen[0])
 		expect(seen[5]).toBe(seen[3])
 	})
+
+	it("beside words that already say it, stays out of screen readers' way", async () => {
+		const i18n = createInstance()
+		await i18n.init({ resources, lng: "en", interpolation: { escapeValue: false } })
+		const html = renderToStaticMarkup(
+			<I18nextProvider i18n={i18n}>
+				<ReadStamp decorative />
+			</I18nextProvider>,
+		)
+		expect(html).toMatch(/^<span data-testid="read-stamp" aria-hidden="true"/)
+		expect(html).not.toContain("sr-only")
+		expect(html).toContain(">Read</span>")
+	})
 })

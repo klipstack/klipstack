@@ -17,18 +17,28 @@ const WORN = `url("data:image/svg+xml,${encodeURIComponent(
  * little tilted (`tilt`, by the article: the same every time). Screen readers hear "Finished".
  * The caller places it, and may back it (`className`) where it lands on a picture.
  */
-export function ReadStamp({ tilt = 0, className }: { tilt?: number; className?: string }) {
+export function ReadStamp({
+	tilt = 0,
+	decorative = false,
+	className,
+}: {
+	tilt?: number
+	/** Beside words that already say it (the reader's "Finished"): hidden from screen readers. */
+	decorative?: boolean
+	className?: string
+}) {
 	const { t } = useTranslation("library")
 	return (
 		<span
 			data-testid="read-stamp"
+			aria-hidden={decorative || undefined}
 			className={cn(
 				"inline-flex shrink-0",
 				TILTS[((tilt % TILTS.length) + TILTS.length) % TILTS.length],
 				className,
 			)}
 		>
-			<span className="sr-only">{t("card.finished")}</span>
+			{decorative ? null : <span className="sr-only">{t("card.finished")}</span>}
 			<span
 				aria-hidden="true"
 				style={{ maskImage: WORN, WebkitMaskImage: WORN }}
