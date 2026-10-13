@@ -13,9 +13,30 @@ import {
 
 const topics: TopicsInList = {
 	items: [
-		{ id: "w", name: "Writing", description: "On writing.", articles: 9, inView: 3 },
-		{ id: "s", name: "Science", description: "On science.", articles: 4, inView: 1 },
-		{ id: "h", name: "History", description: "On history.", articles: 2, inView: 0 },
+		{
+			id: "w",
+			name: "Writing",
+			description: "On writing.",
+			articles: 9,
+			savedThisWeek: 0,
+			inView: 3,
+		},
+		{
+			id: "s",
+			name: "Science",
+			description: "On science.",
+			articles: 4,
+			savedThisWeek: 0,
+			inView: 1,
+		},
+		{
+			id: "h",
+			name: "History",
+			description: "On history.",
+			articles: 2,
+			savedThisWeek: 0,
+			inView: 0,
+		},
 	],
 	none: 2,
 	sorting: 0,

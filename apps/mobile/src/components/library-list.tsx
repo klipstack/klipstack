@@ -46,22 +46,31 @@ const PAGE_SIZE = 30
  * Inbox, Starred and Archive narrow to one of the reader's topics, or to No topic, as on the web:
  * the header's filter menu, only for a reader with topics. The line above the list says what the
  * topic holds. Each list keeps its choice while the app runs (`useTopicChoice`); a topic that
- * ended shows every topic again, and says so.
+ * ended shows every topic again, and says so. A topic's own list (`topic`, from the Topics screen)
+ * has no menu: it is that topic's, across the whole library (`view: "all"`).
  */
 export function LibraryList({
 	view,
 	query,
+	topic: fixedTopic,
+	intro,
 	empty,
 	canSave = false,
-}: ({ view: LibraryView; query?: never } | { query: string; view?: never }) & {
+}: (
+	| { view: LibraryView; query?: never; topic?: string }
+	| { query: string; view?: never; topic?: never }
+) & {
 	empty: string
+	/** A line above the list: a topic's description. */
+	intro?: string
 	canSave?: boolean
 }) {
 	const { state } = useAuth()
 	const colors = useColors()
 	const client = state.status === "signed-in" ? state.client : null
 	const headers = useImageHeaders()
-	const filterable = view === "inbox" || view === "starred" || view === "archive" ? view : null
+	const filterable =
+		!fixedTopic && (view === "inbox" || view === "starred" || view === "archive") ? view : null
 	const [topic, setTopic] = useTopicChoice(filterable)
 	const [gone, setGone] = useState(false)
 	const choose = useCallback(
@@ -99,7 +108,7 @@ export function LibraryList({
 	}, [client, filterable, ended])
 	useFocusEffect(loadTopics)
 	// What the list asks for: the chosen topic once the topics confirm it (`topicToAsk`).
-	const asked = filterable ? topicToAsk(topic, topics) : null
+	const asked = fixedTopic ?? (filterable ? topicToAsk(topic, topics) : null)
 
 	const fetchPage = useMemo(() => {
 		if (!client || asked === undefined) return null
@@ -117,6 +126,8 @@ export function LibraryList({
 					// The topic ended, or topics were turned off, since the list loaded them; unless the
 					// reader chose another one since.
 					if (filterable && topicEnded(asked, e) && topicOf(filterable) === asked) ended()
+					if (fixedTopic && topicEnded(asked, e))
+						throw new Error("This topic is gone: topics change as your library grows.")
 					throw e
 				}
 			}
@@ -126,7 +137,7 @@ export function LibraryList({
 			const page = await client.articles.search(query, { limit, offset: Number(cursor ?? 0) })
 			return { items: page.items, nextCursor: page.nextOffset?.toString() ?? null }
 		}
-	}, [client, view, query, asked, filterable, ended])
+	}, [client, view, query, asked, filterable, ended, fixedTopic])
 	// Inbox and Starred are kept for offline reading, as on the web (src/lib/offline.ts). One topic's
 	// share of them is not the list to keep, nor to show offline: it gets the offline note alone.
 	const offline = useMemo(() => {
@@ -224,6 +235,11 @@ export function LibraryList({
 				onEndReachedThreshold={0.5}
 				ListHeaderComponent={
 					<>
+						{intro ? (
+							<Text style={[styles.topicText, styles.intro, { color: colors.mutedFg }]}>
+								{intro}
+							</Text>
+						) : null}
 						{shown ? (
 							<View style={styles.topic}>
 								<Text style={[styles.topicName, { color: colors.fg }]}>{shown.name}</Text>
@@ -259,11 +275,13 @@ export function LibraryList({
 					<Text style={[styles.empty, { color: colors.mutedFg }]}>
 						{error ??
 							(items
-								? asked === "none"
-									? "No articles without a topic here."
-									: asked
-										? "No articles in this topic here."
-										: empty
+								? fixedTopic
+									? empty
+									: asked === "none"
+										? "No articles without a topic here."
+										: asked
+											? "No articles in this topic here."
+											: empty
 								: "Loading…")}
 					</Text>
 				}
@@ -305,5 +323,6 @@ const styles = StyleSheet.create({
 	topic: { paddingTop: 4, paddingBottom: 12, gap: 4 },
 	topicName: { fontSize: 17, fontWeight: "600" },
 	topicText: { fontSize: 15, lineHeight: 20 },
+	intro: { paddingTop: 4, paddingBottom: 12 },
 	pressed: { opacity: 0.5 },
 })

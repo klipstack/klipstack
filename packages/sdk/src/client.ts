@@ -143,12 +143,13 @@ export function createClient(options: ClientOptions) {
 		},
 		topics: {
 			/**
-			 * The automatic topics, most articles first; empty while they are off.
+			 * The automatic topics, most articles first, and their `stage`; empty until it is `active`.
 			 * `articles.list({ topic })` and `articles.search("topic:<name>")` list a topic's articles.
 			 * With `view`: what each holds of that list, most first, and the list's `none` and `sorting`.
+			 * With `latest`: each topic's newest articles, up to that many (16 at most).
 			 */
-			list: ({ view }: { view?: "inbox" | "archive" | "starred" } = {}) =>
-				call("topics.list", { query: { view } }),
+			list: ({ view, latest }: { view?: "inbox" | "archive" | "starred"; latest?: number } = {}) =>
+				call("topics.list", { query: { view, latest } }),
 		},
 		savedSearches: {
 			/** The queries the user named, by name. `articles.search(query)` runs one. */

@@ -22,11 +22,12 @@ export const listArticles = defineEndpoint({
 	method: "GET",
 	path: "/articles",
 	scope: "read",
-	summary: "Lists a view of the library, one page at a time.",
+	summary:
+		"Lists a view of the library, one page at a time: the library (`inbox`), the archive, starred, `all` (the library and the archive, newest saved first) or the trash.",
 	query: z
 		.object({
 			view: z.enum(VIEWS).default("inbox"),
-			/** Library: unread, progress, read, quick, long, x. Archive and starred: unfinished, finished, quick, long, x. Trash: none. */
+			/** Library: unread, progress, read, quick, long, x. Archive, starred and all: unfinished, finished, quick, long, x. Trash: none. */
 			filter: z.enum(LIST_FILTERS).optional(),
 			/** Defaults to recent for inbox/progress, newest otherwise. */
 			sort: z.enum(LIST_SORTS).optional(),
@@ -36,7 +37,7 @@ export const listArticles = defineEndpoint({
 			cursor: Cursor.optional(),
 		})
 		.refine((q) => !q.filter || filtersFor(q.view).includes(q.filter), {
-			message: `Library filters: ${INBOX_FILTERS.join(", ")}. Archive and starred filters: ${ARCHIVE_FILTERS.join(", ")}. The trash takes none.`,
+			message: `Library filters: ${INBOX_FILTERS.join(", ")}. Archive, starred and all filters: ${ARCHIVE_FILTERS.join(", ")}. The trash takes none.`,
 			path: ["filter"],
 		})
 		.refine((q) => !q.topic || q.view !== "trash", {

@@ -6,7 +6,7 @@ export const unstable_settings = { anchor: "index" }
 
 /**
  * The Library tab: its places (`index`), as Mail's mailboxes, and each place's list: the views,
- * the tags and a tag's articles, a saved search's results. The tab opens on Inbox, with the places
+ * the tags and a tag's articles, the topics and a topic's articles, a saved search's results. The tab opens on Inbox, with the places
  * behind it (`index.tsx`): that first push has no animation (`opening`).
  */
 export default function LibraryLayout() {
@@ -25,9 +25,11 @@ export default function LibraryLayout() {
 			<Stack.Screen name="archive" options={{ title: "Archive" }} />
 			<Stack.Screen name="trash" options={{ title: "Trash" }} />
 			<Stack.Screen name="tags/index" options={{ title: "Tags" }} />
+			<Stack.Screen name="topics/index" options={{ title: "Topics" }} />
 			{/* Named by the tag or the search that opens them (their `name`). */}
 			<Stack.Screen name="tags/[id]" options={({ route }) => ({ title: nameOf(route.params) })} />
 			<Stack.Screen name="saved/[id]" options={({ route }) => ({ title: nameOf(route.params) })} />
+			<Stack.Screen name="topics/[id]" options={({ route }) => ({ title: nameOf(route.params) })} />
 		</TabStack>
 	)
 }

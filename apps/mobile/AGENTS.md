@@ -35,7 +35,7 @@ pnpm dlx expo-doctor         # Diagnose dependency and config problems
   - `(tabs)/`: the native tab bar (`unstable-native-tabs` in SDK 57). Each tab is a folder with
     its own stack (`_layout.tsx`, via `TabStack`); Home is the `(home)` group, so it is `/`.
     `library/` holds the places (`index.tsx`) and each place's list (Inbox, Starred, Archive,
-    Trash, `tags/`, `saved/`); the tab opens on Inbox, pushed by `index.tsx` onto its own stack.
+    Trash, `tags/`, `topics/`, `saved/`); the tab opens on Inbox, pushed by `index.tsx` onto its own stack.
   - `read/[id].tsx`: the reader, on the root stack over the tabs.
   - `save.tsx`: the sheet to save a link, from the + button on Home and Inbox.
 - `src/components/`: pieces shared by screens (the article row, a library list, the tab stack).

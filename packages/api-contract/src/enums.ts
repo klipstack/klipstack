@@ -3,7 +3,8 @@
  * (the web app, the extension) can use it without pulling zod into its bundle.
  */
 
-export const VIEWS = ["inbox", "archive", "starred", "trash"] as const
+/** `all`: the library and the archive together, out of the trash. */
+export const VIEWS = ["inbox", "archive", "starred", "all", "trash"] as const
 export type View = (typeof VIEWS)[number]
 
 export const INBOX_FILTERS = ["progress", "unread", "quick", "long", "x", "read"] as const
