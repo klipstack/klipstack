@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { db, eq, user } from "@klipstack/db"
 import { expect, type Page, test } from "@playwright/test"
-import { signupUser, waitForHydration } from "./helpers"
+import { caretToEnd, signupUser, waitForHydration } from "./helpers"
 import { insertArticle } from "./seed"
 
 const FIXTURE = join(
@@ -127,7 +127,7 @@ test("the end of the article asks for the note, the sidebar's, and can start the
 	for (let i = 0; i < 3; i++) await page.keyboard.press("Backspace")
 	await expect(inSidebar).toHaveText("Meetings cost a maker the afternoon.")
 	await Promise.all([noteSaved(page, id), inSidebar.click()])
-	await page.keyboard.press("ControlOrMeta+End")
+	await caretToEnd(page)
 	await page.keyboard.type(" Guard mornings.")
 	await expect(atEnd).toHaveText("Meetings cost a maker the afternoon. Guard mornings.")
 	await Promise.all([noteSaved(page, id), page.keyboard.press("Escape")])
