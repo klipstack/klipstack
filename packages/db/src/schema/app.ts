@@ -92,6 +92,11 @@ export const documents = pgTable(
 		note: text("note"),
 		noteUpdatedAt: timestamp("note_updated_at", { withTimezone: true }),
 		/**
+		 * "Nothing to add": finished without a note on purpose. Home no longer asks for one
+		 * (apps/web/app/services/note-reminders.server.ts).
+		 */
+		noteSkippedAt: timestamp("note_skipped_at", { withTimezone: true }),
+		/**
 		 * What to tell an edition's readers about the article, written for them while reading, unlike
 		 * the private `note`. An edition that adds the article starts with it included.
 		 */
@@ -137,10 +142,10 @@ export const documents = pgTable(
 
 /**
  * How a completion was recorded: finishing one article (`manual`), reading to the end
- * (`progress`), finishing several at once (`bulk`, usually tidying up), or a read date from before
- * this history existed (`legacy`).
+ * (`progress`), listening to the end in the app (`listened`), finishing several at once (`bulk`,
+ * usually tidying up), or a read date from before this history existed (`legacy`).
  */
-export const completionSources = ["manual", "progress", "legacy", "bulk"] as const
+export const completionSources = ["manual", "progress", "legacy", "bulk", "listened"] as const
 
 /** One completion signal per reading cycle, independent of the article's current state. */
 export const readingCompletions = pgTable(

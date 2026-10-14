@@ -39,7 +39,7 @@ export type ReadingHistory = Awaited<ReturnType<typeof listReadingHistory>>
  * Completions that are reading. Bulk finishes are tidying up; sources added later (an importer)
  * stay out until they are listed here.
  */
-const READ_SOURCES = ["manual", "progress", "legacy"] as const
+const READ_SOURCES = ["manual", "progress", "legacy", "listened"] as const
 
 /**
  * What the reader finished in the past week: today and the 6 days before, as days in their time

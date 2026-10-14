@@ -3,10 +3,12 @@ import type { ArticleDetails, Highlight } from "@klipstack/sdk"
 import type { NoteSaveStatus } from "@klipstack/sdk/note-autosave"
 import { SymbolView } from "expo-symbols"
 import { useRef } from "react"
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
+import { Keyboard, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
 import { MarkerText } from "@/components/marker-text"
 import { NoteField, type NoteFieldHandle, type NoteLinking } from "@/components/note-field"
 import { PostIt, postItText, useGrowingFit } from "@/components/post-it"
+import { withDictated } from "@/lib/dictated-note"
+import { useDictation } from "@/lib/dictation"
 import { fromStored } from "@/lib/note-field"
 import { tiltFor } from "@/lib/post-it"
 import type { Colors } from "@/lib/theme"
@@ -15,7 +17,9 @@ import type { Colors } from "@/lib/theme"
  * The web reader's sidebar, as a sheet: the article's note on top, a post-it written on in place,
  * its highlights below, each quote marked in its color with its note on a post-it, then the
  * articles whose notes link here. Tapping a highlight closes the sheet and shows it in the
- * article, with its tools; tapping a link or a linking article opens that article.
+ * article, with its tools; tapping a link or a linking article opens that article. Dictate writes
+ * what is said into the note, recognized on the iPhone; `dictate` starts it as the sheet opens
+ * (after an article read aloud).
  */
 export function NotesSheet({
 	visible,
@@ -26,6 +30,8 @@ export function NotesSheet({
 	onSelect,
 	linking,
 	backlinks,
+	dictate = false,
+	onDictate,
 	colors,
 }: {
 	visible: boolean
@@ -42,9 +48,28 @@ export function NotesSheet({
 	onSelect: (id: string) => void
 	linking: NoteLinking
 	backlinks: ArticleDetails["noteLinks"]["from"]
+	/** Start dictating as the sheet opens. */
+	dictate?: boolean
+	/** Dictation starts: the article read aloud pauses, so the microphone doesn't hear it. */
+	onDictate?: () => void
 	colors: Colors
 }) {
 	const field = useRef<NoteFieldHandle>(null)
+	// The note as it was when dictation began: what is heard goes after it.
+	const before = useRef("")
+	const dictation = useDictation((heard) =>
+		note.onChange(withDictated(before.current, heard, NOTE_MAX)),
+	)
+	const startDictation = () => {
+		Keyboard.dismiss()
+		onDictate?.()
+		before.current = note.value
+		void dictation.start()
+	}
+	const close = () => {
+		dictation.stop()
+		onClose()
+	}
 	// Sized afresh each time the sheet opens: a note cleared last time is small again.
 	const fit = useGrowingFit(note.value, String(visible))
 	return (
@@ -52,13 +77,19 @@ export function NotesSheet({
 			visible={visible}
 			presentationStyle="pageSheet"
 			animationType="slide"
-			onRequestClose={onClose}
-			onDismiss={onDismiss}
+			onRequestClose={close}
+			onShow={() => {
+				if (dictate && dictation.available) startDictation()
+			}}
+			onDismiss={() => {
+				dictation.stop()
+				onDismiss()
+			}}
 		>
 			<View style={[styles.sheet, { backgroundColor: colors.bg }]}>
 				<View style={[styles.bar, { borderColor: colors.border }]}>
 					<Text style={[styles.title, { color: colors.fg }]}>Notes</Text>
-					<Pressable accessibilityRole="button" onPress={onClose} hitSlop={12} style={styles.done}>
+					<Pressable accessibilityRole="button" onPress={close} hitSlop={12} style={styles.done}>
 						<Text style={[styles.doneText, { color: colors.accent }]}>Done</Text>
 					</Pressable>
 				</View>
@@ -87,7 +118,11 @@ export function NotesSheet({
 							ref={field}
 							accessibilityLabel="Your note"
 							value={note.value}
-							onChange={note.onChange}
+							onChange={(text) => {
+								// Typed while listening: what is heard next would write over it.
+								dictation.drop()
+								note.onChange(text)
+							}}
 							onBlur={note.onFlush}
 							linking={linking}
 							scrollEnabled={false}
@@ -98,16 +133,41 @@ export function NotesSheet({
 							style={[postItText(colors, "compact"), styles.note]}
 						/>
 					</PostIt>
-					<Pressable
-						accessibilityRole="button"
-						accessibilityLabel="Link Article"
-						onPress={() => field.current?.linkArticle()}
-						hitSlop={8}
-						style={styles.linkArticle}
-					>
-						<SymbolView name="link" tintColor={colors.accent} size={17} />
-						<Text style={[styles.linkArticleText, { color: colors.accent }]}>Link Article</Text>
-					</Pressable>
+					<View style={styles.tools}>
+						<Pressable
+							accessibilityRole="button"
+							accessibilityLabel="Link Article"
+							onPress={() => field.current?.linkArticle()}
+							hitSlop={8}
+							style={styles.linkArticle}
+						>
+							<SymbolView name="link" tintColor={colors.accent} size={17} />
+							<Text style={[styles.linkArticleText, { color: colors.accent }]}>Link Article</Text>
+						</Pressable>
+						{dictation.available ? (
+							<Pressable
+								accessibilityRole="button"
+								accessibilityLabel={dictation.listening ? "Stop dictating" : "Dictate"}
+								onPress={dictation.listening ? dictation.stop : startDictation}
+								hitSlop={8}
+								style={styles.linkArticle}
+							>
+								<SymbolView
+									name={dictation.listening ? "stop.circle.fill" : "mic"}
+									tintColor={dictation.listening ? colors.danger : colors.accent}
+									size={17}
+								/>
+								<Text
+									style={[
+										styles.linkArticleText,
+										{ color: dictation.listening ? colors.danger : colors.accent },
+									]}
+								>
+									{dictation.listening ? "Listening… Tap to stop" : "Dictate"}
+								</Text>
+							</Pressable>
+						) : null}
+					</View>
 					<Text style={[styles.label, styles.highlightsLabel, { color: colors.mutedFg }]}>
 						{highlights.length ? `HIGHLIGHTS (${highlights.length})` : "HIGHLIGHTS"}
 					</Text>
@@ -238,13 +298,8 @@ const styles = StyleSheet.create({
 	paper: { marginTop: 6 },
 	// The whole paper takes the tap.
 	note: { flexGrow: 1, minHeight: 66, padding: 0, paddingTop: 0, textAlignVertical: "top" },
-	linkArticle: {
-		flexDirection: "row",
-		alignItems: "center",
-		alignSelf: "flex-start",
-		gap: 6,
-		marginTop: 10,
-	},
+	tools: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 20, marginTop: 10 },
+	linkArticle: { flexDirection: "row", alignItems: "center", gap: 6 },
 	linkArticleText: { fontSize: 15 },
 	highlightsLabel: { marginTop: 28 },
 	empty: { fontSize: 15, lineHeight: 21 },

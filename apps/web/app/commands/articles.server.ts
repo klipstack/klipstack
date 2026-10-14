@@ -558,11 +558,14 @@ const Position = z.object({
 	position: z.number().min(0).max(1),
 	/** The reading cycle the reader saw: a save from an older cycle (an old tab) is ignored. */
 	cycle: z.number().int().nonnegative().optional(),
+	/** Read aloud to this point: the end records the completion as listened (`listened`). */
+	listened: z.boolean().optional(),
 })
 
 /**
  * Where the reader is (0 to 1). Progress only grows within a cycle; reaching the end records a
- * completion for it. The row stays locked until then, so concurrent saves, finishes and resets
+ * completion for it. Listened to the end, the cycle's completion is `listened`, also when the page
+ * had followed the voice there first (`progress`); a finish stays a finish. The row stays locked until then, so concurrent saves, finishes and resets
  * cannot attach a completion to another cycle.
  */
 export async function saveReadingPosition(
@@ -570,7 +573,7 @@ export async function saveReadingPosition(
 	id: string,
 	input: z.input<typeof Position>,
 ) {
-	const { position, cycle } = parseInput(Position, input)
+	const { position, cycle, listened } = parseInput(Position, input)
 	const articleId = one(id)
 	await db.transaction(async (tx) => {
 		const [row] = await tx
@@ -589,17 +592,22 @@ export async function saveReadingPosition(
 				lastReadAt: now,
 			})
 			.where(eq(documents.id, articleId))
-		if (position >= READ_PROGRESS)
-			await tx
-				.insert(readingCompletions)
-				.values({
-					userId,
-					documentId: articleId,
-					cycle: row.cycle,
-					completedAt: now,
-					source: "progress",
+		if (position < READ_PROGRESS) return
+		const target = [readingCompletions.documentId, readingCompletions.cycle]
+		const completion = tx.insert(readingCompletions).values({
+			userId,
+			documentId: articleId,
+			cycle: row.cycle,
+			completedAt: now,
+			source: listened ? "listened" : "progress",
+		})
+		await (listened
+			? completion.onConflictDoUpdate({
+					target,
+					set: { source: "listened" },
+					setWhere: eq(readingCompletions.source, "progress"),
 				})
-				.onConflictDoNothing({ target: [readingCompletions.documentId, readingCompletions.cycle] })
+			: completion.onConflictDoNothing({ target }))
 	})
 }
 

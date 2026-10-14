@@ -24,7 +24,8 @@ export function createReadingSync({
 	position: number
 	cycle: number
 	open: () => Promise<{ cycle: number }>
-	save: (position: number, cycle: number) => Promise<unknown>
+	/** `listened`: read aloud to there (`listened`). */
+	save: (position: number, cycle: number, listened?: boolean) => Promise<unknown>
 	delay?: number
 }) {
 	let engaged = false
@@ -32,6 +33,7 @@ export function createReadingSync({
 	let lastSent = position
 	let latest = position
 	let timer: ReturnType<typeof setTimeout> | null = null
+	let opening: Promise<unknown> = Promise.resolve()
 
 	const clearTimer = () => {
 		if (timer) clearTimeout(timer)
@@ -41,7 +43,7 @@ export function createReadingSync({
 	function engage() {
 		if (engaged) return
 		engaged = true
-		open().then(
+		opening = open().then(
 			(reading) => {
 				current = reading.cycle
 			},
@@ -76,6 +78,22 @@ export function createReadingSync({
 			timer = setTimeout(() => send(false), delay)
 		},
 		engage,
+		/**
+		 * Read aloud to the end: saved at once as listened to, in the cycle opening the article
+		 * starts. The save, which never fails.
+		 */
+		async listened(): Promise<void> {
+			clearTimer()
+			engage()
+			await opening
+			const previous = lastSent
+			latest = 1
+			lastSent = 1
+			await save(1, current, true).catch(() => {
+				// Not saved: the end goes with the next save, or on the way out (as read, then).
+				if (lastSent === 1) lastSent = previous
+			})
+		},
 		/** Saves the exact position now, if it moved; the save, which never fails, or nothing. */
 		flush: () => send(true),
 		get engaged() {

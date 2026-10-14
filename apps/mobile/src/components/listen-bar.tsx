@@ -12,7 +12,8 @@ export type ListenStatus =
 /**
  * The player while an article is read aloud: back and forward a sentence, play and pause, the
  * speed (1×, 1.25×, 1.5×), how far along and the minutes left. While the voices download, their
- * progress and a way to stop.
+ * progress and a way to stop. Read to the end of an article without a note, it asks, once, for a
+ * thought on it (`onNote`): spoken (`speak`, when dictation is there) or written.
  */
 export function ListenBar({
 	status,
@@ -21,6 +22,8 @@ export function ListenBar({
 	onSkip,
 	onSpeed,
 	onClose,
+	onNote,
+	speak,
 	colors,
 }: {
 	status: ListenStatus
@@ -29,6 +32,10 @@ export function ListenBar({
 	onSkip: (by: number) => void
 	onSpeed: () => void
 	onClose: () => void
+	/** Asking for a note at the end; absent when the article has one. */
+	onNote?: (spoken: boolean) => void
+	/** Dictation is there to speak the note. */
+	speak: boolean
 	colors: Colors
 }) {
 	const insets = useSafeAreaInsets()
@@ -53,7 +60,44 @@ export function ListenBar({
 						]}
 					/>
 				</View>
-				{status.kind === "downloading" ? (
+				{status.kind === "speech" && status.state === "ended" && onNote ? (
+					<View style={styles.row}>
+						<Text style={[styles.label, styles.ask, { color: bar.fg }]} numberOfLines={2}>
+							Anything to keep from it?
+						</Text>
+						{speak ? (
+							<Pressable
+								accessibilityRole="button"
+								accessibilityLabel="Speak a note"
+								onPress={() => onNote(true)}
+								hitSlop={6}
+								style={({ pressed }) => [
+									styles.choice,
+									{ backgroundColor: bar.accent },
+									pressed && styles.pressed,
+								]}
+							>
+								<SymbolView name="mic.fill" tintColor={bar.accentFg} size={15} />
+								<Text style={[styles.choiceText, { color: bar.accentFg }]}>Speak</Text>
+							</Pressable>
+						) : null}
+						<Pressable
+							accessibilityRole="button"
+							accessibilityLabel="Write a note"
+							onPress={() => onNote(false)}
+							hitSlop={6}
+							style={({ pressed }) => [
+								styles.choice,
+								{ borderColor: bar.track, borderWidth: StyleSheet.hairlineWidth },
+								pressed && styles.pressed,
+							]}
+						>
+							<SymbolView name="square.and.pencil" tintColor={bar.fg} size={15} />
+							<Text style={[styles.choiceText, { color: bar.fg }]}>Write</Text>
+						</Pressable>
+						<Button icon="xmark" label="Not now" onPress={onClose} tint={bar.fg} />
+					</View>
+				) : status.kind === "downloading" ? (
 					<View style={styles.row}>
 						<ActivityIndicator color={bar.mutedFg} />
 						<Text style={[styles.label, { color: bar.fg }]}>
@@ -179,6 +223,16 @@ const styles = StyleSheet.create({
 		justifyContent: "center",
 	},
 	label: { fontSize: 14, flexShrink: 1 },
+	ask: { flex: 1, fontWeight: "600" },
+	choice: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 6,
+		paddingVertical: 8,
+		paddingHorizontal: 12,
+		borderRadius: 999,
+	},
+	choiceText: { fontSize: 15, fontWeight: "600" },
 	spacer: { flex: 1 },
 	speed: {
 		minWidth: 52,

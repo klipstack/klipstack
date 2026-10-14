@@ -65,6 +65,7 @@ import { textScale, type TypePrefs } from "@/lib/reader-type"
 import { createReadingSync } from "@/lib/reading-sync"
 import { applyColorScheme, useColors } from "@/lib/theme"
 import type { EndAction, PageEnd, PageMessage, PageNote, PageSelection } from "@/page/messages"
+import { dictation } from "../../../modules/klip-dictation"
 import { canLookUp, lookUp } from "../../../modules/klip-lookup"
 
 /**
@@ -73,8 +74,13 @@ import { canLookUp, lookUp } from "../../../modules/klip-lookup"
  * images, which need the app's token, are downloaded there by the app and set as they land.
  */
 export default function Reader() {
-	// `highlight`: opened from the Highlights tab, at that highlight, with its card open.
-	const { id, highlight: openAt } = useLocalSearchParams<{ id: string; highlight?: string }>()
+	// `highlight`: opened from the Highlights tab, at that highlight, with its card open. `notes`:
+	// from Home's question about a note, with the notes sheet open.
+	const {
+		id,
+		highlight: openAt,
+		notes: openNotes,
+	} = useLocalSearchParams<{ id: string; highlight?: string; notes?: string }>()
 	const { state, apiUrl } = useAuth()
 	const colors = useColors()
 	const insets = useSafeAreaInsets()
@@ -105,6 +111,9 @@ export default function Reader() {
 	const versionId = useRef<string | null>(null)
 	const [saving, setSaving] = useState(false)
 	const [notesOpen, setNotesOpen] = useState(false)
+	// The notes sheet opens dictating: "Speak" at the end of the article read aloud.
+	const [dictateNote, setDictateNote] = useState(false)
+	const notesOpened = useRef(false)
 	// The article note as typed, saved as it changes; set up once the details load.
 	const [note, setNote] = useState("")
 	const [noteStatus, setNoteStatus] = useState<NoteSaveStatus>("idle")
@@ -150,6 +159,8 @@ export default function Reader() {
 		article,
 		textSample: () => text.current,
 		inject: (script) => web.current?.injectJavaScript(script),
+		// Listened to the end: so recorded, also with the screen locked, as reading to it is.
+		onEnded: () => void reading.current?.listened(),
 	})
 
 	// Unsaved typing and the exact position go out when the app leaves the foreground and when the
@@ -357,13 +368,18 @@ export default function Reader() {
 					),
 				)
 				reading.current?.dispose()
-				reading.current = createReadingSync({
-					opened: details.opened,
-					position,
-					cycle: details.readingCycle ?? 0,
-					open: () => client.articles.open(id),
-					save: (at, cycle) => client.articles.setPosition(id, at, { cycle }),
-				})
+				// Opened from Home to write its note, it isn't read again: opening it would start a new
+				// reading (after a day), at the top, and its finish would no longer be asked about.
+				reading.current = openNotes
+					? null
+					: createReadingSync({
+							opened: details.opened,
+							position,
+							cycle: details.readingCycle ?? 0,
+							open: () => client.articles.open(id),
+							save: (at, cycle, listened) =>
+								client.articles.setPosition(id, at, { cycle, listened }),
+						})
 				versionId.current = stored.versionId
 				text.current = sampleText(stored.html)
 				const sizes = new Map(details.images.map((image) => [image.id, image]))
@@ -405,7 +421,7 @@ export default function Reader() {
 		return () => {
 			live = false
 		}
-	}, [client, id, openAt, generation])
+	}, [client, id, openAt, openNotes, generation])
 
 	/**
 	 * The article was saved through a post that shared it: read the post instead. The server
@@ -951,6 +967,11 @@ export default function Reader() {
 							cardOpened.current = true
 							setEditing(openAt)
 						}
+						// Once: the notes sheet, opened from Home to write the note.
+						if (openNotes && !notesOpened.current) {
+							notesOpened.current = true
+							setNotesOpen(true)
+						}
 						for (const [asset, name] of images.current) showImage(asset, name)
 						// After a reload the page paints what it was written with: repaint what is current.
 						if (painted)
@@ -981,11 +1002,17 @@ export default function Reader() {
 			{article ? (
 				<NotesSheet
 					visible={notesOpen}
+					dictate={dictateNote}
+					onDictate={() => {
+						if (listen.status?.kind === "speech" && listen.status.state === "playing")
+							listen.playPause()
+					}}
 					onClose={() => {
 						setNotesOpen(false)
 						flushNote()
 					}}
 					onDismiss={() => {
+						setDictateNote(false)
 						flushNote()
 						if (openAfterSheet.current) setEditing(openAfterSheet.current)
 						openAfterSheet.current = null
@@ -1057,6 +1084,16 @@ export default function Reader() {
 					onSkip={listen.skip}
 					onSpeed={listen.cycleSpeed}
 					onClose={listen.close}
+					onNote={
+						note.trim()
+							? undefined
+							: (spoken) => {
+									listen.close()
+									setDictateNote(spoken)
+									setNotesOpen(true)
+								}
+					}
+					speak={dictation !== null}
 					colors={colors}
 				/>
 			) : null}

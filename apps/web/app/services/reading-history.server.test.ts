@@ -189,7 +189,7 @@ describe("finishedLately", () => {
 		owner: string,
 		documentId: string,
 		completedAt: string,
-		source: "manual" | "progress" | "legacy" | "bulk" = "manual",
+		source: "manual" | "progress" | "legacy" | "bulk" | "listened" = "manual",
 		cycle = 0,
 	) {
 		await db
@@ -214,13 +214,19 @@ describe("finishedLately", () => {
 		})
 	})
 
-	it("counts articles finished by hand, by reading to the end, and before the history existed", async () => {
+	it("counts articles finished by hand, by reading or listening to the end, and before the history existed", async () => {
 		const owner = await reader()
-		const [a, b, c] = [await article(owner), await article(owner), await article(owner)]
+		const [a, b, c, d] = [
+			await article(owner),
+			await article(owner),
+			await article(owner),
+			await article(owner),
+		]
 		await finished(owner, a.id, "2026-10-06T10:00:00Z", "manual")
 		await finished(owner, b.id, "2026-10-08T10:00:00Z", "progress")
 		await finished(owner, c.id, "2026-10-11T11:00:00Z", "legacy")
-		expect(await finishedLately(owner, { now, timeZone: "UTC" })).toEqual({ count: 3, title: null })
+		await finished(owner, d.id, "2026-10-11T12:00:00Z", "listened")
+		expect(await finishedLately(owner, { now, timeZone: "UTC" })).toEqual({ count: 4, title: null })
 	})
 
 	it("counts an article read twice in the week once, and a reread of an old one", async () => {

@@ -39,15 +39,18 @@ export function releaseSpeech(me: Owner): void {
  * Reading an article aloud, for the reader: downloads the voices the first time (after asking),
  * asks the page for its sentences, plays from the one on screen, and marks the one being read.
  * `inject` runs a script in the page; the page's messages go through `onMessage` first.
+ * `onEnded` when the article was read to its end, also with the screen locked.
  */
 export function useReadAloud({
 	article,
 	textSample,
 	inject,
+	onEnded,
 }: {
 	article: ArticleDetails | null
 	textSample: () => string
 	inject: (script: string) => void
+	onEnded?: () => void
 }) {
 	const [status, setStatus] = useState<ListenStatus | null>(null)
 	const [speed, setSpeed] = useState(() => loadSpeechPrefs().speed)
@@ -58,6 +61,8 @@ export function useReadAloud({
 	speedNow.current = speed
 	const injectNow = useRef(inject)
 	injectNow.current = inject
+	const endedNow = useRef(onEnded)
+	endedNow.current = onEnded
 	const [me] = useState<Owner>(() => ({
 		release: () => {
 			pending.current = null
@@ -93,6 +98,7 @@ export function useReadAloud({
 					state,
 					...place(state === "ended" ? sentences.current.length : at.current),
 				})
+				if (state === "ended") endedNow.current?.()
 			}),
 			speech.addListener("onDownload", ({ received, total }) => {
 				if (ownsSpeech(me)) setStatus({ kind: "downloading", received, total })

@@ -52,6 +52,11 @@ export interface UserPrefs {
 	 */
 	reviewSuggestAfter?: string | null
 	/**
+	 * "Not now" on Home's question about notes on articles finished without one: no question before
+	 * this time (ISO). Only the server writes it.
+	 */
+	noteRemindersAfter?: string | null
+	/**
 	 * Home's invitation to turn topics on is over: declined, the Topics page opened while topics were
 	 * off, or topics turned on (ISO, when). It does not come back. Only the server writes it.
 	 */

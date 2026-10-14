@@ -16,6 +16,7 @@ import { HomeArticle } from "~/components/home-article"
 import { FinishedLately } from "~/components/home-finished"
 import { HomeGreeting } from "~/components/home-greeting"
 import { HomeHighlights } from "~/components/home-highlights"
+import { HomeNotes } from "~/components/home-notes"
 import { MenuNavLink, MoreMenu } from "~/components/more-menu"
 import { SaveLinkDialog } from "~/components/save-link-dialog"
 import { Button, buttonVariants } from "~/components/ui/button"
@@ -34,6 +35,7 @@ import { isSearchShortcut } from "~/lib/shortcuts"
 import { countTopicClick } from "~/lib/topic-use"
 import { cn } from "~/lib/utils"
 import { linkTargetStatus } from "~/services/links.server"
+import { listNoteReminders } from "~/services/note-reminders.server"
 import { finishedLately } from "~/services/reading-history.server"
 import { readingHome } from "~/services/reading-home.server"
 import { resurfacingDay } from "~/services/resurfacing.server"
@@ -53,7 +55,7 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 	const topicId = params.get("topic")
 	const choosing = topicChoice(user.id, topicId, params.has("different"))
 	// Without a topic asked for, Home loads alongside the topics; with one, after them, for its id.
-	const [topics, finished, topicsReady, invitation, home, highlights] = await Promise.all([
+	const [topics, finished, topicsReady, invitation, home, highlights, notes] = await Promise.all([
 		choosing,
 		finishedLately(user.id, { timeZone }),
 		firstTopicsReady(user.id),
@@ -63,6 +65,8 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 			: readingHome(user.id),
 		// In a topic, Home is about its articles: no day's highlights picked for it.
 		topicId ? null : homeHighlights(user.id, timeZone),
+		// In a topic, Home is about reading what's next.
+		topicId ? null : listNoteReminders(user.id),
 	])
 	// Each article's topic, when Home is not already about one.
 	const labels =
@@ -85,6 +89,7 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 		topics,
 		labels,
 		highlights,
+		notes,
 		title: `${t("home.title")} · Klipstack`,
 	}
 }
@@ -187,6 +192,7 @@ export default function ReadingHome({
 		topics,
 		labels,
 		highlights,
+		notes,
 	},
 }: Route.ComponentProps) {
 	const { t } = useTranslation(["library", "feed"])
@@ -254,6 +260,11 @@ export default function ReadingHome({
 			{/* With a time chosen, the reader came to read. */}
 			{invitation && !timed ? <TopicsInvitation count={invitation.count} /> : null}
 			{finished ? <FinishedLately {...finished} /> : null}
+			{/* With a time chosen, the reader came to read. Mounted without a question, to keep a
+			note being written on it. */}
+			{timed ? null : (
+				<HomeNotes items={notes?.items ?? []} suggested={notes?.suggested ?? false} />
+			)}
 			{timeChoice || topics ? (
 				<div className="mb-9 space-y-3">
 					{timeChoice ? <TimeChoice minutes={minutes} topic={pick} /> : null}

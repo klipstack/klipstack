@@ -59,6 +59,17 @@ export default {
 			dismissed: "No volverá a aparecer aquí. El subrayado se queda.",
 			noteFailed: "La nota no se guardó. Inténtalo de nuevo.",
 		},
+		notes: {
+			title: "¿Algo que guardar de estos?",
+			description:
+				"Los terminaste sin una nota. Una línea sobre lo que te llevas de cada uno ayuda a que se quede contigo. Si no tienes nada que añadir, también está bien.",
+			finished: "Terminado {{when}}",
+			listened: "Escuchado {{when}}",
+			write: "Escribir una nota",
+			skip: "Nada que añadir",
+			skipped: "No se volverá a preguntar por él.",
+			later: "Ahora no",
+		},
 		resume: "Seguir leyendo",
 		start: "Empezar a leer",
 		progress: "Progreso de lectura",

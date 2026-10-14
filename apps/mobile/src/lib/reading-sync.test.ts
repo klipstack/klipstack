@@ -8,7 +8,7 @@ function setup({
 	openCycle,
 }: { opened?: boolean; position?: number; cycle?: number; openCycle?: number } = {}) {
 	const opens: number[] = []
-	const saves: Array<[number, number]> = []
+	const saves: Array<[number, number] | [number, number, true]> = []
 	const sync = createReadingSync({
 		opened,
 		position,
@@ -17,8 +17,8 @@ function setup({
 			opens.push(1)
 			return { cycle: openCycle ?? cycle }
 		},
-		save: async (at, c) => {
-			saves.push([at, c])
+		save: async (at, c, listened) => {
+			saves.push(listened ? [at, c, true] : [at, c])
 		},
 	})
 	return { sync, opens, saves }
@@ -39,6 +39,37 @@ describe("createReadingSync", () => {
 		sync.scrolled(0.5, false)
 		await vi.advanceTimersByTimeAsync(1500)
 		expect(saves).toEqual([[0.5, 2]])
+	})
+
+	it("saves the end as listened to, opening a new article first for its cycle", async () => {
+		const { sync, opens, saves } = setup({ opened: false, cycle: 0, openCycle: 3 })
+		sync.scrolled(0.4, false)
+		await sync.listened()
+		expect(opens).toHaveLength(1)
+		expect(saves).toEqual([[1, 3, true]])
+		// The end is saved: scrolling there again sends nothing more.
+		sync.scrolled(1, false)
+		await vi.advanceTimersByTimeAsync(2000)
+		expect(saves).toEqual([[1, 3, true]])
+	})
+
+	it("sends the end again on the way out when saving it as listened to failed", async () => {
+		const saves: number[] = []
+		let fail = true
+		const sync = createReadingSync({
+			opened: true,
+			position: 0.3,
+			cycle: 0,
+			open: async () => ({ cycle: 0 }),
+			save: async (at) => {
+				if (fail) throw new Error("offline")
+				saves.push(at)
+			},
+		})
+		await sync.listened()
+		fail = false
+		await sync.flush()
+		expect(saves).toEqual([1])
 	})
 
 	it("keeps a new article new until the user reads", async () => {

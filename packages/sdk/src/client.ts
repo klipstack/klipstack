@@ -56,8 +56,11 @@ export function createClient(options: ClientOptions) {
 		/** Turns an article saved through a post back into the post (`via`, `restorable`). */
 		readPost: (id: string) => call("articles.readPost", { params: { id } }),
 		/** Saves where the reader is, 0–1; `cycle` from the details or `open`. */
-		setPosition: (id: string, position: number, { cycle }: { cycle?: number } = {}) =>
-			call("articles.setPosition", { params: { id }, body: { position, cycle } }),
+		setPosition: (
+			id: string,
+			position: number,
+			{ cycle, listened }: { cycle?: number; listened?: boolean } = {},
+		) => call("articles.setPosition", { params: { id }, body: { position, cycle, listened } }),
 		/**
 		 * Replaces the note (null clears it). With `expectedUpdatedAt` (the `noteUpdatedAt` read
 		 * before, or null for a note never saved), a note changed meanwhile fails with `note_changed`.
@@ -69,6 +72,9 @@ export function createClient(options: ClientOptions) {
 		) => call("articles.setNote", { params: { id }, body: { note, expectedUpdatedAt } }),
 		appendNote: (id: string, text: string) =>
 			call("articles.appendNote", { params: { id }, body: { text } }),
+		/** "Nothing to add": never asked for a note on it again. `unskipNote` undoes it. */
+		skipNote: (id: string) => call("articles.skipNote", { params: { id } }),
+		unskipNote: (id: string) => call("articles.unskipNote", { params: { id } }),
 		/** Replaces the note for the user's next edition (null clears it). */
 		setEditionNote: (id: string, note: string | null) =>
 			call("articles.setEditionNote", { params: { id }, body: { note } }),
@@ -110,6 +116,13 @@ export function createClient(options: ClientOptions) {
 		restore: (id: string) => call("dailyHighlights.restore", { params: { id } }),
 	}
 
+	const noteReminders = {
+		/** Articles finished lately without a note, and whether Home asks about them now. */
+		list: () => call("noteReminders.list"),
+		/** "Not now": Home doesn't ask for a week. */
+		snooze: () => call("noteReminders.snooze"),
+	}
+
 	return {
 		call,
 		/** The account behind the token, and what the token may do. */
@@ -123,6 +136,7 @@ export function createClient(options: ClientOptions) {
 		highlights,
 		notebook,
 		dailyHighlights,
+		noteReminders,
 		annotations: {
 			/** Highlights and article notes with the words of `q`, grouped, with snippets. */
 			search: (q: string, query: Omit<QueryOf<"annotations.search">, "q"> = {}) =>
@@ -221,6 +235,8 @@ export const FACADE: Record<EndpointId, string> = {
 	"articles.setNote": "articles.setNote",
 	"articles.appendNote": "articles.appendNote",
 	"articles.setEditionNote": "articles.setEditionNote",
+	"articles.skipNote": "articles.skipNote",
+	"articles.unskipNote": "articles.unskipNote",
 	"assets.get": "assets.download",
 	"highlights.list": "highlights.list",
 	"highlights.create": "highlights.create",
@@ -231,6 +247,8 @@ export const FACADE: Record<EndpointId, string> = {
 	"dailyHighlights.list": "dailyHighlights.list",
 	"dailyHighlights.dismiss": "dailyHighlights.dismiss",
 	"dailyHighlights.restore": "dailyHighlights.restore",
+	"noteReminders.list": "noteReminders.list",
+	"noteReminders.snooze": "noteReminders.snooze",
 	"feed.get": "feed.get",
 	"feed.saveItems": "feed.saveItems",
 	"feed.dismissItems": "feed.dismissItems",

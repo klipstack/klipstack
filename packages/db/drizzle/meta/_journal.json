@@ -316,6 +316,13 @@
 			"when": 1791853889099,
 			"tag": "0044_highlight_resurfacing",
 			"breakpoints": true
+		},
+		{
+			"idx": 45,
+			"version": "7",
+			"when": 1791935453735,
+			"tag": "0045_note_skipped",
+			"breakpoints": true
 		}
 	]
 }

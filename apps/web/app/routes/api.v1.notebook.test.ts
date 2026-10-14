@@ -464,6 +464,44 @@ describe("Home's daily highlights in the API", () => {
 	})
 })
 
+describe("Home's question about notes in the API", () => {
+	it("asks about an article listened to the end; Nothing to add, its undo, and Not now", async () => {
+		const me = await users.create("Reminders")
+		const other = await users.create("Other reminders")
+		const doc = await article(me.id, "Heard", { siteName: "Site", firstOpenedAt: ago(1) })
+		await highlight(doc, "a passage", ago(0), { color: 1 })
+		expect(await me.client.noteReminders.list()).toEqual({ items: [], total: 0, suggested: false })
+
+		// Read aloud part of the way, then to the end, as the app saves it.
+		await me.client.articles.setPosition(doc.id, 0.5, { cycle: 0, listened: true })
+		expect((await me.client.noteReminders.list()).total).toBe(0)
+		await me.client.articles.setPosition(doc.id, 1, { cycle: 0, listened: true })
+		const asked = await me.client.noteReminders.list()
+		expect(asked).toMatchObject({
+			items: [
+				{
+					article: { id: doc.id, title: "Heard", site: "Site", url: doc.sourceUrl },
+					listened: true,
+					highlights: [{ quote: "a passage", color: "green" }],
+				},
+			],
+			total: 1,
+			suggested: true,
+		})
+		expect(Date.parse(asked.items[0]!.finishedAt)).toBeGreaterThan(Date.now() - 60_000)
+
+		expect((await errorOf(other.client.articles.skipNote(doc.id))).code).toBe("not_found")
+		await me.client.articles.skipNote(doc.id)
+		expect((await me.client.noteReminders.list()).total).toBe(0)
+		await me.client.articles.unskipNote(doc.id)
+		expect((await me.client.noteReminders.list()).total).toBe(1)
+
+		await me.client.noteReminders.snooze()
+		expect(await me.client.noteReminders.list()).toMatchObject({ total: 1, suggested: false })
+		expect((await other.client.noteReminders.list()).total).toBe(0)
+	})
+})
+
 describe("links in notes", () => {
 	it("says which linked articles are there, or in the trash, in every view and on Home", async () => {
 		const me = await users.create("Links")

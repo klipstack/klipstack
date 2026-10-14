@@ -1,4 +1,4 @@
-import type { ArticleSummary, Topic } from "@klipstack/sdk"
+import type { ArticleSummary, NoteReminder, Topic } from "@klipstack/sdk"
 import { router, useFocusEffect } from "expo-router"
 import { SymbolView } from "expo-symbols"
 import { useCallback, useMemo, useRef, useState } from "react"
@@ -27,6 +27,7 @@ import {
 	useImageHeaders,
 } from "@/components/article-card"
 import { ClipboardOffer } from "@/components/clipboard-offer"
+import { NoteReminders } from "@/components/note-reminders"
 import { useTagSheet } from "@/components/tag-sheet"
 import { onChange, settled } from "@/lib/article-changes"
 import { articleMeta } from "@/lib/article-meta"
@@ -65,7 +66,8 @@ import { chooseTopic } from "@/lib/topic-choices"
  *
  * With more unfinished articles than Home shows at once, "How much time do you have?" above it, as
  * on the web: a time narrows every section to what can be finished in it, from the lists already
- * loaded, without asking the server again.
+ * loaded, without asking the server again. Articles finished lately without a note are asked
+ * about, as on the web, when the server suggests it.
  */
 export default function Home() {
 	const { state } = useAuth()
@@ -78,6 +80,11 @@ export default function Home() {
 	const generation = useRef(0)
 	// The reader's topics (none while off or not loaded), and the one Home narrows to.
 	const [topics, setTopics] = useState<Topic[]>([])
+	// Finished without a note, when Home asks about them now.
+	const [reminders, setReminders] = useState<NoteReminder[]>([])
+	// Answered here while a load was on its way: that load's list mustn't bring them back.
+	const skipped = useRef(new Set<string>())
+	const putOff = useRef(false)
 	const [pick, setPick] = useState<TopicPick>(null)
 	const choice = homeTopicChoice(topics, pick)
 	const chosen = choice?.chosen ?? null
@@ -103,6 +110,13 @@ export default function Home() {
 					if (mine !== generation.current) return
 					setTopics(answer.items)
 					setPick((now) => homeTopicChoice(answer.items, now)?.pick ?? null)
+				})
+				.catch(() => {})
+			void client.noteReminders
+				.list()
+				.then((answer) => {
+					if (mine !== generation.current || putOff.current || !answer.suggested) return
+					setReminders(answer.items.filter((r) => !skipped.current.has(r.article.id)))
 				})
 				.catch(() => {})
 			// More than a shelf shows: the sections drop what isn't ready or shows above.
@@ -217,6 +231,29 @@ export default function Home() {
 			refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
 		>
 			<ClipboardOffer client={client} onSaved={() => void load()} colors={colors} />
+			{/* In a topic, or with a time chosen, Home is about reading what's next. */}
+			{client && !chosen && minutes === null ? (
+				<NoteReminders
+					items={reminders}
+					client={client}
+					onSkip={(id) => {
+						skipped.current.add(id)
+						setReminders((shown) => shown.filter((r) => r.article.id !== id))
+					}}
+					onUnskip={(item) => {
+						skipped.current.delete(item.article.id)
+						setReminders((shown) =>
+							shown.some((r) => r.article.id === item.article.id) ? shown : [item, ...shown],
+						)
+					}}
+					onLater={() => {
+						putOff.current = true
+						setReminders([])
+						void client.noteReminders.snooze().catch(() => {})
+					}}
+					colors={colors}
+				/>
+			) : null}
 			{timeChoice || choice ? (
 				<View style={styles.choices}>
 					{timeChoice ? <TimeChoice minutes={minutes} onPick={setMinutes} colors={colors} /> : null}

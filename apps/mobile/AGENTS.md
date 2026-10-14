@@ -45,8 +45,9 @@ pnpm dlx expo-doctor         # Diagnose dependency and config problems
   `src/lib/reader-page.generated.ts` (committed; never edit it). A test fails while the bundle is
   stale. `messages.ts` holds what the app and the page tell each other.
 - `modules/`: local native modules: `klip-lookup` (the dictionary sheet), `klip-pasteboard`
-  (whether the clipboard holds a link, without reading it, and the system's Paste button) and `klip-speech` (reading aloud;
-  see its README).
+  (whether the clipboard holds a link, without reading it, and the system's Paste button),
+  `klip-speech` (reading aloud; see its README) and `klip-dictation` (dictating a note, recognized
+  on the device; see its README).
 - `targets/share/`: the iOS share extension, in Swift. `@bacons/apple-targets` links it into
   the Xcode project at prebuild.
 - `targets/widget/`: the home screen's "Next up" widget, in Swift: Home's big card (and, in the

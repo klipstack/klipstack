@@ -636,6 +636,32 @@ describe("reading", () => {
 		).toHaveLength(1)
 	})
 
+	it("records listening to the end as listened, also over a completion from scrolling", async () => {
+		const [a, b] = ids as [string, string]
+		const sources = async (id: string) =>
+			(
+				await db
+					.select({ source: readingCompletions.source })
+					.from(readingCompletions)
+					.where(eq(readingCompletions.documentId, id))
+			).map((c) => c.source)
+		// Listening part of the way records nothing.
+		await saveReadingPosition(userId, a, { position: 0.5, listened: true })
+		expect(await sources(a)).toEqual([])
+		await saveReadingPosition(userId, a, { position: 1, listened: true })
+		expect(await sources(a)).toEqual(["listened"])
+		// The page followed the voice to the end first: the cycle was still listened to.
+		await saveReadingPosition(userId, b, { position: 0.99 })
+		await saveReadingPosition(userId, b, { position: 1, listened: true })
+		expect(await sources(b)).toEqual(["listened"])
+		// A finish stays a finish.
+		await updateArticles(userId, { ids: [a, b], finished: true })
+		const [c] = ids.slice(2) as [string]
+		await updateArticle(userId, c, { finished: true })
+		await saveReadingPosition(userId, c, { position: 1, listened: true })
+		expect(await sources(c)).toEqual(["manual"])
+	})
+
 	it("undoing an archive keeps the article finished", async () => {
 		const [a] = ids as [string]
 		await updateArticles(userId, { ids: [a], finished: true })

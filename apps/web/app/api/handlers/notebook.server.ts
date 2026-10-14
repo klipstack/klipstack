@@ -2,17 +2,23 @@ import type {
 	dismissDailyHighlight,
 	getNotebook,
 	listDailyHighlights,
+	listNoteReminders,
 	NotebookArticle,
 	NotebookItem,
 	restoreDailyHighlight,
 	searchAnnotations,
+	skipNote,
+	snoozeNoteReminders,
+	unskipNote,
 } from "@klipstack/api-contract"
 import { HIGHLIGHT_COLORS } from "@klipstack/api-contract"
+import { skipArticleNote, snoozeNoteReminderCard } from "~/commands/note-reminders.server"
 import { dailyHighlights, resumeResurfacing, stopResurfacing } from "~/commands/resurfacing.server"
 import { extractLinkIds } from "~/lib/note-links"
 import { searchHighlights, searchNotes } from "~/services/annotation-search.server"
 import { appOrigin, readerUrl } from "~/services/article-summary.server"
 import { linkTargetStatus } from "~/services/links.server"
+import { listNoteReminders as noteReminders } from "~/services/note-reminders.server"
 import {
 	activeTopicName,
 	countNotebook,
@@ -201,6 +207,36 @@ export const dismissDaily: Handler<typeof dismissDailyHighlight> = async ({ user
 
 export const restoreDaily: Handler<typeof restoreDailyHighlight> = async ({ userId, params }) => {
 	await resumeResurfacing(userId, params.id)
+}
+
+export const reminders: Handler<typeof listNoteReminders> = async ({ userId }) => {
+	const { items, total, suggested } = await noteReminders(userId)
+	return {
+		items: items.map((item) => ({
+			article: { id: item.id, title: item.title, site: item.siteName, url: item.sourceUrl },
+			finishedAt: item.finishedAt.toISOString(),
+			listened: item.listened,
+			highlights: item.highlights.map((h) => ({
+				id: h.id,
+				quote: h.quote,
+				color: HIGHLIGHT_COLORS[h.color] ?? "yellow",
+			})),
+		})),
+		total,
+		suggested,
+	}
+}
+
+export const snoozeReminders: Handler<typeof snoozeNoteReminders> = async ({ userId }) => {
+	await snoozeNoteReminderCard(userId)
+}
+
+export const skip: Handler<typeof skipNote> = async ({ userId, params }) => {
+	await skipArticleNote(userId, params.id)
+}
+
+export const unskip: Handler<typeof unskipNote> = async ({ userId, params }) => {
+	await skipArticleNote(userId, params.id, false)
 }
 
 export const searchKept: Handler<typeof searchAnnotations> = async ({ userId, query }) => {

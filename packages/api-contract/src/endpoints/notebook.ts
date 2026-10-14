@@ -223,6 +223,71 @@ export const restoreDailyHighlight = defineEndpoint({
 	errors: ["not_found"],
 })
 
+/** An article finished lately without a note on it. */
+export const NoteReminder = z
+	.object({
+		article: HighlightArticle,
+		finishedAt: Time,
+		/** Listened to the end in the app, rather than read. */
+		listened: z.boolean(),
+		/** A few of its highlights, in the article's order, to bring it back to mind. */
+		highlights: z.array(z.object({ id: Id, quote: z.string(), color: z.enum(HIGHLIGHT_COLORS) })),
+	})
+	.meta({ id: "NoteReminder" })
+export type NoteReminder = z.infer<typeof NoteReminder>
+
+export const listNoteReminders = defineEndpoint({
+	id: "noteReminders.list",
+	method: "GET",
+	path: "/note-reminders",
+	scope: "read",
+	summary:
+		'Home\'s gentle question about articles finished lately without a note: read to the end, finished in the reader, or listened to, in the last 14 days, the latest first. Not those finished several at once or from a list unopened, nor those marked "Nothing to add" (POST /articles/{id}/note/skip). `suggested`: whether Home asks now (two or more, or one listened to, and not put off with POST /note-reminders/snooze).',
+	response: json(
+		z.object({
+			/** The latest three. */
+			items: z.array(NoteReminder),
+			total: z.number().int().nonnegative(),
+			suggested: z.boolean(),
+		}),
+	),
+	errors: [],
+})
+
+export const snoozeNoteReminders = defineEndpoint({
+	id: "noteReminders.snooze",
+	method: "POST",
+	path: "/note-reminders/snooze",
+	scope: "write",
+	summary: '"Not now": Home doesn\'t ask about notes for a week. The articles stay listed.',
+	response: empty(),
+	errors: [],
+})
+
+export const skipNote = defineEndpoint({
+	id: "articles.skipNote",
+	method: "POST",
+	path: "/articles/:id/note/skip",
+	scope: "write",
+	summary:
+		'"Nothing to add": the article was finished without a note on purpose, and is never asked about again. DELETE undoes it.',
+	params,
+	response: empty(),
+	/** `not_found`: not the user's article, or in the trash. */
+	errors: ["not_found"],
+})
+
+export const unskipNote = defineEndpoint({
+	id: "articles.unskipNote",
+	method: "DELETE",
+	path: "/articles/:id/note/skip",
+	scope: "write",
+	summary: 'Undoes "Nothing to add": the article may be asked about again.',
+	params,
+	response: empty(),
+	errors: ["not_found"],
+})
+
 /** Found text in runs; `match` marks a word the search found. Render as text, never as HTML. */
 export const Snippet = z
 	.array(z.object({ text: z.string(), match: z.literal(true).optional() }))

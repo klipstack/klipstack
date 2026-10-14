@@ -60,6 +60,17 @@ export default {
 			dismissed: "It won't come back here. The highlight stays.",
 			noteFailed: "The note was not saved. Try again.",
 		},
+		notes: {
+			title: "Anything to keep from these?",
+			description:
+				"You finished these without a note. A line on what you take from each helps it stay with you. Nothing to add is fine too.",
+			finished: "Finished {{when}}",
+			listened: "Listened to {{when}}",
+			write: "Write a note",
+			skip: "Nothing to add",
+			skipped: "It won't be asked about again.",
+			later: "Not now",
+		},
 		resume: "Resume reading",
 		start: "Start reading",
 		progress: "Reading progress",

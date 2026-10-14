@@ -14,7 +14,9 @@
 				"com.apple.security.application-groups": ["group.com.klipstack.app"]
 			},
 			"infoPlist": {
-				"UIBackgroundModes": ["audio"]
+				"UIBackgroundModes": ["audio"],
+				"NSMicrophoneUsageDescription": "Klipstack listens while you dictate a note.",
+				"NSSpeechRecognitionUsageDescription": "Klipstack turns what you dictate into your note, on this iPhone."
 			}
 		},
 		"android": {
