@@ -3,6 +3,7 @@ import { useEffect, useEffectEvent, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link, useFetcher, useFetchers } from "react-router"
 import { useRestoreConflictToast } from "~/hooks/use-restore-conflict-toast"
+import { prepareMotion } from "~/lib/motion"
 import {
 	dismissToast,
 	holdToast,
@@ -12,6 +13,7 @@ import {
 	UNDO_FETCHER,
 	useToasts,
 } from "~/lib/toast"
+import { BrandMarkSmall } from "./brand-mark"
 
 const TYPING = "input, textarea, select, [contenteditable]:not([contenteditable='false'])"
 
@@ -65,6 +67,8 @@ export function ToastHost() {
 
 	const undo = (toast: Toast) => {
 		if (!toast.undo) return
+		// What the undo brings back makes room in the list, where it was.
+		prepareMotion()
 		if (sending(toast.undo.action)) queued.current = toast.undo
 		else send(toast.undo)
 		leave(toast)
@@ -115,6 +119,9 @@ export function ToastHost() {
 					className="pointer-events-auto flex items-center gap-3 rounded-full bg-fg py-2 pr-2 pl-4 text-sm text-bg shadow-lg"
 				>
 					{toast.warn ? <TriangleAlert className="size-4 shrink-0 text-warn" aria-hidden /> : null}
+					{toast.clip ? (
+						<BrandMarkSmall className="toast-clip -my-1 size-5 shrink-0 text-link-inverse" />
+					) : null}
 					<span>{toast.message}</span>
 					{toast.link ? (
 						<Link

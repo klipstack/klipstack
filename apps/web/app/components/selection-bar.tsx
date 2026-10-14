@@ -18,6 +18,7 @@ import { useFetcher } from "react-router"
 import type { ListSelection } from "~/hooks/use-list-cursor"
 import { BULK_ACTION, BULK_FETCHER, type BulkAction, bulkActions, MOVES } from "~/lib/bulk-actions"
 import { useCommands } from "~/lib/commands"
+import { type Leave, playLeave } from "~/lib/motion"
 import { type ArticleShortcut, articleShortcut, SHORTCUT_HINTS } from "~/lib/shortcuts"
 import { showToast } from "~/lib/toast"
 import { cn } from "~/lib/utils"
@@ -54,6 +55,15 @@ const KEYS: Partial<Record<BulkAction, string>> = {
 	delete: SHORTCUT_HINTS.delete,
 }
 
+/** How the checked cards leave the list, for the actions that move them (`~/lib/motion`). */
+const LEAVES: Partial<Record<BulkAction, Leave>> = {
+	archive: "archive",
+	finish: "archive",
+	unarchive: "lift",
+	delete: "lift",
+	restore: "lift",
+}
+
 /** The refusals a tag change can meet, and what the toast says for each. */
 const TAG_ERRORS: Record<
 	string,
@@ -78,7 +88,7 @@ export function SelectionBar({
 	items: LibraryCard[]
 	selection: ListSelection
 }) {
-	const { t } = useTranslation("library")
+	const { t, i18n } = useTranslation("library")
 	const bulk = useFetcher<WebResult<BulkDone>>({ key: BULK_FETCHER })
 	const [tagging, setTagging] = useState(false)
 	const cards = items.filter((d) => selection.checked.has(d.id))
@@ -93,6 +103,13 @@ export function SelectionBar({
 		form.set("intent", action)
 		form.set("ids", ids.join(","))
 		for (const name of names) form.append("name", name)
+		const leave = LEAVES[action]
+		if (leave)
+			playLeave(
+				action === "finish" ? cards.filter((c) => !c.archivedAt).map((c) => c.id) : ids,
+				leave,
+				{ label: t("card.archiveStamp"), locale: i18n.language },
+			)
 		void bulk.submit(form, { method: "post", action: BULK_ACTION })
 		// Moved elsewhere: out of the selection. A refused restore stays (see the answer below).
 		if (MOVES.has(action) && action !== "restore")

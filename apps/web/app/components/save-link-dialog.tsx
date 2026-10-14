@@ -5,6 +5,7 @@ import { useFetcher, useLocation } from "react-router"
 import { tooltip } from "~/components/tooltip-host"
 import { Button } from "~/components/ui/button"
 import { Field } from "~/components/ui/field"
+import { prepareMotion } from "~/lib/motion"
 import { saveErrorKey } from "~/lib/save-errors"
 import { showToast } from "~/lib/toast"
 import type { WebResult } from "~/lib/web-result"
@@ -34,7 +35,12 @@ export function SaveLinkDialog() {
 	const onAnswer = useEffectEvent((answer: typeof fetcher.data) => {
 		if (!answer?.ok) return
 		close()
-		showToast({ message: t("add.saved") })
+		// The library's first page, newest first, shows the new card, clipped as it comes in; anywhere
+		// else (another page, a filter, another order) the toast is clipped.
+		showToast({
+			message: t("add.saved"),
+			clip: location.pathname !== "/library" || location.search !== "",
+		})
 	})
 	useEffect(() => onAnswer(fetcher.data), [fetcher.data])
 
@@ -93,6 +99,7 @@ export function SaveLinkDialog() {
 					ref={formRef}
 					method="post"
 					action="/library"
+					onSubmit={() => prepareMotion()}
 					className="flex flex-col gap-4 p-6"
 				>
 					<div className="flex items-start justify-between gap-4">

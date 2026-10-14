@@ -21,12 +21,14 @@ import { useRestoreConflictToast } from "~/hooks/use-restore-conflict-toast"
 import { warnAboutBacklinks } from "~/lib/backlink-warning.client"
 import { useCommands } from "~/lib/commands"
 import { copyLink } from "~/lib/copy-link"
+import { type Entering, type Leave, playLeave } from "~/lib/motion"
 import { type ArticleShortcut, articleShortcut, SELECT_HINT, SHORTCUT_HINTS } from "~/lib/shortcuts"
 import { safeHost, siteLabel } from "~/lib/site-label"
 import { showToast, UNDO_FETCHER } from "~/lib/toast"
 import { cn } from "~/lib/utils"
 import type { LibraryCard } from "~/services/documents.server"
 import { ArticleImage } from "./article-image"
+import { BrandMarkSmall } from "./brand-mark"
 import { MenuAction, MenuButton, MoreMenu, type MoreMenuHandle } from "./more-menu"
 import { tiltFor } from "./post-it"
 import { ReadStamp } from "./read-stamp"
@@ -52,6 +54,8 @@ export function DocumentCard({
 	menuItems,
 	keepsArchived = false,
 	topic,
+	entering,
+	onEntered,
 }: {
 	doc: LibraryCard
 	cursor?: boolean
@@ -67,8 +71,12 @@ export function DocumentCard({
 	keepsArchived?: boolean
 	/** The topic it is in, beside its source, as Home's cards show it. */
 	topic?: string
+	/** Just showed up in the list: saved (the clip) or back by Undo (`DocumentList`). */
+	entering?: Entering
+	/** Its coming in has played. */
+	onEntered?: (id: string) => void
 }) {
-	const { t } = useTranslation("library")
+	const { t, i18n } = useTranslation("library")
 	const { t: tc } = useTranslation()
 	const fetcher = useFetcher()
 	const location = useLocation()
@@ -134,7 +142,11 @@ export function DocumentCard({
 	const archiving = !archived
 	const canUnread =
 		Boolean(doc.firstOpenedAt) && doc.status === "ready" && optimisticIntent !== "unread"
+	// The card leaves the list: its animation, from where it is now (`~/lib/motion`).
+	const leave = (kind: Leave) =>
+		playLeave([doc.id], kind, { label: t("card.archiveStamp"), locale: i18n.language })
 	const undoable = (intent: "archive" | "unarchive" | "delete") => {
+		leave(intent === "archive" ? "archive" : "lift")
 		if (intent === "delete")
 			warnAboutBacklinks(doc.id, (count) => t("toast.deletedLinked", { count }), t("toast.undo"))
 		showToast({
@@ -319,6 +331,12 @@ export function DocumentCard({
 		// oxlint-disable-next-line jsx-a11y/click-events-have-key-events -- keys toggle through the box and `x`
 		<li
 			ref={ref}
+			data-card-id={doc.id}
+			data-motion-key={doc.id}
+			data-enter={entering}
+			onAnimationEnd={(e) => {
+				if (e.target === e.currentTarget && entering === "return") onEntered?.(doc.id)
+			}}
 			data-cursor={cursor || undefined}
 			data-checked={checked || undefined}
 			// Right-click opens the article's own menu, not the browser's link menu.
@@ -352,6 +370,13 @@ export function DocumentCard({
 				selecting && "cursor-pointer select-none",
 			)}
 		>
+			{entering === "clip" ? (
+				<BrandMarkSmall
+					data-testid="card-clip"
+					onAnimationEnd={() => onEntered?.(doc.id)}
+					className="card-clip pointer-events-none absolute top-1 left-18 z-20 size-9 text-accent drop-shadow-sm max-sm:top-0 max-sm:left-3 layout-grid:-top-2 layout-grid:right-6 layout-grid:left-auto"
+				/>
+			) : null}
 			{unread ? (
 				<span
 					data-testid="unread-dot"
@@ -497,12 +522,13 @@ export function DocumentCard({
 					<fetcher.Form
 						method="post"
 						action={action}
-						onSubmit={() =>
+						onSubmit={() => {
+							leave("lift")
 							showToast({
 								message: t("toast.restored"),
 								undo: { action, intent: "delete", label: t("toast.undo") },
 							})
-						}
+						}}
 					>
 						<input type="hidden" name="intent" value="restore" />
 						<IconButton label={t("card.restore")}>
@@ -516,7 +542,7 @@ export function DocumentCard({
 							if (!armed) {
 								e.preventDefault()
 								setArmed(true)
-							}
+							} else leave("lift")
 						}}
 					>
 						<input type="hidden" name="intent" value="purge" />

@@ -1,5 +1,6 @@
 import { useEffect } from "react"
 import { useRevalidator } from "react-router"
+import { prepareMotion } from "~/lib/motion"
 
 /** The documents the live refresh starting now is about; null when it is about everything. */
 let refreshScope: ReadonlySet<string> | null = null
@@ -15,6 +16,8 @@ export function liveRefreshSkips(documentId: string | undefined) {
 
 /** Starts a refresh about `documents` (null: about everything). */
 export function refreshAbout(documents: ReadonlySet<string> | null, revalidate: () => unknown) {
+	// What changed elsewhere moves the list's cards: they slide to their new places.
+	prepareMotion()
 	refreshScope = documents
 	void revalidate()
 	refreshScope = null

@@ -9,6 +9,8 @@ export interface Toast {
 	link?: { label: string; to: string }
 	/** A warning: marked with an icon, and given longer to be read. */
 	warn?: boolean
+	/** Something saved: the logo's paper clip clips the toast. */
+	clip?: boolean
 	ms?: number
 }
 

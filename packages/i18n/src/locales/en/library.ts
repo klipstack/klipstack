@@ -226,6 +226,8 @@ export default {
 		finished: "Finished",
 		/** The ink stamp on a finished article's card: one short word, in capitals. */
 		stamp: "Read",
+		/** The date stamp an archived card gets as it goes: one short word, in capitals. */
+		archiveStamp: "Archived",
 		untitled: "Untitled",
 		unread: "Unread",
 		markUnread: "Mark as unread",

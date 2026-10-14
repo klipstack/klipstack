@@ -229,6 +229,8 @@ export default {
 		finished: "Terminado",
 		/** The ink stamp on a finished article's card: one short word, in capitals. */
 		stamp: "Leído",
+		/** The date stamp an archived card gets as it goes: one short word, in capitals. */
+		archiveStamp: "Archivado",
 		untitled: "Sin título",
 		unread: "Sin leer",
 		markUnread: "Marcar como no leído",
