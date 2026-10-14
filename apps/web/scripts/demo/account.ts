@@ -50,7 +50,9 @@ export interface DemoOptions {
 }
 export interface Prepared {
 	capture: Capture
-	article: ExtractedArticle
+	/** Null for a document already seeded from this capture: seed leaves it as it is. */
+	article: ExtractedArticle | null
+	title: string
 	captureHash: string
 	plan: ReturnType<typeof articlePlan>
 }
@@ -59,6 +61,8 @@ export async function prepareCorpus(
 	options: Pick<DemoOptions, "cache" | "urls">,
 	state: State,
 	feedArticles = new Set<string>(),
+	/** The account exists: documents complete in `state` stay as they are, unextracted. */
+	seeded = false,
 ): Promise<Prepared[]> {
 	const prepared: Prepared[] = []
 	for (const url of options.urls) {
@@ -67,20 +71,30 @@ export async function prepareCorpus(
 			console.log(`No capture, skipped: ${url}`)
 			continue
 		}
-		const html = (await getBlob(options.cache, capture.page)).toString("utf8")
-		const article = await extractArticle({ html, url: capture.page.finalUrl })
-		for (const image of Object.values(capture.images))
-			if (!("error" in image)) await getBlob(options.cache, image)
-		for (const image of imageUrls(article.html, article.leadImageUrl))
-			if (!capture.images[image])
-				throw new Error(`Extraction now uses an uncached image; run demo:capture --refresh: ${url}`)
+		const captureHash = hash(JSON.stringify(capture))
+		const entry = state.documents[url]
+		// Extraction takes about a second per article; a complete document needs only its title.
+		let article: ExtractedArticle | null = null
+		if (!seeded || !entry?.complete || entry.captureHash !== captureHash) {
+			const html = (await getBlob(options.cache, capture.page)).toString("utf8")
+			article = await extractArticle({ html, url: capture.page.finalUrl })
+			for (const image of Object.values(capture.images))
+				if (!("error" in image)) await getBlob(options.cache, image)
+			for (const image of imageUrls(article.html, article.leadImageUrl))
+				if (!capture.images[image])
+					throw new Error(
+						`Extraction now uses an uncached image; run demo:capture --refresh: ${url}`,
+					)
+		}
+		const title = article?.title ?? capture.title
 		prepared.push({
 			capture,
 			article,
-			captureHash: hash(JSON.stringify(capture)),
+			title,
+			captureHash,
 			plan: articlePlan(
 				url,
-				article.title,
+				title,
 				state.seed,
 				state.date,
 				state.documents[url]?.source === "feed" || (!state.documents[url] && feedArticles.has(url)),
@@ -94,6 +108,8 @@ export async function prepareCorpus(
 
 /** No queued work is needed: use the worker's publication and image stages directly. */
 async function insertCapture(cache: string, state: State, item: Prepared) {
+	if (!item.article) throw new Error(`Not extracted: ${item.capture.url}`)
+	const article = item.article
 	const entry = state.documents[item.capture.url]!
 	const existing = await db.query.documents.findFirst({ where: eq(documents.id, entry.id) })
 	if (existing) {
@@ -130,7 +146,7 @@ async function insertCapture(cache: string, state: State, item: Prepared) {
 			tx,
 			doc!,
 			raw!.id,
-			item.article,
+			article,
 			item.capture.page.finalUrl,
 		)
 		if (!versionId) throw new Error("Demo extraction was superseded")
@@ -180,6 +196,8 @@ async function replayImages(cache: string, item: Prepared, userId: string, versi
 }
 
 async function applyHistory(state: State, item: Prepared, all: Prepared[]) {
+	if (!item.article) throw new Error(`Not extracted: ${item.capture.url}`)
+	const article = item.article
 	const id = state.documents[item.capture.url]!.id
 	const { plan } = item
 	await changeTags({ userId: state.userId, documentIds: [id], add: plan.tags })
@@ -188,13 +206,13 @@ async function applyHistory(state: State, item: Prepared, all: Prepared[]) {
 		? all.find((other) => other.capture.url.includes(plan.related!) && other.plan.state !== "trash")
 		: undefined
 	if (note && related)
-		note += `\n\nRelated: [${insertTitle(related.article.title)}](/read/${state.documents[related.capture.url]!.id})`
+		note += `\n\nRelated: [${insertTitle(related.title)}](/read/${state.documents[related.capture.url]!.id})`
 	if (note) await setNote(state.userId, id, note)
 	const planned =
 		state.documents[item.capture.url]?.source === "feed"
 			? []
 			: planHighlights({
-					...item.article,
+					...article,
 					url: item.capture.url,
 					seed: state.seed,
 					date: state.date,
@@ -329,6 +347,8 @@ export async function runDemo(options: DemoOptions) {
 			{ ...options, urls: [...new Set([...options.urls, ...feedArticles])] },
 			options.command === "reset" ? { ...state, documents: {} } : state,
 			feedArticles,
+			// Without the account, seed marks every document incomplete and creates them again.
+			options.command === "seed" && matches.length > 0,
 		)
 		if (options.command === "seed")
 			for (const item of preparedFeeds) {
@@ -386,7 +406,7 @@ export async function runDemo(options: DemoOptions) {
 		for (const [i, item] of pending.entries()) {
 			const versionId = await insertCapture(options.cache, state, item)
 			await replayImages(options.cache, item, state.userId, versionId)
-			console.log(`[${i + 1}/${pending.length}] replayed ${item.article.title}`)
+			console.log(`[${i + 1}/${pending.length}] replayed ${item.title}`)
 		}
 		// All target documents exist before notes connect them.
 		for (const item of pending) {
