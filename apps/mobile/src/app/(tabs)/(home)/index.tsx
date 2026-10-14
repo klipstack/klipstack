@@ -31,7 +31,16 @@ import { useTagSheet } from "@/components/tag-sheet"
 import { onChange, settled } from "@/lib/article-changes"
 import { articleMeta } from "@/lib/article-meta"
 import { useAuth } from "@/lib/auth"
-import { type HomeSections, homeSections, minutesLeft, withChanges, withTags } from "@/lib/home"
+import {
+	everyHomeArticle,
+	type HomeLists,
+	homeSections,
+	minutesLeft,
+	offersTimeChoice,
+	TIME_CHOICES,
+	withChanges,
+	withTags,
+} from "@/lib/home"
 import {
 	type HomeTopicChoice,
 	homeTopicChoice,
@@ -53,13 +62,17 @@ import { chooseTopic } from "@/lib/topic-choices"
  * to its articles (the lists' `topic`), and says what is left in it, with the way to all of it on
  * the Topics screen. Something different is the topic read from least lately. Only Home without a
  * topic is kept for offline reading.
+ *
+ * With more unfinished articles than Home shows at once, "How much time do you have?" above it, as
+ * on the web: a time narrows every section to what can be finished in it, from the lists already
+ * loaded, without asking the server again.
  */
 export default function Home() {
 	const { state } = useAuth()
 	const colors = useColors()
 	const headers = useImageHeaders()
 	const client = state.status === "signed-in" ? state.client : null
-	const [home, setHome] = useState<HomeSections | null>(null)
+	const [lists, setLists] = useState<HomeLists | null>(null)
 	const [error, setError] = useState<string | null>(null)
 	const [refreshing, setRefreshing] = useState(false)
 	const generation = useRef(0)
@@ -69,6 +82,12 @@ export default function Home() {
 	const choice = homeTopicChoice(topics, pick)
 	const chosen = choice?.chosen ?? null
 	const topic = chosen?.topic.id
+	// Whether to offer a time, judged on Home without a topic (a topic's share is smaller), and the
+	// minutes chosen: null for any length.
+	const [timeChoice, setTimeChoice] = useState(false)
+	const [chosenMinutes, setMinutes] = useState<number | null>(null)
+	const minutes = timeChoice ? chosenMinutes : null
+	const home = useMemo(() => lists && homeSections(lists, { minutes }), [lists, minutes])
 
 	const load = useCallback(async () => {
 		if (!client) return
@@ -87,7 +106,7 @@ export default function Home() {
 				})
 				.catch(() => {})
 			// More than a shelf shows: the sections drop what isn't ready or shows above.
-			const [reading, unread, quick] = await Promise.all([
+			const [reading, unread, quick, long] = await Promise.all([
 				client.articles.list({ view: "inbox", filter: "progress", limit: 12, topic }),
 				client.articles.list({
 					view: "inbox",
@@ -97,27 +116,31 @@ export default function Home() {
 					topic,
 				}),
 				client.articles.list({ view: "inbox", filter: "quick", limit: 30, topic }),
+				client.articles.list({ view: "inbox", filter: "long", limit: 20, topic }),
 			])
 			if (mine !== generation.current) return
-			const sections = homeSections({
+			const loaded = {
 				reading: reading.items,
 				unread: unread.items,
 				quick: quick.items,
-			})
-			setHome(sections)
+				long: long.items,
+			}
+			setLists(loaded)
 			setError(null)
+			// A topic's share is part of the library: enough in it is enough in all of it.
+			const offered = offersTimeChoice(loaded)
 			// One topic's share is not Home to keep: offline, and on the widget, Home is all of it.
-			if (topic) return
+			if (topic) return setTimeChoice((before) => before || offered)
+			setTimeChoice(offered)
+			// A choice withdrawn is forgotten: it doesn't narrow Home again unasked when it comes back.
+			if (!offered) setMinutes(null)
 			// Kept for offline reading, with Inbox's and Starred's first pages (src/lib/offline.ts).
 			saveList("home-reading", reading.items)
 			saveList("home-unread", unread.items)
 			saveList("home-quick", quick.items)
-			void downloadAhead(client, "home", [
-				...(sections.hero ? [sections.hero] : []),
-				...sections.reading,
-				...sections.recent,
-				...sections.quick,
-			])
+			saveList("home-long", long.items)
+			// Home as it opens first, then what each time would show.
+			void downloadAhead(client, "home", everyHomeArticle(loaded))
 			keepLibraryLists(client)
 		} catch (e) {
 			if (mine !== generation.current) return
@@ -131,8 +154,13 @@ export default function Home() {
 					loadList("home-unread"),
 					loadList("home-quick"),
 				]
-				if (reading && unread && quick)
-					setHome((shown) => shown ?? homeSections({ reading, unread, quick }))
+				// Kept since the time choice came; none before.
+				const long = loadList("home-long") ?? []
+				if (reading && unread && quick) {
+					const kept = { reading, unread, quick, long }
+					setLists((shown) => shown ?? kept)
+					setTimeChoice((offered) => offered || offersTimeChoice(kept))
+				}
 				setError(OFFLINE_NOTE)
 				return
 			}
@@ -160,13 +188,13 @@ export default function Home() {
 		client,
 		apply: (changed) => {
 			generation.current++
-			setHome((shown) => shown && withChanges(shown, changed))
+			setLists((shown) => shown && withChanges(shown, changed))
 		},
 		done: () => void load(),
 		reload: () => void load(),
 	})
 	const tags = useTagSheet(client, (changed) =>
-		setHome((shown) => shown && withTags(shown, changed)),
+		setLists((shown) => shown && withTags(shown, changed)),
 	)
 	const openTags = tags.open
 	const menu = useMemo<CardMenu>(
@@ -189,19 +217,24 @@ export default function Home() {
 			refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
 		>
 			<ClipboardOffer client={client} onSaved={() => void load()} colors={colors} />
-			{choice ? (
-				<AboutWhat
-					choice={choice}
-					onPick={(next) => {
-						// Another topic's sections, not the last one's under its heading: loading, then them.
-						setHome(null)
-						setError(null)
-						setPick(next)
-					}}
-					colors={colors}
-				/>
+			{timeChoice || choice ? (
+				<View style={styles.choices}>
+					{timeChoice ? <TimeChoice minutes={minutes} onPick={setMinutes} colors={colors} /> : null}
+					{choice ? (
+						<AboutWhat
+							choice={choice}
+							onPick={(next) => {
+								// Another topic's sections, not the last one's under its heading: loading, then them.
+								setLists(null)
+								setError(null)
+								setPick(next)
+							}}
+							colors={colors}
+						/>
+					) : null}
+				</View>
 			) : null}
-			{chosen ? <TopicHeading chosen={chosen} colors={colors} /> : null}
+			{chosen ? <TopicHeading chosen={chosen} minutes={minutes} colors={colors} /> : null}
 			{home && error ? (
 				<Text style={[styles.inset, styles.banner, { color: colors.mutedFg }]}>{error}</Text>
 			) : null}
@@ -211,6 +244,13 @@ export default function Home() {
 				) : (
 					<ActivityIndicator style={styles.loading} color={colors.mutedFg} />
 				)
+			) : home.nothingFits && !home.hero ? (
+				<NothingFits
+					minutes={minutes!}
+					topic={chosen?.topic.name}
+					onAll={() => setMinutes(null)}
+					colors={colors}
+				/>
 			) : empty && chosen ? (
 				<Text style={[styles.inset, styles.message, { color: colors.mutedFg }]}>
 					Nothing in {chosen.topic.name} to read right now.
@@ -237,6 +277,11 @@ export default function Home() {
 							colors={colors}
 						>
 							<Hero item={home.hero} colors={colors} headers={headers} menu={menu} />
+							{home.pickUp ? (
+								<Text style={[styles.inset, styles.note, { color: colors.mutedFg }]}>
+									Doesn't fit in {minutesText(minutes!)}, but it's where you left off.
+								</Text>
+							) : null}
 							<Shelf items={home.reading} colors={colors} headers={headers} menu={menu} />
 						</Section>
 					) : null}
@@ -259,11 +304,114 @@ export default function Home() {
 							<Shelf items={home.quick} colors={colors} headers={headers} menu={menu} />
 						</Section>
 					) : null}
+					{home.nothingFits ? (
+						<NothingFits
+							minutes={minutes!}
+							topic={chosen?.topic.name}
+							onAll={() => setMinutes(null)}
+							colors={colors}
+						/>
+					) : null}
 				</>
 			)}
 			{/* A sheet of its own, over the screen: its place here doesn't matter. */}
 			{tags.sheet}
 		</ScrollView>
+	)
+}
+
+/** "5 minutes", "1 minute". */
+function minutesText(minutes: number) {
+	return `${minutes} ${minutes === 1 ? "minute" : "minutes"}`
+}
+
+/**
+ * "How much time do you have?": Any, then the web's choices (TIME_CHOICES), in one line. A choice
+ * narrows every section at once, from what Home already loaded. The chosen one is filled.
+ */
+function TimeChoice({
+	minutes,
+	onPick,
+	colors,
+}: {
+	minutes: number | null
+	onPick: (minutes: number | null) => void
+	colors: Colors
+}) {
+	const chip = (value: number | null) => {
+		const on = value === minutes
+		return (
+			<Pressable
+				key={value ?? "any"}
+				accessibilityRole="button"
+				accessibilityLabel={value === null ? "Any length" : minutesText(value)}
+				accessibilityState={{ selected: on }}
+				onPress={() => {
+					if (!on) onPick(value)
+				}}
+				style={({ pressed }) => [
+					styles.chip,
+					{
+						borderColor: on ? colors.fg : colors.border,
+						backgroundColor: on ? colors.fg : colors.bg,
+					},
+					pressed && styles.pressed,
+				]}
+			>
+				<Text style={[styles.chipText, { color: on ? colors.bg : colors.fg }]}>
+					{value === null ? "Any" : `${value} min`}
+				</Text>
+			</Pressable>
+		)
+	}
+	return (
+		<View style={styles.about}>
+			<Text style={[styles.inset, styles.aboutTitle, { color: colors.mutedFg }]}>
+				How much time do you have?
+			</Text>
+			<ScrollView
+				horizontal
+				showsHorizontalScrollIndicator={false}
+				contentContainerStyle={styles.chips}
+			>
+				{chip(null)}
+				{TIME_CHOICES.map(chip)}
+			</ScrollView>
+		</View>
+	)
+}
+
+/** Nothing fits in the time chosen: says so, with the way back to any length. */
+function NothingFits({
+	minutes,
+	topic,
+	onAll,
+	colors,
+}: {
+	minutes: number
+	topic: string | undefined
+	onAll: () => void
+	colors: Colors
+}) {
+	return (
+		<View style={[styles.inset, styles.nothingFits]}>
+			<Text style={[styles.message, { color: colors.mutedFg }]}>
+				Nothing in {topic ?? "your library"} fits in {minutesText(minutes)}.
+			</Text>
+			<Pressable
+				accessibilityRole="button"
+				onPress={onAll}
+				style={({ pressed }) => [
+					styles.chip,
+					{ borderColor: colors.border },
+					pressed && styles.pressed,
+				]}
+			>
+				<Text style={[styles.chipText, { color: colors.fg }]}>
+					{topic ? "Any length" : "Show everything"}
+				</Text>
+			</Pressable>
+		</View>
 	)
 }
 
@@ -357,15 +505,22 @@ function AboutWhat({
 	)
 }
 
-/** The chosen topic: its name, why it is here, and the way to all of it on the Topics screen. */
+/**
+ * The chosen topic, with the time if chosen: its name, why it is here, and the way to all of it on
+ * the Topics screen.
+ */
 function TopicHeading({
 	chosen,
+	minutes,
 	colors,
 }: {
 	chosen: NonNullable<HomeTopicChoice["chosen"]>
+	minutes: number | null
 	colors: Colors
 }) {
-	const { title, line, all } = topicHeading(chosen)
+	const heading = topicHeading(chosen)
+	const { line, all } = heading
+	const title = minutes === null ? heading.title : `${minutesText(minutes)} of ${heading.title}`
 	const { topic } = chosen
 	return (
 		<View style={[styles.topicHeading, { borderBottomColor: colors.border }]}>
@@ -551,7 +706,9 @@ const styles = StyleSheet.create({
 	grow: { flex: 1 },
 	shrink: { flexShrink: 1 },
 	pressed: { opacity: 0.6 },
+	choices: { gap: 16 },
 	about: { gap: 8 },
+	nothingFits: { alignItems: "center", gap: 16, paddingVertical: 24 },
 	aboutTitle: { fontSize: 14 },
 	chips: { paddingHorizontal: PAD, gap: 8 },
 	chip: {
