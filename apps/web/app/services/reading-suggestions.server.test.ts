@@ -66,7 +66,7 @@ afterAll(async () => {
 	for (const id of [userId, otherId]) await db.delete(user).where(eq(user.id, id))
 })
 
-const everything = { reading: 1e6, recent: 1e6, rediscover: 1e6 }
+const everything = { reading: 1e6, recent: 1e6, again: 1e6, rediscover: 1e6 }
 
 describe("From a while ago", () => {
 	const old = Array.from({ length: 8 }, (_, i) => `Old ${i}`)
@@ -188,5 +188,59 @@ describe("homeCandidates", () => {
 		expect(minutes["No length"]).toBeNull()
 		expect(minutes.Twelve).toBe(12)
 		expect(await countUnfinished(userId)).toBeGreaterThan(0)
+	})
+})
+
+describe("Read again", () => {
+	const reader = `${userId}-again`
+	afterAll(async () => {
+		await db.delete(user).where(eq(user.id, reader))
+	})
+
+	it("has articles finished and put back, until opened; not new saves, nor the review's", async () => {
+		const { openArticle, updateArticle } = await import("~/commands/articles.server")
+		const { countFilters } = await import("./documents.server")
+		const { reviewSuggested, listReview } = await import("./review.server")
+		await db.insert(user).values({ id: reader, name: "Again", email: `${reader}@example.com` })
+		await save(reader, [
+			{ title: "Read, put back", readingMinutes: 8, createdAt: daysAgo(40) },
+			{ title: "Read to the end, put back", readingMinutes: 8, createdAt: daysAgo(40) },
+			{ title: "Never read", readingMinutes: 8, createdAt: daysAgo(40) },
+			{ title: "Read, left read", readingMinutes: 8, createdAt: daysAgo(40) },
+		])
+		const rows = await db
+			.select({ id: documents.id, title: documents.title })
+			.from(documents)
+			.where(eq(documents.userId, reader))
+		const id = (title: string) => rows.find((r) => r.title === title)!.id
+		await updateArticle(reader, id("Read, put back"), { finished: true })
+		await updateArticle(reader, id("Read, put back"), { finished: false, location: "inbox" })
+		// Read to the end in the library (not archived), then put back as the note card does.
+		await db
+			.update(documents)
+			.set({ readingProgress: 1, firstOpenedAt: daysAgo(2) })
+			.where(eq(documents.id, id("Read to the end, put back")))
+		const { saveReadingPosition } = await import("~/commands/articles.server")
+		await saveReadingPosition(reader, id("Read to the end, put back"), { position: 1 })
+		await updateArticle(reader, id("Read to the end, put back"), {
+			finished: false,
+			location: "inbox",
+		})
+		await updateArticle(reader, id("Read, left read"), { finished: true })
+
+		const found = await homeCandidates(reader, { now: new Date() })
+		expect(titles(found.again).sort()).toEqual(["Read to the end, put back", "Read, put back"])
+		// The new save is in both lists of unread saves, the article put back in neither.
+		expect([...new Set(titles([...found.recent, ...found.rediscover]))]).toEqual(["Never read"])
+		expect(await countFilters(reader, "inbox")).toMatchObject({ again: 2 })
+		// The review of old saves never opened lets go of what was never wanted, not this.
+		expect(titles((await listReview(reader)).items)).toEqual(["Never read"])
+		expect(await reviewSuggested(reader)).toBe(false)
+
+		// Opened, it is being read: Continue reading's.
+		await openArticle(reader, id("Read, put back"))
+		const after = await homeCandidates(reader, { now: new Date() })
+		expect(titles(after.again)).toEqual(["Read to the end, put back"])
+		expect(titles(after.reading)).toEqual(["Read, put back"])
 	})
 })

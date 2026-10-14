@@ -7,7 +7,8 @@
 export const VIEWS = ["inbox", "archive", "starred", "all", "trash"] as const
 export type View = (typeof VIEWS)[number]
 
-export const INBOX_FILTERS = ["progress", "unread", "quick", "long", "x", "read"] as const
+/** `again`: finished before, and put back unread to be read again. */
+export const INBOX_FILTERS = ["progress", "unread", "again", "quick", "long", "x", "read"] as const
 export type InboxFilter = (typeof INBOX_FILTERS)[number]
 
 /** For the archive and starred: read or not, everything counts. */
@@ -18,6 +19,7 @@ export type ArchiveFilter = (typeof ARCHIVE_FILTERS)[number]
 export const LIST_FILTERS = [
 	"progress",
 	"unread",
+	"again",
 	"quick",
 	"long",
 	"x",

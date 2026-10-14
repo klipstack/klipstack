@@ -166,7 +166,7 @@ describe("Home's candidates in a topic", () => {
 		const c = await homeCandidates(userId, {
 			now,
 			topicId,
-			keep: { reading: 100, recent: 100, rediscover: 100 },
+			keep: { reading: 100, recent: 100, again: 100, rediscover: 100 },
 		})
 		return [...c.reading, ...c.recent, ...c.rediscover].map((d) => d.title).sort()
 	}

@@ -14,7 +14,7 @@ import {
 	user as userTable,
 } from "@klipstack/db"
 import { REVIEW } from "~/lib/review"
-import { finished, INBOX_FILTER_WHERE } from "./documents.server"
+import { finished, INBOX_FILTER_WHERE, readBefore } from "./documents.server"
 
 const DAY_MS = 86_400_000
 
@@ -34,6 +34,8 @@ export function reviewWhere(userId: string, now: Date): SQL {
 		eq(documents.status, "ready"),
 		INBOX_FILTER_WHERE.unread,
 		not(finished),
+		// Put back to be read again: wanted, whenever that was.
+		not(readBefore),
 		lt(documents.createdAt, savedBefore),
 		or(isNull(documents.keptAt), lt(documents.keptAt, keptBefore)),
 		isNull(documents.starredAt),

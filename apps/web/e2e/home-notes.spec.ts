@@ -48,11 +48,26 @@ test("Home asks about articles finished without a note, gently", async ({ page }
 		endOffset: 5,
 		exact: "The moon pulls the sea.",
 	})
+	const maps = await finished("Old maps", 3 * 60_000, "listened")
 	await page.reload()
 	await waitForHydration(page)
 	const card = page.getByRole("region", { name: "Anything to keep from these?" })
 	const items = card.getByTestId("home-note")
-	await expect(items).toHaveCount(2)
+	await expect(items).toHaveCount(3)
+
+	// Read again: back in the library, unread, under Home's Read again; not asked about meanwhile.
+	await items.filter({ hasText: "Old maps" }).getByRole("button", { name: "Read again" }).click()
+	await expect(items.filter({ hasText: "Old maps" })).toBeHidden()
+	await expect(page.getByText("It's back in your library, under Read again.")).toBeVisible()
+	const again = page.getByRole("region", { name: "Read again" })
+	await expect(again.getByRole("link", { name: /Old maps/ }).first()).toBeVisible()
+	const [put] = await db.select().from(documents).where(eq(documents.id, maps))
+	expect(put).toMatchObject({
+		firstOpenedAt: null,
+		readAt: null,
+		archivedAt: null,
+		readingCycle: 1,
+	})
 	const first = items.filter({ hasText: "Tides and moons" })
 	await expect(first).toContainText("Listened to")
 	await expect(first).toContainText("The moon pulls the sea.")
@@ -72,16 +87,16 @@ test("Home asks about articles finished without a note, gently", async ({ page }
 	const skippedAt = async () =>
 		(await db.select().from(documents).where(eq(documents.id, read)))[0]?.noteSkippedAt
 	await second.getByRole("button", { name: "Nothing to add" }).click()
-	await expect(second).toHaveCount(0)
+	await expect(second).toBeHidden()
 	await expect.poll(skippedAt).toBeInstanceOf(Date)
 	await page.getByRole("button", { name: "Undo" }).click()
 	await expect.poll(skippedAt).toBeNull()
-	await expect(second).toHaveCount(1)
+	await expect(second).toBeVisible()
 
 	// Taken away for good; the note being written stays.
 	const reloaded = page.waitForResponse((r) => new URL(r.url()).pathname === "/home.data")
 	await second.getByRole("button", { name: "Nothing to add" }).click()
-	await expect(second).toHaveCount(0)
+	await expect(second).toBeHidden()
 	await expect.poll(skippedAt).toBeInstanceOf(Date)
 	// Home loaded again after it, and no longer asks about either: give the page a moment to show
 	// that answer, so the check below would see the article go if the card dropped it.
@@ -94,6 +109,32 @@ test("Home asks about articles finished without a note, gently", async ({ page }
 	await page.reload()
 	await waitForHydration(page)
 	await expect(page.getByTestId("home-notes")).toHaveCount(0)
+
+	// Read again on two, one right after the other: both go back, the card goes, the answers still
+	// come, and Undo brings back the one whose answer came last.
+	const other = await finished("Other lighthouse", 2 * 60_000, "listened")
+	const lone = await finished("Lone lighthouse", 60_000, "listened")
+	await page.reload()
+	await waitForHydration(page)
+	await expect(items).toHaveCount(2)
+	await items
+		.filter({ hasText: "Other lighthouse" })
+		.getByRole("button", { name: "Read again" })
+		.click()
+	await items
+		.filter({ hasText: "Lone lighthouse" })
+		.getByRole("button", { name: "Read again" })
+		.click()
+	await expect(page.getByTestId("home-notes")).toBeHidden()
+	const cycle = async (id: string) =>
+		(await db.select().from(documents).where(eq(documents.id, id)))[0]?.readingCycle
+	await expect.poll(() => cycle(other)).toBe(1)
+	await expect.poll(() => cycle(lone)).toBe(1)
+	await page.getByRole("button", { name: "Undo" }).click()
+	await expect.poll(async () => [await cycle(other), await cycle(lone)].sort()).toEqual([0, 1])
+	const back = (await cycle(lone)) === 0 ? "Lone lighthouse" : "Other lighthouse"
+	await expect(items.filter({ hasText: back })).toBeVisible()
+	await expect(items).toHaveCount(1)
 
 	// Not now puts a new question off.
 	await finished("Rivers", 60_000, "listened")

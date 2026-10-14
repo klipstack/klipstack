@@ -45,6 +45,10 @@ export default {
 			none_other: "Nothing in {{topic}} fits in {{count}} minutes.",
 			anyLength: "Any length",
 		},
+		again: {
+			title: "Read again",
+			description: "Articles you finished and put back, to read once more.",
+		},
 		rediscover: {
 			title: "From a while ago",
 			description: "Saved more than {{count}} days ago. A different few each day.",
@@ -69,6 +73,8 @@ export default {
 			write: "Write a note",
 			skip: "Nothing to add",
 			skipped: "It won't be asked about again.",
+			again: "Read again",
+			readAgain: "It's back in your library, under Read again.",
 			later: "Not now",
 		},
 		resume: "Resume reading",
@@ -549,6 +555,7 @@ export default {
 		all: "All",
 		unread: "Unread",
 		progress: "Continue reading",
+		again: "Read again",
 		read: "Read",
 		quick: "Quick reads",
 		long: "Long reads",

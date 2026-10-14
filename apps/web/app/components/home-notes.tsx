@@ -1,6 +1,6 @@
 import { NOTE_MAX } from "@klipstack/api-contract/names"
-import { Headphones, NotebookPen, X } from "lucide-react"
-import { useState } from "react"
+import { Headphones, NotebookPen, RotateCcw, X } from "lucide-react"
+import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link, useFetcher, useFetchers } from "react-router"
 import { NoteField } from "~/components/note-field"
@@ -8,26 +8,33 @@ import { ArticleNoteLabel, NoteStatus } from "~/components/note-status"
 import { PostIt, tiltFor, useGrowingFit } from "~/components/post-it"
 import { Button } from "~/components/ui/button"
 import { useNoteAutosave } from "~/hooks/use-note-autosave"
+import { BULK_ACTION } from "~/lib/bulk-actions"
 import { highlightColor } from "~/lib/highlight-colors"
 import { relativeTime } from "~/lib/relative-time"
 import { showToast } from "~/lib/toast"
+import type { BulkDone } from "~/routes/documents.bulk"
 import type { NoteReminder } from "~/services/note-reminders.server"
 
 const ACTION = "/home/notes"
 
-/** Articles on their way out ("Nothing to add" pressed, not yet answered). */
+/** Articles on their way out ("Nothing to add" or "Read again" pressed, not yet answered). */
 function useLeaving(): Set<string> {
 	return new Set(
 		useFetchers()
-			.filter((f) => f.formAction === ACTION && f.formData?.get("intent") === "skip")
-			.map((f) => String(f.formData?.get("id"))),
+			.filter(
+				(f) =>
+					(f.formAction === ACTION && f.formData?.get("intent") === "skip") ||
+					(f.formAction === BULK_ACTION && f.formData?.get("intent") === "again"),
+			)
+			.map((f) => String(f.formData?.get("id") ?? f.formData?.get("ids"))),
 	)
 }
 
 /**
  * A gentle question about articles finished lately without a note (`listNoteReminders`): each
  * with a few of its highlights, to bring it back to mind, and its note written in place, on the
- * post-it the reader's end has. "Nothing to add" leaves one out for good, with undo; "Not now" puts
+ * post-it the reader's end has. "Read again" puts one back in the library, unread, to read once more
+ * (Home's Read again), with undo. "Nothing to add" leaves one out for good, with undo; "Not now" puts
  * the card off for a week. It asks, never insists: no count of what is missing. It shows when Home
  * asks (`suggested`), then follows the list while the page is open, even once Home would no longer
  * ask: an undone "Nothing to add" comes back.
@@ -50,50 +57,85 @@ export function HomeNotes({ items, suggested }: { items: NoteReminder[]; suggest
 	)
 	// Put off: gone at once, and back if that failed.
 	const putOff = later.state !== "idle" || (later.data as { ok?: boolean } | undefined)?.ok
-	if (!shown.length || putOff) return null
+	// Outside the rows: a row is gone by the time Home has loaded again, its answer maybe not shown.
+	const answers = [...seen, ...added].map((item) => <ReadAgainAnswer key={item.id} id={item.id} />)
+	if (!shown.length || putOff) return answers
 	return (
-		<section
-			aria-labelledby="home-notes"
-			data-testid="home-notes"
-			className="mb-9 rounded-xl border border-border bg-card p-5"
-		>
-			<h2 id="home-notes" className="font-medium">
-				{t("home.notes.title")}
-			</h2>
-			<p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-fg">
-				{t("home.notes.description")}
-			</p>
-			<ul className="mt-5 grid gap-6">
-				{shown.map((item) => (
-					<NoteReminderItem
-						key={item.id}
-						item={item}
-						writing={writing.has(item.id)}
-						onWrite={() => setWriting((ids) => new Set(ids).add(item.id))}
-					/>
-				))}
-			</ul>
-			<later.Form method="post" action={ACTION} className="mt-5">
-				<input type="hidden" name="intent" value="snooze" />
-				<Button type="submit" variant="ghost">
-					{t("home.notes.later")}
-				</Button>
-			</later.Form>
-		</section>
+		<>
+			{answers}
+			<section
+				aria-labelledby="home-notes"
+				data-testid="home-notes"
+				className="mb-9 rounded-xl border border-border bg-card p-5"
+			>
+				<h2 id="home-notes" className="font-medium">
+					{t("home.notes.title")}
+				</h2>
+				<p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-fg">
+					{t("home.notes.description")}
+				</p>
+				<ul className="mt-5 grid gap-6">
+					{shown.map((item) => (
+						<NoteReminderItem
+							key={item.id}
+							item={item}
+							writing={writing.has(item.id)}
+							onWrite={() => setWriting((ids) => new Set(ids).add(item.id))}
+							// Answered: no longer kept for its note.
+							onLeave={() =>
+								setWriting((ids) => {
+									const rest = new Set(ids)
+									rest.delete(item.id)
+									return rest
+								})
+							}
+						/>
+					))}
+				</ul>
+				<later.Form method="post" action={ACTION} className="mt-5">
+					<input type="hidden" name="intent" value="snooze" />
+					<Button type="submit" variant="ghost">
+						{t("home.notes.later")}
+					</Button>
+				</later.Form>
+			</section>
+		</>
 	)
 }
+
+/** One article's Read again, answered: what it did, with its undo. Each its own, so none is lost. */
+function ReadAgainAnswer({ id }: { id: string }) {
+	const { t } = useTranslation("library")
+	const again = useFetcher<BulkDone>({ key: readAgainKey(id) })
+	const putBack = again.data
+	useEffect(() => {
+		if (!putBack?.changed?.length) return
+		showToast({
+			message: t("home.notes.readAgain"),
+			undo: putBack.undo
+				? { action: BULK_ACTION, ...putBack.undo, label: t("toast.undo") }
+				: undefined,
+		})
+	}, [putBack, t])
+	return null
+}
+
+const readAgainKey = (id: string) => `home-note-again-${id}`
 
 function NoteReminderItem({
 	item,
 	writing,
 	onWrite,
+	onLeave,
 }: {
 	item: NoteReminder
 	writing: boolean
 	onWrite: () => void
+	onLeave: () => void
 }) {
 	const { t, i18n } = useTranslation(["library", "reader"])
 	const skip = useFetcher({ key: `home-note-skip-${item.id}` })
+	const again = useFetcher({ key: readAgainKey(item.id) })
 	const note = useNoteAutosave(item.id, null)
 	const placeholder = t("reader:end.notePlaceholder")
 	const fit = useGrowingFit(note.value || placeholder, item.id)
@@ -162,10 +204,27 @@ function NoteReminderItem({
 					</button>
 				)}
 				{note.value.trim() ? null : (
+					<button
+						type="button"
+						onClick={() => {
+							onLeave()
+							void again.submit(
+								{ intent: "again", ids: item.id },
+								{ method: "post", action: BULK_ACTION },
+							)
+						}}
+						className="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-sm text-muted-fg hover:bg-muted hover:text-fg"
+					>
+						<RotateCcw className="size-4" aria-hidden />
+						{t("home.notes.again")}
+					</button>
+				)}
+				{note.value.trim() ? null : (
 					<skip.Form
 						method="post"
 						action={ACTION}
-						onSubmit={() =>
+						onSubmit={() => {
+							onLeave()
 							showToast({
 								message: t("home.notes.skipped"),
 								undo: {
@@ -175,7 +234,7 @@ function NoteReminderItem({
 									label: t("toast.undo"),
 								},
 							})
-						}
+						}}
 					>
 						<input type="hidden" name="intent" value="skip" />
 						<input type="hidden" name="id" value={item.id} />

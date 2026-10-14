@@ -27,7 +27,7 @@ export const listArticles = defineEndpoint({
 	query: z
 		.object({
 			view: z.enum(VIEWS).default("inbox"),
-			/** Library: unread, progress, read, quick, long, x. Archive, starred and all: unfinished, finished, quick, long, x. Trash: none. */
+			/** Library: unread, progress, again (finished before and put back unread, not opened since), read, quick, long, x. Archive, starred and all: unfinished, finished, quick, long, x. Trash: none. */
 			filter: z.enum(LIST_FILTERS).optional(),
 			/** Defaults to recent for inbox/progress, newest otherwise. */
 			sort: z.enum(LIST_SORTS).optional(),

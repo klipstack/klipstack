@@ -31,6 +31,24 @@ describe("homeSections", () => {
 		expect(ids(home.recent)).toEqual(["u2"])
 	})
 
+	it("shows those put back to read again under Read again, not as recent saves or the big card", () => {
+		const home = homeSections(
+			{
+				reading: [],
+				unread: [article("again"), article("more"), article("u1"), article("u2")],
+				again: [article("again"), article("more")],
+				quick: [article("again"), article("q1")],
+				long: [],
+			},
+			// No room for both under Read again: the other stays out of the rest all the same.
+			{ perShelf: 1 },
+		)
+		expect(home.hero?.id).toBe("u1")
+		expect(ids(home.recent)).toEqual(["u2"])
+		expect(ids(home.again)).toEqual(["again"])
+		expect(ids(home.quick)).toEqual(["q1"])
+	})
+
 	it("shows each article once and only ready ones", () => {
 		const home = homeSections({
 			reading: [article("a")],
@@ -52,6 +70,7 @@ describe("homeSections", () => {
 			hero: null,
 			reading: [],
 			recent: [],
+			again: [],
 			quick: [],
 			pickUp: false,
 			nothingFits: false,

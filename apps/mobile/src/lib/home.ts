@@ -7,6 +7,8 @@ export type HomeLists = {
 	reading: ArticleSummary[]
 	/** Unread, newest first. */
 	unread: ArticleSummary[]
+	/** Finished before and put back, not opened since (the `again` filter). */
+	again?: ArticleSummary[]
 	/** Ten minutes or less. */
 	quick: ArticleSummary[]
 	/**
@@ -22,6 +24,8 @@ export type HomeSections = {
 	/** More articles in progress. */
 	reading: ArticleSummary[]
 	recent: ArticleSummary[]
+	/** Read again: finished before and put back. Never in Recently saved. */
+	again: ArticleSummary[]
 	quick: ArticleSummary[]
 	/** With a time chosen, the big card is the article read last though it doesn't fit. */
 	pickUp: boolean
@@ -53,7 +57,8 @@ export function offersTimeChoice(lists: HomeLists): boolean {
 
 /**
  * The home page from the library lists, as the web builds it (reading-home.server.ts): articles
- * in progress (most recently read first), unread saves (newest first) and short ones. Only ready
+ * in progress (most recently read first), unread saves (newest first), those put back to read
+ * again, and short ones. Only ready
  * articles, and each article once, in that order of sections. With nothing in progress, the
  * newest save takes the big card.
  *
@@ -96,6 +101,10 @@ export function homeSections(
 		shown.add(readLast!.id)
 		reading.push(readLast!)
 	}
+	// Before Recently saved, which they would otherwise join: they are unread, but not new.
+	const again = take(fillingFirst(lists.again ?? []), perShelf)
+	// Those it has no room for stay out of the rest too, as on the web.
+	for (const item of lists.again ?? []) shown.add(item.id)
 	const unread =
 		minutes === null
 			? lists.unread
@@ -114,10 +123,12 @@ export function homeSections(
 		hero,
 		reading: reading.slice(1),
 		recent: reading.length ? recent : recent.slice(1),
+		again,
 		quick,
 		pickUp,
 		nothingFits:
-			minutes !== null && !(reading.length - (pickUp ? 1 : 0) + recent.length + quick.length),
+			minutes !== null &&
+			!(reading.length - (pickUp ? 1 : 0) + recent.length + again.length + quick.length),
 	}
 }
 
@@ -128,8 +139,8 @@ export function homeSections(
 export function everyHomeArticle(lists: HomeLists): ArticleSummary[] {
 	const all = new Map<string, ArticleSummary>()
 	for (const minutes of [null, ...TIME_CHOICES]) {
-		const { hero, reading, recent, quick } = homeSections(lists, { minutes })
-		for (const item of [...(hero ? [hero] : []), ...reading, ...recent, ...quick])
+		const { hero, reading, recent, again, quick } = homeSections(lists, { minutes })
+		for (const item of [...(hero ? [hero] : []), ...reading, ...recent, ...again, ...quick])
 			all.set(item.id, item)
 	}
 	return [...all.values()]
@@ -156,6 +167,7 @@ function eachList(lists: HomeLists, change: (items: ArticleSummary[]) => Article
 	return {
 		reading: change(lists.reading),
 		unread: change(lists.unread),
+		again: lists.again && change(lists.again),
 		quick: change(lists.quick),
 		long: change(lists.long),
 	}

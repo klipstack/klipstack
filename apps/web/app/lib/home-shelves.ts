@@ -1,7 +1,10 @@
 /** Home's sections, chosen from the candidates the server sends; safe to import from client code. */
 
-/** Library articles Home features at most: in progress, saved lately, and from a while ago. */
-export const HOME_SHELF = { reading: 3, recent: 4, rediscover: 3 } as const
+/**
+ * Library articles Home features at most: in progress, saved lately, put back to read again, and
+ * from a while ago.
+ */
+export const HOME_SHELF = { reading: 3, recent: 4, again: 3, rediscover: 3 } as const
 
 /**
  * Home offers the time choice when the library holds more unfinished articles than this: more than
@@ -32,14 +35,14 @@ export function fillsTime(doc: Timed, minutes: number) {
  *
  * - Continue reading shows what can be finished in the time, read last first. When nothing can, it
  *   still shows the article read last: finishing what was started comes before starting more.
- * - The unread sections show what fits, those that fill at least half the time first, so more time
+ * - The unread sections (Recently saved, Read again, From a while ago) show what fits, those that fill at least half the time first, so more time
  *   brings longer articles; each group in the section's order. Recently saved keeps to saves after
  *   `recentSince`, so long ones from long ago come back under From a while ago, not as recent.
  *
  * With nothing in progress, the recent saves get a fourth article: the first takes the big card.
  */
 export function homeShelves<T extends Timed>(
-	candidates: { reading: T[]; recent: T[]; rediscover: T[]; recentSince: Date },
+	candidates: { reading: T[]; recent: T[]; again?: T[]; rediscover: T[]; recentSince: Date },
 	minutes: number | null,
 ) {
 	const shown = new Set<string>()
@@ -71,8 +74,9 @@ export function homeShelves<T extends Timed>(
 			? candidates.recent
 			: candidates.recent.filter((d) => d.createdAt >= candidates.recentSince)
 	const recent = take(fillingFirst(recentSaves), HOME_SHELF.recent - (reading.length ? 1 : 0))
+	const again = take(fillingFirst(candidates.again ?? []), HOME_SHELF.again)
 	const rediscover = take(fillingFirst(candidates.rediscover), HOME_SHELF.rediscover)
-	return { reading, recent, rediscover }
+	return { reading, recent, again, rediscover }
 }
 
 /** A title for a sentence: at most `max` characters, cut after a word and ended with "…". */

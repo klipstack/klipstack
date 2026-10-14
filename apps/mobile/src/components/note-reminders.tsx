@@ -8,8 +8,9 @@ import type { Colors } from "@/lib/theme"
 
 /**
  * Home's gentle question about articles finished lately without a note, as on the web: each opens
- * in the reader with its notes (its note and highlights) to write in, or speak; "Nothing to add"
- * leaves one out for good, with undo; "Not now" puts the card off for a week.
+ * in the reader with its notes (its note and highlights) to write in, or speak; "Read again" puts
+ * it back in the library, unread, under Home's Read again, with undo; "Nothing to add" leaves one
+ * out for good, with undo; "Not now" puts the card off for a week.
  */
 export function NoteReminders({
 	items,
@@ -17,6 +18,7 @@ export function NoteReminders({
 	onSkip,
 	onUnskip,
 	onLater,
+	onReadAgain,
 	colors,
 }: {
 	items: NoteReminder[]
@@ -25,6 +27,8 @@ export function NoteReminders({
 	onSkip: (id: string) => void
 	onUnskip: (item: NoteReminder) => void
 	onLater: () => void
+	/** Put back to read again: Home loads again, to show it under Read again. */
+	onReadAgain: () => void
 	colors: Colors
 }) {
 	if (!items.length) return null
@@ -42,6 +46,34 @@ export function NoteReminders({
 						},
 					},
 				}),
+			() => {
+				onUnskip(item)
+				showToast({ message: "Couldn't save that. Try again." })
+			},
+		)
+	}
+	const readAgain = (item: NoteReminder) => {
+		onSkip(item.article.id)
+		client.articles.update([item.article.id], { finished: false, location: "inbox" }).then(
+			(answer) => {
+				onReadAgain()
+				const token = answer.undo?.[0]
+				showToast({
+					message: "It's back in your library, under Read again.",
+					action: token
+						? {
+								label: "Undo",
+								run: () => {
+									onUnskip(item)
+									void client.articles
+										.undo(token)
+										.then(onReadAgain)
+										.catch(() => {})
+								},
+							}
+						: undefined,
+				})
+			},
 			() => {
 				onUnskip(item)
 				showToast({ message: "Couldn't save that. Try again." })
@@ -102,15 +134,26 @@ export function NoteReminders({
 							<Text style={[styles.action, { color: colors.accent }]}>Write a note</Text>
 						</View>
 					</Pressable>
-					<Pressable
-						accessibilityRole="button"
-						accessibilityLabel={`Nothing to add on ${item.article.title ?? "this article"}`}
-						onPress={() => skip(item)}
-						hitSlop={8}
-						style={({ pressed }) => [styles.skip, pressed && styles.pressed]}
-					>
-						<Text style={[styles.action, { color: colors.mutedFg }]}>Nothing to add</Text>
-					</Pressable>
+					<View style={styles.side}>
+						<Pressable
+							accessibilityRole="button"
+							accessibilityLabel={`Read ${item.article.title ?? "this article"} again`}
+							onPress={() => readAgain(item)}
+							hitSlop={8}
+							style={({ pressed }) => pressed && styles.pressed}
+						>
+							<Text style={[styles.action, { color: colors.mutedFg }]}>Read again</Text>
+						</Pressable>
+						<Pressable
+							accessibilityRole="button"
+							accessibilityLabel={`Nothing to add on ${item.article.title ?? "this article"}`}
+							onPress={() => skip(item)}
+							hitSlop={8}
+							style={({ pressed }) => pressed && styles.pressed}
+						>
+							<Text style={[styles.action, { color: colors.mutedFg }]}>Nothing to add</Text>
+						</Pressable>
+					</View>
 				</View>
 			))}
 			<Pressable
@@ -151,7 +194,7 @@ const styles = StyleSheet.create({
 	},
 	write: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 6 },
 	action: { fontSize: 15 },
-	skip: { paddingTop: 2 },
+	side: { paddingTop: 2, gap: 14, alignItems: "flex-end" },
 	later: { alignSelf: "flex-start", marginTop: 10 },
 	pressed: { opacity: 0.6 },
 })

@@ -298,9 +298,19 @@ export const quick = and(
 ) as SQL
 export const long = gte(documents.readingMinutes, LONG_MIN_MINUTES)
 
+/**
+ * Finished in an earlier reading: marked unread, or moved back to the library, after. The history
+ * of finishes keeps each reading's; only the current one starts over.
+ */
+export const readBefore = sql`exists (select 1 from reading_completions c where c.document_id = ${documents.id} and c.cycle < ${documents.readingCycle})`
+
+const neverOpened = and(isNull(documents.firstOpenedAt), ne(documents.status, "failed")) as SQL
+
 /** Quick, long and X reads leave out what is already read: they are about what to read next. */
 export const INBOX_FILTER_WHERE: Record<InboxFilter, SQL> = {
-	unread: and(isNull(documents.firstOpenedAt), ne(documents.status, "failed")) as SQL,
+	unread: neverOpened,
+	// Put back to be read again, and not opened since: once started, it is in progress.
+	again: and(neverOpened, readBefore) as SQL,
 	progress: and(isNotNull(documents.firstOpenedAt), not(finished)) as SQL,
 	read: finished,
 	quick: and(quick, not(finished)) as SQL,

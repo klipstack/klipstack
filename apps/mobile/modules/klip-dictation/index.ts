@@ -1,7 +1,10 @@
 import { type NativeModule, requireOptionalNativeModule } from "expo"
 
 type Events = {
-	/** What was heard since `start`, punctuated; `final` once it won't change again. */
+	/**
+	 * Everything heard since `start`, punctuated, pauses included (the recognizer starts over after
+	 * each; the module keeps what came before); `final` once it won't change again.
+	 */
 	onText(event: { text: string; final: boolean }): void
 	/** Listening stopped: by `stop`, or by an error (said in `error`). */
 	onEnd(event: { error: string | null }): void

@@ -6,7 +6,7 @@ import { useRef } from "react"
 import { Keyboard, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
 import { MarkerText } from "@/components/marker-text"
 import { NoteField, type NoteFieldHandle, type NoteLinking } from "@/components/note-field"
-import { PostIt, postItText, useGrowingFit } from "@/components/post-it"
+import { PostIt, postItText } from "@/components/post-it"
 import { withDictated } from "@/lib/dictated-note"
 import { useDictation } from "@/lib/dictation"
 import { fromStored } from "@/lib/note-field"
@@ -14,7 +14,8 @@ import { tiltFor } from "@/lib/post-it"
 import type { Colors } from "@/lib/theme"
 
 /**
- * The web reader's sidebar, as a sheet: the article's note on top, a post-it written on in place,
+ * The web reader's sidebar, as a sheet: which article it is (its title, byline and description, so
+ * a note written after reading it, or before reading it again, has it in view), its note, a post-it written on in place,
  * its highlights below, each quote marked in its color with its note on a post-it, then the
  * articles whose notes link here. Tapping a highlight closes the sheet and shows it in the
  * article, with its tools; tapping a link or a linking article opens that article. Dictate writes
@@ -23,6 +24,7 @@ import type { Colors } from "@/lib/theme"
  */
 export function NotesSheet({
 	visible,
+	article,
 	onClose,
 	onDismiss,
 	note,
@@ -35,6 +37,8 @@ export function NotesSheet({
 	colors,
 }: {
 	visible: boolean
+	/** The article the notes are on: its title, and site · author · minutes. */
+	article: { title: string; byline: string; description: string | null }
 	onClose: () => void
 	/** After the sheet is gone, however it was closed. */
 	onDismiss: () => void
@@ -70,8 +74,6 @@ export function NotesSheet({
 		dictation.stop()
 		onClose()
 	}
-	// Sized afresh each time the sheet opens: a note cleared last time is small again.
-	const fit = useGrowingFit(note.value, String(visible))
 	return (
 		<Modal
 			visible={visible}
@@ -100,6 +102,21 @@ export function NotesSheet({
 					keyboardShouldPersistTaps="handled"
 					automaticallyAdjustKeyboardInsets
 				>
+					<View style={styles.article}>
+						<Text style={[styles.articleTitle, { color: colors.fg }]} numberOfLines={3}>
+							{article.title}
+						</Text>
+						{article.byline ? (
+							<Text style={[styles.byline, { color: colors.mutedFg }]} numberOfLines={1}>
+								{article.byline}
+							</Text>
+						) : null}
+						{article.description ? (
+							<Text style={[styles.description, { color: colors.mutedFg }]} numberOfLines={3}>
+								{article.description}
+							</Text>
+						) : null}
+					</View>
 					<View style={styles.heading}>
 						{/* The same note as the post-it at the end of the article, and as private. */}
 						<Text style={[styles.label, { color: colors.mutedFg }]}>
@@ -107,13 +124,9 @@ export function NotesSheet({
 						</Text>
 						<NoteStatus status={note.status} onRetry={note.onFlush} colors={colors} />
 					</View>
-					{/* Written straight on the paper: the editor is the note. */}
-					<PostIt
-						variant="compact"
-						fit={fit || ARTICLE_NOTE_PLACEHOLDER}
-						colors={colors}
-						style={styles.paper}
-					>
+					{/* Written straight on the paper: the editor is the note. The sheet's whole width: a
+					phone is narrow enough, and a note grows here as it is written or dictated. */}
+					<PostIt colors={colors} style={styles.paper}>
 						<NoteField
 							ref={field}
 							accessibilityLabel="Your note"
@@ -130,7 +143,7 @@ export function NotesSheet({
 							placeholder={ARTICLE_NOTE_PLACEHOLDER}
 							placeholderColor={colors.note.placeholder}
 							colors={colors}
-							style={[postItText(colors, "compact"), styles.note]}
+							style={[postItText(colors), styles.note]}
 						/>
 					</PostIt>
 					<View style={styles.tools}>
@@ -290,14 +303,18 @@ const styles = StyleSheet.create({
 	done: { position: "absolute", right: 16 },
 	doneText: { fontSize: 17, fontWeight: "600" },
 	content: { padding: 16, paddingBottom: 48 },
+	article: { gap: 4, marginBottom: 24 },
+	articleTitle: { fontFamily: "Iowan Old Style", fontSize: 22, lineHeight: 27, fontWeight: "600" },
+	byline: { fontSize: 14 },
+	description: { fontSize: 15, lineHeight: 20, marginTop: 4 },
 	heading: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
 	label: { fontSize: 13, fontWeight: "500", letterSpacing: 0.4, marginBottom: 8 },
 	onlyYou: { fontWeight: "400" },
 	status: { fontSize: 13, marginBottom: 8 },
 	// Room above for the tape.
-	paper: { marginTop: 6 },
+	paper: { marginTop: 10, alignSelf: "stretch" },
 	// The whole paper takes the tap.
-	note: { flexGrow: 1, minHeight: 66, padding: 0, paddingTop: 0, textAlignVertical: "top" },
+	note: { flexGrow: 1, minHeight: 100, padding: 0, paddingTop: 0, textAlignVertical: "top" },
 	tools: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 20, marginTop: 10 },
 	linkArticle: { flexDirection: "row", alignItems: "center", gap: 6 },
 	linkArticleText: { fontSize: 15 },

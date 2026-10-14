@@ -20,6 +20,7 @@ import {
 	INBOX_FILTER_WHERE,
 	type LibraryCard,
 	libraryCardColumns,
+	readBefore,
 } from "./documents.server"
 import { inTopic } from "./topic-scope.server"
 
@@ -38,8 +39,14 @@ const minutesLeft = sql<
 /** Fits in `t` minutes and takes at least half of them: `fillsTime` in `~/lib/home-shelves`. */
 const fills = (left: SQLWrapper, t: number) => sql`(${left} <= ${t} and ${left} * 2 >= ${t})`
 
-/** Never opened, and not marked finished either (imports can bring read articles never opened). */
-const unread = and(INBOX_FILTER_WHERE.unread, not(finished)) as SQL
+/**
+ * Never opened, and not marked finished either (imports can bring read articles never opened).
+ * Those read before and put back are Read again's, not new.
+ */
+const unread = and(INBOX_FILTER_WHERE.unread, not(finished), not(readBefore)) as SQL
+
+/** Put back to be read again, not opened since. */
+const again = and(INBOX_FILTER_WHERE.again, not(finished)) as SQL
 
 /** Ready articles in the reader's library. */
 function suggestable(userId: string) {
@@ -72,8 +79,9 @@ export type HomeCard = LibraryCard & { minutesLeft: number | null }
  * How many of each kind `candidates` keeps per section: Home's shelf sizes, and for the older saves
  * room for those Recently saved already shows.
  */
-const KEEP: Record<"reading" | "recent" | "rediscover", number> = {
+const KEEP: Record<"reading" | "recent" | "again" | "rediscover", number> = {
 	reading: HOME_SHELF.reading,
+	again: HOME_SHELF.again,
 	recent: HOME_SHELF.recent,
 	rediscover: HOME_SHELF.recent + HOME_SHELF.rediscover,
 }
@@ -151,12 +159,13 @@ export async function homeCandidates(
 ): Promise<{
 	reading: HomeCard[]
 	recent: HomeCard[]
+	again: HomeCard[]
 	rediscover: HomeCard[]
 	recentSince: Date
 }> {
 	const older = rediscover(now)
 	const topic = topicId ? inTopic(topicId) : undefined
-	const [reading, recent, rediscovered] = await Promise.all([
+	const [reading, recent, readAgain, rediscovered] = await Promise.all([
 		candidates(
 			userId,
 			and(INBOX_FILTER_WHERE.progress, topic) as SQL,
@@ -172,9 +181,22 @@ export async function homeCandidates(
 			{ key: sql`${documents.createdAt}`, desc: true },
 			keep.recent,
 		),
+		// The one put back last first: no other change to an unread article is as likely.
+		candidates(
+			userId,
+			and(again, topic) as SQL,
+			{ key: sql`${documents.updatedAt}`, desc: true },
+			keep.again,
+		),
 		candidates(userId, and(older.where, topic) as SQL, older.order, keep.rediscover),
 	])
-	return { reading, recent, rediscover: rediscovered, recentSince: older.savedBefore }
+	return {
+		reading,
+		recent,
+		again: readAgain,
+		rediscover: rediscovered,
+		recentSince: older.savedBefore,
+	}
 }
 
 /** Unfinished articles with a reading time: what a time choice narrows down. */

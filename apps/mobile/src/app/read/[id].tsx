@@ -1002,6 +1002,11 @@ export default function Reader() {
 			{article ? (
 				<NotesSheet
 					visible={notesOpen}
+					article={{
+						title: article.title || hostOf(article.url),
+						byline: bylineOf(article),
+						description: article.description,
+					}}
 					dictate={dictateNote}
 					onDictate={() => {
 						if (listen.status?.kind === "speech" && listen.status.state === "playing")

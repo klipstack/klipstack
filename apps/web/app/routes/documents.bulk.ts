@@ -24,6 +24,7 @@ const INTENTS = [
 	"unarchive",
 	"finish",
 	"unread",
+	"again",
 	"keep",
 	"delete",
 	"restore",
@@ -58,6 +59,8 @@ const CHANGES: Record<string, ArticleChanges> = {
 	unarchive: { location: "inbox" },
 	finish: { finished: true },
 	unread: { finished: false },
+	// Read again: unread, and back in the library from the archive. Home shows it under Read again.
+	again: { finished: false, location: "inbox" },
 	keep: { kept: true },
 }
 

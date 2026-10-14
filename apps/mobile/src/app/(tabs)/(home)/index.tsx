@@ -120,7 +120,7 @@ export default function Home() {
 				})
 				.catch(() => {})
 			// More than a shelf shows: the sections drop what isn't ready or shows above.
-			const [reading, unread, quick, long] = await Promise.all([
+			const [reading, unread, quick, long, again] = await Promise.all([
 				client.articles.list({ view: "inbox", filter: "progress", limit: 12, topic }),
 				client.articles.list({
 					view: "inbox",
@@ -131,6 +131,13 @@ export default function Home() {
 				}),
 				client.articles.list({ view: "inbox", filter: "quick", limit: 30, topic }),
 				client.articles.list({ view: "inbox", filter: "long", limit: 20, topic }),
+				// A server before Read again refuses the filter: Home without the section.
+				client.articles
+					.list({ view: "inbox", filter: "again", limit: 12, topic })
+					.catch((e: unknown) => {
+						if (canUseOffline(e)) throw e
+						return { items: [] }
+					}),
 			])
 			if (mine !== generation.current) return
 			const loaded = {
@@ -138,6 +145,7 @@ export default function Home() {
 				unread: unread.items,
 				quick: quick.items,
 				long: long.items,
+				again: again.items,
 			}
 			setLists(loaded)
 			setError(null)
@@ -153,6 +161,7 @@ export default function Home() {
 			saveList("home-unread", unread.items)
 			saveList("home-quick", quick.items)
 			saveList("home-long", long.items)
+			saveList("home-again", again.items)
 			// Home as it opens first, then what each time would show.
 			void downloadAhead(client, "home", everyHomeArticle(loaded))
 			keepLibraryLists(client)
@@ -170,8 +179,9 @@ export default function Home() {
 				]
 				// Kept since the time choice came; none before.
 				const long = loadList("home-long") ?? []
+				const again = loadList("home-again") ?? []
 				if (reading && unread && quick) {
-					const kept = { reading, unread, quick, long }
+					const kept = { reading, unread, quick, long, again }
 					setLists((shown) => shown ?? kept)
 					setTimeChoice((offered) => offered || offersTimeChoice(kept))
 				}
@@ -222,7 +232,7 @@ export default function Home() {
 		setRefreshing(false)
 	}
 
-	const empty = home && !home.hero && !home.quick.length
+	const empty = home && !home.hero && !home.quick.length && !home.again.length
 	return (
 		<ScrollView
 			contentInsetAdjustmentBehavior="automatic"
@@ -246,6 +256,7 @@ export default function Home() {
 							shown.some((r) => r.article.id === item.article.id) ? shown : [item, ...shown],
 						)
 					}}
+					onReadAgain={() => void load()}
 					onLater={() => {
 						putOff.current = true
 						setReminders([])
@@ -333,6 +344,15 @@ export default function Home() {
 							colors={colors}
 						>
 							<Shelf items={home.recent} colors={colors} headers={headers} menu={menu} />
+						</Section>
+					) : null}
+					{home.again.length ? (
+						<Section
+							title="Read again"
+							note="Articles you finished and put back, to read once more."
+							colors={colors}
+						>
+							<Shelf items={home.again} colors={colors} headers={headers} menu={menu} />
 						</Section>
 					) : null}
 					{home.quick.length ? (

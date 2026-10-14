@@ -23,6 +23,7 @@ describe("homeShelves", () => {
 		expect(homeShelves(candidates, null)).toEqual({
 			reading: candidates.reading,
 			recent: candidates.recent.slice(0, 3),
+			again: [],
 			rediscover: candidates.rediscover,
 		})
 		const five = homeShelves(candidates, 5)

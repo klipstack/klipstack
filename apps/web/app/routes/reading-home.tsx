@@ -76,6 +76,7 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 						[
 							...home.candidates.reading,
 							...home.candidates.recent,
+							...home.candidates.again,
 							...home.candidates.rediscover,
 						].map((d) => d.id),
 					),
@@ -203,14 +204,14 @@ export default function ReadingHome({
 	const minutes = parseTime(searchParams.get("time"))
 	const chosen = topics?.chosen ?? null
 	const pick: TopicPick = chosen ? { id: chosen.id, different: chosen.different } : null
-	const { reading, recent, rediscover } = useMemo(
+	const { reading, recent, again, rediscover } = useMemo(
 		() => homeShelves(candidates, timeChoice ? minutes : null),
 		[candidates, timeChoice, minutes],
 	)
 	const timed = timeChoice && minutes !== null
 	// The article read last shows even when it doesn't fit: it says so, and doesn't count as a fit.
 	const nothingFits =
-		timed && ![...reading, ...recent, ...rediscover].some((doc) => fitsIn(doc, minutes))
+		timed && ![...reading, ...recent, ...again, ...rediscover].some((doc) => fitsIn(doc, minutes))
 	const featured = reading[0]
 	// Without Continue reading, the newest save takes its big card.
 	const lead = featured ? undefined : recent[0]
@@ -220,9 +221,9 @@ export default function ReadingHome({
 	useEffect(() => {
 		warmOffline(
 			["/home", "/library"],
-			[...reading, ...recent, ...rediscover].map((d) => `/read/${d.id}`),
+			[...reading, ...recent, ...again, ...rediscover].map((d) => `/read/${d.id}`),
 		)
-	}, [reading, recent, rediscover])
+	}, [reading, recent, again, rediscover])
 	useEffect(() => {
 		const onKey = (e: KeyboardEvent) => {
 			if (!isSearchShortcut(e)) return
@@ -316,6 +317,23 @@ export default function ReadingHome({
 								))}
 							</ul>
 						) : null}
+					</section>
+				) : null}
+				{again.length ? (
+					<section aria-labelledby="home-again" data-testid="home-again">
+						<SectionHeading
+							id="home-again"
+							title={t("home.again.title")}
+							to={`/library${listSearch("again", "recent", chosen?.id)}`}
+						/>
+						<p className="-mt-2 mb-5 text-sm text-muted-fg">{t("home.again.description")}</p>
+						<ul className="grid gap-x-6 gap-y-7 sm:grid-cols-2 lg:grid-cols-3">
+							{again.map((doc) => (
+								<li key={doc.id} className="min-w-0">
+									<HomeArticle doc={doc} topic={labels[doc.id]} />
+								</li>
+							))}
+						</ul>
 					</section>
 				) : null}
 				{/* With a time chosen, the reader came to read. */}

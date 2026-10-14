@@ -167,7 +167,7 @@ export function registerReadTools(server: McpServer, userId: string) {
 		"list_library",
 		{
 			title: "List library",
-			description: `Lists saved articles in a view: library (view "inbox", saved articles), archive (done), starred, or all (the library and the archive together), the same lists and filters the app has. Library filters: unread (never opened), progress (opened, not finished), read (finished, still in the library), quick (articles of at most ${QUICK_MAX_MINUTES} minutes), long (at least ${LONG_MIN_MINUTES} minutes), x (posts from X); quick, long and x leave out what is read. Archive, starred and all filters: unfinished, finished, quick, long, x. Sorts: newest and oldest go by when articles were saved (library, all), archived (archive) or starred (starred); shortest and longest by reading time. Paginate with nextCursor.`,
+			description: `Lists saved articles in a view: library (view "inbox", saved articles), archive (done), starred, or all (the library and the archive together), the same lists and filters the app has. Library filters: unread (never opened), progress (opened, not finished), again (finished before and put back unread to read again, not opened since), read (finished, still in the library), quick (articles of at most ${QUICK_MAX_MINUTES} minutes), long (at least ${LONG_MIN_MINUTES} minutes), x (posts from X); quick, long and x leave out what is read. Archive, starred and all filters: unfinished, finished, quick, long, x. Sorts: newest and oldest go by when articles were saved (library, all), archived (archive) or starred (starred); shortest and longest by reading time. Paginate with nextCursor.`,
 			inputSchema: z
 				.object({
 					view: z.enum(["inbox", "archive", "starred", "all"]).default("inbox"),

@@ -25,6 +25,7 @@ export async function readingHome(
 		topicId ||
 		shelves.reading.length ||
 		shelves.recent.length ||
+		shelves.again.length ||
 		shelves.rediscover.length ||
 		feed.length
 			? null

@@ -44,6 +44,10 @@ export default {
 			none_other: "Nada de {{topic}} cabe en {{count}} minutos.",
 			anyLength: "Cualquier duración",
 		},
+		again: {
+			title: "Para releer",
+			description: "Artículos que terminaste y devolviste a tu biblioteca para leerlos otra vez.",
+		},
 		rediscover: {
 			title: "De hace un tiempo",
 			description: "Guardados hace más de {{count}} días. Unos distintos cada día.",
@@ -68,6 +72,8 @@ export default {
 			write: "Escribir una nota",
 			skip: "Nada que añadir",
 			skipped: "No se volverá a preguntar por él.",
+			again: "Releer",
+			readAgain: "Está de vuelta en tu biblioteca, en Para releer.",
 			later: "Ahora no",
 		},
 		resume: "Seguir leyendo",
@@ -563,6 +569,7 @@ export default {
 		all: "Todo",
 		unread: "Sin leer",
 		progress: "Seguir leyendo",
+		again: "Para releer",
 		read: "Leídos",
 		quick: "Lecturas rápidas",
 		long: "Lecturas largas",

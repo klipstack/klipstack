@@ -57,6 +57,15 @@ public class KlipDictationModule: Module {
   }
 }
 
+/// One text from the recognizer: where it is in the audio, and whether it closes its utterance (it
+/// carries the utterance's metadata, which comes at a pause).
+struct Heard: Sendable {
+  let text: String
+  let start: TimeInterval
+  let end: TimeInterval
+  let closes: Bool
+}
+
 /// One dictation: the microphone into Apple's speech recognizer, on the device, with punctuation.
 /// `finish` stops the microphone and waits for the last, final text; `cancel` drops it.
 @MainActor
@@ -68,6 +77,14 @@ final class Listener {
   private let onText: (String, Bool) -> Void
   private let onEnd: (String?) -> Void
   private var finishing = false
+  /// What was said before the recognizer's last pause, kept: after a pause it starts its text over
+  /// with what is said next (`current`).
+  private var said = ""
+  private var current = ""
+  /// The last text closed its utterance: the next one starts a new one.
+  private var closed = false
+  /// Where the last text ended in the audio, in seconds.
+  private var lastEnd: TimeInterval = 0
   private var ended = false
   private var interruptions: NSObjectProtocol?
   /// The audio session as it was: reading aloud plays again as it did once dictation ends.
@@ -130,11 +147,18 @@ final class Listener {
     to listener: Listener
   ) -> @Sendable (SFSpeechRecognitionResult?, Error?) -> Void {
     return { [weak listener] result, error in
-      let text = result?.bestTranscription.formattedString
+      let heard = result.map { result in
+        let segments = result.bestTranscription.segments
+        return Heard(
+          text: result.bestTranscription.formattedString,
+          start: segments.first?.timestamp ?? 0,
+          end: segments.last.map { $0.timestamp + $0.duration } ?? 0,
+          closes: result.speechRecognitionMetadata != nil)
+      }
       let final = result?.isFinal ?? false
       let failed = error?.localizedDescription
       let target = listener
-      Task { @MainActor in target?.heard(text, final: final, error: failed) }
+      Task { @MainActor in target?.heard(heard, final: final, error: failed) }
     }
   }
 
@@ -176,9 +200,33 @@ final class Listener {
     end(error: nil)
   }
 
-  private func heard(_ text: String?, final: Bool, error: String?) {
+  private func heard(_ heard: Heard?, final: Bool, error: String?) {
     guard !ended else { return }
-    if let text { onText(text, final) }
+    if let heard {
+      // A new utterance, after a pause: the last one closed, or this one starts in the audio after
+      // the last one ended (a rewrite starts where the text it rewrites started). Partial texts
+      // can come without times (0): then only the closing counts.
+      // Times count only when both texts have them: an untimed text after a timed one says nothing
+      // of where it is.
+      let after = heard.start > 0 && lastEnd > 0 && heard.start >= lastEnd - 0.05
+      let repeated = heard.text == current
+      if !current.isEmpty && !repeated && (closed || after) {
+        said = said.isEmpty ? current : "\(said) \(current)"
+        current = ""
+      }
+      // The last text, after stopping, may tell it all again: then it replaces what was kept. Only
+      // when it holds both what was kept and the rest, not a last sentence that starts the same.
+      if final && !said.isEmpty && heard.text.hasPrefix("\(said) ")
+        && heard.text.count >= said.count + current.count
+      {
+        said = ""
+      }
+      if !heard.text.isEmpty { current = heard.text }
+      // The same text again keeps its utterance closed.
+      closed = repeated ? closed || heard.closes : heard.closes
+      lastEnd = heard.end
+      onText(said.isEmpty ? current : current.isEmpty ? said : "\(said) \(current)", final)
+    }
     // Stopped by the reader, nothing more heard is no failure ("No speech detected").
     if final || error != nil { end(error: final || finishing ? nil : error) }
   }
