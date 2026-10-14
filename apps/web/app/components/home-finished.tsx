@@ -7,7 +7,7 @@ const FINISHED_TITLE_MAX = 80
 const TITLE_SLOT = "\u0000title\u0000"
 
 /**
- * What the reader finished in the past week, under the greeting. Only what was read: nothing about
+ * What the reader finished in the past week, the masthead's line under the greeting. Only what was read: nothing about
  * what is left, no comparison, and nothing at all after a week without a finish.
  */
 export function FinishedLately({ count, title }: { count: number; title: string | null }) {
@@ -22,13 +22,16 @@ export function FinishedLately({ count, title }: { count: number; title: string 
 		text = (
 			<>
 				{before}
-				<cite className="text-fg italic">{shortTitle(title, FINISHED_TITLE_MAX)}</cite>
+				<cite className="text-fg not-italic">{shortTitle(title, FINISHED_TITLE_MAX)}</cite>
 				{after}
 			</>
 		)
 	}
 	return (
-		<p data-testid="home-finished" className="mb-6 text-sm text-muted-fg md:mb-9">
+		<p
+			data-testid="home-finished"
+			className="font-display text-lg text-pretty text-muted-fg italic"
+		>
 			{text}
 		</p>
 	)

@@ -29,10 +29,10 @@ describe("FinishedLately", () => {
 	it("names one article, its title set apart and never read as markup", async () => {
 		const html = await render("en", { count: 1, title: "Why <b>bold</b> claims & {{count}}" })
 		expect(html).toContain(
-			'You finished <cite class="text-fg italic">Why &lt;b&gt;bold&lt;/b&gt; claims &amp; {{count}}</cite> this past week.',
+			'You finished <cite class="text-fg not-italic">Why &lt;b&gt;bold&lt;/b&gt; claims &amp; {{count}}</cite> this past week.',
 		)
 		expect(await render("es", { count: 1, title: "Cómo leer un libro" })).toContain(
-			'Terminaste <cite class="text-fg italic">Cómo leer un libro</cite> esta última semana.',
+			'Terminaste <cite class="text-fg not-italic">Cómo leer un libro</cite> esta última semana.',
 		)
 	})
 

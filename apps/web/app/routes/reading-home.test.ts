@@ -56,6 +56,40 @@ const home = (cookie?: string) =>
 	} as never)
 
 describe("Home loader", () => {
+	it("dates and greets in the reader's time zone and language, from their cookie", async () => {
+		// Sunday 11 October, 09:00 in Santiago; already 21:00 in Tokyo.
+		expect((await home("klip_tz=America%2FSantiago")).masthead).toMatchObject({
+			date: "Sunday, October 11, 2026",
+			part: "morning",
+		})
+		session.user.locale = "es"
+		try {
+			expect((await home("klip_tz=Asia%2FTokyo")).masthead).toMatchObject({
+				date: "Domingo, 11 de octubre de 2026",
+				part: "evening",
+			})
+		} finally {
+			session.user.locale = "en"
+		}
+	})
+
+	it("leaves the date and the greeting by the hour out without the cookie", async () => {
+		expect((await home()).masthead).toMatchObject({ date: null, part: null })
+	})
+
+	it("tells of the articles marked for the next edition", async () => {
+		expect((await home()).masthead.edition).toBeNull()
+		await db
+			.update(documents)
+			.set({ shortlistedAt: new Date() })
+			.where(eq(documents.userId, userId))
+		try {
+			expect((await home()).masthead.edition).toEqual({ draft: false, count: 2 })
+		} finally {
+			await db.update(documents).set({ shortlistedAt: null }).where(eq(documents.userId, userId))
+		}
+	})
+
 	it("counts the past week in the reader's time zone, from their cookie", async () => {
 		expect((await home("klip_tz=America%2FSantiago")).finished).toEqual({
 			count: 1,

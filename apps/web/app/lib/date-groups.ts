@@ -7,9 +7,14 @@
 export const TIME_ZONE_COOKIE = "klip_tz"
 
 export function timeZoneFromCookie(cookieHeader: string | null | undefined): string {
+	return knownTimeZone(cookieHeader) ?? "UTC"
+}
+
+/** The browser's time zone, as its cookie says; null before the browser has said it. */
+export function knownTimeZone(cookieHeader: string | null | undefined): string | null {
 	const match = /(?:^|;\s*)klip_tz=([^;]+)/.exec(cookieHeader ?? "")
 	const zone = match?.[1] ? decodeOr(match[1], "") : ""
-	return isTimeZone(zone) ? zone : "UTC"
+	return isTimeZone(zone) ? zone : null
 }
 
 /** A cookie is the browser's to change: a broken encoding is no zone, not a failed page. */
@@ -39,7 +44,7 @@ export function isTimeZone(zone: string): boolean {
 /** Stores the browser's time zone when the cookie is missing or stale. */
 export function rememberTimeZone() {
 	const zone = Intl.DateTimeFormat().resolvedOptions().timeZone
-	if (!zone || timeZoneFromCookie(document.cookie) === zone) return
+	if (!zone || knownTimeZone(document.cookie) === zone) return
 	// oxlint-disable-next-line unicorn/no-document-cookie -- a single first-party cookie, no library needed
 	document.cookie = `${TIME_ZONE_COOKIE}=${encodeURIComponent(zone)}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`
 }

@@ -1,5 +1,6 @@
-import { ChevronDown, CircleAlert, Clock3, Search } from "lucide-react"
-import { useEffect, useMemo } from "react"
+import { fallbackLanguage, isLocale } from "@klipstack/i18n/languages"
+import { ChevronDown, CircleAlert, Clock3 } from "lucide-react"
+import { type ReactNode, useEffect, useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import {
 	Form,
@@ -14,16 +15,16 @@ import { EmptyDrawing } from "~/components/empty-drawing"
 import { FeedArticle } from "~/components/feed-article"
 import { HomeArticle } from "~/components/home-article"
 import { FinishedLately } from "~/components/home-finished"
-import { HomeGreeting } from "~/components/home-greeting"
 import { HomeHighlights } from "~/components/home-highlights"
+import { HomeMasthead } from "~/components/home-masthead"
 import { HomeNotes } from "~/components/home-notes"
 import { MenuNavLink, MoreMenu } from "~/components/more-menu"
-import { SaveLinkDialog } from "~/components/save-link-dialog"
 import { Button, buttonVariants } from "~/components/ui/button"
 import { useFeedReader } from "~/hooks/use-feed-reader"
 import { topicModels } from "~/lib/ai.server"
-import { timeZoneFromCookie } from "~/lib/date-groups"
+import { knownTimeZone } from "~/lib/date-groups"
 import { hasFeature } from "~/lib/features.server"
+import { editionEar, mastheadDate, partOfDay } from "~/lib/home-masthead"
 import { fitsIn, homeShelves } from "~/lib/home-shelves"
 import { getInstance } from "~/lib/i18n.server"
 import { listSearch, parseTime, REDISCOVER_AFTER_DAYS, TIME_CHOICES } from "~/lib/inbox-filters"
@@ -34,6 +35,7 @@ import { requireUser } from "~/lib/session.server"
 import { isSearchShortcut } from "~/lib/shortcuts"
 import { countTopicClick } from "~/lib/topic-use"
 import { cn } from "~/lib/utils"
+import { editionNudge } from "~/services/editions.server"
 import { linkTargetStatus } from "~/services/links.server"
 import { listNoteReminders } from "~/services/note-reminders.server"
 import { finishedLately } from "~/services/reading-history.server"
@@ -50,24 +52,29 @@ import type { Route } from "./+types/reading-home"
 export async function loader({ context, request }: Route.LoaderArgs) {
 	const user = requireUser(context, request)
 	const t = getInstance(context).getFixedT(null, "library")
-	const timeZone = timeZoneFromCookie(request.headers.get("cookie"))
+	const knownZone = knownTimeZone(request.headers.get("cookie"))
+	const timeZone = knownZone ?? "UTC"
 	const params = new URL(request.url).searchParams
 	const topicId = params.get("topic")
 	const choosing = topicChoice(user.id, topicId, params.has("different"))
 	// Without a topic asked for, Home loads alongside the topics; with one, after them, for its id.
-	const [topics, finished, topicsReady, invitation, home, highlights, notes] = await Promise.all([
-		choosing,
-		finishedLately(user.id, { timeZone }),
-		firstTopicsReady(user.id),
-		topicsInvitation(user.id),
-		topicId
-			? choosing.then((choice) => readingHome(user.id, { topicId: choice?.chosen?.id }))
-			: readingHome(user.id),
-		// In a topic, Home is about its articles: no day's highlights picked for it.
-		topicId ? null : homeHighlights(user.id, timeZone),
-		// In a topic, Home is about reading what's next.
-		topicId ? null : listNoteReminders(user.id),
-	])
+	const [topics, finished, topicsReady, invitation, home, highlights, notes, nudge] =
+		await Promise.all([
+			choosing,
+			finishedLately(user.id, { timeZone }),
+			firstTopicsReady(user.id),
+			topicsInvitation(user.id),
+			topicId
+				? choosing.then((choice) => readingHome(user.id, { topicId: choice?.chosen?.id }))
+				: readingHome(user.id),
+			// In a topic, Home is about its articles: no day's highlights picked for it.
+			topicId ? null : homeHighlights(user.id, timeZone),
+			// In a topic, Home is about reading what's next.
+			topicId ? null : listNoteReminders(user.id),
+			editionNudge(user.id),
+		])
+	const now = new Date()
+	const locale = isLocale(user.locale) ? user.locale : fallbackLanguage
 	// Each article's topic, when Home is not already about one.
 	const labels =
 		topics && !topics.chosen
@@ -91,6 +98,12 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 		labels,
 		highlights,
 		notes,
+		masthead: {
+			// Without the browser's zone, the date and a greeting by the hour could be the wrong ones.
+			date: knownZone ? mastheadDate(now, locale, knownZone) : null,
+			part: knownZone ? partOfDay(now, knownZone) : null,
+			edition: editionEar(nudge),
+		},
 		title: `${t("home.title")} · Klipstack`,
 	}
 }
@@ -155,8 +168,8 @@ export function shouldRevalidate({
 
 export const handle: PageBarHandle = {
 	pageBar: {
+		// The page's name: on phones the masthead's greeting is a line of text under it.
 		titleKey: "common:nav.home",
-		title: <HomeGreeting />,
 		save: true,
 		search: { to: "/search", labelKey: "library:search.label" },
 	},
@@ -194,6 +207,7 @@ export default function ReadingHome({
 		labels,
 		highlights,
 		notes,
+		masthead,
 	},
 }: Route.ComponentProps) {
 	const { t } = useTranslation(["library", "feed"])
@@ -213,9 +227,6 @@ export default function ReadingHome({
 	const nothingFits =
 		timed && ![...reading, ...recent, ...again, ...rediscover].some((doc) => fitsIn(doc, minutes))
 	const featured = reading[0]
-	// Without Continue reading, the newest save takes its big card.
-	const lead = featured ? undefined : recent[0]
-	const moreRecent = lead ? recent.slice(1) : recent
 	// Nothing to read draws the reading chair; a status keeps its icon.
 	const EmptyIcon = emptyState?.kind === "processing" ? Clock3 : CircleAlert
 	useEffect(() => {
@@ -236,126 +247,64 @@ export default function ReadingHome({
 
 	return (
 		<main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-5 pb-12 md:px-8 md:pt-4 md:pb-8">
-			<header
-				className={cn(
-					"hidden min-h-10 flex-wrap items-center justify-between gap-3 md:flex",
-					finished ? "mb-1" : "mb-9",
-				)}
-			>
-				<h1 className="page-title">
-					<HomeGreeting />
-				</h1>
-				<div className="flex items-center gap-2">
-					<Link
-						to="/search"
-						state={{ from: "/home" }}
-						aria-label={t("search.label")}
-						className="rounded-md p-2.5 text-muted-fg hover:bg-muted hover:text-fg"
-					>
-						<Search className="size-5" aria-hidden />
-					</Link>
-					<SaveLinkDialog />
-				</div>
-			</header>
+			<HomeMasthead {...masthead} deck={finished ? <FinishedLately {...finished} /> : null}>
+				{timeChoice ? <TimeChoice minutes={minutes} topic={pick} /> : null}
+				{topics ? <TopicChoice topics={topics} minutes={minutes} pick={pick} /> : null}
+			</HomeMasthead>
 			{topicsReady ? <TopicsCard /> : null}
 			{/* With a time chosen, the reader came to read. */}
 			{invitation && !timed ? <TopicsInvitation count={invitation.count} /> : null}
-			{finished ? <FinishedLately {...finished} /> : null}
 			{/* With a time chosen, the reader came to read. Mounted without a question, to keep a
 			note being written on it. */}
 			{timed ? null : (
 				<HomeNotes items={notes?.items ?? []} suggested={notes?.suggested ?? false} />
 			)}
-			{timeChoice || topics ? (
-				<div className="mb-9 space-y-3">
-					{timeChoice ? <TimeChoice minutes={minutes} topic={pick} /> : null}
-					{topics ? <TopicChoice topics={topics} minutes={minutes} pick={pick} /> : null}
-				</div>
-			) : null}
 			{chosen ? <TopicHeading topic={chosen} minutes={timed ? minutes : null} /> : null}
-			<div className="space-y-10">
-				{featured ? (
-					<section aria-labelledby="home-reading">
-						<SectionHeading
-							id="home-reading"
-							title={t("continueReading.title")}
-							to={`/library${listSearch("progress", "recent", chosen?.id)}`}
-						/>
-						<HomeArticle doc={featured} featured topic={labels[featured.id]} />
-						{timed && !fitsIn(featured, minutes) ? (
+			<div className="space-y-12">
+				<FrontPage
+					reading={reading}
+					recent={recent}
+					labels={labels}
+					topicId={chosen?.id}
+					pickUp={
+						timed && featured && !fitsIn(featured, minutes) ? (
 							<p className="mt-3 text-sm text-muted-fg">
 								{t("home.time.pickUp", { count: minutes! })}
 							</p>
-						) : null}
-						{reading.length > 1 ? (
-							<ul className="mt-5 grid gap-5 sm:grid-cols-2">
-								{reading.slice(1).map((doc) => (
-									<li key={doc.id} className="min-w-0">
-										<HomeArticle doc={doc} compact topic={labels[doc.id]} />
-									</li>
-								))}
-							</ul>
-						) : null}
-					</section>
-				) : null}
-				{recent.length ? (
-					<section aria-labelledby="home-recent">
-						<SectionHeading
-							id="home-recent"
-							title={t("home.recent")}
-							to={`/library${listSearch("unread", "newest", chosen?.id)}`}
-						/>
-						{lead ? <HomeArticle doc={lead} featured topic={labels[lead.id]} /> : null}
-						{moreRecent.length ? (
-							<ul
-								className={cn("grid gap-x-6 gap-y-7 sm:grid-cols-2 lg:grid-cols-3", lead && "mt-7")}
-							>
-								{moreRecent.map((doc) => (
-									<li key={doc.id} className="min-w-0">
-										<HomeArticle doc={doc} topic={labels[doc.id]} />
-									</li>
-								))}
-							</ul>
-						) : null}
-					</section>
+						) : null
+					}
+				/>
+				{/* Recent saves have their columns when the side column holds the other reads. */}
+				{reading.length > 1 && recent.length ? (
+					<Columns
+						id="home-recent"
+						title={t("home.recent")}
+						to={`/library${listSearch("unread", "newest", chosen?.id)}`}
+						docs={recent}
+						labels={labels}
+					/>
 				) : null}
 				{again.length ? (
-					<section aria-labelledby="home-again" data-testid="home-again">
-						<SectionHeading
-							id="home-again"
-							title={t("home.again.title")}
-							to={`/library${listSearch("again", "recent", chosen?.id)}`}
-						/>
-						<p className="-mt-2 mb-5 text-sm text-muted-fg">{t("home.again.description")}</p>
-						<ul className="grid gap-x-6 gap-y-7 sm:grid-cols-2 lg:grid-cols-3">
-							{again.map((doc) => (
-								<li key={doc.id} className="min-w-0">
-									<HomeArticle doc={doc} topic={labels[doc.id]} />
-								</li>
-							))}
-						</ul>
-					</section>
+					<Columns
+						id="home-again"
+						title={t("home.again.title")}
+						description={t("home.again.description")}
+						to={`/library${listSearch("again", "recent", chosen?.id)}`}
+						docs={again}
+						labels={labels}
+					/>
 				) : null}
 				{/* With a time chosen, the reader came to read. */}
 				{highlights && !timed ? <HomeHighlights {...highlights} /> : null}
 				{rediscover.length ? (
-					<section aria-labelledby="home-rediscover" data-testid="home-rediscover">
-						<SectionHeading
-							id="home-rediscover"
-							title={t("home.rediscover.title")}
-							to={`/library${listSearch("unread", "oldest", chosen?.id)}`}
-						/>
-						<p className="-mt-2 mb-5 text-sm text-muted-fg">
-							{t("home.rediscover.description", { count: REDISCOVER_AFTER_DAYS })}
-						</p>
-						<ul className="grid gap-x-6 gap-y-7 sm:grid-cols-2 lg:grid-cols-3">
-							{rediscover.map((doc) => (
-								<li key={doc.id} className="min-w-0">
-									<HomeArticle doc={doc} topic={labels[doc.id]} />
-								</li>
-							))}
-						</ul>
-					</section>
+					<Columns
+						id="home-rediscover"
+						title={t("home.rediscover.title")}
+						description={t("home.rediscover.description", { count: REDISCOVER_AFTER_DAYS })}
+						to={`/library${listSearch("unread", "oldest", chosen?.id)}`}
+						docs={rediscover}
+						labels={labels}
+					/>
 				) : null}
 				{/* With a time chosen, the reader came to read, not to tidy up. */}
 				{review && !timed && !chosen ? <ReviewCard /> : null}
@@ -555,7 +504,7 @@ function TimeChoice({ minutes, topic }: { minutes: number | null; topic: TopicPi
 			role="group"
 			aria-labelledby="home-time"
 			data-testid="home-time"
-			className="flex flex-wrap items-center gap-x-3 gap-y-2"
+			className="flex flex-wrap items-center gap-x-3 gap-y-2 md:justify-center"
 		>
 			<h2 id="home-time" className="text-sm text-muted-fg">
 				{t("home.time.title")}
@@ -618,13 +567,13 @@ function TopicChoice({
 			role="group"
 			aria-labelledby="home-topic-choice"
 			data-testid="home-topic-choice"
-			className="flex flex-wrap items-center gap-x-3 gap-y-2 md:flex-nowrap md:items-start"
+			className="flex flex-wrap items-center gap-x-3 gap-y-2 md:flex-nowrap md:items-start md:justify-center"
 		>
 			<h2 id="home-topic-choice" className="shrink-0 text-sm text-muted-fg md:py-1.5">
 				{t("home.topics.title")}
 			</h2>
 			{/* One line on phones, scrolled sideways, so Home's sections stay in view. */}
-			<div className="-mx-4 flex w-[calc(100%+2rem)] gap-2 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:w-auto md:min-w-0 md:flex-1 md:flex-wrap md:overflow-visible md:px-0">
+			<div className="-mx-4 flex w-[calc(100%+2rem)] gap-2 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:w-auto md:min-w-0 md:flex-initial md:flex-wrap md:overflow-visible md:px-0">
 				{choice("any", null, !pick, t("home.topics.any"))}
 				{chips.map((topic) =>
 					choice(topic.id, { id: topic.id, different: false }, topic.id === chosenId, topic.name),
@@ -698,6 +647,163 @@ function TopicHeading({
 	)
 }
 
+type HomeDoc = Route.ComponentProps["loaderData"]["candidates"]["reading"][number]
+
+/** Where the front page's columns meet: a hairline between them, a rule above on phones. */
+const SIDE_COLUMN =
+	"max-md:mt-8 max-md:border-t max-md:border-border max-md:pt-6 md:border-l md:border-border md:pl-7"
+
+/**
+ * The front page: the article read last as the lead, the others in progress beside it (or, with
+ * none, the newest saves). Without anything in progress, the newest save is the lead and the next
+ * ones are beside it.
+ */
+function FrontPage({
+	reading,
+	recent,
+	labels,
+	topicId,
+	pickUp,
+}: {
+	reading: HomeDoc[]
+	recent: HomeDoc[]
+	labels: Record<string, string>
+	topicId: string | undefined
+	/** Said under the lead when it doesn't fit the time chosen. */
+	pickUp: ReactNode
+}) {
+	const { t } = useTranslation("library")
+	const grid = "md:grid md:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]"
+	const sideList = (docs: HomeDoc[]) => (
+		<ul>
+			{docs.map((doc) => (
+				<li
+					key={doc.id}
+					className="border-t border-border py-4 first:border-t-0 first:pt-0 last:pb-0"
+				>
+					<HomeArticle doc={doc} variant="side" topic={labels[doc.id]} />
+				</li>
+			))}
+		</ul>
+	)
+	const [first, ...rest] = reading
+	if (first) {
+		const side =
+			rest.length > 0
+				? {
+						id: "home-also",
+						title: t("home.alsoReading"),
+						to: `/library${listSearch("progress", "recent", topicId)}`,
+						docs: rest,
+					}
+				: recent.length > 0
+					? {
+							id: "home-recent",
+							title: t("home.recent"),
+							to: `/library${listSearch("unread", "newest", topicId)}`,
+							docs: recent,
+						}
+					: null
+		return (
+			<div data-testid="home-front" className={cn(side && grid)}>
+				<section aria-labelledby="home-reading" className={cn(side && "md:pr-8")}>
+					{/* With the others in progress beside it, the way to all of them is there. */}
+					<Kicker
+						id="home-reading"
+						title={t("continueReading.title")}
+						to={rest.length ? undefined : `/library${listSearch("progress", "recent", topicId)}`}
+					/>
+					<HomeArticle doc={first} variant="lead" topic={labels[first.id]} />
+					{pickUp}
+				</section>
+				{side ? (
+					<section aria-labelledby={side.id} className={SIDE_COLUMN}>
+						<Kicker id={side.id} title={side.title} to={side.to} />
+						{sideList(side.docs)}
+					</section>
+				) : null}
+			</div>
+		)
+	}
+	const [newest, ...next] = recent
+	if (!newest) return null
+	return (
+		<section
+			aria-labelledby="home-recent"
+			data-testid="home-front"
+			className={cn(next.length && grid)}
+		>
+			<div className={cn(next.length && "md:pr-8")}>
+				<Kicker
+					id="home-recent"
+					title={t("home.recent")}
+					to={`/library${listSearch("unread", "newest", topicId)}`}
+				/>
+				<HomeArticle doc={newest} variant="lead" topic={labels[newest.id]} />
+			</div>
+			{next.length ? <div className={SIDE_COLUMN}>{sideList(next)}</div> : null}
+		</section>
+	)
+}
+
+/** A front-page heading, set small as a newspaper's kicker, with the way to all of it. */
+function Kicker({ id, title, to }: { id: string; title: string; to?: string }) {
+	const { t } = useTranslation("library")
+	return (
+		<div className="mb-3 flex items-baseline justify-between gap-4">
+			<h2 id={id} className="text-xs font-medium tracking-[0.08em] text-muted-fg uppercase">
+				{title}
+			</h2>
+			{to ? (
+				<Link
+					to={to}
+					aria-label={t("home.viewAllOf", { title })}
+					className="shrink-0 py-1 text-sm text-link hover:underline"
+				>
+					{t("home.viewAll")}
+					<span aria-hidden> →</span>
+				</Link>
+			) : null}
+		</div>
+	)
+}
+
+/** A section of the inside pages: its stories in columns, a hairline between them. */
+function Columns({
+	id,
+	title,
+	description,
+	to,
+	docs,
+	labels,
+}: {
+	id: string
+	title: string
+	description?: string
+	to: string
+	docs: HomeDoc[]
+	labels: Record<string, string>
+}) {
+	return (
+		<section aria-labelledby={id} data-testid={id}>
+			<SectionHeading id={id} title={title} to={to} />
+			{description ? <p className="-mt-1 mb-5 text-sm text-muted-fg">{description}</p> : null}
+			{/* Every column as wide as the others, so their pictures, and the headlines under them, line
+			    up: each has the same padding, the outer ones reaching past the section's edges. */}
+			<ul className="grid gap-y-5 sm:grid-cols-2 sm:gap-x-6 sm:gap-y-8 lg:-mx-6 lg:grid-cols-3 lg:gap-x-0">
+				{docs.map((doc) => (
+					<li
+						key={doc.id}
+						className="min-w-0 max-sm:border-t max-sm:border-border max-sm:pt-5 max-sm:first:border-t-0 max-sm:first:pt-0 lg:border-l lg:border-border lg:px-6 lg:first:border-l-transparent"
+					>
+						<HomeArticle doc={doc} topic={labels[doc.id]} />
+					</li>
+				))}
+			</ul>
+		</section>
+	)
+}
+
 function SectionHeading({
 	id,
 	title,
@@ -711,13 +817,13 @@ function SectionHeading({
 }) {
 	const { t } = useTranslation("library")
 	return (
-		<div className="mb-4 flex items-center justify-between gap-4">
+		<div className="mb-4 flex items-baseline justify-between gap-4 border-t-2 border-fg pt-2">
 			<h2 id={id} className="section-title">
 				{title}
 			</h2>
 			<Link
 				to={to}
-				aria-label={label ?? `${t("home.viewAll")}: ${title}`}
+				aria-label={label ?? t("home.viewAllOf", { title })}
 				className="shrink-0 py-2 text-sm text-link hover:underline"
 			>
 				{label ?? t("home.viewAll")}

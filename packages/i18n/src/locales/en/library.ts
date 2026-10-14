@@ -4,7 +4,31 @@ export default {
 		title: "Home",
 		welcome: "Welcome back",
 		welcomeNamed: "Welcome back, <name/>",
+		/** The masthead's greeting, by the part of the day where the reader is. */
+		greeting: {
+			morning: "Good morning",
+			morningNamed: "Good morning, <name/>",
+			afternoon: "Good afternoon",
+			afternoonNamed: "Good afternoon, <name/>",
+			evening: "Good evening",
+			eveningNamed: "Good evening, <name/>",
+		},
+		/** The masthead's corner: the next edition, when one is in the works. */
+		edition: {
+			marked_one:
+				"Your next edition: <count>{{count}} marked</count> · <editions>Put it together</editions>",
+			marked_other:
+				"Your next edition: <count>{{count}} marked</count> · <editions>Put it together</editions>",
+			draft_one:
+				"Your next edition: <count>{{count}} article in the draft</count> · <editions>Continue editing</editions>",
+			draft_other:
+				"Your next edition: <count>{{count}} articles in the draft</count> · <editions>Continue editing</editions>",
+			draftEmpty:
+				"Your next edition: <count>a draft started</count> · <editions>Continue editing</editions>",
+		},
+		alsoReading: "Also in progress",
 		viewAll: "View all",
+		viewAllOf: "View all: {{title}}",
 		recent: "Recently saved",
 		viewFeeds: "View feeds",
 		time: {

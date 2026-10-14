@@ -111,7 +111,12 @@ test("home adapts to the library, opens articles and returns after finishing", a
 	await page.goto("/home")
 	await waitForHydration(page)
 	await page.setViewportSize({ width: 390, height: 844 })
-	await expect(page.getByRole("heading", { name: "Welcome back, Home", exact: true })).toBeVisible()
+	// On phones the top bar names the page, and the masthead greets under it by the part of the day
+	// where the browser is (its unit tests say which): one heading for the page.
+	await expect(page.getByRole("heading", { level: 1 })).toHaveText("Home")
+	await expect(page.getByTestId("home-greeting")).toHaveText(
+		/^Good (morning|afternoon|evening), Home$/,
+	)
 	await expect
 		.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
 		.toBe(true)
@@ -292,8 +297,17 @@ test("home cards keep the image box without an image, so titles in a row line up
 		{
 			...article(3, "Being read, without an image"),
 			firstOpenedAt: new Date(),
+			lastReadAt: new Date(),
 			readingProgress: 0.4,
 			readingPosition: 0.4,
+		},
+		// Another in progress takes the side column: recent saves get the columns, with pictures.
+		{
+			...article(4, "Also being read"),
+			firstOpenedAt: new Date(Date.now() - 60_000),
+			lastReadAt: new Date(Date.now() - 60_000),
+			readingProgress: 0.2,
+			readingPosition: 0.2,
 		},
 	])
 	await page.goto("/home")
@@ -306,9 +320,13 @@ test("home cards keep the image box without an image, so titles in a row line up
 		.locator("h3")
 		.evaluateAll((titles) => titles.map((h) => Math.round(h.getBoundingClientRect().top)))
 	expect(tops[1]).toBe(tops[0])
-	// The article being read gets the same placeholder.
+	// The lead, being read, gets the same placeholder; the side column has no pictures.
 	const reading = page.locator("section[aria-labelledby=home-reading]")
+	await expect(reading.getByTestId("home-article")).toHaveText(/Being read, without an image/)
 	await expect(reading.getByTestId("article-image-placeholder")).toHaveCount(1)
+	const also = page.locator("section[aria-labelledby=home-also]")
+	await expect(also.getByTestId("home-article")).toHaveText([/Also being read/])
+	await expect(also.getByTestId("article-image-placeholder")).toHaveCount(0)
 	if (process.env.SHOT_DIR)
 		await page.screenshot({
 			path: `${process.env.SHOT_DIR}/home-image-placeholder.png`,
@@ -316,7 +334,9 @@ test("home cards keep the image box without an image, so titles in a row line up
 		})
 })
 
-test("without reading in progress, the newest save takes the big card", async ({ page }) => {
+test("without reading in progress, the newest save is the lead, the next ones beside it", async ({
+	page,
+}) => {
 	const email = uniqueEmail("home-lead")
 	await page.goto("/signup")
 	await page.getByLabel("Invite code").fill(await createInviteCode())
@@ -344,24 +364,33 @@ test("without reading in progress, the newest save takes the big card", async ({
 	await waitForHydration(page)
 
 	await expect(page.getByRole("heading", { name: "Continue reading" })).toHaveCount(0)
+	// The masthead: today, where the browser is; nothing of editions with nothing marked for one.
+	const today = await page.evaluate(() =>
+		new Intl.DateTimeFormat("en-US", { dateStyle: "full" }).format(new Date()),
+	)
+	await expect(page.getByTestId("home-date")).toHaveText(today)
+	await expect(page.getByTestId("home-edition")).toHaveCount(0)
 	const recent = page.locator("section[aria-labelledby=home-recent]").getByTestId("home-article")
 	await expect(recent).toHaveCount(4)
 	await expect(recent.first()).toContainText("Saved 1")
 	await expect(recent.first()).toContainText("Start reading")
 	await expect(recent.filter({ hasText: "Start reading" })).toHaveCount(1)
-	// The big card spans the section, the other three share the row below it.
+	// The lead is the wide column; the other three are stacked in the side column to its right.
 	const boxes = await recent.evaluateAll((cards) =>
 		cards.map((card) => {
 			const box = card.getBoundingClientRect()
-			return { top: Math.round(box.top), width: Math.round(box.width) }
+			return { top: Math.round(box.top), left: Math.round(box.left), width: Math.round(box.width) }
 		}),
 	)
-	expect(boxes[0]!.width).toBeGreaterThan(boxes[1]!.width * 2)
-	expect(new Set(boxes.slice(1).map((box) => box.top)).size).toBe(1)
+	const [lead, ...side] = boxes
+	expect(lead!.width).toBeGreaterThan(side[0]!.width * 1.3)
+	for (const box of side) expect(box.left).toBeGreaterThan(lead!.left + lead!.width)
+	expect(side.map((box) => box.top)).toEqual(side.map((box) => box.top).toSorted((a, b) => a - b))
+	expect(new Set(side.map((box) => box.top)).size).toBe(3)
 	if (process.env.SHOT_DIR)
 		await page.screenshot({ path: `${process.env.SHOT_DIR}/home-lead.png`, fullPage: true })
 
-	// Once one is in progress, Continue reading has the big card again, and recent saves go back to three.
+	// Once one is in progress, Continue reading is the lead, and the recent saves are beside it.
 	await db
 		.update(documents)
 		.set({ firstOpenedAt: new Date(), lastReadAt: new Date(), readingProgress: 0.3 })
@@ -371,6 +400,27 @@ test("without reading in progress, the newest save takes the big card", async ({
 	await expect(page.getByRole("heading", { name: "Continue reading" })).toBeVisible()
 	await expect(recent).toHaveCount(3)
 	await expect(recent.filter({ hasText: "Start reading" })).toHaveCount(0)
+	// With nothing else in progress, the recent saves are in the side column, without pictures.
+	const readLast = await page
+		.locator("section[aria-labelledby=home-reading]")
+		.getByTestId("home-article")
+		.boundingBox()
+	for (const box of await recent.evaluateAll((cards) =>
+		cards.map((card) => card.getBoundingClientRect().left),
+	))
+		expect(box).toBeGreaterThan(readLast!.x + readLast!.width)
+	await expect(recent.getByTestId("article-image-placeholder")).toHaveCount(0)
+
+	// Articles marked for the next edition: the masthead's corner says so, and leads to Editions.
+	await db
+		.update(documents)
+		.set({ shortlistedAt: new Date() })
+		.where(eq(documents.userId, owner.id))
+	await page.reload()
+	const edition = page.getByTestId("home-edition")
+	await expect(edition).toHaveText("Your next edition: 5 marked · Put it together")
+	await edition.getByRole("link", { name: "Put it together" }).click()
+	await expect(page).toHaveURL(/\/editions$/)
 })
 
 test("Home brings back older saves and narrows to the time chosen, without asking again", async ({

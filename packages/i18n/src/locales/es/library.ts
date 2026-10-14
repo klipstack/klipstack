@@ -3,7 +3,29 @@ export default {
 		title: "Inicio",
 		welcome: "Hola de nuevo",
 		welcomeNamed: "Hola de nuevo, <name/>",
+		greeting: {
+			morning: "Buenos días",
+			morningNamed: "Buenos días, <name/>",
+			afternoon: "Buenas tardes",
+			afternoonNamed: "Buenas tardes, <name/>",
+			evening: "Buenas noches",
+			eveningNamed: "Buenas noches, <name/>",
+		},
+		edition: {
+			marked_one:
+				"Tu próxima edición: <count>{{count}} marcado</count> · <editions>Prepárala</editions>",
+			marked_other:
+				"Tu próxima edición: <count>{{count}} marcados</count> · <editions>Prepárala</editions>",
+			draft_one:
+				"Tu próxima edición: <count>{{count}} artículo en el borrador</count> · <editions>Seguir editando</editions>",
+			draft_other:
+				"Tu próxima edición: <count>{{count}} artículos en el borrador</count> · <editions>Seguir editando</editions>",
+			draftEmpty:
+				"Tu próxima edición: <count>un borrador empezado</count> · <editions>Seguir editando</editions>",
+		},
+		alsoReading: "También leyendo",
 		viewAll: "Ver todo",
+		viewAllOf: "Ver todo: {{title}}",
 		recent: "Guardado recientemente",
 		viewFeeds: "Ver feeds",
 		time: {
