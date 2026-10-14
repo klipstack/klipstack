@@ -68,7 +68,7 @@ function SectionLink({
 			className={linkClass(false)}
 		>
 			<NavIcon icon={icon} />
-			{label}
+			<span data-nav-label>{label}</span>
 		</NavLink>
 	)
 }
@@ -166,7 +166,7 @@ export function SettingsShell({ children }: { children: React.ReactNode }) {
 					>
 						<Menu className="size-5" aria-hidden />
 					</button>
-					<h1 className="min-w-0 flex-1 truncate text-base font-semibold">
+					<h1 className="min-w-0 flex-1 truncate font-display text-lg font-medium">
 						{bar ? tk(bar.titleKey) : t("nav.settings")}
 					</h1>
 				</header>

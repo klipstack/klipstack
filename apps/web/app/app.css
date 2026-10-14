@@ -14,7 +14,8 @@
 	--font-sans:
 		ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 	--font-serif: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif;
-	/* The landing page's serif, the logo's typeface. Self-hosted: the page loads it, nothing else does. */
+	/* The logo's typeface: the landing page's serif, and the app's page titles. Self-hosted; a browser
+	   downloads it only for a page that shows it. */
 	--font-display:
 		"Newsreader Variable", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
 
@@ -467,6 +468,55 @@ body {
 	from {
 		background-size: 0% 80%;
 	}
+}
+/* A page's title and Home's sections: the logo's serif, as the landing page sets its own. */
+@utility page-title {
+	font-family: var(--font-display);
+	font-size: 2rem;
+	line-height: 2.5rem;
+	font-weight: 520;
+	letter-spacing: -0.015em;
+}
+@utility section-title {
+	font-family: var(--font-display);
+	font-size: 1.5rem;
+	line-height: 2rem;
+	font-weight: 500;
+	letter-spacing: -0.01em;
+}
+
+/* Where the reader is, marked as they mark a passage: a stroke of highlighter ink behind the current
+   nav item or filter, drawn in as it becomes current, in place of a tinted pill. The highlighter is
+   the app's signature; its yellow is the brand's accent, the navy stays on actions. */
+@utility marked {
+	--ink: linear-gradient(
+		90deg,
+		color-mix(in oklch, var(--hl), var(--k-fg) 9%),
+		var(--hl) 0.6em calc(100% - 0.8em),
+		color-mix(in oklch, var(--hl), var(--k-fg) 6%)
+	);
+	/* Important: the mark is a state laid over whatever the element is (a chip's border and grey
+	   text, a menu button's hover), and wins over all of it. */
+	background: var(--ink) no-repeat 0 60% / 100% 80% !important;
+	border-color: transparent !important;
+	border-radius: 0.55em 0.8em 0.7em 0.45em / 0.8em 0.7em 0.8em 0.65em !important;
+	color: var(--k-fg) !important;
+	animation: swipe 0.4s cubic-bezier(0.3, 0.7, 0.2, 1) both;
+	@media (prefers-reduced-motion: reduce) {
+		animation: none;
+	}
+}
+/* The same stroke under a line of text (a nav item's name): it reaches a little past the words. */
+@utility marked-text {
+	@apply marked;
+	background-position: 0 70%;
+	padding-inline: 0.3em 0.4em;
+	margin-inline: -0.3em -0.4em;
+}
+/* Progress through an article: a line of the same ink, warmed toward orange so a thin line still
+   shows on the page. */
+@utility ink-line {
+	background: color-mix(in oklch, var(--hl-yellow-solid), var(--hl-orange-solid) 40%);
 }
 @media (prefers-reduced-motion: reduce) {
 	.swipe,

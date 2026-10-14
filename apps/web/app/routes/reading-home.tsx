@@ -242,7 +242,7 @@ export default function ReadingHome({
 					finished ? "mb-1" : "mb-9",
 				)}
 			>
-				<h1 className="text-2xl font-semibold">
+				<h1 className="page-title">
 					<HomeGreeting />
 				</h1>
 				<div className="flex items-center gap-2">
@@ -545,7 +545,7 @@ function TimeChoice({ minutes, topic }: { minutes: number | null; topic: TopicPi
 			onClick={(e) => {
 				if (value === minutes) e.preventDefault()
 			}}
-			className="rounded-full border border-border px-3 py-1 text-sm text-muted-fg hover:bg-muted hover:text-fg aria-[current]:border-selected aria-[current]:bg-selected aria-[current]:text-selected-fg"
+			className="rounded-full border border-border px-3 py-1 text-sm text-muted-fg hover:bg-muted hover:text-fg aria-[current]:marked"
 		>
 			{value === null ? t("home.time.any") : t("home.time.choice", { count: value })}
 		</Link>
@@ -569,7 +569,7 @@ function TimeChoice({ minutes, topic }: { minutes: number | null; topic: TopicPi
 }
 
 const CHIP =
-	"shrink-0 rounded-full border border-border px-3 py-1 text-sm text-muted-fg hover:bg-muted hover:text-fg aria-[current]:border-selected aria-[current]:bg-selected aria-[current]:text-selected-fg"
+	"shrink-0 rounded-full border border-border px-3 py-1 text-sm text-muted-fg hover:bg-muted hover:text-fg aria-[current]:marked"
 
 /**
  * What to read about: anything, the topics with most to read, something different (the topic read
@@ -712,7 +712,7 @@ function SectionHeading({
 	const { t } = useTranslation("library")
 	return (
 		<div className="mb-4 flex items-center justify-between gap-4">
-			<h2 id={id} className="text-lg font-medium">
+			<h2 id={id} className="section-title">
 				{title}
 			</h2>
 			<Link

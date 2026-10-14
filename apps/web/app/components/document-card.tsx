@@ -363,6 +363,7 @@ export function DocumentCard({
 			<div className="relative hidden shrink-0 sm:block layout-grid:block">
 				<ArticleImage
 					src={picture}
+					cover={{ site: siteLabel(doc.siteName, host), title, shelf: doc.siteName ?? host }}
 					className="h-24 w-32 rounded-lg layout-grid:aspect-[16/10] layout-grid:h-auto layout-grid:w-full"
 				/>
 				{check ? (
@@ -448,6 +449,7 @@ export function DocumentCard({
 						{picture ? (
 							<ArticleImage
 								src={picture}
+								cover={{ site: siteLabel(doc.siteName, host), title, shelf: doc.siteName ?? host }}
 								className="ml-auto size-16 shrink-0 rounded-md sm:hidden"
 							/>
 						) : null}
@@ -478,7 +480,7 @@ export function DocumentCard({
 				{doc.readingProgress > 0 && doc.readingProgress < 1 && doc.status === "ready" ? (
 					<div className="mt-1 h-1 w-full overflow-hidden rounded bg-fg/10" aria-hidden>
 						<div
-							className="h-full bg-accent"
+							className="ink-line h-full"
 							style={{ width: `${Math.round(doc.readingProgress * 100)}%` }}
 						/>
 					</div>

@@ -68,7 +68,11 @@ export const linkClass =
 		cn(
 			"relative flex items-center gap-2 rounded-lg text-sm",
 			collapsed ? "mx-auto size-9 justify-center" : "px-2 py-2 md:py-1.5",
-			isActive ? "bg-selected font-medium text-selected-fg" : "hover:bg-fg/10",
+			isActive
+				? collapsed
+					? "marked"
+					: "font-medium [&_[data-nav-label]]:marked-text"
+				: "hover:bg-fg/10",
 		)
 
 /** Icon centered in a slot as wide as the brand mark, so nav labels align with the app name. */
@@ -183,7 +187,7 @@ function SidebarContent({
 									: {})}
 							>
 								<NavIcon icon={Icon} />
-								{collapsed ? null : t(key)}
+								{collapsed ? null : <span data-nav-label>{t(key)}</span>}
 								{dot ? (
 									<span
 										data-testid={dot.testId}
@@ -242,9 +246,7 @@ function SavedSearchesMenu({ savedSearches }: { savedSearches: SavedSearchItem[]
 			icon={<NavIcon icon={Bookmark} />}
 			className={cn(
 				"!p-0 mx-auto mt-4 flex size-9 items-center justify-center rounded-lg",
-				current
-					? "bg-selected text-selected-fg hover:bg-selected hover:text-selected-fg"
-					: "text-fg hover:bg-fg/10",
+				current ? "marked" : "text-fg hover:bg-fg/10",
 			)}
 		>
 			<p className="px-2 py-1.5 text-xs font-medium text-muted-fg">{label}</p>
@@ -292,7 +294,7 @@ function SavedSearchRow({
 		<li
 			className={cn(
 				"group/saved flex items-center rounded-lg text-sm",
-				current ? "bg-selected font-medium text-selected-fg" : "hover:bg-fg/10",
+				current ? "font-medium [&_[data-nav-label]]:marked-text" : "hover:bg-fg/10",
 			)}
 			onContextMenu={(e) => {
 				if (!menuRef.current) return
@@ -309,7 +311,9 @@ function SavedSearchRow({
 				className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-2 md:py-1.5"
 			>
 				<NavIcon icon={Bookmark} />
-				<span className="truncate">{saved.name}</span>
+				<span data-nav-label className="truncate">
+					{saved.name}
+				</span>
 				{saved.endedTopics?.length ? (
 					<span
 						role="img"
@@ -515,7 +519,7 @@ export function AppShell({
 							>
 								<Menu className="size-5" aria-hidden />
 							</button>
-							<h1 className="min-w-0 flex-1 truncate text-base font-semibold">
+							<h1 className="min-w-0 flex-1 truncate font-display text-lg font-medium">
 								{bar ? (bar.title ?? tk(bar.titleKey)) : t("appName")}
 							</h1>
 							{bar?.search && "to" in bar.search ? (

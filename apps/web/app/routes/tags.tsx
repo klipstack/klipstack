@@ -80,7 +80,7 @@ export default function Tags({ loaderData }: Route.ComponentProps) {
 	const [editingId, setEditingId] = useState<string | null>(null)
 	return (
 		<main className="mx-auto w-full max-w-2xl flex-1 px-4 pt-3 pb-8 md:pt-4 md:pb-8">
-			<h1 className="hidden text-2xl font-semibold md:block md:leading-10">{tc("nav.tags")}</h1>
+			<h1 className="hidden page-title md:block md:leading-10">{tc("nav.tags")}</h1>
 			<p className="text-sm text-muted-fg md:mt-2">{t("tags.page.description")}</p>
 			{tags.length === 0 ? (
 				<div

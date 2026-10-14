@@ -1,4 +1,3 @@
-import "@fontsource-variable/newsreader"
 import { ArrowRight } from "lucide-react"
 import { type ReactNode, useState } from "react"
 import { Trans, useTranslation } from "react-i18next"

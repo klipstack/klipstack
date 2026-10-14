@@ -14,7 +14,7 @@ export function SettingsPage({
 }) {
 	return (
 		<main className="mx-auto w-full max-w-2xl flex-1 px-4 pt-4 pb-8">
-			<h1 className="hidden text-2xl font-semibold md:block md:leading-10">{title}</h1>
+			<h1 className="hidden page-title md:block md:leading-10">{title}</h1>
 			{description ? <p className="text-sm text-muted-fg md:mt-1">{description}</p> : null}
 			{children}
 		</main>

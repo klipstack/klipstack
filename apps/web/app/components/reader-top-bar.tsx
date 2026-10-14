@@ -95,7 +95,7 @@ export function ReaderTopBar({
 				<div
 					data-testid="reading-progress"
 					aria-hidden
-					className="absolute inset-x-0 bottom-0 h-0.5 origin-left bg-accent transition-transform duration-150"
+					className="absolute inset-x-0 bottom-0 h-[3px] origin-left ink-line transition-transform duration-150"
 					style={{ transform: `scaleX(${progress})` }}
 				/>
 			) : null}

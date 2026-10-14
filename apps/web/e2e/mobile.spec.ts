@@ -65,8 +65,9 @@ test("phone: drawer navigation, save dialog, reader sidebar, standalone manifest
 		await page.screenshot({ path: `${process.env.SHOT_DIR}/mobile-drawer.png` })
 	// brand and close button share a row; brand label and nav labels share a column
 	const geometry = await drawer.evaluate((d) => {
+		// Where its name starts: the first text in it (a nav item's name is in a span of its own).
 		const textLeft = (el: Element) => {
-			const text = [...el.childNodes].find((n) => n.nodeType === Node.TEXT_NODE)
+			const text = document.createTreeWalker(el, NodeFilter.SHOW_TEXT).nextNode()
 			const range = document.createRange()
 			range.selectNode(text as Node)
 			return range.getBoundingClientRect().left

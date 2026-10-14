@@ -114,7 +114,7 @@ export default function TopicPage({ loaderData }: Route.ComponentProps) {
 				</div>
 			) : (
 				<div className="mt-2 flex items-center gap-2">
-					<h1 data-testid="topic-name" className="min-w-0 flex-1 text-2xl font-semibold">
+					<h1 data-testid="topic-name" className="min-w-0 flex-1 page-title">
 						{actions.name}
 					</h1>
 					<LayoutToggle className="hidden md:block" />

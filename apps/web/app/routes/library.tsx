@@ -244,7 +244,7 @@ export default function Library({ loaderData }: Route.ComponentProps) {
 	return (
 		<main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-3 pb-6 md:px-8 md:pt-4 md:pb-8">
 			<div className="hidden min-h-10 flex-wrap items-center justify-between gap-3 md:flex">
-				<h1 className="text-2xl font-semibold">{t(`views.${loaderData.view}`)}</h1>
+				<h1 className="page-title">{t(`views.${loaderData.view}`)}</h1>
 				<div className="flex items-center gap-2">
 					{/* First, where the search page's field ends: the other buttons stay where they are. */}
 					<SearchLink view={loaderData.view} label={t("search.label")} />
@@ -403,7 +403,7 @@ function ListControls({
 			key={f ?? "all"}
 			to={`${path}${filterSearch(filter, f, sort, topic)}`}
 			aria-current={f === filter ? "true" : undefined}
-			className="flex shrink-0 items-center gap-1.5 rounded-full border border-border px-3 py-1 text-sm text-muted-fg hover:bg-muted hover:text-fg aria-[current]:border-selected aria-[current]:bg-selected aria-[current]:text-selected-fg"
+			className="flex shrink-0 items-center gap-1.5 rounded-full border border-border px-3 py-1 text-sm text-muted-fg hover:bg-muted hover:text-fg aria-[current]:marked"
 		>
 			{t(`filters.${f ?? "all"}`)}
 			{count ? <span className="tabular-nums">{count}</span> : null}
@@ -474,8 +474,7 @@ function ListControls({
 
 const CHIP =
 	"flex shrink-0 items-center gap-1.5 rounded-full border border-border px-3 py-1 text-sm text-muted-fg hover:bg-muted hover:text-fg"
-const CHIP_ON =
-	"border-selected bg-selected text-selected-fg hover:bg-selected hover:text-selected-fg"
+const CHIP_ON = "marked"
 
 /**
  * The topic the list shows, first in the row: a menu of the reader's topics, with how many of the

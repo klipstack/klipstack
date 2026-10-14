@@ -176,7 +176,7 @@ test("saved searches: the rail lists them in a menu, the phone drawer as rows", 
 	await expect(page).toHaveURL(/\/search\?q=sort%3Alongest$/)
 	await expect(menu).toHaveCount(0)
 	// On that search, the button and the entry show it.
-	await expect(button).toHaveClass(/bg-selected/)
+	await expect(button).toHaveClass(/\bmarked\b/)
 	await button.click()
 	await expect(menu.getByRole("menuitem", { name: "Long reads" })).toHaveAttribute(
 		"aria-current",

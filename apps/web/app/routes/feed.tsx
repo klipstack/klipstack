@@ -126,7 +126,7 @@ export default function FeedPage({ loaderData }: Route.ComponentProps) {
 	return (
 		<main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-3 pb-6 md:px-8 md:pt-4 md:pb-8">
 			<div className="flex items-center justify-end gap-3 md:min-h-10 md:justify-between">
-				<h1 className="hidden text-2xl font-semibold md:block">{t("title")}</h1>
+				<h1 className="hidden page-title md:block">{t("title")}</h1>
 				{empty ? null : (
 					<div className="flex items-center gap-1">
 						<AddFeedDialog />

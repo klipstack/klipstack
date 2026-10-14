@@ -565,7 +565,7 @@ function Chips({ q, topics }: { q: string; topics: string[] | null }) {
 						replace
 						data-testid={`search-chip-${name}`}
 						aria-current={on ? "true" : undefined}
-						className="flex shrink-0 items-center rounded-full border border-border px-3 py-1 text-sm text-muted-fg hover:bg-muted hover:text-fg aria-[current]:border-selected aria-[current]:bg-selected aria-[current]:text-selected-fg"
+						className="flex shrink-0 items-center rounded-full border border-border px-3 py-1 text-sm text-muted-fg hover:bg-muted hover:text-fg aria-[current]:marked"
 					>
 						{t(`search.chips.${name}`)}
 					</Link>
@@ -577,8 +577,7 @@ function Chips({ q, topics }: { q: string; topics: string[] | null }) {
 
 const CHIP =
 	"flex shrink-0 items-center gap-1.5 rounded-full border border-border px-3 py-1 text-sm text-muted-fg hover:bg-muted hover:text-fg"
-const CHIP_ON =
-	"border-selected bg-selected text-selected-fg hover:bg-selected hover:text-selected-fg"
+const CHIP_ON = "marked"
 
 /** The query's `topic:` and `has:topic` tokens, which the Topic chip sets. */
 const isTopicToken = (token: Token) =>

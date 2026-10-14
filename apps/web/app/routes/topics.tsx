@@ -27,6 +27,7 @@ import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
 import { topicModels } from "~/lib/ai.server"
 import { AppError } from "~/lib/app-error"
+import { hash, siteHue } from "~/lib/book-hue"
 import { formatDay } from "~/lib/date-groups"
 import { hasFeature } from "~/lib/features.server"
 import { getLocale } from "~/lib/i18n.server"
@@ -140,7 +141,7 @@ export default function Topics({ loaderData }: Route.ComponentProps) {
 	}, [busy, revalidate])
 	return (
 		<main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-3 pb-8 md:px-8 md:pt-4 md:pb-8">
-			<h1 className="hidden text-2xl font-semibold md:block md:leading-10">{tc("nav.topics")}</h1>
+			<h1 className="hidden page-title md:block md:leading-10">{tc("nav.topics")}</h1>
 			<p className="max-w-2xl text-sm text-muted-fg md:mt-2">{t("topics.description")}</p>
 			{paused ? (
 				<p data-testid="topics-paused" className="mt-6 max-w-2xl text-sm text-muted-fg">
@@ -443,13 +444,6 @@ function Shelf({ topic }: { topic: TopicShelf }) {
 
 const opened = () => countTopicClick("topic_opened")
 
-/** A small, stable number for a text: a book keeps its height and color from one visit to the next. */
-function hash(text: string) {
-	let h = 7
-	for (const c of text) h = (h * 31 + c.charCodeAt(0)) >>> 0
-	return h
-}
-
 /**
  * An article as a book's spine: thicker for a longer read, colored by its site, its title down the
  * spine. One saved this week has a blue top.
@@ -461,7 +455,7 @@ function Book({ book, className }: { book: TopicBook; className?: string }) {
 	const style = {
 		"--k": Math.min(1, Math.max(0, (Math.log10(words) - 2.5) / 1.6)).toFixed(2),
 		"--h": hash(book.id) % 30,
-		"--hue": (hash(book.siteName ?? book.id) % 12) * 30,
+		"--hue": siteHue(book.siteName ?? book.id),
 	} as React.CSSProperties
 	return (
 		<li className={cn("flex shrink-0", className)}>

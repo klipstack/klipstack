@@ -79,7 +79,7 @@ export default function Review({ loaderData: { items, more } }: Route.ComponentP
 
 	return (
 		<main className="mx-auto w-full max-w-3xl flex-1 px-4 pt-3 pb-12 md:px-8 md:pt-4">
-			<h1 className="hidden text-2xl font-semibold md:block">{t("review.title")}</h1>
+			<h1 className="hidden page-title md:block">{t("review.title")}</h1>
 			<p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-fg md:mt-3">
 				{t("review.description")}
 			</p>

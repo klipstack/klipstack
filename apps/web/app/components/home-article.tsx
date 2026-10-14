@@ -1,7 +1,7 @@
 import { ArrowRight, Star } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router"
-import { sourceLabel } from "~/lib/site-label"
+import { safeHost, siteLabel, sourceLabel } from "~/lib/site-label"
 import { cn } from "~/lib/utils"
 import type { LibraryCard } from "~/services/documents.server"
 import { ArticleImage } from "./article-image"
@@ -22,6 +22,12 @@ export function HomeArticle({
 }) {
 	const { t } = useTranslation("library")
 	const image = doc.leadImageAssetId ? `/assets/${doc.leadImageAssetId}` : doc.leadImageUrl
+	const host = safeHost(doc.sourceUrl)
+	const cover = {
+		site: siteLabel(doc.siteName, host),
+		title: doc.title ?? t("card.untitled"),
+		shelf: doc.siteName ?? host,
+	}
 	const started = Boolean(doc.firstOpenedAt)
 	const progress = Math.round(doc.readingProgress * 100)
 	const remaining =
@@ -48,6 +54,7 @@ export function HomeArticle({
 			{compact ? null : (
 				<ArticleImage
 					src={image}
+					cover={cover}
 					eager={featured}
 					className={
 						featured
@@ -100,7 +107,7 @@ export function HomeArticle({
 							aria-valuenow={progress}
 							className="h-1 overflow-hidden rounded-full bg-fg/10"
 						>
-							<div className="h-full rounded-full bg-accent" style={{ width: `${progress}%` }} />
+							<div className="ink-line h-full rounded-full" style={{ width: `${progress}%` }} />
 						</div>
 						<p className="mt-2 text-xs text-muted-fg">
 							{t("home.percent", { percent: progress })}

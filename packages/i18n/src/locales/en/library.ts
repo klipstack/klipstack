@@ -3,7 +3,7 @@ export default {
 	home: {
 		title: "Home",
 		welcome: "Welcome back",
-		welcomeNamed: "Welcome back, {{name}}",
+		welcomeNamed: "Welcome back, <name/>",
 		viewAll: "View all",
 		recent: "Recently saved",
 		viewFeeds: "View feeds",

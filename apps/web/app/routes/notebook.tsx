@@ -207,7 +207,7 @@ export default function Notebook({ loaderData }: Route.ComponentProps) {
 	return (
 		<main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-3 pb-6 md:pt-4 md:pb-8">
 			<div className="hidden min-h-10 flex-wrap items-center justify-between gap-3 md:flex">
-				<h1 className="text-2xl font-semibold">{title}</h1>
+				<h1 className="page-title">{title}</h1>
 				{blank ? null : (
 					<SearchField
 						action="/notebook"
@@ -364,9 +364,8 @@ function Cards({
 }
 
 const CHIP =
-	"flex shrink-0 items-center gap-1.5 rounded-full border border-border px-3 py-1 text-sm text-muted-fg hover:bg-muted hover:text-fg aria-[current]:border-selected aria-[current]:bg-selected aria-[current]:text-selected-fg"
-const CHIP_ON =
-	"border-selected bg-selected text-selected-fg hover:bg-selected hover:text-selected-fg"
+	"flex shrink-0 items-center gap-1.5 rounded-full border border-border px-3 py-1 text-sm text-muted-fg hover:bg-muted hover:text-fg aria-[current]:marked"
+const CHIP_ON = "marked"
 
 /**
  * The filter row: All, Notes, Highlights and the colors (with counts; empty ones hide unless
@@ -411,7 +410,7 @@ function Controls({
 				aria-label={
 					color === null ? undefined : t("notebook.filters.colorCount", { color: label, count })
 				}
-				{...(color === null ? {} : tooltip(label))}
+				{...(color === null ? {} : { ...tooltip(label), ...highlightColor(color) })}
 				className={CHIP}
 			>
 				{color === null ? (

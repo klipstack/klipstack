@@ -56,7 +56,7 @@ export default function Add({ loaderData, actionData }: Route.ComponentProps) {
 	const url = actionData?.url ?? loaderData.url
 	return (
 		<main className="mx-auto w-full max-w-lg flex-1 px-4 pt-4 pb-12 md:pt-4">
-			<h1 className="hidden text-2xl font-semibold md:block md:leading-10">{t("add.title")}</h1>
+			<h1 className="hidden page-title md:block md:leading-10">{t("add.title")}</h1>
 			<p className="mt-2 text-sm text-muted-fg">{t("add.description")}</p>
 			<Form method="post" className="mt-6 flex flex-col gap-4">
 				<Field

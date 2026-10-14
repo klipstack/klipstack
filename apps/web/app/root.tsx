@@ -12,6 +12,7 @@ import {
 	useRouteLoaderData,
 } from "react-router"
 import type { Route } from "./+types/root"
+import "@fontsource-variable/newsreader"
 import "./app.css"
 import { CommandPalette } from "./components/command-palette"
 import { ErrorContent } from "./components/error-content"

@@ -50,7 +50,7 @@ export function HomeHighlights({
 	if (!shown.length) return null
 	return (
 		<section aria-labelledby="home-highlights" data-testid="home-highlights">
-			<h2 id="home-highlights" className="text-lg font-medium">
+			<h2 id="home-highlights" className="section-title">
 				{t("home.highlights.title")}
 			</h2>
 			<p className="mt-1 mb-5 text-sm text-muted-fg">{t("home.highlights.description")}</p>

@@ -2,7 +2,7 @@ export default {
 	home: {
 		title: "Inicio",
 		welcome: "Hola de nuevo",
-		welcomeNamed: "Hola de nuevo, {{name}}",
+		welcomeNamed: "Hola de nuevo, <name/>",
 		viewAll: "Ver todo",
 		recent: "Guardado recientemente",
 		viewFeeds: "Ver feeds",
