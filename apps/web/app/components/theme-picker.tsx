@@ -53,7 +53,7 @@ export function ThemePicker({
 						"flex flex-1 items-center justify-center gap-1.5 rounded-md py-1 text-sm",
 						compact ? "px-2" : "px-3",
 						current === value
-							? "bg-selected text-selected-fg shadow-xs"
+							? "bg-card text-fg shadow-xs outline-1 outline-border"
 							: "text-muted-fg hover:text-fg",
 					)}
 				>

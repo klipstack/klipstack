@@ -436,7 +436,7 @@ export function MenuRadio({
 			onClick={onSelect}
 			className={cn(
 				"flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm",
-				checked ? "bg-selected font-medium text-selected-fg" : "text-muted-fg hover:bg-muted",
+				checked ? "font-medium text-fg hover:bg-muted" : "text-muted-fg hover:bg-muted",
 			)}
 		>
 			{icon}
@@ -482,7 +482,7 @@ export function MenuNavLink({
 			}}
 			className={cn(
 				"flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm",
-				current ? "bg-selected font-medium text-selected-fg" : "text-fg hover:bg-muted",
+				current ? "bg-muted font-medium text-fg" : "text-fg hover:bg-muted",
 			)}
 		>
 			{icon}

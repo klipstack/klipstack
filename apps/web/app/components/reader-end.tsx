@@ -230,7 +230,7 @@ export function ReaderEnd({
 					className={cn(
 						"flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm",
 						shortlisted
-							? "bg-selected text-selected-fg"
+							? "bg-accent text-accent-fg"
 							: "bg-muted text-fg hover:bg-fg/10 [&>svg]:text-muted-fg",
 					)}
 				>

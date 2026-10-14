@@ -21,9 +21,7 @@ export function ChooseDemo({ readHref }: { readHref: string }) {
 	const chip = (active: boolean) =>
 		cn(
 			"rounded-full border px-3 py-1 text-sm transition-colors",
-			active
-				? "border-transparent bg-selected text-selected-fg"
-				: "border-border text-fg hover:bg-muted",
+			active ? "marked" : "border-border text-fg hover:bg-muted",
 		)
 
 	const row = (save: SampleSave) => {

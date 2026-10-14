@@ -347,7 +347,7 @@ export function DocumentCard({
 			className={cn(
 				"group/card -mx-3 relative isolate scroll-mb-24 md:scroll-mt-20 flex gap-4 rounded-lg px-3 py-4 transition-colors before:absolute before:inset-x-3 before:bottom-0 before:h-px before:bg-border last:before:hidden data-cursor:ring-2 data-cursor:ring-ring layout-grid:-m-2 layout-grid:flex-col layout-grid:gap-2 layout-grid:rounded-2xl layout-grid:p-2 layout-grid:before:hidden",
 				checked
-					? "bg-selected/60 before:hidden hover:bg-selected/80"
+					? "bg-(--hl)/45 before:hidden hover:bg-(--hl)/60"
 					: "hover:bg-muted data-cursor:bg-muted",
 				selecting && "cursor-pointer select-none",
 			)}

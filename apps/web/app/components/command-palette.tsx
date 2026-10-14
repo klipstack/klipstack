@@ -445,9 +445,7 @@ function Item({
 			}}
 			className={cn(
 				"flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2 text-sm",
-				danger
-					? "text-danger aria-selected:bg-muted"
-					: "aria-selected:bg-selected aria-selected:text-selected-fg",
+				danger ? "text-danger aria-selected:bg-muted" : "aria-selected:bg-fg/10",
 			)}
 		>
 			<Icon className="size-4 shrink-0 text-muted-fg" aria-hidden />

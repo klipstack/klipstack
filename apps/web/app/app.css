@@ -29,8 +29,6 @@
 	--color-accent-fg: var(--k-accent-fg);
 	--color-link: var(--k-link);
 	--color-link-inverse: var(--k-link-inverse);
-	--color-selected: var(--k-selected);
-	--color-selected-fg: var(--k-selected-fg);
 	--color-favorite: var(--k-favorite);
 	--color-favorite-inverse: var(--k-favorite-inverse);
 	--color-danger: var(--k-danger);
@@ -72,8 +70,6 @@
 	--k-accent-fg: oklch(0.99 0 0);
 	--k-link: oklch(0.48 0.16 257);
 	--k-link-inverse: oklch(0.78 0.105 250);
-	--k-selected: oklch(0.838517 0.042484 255.026856);
-	--k-selected-fg: oklch(0.362349 0.098058 256.863103);
 	--k-favorite: oklch(0.58 0.12 78);
 	/* On surfaces that invert the page, as the selection bar does. */
 	--k-favorite-inverse: oklch(0.78 0.12 80);
@@ -105,23 +101,25 @@
 	--k-stamp: oklch(0.48 0.13 300);
 	/* A blank sheet in a drawing: paper stays light, a little dimmed in the dark. */
 	--k-paper: oklch(0.995 0.003 90);
+	/* The page's paper: a faint grain under everything that is not a sheet of its own (cards,
+	   covers, the reader). Ink-brown specks on light paper, lamp-lit ones in the dark. */
+	--k-grain: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.35 0 0 0 0 0.28 0 0 0 0 0.2 0 0 0 0.09 0'/></filter><rect width='100%' height='100%' filter='url(%23g)'/></svg>");
 	color-scheme: light;
 }
 
+/* Dark: the same paper under a reading lamp, in warm greys rather than blue ones. */
 @media (prefers-color-scheme: dark) {
 	:root:not([data-theme="light"]) {
-		--k-bg: oklch(0.19 0.012 260);
-		--k-fg: oklch(0.93 0.006 90);
-		--k-muted: oklch(0.265 0.015 260);
-		--k-muted-fg: oklch(0.7 0.015 260);
-		--k-border: oklch(0.33 0.015 260);
-		--k-card: oklch(0.235 0.015 260);
+		--k-bg: oklch(0.2 0.011 65);
+		--k-fg: oklch(0.92 0.014 85);
+		--k-muted: oklch(0.26 0.013 65);
+		--k-muted-fg: oklch(0.72 0.018 75);
+		--k-border: oklch(0.33 0.015 65);
+		--k-card: oklch(0.24 0.012 65);
 		--k-accent: oklch(0.74 0.1 255);
-		--k-accent-fg: oklch(0.19 0.025 260);
+		--k-accent-fg: oklch(0.2 0.02 65);
 		--k-link: oklch(0.78 0.105 250);
 		--k-link-inverse: oklch(0.48 0.16 257);
-		--k-selected: oklch(0.364043 0.071354 255.403282);
-		--k-selected-fg: oklch(0.875271 0.061525 257.523997);
 		--k-favorite: oklch(0.78 0.12 80);
 		--k-favorite-inverse: oklch(0.58 0.12 78);
 		--k-danger: oklch(0.7 0.18 27);
@@ -145,23 +143,22 @@
 		--k-shelf: oklch(0.36 0.03 60);
 		--k-stamp: oklch(0.74 0.1 300);
 		--k-paper: oklch(0.82 0.012 85);
+		--k-grain: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 0.95 0 0 0 0 0.85 0 0 0 0.05 0'/></filter><rect width='100%' height='100%' filter='url(%23g)'/></svg>");
 		color-scheme: dark;
 	}
 }
 
 :root[data-theme="dark"] {
-	--k-bg: oklch(0.19 0.012 260);
-	--k-fg: oklch(0.93 0.006 90);
-	--k-muted: oklch(0.265 0.015 260);
-	--k-muted-fg: oklch(0.7 0.015 260);
-	--k-border: oklch(0.33 0.015 260);
-	--k-card: oklch(0.235 0.015 260);
+	--k-bg: oklch(0.2 0.011 65);
+	--k-fg: oklch(0.92 0.014 85);
+	--k-muted: oklch(0.26 0.013 65);
+	--k-muted-fg: oklch(0.72 0.018 75);
+	--k-border: oklch(0.33 0.015 65);
+	--k-card: oklch(0.24 0.012 65);
 	--k-accent: oklch(0.74 0.1 255);
-	--k-accent-fg: oklch(0.19 0.025 260);
+	--k-accent-fg: oklch(0.2 0.02 65);
 	--k-link: oklch(0.78 0.105 250);
 	--k-link-inverse: oklch(0.48 0.16 257);
-	--k-selected: oklch(0.364043 0.071354 255.403282);
-	--k-selected-fg: oklch(0.875271 0.061525 257.523997);
 	--k-favorite: oklch(0.78 0.12 80);
 	--k-favorite-inverse: oklch(0.58 0.12 78);
 	--k-danger: oklch(0.7 0.18 27);
@@ -185,15 +182,27 @@
 	--k-shelf: oklch(0.36 0.03 60);
 	--k-stamp: oklch(0.74 0.1 300);
 	--k-paper: oklch(0.82 0.012 85);
+	--k-grain: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 0.95 0 0 0 0 0.85 0 0 0 0.05 0'/></filter><rect width='100%' height='100%' filter='url(%23g)'/></svg>");
 	color-scheme: dark;
+}
+
+/* The reader is a sheet of its own: its text, and the bars around it, sit on clean paper. */
+:root:has(.reader) {
+	--k-grain: none;
 }
 
 html,
 body {
-	background: var(--k-bg);
+	background: var(--k-grain), var(--k-bg);
 	color: var(--k-fg);
 	font-family: var(--font-sans);
 	-webkit-font-smoothing: antialiased;
+}
+
+/* The bars that stick to the top as the page scrolls (`bg-bg/90`) are the same paper: without its
+   grain, one is a flat band across the page. Fields and dialogs in the page's color stay smooth. */
+.bg-bg\/90 {
+	background-image: var(--k-grain);
 }
 
 /* Controls with their own focus ring override this base outline. */

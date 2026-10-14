@@ -459,7 +459,7 @@ function Controls({
 				aria-current={shuffling ? "true" : undefined}
 				aria-label={t("notebook.shuffle.action")}
 				{...tooltip(t("notebook.shuffle.action"))}
-				className="flex shrink-0 items-center gap-1.5 rounded-lg border border-border p-1.5 text-sm text-muted-fg hover:text-fg aria-[current]:border-selected aria-[current]:bg-selected aria-[current]:text-selected-fg md:px-2.5"
+				className="flex shrink-0 items-center gap-1.5 rounded-lg border border-border p-1.5 text-sm text-muted-fg hover:text-fg aria-[current]:bg-fg/10 aria-[current]:text-fg md:px-2.5"
 			>
 				<Shuffle className="size-4" aria-hidden />
 				<span className="hidden md:inline">{t("notebook.shuffle.action")}</span>
@@ -478,7 +478,7 @@ function Controls({
 							aria-label={label}
 							aria-current={v === view && !shuffling ? "true" : undefined}
 							{...tooltip(label)}
-							className="rounded-md p-1.5 text-muted-fg hover:text-fg aria-[current]:bg-selected aria-[current]:text-selected-fg"
+							className="rounded-md p-1.5 text-muted-fg hover:text-fg aria-[current]:bg-fg/10 aria-[current]:text-fg"
 						>
 							<Icon className="size-4" aria-hidden />
 						</Link>

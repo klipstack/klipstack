@@ -140,7 +140,7 @@ export function BulkTagDialog({
 						{names.map((name) => (
 							<li
 								key={name.toLowerCase()}
-								className="flex max-w-full items-center gap-0.5 rounded-full border border-selected bg-selected py-0.5 pr-1 pl-2.5 text-sm text-selected-fg"
+								className="flex max-w-full items-center gap-0.5 rounded-full border border-border bg-muted py-0.5 pr-1 pl-2.5 text-sm text-fg"
 							>
 								<span className="truncate">{name}</span>
 								<button
@@ -218,7 +218,7 @@ export function BulkTagDialog({
 										onMouseEnter={() => setCursor(i)}
 										className={cn(
 											"flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm",
-											i === active && "bg-selected text-selected-fg",
+											i === active && "bg-fg/10",
 										)}
 									>
 										{option.create ? (

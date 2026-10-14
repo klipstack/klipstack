@@ -271,7 +271,7 @@ function PickRow({
 			}}
 			aria-disabled={added || undefined}
 			className={cn(
-				"flex cursor-pointer items-start gap-3 rounded-lg px-2 py-2 aria-selected:bg-selected aria-selected:text-selected-fg",
+				"flex cursor-pointer items-start gap-3 rounded-lg px-2 py-2 aria-selected:bg-fg/10",
 				quiet && "text-muted-fg",
 			)}
 		>
@@ -327,7 +327,7 @@ function AddShortlistRow({ editionId, count }: { editionId: string; count: numbe
 					{ method: "post", action: `/editions/${editionId}`, encType: "application/json" },
 				)
 			}}
-			className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium aria-selected:bg-selected aria-selected:text-selected-fg"
+			className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium aria-selected:bg-fg/10"
 		>
 			{adding ? (
 				<LoaderCircle className="size-4 animate-spin" aria-hidden />

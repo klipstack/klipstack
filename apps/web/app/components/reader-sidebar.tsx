@@ -228,7 +228,7 @@ export function ReaderSidebar({
 									onClick={() => onSelect(h.id)}
 									className={cn(
 										"flex w-full gap-2 rounded-lg px-2 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring",
-										activeId === h.id ? "bg-selected" : "hover:bg-muted",
+										activeId === h.id ? "bg-fg/10" : "hover:bg-muted",
 									)}
 								>
 									<span className="min-w-0 flex-1">

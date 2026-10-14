@@ -83,7 +83,7 @@ export function NoteLinkMenu({ rect, items, selected, recent, onPick, onHover }:
 									onMouseEnter={() => onHover(i)}
 									className={cn(
 										"flex w-full items-center gap-2 px-3 py-1.5 text-left",
-										i === selected && "bg-selected text-selected-fg",
+										i === selected && "bg-fg/10",
 									)}
 								>
 									<FileText className="size-4 shrink-0 text-muted-fg" aria-hidden />

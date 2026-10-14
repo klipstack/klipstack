@@ -109,7 +109,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 				<meta name="apple-mobile-web-app-capable" content="yes" />
 				<meta name="apple-mobile-web-app-status-bar-style" content="default" />
 				<meta name="theme-color" media="(prefers-color-scheme: light)" content="#fbfaf7" />
-				<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#111419" />
+				<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#1a1511" />
 				<Meta />
 				{/* Stylesheets and preloads need no nonce (the policy limits scripts only). The browser
 				    hides a nonce from the client, whose render would then not match the server's. */}

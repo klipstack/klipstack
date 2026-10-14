@@ -67,7 +67,7 @@ export function ReaderPrefs({
 							className={cn(
 								"flex-1 rounded-md px-2 py-1 text-sm",
 								prefs[key] === v
-									? "bg-selected text-selected-fg shadow-xs"
+									? "bg-card text-fg shadow-xs outline-1 outline-border"
 									: "text-muted-fg hover:text-fg",
 							)}
 						>
