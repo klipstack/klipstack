@@ -1,6 +1,8 @@
+import { fallbackLanguage, isLocale } from "@klipstack/i18n/languages"
 import { useTranslation } from "react-i18next"
 import { Form, redirect, useNavigation } from "react-router"
-import { saveArticle } from "~/commands/saving.server"
+import { saveArticle, saveStarterText } from "~/commands/saving.server"
+import { StarterTexts } from "~/components/starter-texts"
 import { Button } from "~/components/ui/button"
 import { Field } from "~/components/ui/field"
 import { AppError } from "~/lib/app-error"
@@ -9,7 +11,9 @@ import { pageTitle } from "~/lib/page-title"
 import { readForm } from "~/lib/request-body.server"
 import { saveErrorKey } from "~/lib/save-errors"
 import { requireUser } from "~/lib/session.server"
+import { starterTextsFor } from "~/lib/starter-texts.server"
 import { refused } from "~/lib/web-action.server"
+import { starterItems } from "~/services/starter-texts.server"
 import type { Route } from "./+types/add"
 
 export function meta({ matches }: Route.MetaArgs) {
@@ -31,17 +35,28 @@ export function sharedUrl(params: URLSearchParams): string | null {
 export const handle: PageBarHandle = { pageBar: { titleKey: "library:add.title" } }
 
 export async function loader({ context, request }: Route.LoaderArgs) {
-	requireUser(context, request)
+	const user = requireUser(context, request)
 	const url = sharedUrl(new URL(request.url).searchParams)
-	return { url: url ?? "" }
+	const language = isLocale(user.locale) ? user.locale : fallbackLanguage
+	return {
+		url: url ?? "",
+		language,
+		starter: await starterItems(user.id, starterTextsFor(language)),
+	}
 }
 
 export async function action({ context, request }: Route.ActionArgs) {
 	const user = requireUser(context, request)
-	const url = String((await readForm(request)).get("url") ?? "").trim()
+	const form = await readForm(request)
+	// A starter text (the empty Home, this page's list, the guide's page) instead of a link.
+	const starter = form.get("starter")
+	const url = String(form.get("url") ?? "").trim()
 	let articleId: string
 	try {
-		articleId = (await saveArticle(user.id, { url, source: "web" })).article.id
+		articleId =
+			typeof starter === "string"
+				? (await saveStarterText(user.id, starter)).articleId
+				: (await saveArticle(user.id, { url, source: "web" })).article.id
 	} catch (error) {
 		if (error instanceof AppError) return refused(error, { url })
 		throw error
@@ -73,6 +88,7 @@ export default function Add({ loaderData, actionData }: Route.ComponentProps) {
 					{navigation.state !== "idle" ? t("add.saving") : t("add.submit")}
 				</Button>
 			</Form>
+			<StarterTexts items={loaderData.starter} language={loaderData.language} className="mt-12" />
 		</main>
 	)
 }

@@ -15,6 +15,7 @@ import {
 	monthOf,
 	storedBytes,
 } from "~/lib/limits.server"
+import { type StarterLanguage, starterTexts, starterUrlHash } from "~/lib/starter-texts.server"
 
 export interface AdminUsageRow {
 	id: string
@@ -205,4 +206,65 @@ export async function listTopicUsage(ctx: AdminContext): Promise<{
 		})),
 		limits: topicLimits(),
 	}
+}
+
+export interface AdminStarterRow {
+	slug: string
+	title: string
+	language: StarterLanguage
+	/** Accounts with it in their library now (not in the trash), and of those, how many… */
+	saved: number
+	/** …finished it, */
+	finished: number
+	/** …highlighted in it, */
+	highlighted: number
+	/** …and wrote a note on it or on one of its highlights. */
+	noted: number
+}
+
+/**
+ * How the starter texts (`lib/starter-texts.server.ts`) are used, counted from the libraries that
+ * have them: numbers only, no one's name. A copy in the trash or deleted no longer counts.
+ */
+export async function listStarterUsage(ctx: AdminContext): Promise<AdminStarterRow[]> {
+	assertAdminContext(ctx)
+	const texts = starterTexts()
+	const hashes = texts.map((text) => starterUrlHash(text))
+	const result = await db.execute<{
+		url_hash: string
+		saved: number
+		finished: number
+		highlighted: number
+		noted: number
+	}>(sql`
+		select d.url_hash,
+			count(*)::int as saved,
+			count(*) filter (where d.read_at is not null)::int as finished,
+			count(*) filter (where exists (
+				select 1 from highlights h where h.document_id = d.id and h.deleted_at is null
+			))::int as highlighted,
+			count(*) filter (where nullif(trim(d.note), '') is not null or exists (
+				select 1 from highlights h
+				where h.document_id = d.id and h.deleted_at is null and nullif(trim(h.note), '') is not null
+			))::int as noted
+		from documents d
+		where d.url_hash in (${sql.join(
+			hashes.map((hash) => sql`${hash}`),
+			sql`, `,
+		)}) and d.deleted_at is null
+		group by d.url_hash
+	`)
+	const counts = new Map(result.rows.map((row) => [row.url_hash, row]))
+	return texts.map((text, index) => {
+		const row = counts.get(hashes[index]!)
+		return {
+			slug: text.slug,
+			title: text.title,
+			language: text.language,
+			saved: row?.saved ?? 0,
+			finished: row?.finished ?? 0,
+			highlighted: row?.highlighted ?? 0,
+			noted: row?.noted ?? 0,
+		}
+	})
 }

@@ -206,6 +206,17 @@ export default {
 			"AI cost is an estimate in US dollars, from each finished answer's tokens. The bill is in Anthropic's console.",
 		topicCostNote:
 			"Topic cost is the same kind of estimate for topics: Haiku proposing, growing and reviewing them, and Jev sorting articles (TypeSafe's bill). It is counted on its own since October 2026; before then, it was in AI cost.",
+		starter: {
+			title: "Starter texts",
+			description:
+				"The guide and essays new readers are offered, as libraries hold them now: how many have each one, and of those, how many finished it, highlighted in it and wrote a note on it. A copy in the trash no longer counts.",
+			text: "Text",
+			saved: "In libraries",
+			finished: "Finished",
+			highlighted: "Highlighted",
+			noted: "With notes",
+			language: { en: "English", es: "Spanish" },
+		},
 		topics: {
 			title: "Topics this month",
 			description: "The top {{count}} accounts that used topics this month, most expensive first.",

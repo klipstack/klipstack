@@ -19,7 +19,7 @@ import { env } from "~/lib/env.server"
 import { monthOf, usageOf } from "~/lib/limits.server"
 import { rateLimit, SAVE_LIMIT } from "~/lib/rate-limit.server"
 import { purgeArticles, trashArticles } from "./articles.server"
-import { saveArticle, saveFeedItems } from "./saving.server"
+import { saveArticle, saveFeedItems, saveStarterText } from "./saving.server"
 
 const stamp = Date.now()
 const users: string[] = []
@@ -243,5 +243,72 @@ describe("saveFeedItems", () => {
 			[c, "rate_limited"],
 		])
 		expect(result.notSaved[0]?.message).toMatch(/Too many saves/)
+	})
+})
+
+describe("saveStarterText", () => {
+	it("saves the text that ships with the app, under its address, without fetching it", async () => {
+		const userId = await newUser()
+		const { articleId, created } = await saveStarterText(userId, "guide-en")
+		expect(created).toBe(true)
+		const [doc] = await db.select().from(documents).where(eq(documents.id, articleId))
+		expect(doc).toMatchObject({ sourceUrl: `${env.APP_URL}/guide/en`, status: "queued" })
+		const [raw] = await db.select().from(documentRaw).where(eq(documentRaw.documentId, articleId))
+		expect(gunzipSync(raw!.rawHtml).toString("utf8")).toContain("<h1>How to use Klipstack</h1>")
+	})
+
+	it("keeps an essay's Wikisource address", async () => {
+		const userId = await newUser()
+		const { articleId } = await saveStarterText(userId, "bacon-of-studies")
+		const [doc] = await db.select().from(documents).where(eq(documents.id, articleId))
+		expect(doc!.sourceUrl).toBe(
+			"https://en.wikisource.org/wiki/The_Essays_of_Francis_Bacon/L_Of_Studies",
+		)
+	})
+
+	it("opens the reader's copy when they have it, leaving it as it is", async () => {
+		const userId = await newUser()
+		const first = await saveStarterText(userId, "guide-es")
+		// As extraction and reading leave it: a new capture would be extracted again, over it.
+		await db
+			.update(documents)
+			.set({ status: "ready", note: "Mine.", readAt: new Date() })
+			.where(eq(documents.id, first.articleId))
+		const again = await saveStarterText(userId, "guide-es")
+		expect(again).toEqual({ articleId: first.articleId, created: false })
+		const [doc] = await db.select().from(documents).where(eq(documents.id, first.articleId))
+		expect(doc).toMatchObject({ status: "ready", note: "Mine." })
+		const raws = await db
+			.select()
+			.from(documentRaw)
+			.where(eq(documentRaw.documentId, first.articleId))
+		expect(raws).toHaveLength(1)
+	})
+
+	it("adds the reader's own copy when someone else has the text", async () => {
+		const [a, b] = [await newUser(), await newUser()]
+		const theirs = await saveStarterText(a, "guide-en")
+		const mine = await saveStarterText(b, "guide-en")
+		expect(mine.created).toBe(true)
+		expect(mine.articleId).not.toBe(theirs.articleId)
+		const [doc] = await db.select().from(documents).where(eq(documents.id, mine.articleId))
+		expect(doc!.userId).toBe(b)
+	})
+
+	it("adds a new copy when the reader's is in the trash", async () => {
+		const userId = await newUser()
+		const first = await saveStarterText(userId, "guide-en")
+		await trashArticles(userId, [first.articleId])
+		const again = await saveStarterText(userId, "guide-en")
+		expect(again.created).toBe(true)
+		expect(again.articleId).not.toBe(first.articleId)
+	})
+
+	it("refuses a name that is not a starter text", async () => {
+		const userId = await newUser()
+		await expect(saveStarterText(userId, "no-such-text")).rejects.toMatchObject({
+			code: "not_found",
+		})
+		await expect(saveStarterText(userId, "")).rejects.toMatchObject({ code: "invalid_request" })
 	})
 })
