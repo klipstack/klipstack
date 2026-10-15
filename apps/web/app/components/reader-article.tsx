@@ -8,6 +8,7 @@ import { AiCard, type AiCardPlacement } from "~/components/ai-card"
 import { BriefCard } from "~/components/brief-card"
 import { ChatPanel } from "~/components/chat-panel"
 import { HighlightInk } from "~/components/highlight-ink"
+import { HighlightMap } from "~/components/highlight-map"
 import { HighlightNoteEditor, type NoteEditorPlacement } from "~/components/highlight-note-editor"
 import { HighlightResizeHandles } from "~/components/highlight-resize-handles"
 import { HighlightToolbar } from "~/components/highlight-toolbar"
@@ -150,6 +151,10 @@ export function ReaderArticle({
 	const brief = useBrief(doc.id, doc.currentVersionId, data.ai.brief, allowance)
 	const threadRangesRef = useRef<Map<string, Range>>(new Map())
 	const [hoveredThread, setHoveredThread] = useState<string | null>(null)
+	// Where the reader left off, as the article opened (useReadingProgress resumes there).
+	const [resumedAt] = useState(() =>
+		doc.readingPosition >= 0.05 && doc.readingPosition <= 0.95 ? doc.readingPosition : null,
+	)
 
 	const rangesRef = useRef<Map<string, Range>>(new Map())
 	const [activeId, setActiveId] = useState<string | null>(null)
@@ -706,6 +711,15 @@ export function ReaderArticle({
 					) : null}
 					{footer(note)}
 				</article>
+				{supported ? (
+					<HighlightMap
+						contentRef={contentRef}
+						rangesRef={rangesRef}
+						items={items.filter((h) => !isTemporary(h.id))}
+						sidebarOpen={sidebarOpen}
+						resumedAt={resumedAt}
+					/>
+				) : null}
 				<SelectionWatcher
 					rootRef={contentRef}
 					onSelect={onSelect}

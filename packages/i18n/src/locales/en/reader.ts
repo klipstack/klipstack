@@ -163,6 +163,12 @@ export default {
 			orange: "Orange",
 		},
 		margin: { label: "Highlight notes" },
+		map: {
+			leftOff: "Where you left off last time",
+			label: "Where your highlights are",
+			many_one: "{{count}} highlight",
+			many_other: "{{count}} highlights close together",
+		},
 		sidebar: {
 			title: "Notes and highlights",
 			/** The sidebar's tab beside the chat's. */

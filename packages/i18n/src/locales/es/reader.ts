@@ -159,6 +159,12 @@ export default {
 			orange: "Naranja",
 		},
 		margin: { label: "Notas de subrayados" },
+		map: {
+			leftOff: "Donde lo dejaste la última vez",
+			label: "Dónde están tus subrayados",
+			many_one: "{{count}} subrayado",
+			many_other: "{{count}} subrayados juntos",
+		},
 		sidebar: {
 			title: "Notas y subrayados",
 			/** The sidebar's tab beside the chat's. */
