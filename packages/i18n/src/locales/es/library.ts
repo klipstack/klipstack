@@ -193,7 +193,8 @@ export default {
 	starter: {
 		title: "Algo para leer",
 		description:
-			"Textos breves para probar los subrayados y las notas: una guía de Klipstack y ensayos de dominio público sobre leer y escribir.",
+			"Textos breves para probar los subrayados y las notas: una guía de Klipstack y ensayos de dominio público sobre leer y escribir. Elige un libro para añadirlo a tu biblioteca.",
+		shelf: "Libros para empezar",
 		homeTitle: "O empieza con uno de estos",
 		find: "O encuentra algo para leer",
 		more: "Más para leer en la página Guardar un enlace",
@@ -202,10 +203,8 @@ export default {
 		minutes_one: "{{count}} min",
 		minutes_other: "{{count}} min",
 		add: "Añadir a la biblioteca",
-		adding: "Añadiendo…",
 		addLabel: "Añadir {{title}} a tu biblioteca",
 		saved: "En tu biblioteca",
-		open: "Abrir",
 		openLabel: "Abrir {{title}}",
 	},
 	add: {

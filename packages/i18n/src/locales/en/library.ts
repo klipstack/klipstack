@@ -193,7 +193,8 @@ export default {
 	starter: {
 		title: "Something to read",
 		description:
-			"Short texts to try highlights and notes on: a guide to Klipstack, and essays on reading and writing from the public domain.",
+			"Short texts to try highlights and notes on: a guide to Klipstack, and essays on reading and writing from the public domain. Choose a book to add it to your library.",
+		shelf: "Books to start with",
 		homeTitle: "Or start with one of these",
 		find: "Or find something to read",
 		more: "More to read on the Save link page",
@@ -202,10 +203,8 @@ export default {
 		minutes_one: "{{count}} min",
 		minutes_other: "{{count}} min",
 		add: "Add to library",
-		adding: "Adding…",
 		addLabel: "Add {{title}} to your library",
 		saved: "In your library",
-		open: "Open",
 		openLabel: "Open {{title}}",
 	},
 	add: {
