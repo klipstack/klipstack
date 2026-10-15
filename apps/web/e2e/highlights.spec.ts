@@ -230,6 +230,9 @@ test("highlight → persists → note → sidebar → highlights page → delete
 	await expect(marginNote).toBeVisible()
 	const noteBox = await marginNote.boundingBox()
 	expect(Math.abs((noteBox?.y ?? 0) - (point.y - 12))).toBeLessThan(20)
+	// right of the text: the left of the page is the outline's
+	const text = (await page.locator(".reader-content").boundingBox())!
+	expect(noteBox!.x).toBeGreaterThan(text.x + text.width)
 
 	// clicking the note edits it in place; Cancel keeps the saved text
 	await marginNote.click()
@@ -618,4 +621,53 @@ test("an article captured again stays readable, and takes highlights once the ne
 		await selectText(page, "charlie delta")
 		await page.clock.runFor(1_000)
 	})
+})
+
+/** Scrolls until `box`'s top is behind the top bar: true when the bar covers it there. */
+async function barCovers(page: Page, box: Locator) {
+	const bar = (await page.locator("header.sticky").boundingBox())!
+	const barBottom = bar.y + bar.height
+	const start = (await box.boundingBox())!
+	for (let i = 0; i < 12 && (await box.boundingBox())!.y >= barBottom - 20; i++) {
+		await page.evaluate(() => window.scrollBy(0, 60))
+	}
+	expect((await box.boundingBox())!.y).toBeLessThan(barBottom - 20)
+	const x = start.x + start.width / 2
+	return page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.closest("header") != null, {
+		x,
+		y: barBottom - 10,
+	})
+}
+
+test("a note being written scrolls under the top bar, in the margin and floating", async ({
+	page,
+}) => {
+	test.setTimeout(90_000)
+	const id = await signupAndSave(page)
+	const hl = await page.request.post(`/documents/${id}/highlights`, {
+		data: { intent: "create", exact: QUOTE, note: "Makers need long blocks." },
+	})
+	expect(hl.status()).toBe(201)
+	await page.reload()
+	await waitForHydration(page)
+	const margin = page.getByRole("region", { name: "Highlight notes" })
+	await margin.getByRole("button", { name: "Makers need long blocks." }).click()
+	const editor = page.getByRole("dialog", { name: "Highlight note" })
+	await expect(editor).toHaveAttribute("data-placement", "margin")
+	expect(await barCovers(page, editor)).toBe(true)
+
+	// No room for the margin: the editor floats under its highlight, and scrolls under the bar too.
+	await page.keyboard.press("Escape")
+	await expect(editor).toBeHidden()
+	await page.setViewportSize({ width: 1000, height: 720 })
+	await expect(margin).toHaveCount(0)
+	await page.evaluate(() => window.scrollTo(0, 0))
+	const point = await pointInText(page, QUOTE)
+	await page.mouse.click(point.x, point.y)
+	await page
+		.getByRole("dialog", { name: "Edit highlight" })
+		.getByRole("button", { name: "Edit note" })
+		.click()
+	await expect(editor).toHaveAttribute("data-placement", "floating")
+	expect(await barCovers(page, editor)).toBe(true)
 })

@@ -24,6 +24,7 @@ import {
 	redirect,
 	type ShouldRevalidateFunctionArgs,
 	useLocation,
+	useFetcher,
 	useNavigate,
 } from "react-router"
 import { openArticle } from "~/commands/articles.server"
@@ -32,6 +33,7 @@ import { EditableTitle } from "~/components/editable-title"
 import { ErrorContent } from "~/components/error-content"
 import { ReaderArticle } from "~/components/reader-article"
 import { ReaderEnd } from "~/components/reader-end"
+import { useOutline } from "~/components/reader-outline"
 import type { SidebarTab } from "~/components/reader-sidebar"
 import { ReaderTopBar } from "~/components/reader-top-bar"
 import { TopicKicker, TopicShelf } from "~/components/reader-topics"
@@ -277,6 +279,16 @@ function Reader({ loaderData }: Route.ComponentProps) {
 	const [tagging, setTagging] = useState(false)
 	const highlightsPaint = useClientValue(supportsHighlightApi, true)
 	const [sidebarOpen, setSidebarOpen] = useState(false)
+	// The article's contents: the button docks or undocks them where they fit beside the text (a
+	// preference, kept), and slides them in or out over the page where they don't.
+	const outline = useOutline()
+	const prefsFetcher = useFetcher()
+	const toggleOutline = () => {
+		if (!outline.room) return outline.setPeek((open) => !open)
+		const value = prefs.outline === "on" ? "off" : "on"
+		setPrefs({ ...prefs, outline: value })
+		void prefsFetcher.submit({ outline: value }, { method: "post", action: "/prefs" })
+	}
 	const [sidebarTab, setSidebarTab] = useState<SidebarTab>("notes")
 	// Each tab has its own button and key: one opens the sidebar on its tab, or closes it when that
 	// tab is already showing.
@@ -461,6 +473,14 @@ function Reader({ loaderData }: Route.ComponentProps) {
 				onSidebar={toggleSidebar}
 				onChat={chatting ? () => showSidebarTab("chat") : undefined}
 				onTags={() => setTagging(true)}
+				outline={
+					outline.available
+						? {
+								open: outline.room ? prefs.outline === "on" : outline.peek,
+								onToggle: toggleOutline,
+							}
+						: undefined
+				}
 			/>
 			{ready ? (
 				<ReaderArticle
@@ -473,6 +493,7 @@ function Reader({ loaderData }: Route.ComponentProps) {
 					sidebarTab={sidebarTab}
 					showSidebarTab={showSidebarTab}
 					engage={engage}
+					outline={outline}
 					header={
 						<header ref={titleRef} className="mb-8">
 							<TopicKicker topics={loaderData.topics.topics} />

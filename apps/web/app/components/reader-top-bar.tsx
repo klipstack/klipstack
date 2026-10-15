@@ -10,12 +10,14 @@ import {
 	PanelRightClose,
 	PanelRightOpen,
 	Star,
+	TableOfContents,
 	Tag,
 	Trash2,
 } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router"
 import { MenuButton, MenuLink, MoreMenu } from "~/components/more-menu"
+import { OUTLINE_ID, OUTLINE_TOGGLE } from "~/components/reader-outline"
 import { ReaderPrefs } from "~/components/reader-prefs"
 import type { SidebarTab } from "~/components/reader-sidebar"
 import { tooltip } from "~/components/tooltip-host"
@@ -53,6 +55,7 @@ export function ReaderTopBar({
 	onSidebar,
 	onChat,
 	onTags,
+	outline,
 }: {
 	headerRef: React.RefObject<HTMLElement | null>
 	ready: boolean
@@ -77,6 +80,8 @@ export function ReaderTopBar({
 	/** Opens the sidebar on the article's chat (AI accounts); no button without it. */
 	onChat?: () => void
 	onTags: () => void
+	/** The article's contents: no button for an article without them. `open`: docked or slid in. */
+	outline?: { open: boolean; onToggle: () => void }
 }) {
 	const { t } = useTranslation("reader")
 	const { t: tl } = useTranslation("library")
@@ -139,6 +144,21 @@ export function ReaderTopBar({
 						<ArrowLeft className="size-5" aria-hidden />
 					</Link>
 					<ReaderPrefs prefs={prefs} onChange={onPrefs} />
+					{ready && outline ? (
+						<button
+							type="button"
+							{...{ [OUTLINE_TOGGLE]: "" }}
+							data-testid="toggle-outline"
+							onClick={outline.onToggle}
+							aria-expanded={outline.open}
+							aria-controls={OUTLINE_ID}
+							aria-label={t("outline.label")}
+							{...tooltip(outline.open ? t("outline.hide") : t("outline.show"))}
+							className={cn(BUTTON, outline.open && "bg-muted text-fg")}
+						>
+							<TableOfContents className="size-5" aria-hidden />
+						</button>
+					) : null}
 				</div>
 				<div className="flex items-center gap-1">
 					<button

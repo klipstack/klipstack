@@ -108,7 +108,9 @@ export function HighlightNoteEditor({
 			data-placement={placement.kind}
 			style={style}
 			className={cn(
-				"z-30",
+				// Floating with the text, it scrolls under the top bar and the outline, as notes in the
+				// margin do (MarginNotes).
+				placement.kind === "floating" ? "z-10" : "z-30",
 				placement.kind === "sheet" &&
 					"safe-bottom fixed inset-x-0 bottom-0 z-40 rounded-t-2xl border-t border-border bg-card p-4 shadow-[0_-8px_24px_rgba(0,0,0,0.18)]",
 			)}

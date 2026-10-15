@@ -15,6 +15,7 @@ import { LinkPopover } from "~/components/link-popover"
 import { type MarginCard, MarginNotes, useMarginRoom } from "~/components/margin-notes"
 import { prefetchNoteEditor } from "~/components/note-field"
 import { tiltFor } from "~/components/post-it"
+import { type OutlineState, ReaderOutline } from "~/components/reader-outline"
 import { ReaderSidebar, type SidebarTab } from "~/components/reader-sidebar"
 import { SelectionToolbar } from "~/components/selection-toolbar"
 import {
@@ -108,6 +109,7 @@ export function ReaderArticle({
 	sidebarTab,
 	showSidebarTab,
 	engage,
+	outline,
 	header,
 	footer,
 }: {
@@ -123,6 +125,8 @@ export function ReaderArticle({
 	showSidebarTab: (tab: SidebarTab) => void
 	/** The reader shows real interest: the article is no longer new. */
 	engage: () => void
+	/** The article's contents, shared with the top bar's button. */
+	outline: OutlineState
 	header: React.ReactNode
 	footer: (note: ArticleNote) => React.ReactNode
 }) {
@@ -598,7 +602,7 @@ export function ReaderArticle({
 			tilt={tiltFor(item.id)}
 			placement={placement}
 			// In the margin, against the article, as the note it edits.
-			className={placement.kind === "margin" ? "ml-auto" : undefined}
+			className={placement.kind === "margin" ? "mr-auto" : undefined}
 			documentId={doc.id}
 			linkTargets={linkTargets}
 			onSave={(text) => {
@@ -612,6 +616,15 @@ export function ReaderArticle({
 	return (
 		<AiAllowanceContext.Provider value={allowance.allowance}>
 			<AiResetsOnContext.Provider value={data.ai.resetsOn}>
+				{/* Before the article: after the top bar in the order of the page, as on screen. */}
+				<ReaderOutline
+					contentRef={contentRef}
+					articleRef={articleRef}
+					headerRef={headerRef}
+					html={html}
+					pinned={prefs.outline === "on"}
+					state={outline}
+				/>
 				<article
 					ref={articleRef}
 					className={cn("reader relative mx-auto px-4 pt-8 pb-32 sm:px-6", readerClassNames(prefs))}
