@@ -94,16 +94,8 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 			: {}
 	return {
 		...home,
-		// Nothing saved yet: something to start with, in the reader's language.
-		starter:
-			home.emptyState?.kind === "new"
-				? await starterItems(
-						user.id,
-						starterTexts()
-							.filter((text) => text.language === locale)
-							.slice(0, HOME_STARTER_TEXTS),
-					)
-				: null,
+		// Nothing to read, now or yet: something to start with, in the reader's language.
+		starter: await homeStarter(user.id, locale, home.emptyState?.kind),
 		language: locale,
 		finished,
 		topicsReady,
@@ -122,8 +114,21 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 	}
 }
 
-/** The guide and the first essays: the rest are on the Add page. */
+/** A shelf's worth: the rest are on the Add page. */
 const HOME_STARTER_TEXTS = 4
+
+/**
+ * The starter texts Home offers when it has nothing to feature (nothing saved, or all of it read):
+ * those in the reader's language they don't have, the guide first. Null otherwise.
+ */
+async function homeStarter(userId: string, language: string, empty: string | undefined) {
+	if (empty !== "new" && empty !== "caughtUp") return null
+	const items = await starterItems(
+		userId,
+		starterTexts().filter((text) => text.language === language),
+	)
+	return items.filter((item) => !item.articleId).slice(0, HOME_STARTER_TEXTS)
+}
 
 /** The day's highlights, and what Home knows of the articles their notes link to. */
 async function homeHighlights(userId: string, timeZone: string) {
