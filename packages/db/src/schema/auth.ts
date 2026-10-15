@@ -66,6 +66,8 @@ export interface UserPrefs {
 	 * published as unlisted on its own.
 	 */
 	linkEditions?: "on" | "off"
+	/** The article's contents docked left of the text when the window has room for them. */
+	outline?: "on" | "off"
 }
 
 export const session = pgTable(

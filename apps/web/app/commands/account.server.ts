@@ -93,6 +93,7 @@ const Prefs = z.object({
 	theme: z.enum(["system", "light", "dark"]).optional(),
 	shortcuts: z.enum(["on", "off"]).optional(),
 	linkEditions: z.enum(["on", "off"]).optional(),
+	outline: z.enum(["on", "off"]).optional(),
 })
 
 /** Merges preferences into the user's; the result. */

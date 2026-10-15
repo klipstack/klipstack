@@ -21,8 +21,8 @@ const GAP = 12
 export const MARGIN_NOTE = "border-l-[3px] border-(--hl-solid) text-sm leading-snug"
 
 /**
- * True when there is room left of the article for the notes: a mouse (not touch) and enough free
- * space between the page's left edge and the article.
+ * True when there is room right of the article for the notes: a mouse (not touch) and enough free
+ * space between the article and the page's right edge (the open sidebar's room is the sidebar's).
  */
 export function useMarginRoom(
 	articleRef: React.RefObject<HTMLElement | null>,
@@ -38,9 +38,9 @@ export function useMarginRoom(
 		}
 		const fine = window.matchMedia("(pointer: fine)")
 		const measure = () => {
-			const left =
-				page.getBoundingClientRect().left + Number.parseFloat(getComputedStyle(page).paddingLeft)
-			setRoom(fine.matches && article.getBoundingClientRect().left - left >= NEEDED)
+			const right =
+				page.getBoundingClientRect().right - Number.parseFloat(getComputedStyle(page).paddingRight)
+			setRoom(fine.matches && right - article.getBoundingClientRect().right >= NEEDED)
 		}
 		measure()
 		const observer = new ResizeObserver(measure)
@@ -86,7 +86,7 @@ export interface MarginCard {
 }
 
 /**
- * Highlight notes in the margin left of the article, each level with the first line of its
+ * Highlight notes in the margin right of the article, each level with the first line of its
  * highlight. The layer lives inside the article, so notes scroll with the text on their own. Notes
  * that would overlap are pushed down (`layoutMargin`).
  */
@@ -169,7 +169,9 @@ export function MarginNotes({
 		<section
 			ref={layerRef}
 			aria-label={t("highlights.margin.label")}
-			className="absolute top-0 right-full mr-2 font-sans"
+			// A layer of its own, under the top bar and the outline: a note or card brought to the front
+			// (z-30) is in front of the margin's others, not of the page.
+			className="absolute top-0 left-full z-10 ml-2 font-sans"
 			style={{ width: NOTE_WIDTH }}
 		>
 			{items.map((item) => {
@@ -213,7 +215,7 @@ export function MarginNotes({
 								}}
 								className={cn(
 									MARGIN_NOTE,
-									"ml-auto block cursor-text select-text text-left transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+									"mr-auto block cursor-text select-text text-left transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
 									hoveredId === item.id && "ring-1 ring-(--hl-solid)",
 								)}
 							>

@@ -1,6 +1,7 @@
 export default {
 	back: "Volver a la biblioteca",
 	original: "Abrir original",
+	outline: { label: "Contenido", show: "Mostrar contenido", hide: "Ocultar contenido" },
 	title: { edit: "Editar título", label: "Título", save: "Guardar", cancel: "Cancelar" },
 	link: {
 		label: "Enlace",

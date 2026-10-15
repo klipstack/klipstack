@@ -11,6 +11,7 @@ export const DEFAULT_PREFS: Required<UserPrefs> = {
 	noteRemindersAfter: null,
 	topicsInvitationEndedAt: null,
 	linkEditions: "off",
+	outline: "on",
 }
 
 export function resolvePrefs(prefs: UserPrefs | null | undefined): Required<UserPrefs> {

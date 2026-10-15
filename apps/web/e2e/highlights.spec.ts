@@ -230,6 +230,9 @@ test("highlight → persists → note → sidebar → highlights page → delete
 	await expect(marginNote).toBeVisible()
 	const noteBox = await marginNote.boundingBox()
 	expect(Math.abs((noteBox?.y ?? 0) - (point.y - 12))).toBeLessThan(20)
+	// right of the text: the left of the page is the outline's
+	const text = (await page.locator(".reader-content").boundingBox())!
+	expect(noteBox!.x).toBeGreaterThan(text.x + text.width)
 
 	// clicking the note edits it in place; Cancel keeps the saved text
 	await marginNote.click()
@@ -618,4 +621,33 @@ test("an article captured again stays readable, and takes highlights once the ne
 		await selectText(page, "charlie delta")
 		await page.clock.runFor(1_000)
 	})
+})
+
+test("a note being written in the margin scrolls under the top bar, as the others do", async ({
+	page,
+}) => {
+	const id = await signupAndSave(page)
+	const hl = await page.request.post(`/documents/${id}/highlights`, {
+		data: { intent: "create", exact: QUOTE, note: "Makers need long blocks." },
+	})
+	expect(hl.status()).toBe(201)
+	await page.reload()
+	await waitForHydration(page)
+	const margin = page.getByRole("region", { name: "Highlight notes" })
+	await margin.getByRole("button", { name: "Makers need long blocks." }).click()
+	const editor = page.getByRole("dialog", { name: "Highlight note" })
+	await expect(editor).toHaveAttribute("data-placement", "margin")
+
+	// Scrolled until the editor's top is behind the bar: the bar covers it.
+	const bar = page.locator("header.sticky")
+	const barBottom = (await bar.boundingBox())!.y + (await bar.boundingBox())!.height
+	const box = (await editor.boundingBox())!
+	await page.mouse.wheel(0, box.y - barBottom + 40)
+	await expect.poll(async () => (await editor.boundingBox())!.y).toBeLessThan(barBottom - 20)
+	const x = box.x + box.width / 2
+	const onTop = await page.evaluate(
+		({ x, y }) => document.elementFromPoint(x, y)?.closest("header") != null,
+		{ x, y: barBottom - 10 },
+	)
+	expect(onTop).toBe(true)
 })
