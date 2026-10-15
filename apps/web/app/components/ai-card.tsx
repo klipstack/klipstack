@@ -16,7 +16,7 @@ import { AiResetsOnContext, useQuestionsLeft } from "~/hooks/use-ai-allowance"
 import { type AnswerStore, type AiCard as Card, useWritten } from "~/hooks/use-ai-threads"
 import type { AiFailure } from "~/lib/ai-stream.client"
 import { cn } from "~/lib/utils"
-import { AiAnswer, plainAnswer } from "./ai-answer"
+import { AiAnswer, answerLead, plainAnswer } from "./ai-answer"
 import { InkThinking } from "./ink-thinking"
 import { tooltip } from "./tooltip-host"
 
@@ -58,7 +58,7 @@ interface Props {
 
 /**
  * A question about a passage and its answers. Collapsed in the margin it shows the action, the
- * passage and the answer's first line; open, the whole thread, the answer streaming in, its
+ * latest question (or the passage) and the bold sentence its answer opens with; open, the whole thread, the answer streaming in, its
  * citations as chips, and a field for a follow-up.
  */
 export function AiCard(props: Props) {
@@ -66,9 +66,13 @@ export function AiCard(props: Props) {
 	const { t } = useTranslation("reader")
 	const Icon = AI_ACTION_ICONS[card.action]
 	const streamed = useWritten(props.written, card.id)
+	// The latest question and its answer: the reader's words, or the passage for Explain and Define.
+	const asked = card.messages.findLastIndex((m) => m.role === "user")
+	const question = card.messages[asked]?.text
 	const answer = card.streaming
 		? streamed.text
-		: card.messages.findLast((m) => m.role === "assistant")?.text
+		: card.messages.slice(asked + 1).find((m) => m.role === "assistant" && m.status === "done")
+				?.text
 
 	if (!open)
 		return (
@@ -86,7 +90,12 @@ export function AiCard(props: Props) {
 					<Icon className="size-3" aria-hidden />
 					{t(`ai.actions.${card.action}`)}
 				</span>
-				<span className="line-clamp-3">{answer ? plainAnswer(answer) : `“${card.exact}”`}</span>
+				{question ? (
+					<span className="line-clamp-2 font-medium text-fg">{question}</span>
+				) : (
+					<span className="line-clamp-2 italic">“{card.exact}”</span>
+				)}
+				{answer ? <span className="mt-0.5 line-clamp-3">{answerLead(answer)}</span> : null}
 			</button>
 		)
 	return <OpenCard {...props} />

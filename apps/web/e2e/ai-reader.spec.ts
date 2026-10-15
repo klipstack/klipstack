@@ -98,7 +98,12 @@ test("Explain answers in the margin with a citation; follow-ups, reload and dele
 	await page.reload()
 	await waitForHydration(page)
 	const margin = page.getByRole("region", { name: "Highlight notes" })
-	await margin.getByRole("button", { name: /Explain/ }).click()
+	// Collapsed, it reads as the latest question and the bold sentence its answer opens with.
+	const collapsed = margin.getByRole("button", { name: /Explain/ })
+	await expect(collapsed).toContainText("And managers?")
+	await expect(collapsed).toContainText("A fixed answer for tests.")
+	await expect(collapsed).not.toContainText("Answer 2.")
+	await collapsed.click()
 	await expect(card).toContainText("Answer 2.")
 	await expect(card.getByText("And managers?")).toHaveCount(1)
 	await shot(page, "4-reloaded")
@@ -159,6 +164,15 @@ test("one word can be defined, not highlighted; typing with a selection asks", a
 	await question.press("Enter")
 	await expect(card).toContainText("Why two?")
 	await expect(card).toContainText("Answer 1.")
+	await card.getByRole("button", { name: "Collapse" }).click()
+	const margin = page.getByRole("region", { name: "Highlight notes" })
+	await expect(margin.getByRole("button", { name: /Ask/ })).toHaveText(
+		/^Ask\s*Why two\?\s*A fixed answer for tests\.$/,
+	)
+	// Define has no question of the reader's: the passage stands for it.
+	await expect(margin.getByRole("button", { name: /Define/ })).toHaveText(
+		/^Define\s*“schedule”\s*A fixed answer for tests\.$/,
+	)
 })
 
 test("Ask far down the article opens its field where the reader is", async ({ page }) => {

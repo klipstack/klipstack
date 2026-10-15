@@ -77,7 +77,7 @@ export function fakeModel(input: AnswerInput) {
 	})
 }
 
-/** A fixed brief: three bullets, the first citing the article's first sentence. */
+/** The article's first sentence, which the fixed brief cites. */
 function firstSentence(text: string) {
 	const end = text.search(/[.!?](\s|$)/)
 	const exact = text.slice(0, end < 0 ? Math.min(text.length, 80) : end + 1)

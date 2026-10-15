@@ -155,3 +155,16 @@ function marks(text: string, chip: Chip, key: number): React.ReactNode[] {
 export function plainAnswer(text: string): string {
 	return text.replace(/\*\*([^*]+)\*\*/g, "$1").replace(/\*([^*\s][^*]*)\*/g, "$1")
 }
+
+/**
+ * What an answer says in one sentence: the bold sentence it opens with, else (an answer that
+ * doesn't, or one still being written) its first sentence.
+ */
+export function answerLead(text: string): string {
+	const bold = /^\s*\*\*([^*]+)\*\*/.exec(text)
+	if (bold) return bold[1]!.trim()
+	const plain = plainAnswer(text)
+		.replace(/^\s*\*\*/, "")
+		.trim()
+	return (/^[\s\S]+?[.!?](?=\s|$)/.exec(plain)?.[0] ?? plain).trim()
+}
