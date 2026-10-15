@@ -19,7 +19,7 @@ import { useKeyTranslation } from "~/lib/i18n-keys"
 import { usePageBar } from "~/lib/page-bar"
 import { useSettingsOrigin } from "~/lib/settings-origin"
 import { useSidebar } from "~/lib/sidebar"
-import { linkClass, NavIcon } from "./app-shell"
+import { linkClass, NavItemInk } from "./app-shell"
 import { MobileDrawer, useMobileDrawer } from "./mobile-drawer"
 
 /** One route per section, under `/settings/`; their pages are `routes/settings.<slug>.tsx`. */
@@ -67,8 +67,7 @@ function SectionLink({
 			onClick={onNavigate}
 			className={linkClass(false)}
 		>
-			<NavIcon icon={icon} />
-			<span data-nav-label>{label}</span>
+			<NavItemInk icon={icon}>{label}</NavItemInk>
 		</NavLink>
 	)
 }
@@ -87,10 +86,9 @@ function SettingsNav({ onNavigate, onClose }: { onNavigate?: () => void; onClose
 					to={origin}
 					onClick={onNavigate}
 					data-testid="settings-back"
-					className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium hover:bg-fg/10 md:py-1.5"
+					className="flex min-w-0 flex-1 items-center rounded-lg px-2 py-2 text-sm font-medium hover:[&_[data-nav-ink]]:ink-hover-item md:py-1.5"
 				>
-					<NavIcon icon={ArrowLeft} />
-					{tc("actions.back")}
+					<NavItemInk icon={ArrowLeft}>{tc("actions.back")}</NavItemInk>
 				</Link>
 				{onClose ? (
 					<button

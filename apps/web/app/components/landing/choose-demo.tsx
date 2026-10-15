@@ -18,11 +18,7 @@ export function ChooseDemo({ readHref }: { readHref: string }) {
 	const { t: tl } = useTranslation("library")
 	const [minutes, setMinutes] = useState<number | null>(15)
 	const { reading, pickUp, recent, rediscover } = sampleShelves(minutes)
-	const chip = (active: boolean) =>
-		cn(
-			"rounded-full border px-3 py-1 text-sm transition-colors",
-			active ? "marked" : "border-border text-fg hover:bg-muted",
-		)
+	const chip = (active: boolean) => cn("chip", active && "marked")
 
 	const row = (save: SampleSave) => {
 		const essay = save.id === "essay"

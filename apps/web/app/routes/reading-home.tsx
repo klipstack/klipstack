@@ -494,7 +494,7 @@ function TimeChoice({ minutes, topic }: { minutes: number | null; topic: TopicPi
 			onClick={(e) => {
 				if (value === minutes) e.preventDefault()
 			}}
-			className="rounded-full border border-border px-3 py-1 text-sm text-muted-fg hover:bg-muted hover:text-fg aria-[current]:marked"
+			className="chip aria-[current]:marked"
 		>
 			{value === null ? t("home.time.any") : t("home.time.choice", { count: value })}
 		</Link>
@@ -517,8 +517,7 @@ function TimeChoice({ minutes, topic }: { minutes: number | null; topic: TopicPi
 	)
 }
 
-const CHIP =
-	"shrink-0 rounded-full border border-border px-3 py-1 text-sm text-muted-fg hover:bg-muted hover:text-fg aria-[current]:marked"
+const CHIP = "shrink-0 chip aria-[current]:marked"
 
 /**
  * What to read about: anything, the topics with most to read, something different (the topic read
@@ -569,7 +568,7 @@ function TopicChoice({
 			data-testid="home-topic-choice"
 			className="flex flex-wrap items-center gap-x-3 gap-y-2 md:flex-nowrap md:items-start md:justify-center"
 		>
-			<h2 id="home-topic-choice" className="shrink-0 text-sm text-muted-fg md:py-1.5">
+			<h2 id="home-topic-choice" className="shrink-0 text-sm text-muted-fg md:py-1">
 				{t("home.topics.title")}
 			</h2>
 			{/* One line on phones, scrolled sideways, so Home's sections stay in view. */}

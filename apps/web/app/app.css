@@ -478,6 +478,11 @@ body {
 		background-size: 0% 80%;
 	}
 }
+@keyframes swipe-tall {
+	from {
+		background-size: 0% 90%;
+	}
+}
 /* A page's title and Home's sections: the logo's serif, as the landing page sets its own. */
 @utility page-title {
 	font-family: var(--font-display);
@@ -515,12 +520,53 @@ body {
 		animation: none;
 	}
 }
-/* The same stroke under a line of text (a nav item's name): it reaches a little past the words. */
-@utility marked-text {
+/* Where a click would mark: a lighter stroke of grey ink, swiped in under the pointer. */
+@utility ink-hover {
+	background: linear-gradient(
+			90deg,
+			color-mix(in oklch, var(--k-fg) 14%, transparent),
+			color-mix(in oklch, var(--k-fg) 11%, transparent) 0.6em calc(100% - 0.8em),
+			color-mix(in oklch, var(--k-fg) 13%, transparent)
+		)
+		no-repeat 0 60% / 100% 80%;
+	border-radius: 0.55em 0.8em 0.7em 0.45em / 0.8em 0.7em 0.8em 0.65em;
+	color: var(--k-fg);
+	animation: swipe 0.25s cubic-bezier(0.3, 0.7, 0.2, 1) both;
+	@media (prefers-reduced-motion: reduce) {
+		animation: none;
+	}
+}
+/* The same behind a sidebar item's icon and name, with room around them as a chip has. */
+@utility ink-hover-item {
+	@apply ink-hover;
+	background-position: 0 50%;
+	background-size: 100% 90%;
+	animation-name: swipe-tall;
+	padding: 0.3em 0.6em 0.3em 0.4em;
+	margin: -0.3em -0.6em -0.3em -0.4em;
+}
+/* Where the reader is, in the sidebar: the yellow stroke over the same icon and name as
+   `ink-hover-item`. (`marked` sets its stroke as important, so the place and size must be too.) */
+@utility marked-item {
 	@apply marked;
-	background-position: 0 70%;
-	padding-inline: 0.3em 0.4em;
-	margin-inline: -0.3em -0.4em;
+	background-position: 0 50% !important;
+	background-size: 100% 90% !important;
+	animation-name: swipe-tall;
+	padding: 0.3em 0.6em 0.3em 0.4em;
+	margin: -0.3em -0.6em -0.3em -0.4em;
+}
+/* A filter chip: just its words, `ink-hover` when pointed at, `marked` when current. */
+@utility chip {
+	padding: 0.25rem 0.75rem;
+	font-size: var(--text-sm);
+	line-height: var(--text-sm--line-height);
+	color: var(--k-muted-fg);
+	border-radius: 0.55em 0.8em 0.7em 0.45em / 0.8em 0.7em 0.8em 0.65em;
+	@media (hover: hover) {
+		&:hover:not(.marked, [aria-current]) {
+			@apply ink-hover;
+		}
+	}
 }
 /* Progress through an article: a line of the same ink, warmed toward orange so a thin line still
    shows on the page. */

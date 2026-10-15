@@ -14,7 +14,7 @@ import {
 	topics,
 	user,
 } from "@klipstack/db"
-import { expect, test } from "@playwright/test"
+import { expect, type Locator, test } from "@playwright/test"
 import { createInviteCode, signupUser, uniqueEmail, waitForHydration } from "./helpers"
 import { insertArticle } from "./seed"
 
@@ -704,6 +704,16 @@ test("home narrows to a topic: the biggest as chips, the rest under More, someth
 		.getByRole("link", { name: "30 min" })
 		.click()
 	await expect(heading).toContainText("30 minutes of Aeon")
+	// The row lines up: the words of its title, of a chip and of the More menu on one line.
+	const textTop = (locator: Locator) =>
+		locator.evaluate((e) => {
+			const range = document.createRange()
+			range.selectNodeContents(e)
+			return Math.round(range.getBoundingClientRect().top)
+		})
+	const top = await textTop(choice.getByRole("heading", { name: "About what?" }))
+	expect(await textTop(choice.getByRole("link", { name: "Anything" }))).toBe(top)
+	expect(await textTop(choice.getByRole("button", { name: "More topics" }))).toBe(top)
 	await choice.getByRole("button", { name: "More topics" }).click()
 	await page.getByRole("menuitem", { name: "Minor" }).click()
 	await expect(choice.getByRole("link", { name: "Minor" })).toHaveAttribute("aria-current", "true")

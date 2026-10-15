@@ -565,7 +565,7 @@ function Chips({ q, topics }: { q: string; topics: string[] | null }) {
 						replace
 						data-testid={`search-chip-${name}`}
 						aria-current={on ? "true" : undefined}
-						className="flex shrink-0 items-center rounded-full border border-border px-3 py-1 text-sm text-muted-fg hover:bg-muted hover:text-fg aria-[current]:marked"
+						className="flex shrink-0 items-center chip aria-[current]:marked"
 					>
 						{t(`search.chips.${name}`)}
 					</Link>
@@ -575,8 +575,7 @@ function Chips({ q, topics }: { q: string; topics: string[] | null }) {
 	)
 }
 
-const CHIP =
-	"flex shrink-0 items-center gap-1.5 rounded-full border border-border px-3 py-1 text-sm text-muted-fg hover:bg-muted hover:text-fg"
+const CHIP = "flex shrink-0 items-center gap-1.5 chip"
 const CHIP_ON = "marked"
 
 /** The query's `topic:` and `has:topic` tokens, which the Topic chip sets. */
@@ -607,7 +606,7 @@ function TopicChip({ q, topics }: { q: string; topics: string[] }) {
 			<MoreMenu
 				label={chosen ? t("topicFilter.chosen", { topic: chosen }) : t("topicFilter.choose")}
 				align="start"
-				className={cn(CHIP, chosen && CHIP_ON, chosen && "rounded-r-none border-r-0 pr-2")}
+				className={cn(CHIP, chosen && CHIP_ON, chosen && "rounded-r-none! pr-2")}
 				icon={
 					<>
 						<span className="max-w-48 truncate">{chosen ?? t("topicFilter.label")}</span>
@@ -647,7 +646,7 @@ function TopicChip({ q, topics }: { q: string; topics: string[] }) {
 					state={location.state}
 					replace
 					aria-label={t("topicFilter.clear")}
-					className={cn(CHIP, CHIP_ON, "self-stretch rounded-l-none border-l-0 px-2")}
+					className={cn(CHIP, CHIP_ON, "self-stretch rounded-l-none! px-2")}
 				>
 					<X className="size-3.5" aria-hidden />
 				</Link>
@@ -656,8 +655,7 @@ function TopicChip({ q, topics }: { q: string; topics: string[] }) {
 	)
 }
 
-const SAVE_BUTTON =
-	"flex shrink-0 items-center gap-1.5 rounded-full border border-border px-3 py-1 text-sm text-muted-fg hover:bg-muted hover:text-fg"
+const SAVE_BUTTON = "flex shrink-0 items-center gap-1.5 chip"
 
 /**
  * Gives the query a name, so the sidebar opens it. A query saved already (the same text) says so,

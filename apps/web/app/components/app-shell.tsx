@@ -71,8 +71,10 @@ export const linkClass =
 			isActive
 				? collapsed
 					? "marked"
-					: "font-medium [&_[data-nav-label]]:marked-text"
-				: "hover:bg-fg/10",
+					: "font-medium [&_[data-nav-ink]]:marked-item"
+				: collapsed
+					? "hover:ink-hover"
+					: "hover:[&_[data-nav-ink]]:ink-hover-item",
 		)
 
 /** Icon centered in a slot as wide as the brand mark, so nav labels align with the app name. */
@@ -80,6 +82,27 @@ export function NavIcon({ icon: Icon }: { icon: typeof LibraryBig }) {
 	return (
 		<span className="flex w-6 shrink-0 justify-center">
 			<Icon className="size-4" aria-hidden />
+		</span>
+	)
+}
+
+/**
+ * A sidebar item's icon and name: what its stroke of ink covers, grey when pointed at (`linkClass`),
+ * yellow when it is where the reader is.
+ */
+export function NavItemInk({
+	icon,
+	truncate,
+	children,
+}: {
+	icon: typeof LibraryBig
+	truncate?: boolean
+	children: React.ReactNode
+}) {
+	return (
+		<span data-nav-ink className="flex min-w-0 items-center gap-2">
+			<NavIcon icon={icon} />
+			<span className={truncate ? "truncate" : undefined}>{children}</span>
 		</span>
 	)
 }
@@ -186,8 +209,11 @@ function SidebarContent({
 									? { "aria-label": railLabel, ...tooltip(railLabel, undefined, "right") }
 									: {})}
 							>
-								<NavIcon icon={Icon} />
-								{collapsed ? null : <span data-nav-label>{t(key)}</span>}
+								{collapsed ? (
+									<NavIcon icon={Icon} />
+								) : (
+									<NavItemInk icon={Icon}>{t(key)}</NavItemInk>
+								)}
 								{dot ? (
 									<span
 										data-testid={dot.testId}
@@ -246,7 +272,7 @@ function SavedSearchesMenu({ savedSearches }: { savedSearches: SavedSearchItem[]
 			icon={<NavIcon icon={Bookmark} />}
 			className={cn(
 				"!p-0 mx-auto mt-4 flex size-9 items-center justify-center rounded-lg",
-				current ? "marked" : "text-fg hover:bg-fg/10",
+				current ? "marked" : "text-fg hover:ink-hover",
 			)}
 		>
 			<p className="px-2 py-1.5 text-xs font-medium text-muted-fg">{label}</p>
@@ -294,7 +320,9 @@ function SavedSearchRow({
 		<li
 			className={cn(
 				"group/saved flex items-center rounded-lg text-sm",
-				current ? "font-medium [&_[data-nav-label]]:marked-text" : "hover:bg-fg/10",
+				current
+					? "font-medium [&_[data-nav-ink]]:marked-item"
+					: "hover:[&_[data-nav-ink]]:ink-hover-item",
 			)}
 			onContextMenu={(e) => {
 				if (!menuRef.current) return
@@ -310,10 +338,9 @@ function SavedSearchRow({
 				aria-current={current ? "page" : undefined}
 				className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-2 md:py-1.5"
 			>
-				<NavIcon icon={Bookmark} />
-				<span data-nav-label className="truncate">
+				<NavItemInk icon={Bookmark} truncate>
 					{saved.name}
-				</span>
+				</NavItemInk>
 				{saved.endedTopics?.length ? (
 					<span
 						role="img"

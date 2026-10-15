@@ -363,8 +363,7 @@ function Cards({
 	)
 }
 
-const CHIP =
-	"flex shrink-0 items-center gap-1.5 rounded-full border border-border px-3 py-1 text-sm text-muted-fg hover:bg-muted hover:text-fg aria-[current]:marked"
+const CHIP = "flex shrink-0 items-center gap-1.5 chip aria-[current]:marked"
 const CHIP_ON = "marked"
 
 /**
@@ -502,7 +501,7 @@ function TagChoice({ state, tags }: { state: NotebookState; tags: NotebookTag[] 
 						: t("notebook.filters.tagChoose")
 				}
 				align="start"
-				className={cn(CHIP, chosen && CHIP_ON, chosen && "rounded-r-none border-r-0 pr-2")}
+				className={cn(CHIP, chosen && CHIP_ON, chosen && "rounded-r-none! pr-2")}
 				icon={
 					<>
 						<span className="max-w-40 truncate">
@@ -530,7 +529,7 @@ function TagChoice({ state, tags }: { state: NotebookState; tags: NotebookTag[] 
 					to={notebookHref(state, { tag: null })}
 					aria-label={t("notebook.filters.tagClear")}
 					{...tooltip(t("notebook.filters.tagClear"))}
-					className={cn(CHIP, CHIP_ON, "self-stretch rounded-l-none border-l-0 px-2")}
+					className={cn(CHIP, CHIP_ON, "self-stretch rounded-l-none! px-2")}
 				>
 					<X className="size-3.5" aria-hidden />
 				</Link>

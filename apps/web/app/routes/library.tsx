@@ -403,7 +403,7 @@ function ListControls({
 			key={f ?? "all"}
 			to={`${path}${filterSearch(filter, f, sort, topic)}`}
 			aria-current={f === filter ? "true" : undefined}
-			className="flex shrink-0 items-center gap-1.5 rounded-full border border-border px-3 py-1 text-sm text-muted-fg hover:bg-muted hover:text-fg aria-[current]:marked"
+			className="flex shrink-0 items-center gap-1.5 chip aria-[current]:marked"
 		>
 			{t(`filters.${f ?? "all"}`)}
 			{count ? <span className="tabular-nums">{count}</span> : null}
@@ -472,8 +472,7 @@ function ListControls({
 	)
 }
 
-const CHIP =
-	"flex shrink-0 items-center gap-1.5 rounded-full border border-border px-3 py-1 text-sm text-muted-fg hover:bg-muted hover:text-fg"
+const CHIP = "flex shrink-0 items-center gap-1.5 chip"
 const CHIP_ON = "marked"
 
 /**
@@ -515,7 +514,7 @@ function TopicChoice({
 			<MoreMenu
 				label={chosen ? t("topicFilter.chosen", { topic: chosen }) : t("topicFilter.choose")}
 				align="start"
-				className={cn(CHIP, chosen && CHIP_ON, chosen && "rounded-r-none border-r-0 pr-2")}
+				className={cn(CHIP, chosen && CHIP_ON, chosen && "rounded-r-none! pr-2")}
 				icon={
 					<>
 						<span className="max-w-48 truncate">{chosen ?? t("topicFilter.label")}</span>
@@ -536,7 +535,7 @@ function TopicChoice({
 					to={to(null)}
 					aria-label={t("topicFilter.clear")}
 					{...tooltip(t("topicFilter.clear"))}
-					className={cn(CHIP, CHIP_ON, "self-stretch rounded-l-none border-l-0 px-2")}
+					className={cn(CHIP, CHIP_ON, "self-stretch rounded-l-none! px-2")}
 				>
 					<X className="size-3.5" aria-hidden />
 				</Link>
