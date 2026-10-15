@@ -65,6 +65,7 @@ export function BriefCard({
 				onClick={onMake}
 				className={cn(row, none && "opacity-50")}
 				data-testid="brief"
+				data-brief
 				{...(none ? tooltip(t("ai.noneLeft")) : {})}
 			>
 				{label}
@@ -73,7 +74,13 @@ export function BriefCard({
 		)
 	if (brief && !writing && !open)
 		return (
-			<button type="button" onClick={() => onOpen(true)} className={row} data-testid="brief">
+			<button
+				type="button"
+				onClick={() => onOpen(true)}
+				className={row}
+				data-testid="brief"
+				data-brief
+			>
 				{label}
 				<span className="line-clamp-2">{plainAnswer(briefSummary(brief.text))}</span>
 			</button>
@@ -82,6 +89,7 @@ export function BriefCard({
 		<section
 			aria-label={t("ai.brief.title")}
 			data-testid="brief"
+			data-brief
 			className="mb-6 rounded-xl border border-border bg-card p-3 font-sans text-sm leading-snug"
 		>
 			<div className="flex items-center gap-1.5">

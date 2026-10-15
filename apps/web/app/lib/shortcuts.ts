@@ -84,6 +84,53 @@ export function isChatShortcut(e: KeyboardEvent): boolean {
 }
 
 /**
+ * Reader-only, reading by paragraph: `j`/`k` move a marker from paragraph to paragraph, Enter asks
+ * the AI about the marked one, `[`/`]` go to the previous or next AI answer or note, `b` shows the
+ * brief, `f` dims all but the marked paragraph, `?` lists the shortcuts. Escape leaves.
+ */
+export type ReaderShortcut =
+	| "nextParagraph"
+	| "prevParagraph"
+	| "askParagraph"
+	| "prevNote"
+	| "nextNote"
+	| "brief"
+	| "focus"
+	| "help"
+	| "leave"
+
+const READER_KEYS: Record<string, ReaderShortcut> = {
+	j: "nextParagraph",
+	k: "prevParagraph",
+	"[": "prevNote",
+	"]": "nextNote",
+	b: "brief",
+	f: "focus",
+	"?": "help",
+}
+
+export const READER_HINTS: Record<ReaderShortcut, string> = {
+	nextParagraph: "J",
+	prevParagraph: "K",
+	askParagraph: "↵",
+	prevNote: "[",
+	nextNote: "]",
+	brief: "B",
+	focus: "F",
+	help: "?",
+	leave: "Esc",
+}
+
+export function readerShortcut(e: KeyboardEvent): ReaderShortcut | null {
+	// `[` and `]` need Option or AltGr on some layouts (Spanish, German, French…).
+	const bracket = e.key === "[" || e.key === "]"
+	if (!bareKey(e, bracket)) return null
+	if (e.key === "Enter") return isControl(document.activeElement) ? null : "askParagraph"
+	if (e.key === "Escape") return "leave"
+	return READER_KEYS[e.key] ?? null
+}
+
+/**
  * Reader-only: ⌘C / Ctrl+C with nothing selected copies the highlight in focus. A selection
  * stops being one the moment it becomes a highlight, so the browser has nothing left to copy.
  */
@@ -104,6 +151,18 @@ export function isCopyShortcut(e: KeyboardEvent): boolean {
 	const target = e.target instanceof Element ? e.target : null
 	if (target?.closest(TYPING) || modalOpen()) return false
 	return window.getSelection()?.isCollapsed !== false
+}
+
+/** ⌘V / Ctrl+V anywhere, outside a field: the link on the clipboard is saved. */
+export const PASTE_HINT = "⌘V"
+
+/** A paste outside a field and a dialog, of a link and nothing else: that link. */
+export function pastedLink(e: ClipboardEvent): string | null {
+	if (e.defaultPrevented) return null
+	const target = e.target instanceof Element ? e.target : null
+	if (target?.closest(`${TYPING}, ${OVERLAY}`) || modalOpen()) return null
+	const text = e.clipboardData?.getData("text/plain").trim() ?? ""
+	return /^https?:\/\/\S+$/i.test(text) ? text : null
 }
 
 export function listShortcut(e: KeyboardEvent): ListShortcut | null {
@@ -132,8 +191,10 @@ function charactersOff(e: KeyboardEvent): boolean {
 	return e.key.length === 1 && document.documentElement.dataset.shortcuts === "off"
 }
 
-function bareKey(e: KeyboardEvent): boolean {
-	if (e.metaKey || e.ctrlKey || e.altKey || e.isComposing || e.defaultPrevented) return false
+/** `altGr`: Option or AltGr (Ctrl+Alt on Windows) may be down, as typing the key needs on some layouts. */
+function bareKey(e: KeyboardEvent, altGr = false): boolean {
+	if (e.metaKey || e.isComposing || e.defaultPrevented) return false
+	if (altGr ? e.ctrlKey && !e.altKey : e.ctrlKey || e.altKey) return false
 	if (charactersOff(e)) return false
 	const target = e.target instanceof Element ? e.target : null
 	if (target?.closest(`${TYPING}, ${OVERLAY}, [data-resize-handles]`)) return false
@@ -152,3 +213,76 @@ function modalOpen(): boolean {
 function isControl(el: Element | null): boolean {
 	return Boolean(el?.closest("a[href], button, [role='button'], summary"))
 }
+
+/**
+ * A hint for a key that types a character (a letter, `#`, `[`, `?`…): the keys the setting turns
+ * off. Enter, the arrows, Escape and ⌘ with a key keep working.
+ */
+export function isSingleKey(hint: string): boolean {
+	return !hint.startsWith("⌘") && hint !== "Esc" && !["↵", "↑", "↓", "←", "→", "⌫"].includes(hint)
+}
+
+interface ShortcutRow {
+	readonly id: string
+	readonly keys: readonly string[]
+	readonly ai?: boolean
+}
+
+/**
+ * Every shortcut, for the list in Settings and the reader's `?`. A row's label is
+ * `common:shortcuts.rows.<id>`, a group's `common:shortcuts.groups.<id>`. `ai`: only with AI.
+ */
+export const SHORTCUT_GROUPS = [
+	{
+		id: "general",
+		rows: [
+			{ id: "palette", keys: ["⌘K"] },
+			{ id: "paste", keys: [PASTE_HINT] },
+			{ id: "submit", keys: [SUBMIT_HINT] },
+		],
+	},
+	{
+		id: "lists",
+		rows: [
+			{ id: "listMove", keys: ["J", "K"] },
+			{ id: "listArrows", keys: ["↑", "↓", "←", "→"] },
+			{ id: "listOpen", keys: [SHORTCUT_HINTS.open, "O"] },
+			{ id: "star", keys: [SHORTCUT_HINTS.star] },
+			{ id: "shortlist", keys: [SHORTCUT_HINTS.shortlist] },
+			{ id: "archive", keys: [SHORTCUT_HINTS.archive] },
+			{ id: "unread", keys: [SHORTCUT_HINTS.unread] },
+			{ id: "tags", keys: [SHORTCUT_HINTS.tags] },
+			// Delete and Backspace too, which stay on with single keys off.
+			{ id: "delete", keys: [SHORTCUT_HINTS.delete, "⌫"] },
+			{ id: "select", keys: [SELECT_HINT] },
+			{ id: "selectRange", keys: ["⇧J", "⇧K"] },
+			{ id: "selectAll", keys: ["⌘A"] },
+			{ id: "clear", keys: ["Esc"] },
+			{ id: "search", keys: [SEARCH_HINT] },
+		],
+	},
+	{
+		id: "reader",
+		rows: [
+			{ id: "paragraph", keys: [READER_HINTS.nextParagraph, READER_HINTS.prevParagraph] },
+			{ id: "askParagraph", keys: [READER_HINTS.askParagraph], ai: true },
+			{ id: "stops", keys: [READER_HINTS.prevNote, READER_HINTS.nextNote] },
+			{ id: "brief", keys: [READER_HINTS.brief], ai: true },
+			{ id: "focus", keys: [READER_HINTS.focus] },
+			{ id: "leave", keys: [READER_HINTS.leave] },
+			{ id: "sidebar", keys: [HIGHLIGHTS_HINT] },
+			{ id: "chat", keys: [CHAT_HINT], ai: true },
+			{
+				id: "articleActions",
+				keys: [
+					...(["star", "shortlist", "archive", "unread", "tags", "delete"] as const).map(
+						(a) => SHORTCUT_HINTS[a],
+					),
+					"⌫",
+				],
+			},
+			{ id: "copyHighlight", keys: [COPY_HINT] },
+			{ id: "help", keys: [READER_HINTS.help] },
+		],
+	},
+] as const satisfies ReadonlyArray<{ id: string; rows: readonly ShortcutRow[] }>

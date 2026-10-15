@@ -817,6 +817,23 @@ body {
 .reader-content[data-focus] ::highlight(klip-note) {
 	text-decoration: none;
 }
+/* Focus mode (`f` in the reader): the text and its pictures fade; the paragraph marked from the
+   keyboard (`klip-reading`, use-reading-cursor.ts) stays at full strength. */
+.reader-content[data-reading-focus],
+.reader-content[data-reading-focus] * {
+	color: color-mix(in oklch, var(--k-fg) 30%, transparent);
+	text-decoration-color: currentColor;
+	transition: color 0.2s;
+}
+.reader-content[data-reading-focus]::highlight(klip-reading),
+.reader-content[data-reading-focus] ::highlight(klip-reading) {
+	color: var(--k-fg);
+}
+.reader-content[data-reading-focus] :is(img, picture, video, svg, iframe),
+.reader-content[data-reading-focus] ~ .hl-inks {
+	opacity: 0.3;
+	transition: opacity 0.2s;
+}
 /* The highlight in focus stands out: a thin line around each line of it, and a faint shadow.
    Drawn by HighlightInk around the strokes in the reader, on the marked text in the landing demo. */
 .hl-pop {

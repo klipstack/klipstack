@@ -168,11 +168,12 @@ export async function action({ context, request }: Route.ActionArgs) {
 		return answer(async () => ({ archived: [], moved: await undoArchive(user.id, ids) }))
 	}
 	const url = String(form.get("url") ?? "").trim()
-	// No redirect: the save dialog posts here from any page (Home, the library, the phone bar), and
-	// saving must leave the reader where they were. The page's data reloads with the new article.
+	// No redirect: the save dialog and a pasted link post here from any page (Home, the library, the
+	// phone bar, the reader), and saving must leave the reader where they were. The page's data
+	// reloads with the new article.
 	try {
-		await saveArticle(user.id, { url, source: "web" })
-		return { ok: true as const, saved: true as const }
+		const { article, created } = await saveArticle(user.id, { url, source: "web" })
+		return { ok: true as const, saved: true as const, id: article.id, created }
 	} catch (error) {
 		if (error instanceof AppError) return refused(error, { url })
 		throw error

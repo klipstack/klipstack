@@ -197,6 +197,8 @@ export default {
 		cancel: "Cancel",
 		saving: "Saving…",
 		saved: "Saved to your library.",
+		already: "Already in your library.",
+		open: "Open",
 		title: "Save a link",
 		description:
 			"Paste the address of an article. We fetch it, extract the text, and keep a clean copy for you.",

@@ -4,6 +4,7 @@ import {
 	ArrowLeft,
 	ExternalLink,
 	EyeOff,
+	Keyboard,
 	Link2,
 	MessagesSquare,
 	Newspaper,
@@ -24,7 +25,7 @@ import { tooltip } from "~/components/tooltip-host"
 import type { StateIntent } from "~/hooks/use-document-state"
 import { copyLink } from "~/lib/copy-link"
 import type { resolvePrefs } from "~/lib/prefs"
-import { CHAT_HINT, HIGHLIGHTS_HINT, SHORTCUT_HINTS } from "~/lib/shortcuts"
+import { CHAT_HINT, HIGHLIGHTS_HINT, READER_HINTS, SHORTCUT_HINTS } from "~/lib/shortcuts"
 import { cn } from "~/lib/utils"
 
 const BUTTON = "rounded-md p-2 text-muted-fg hover:bg-muted hover:text-fg"
@@ -55,6 +56,7 @@ export function ReaderTopBar({
 	onSidebar,
 	onChat,
 	onTags,
+	onShortcuts,
 	outline,
 }: {
 	headerRef: React.RefObject<HTMLElement | null>
@@ -80,6 +82,8 @@ export function ReaderTopBar({
 	/** Opens the sidebar on the article's chat (AI accounts); no button without it. */
 	onChat?: () => void
 	onTags: () => void
+	/** Opens the list of keyboard shortcuts; none while the article isn't on screen. */
+	onShortcuts?: () => void
 	/** The article's contents: no button for an article without them. `open`: docked or slid in. */
 	outline?: { open: boolean; onToggle: () => void }
 }) {
@@ -157,6 +161,18 @@ export function ReaderTopBar({
 							className={cn(BUTTON, outline.open && "bg-muted text-fg")}
 						>
 							<TableOfContents className="size-5" aria-hidden />
+						</button>
+					) : null}
+					{onShortcuts ? (
+						// For keyboards: not on phones.
+						<button
+							type="button"
+							onClick={onShortcuts}
+							aria-label={tc("shortcuts.show")}
+							{...tooltip(tc("shortcuts.show"), READER_HINTS.help)}
+							className={cn(BUTTON, "hidden md:block")}
+						>
+							<Keyboard className="size-5" aria-hidden />
 						</button>
 					) : null}
 				</div>

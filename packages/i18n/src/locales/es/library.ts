@@ -197,6 +197,8 @@ export default {
 		cancel: "Cancelar",
 		saving: "Guardando…",
 		saved: "Guardado en tu biblioteca.",
+		already: "Ya está en tu biblioteca.",
+		open: "Abrir",
 		title: "Guardar un enlace",
 		description:
 			"Pega la dirección de un artículo. Lo descargamos, extraemos el texto y guardamos una copia limpia.",

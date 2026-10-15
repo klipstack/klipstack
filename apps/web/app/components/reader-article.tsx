@@ -1,4 +1,4 @@
-import { rangeFromOffsets, type TextSelector } from "@klipstack/anchor"
+import { describeRange, rangeFromOffsets, type TextSelector } from "@klipstack/anchor"
 import type { AiCitation, AiThreadAction } from "@klipstack/db"
 import { Loader2 } from "lucide-react"
 import { useCallback, useEffect, useInsertionEffect, useRef, useState } from "react"
@@ -18,6 +18,7 @@ import { prefetchNoteEditor } from "~/components/note-field"
 import { tiltFor } from "~/components/post-it"
 import { type OutlineState, ReaderOutline } from "~/components/reader-outline"
 import { ReaderSidebar, type SidebarTab } from "~/components/reader-sidebar"
+import { ReadingMarker } from "~/components/reading-marker"
 import { SelectionToolbar } from "~/components/selection-toolbar"
 import {
 	type ArticleSelection,
@@ -35,6 +36,7 @@ import { useHighlightResize } from "~/hooks/use-highlight-resize"
 import { useMediaQuery } from "~/hooks/use-media-query"
 import { type ArticleNote, useNoteAutosave } from "~/hooks/use-note-autosave"
 import { useAlignForSheet } from "~/hooks/use-reader-bar"
+import { useReadingCursor } from "~/hooks/use-reading-cursor"
 import { copyText } from "~/lib/copy-link"
 import { highlightColor } from "~/lib/highlight-colors"
 import {
@@ -52,7 +54,12 @@ import {
 } from "~/lib/highlights.client"
 import { readerClassNames, type resolvePrefs } from "~/lib/prefs"
 import { rangeText } from "~/lib/range-text.client"
-import { isChatShortcut, isHighlightsShortcut } from "~/lib/shortcuts"
+import {
+	isChatShortcut,
+	isHighlightsShortcut,
+	type ReaderShortcut,
+	readerShortcut,
+} from "~/lib/shortcuts"
 import { LONG_UNDO_MS, showToast } from "~/lib/toast"
 import { cn } from "~/lib/utils"
 import type { ReaderData } from "~/routes/read"
@@ -111,6 +118,7 @@ export function ReaderArticle({
 	showSidebarTab,
 	engage,
 	outline,
+	onShortcuts,
 	header,
 	footer,
 }: {
@@ -128,6 +136,8 @@ export function ReaderArticle({
 	engage: () => void
 	/** The article's contents, shared with the top bar's button. */
 	outline: OutlineState
+	/** `?`: the list of keyboard shortcuts. */
+	onShortcuts: () => void
 	header: React.ReactNode
 	footer: (note: ArticleNote) => React.ReactNode
 }) {
@@ -618,6 +628,123 @@ export function ReaderArticle({
 		/>
 	)
 
+	// ---- reading by paragraph, from the keyboard ----
+	const cursor = useReadingCursor(contentRef, html)
+	// The answer or note `[`/`]` went to last: the next step goes on from it.
+	const lastStop = useRef<string | null>(null)
+	/** The AI answers and the notes in the article, in its order. */
+	const stops = () => {
+		const out: Array<{ kind: "thread" | "note"; id: string; key: string; range: Range }> = []
+		for (const card of shownCards) {
+			const range = threadRangesRef.current.get(card.id)
+			if (range) out.push({ kind: "thread", id: card.id, key: `thread:${card.id}`, range })
+		}
+		for (const item of items) {
+			const range = item.note && !isTemporary(item.id) ? rangesRef.current.get(item.id) : null
+			if (range) out.push({ kind: "note", id: item.id, key: `note:${item.id}`, range })
+		}
+		return out.sort((a, b) => a.range.compareBoundaryPoints(Range.START_TO_START, b.range))
+	}
+	const goToStop = (step: 1 | -1): boolean => {
+		const all = stops()
+		const paragraph = cursor.ensure()
+		if (!paragraph || !all.length) return false
+		// From the last stop while it is in the marked paragraph, by its place in the list (two stops
+		// can start at the same letter: a note and the answer asked from it); else from the
+		// paragraph's start, so that ] reaches a stop inside it.
+		const at = all.findIndex(
+			(s) =>
+				s.key === lastStop.current &&
+				paragraph.isPointInRange(s.range.startContainer, s.range.startOffset),
+		)
+		const after = (r: Range) => r.compareBoundaryPoints(Range.START_TO_START, paragraph)
+		const next =
+			at >= 0
+				? all[at + step]
+				: step === 1
+					? all.find((s) => after(s.range) >= 0)
+					: all.findLast((s) => after(s.range) < 0)
+		if (!next) return true
+		lastStop.current = next.key
+		cursor.markAt(next.range)
+		if (next.kind === "thread") {
+			closePopover()
+			ai.open(next.id)
+		} else {
+			ai.close()
+			if (marginRoom) {
+				setActiveId(next.id)
+				setActiveHighlight(next.range)
+			} else focusResize(next.id)
+		}
+		return true
+	}
+	const readerAct = (shortcut: ReaderShortcut): boolean => {
+		switch (shortcut) {
+			case "nextParagraph":
+				cursor.move(1)
+				return true
+			case "prevParagraph":
+				cursor.move(-1)
+				return true
+			case "askParagraph": {
+				const root = contentRef.current
+				// The marked paragraph, while it is on screen: not one scrolled away from.
+				const paragraph = cursor.shown()
+				if (!aiEnabled || !paragraph || !root) return false
+				const passage = describeRange(paragraph, root)
+				if (!passage) return false
+				ask(passage, "ask")
+				return true
+			}
+			case "nextNote":
+				return goToStop(1)
+			case "prevNote":
+				return goToStop(-1)
+			case "brief": {
+				if (!aiEnabled) return false
+				// A brief made opens or closes; none yet, its button gets the focus: Enter makes one.
+				const opening = !brief.brief || brief.writing || !brief.open
+				if (brief.brief && !brief.writing) brief.setOpen(opening)
+				if (opening)
+					requestAnimationFrame(() => {
+						const card = articleRef.current?.querySelector<HTMLElement>("[data-brief]")
+						if (!card) return
+						const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+						const top = card.getBoundingClientRect().top + window.scrollY - window.innerHeight / 3
+						window.scrollTo({ top: Math.max(0, top), behavior: still ? "auto" : "smooth" })
+						if (!brief.brief && card instanceof HTMLButtonElement)
+							card.focus({ preventScroll: true })
+					})
+				return true
+			}
+			case "help":
+				onShortcuts()
+				return true
+			case "focus":
+				cursor.toggleFocus()
+				return true
+			case "leave":
+				// Escape also closes whatever else is open: it is not taken.
+				cursor.leave()
+				return false
+			default:
+				return false
+		}
+	}
+	const latestReaderAct = useRef(readerAct)
+	useInsertionEffect(() => {
+		latestReaderAct.current = readerAct
+	})
+	useEffect(() => {
+		const onKey = (e: KeyboardEvent) => {
+			const shortcut = readerShortcut(e)
+			if (shortcut && latestReaderAct.current(shortcut)) e.preventDefault()
+		}
+		document.addEventListener("keydown", onKey)
+		return () => document.removeEventListener("keydown", onKey)
+	}, [])
+
 	return (
 		<AiAllowanceContext.Provider value={allowance.allowance}>
 			<AiResetsOnContext.Provider value={data.ai.resetsOn}>
@@ -667,6 +794,8 @@ export function ReaderArticle({
 							// While a highlight's toolbar or note editor is open, the others dim (app.css).
 							data-focus={resize.state !== "pointer" && focusItem ? "true" : undefined}
 							data-resizing={resize.state === "pointer" ? "true" : undefined}
+							// Focus mode (`f`): all but the marked paragraph dims (app.css).
+							data-reading-focus={cursor.focus ? "" : undefined}
 							// Its color, for the mark in focus (`klip-active`).
 							{...(marked ? highlightColor(marked.color) : {})}
 							className="reader-content prose max-w-none"
@@ -707,6 +836,13 @@ export function ReaderArticle({
 							renderEditor={(item) => noteEditor(item, { kind: "margin" })}
 							cards={marginCards}
 							cardRangesRef={threadRangesRef}
+						/>
+					) : null}
+					{cursor.current ? (
+						<ReadingMarker
+							paragraph={cursor.current}
+							articleRef={articleRef}
+							contentRef={contentRef}
 						/>
 					) : null}
 					{footer(note)}
