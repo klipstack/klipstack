@@ -8,6 +8,7 @@ import { safeHost, sourceLabel } from "~/lib/site-label"
 import { LONG_UNDO_MS, showToast } from "~/lib/toast"
 import { cn } from "~/lib/utils"
 import type { HighlightListItem } from "~/services/highlights.server"
+import { ClippingPaper } from "./clipping"
 import { HighlightNoteEditor } from "./highlight-note-editor"
 import { NoteText } from "./note-text"
 import { PostIt, tiltFor } from "./post-it"
@@ -30,7 +31,7 @@ export const DEALT = [
 ]
 
 /**
- * The highlights board's card: the quote large, in its highlight's color, the note a post-it stuck
+ * The highlights board's card, a clipping (ClippingPaper): the quote large, in its highlight's color, the note a post-it stuck
  * on it and written on in place, and the article it came from. The whole card opens the highlight in
  * the reader. `withArticle` adds the article's line (not under the article's own heading); `dealt`
  * tilts the card by its place in a Shuffle hand.
@@ -82,11 +83,12 @@ export function QuoteCard({
 			{...highlightColor(h.color)}
 			data-testid="quote-card"
 			className={cn(
-				"group relative isolate mb-5 break-inside-avoid rounded-2xl border border-border bg-card px-5 pt-4 pb-4 shadow-[0_1px_2px_rgb(0_0_0/0.05)] transition-[box-shadow,transform,opacity] hover:shadow-[0_8px_24px_-12px_rgb(0_0_0/0.3)]",
+				"group clipping mb-1 break-inside-avoid px-5 pt-[calc(var(--clip-top)+1rem)] pb-4 transition-[transform,opacity] motion-reduce:transition-none",
 				dealt !== undefined && cn(DEALT[dealt % DEALT.length], "hover:rotate-0"),
 				deleting && "opacity-40",
 			)}
 		>
+			<ClippingPaper id={h.id} />
 			<span
 				aria-hidden
 				data-testid="quote-mark"
@@ -97,7 +99,7 @@ export function QuoteCard({
 			<Link
 				to={`/read/${h.documentId}#h=${h.id}`}
 				className={cn(
-					"block font-serif text-fg after:absolute after:inset-0 after:rounded-2xl after:content-['']",
+					"block font-serif text-fg after:absolute after:inset-0 after:top-(--clip-top) after:content-['']",
 					quoteSize(h.exact),
 				)}
 			>
@@ -150,7 +152,7 @@ export function QuoteCard({
 				</PostIt>
 			) : null}
 			{withArticle ? <ArticleLine h={h} /> : null}
-			<div className="absolute top-2 right-2 z-10 flex gap-0.5 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
+			<div className="absolute top-[calc(var(--clip-top)+0.5rem)] right-2 z-10 flex gap-0.5 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
 				{note || editing ? null : (
 					<button
 						type="button"

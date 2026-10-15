@@ -320,6 +320,19 @@ test("notebook: each article beside its note, written in place, found and narrow
 	await waitForHydration(page)
 	await expect(page.getByTestId("note-card")).toHaveCount(3)
 	await expect(page.getByTestId("quote-card")).toHaveCount(1)
+	// Cards are clippings taped up: however the tape is set (each of its cuts), it stays inside the
+	// card's box, or a column break would leave it at the foot of the column before.
+	const card = page.getByTestId("quote-card")
+	const tape = card.getByTestId("clipping-tape")
+	const box = (await card.boundingBox())!
+	for (const cut of ["0", "1", "2"]) {
+		await tape.evaluate((el, cut) => {
+			el.dataset.cut = cut
+		}, cut)
+		const taped = (await tape.boundingBox())!
+		expect(taped.y).toBeGreaterThanOrEqual(box.y - 0.5)
+		expect(taped.x).toBeGreaterThanOrEqual(box.x)
+	}
 	await page.getByRole("link", { name: "Open Tides" }).click()
 	await expect(page).toHaveURL(new RegExp(`/read/${tides}#note$`))
 	const sidebar = page.getByRole("complementary", { name: "Notes and highlights" })

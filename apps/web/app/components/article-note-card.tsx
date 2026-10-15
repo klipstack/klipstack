@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router"
 import type { LinkTargets } from "~/lib/note-links"
 import { sourceLabel } from "~/lib/site-label"
 import { cn } from "~/lib/utils"
+import { ClippingPaper } from "./clipping"
 import { NoteText } from "./note-text"
 import { NotebookNote } from "./notebook-note"
 import { PostIt, tiltFor } from "./post-it"
@@ -21,7 +22,7 @@ export interface ArticleNoteCardNote {
 }
 
 /**
- * An article's note among the Notebook's cards. It is a card like a highlight's, with the article
+ * An article's note among the Notebook's cards. It is a clipping like a highlight's, with the article
  * where the quote would be: a small cover, the title set as a book's, author and site in small
  * caps. The note is a large post-it stuck on it, written on in place. `dealt` tilts the card by
  * its place in a Shuffle hand. `readOnly` shows the note without its editor: where the same note
@@ -46,10 +47,11 @@ export function ArticleNoteCard({
 		<li
 			data-testid="note-card"
 			className={cn(
-				"group relative isolate mb-5 break-inside-avoid rounded-2xl border border-border bg-card px-5 pt-4 pb-3 shadow-[0_1px_2px_rgb(0_0_0/0.05)] transition-[box-shadow,transform] hover:shadow-[0_8px_24px_-12px_rgb(0_0_0/0.3)]",
+				"group clipping mb-1 break-inside-avoid px-5 pt-[calc(var(--clip-top)+1rem)] pb-3 transition-transform motion-reduce:transition-none",
 				dealt !== undefined && cn(DEALT[dealt % DEALT.length], "hover:rotate-0"),
 			)}
 		>
+			<ClippingPaper id={n.documentId} />
 			<div className="flex items-start gap-3">
 				<ArticleThumb
 					image={n.image}

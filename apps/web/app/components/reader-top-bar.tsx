@@ -29,7 +29,7 @@ const BUTTON = "rounded-md p-2 text-muted-fg hover:bg-muted hover:text-fg"
 
 /**
  * The reader's sticky top bar: back, reading settings, star, the chat and the highlights sidebar,
- * and the article menu (archive among its actions). Hidden on phones it leaves its 2px progress line (plus the 1px border) at the
+ * and the article menu (archive among its actions). Hidden on phones it leaves its progress ribbon (2px of it, plus the 1px border) at the
  * top edge. `ready`: the article is on screen (not failed or still being processed).
  */
 export function ReaderTopBar({
@@ -92,12 +92,25 @@ export function ReaderTopBar({
 			)}
 		>
 			{ready ? (
+				// A bookmark ribbon: the band, and its notched end hanging below it where the reader is.
+				// Clipped at the sides, so the end moved off to the right never widens the page.
 				<div
-					data-testid="reading-progress"
 					aria-hidden
-					className="absolute inset-x-0 bottom-0 h-[3px] origin-left ink-line transition-transform duration-150"
-					style={{ transform: `scaleX(${progress})` }}
-				/>
+					className="pointer-events-none absolute inset-x-0 top-full -mt-[3px] h-6 overflow-hidden"
+				>
+					<div
+						data-testid="reading-progress"
+						className="absolute inset-x-0 top-0 h-[3px] origin-left ink-line transition-transform duration-150 motion-reduce:transition-none"
+						style={{ transform: `scaleX(${progress})` }}
+					/>
+					<div
+						data-testid="reading-progress-end"
+						className="absolute inset-0 transition-transform duration-150 motion-reduce:transition-none"
+						style={{ transform: `translateX(max(0.75rem, ${progress * 100}%))` }}
+					>
+						<div className={cn("ribbon-end ink-line", progress === 0 && "hidden")} />
+					</div>
+				</div>
 			) : null}
 			<div className="relative mx-auto flex max-w-5xl items-center justify-between gap-2 px-3 py-2">
 				{ready ? (

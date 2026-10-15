@@ -527,11 +527,111 @@ body {
 @utility ink-line {
 	background: color-mix(in oklch, var(--hl-yellow-solid), var(--hl-orange-solid) 40%);
 }
+/* Reading progress as a bookmark ribbon: a band of `ink-line` along the top bar, its notched end
+   hanging down where the reader is. The band is scaled to the progress (ReaderTopBar); the end is
+   moved there on its own, so the scale never stretches it. */
+.ribbon-end {
+	position: absolute;
+	top: 0;
+	left: -0.75rem;
+	width: 0.75rem;
+	height: 1.25rem;
+	clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 76%, 0 100%);
+}
 @media (prefers-reduced-motion: reduce) {
 	.swipe,
 	.hl-ink[data-fresh],
 	.hl-ink[data-fresh][data-rtl] {
 		animation: none;
+	}
+}
+
+/* ---------- Notebook: clippings ---------- */
+/* A quote cut out of the article with scissors (ClippingPaper): square corners, each edge a few
+   pixels off true, a thin edge where the cut shows, and the clear tape of the post-its at a corner.
+   The paper is a layer of its own under the card's content: a clipped shape can't cast a box
+   shadow, so the layer casts it with a filter. Room above it (`--clip-top`) holds the tape. */
+.clipping {
+	--clip-top: 1.125rem;
+	position: relative;
+	isolation: isolate;
+}
+.clipping-paper {
+	position: absolute;
+	inset: var(--clip-top) 0 0;
+	z-index: -1;
+	pointer-events: none;
+	filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.1)) drop-shadow(0 5px 8px rgb(0 0 0 / 0.06));
+	transition: filter 0.2s;
+}
+.clipping:hover > .clipping-paper {
+	filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.1)) drop-shadow(0 12px 14px rgb(0 0 0 / 0.14));
+}
+.clipping-paper::before,
+.clipping-paper::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	clip-path: var(--cut);
+}
+.clipping-paper::before {
+	background: var(--k-border);
+}
+.clipping-paper::after {
+	inset: 1px;
+	background: var(--k-card);
+}
+/* Three cuts; offsets in pixels, so a tall clipping is cut as finely as a short one. */
+.clipping-paper[data-cut="0"] {
+	--cut: polygon(
+		0 4px,
+		38% 0,
+		100% 3px,
+		calc(100% - 2px) 47%,
+		100% 100%,
+		61% calc(100% - 4px),
+		3px 100%,
+		0 52%
+	);
+}
+.clipping-paper[data-cut="1"] {
+	--cut: polygon(
+		3px 0,
+		100% 4px,
+		100% 58%,
+		calc(100% - 3px) 100%,
+		33% 100%,
+		0 calc(100% - 3px),
+		2px 41%
+	);
+}
+.clipping-paper[data-cut="2"] {
+	--cut: polygon(0 2px, 64% 4px, calc(100% - 3px) 0, 100% 100%, 0 calc(100% - 4px));
+}
+/* The tape, at the top-left corner (the card's buttons are at the right), set by hand each time. */
+.clipping-tape {
+	position: absolute;
+	/* Across the paper's top edge, inside the card's box however it leans. */
+	top: 0.4375rem;
+	left: 1rem;
+	width: 4.75rem;
+	height: 1.375rem;
+	rotate: -7deg;
+	background: var(--k-note-tape);
+	box-shadow: 0 1px 2px rgb(0 0 0 / 0.12);
+	pointer-events: none;
+}
+.clipping-tape[data-cut="1"] {
+	left: 1.75rem;
+	rotate: 4deg;
+}
+.clipping-tape[data-cut="2"] {
+	left: 0.5rem;
+	rotate: -11deg;
+}
+@media (prefers-reduced-motion: reduce) {
+	.clipping-paper {
+		transition: none;
 	}
 }
 

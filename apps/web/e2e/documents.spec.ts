@@ -10,7 +10,7 @@ import {
 	topics,
 	user,
 } from "@klipstack/db"
-import { expect, type Page, test } from "@playwright/test"
+import { expect, type Locator, type Page, test } from "@playwright/test"
 import { signupUser, waitForHydration } from "./helpers"
 import { insertArticle } from "./seed"
 
@@ -122,6 +122,14 @@ test("save via API with captured html → extracted → readable → archive", a
 			(r.request().postData() ?? "").includes("progress"),
 	)
 	await expect.poll(scaleOf).toBeGreaterThan(0.4)
+	// A bookmark ribbon: its notched end hangs where the band ends, and never widens the page.
+	const right = async (el: Locator) => {
+		const b = (await el.boundingBox())!
+		return Math.round(b.x + b.width)
+	}
+	const end = page.getByTestId("reading-progress-end").locator("div")
+	await expect.poll(async () => Math.abs((await right(end)) - (await right(bar)))).toBeLessThan(2)
+	expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 	await page.goto(`/read/${body.id}`)
 	await expect(page.locator(".reader-content")).toContainText("There are two types of schedule")
 	await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(200)
