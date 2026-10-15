@@ -1,6 +1,6 @@
 ---
 name: verify
-description: Proves a change to Klipstack works before anyone calls it done. It runs `pnpm verify`, then the proof that fits what changed (a test seen failing without the change, the page in a browser, the API's answer), and reports the evidence. Use before saying a task is done or fixed, before committing or releasing, when a hook asks for `pnpm verify`, and when the user asks to check, test or prove a change.
+description: Proves a change to Klipstack works before anyone calls it done. It runs `pnpm verify`, then the proof that fits what changed (a test seen failing without the change, the page in a browser, the API's answer), and reports the evidence. Use before saying a task is done or fixed, before committing or opening a pull request, when a hook asks for `pnpm verify`, and when the user asks to check, test or prove a change.
 ---
 
 # Verify a change
@@ -66,7 +66,7 @@ Then check that the test fails for the reason you expect.
 
 ## 4. Report the evidence
 
-In your final message, and in your report when you release:
+In your final message, and in the pull request's Verification section:
 - What you ran and what it showed: commands, test names, screenshot paths, numbers.
 - What you did not verify, and why. "Not verified" is an honest answer. A guess written as a fact
   is not.
