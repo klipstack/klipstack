@@ -5,7 +5,7 @@
 set -euo pipefail
 
 if [ "$(git symbolic-ref --short -q HEAD || true)" = "main" ]; then
-  echo "Never commit on main: work on a branch, then release it (.claude/skills/release/SKILL.md)." >&2
+  echo "Never commit on main: every change reaches it through a pull request (AGENTS.md)." >&2
   echo "Create a branch, which keeps these changes: git switch -c <type>/<short-name>" >&2
   exit 1
 fi

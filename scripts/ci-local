@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Run on this machine every job of .github/workflows/ci.yml: `pnpm ci:local`. CI runs them all on
-# every push to main, before it deploys; this finds a failure before the push. Keep it in step with ci.yml: a check
+# every pull request; this finds a failure before the push. Keep it in step with ci.yml: a check
 # added there belongs here too. One difference on purpose: CI leaves out the mobile app (its
 # install, typecheck and tests, which double the install); here it is checked with the rest.
 set -euo pipefail
@@ -24,7 +24,7 @@ Runs the checks of .github/workflows/ci.yml, stopping at the first failure:
             installs or copies file by file changed: the Dockerfile, a dependency, the worker,
             the server entry, the admin CLI.
 
-  --base REF   what the work is compared with (default: origin/main). When every file changed since REF
+  --base REF   what the work is compared with (default: main). When every file changed since REF
                is Markdown or under docs/, nothing runs: no check reads them.
   --only LIST  run only these steps, e.g. --only static,unit
 
@@ -33,14 +33,10 @@ Each step writes to a log file; a failure prints the end of it. Needs the local 
 
 As in CI, build, e2e and unit use an empty database: `klipstack_ci_<pid>`, created and migrated
 here, dropped at the end. The development database is not touched.
-
-A full pass (no --only) of committed work is what the agent hooks ask for before a push to main
-(.claude/skills/release/SKILL.md).
 HELP
 }
 
-base=origin/main
-git rev-parse -q --verify origin/main >/dev/null || base=main
+base=main
 only=""
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -98,26 +94,10 @@ run() {
 
 port_in_use() { lsof -nP -iTCP:"$1" -sTCP:LISTEN >/dev/null 2>&1; }
 
-# A full pass records, for the agent hooks (scripts/agent-hook.mjs), the files it checked, as
-# `pnpm verify` does, and the change, which a push to main must have passed (release skill). Taken
-# before the checks run. Uncommitted work has no change to record.
-tree=$(node scripts/agent-hook.mjs fingerprint 2>/dev/null || true)
-change=$(node scripts/agent-hook.mjs change-id "$base" 2>/dev/null || true)
-passed() {
-  [ -z "$only" ] || return 0
-  [ -z "$tree" ] || node scripts/agent-hook.mjs mark-verified "$tree" || true
-  if [ -n "$change" ]; then
-    node scripts/agent-hook.mjs mark-ci-passed "$change" || true
-  else
-    echo "  note: uncommitted changes: commit them and run again before pushing to main"
-  fi
-}
-
 # No check reads Markdown or docs/: a change of only those has nothing to check.
 changed=$({ git diff --name-only "$base"...HEAD; git diff --name-only HEAD; git ls-files --others --exclude-standard; } | sort -u)
 if [ -n "$changed" ] && ! printf '%s\n' "$changed" | grep -Ev '^docs/|\.md$' >/dev/null; then
   echo "Only Markdown and docs/ changed since $base. Nothing to check."
-  passed
   exit 0
 fi
 
@@ -237,5 +217,4 @@ if { [ -n "$only" ] && wanted image; } ||
   docker image rm "klipstack-ci-local:$$" >/dev/null 2>&1 || true
 fi
 
-passed
 echo "All checks passed. Logs: $logs"
