@@ -631,17 +631,17 @@ export function ReaderArticle({
 	// ---- reading by paragraph, from the keyboard ----
 	const cursor = useReadingCursor(contentRef, html)
 	// The answer or note `[`/`]` went to last: the next step goes on from it.
-	const lastStop = useRef<Range | null>(null)
+	const lastStop = useRef<string | null>(null)
 	/** The AI answers and the notes in the article, in its order. */
 	const stops = () => {
-		const out: Array<{ kind: "thread" | "note"; id: string; range: Range }> = []
+		const out: Array<{ kind: "thread" | "note"; id: string; key: string; range: Range }> = []
 		for (const card of shownCards) {
 			const range = threadRangesRef.current.get(card.id)
-			if (range) out.push({ kind: "thread", id: card.id, range })
+			if (range) out.push({ kind: "thread", id: card.id, key: `thread:${card.id}`, range })
 		}
 		for (const item of items) {
 			const range = item.note && !isTemporary(item.id) ? rangesRef.current.get(item.id) : null
-			if (range) out.push({ kind: "note", id: item.id, range })
+			if (range) out.push({ kind: "note", id: item.id, key: `note:${item.id}`, range })
 		}
 		return out.sort((a, b) => a.range.compareBoundaryPoints(Range.START_TO_START, b.range))
 	}
@@ -649,18 +649,23 @@ export function ReaderArticle({
 		const all = stops()
 		const paragraph = cursor.ensure()
 		if (!paragraph || !all.length) return false
-		// From the last stop while it is in the marked paragraph, else from the paragraph's start, so
-		// that ] reaches a stop inside it.
-		const last = lastStop.current
-		const fromStop = last && paragraph.isPointInRange(last.startContainer, last.startOffset)
-		const from = fromStop ? last : paragraph
-		const after = (r: Range) => r.compareBoundaryPoints(Range.START_TO_START, from)
+		// From the last stop while it is in the marked paragraph, by its place in the list (two stops
+		// can start at the same letter: a note and the answer asked from it); else from the
+		// paragraph's start, so that ] reaches a stop inside it.
+		const at = all.findIndex(
+			(s) =>
+				s.key === lastStop.current &&
+				paragraph.isPointInRange(s.range.startContainer, s.range.startOffset),
+		)
+		const after = (r: Range) => r.compareBoundaryPoints(Range.START_TO_START, paragraph)
 		const next =
-			step === 1
-				? all.find((s) => (fromStop ? after(s.range) > 0 : after(s.range) >= 0))
-				: all.findLast((s) => after(s.range) < 0)
+			at >= 0
+				? all[at + step]
+				: step === 1
+					? all.find((s) => after(s.range) >= 0)
+					: all.findLast((s) => after(s.range) < 0)
 		if (!next) return true
-		lastStop.current = next.range
+		lastStop.current = next.key
 		cursor.markAt(next.range)
 		if (next.kind === "thread") {
 			closePopover()
@@ -684,8 +689,10 @@ export function ReaderArticle({
 				return true
 			case "askParagraph": {
 				const root = contentRef.current
-				if (!aiEnabled || !cursor.current || !root) return false
-				const passage = describeRange(cursor.current, root)
+				// The marked paragraph, while it is on screen: not one scrolled away from.
+				const paragraph = cursor.shown()
+				if (!aiEnabled || !paragraph || !root) return false
+				const passage = describeRange(paragraph, root)
 				if (!passage) return false
 				ask(passage, "ask")
 				return true

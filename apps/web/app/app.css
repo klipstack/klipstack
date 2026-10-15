@@ -829,7 +829,7 @@ body {
 .reader-content[data-reading-focus] ::highlight(klip-reading) {
 	color: var(--k-fg);
 }
-.reader-content[data-reading-focus] :is(img, picture, video, svg, iframe, table),
+.reader-content[data-reading-focus] :is(img, picture, video, svg, iframe),
 .reader-content[data-reading-focus] ~ .hl-inks {
 	opacity: 0.3;
 	transition: opacity 0.2s;

@@ -54,6 +54,21 @@ test("pasting a link anywhere saves it, with Open and Undo", async ({ page }) =>
 	await expect(already).toBeVisible()
 	await expect(already.getByRole("button", { name: "Undo" })).toHaveCount(0)
 	expect(await saved(userId, reading!.url)).toHaveLength(1)
+
+	// On the library, where the Save link dialog is: saved, the dialog left closed.
+	await page.goto("/library")
+	await waitForHydration(page)
+	const other = `https://example.com/pasted/library-${Date.now()}`
+	await paste(page, other)
+	await expect(page.getByRole("status").filter({ hasText: "Saved to your library." })).toBeVisible()
+	await expect(page.getByRole("dialog", { name: "Save a link" })).toBeHidden()
+	await expect.poll(async () => (await saved(userId, other)).length).toBe(1)
+
+	// A link the save refuses: its reason, as the dialog would show it.
+	await paste(page, `https://example.com/${"x".repeat(5000)}`)
+	await expect(
+		page.getByRole("status").filter({ hasText: "That does not look like a valid link." }),
+	).toBeVisible()
 })
 
 test("text that is not a link, or a paste into a field, saves nothing", async ({ page }) => {
@@ -65,6 +80,7 @@ test("text that is not a link, or a paste into a field, saves nothing", async ({
 	const field = page.getByRole("main").getByRole("searchbox")
 	await field.focus()
 	await paste(page, "https://example.com/into-the-field")
+	// Nothing to wait for when nothing happens: time for a save's answer to come back.
 	await page.waitForTimeout(1000)
 	await expect(page.getByRole("status").filter({ hasText: "library" })).toHaveCount(0)
 	expect(await db.select().from(documents).where(eq(documents.userId, owner!.id))).toHaveLength(0)

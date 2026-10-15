@@ -1,4 +1,4 @@
-import { useId } from "react"
+import { useId, useSyncExternalStore } from "react"
 import { useTranslation } from "react-i18next"
 import { isSingleKey, SHORTCUT_GROUPS } from "~/lib/shortcuts"
 import { cn } from "~/lib/utils"
@@ -30,8 +30,19 @@ export function ShortcutList({
 	)
 }
 
+/** "⌘" on Apple platforms, "Ctrl " elsewhere; "⌘" until mounted, so hydration matches. */
+function useModifierLabel(): (key: string) => string {
+	const apple = useSyncExternalStore(
+		() => () => undefined,
+		() => /Mac|iPhone|iPad/.test(navigator.platform),
+		() => true,
+	)
+	return (key) => (apple || !key.startsWith("⌘") ? key : `Ctrl ${key.slice(1)}`)
+}
+
 function ShortcutGroup({ id, ai, off }: { id: Group; ai: boolean; off: boolean }) {
 	const { t } = useTranslation("common")
+	const label = useModifierLabel()
 	const headingId = useId()
 	const rows = SHORTCUT_GROUPS.find((g) => g.id === id)!.rows.filter(
 		(row) => ai || !("ai" in row && row.ai),
@@ -62,7 +73,7 @@ function ShortcutGroup({ id, ai, off }: { id: Group; ai: boolean; off: boolean }
 													keyOff && "text-muted-fg line-through opacity-60",
 												)}
 											>
-												{key}
+												{label(key)}
 											</kbd>
 										))}
 									</span>

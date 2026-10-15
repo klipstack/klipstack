@@ -215,15 +215,11 @@ function isControl(el: Element | null): boolean {
 }
 
 /**
- * Every shortcut, for the list in Settings and the reader's `?`. A row's label is
- * `common:shortcuts.rows.<id>`, a group's `common:shortcuts.groups.<id>`. `ai`: only with AI.
- */
-/**
  * A hint for a key that types a character (a letter, `#`, `[`, `?`…): the keys the setting turns
  * off. Enter, the arrows, Escape and ⌘ with a key keep working.
  */
 export function isSingleKey(hint: string): boolean {
-	return !hint.startsWith("⌘") && hint !== "Esc" && !["↵", "↑", "↓", "←", "→"].includes(hint)
+	return !hint.startsWith("⌘") && hint !== "Esc" && !["↵", "↑", "↓", "←", "→", "⌫"].includes(hint)
 }
 
 interface ShortcutRow {
@@ -232,6 +228,10 @@ interface ShortcutRow {
 	readonly ai?: boolean
 }
 
+/**
+ * Every shortcut, for the list in Settings and the reader's `?`. A row's label is
+ * `common:shortcuts.rows.<id>`, a group's `common:shortcuts.groups.<id>`. `ai`: only with AI.
+ */
 export const SHORTCUT_GROUPS = [
 	{
 		id: "general",
@@ -252,7 +252,8 @@ export const SHORTCUT_GROUPS = [
 			{ id: "archive", keys: [SHORTCUT_HINTS.archive] },
 			{ id: "unread", keys: [SHORTCUT_HINTS.unread] },
 			{ id: "tags", keys: [SHORTCUT_HINTS.tags] },
-			{ id: "delete", keys: [SHORTCUT_HINTS.delete] },
+			// Delete and Backspace too, which stay on with single keys off.
+			{ id: "delete", keys: [SHORTCUT_HINTS.delete, "⌫"] },
 			{ id: "select", keys: [SELECT_HINT] },
 			{ id: "selectRange", keys: ["⇧J", "⇧K"] },
 			{ id: "selectAll", keys: ["⌘A"] },
@@ -273,9 +274,12 @@ export const SHORTCUT_GROUPS = [
 			{ id: "chat", keys: [CHAT_HINT], ai: true },
 			{
 				id: "articleActions",
-				keys: (["star", "shortlist", "archive", "unread", "tags", "delete"] as const).map(
-					(a) => SHORTCUT_HINTS[a],
-				),
+				keys: [
+					...(["star", "shortlist", "archive", "unread", "tags", "delete"] as const).map(
+						(a) => SHORTCUT_HINTS[a],
+					),
+					"⌫",
+				],
 			},
 			{ id: "copyHighlight", keys: [COPY_HINT] },
 			{ id: "help", keys: [READER_HINTS.help] },

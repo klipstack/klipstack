@@ -22,7 +22,7 @@ const HTML = `<h2>Two schedules</h2>
 <p>July 2009<br><br>One reason programmers dislike meetings. Meetings cost them more.</p>
 <p>There are two types of schedule.</p>
 <blockquote><p>A quoted line.</p></blockquote>
-<ul><li>First item</li><li>Second item</li></ul>
+<ul><li>First item</li><li>Second item<ul><li>Nested item</li></ul></li></ul>
 ${LONG}`
 
 /** The article's text, as extraction keeps it (every text node, in order): offsets count in it. */
@@ -116,7 +116,9 @@ test("j and k step through the paragraphs with a marker; Escape leaves", async (
 		"There are two types of schedule.",
 		"A quoted line.",
 		"First item",
+		// A list item's own text, before the list inside it.
 		"Second item",
+		"Nested item",
 	]
 	for (const text of expected) {
 		await page.keyboard.press("j")
@@ -155,14 +157,22 @@ test("j and k step through the paragraphs with a marker; Escape leaves", async (
 	await expect(marker).toHaveCount(0)
 })
 
-test("with single-key shortcuts off, j does nothing", async ({ page }) => {
-	await open(page)
+test("with single-key shortcuts off, the reader's letter keys do nothing", async ({ page }) => {
+	await page.setViewportSize({ width: 1440, height: 900 })
+	await open(page, ["ai"], (ids) => seedThread(ids, "There are two types of schedule.", "Answer."))
 	await page.request.post("/prefs", { form: { shortcuts: "off" } })
 	await page.reload()
 	await waitForHydration(page)
-	await page.keyboard.press("j")
+	// `[`/`]` as Option or AltGr types them too.
+	for (const key of ["j", "k", "]", "Alt+]", "Control+Alt+]", "b", "f"])
+		await page.keyboard.press(key)
+	// A frame for anything the keys set off to show.
+	await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => done(null))))
 	await expect(page.getByTestId("reading-marker")).toHaveCount(0)
 	expect(await marked(page)).toBeNull()
+	await expect(page.getByRole("dialog", { name: "Explain" })).toHaveCount(0)
+	await expect(page.locator(".reader-content")).not.toHaveAttribute("data-reading-focus")
+	await expect(page.getByTestId("brief")).not.toBeFocused()
 })
 
 test("Enter asks about the marked paragraph; nothing is asked before the question", async ({
@@ -190,6 +200,18 @@ test("Enter asks about the marked paragraph; nothing is asked before the questio
 		.toEqual(["One reason programmers dislike meetings. Meetings cost them more."])
 })
 
+test("Enter asks nothing about a marked paragraph scrolled away from", async ({ page }) => {
+	await page.setViewportSize({ width: 1440, height: 900 })
+	await open(page, ["ai"])
+	await page.keyboard.press("j")
+	await expect.poll(() => marked(page)).toBe("Two schedules")
+	await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
+	await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => done(null))))
+	await page.keyboard.press("Enter")
+	await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => done(null))))
+	await expect(page.getByTestId("ai-card")).toHaveCount(0)
+})
+
 test("without AI, Enter on a paragraph asks nothing", async ({ page }) => {
 	await open(page)
 	await page.keyboard.press("j")
@@ -207,6 +229,8 @@ test("] and [ go from answer to note in the article's order, and mark their para
 		await seedThread(ids, "There are two types of schedule.", "First answer.")
 		await seedThread(ids, "Paragraph 12.", "Second answer.")
 		await db.insert(highlights).values([
+			// Where the first answer starts: a stop of its own all the same.
+			{ ...ids, ...at("There are two types"), note: "A note on two types." },
 			{ ...ids, ...at("Paragraph 5."), note: "A note on five." },
 			// No note: not a stop.
 			{ ...ids, ...at("Paragraph 8.") },
@@ -225,6 +249,9 @@ test("] and [ go from answer to note in the article's order, and mark their para
 
 	await page.keyboard.press("]")
 	await expect(openCard).toHaveCount(0)
+	await expect.poll(() => active()).toBe("There are two types")
+
+	await page.keyboard.press("]")
 	await expect.poll(() => active()).toBe("Paragraph 5.")
 	await expect.poll(() => marked(page)).toMatch(/^Paragraph 5\./)
 
@@ -240,6 +267,8 @@ test("] and [ go from answer to note in the article's order, and mark their para
 	await expect.poll(() => marked(page)).toMatch(/^Paragraph 5\./)
 	// Where [ takes Option or AltGr to type.
 	await page.keyboard.press("Alt+[")
+	await expect.poll(() => active()).toBe("There are two types")
+	await page.keyboard.press("Control+Alt+[")
 	await expect(openCard).toContainText("First answer.")
 	await expect.poll(() => marked(page)).toBe("There are two types of schedule.")
 })
@@ -290,7 +319,7 @@ test("f dims all but the marked paragraph; f again or Escape comes back", async 
 			.evaluate((el) => getComputedStyle(el).color)
 	expect(await color(".reader-content blockquote p")).not.toBe(await color("h1"))
 	await page.keyboard.press("j")
-	expect(await marked(page)).toBe("July 2009")
+	await expect.poll(() => marked(page)).toBe("July 2009")
 	await expect(content).toHaveAttribute("data-reading-focus", "")
 	await page.keyboard.press("f")
 	await expect(content).not.toHaveAttribute("data-reading-focus")
@@ -304,13 +333,16 @@ test("f dims all but the marked paragraph; f again or Escape comes back", async 
 test("Settings lists every shortcut; the AI's only with AI", async ({ page, browser }) => {
 	await signupUser(page, "Lister", { features: ["ai"] })
 	await page.goto("/settings/shortcuts")
+	await waitForHydration(page)
 	const reader = page.getByRole("region", { name: "In the reader" })
 	await expect(reader.getByRole("row", { name: /Next or previous paragraph/ })).toContainText("JK")
 	await expect(reader.getByRole("row", { name: /Ask the AI about the paragraph/ })).toBeVisible()
 	await expect(
 		page.getByRole("region", { name: "In lists" }).getByRole("row", { name: /^S Star$/ }),
 	).toBeVisible()
-	await expect(page.getByRole("region", { name: "Everywhere" })).toContainText("⌘K")
+	// ⌘ on Apple platforms only: the tests run on Linux.
+	await expect(page.getByRole("region", { name: "Everywhere" })).toContainText("Ctrl K")
+	await expect(page.getByRole("region", { name: "Everywhere" })).not.toContainText("⌘")
 
 	// The switch explains itself. Turned off, the single keys are marked off, the others not.
 	const toggle = page.getByRole("checkbox", { name: "Single-key shortcuts" })
@@ -329,6 +361,8 @@ test("Settings lists every shortcut; the AI's only with AI", async ({ page, brow
 	// Enter still opens; O doesn't.
 	await expect(openRow).not.toContainText("Off")
 	await expect(openRow.locator("kbd[data-off]")).toHaveText("O")
+	// Delete and Backspace still delete.
+	await expect(page.getByRole("row", { name: /^# ⌫ Delete/ })).not.toContainText("Off")
 	// Kept for the next visit.
 	await page.reload()
 	await waitForHydration(page)

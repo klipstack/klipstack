@@ -1,48 +1,56 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { supportsHighlightApi } from "~/lib/highlights.client"
 
-/** What `j` and `k` step through: the innermost blocks of text. */
-const BLOCKS = "p, li, blockquote, pre, h1, h2, h3, h4, h5, h6, dt, dd, figcaption"
+/** Where one paragraph ends and the next begins: around these elements. */
+const BLOCKS =
+	"p, li, blockquote, pre, h1, h2, h3, h4, h5, h6, dt, dd, figcaption, div, section, article, aside, header, footer, figure, ul, ol, dl, table, tr, td, th, hr"
+const SKIP = new Set(["SCRIPT", "STYLE", "TEMPLATE", "NOSCRIPT"])
 /** The marked paragraph, painted: full strength in the focus mode (app.css). */
 export const READING_HIGHLIGHT = "klip-reading"
 /** Below the sticky top bar. */
 const TOP = 72
 
 /**
- * The article's paragraphs in order, as ranges of its text. A block with blocks inside (a list item
- * with paragraphs, a quote) is left to them, and a block split by blank lines (`<br><br>`, as some
- * pages write paragraphs) is one paragraph per part.
+ * The article's paragraphs in order, as ranges of its text: the runs of text between the starts and
+ * ends of blocks (a list item's own text before its nested list is one), split again at blank lines
+ * (`<br><br>`, as some pages write paragraphs).
  */
 export function paragraphsIn(root: HTMLElement): Range[] {
 	const out: Range[] = []
-	for (const block of root.querySelectorAll<HTMLElement>(BLOCKS)) {
-		if (block.querySelector(BLOCKS) || block.getClientRects().length === 0) continue
-		let first: Text | null = null
-		let last: Text | null = null
-		let breaks = 0
-		const close = () => {
-			if (first && last) {
-				const range = document.createRange()
-				range.setStart(first, first.data.length - first.data.trimStart().length)
-				range.setEnd(last, last.data.trimEnd().length)
-				out.push(range)
-			}
-			first = last = null
+	let first: Text | null = null
+	let last: Text | null = null
+	let breaks = 0
+	const close = () => {
+		if (first && last) {
+			const range = document.createRange()
+			range.setStart(first, first.data.length - first.data.trimStart().length)
+			range.setEnd(last, last.data.trimEnd().length)
+			out.push(range)
 		}
-		const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT)
-		for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-			if (node instanceof HTMLBRElement) {
-				breaks++
-				continue
-			}
-			if (!(node instanceof Text) || !node.data.trim()) continue
-			if (breaks >= 2) close()
-			breaks = 0
-			first ??= node
-			last = node
-		}
-		close()
+		first = last = null
+		breaks = 0
 	}
+	const walk = (parent: Node) => {
+		for (let node = parent.firstChild; node; node = node.nextSibling) {
+			if (node instanceof Text) {
+				if (!node.data.trim()) continue
+				if (breaks >= 2) close()
+				breaks = 0
+				first ??= node
+				last = node
+			} else if (node instanceof HTMLBRElement) breaks++
+			else if (node instanceof Element && !SKIP.has(node.tagName)) {
+				if (!node.matches(BLOCKS)) walk(node)
+				else if (node.getClientRects().length > 0) {
+					close()
+					walk(node)
+					close()
+				}
+			}
+		}
+	}
+	walk(root)
+	close()
 	return out
 }
 
@@ -163,12 +171,20 @@ export function useReadingCursor(contentRef: React.RefObject<HTMLElement | null>
 	const ensure = useCallback((): Range | null => {
 		const root = contentRef.current
 		if (current && inView(current)) return current
-		const first = root ? (paragraphsIn(root).find(onScreen) ?? null) : null
+		const all = root ? paragraphsIn(root) : []
+		// None on screen (a tall picture): the next one down.
+		const first =
+			all.find(onScreen) ?? all.find((p) => p.getBoundingClientRect().top >= TOP) ?? null
 		setCurrent(first)
 		return first
 	}, [contentRef, current, inView])
 
+	/** The marked paragraph, unless it was scrolled away. */
+	const shown = useCallback(() => (current && inView(current) ? current : null), [current, inView])
+
 	const toggleFocus = useCallback(() => {
+		// Without the highlight API the marked paragraph would dim with the rest.
+		if (!supportsHighlightApi()) return
 		if (focus) setFocus(false)
 		else if (ensure()) setFocus(true)
 	}, [ensure, focus])
@@ -178,7 +194,7 @@ export function useReadingCursor(contentRef: React.RefObject<HTMLElement | null>
 		setFocus(false)
 	}, [])
 
-	return { current, focus, move, markAt, ensure, toggleFocus, leave }
+	return { current, focus, move, markAt, ensure, shown, toggleFocus, leave }
 }
 
 export type ReadingCursor = ReturnType<typeof useReadingCursor>
