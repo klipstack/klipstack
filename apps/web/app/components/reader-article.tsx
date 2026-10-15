@@ -616,6 +616,15 @@ export function ReaderArticle({
 	return (
 		<AiAllowanceContext.Provider value={allowance.allowance}>
 			<AiResetsOnContext.Provider value={data.ai.resetsOn}>
+				{/* Before the article: after the top bar in the order of the page, as on screen. */}
+				<ReaderOutline
+					contentRef={contentRef}
+					articleRef={articleRef}
+					headerRef={headerRef}
+					html={html}
+					pinned={prefs.outline === "on"}
+					state={outline}
+				/>
 				<article
 					ref={articleRef}
 					className={cn("reader relative mx-auto px-4 pt-8 pb-32 sm:px-6", readerClassNames(prefs))}
@@ -697,14 +706,6 @@ export function ReaderArticle({
 					) : null}
 					{footer(note)}
 				</article>
-				<ReaderOutline
-					contentRef={contentRef}
-					articleRef={articleRef}
-					headerRef={headerRef}
-					html={html}
-					pinned={prefs.outline === "on"}
-					state={outline}
-				/>
 				<SelectionWatcher
 					rootRef={contentRef}
 					onSelect={onSelect}

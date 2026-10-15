@@ -167,7 +167,10 @@ function OpenCard({
 				"bg-card font-sans text-sm leading-snug",
 				placement.kind === "sheet"
 					? "safe-bottom fixed inset-x-0 bottom-0 z-40 max-h-[75vh] overflow-y-auto rounded-t-2xl border-t border-border p-4 shadow-[0_-8px_24px_rgba(0,0,0,0.18)]"
-					: "z-30 rounded-xl border border-border p-3 shadow-lg",
+					: "rounded-xl border border-border p-3 shadow-lg",
+				// Floating with the text, it scrolls under the top bar and the outline, as cards in the
+				// margin do (MarginNotes).
+				placement.kind === "floating" ? "z-10" : placement.kind === "margin" && "z-30",
 				placement.kind === "margin" && "-mt-2.5",
 			)}
 		>

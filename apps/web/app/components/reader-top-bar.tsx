@@ -17,7 +17,7 @@ import {
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router"
 import { MenuButton, MenuLink, MoreMenu } from "~/components/more-menu"
-import { OUTLINE_TOGGLE } from "~/components/reader-outline"
+import { OUTLINE_ID, OUTLINE_TOGGLE } from "~/components/reader-outline"
 import { ReaderPrefs } from "~/components/reader-prefs"
 import type { SidebarTab } from "~/components/reader-sidebar"
 import { tooltip } from "~/components/tooltip-host"
@@ -150,8 +150,9 @@ export function ReaderTopBar({
 							{...{ [OUTLINE_TOGGLE]: "" }}
 							data-testid="toggle-outline"
 							onClick={outline.onToggle}
-							aria-pressed={outline.open}
-							aria-label={outline.open ? t("outline.hide") : t("outline.show")}
+							aria-expanded={outline.open}
+							aria-controls={OUTLINE_ID}
+							aria-label={t("outline.label")}
 							{...tooltip(outline.open ? t("outline.hide") : t("outline.show"))}
 							className={cn(BUTTON, outline.open && "bg-muted text-fg")}
 						>

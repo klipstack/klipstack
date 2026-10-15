@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useMediaQuery } from "~/hooks/use-media-query"
 import { cn } from "~/lib/utils"
@@ -57,6 +57,10 @@ export type OutlineState = ReturnType<typeof useOutline>
 
 /** Marks the top bar's button: a press on it is not a press outside the slid-in outline. */
 export const OUTLINE_TOGGLE = "data-outline-toggle"
+/** The outline's element, which the top bar's button controls. */
+export const OUTLINE_ID = "reader-outline"
+
+const toggleButton = () => document.querySelector<HTMLElement>(`[${OUTLINE_TOGGLE}]`)
 
 /**
  * The article's contents, left of the text: its headings, the one being read marked, each one a
@@ -125,10 +129,24 @@ export function ReaderOutline({
 		if (!floating) setPeek(false)
 	}, [floating, setPeek])
 
-	// Slid in under the top bar, wherever the bar is.
-	useEffect(() => {
-		if (peek) setTop(Math.max(0, headerRef.current?.getBoundingClientRect().bottom ?? 0))
+	// Slid in under the top bar, wherever the bar is (on phones it slides away while scrolling).
+	// Before paint: opened by a timer, its first frame must not cover the bar.
+	useLayoutEffect(() => {
+		if (!peek) return
+		const measure = () =>
+			setTop(Math.max(0, headerRef.current?.getBoundingClientRect().bottom ?? 0))
+		measure()
+		const header = headerRef.current
+		header?.addEventListener("transitionend", measure)
+		return () => header?.removeEventListener("transitionend", measure)
 	}, [peek, headerRef])
+
+	// Opened from the button, the keyboard goes into it: to the section being read, or the first.
+	useEffect(() => {
+		if (!peek || document.activeElement !== toggleButton()) return
+		const current = navRef.current?.querySelector<HTMLElement>("[aria-current]")
+		;(current ?? navRef.current?.querySelector<HTMLElement>("button"))?.focus()
+	}, [peek])
 
 	const hideSoon = useCallback(() => {
 		window.clearTimeout(timer.current)
@@ -137,7 +155,8 @@ export function ReaderOutline({
 	const stay = () => window.clearTimeout(timer.current)
 	useEffect(() => () => window.clearTimeout(timer.current), [])
 
-	// Slid in, it goes on Escape and on a press anywhere else.
+	// Slid in, it goes on Escape (the keyboard back to the button) and on a press anywhere else. On
+	// its way to the button, the pointer keeps it: the press there closes it.
 	useEffect(() => {
 		if (!floating || !peek) return
 		const onDown = (e: PointerEvent) => {
@@ -146,13 +165,20 @@ export function ReaderOutline({
 			setPeek(false)
 		}
 		const onKey = (e: KeyboardEvent) => {
-			if (e.key === "Escape") setPeek(false)
+			if (e.key !== "Escape") return
+			if (navRef.current?.contains(document.activeElement)) toggleButton()?.focus()
+			setPeek(false)
+		}
+		const onOver = (e: PointerEvent) => {
+			if ((e.target as Element).closest?.(`[${OUTLINE_TOGGLE}]`)) window.clearTimeout(timer.current)
 		}
 		document.addEventListener("pointerdown", onDown)
 		document.addEventListener("keydown", onKey)
+		document.addEventListener("pointerover", onOver)
 		return () => {
 			document.removeEventListener("pointerdown", onDown)
 			document.removeEventListener("keydown", onKey)
+			document.removeEventListener("pointerover", onOver)
 		}
 	}, [floating, peek, setPeek])
 
@@ -191,7 +217,8 @@ export function ReaderOutline({
 					aria-hidden
 					data-testid="outline-edge"
 					className="fixed inset-y-0 left-0 z-30 w-3"
-					onPointerEnter={() => {
+					onPointerEnter={(e) => {
+						if (e.pointerType !== "mouse") return
 						window.clearTimeout(timer.current)
 						timer.current = window.setTimeout(() => setPeek(true), PEEK_DELAY_MS)
 					}}
@@ -200,18 +227,23 @@ export function ReaderOutline({
 			) : null}
 			<nav
 				ref={navRef}
+				id={OUTLINE_ID}
 				aria-label={t("outline.label")}
 				data-testid="reader-outline"
 				data-docked={docked ? "true" : undefined}
 				onPointerEnter={floating && mouse ? stay : undefined}
-				onPointerLeave={floating && mouse ? hideSoon : undefined}
+				onPointerLeave={(e) => floating && mouse && e.pointerType === "mouse" && hideSoon()}
 				style={floating ? { top } : undefined}
 				className={cn(
 					"fixed overflow-y-auto font-sans",
 					docked
 						? "top-24 left-6 max-h-[calc(100dvh-8rem)] w-52"
-						: "bottom-0 left-0 z-30 w-72 max-w-[85vw] border-r border-border bg-bg px-3 py-5 shadow-xl transition-[translate,visibility] duration-200 motion-reduce:transition-none",
-					floating && !peek && "invisible -translate-x-full",
+						: "bottom-0 left-0 z-30 w-72 max-w-[85vw] border-r border-border bg-bg px-3 py-5 shadow-xl duration-200 motion-reduce:transition-none",
+					// Visible at once on the way in, so the keyboard can go into it; hidden once it is out.
+					floating &&
+						(peek
+							? "transition-[translate]"
+							: "invisible -translate-x-full transition-[translate,visibility]"),
 				)}
 			>
 				<p className="mb-2 pl-3 text-xs font-medium tracking-wide text-muted-fg uppercase">
@@ -225,7 +257,11 @@ export function ReaderOutline({
 								aria-current={i === active ? "location" : undefined}
 								onClick={() => {
 									const y = entry.el.getBoundingClientRect().top + window.scrollY - OFFSET
-									window.scrollTo({ top: y, behavior: "smooth" })
+									const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+									window.scrollTo({ top: y, behavior: still ? "auto" : "smooth" })
+									// The keyboard and a screen reader go on from the heading.
+									if (!entry.el.hasAttribute("tabindex")) entry.el.setAttribute("tabindex", "-1")
+									entry.el.focus({ preventScroll: true })
 									if (floating) setPeek(false)
 								}}
 								className={cn(
