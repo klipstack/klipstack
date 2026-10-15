@@ -1,6 +1,7 @@
 import type { LanguageModelV4StreamPart } from "@ai-sdk/provider"
 import { simulateReadableStream } from "ai"
 import { MockLanguageModelV4 } from "ai/test"
+import { sentences, sentencesIn } from "./sentences"
 import type { AnswerInput, BriefInput } from "./types"
 
 /** Put in a question, makes the fake fail like a provider that broke off. */
@@ -8,16 +9,18 @@ export const FAKE_FAIL = "[fake:fail]"
 /** Put in a question, makes the fake decline to answer. */
 export const FAKE_REFUSE = "[fake:refuse]"
 
+/** Markers citing sentences, as the model writes them: ` [3][4]`. */
+const markers = (numbers: number[]) => ` ${numbers.map((n) => `[${n}]`).join("")}`
+
 /**
- * A model that streams a fixed answer citing the passage itself, in a few pieces, as a provider
- * with document citations would. The answer counts the reader's turns, so a follow-up's answer
- * differs from the first.
+ * A model that streams a fixed answer citing the passage's sentences, in a few pieces, as the
+ * model does. The answer counts the reader's turns, so a follow-up's answer differs from the first.
  */
 export function fakeModel(input: AnswerInput) {
 	const { turns } = input.thread
+	const { start, end } = input.thread.passage
 	// A chat has no passage: it cites the article's first sentence, as the brief does.
-	const passage =
-		input.thread.action === "chat" ? firstSentence(input.article.text) : input.thread.passage
+	const cited = input.thread.action === "chat" ? [1] : sentencesIn(input.article.text, start, end)
 	const asked = turns.at(-1)?.text ?? ""
 	const answers = turns.filter((t) => t.role === "user").length
 	const usage = {
@@ -46,20 +49,7 @@ export function fakeModel(input: AnswerInput) {
 					{ type: "text-start" as const, id: "t" },
 					text("**A fixed answer for tests.** "),
 					text("It draws on the passage"),
-					{
-						type: "source" as const,
-						sourceType: "document" as const,
-						id: "c1",
-						mediaType: "text/plain",
-						title: input.article.title,
-						providerMetadata: {
-							anthropic: {
-								citedText: passage.exact,
-								startCharIndex: passage.start,
-								endCharIndex: passage.end,
-							},
-						},
-					},
+					text(markers(cited)),
 					text(` and nothing else. Answer ${answers}.`),
 					{ type: "text-end" as const, id: "t" },
 					{
@@ -77,34 +67,19 @@ export function fakeModel(input: AnswerInput) {
 	})
 }
 
-/** The article's first sentence, which the fixed brief cites. */
-function firstSentence(text: string) {
-	const end = text.search(/[.!?](\s|$)/)
-	const exact = text.slice(0, end < 0 ? Math.min(text.length, 80) : end + 1)
-	return { exact, start: 0, end: exact.length }
-}
-
 /** How long the demo's model thinks before its first word, as a provider does. */
 export const DEMO_THINK_MS = 3000
 
-/** The brief, after `thinkMs` (the demo's pause) before its first word. */
+/**
+ * A fixed brief in its sections, citing the article's first sentence twice, after `thinkMs`
+ * (the demo's pause) before its first word.
+ */
 export function fakeBrief(input: BriefInput, thinkMs = 0) {
-	const first = firstSentence(input.article.text).exact
 	const usage = {
 		inputTokens: { total: 100, noCache: 100, cacheRead: 0, cacheWrite: 0 },
 		outputTokens: { total: 30, text: 30, reasoning: 0 },
 	}
 	const delta = (d: string) => ({ type: "text-delta" as const, id: "t", delta: d })
-	const cite = {
-		type: "source" as const,
-		sourceType: "document" as const,
-		id: "c1",
-		mediaType: "text/plain",
-		title: input.article.title,
-		providerMetadata: {
-			anthropic: { citedText: first, startCharIndex: 0, endCharIndex: first.length },
-		},
-	}
 	// An article titled with `[fake:fail]` breaks off, as a provider can.
 	const failing: LanguageModelV4StreamPart[] = [
 		{ type: "text-start" as const, id: "t" },
@@ -117,10 +92,10 @@ export function fakeBrief(input: BriefInput, thinkMs = 0) {
 				{ type: "text-start" as const, id: "t" },
 				delta("The gist of a fixed brief for tests. Why it matters.\n\n## Key claims\n\n"),
 				delta("1. The first claim of a fixed brief for tests."),
-				cite,
+				delta(markers([1])),
 				delta("\n2. A second claim.\n\n## Keep in mind\n\n- A caveat."),
 				delta("\n\n## Parts\n\n- **Opening**: where it starts."),
-				cite,
+				delta(markers([1])),
 				delta("\n- **The rest**: what follows."),
 				{ type: "text-end" as const, id: "t" },
 				{
@@ -138,28 +113,18 @@ export function fakeBrief(input: BriefInput, thinkMs = 0) {
 	})
 }
 
-/** The article's sentences with where each starts, skipping the very short ones. */
-function sentences(text: string) {
-	const out: Array<{ exact: string; start: number; end: number }> = []
-	const pattern = /[^.!?\n]+[.!?]/g
-	for (let match = pattern.exec(text); match; match = pattern.exec(text)) {
-		const lead = match[0].length - match[0].trimStart().length
-		const exact = match[0].trim()
-		if (exact.length >= 60 && exact.length <= 260)
-			out.push({ exact, start: match.index + lead, end: match.index + lead + exact.length })
-	}
-	return out
-}
-
 /**
  * The demo app's model: an answer of two short paragraphs that reads like a real one, citing three
  * of the article's sentences (from its start, middle and end), streamed word by word after
  * `DEMO_THINK_MS`.
  */
 export function fakeDemoModel(input: AnswerInput) {
-	const all = sentences(input.article.text)
+	// The article's sentences by number, skipping the very short and very long ones.
+	const all = sentences(input.article.text).flatMap((s, i) =>
+		s.text.length >= 60 && s.text.length <= 260 ? [i + 1] : [],
+	)
 	const picks = [all[0], all[Math.floor(all.length / 2)], all.at(-1)].filter(
-		(s, i, list): s is NonNullable<typeof s> => !!s && list.indexOf(s) === i,
+		(n, i, list): n is number => n !== undefined && list.indexOf(n) === i,
 	)
 	const usage = {
 		inputTokens: { total: 100, noCache: 100, cacheRead: 0, cacheWrite: 0 },
@@ -171,18 +136,8 @@ export function fakeDemoModel(input: AnswerInput) {
 			parts.push({ type: "text-delta", id: "t", delta: word })
 	}
 	const cite = (n: number) => {
-		const s = picks[n]
-		if (!s) return
-		parts.push({
-			type: "source",
-			sourceType: "document",
-			id: `c${n}`,
-			mediaType: "text/plain",
-			title: input.article.title,
-			providerMetadata: {
-				anthropic: { citedText: s.exact, startCharIndex: s.start, endCharIndex: s.end },
-			},
-		})
+		const pick = picks[n]
+		if (pick) parts.push({ type: "text-delta", id: "t", delta: markers([pick]) })
 	}
 	say("The article sets out its argument early: the opening frames the question it means to answer")
 	cite(0)

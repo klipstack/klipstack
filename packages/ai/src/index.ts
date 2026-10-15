@@ -1,6 +1,6 @@
 import { type LanguageModel, type ModelMessage, streamText } from "ai"
-import { anthropicCitation, citationRange } from "./citations"
 import { DEMO_THINK_MS, fakeBrief, fakeDemoModel, fakeModel } from "./fake"
+import { citationReader } from "./markers"
 import { type AiConfig, isConfigured, languageModel, TIERS } from "./models"
 import { briefMessages, briefSystemPrompt, buildMessages, systemPrompt } from "./prompt"
 import {
@@ -66,7 +66,7 @@ interface Request {
 	fake: () => LanguageModel
 	system: string
 	messages: ModelMessage[]
-	/** The article text sent: citations are checked against it. */
+	/** The article text sent: citations are ranges of its sentences. */
 	article: string
 	signal?: AbortSignal
 }
@@ -96,33 +96,24 @@ function stream(config: AiConfig, input: Request): Answer {
 	async function* events(): AsyncGenerator<AnswerEvent> {
 		let text = ""
 		const citations: Citation[] = []
+		const reader = citationReader(input.article)
+		const kept = (event: AnswerEvent) => {
+			if (event.type === "text") text += event.text
+			else citations.push(event.citation)
+			return event
+		}
 		try {
 			for await (const part of result.fullStream) {
 				switch (part.type) {
 					case "text-delta":
-						text += part.text
-						yield { type: "text", text: part.text }
+						for (const event of reader.push(part.text)) yield kept(event)
 						break
-					case "source": {
-						if (part.sourceType !== "document") break
-						const cited = anthropicCitation(part.providerMetadata)
-						const citation = cited && citationRange(input.article, cited, text.length)
-						if (
-							citation &&
-							!citations.some(
-								(c) => c.start === citation.start && c.end === citation.end && c.at === citation.at,
-							)
-						) {
-							citations.push(citation)
-							yield { type: "citation", citation }
-						}
-						break
-					}
 					case "error":
 						throw new AiError("provider", "The provider could not answer.", { cause: part.error })
 					case "abort":
 						throw new AiError("aborted", "The answer was cancelled.")
 					case "finish": {
+						for (const event of reader.end()) yield kept(event)
 						const usage = part.totalUsage
 						resolve({
 							status: part.finishReason === "content-filter" ? "refused" : "done",

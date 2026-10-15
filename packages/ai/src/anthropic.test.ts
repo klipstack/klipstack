@@ -5,7 +5,7 @@ const text = "Makers need long blocks of time. Managers work in one hour slots."
 const cited = "Managers work in one hour slots."
 const start = text.indexOf(cited)
 
-/** Anthropic's streamed answer: text, then a citation of the document, then more text. */
+/** Anthropic's streamed answer. */
 function sse(events: object[]) {
 	const body = events.map(
 		(e) => `event: ${(e as { type: string }).type}\ndata: ${JSON.stringify(e)}\n\n`,
@@ -14,7 +14,7 @@ function sse(events: object[]) {
 }
 
 describe("Anthropic, through the AI SDK", () => {
-	it("sends the article as a cached document with citations, and reads its citations back", async () => {
+	it("sends the article as a cached document of numbered sentences, and reads its markers back", async () => {
 		let sent: Record<string, unknown> | undefined
 		const fetch = (async (_url: string, init: RequestInit) => {
 			sent = JSON.parse(String(init.body))
@@ -32,32 +32,13 @@ describe("Anthropic, through the AI SDK", () => {
 						usage,
 					},
 				},
-				{
-					type: "content_block_start",
-					index: 0,
-					content_block: { type: "text", text: "", citations: [] },
-				},
-				{
+				{ type: "content_block_start", index: 0, content_block: { type: "text", text: "" } },
+				// A marker can come cut in two.
+				...["**Short slots.** [", "2] More."].map((text) => ({
 					type: "content_block_delta",
 					index: 0,
-					delta: { type: "text_delta", text: "**Short slots.**" },
-				},
-				{
-					type: "content_block_delta",
-					index: 0,
-					delta: {
-						type: "citations_delta",
-						citation: {
-							type: "char_location",
-							cited_text: `${cited}`,
-							document_index: 0,
-							document_title: "Schedules",
-							start_char_index: start,
-							end_char_index: start + cited.length,
-						},
-					},
-				},
-				{ type: "content_block_delta", index: 0, delta: { type: "text_delta", text: " More." } },
+					delta: { type: "text_delta", text },
+				})),
 				{ type: "content_block_stop", index: 0 },
 				{ type: "message_delta", delta: { stop_reason: "end_turn" }, usage: { output_tokens: 9 } },
 				{ type: "message_stop" },
@@ -83,11 +64,15 @@ describe("Anthropic, through the AI SDK", () => {
 		expect(sent!.model).toBe("claude-haiku-5-5")
 		expect(document).toMatchObject({
 			type: "document",
-			source: { type: "text", media_type: "text/plain", data: text },
+			source: {
+				type: "text",
+				media_type: "text/plain",
+				data: "[1] Makers need long blocks of time.\n[2] Managers work in one hour slots.",
+			},
 			title: "Schedules",
-			citations: { enabled: true },
 			cache_control: { type: "ephemeral" },
 		})
+		expect(document).not.toHaveProperty("citations")
 		expect(events).toContainEqual({
 			type: "citation",
 			citation: { start, end: start + cited.length, exact: cited, at: "**Short slots.**".length },

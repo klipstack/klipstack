@@ -1,6 +1,6 @@
 import type { Citation } from "./types"
 
-/** A provider's document citation: its offsets in the text we sent, and the text it quotes. */
+/** A citation kept with an answer: its offsets in the article, and the text it quotes. */
 export interface CitedRange {
 	start?: number
 	end?: number
@@ -8,8 +8,8 @@ export interface CitedRange {
 }
 
 /**
- * Turns a provider's citation into a range of the article, checked against the text: the offsets
- * as given when they hold the quoted text, else the quote's occurrence nearest to them. Whitespace
+ * Finds a citation's quote in a text, such as a new version of its article: at the offsets given
+ * when they still hold it, else the occurrence nearest to them. Whitespace
  * at either end is left out, so the chip points at words. Null when the quote is not in the text:
  * a citation never points at words that aren't there.
  */
@@ -37,17 +37,4 @@ function nearest(text: string, quote: string, near: number): number {
 		if (best < 0 || Math.abs(i - near) < Math.abs(best - near)) best = i
 	}
 	return best
-}
-
-/** The `anthropic` provider metadata of a document citation, when it has offsets in the text. */
-export function anthropicCitation(metadata: unknown): CitedRange | null {
-	const value = (metadata as { anthropic?: Record<string, unknown> } | undefined)?.anthropic
-	if (!value || typeof value.citedText !== "string") return null
-	const index = (key: string) =>
-		typeof value[key] === "number" ? (value[key] as number) : undefined
-	return {
-		citedText: value.citedText,
-		start: index("startCharIndex"),
-		end: index("endCharIndex"),
-	}
 }

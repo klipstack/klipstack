@@ -132,8 +132,10 @@ describe("askAboutPassage", () => {
 		})
 		expect(asked.question).toMatchObject({ role: "user", text: "" })
 		const { events, answer } = await read(asked)
-		const start = TEXT.indexOf("one hour slots")
-		const citation = { start, end: start + "one hour slots".length, exact: "one hour slots" }
+		// The chip cites the passage's whole sentence.
+		const sentence = "Managers work in one hour slots."
+		const start = TEXT.indexOf(sentence)
+		const citation = { start, end: start + sentence.length, exact: sentence }
 		expect(events).toContainEqual({ type: "citation", citation: expect.objectContaining(citation) })
 		expect(answer).toMatchObject({
 			role: "assistant",
