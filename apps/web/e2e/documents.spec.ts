@@ -62,7 +62,7 @@ test("shared links need confirmation and cross-origin POST cannot save", async (
 	)
 	await page.goto("https://untrusted.example/")
 	await page.getByRole("link", { name: "Shared link" }).click()
-	await expect(page.getByLabel("URL", { exact: true })).toHaveValue(url)
+	await expect(page.getByLabel("Link", { exact: true })).toHaveValue(url)
 	expect(await saved()).toHaveLength(0)
 	const csrf = await page.request.post("/add", {
 		headers: { origin: "https://untrusted.example" },

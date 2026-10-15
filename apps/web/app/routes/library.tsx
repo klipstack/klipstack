@@ -17,7 +17,7 @@ import { useEffect, useMemo, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import { Link, redirect, useFetcher, useLocation, useNavigate } from "react-router"
 import { archiveFinished, undoArchive } from "~/commands/articles.server"
-import { saveArticle } from "~/commands/saving.server"
+import { saveArticle, saveLinks } from "~/commands/saving.server"
 import { DocumentList } from "~/components/document-list"
 import { EmptyDrawing, type EmptyDrawingName } from "~/components/empty-drawing"
 import { LayoutToggle } from "~/components/layout-toggle"
@@ -43,6 +43,7 @@ import {
 	parseSort,
 } from "~/lib/inbox-filters"
 import { type LibraryView, viewFromPath, viewPath, viewSearchPath } from "~/lib/library-views"
+import { splitLinks } from "~/lib/links"
 import { setListLayout } from "~/lib/list-layout"
 import { warmOffline } from "~/lib/offline.client"
 import type { PageBarHandle } from "~/lib/page-bar"
@@ -167,7 +168,18 @@ export async function action({ context, request }: Route.ActionArgs) {
 			.filter(Boolean)
 		return answer(async () => ({ archived: [], moved: await undoArchive(user.id, ids) }))
 	}
-	const url = String(form.get("url") ?? "").trim()
+	const links = splitLinks(String(form.get("url") ?? ""))
+	// Several links: each one's outcome, for the dialog to show.
+	if (links.length > 1) {
+		try {
+			return { ok: true as const, batch: await saveLinks(user.id, links) }
+		} catch (error) {
+			// Too many: the dialog keeps what was typed, with the refusal.
+			if (error instanceof AppError) return refused(error, { url: links.join("\n") })
+			throw error
+		}
+	}
+	const url = links[0] ?? ""
 	// No redirect: the save dialog and a pasted link post here from any page (Home, the library, the
 	// phone bar, the reader), and saving must leave the reader where they were. The page's data
 	// reloads with the new article.

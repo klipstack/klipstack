@@ -220,7 +220,63 @@ export default {
 		title: "Save a link",
 		description:
 			"Paste the address of an article. We fetch it, extract the text, and keep a clean copy for you.",
+		several: "One link per line, up to {{max}}. Enter saves; Shift+Enter starts a new line.",
+		results: "Links saved",
+		savedMany: "{{count}} links saved.",
+		savedMany_one: "{{count}} link saved.",
+		savedMany_other: "{{count}} links saved.",
+		more: "More ways to add",
+		soon: "Coming soon",
+		copied: "Copied",
+		anywhere: {
+			title: "Save from anywhere",
+			phone: {
+				title: "On your phone",
+				android:
+					"On Android, add Klipstack to your home screen from the browser's menu. It then shows up when you share a link.",
+				iphone: "An iPhone app that saves from the share sheet.",
+			},
+			bookmarklet: {
+				title: "Bookmarklet",
+				description:
+					"Drag this button to your browser's bookmarks bar. On any page, click it to save that page here.",
+				label: "Save to Klipstack",
+			},
+			extension: {
+				title: "Browser extension",
+				description:
+					"For Chrome and Firefox. It saves a page exactly as you see it, even behind a login.",
+			},
+		},
+		assistant: {
+			title: "Your AI assistant",
+			description:
+				"Connect ChatGPT, Claude, Grok or another assistant to your library. Ask it to save an article, find what you highlighted or sum up what you read this week.",
+			verify: "First verify your email address in <account>Account settings</account>.",
+			chat: {
+				title: "ChatGPT, Claude or Grok",
+				steps:
+					"In the app's settings, add a custom connector and paste this address. It asks you to sign in to Klipstack and to allow it.",
+				copy: "Copy address",
+			},
+			agent: {
+				title: "An agent on your computer",
+				description:
+					"Claude Code, Codex and other agents can set it up themselves: copy these instructions and paste them into the agent.",
+				copy: "Copy instructions",
+				prompt:
+					"Connect to Klipstack, my read-it-later app, as a remote MCP server at {{url}} (streamable HTTP). It signs in with OAuth: open the sign-in link it gives you and tell me to approve it. Then list a few articles from my library to check it works.",
+			},
+		},
+		feeds: {
+			title: "Blogs you follow",
+			description:
+				"Follow the blogs you like in <feed>Feed</feed>, or bring your feeds over from another reader with an OPML file. New posts show up there, and you save the ones you want to read.",
+			importers:
+				"Coming from Pocket, Instapaper or Omnivore? An importer for their exports is on our list.",
+		},
 		errors: {
+			too_many: "Save up to {{max}} links at once.",
 			invalid_url: "That does not look like a valid link.",
 			unsupported_twitter: "Only single posts from X can be saved, not profiles or feeds.",
 			unsupported_youtube: "YouTube videos are not supported yet.",

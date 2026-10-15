@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest"
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { rateLimit, SAVE_LIMIT } from "~/lib/rate-limit.server"
 import { action, loader, sharedUrl } from "./add"
 
@@ -49,5 +49,46 @@ describe("sharedUrl", () => {
 			sharedUrl(new URLSearchParams({ text: "Look at this https://a.com/post?id=1 amazing" })),
 		).toBe("https://a.com/post?id=1")
 		expect(sharedUrl(new URLSearchParams({ title: "Post", text: "no link here" }))).toBeNull()
+	})
+})
+
+describe("several links", () => {
+	// The test above used up this user's saves: an hour later, the limit has room again.
+	beforeAll(() => {
+		vi.useFakeTimers({ toFake: ["Date"], now: Date.now() + 2 * SAVE_LIMIT.windowMs })
+	})
+	afterAll(() => {
+		vi.useRealTimers()
+	})
+
+	const post = (url: string) =>
+		action({
+			request: new Request("http://localhost/add", {
+				method: "POST",
+				body: new URLSearchParams({ url }),
+			}),
+		} as never)
+
+	it("saves each one and stays on the page with their outcomes", async () => {
+		saved.mockClear()
+		const answer = await post("https://example.com/one\n  https://example.com/two \n\n")
+		expect(answer).toMatchObject({
+			ok: true,
+			batch: [
+				{ url: "https://example.com/one", ok: true },
+				{ url: "https://example.com/two", ok: true },
+			],
+		})
+		expect(saved).toHaveBeenCalledTimes(2)
+	})
+
+	it("refuses more than ten, keeping what was typed", async () => {
+		saved.mockClear()
+		const links = Array.from({ length: 11 }, (_, i) => `https://example.com/${i}`).join("\n")
+		expect(await post(links)).toMatchObject({
+			data: { ok: false, error: { code: "invalid_request" }, url: links },
+			init: { status: 400 },
+		})
+		expect(saved).not.toHaveBeenCalled()
 	})
 })

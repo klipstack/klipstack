@@ -1,12 +1,12 @@
 import { Plus, X } from "lucide-react"
 import { useCallback, useEffect, useEffectEvent, useRef } from "react"
 import { useTranslation } from "react-i18next"
-import { useFetcher, useLocation } from "react-router"
+import { Link, useFetcher, useLocation } from "react-router"
+import type { LinkResult } from "~/commands/saving.server"
+import { LinkResults, LinksField } from "~/components/links-field"
 import { tooltip } from "~/components/tooltip-host"
 import { Button } from "~/components/ui/button"
-import { Field } from "~/components/ui/field"
 import { prepareMotion } from "~/lib/motion"
-import { saveErrorKey } from "~/lib/save-errors"
 import { showToast } from "~/lib/toast"
 import type { WebResult } from "~/lib/web-result"
 
@@ -18,10 +18,15 @@ export function SaveLinkDialog() {
 	const { t } = useTranslation("library")
 	const dialogRef = useRef<HTMLDialogElement>(null)
 	const formRef = useRef<HTMLFormElement>(null)
-	const fetcher = useFetcher<WebResult<{ saved: true }> & { url?: string }>()
+	const fetcher = useFetcher<
+		WebResult<{ saved: true } | { batch: LinkResult[] }> & { url?: string }
+	>()
 	const location = useLocation()
 	const saving = fetcher.state !== "idle"
-	const error = fetcher.data?.ok === false ? saveErrorKey(fetcher.data.error) : null
+	const error = fetcher.data?.ok === false ? fetcher.data.error : null
+	// Several links, some refused: the dialog stays, with each link's outcome.
+	const batch = fetcher.data?.ok && "batch" in fetcher.data ? fetcher.data.batch : null
+	const refused = batch?.filter((result) => !result.ok) ?? []
 
 	const close = useCallback(() => {
 		dialogRef.current?.close()
@@ -33,11 +38,13 @@ export function SaveLinkDialog() {
 	// error keeps the dialog open, with the message under the field.
 	const onAnswer = useEffectEvent((answer: typeof fetcher.data) => {
 		if (!answer?.ok) return
+		if ("batch" in answer && answer.batch.some((result) => !result.ok)) return
 		close()
 		// The library's first page, newest first, shows the new card, clipped as it comes in; anywhere
 		// else (another page, a filter, another order) the toast is clipped.
 		showToast({
-			message: t("add.saved"),
+			message:
+				"batch" in answer ? t("add.savedMany", { count: answer.batch.length }) : t("add.saved"),
 			clip: location.pathname !== "/library" || location.search !== "",
 		})
 	})
@@ -47,7 +54,7 @@ export function SaveLinkDialog() {
 		const d = dialogRef.current
 		if (!d) return
 		d.showModal()
-		d.querySelector("input")?.focus()
+		d.querySelector("textarea")?.focus()
 	}, [])
 
 	return (
@@ -96,18 +103,22 @@ export function SaveLinkDialog() {
 							<X className="size-4" aria-hidden />
 						</button>
 					</div>
-					<Field
-						label={t("add.urlLabel")}
-						name="url"
-						type="url"
-						inputMode="url"
-						placeholder="https://"
-						required
-						autoComplete="off"
-						defaultValue={fetcher.data?.url}
-						error={error ? t(error) : undefined}
+					{batch && refused.length ? <LinkResults results={batch} /> : null}
+					<LinksField
+						// Again with only the links that were not saved, to fix or drop.
+						key={fetcher.data && "batch" in fetcher.data ? "batch" : "links"}
+						defaultValue={
+							refused.length ? refused.map((result) => result.url).join("\n") : fetcher.data?.url
+						}
+						error={error}
 					/>
-					<div className="flex justify-end gap-2">
+					<div className="flex items-center justify-end gap-2">
+						<Link
+							to="/add"
+							className="mr-auto text-sm text-link underline-offset-4 hover:underline"
+						>
+							{t("add.more")}
+						</Link>
 						<Button type="button" variant="secondary" onClick={() => dialogRef.current?.close()}>
 							{t("add.cancel")}
 						</Button>

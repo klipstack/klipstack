@@ -220,7 +220,63 @@ export default {
 		title: "Guardar un enlace",
 		description:
 			"Pega la dirección de un artículo. Lo descargamos, extraemos el texto y guardamos una copia limpia.",
+		several: "Un enlace por línea, hasta {{max}}. Intro guarda; Mayús+Intro empieza otra línea.",
+		results: "Enlaces guardados",
+		savedMany: "{{count}} enlaces guardados.",
+		savedMany_one: "{{count}} enlace guardado.",
+		savedMany_other: "{{count}} enlaces guardados.",
+		more: "Más formas de añadir",
+		soon: "Muy pronto",
+		copied: "Copiado",
+		anywhere: {
+			title: "Guarda desde cualquier sitio",
+			phone: {
+				title: "En el teléfono",
+				android:
+					"En Android, añade Klipstack a la pantalla de inicio desde el menú del navegador. Después aparece al compartir un enlace.",
+				iphone: "Una app para iPhone que guarda desde el menú de compartir.",
+			},
+			bookmarklet: {
+				title: "Bookmarklet",
+				description:
+					"Arrastra este botón a la barra de marcadores del navegador. En cualquier página, haz clic en él para guardarla aquí.",
+				label: "Guardar en Klipstack",
+			},
+			extension: {
+				title: "Extensión del navegador",
+				description:
+					"Para Chrome y Firefox. Guarda la página tal como la ves, aunque esté tras un inicio de sesión.",
+			},
+		},
+		assistant: {
+			title: "Tu asistente de IA",
+			description:
+				"Conecta ChatGPT, Claude, Grok u otro asistente a tu biblioteca. Pídele que guarde un artículo, que encuentre lo que subrayaste o que resuma lo que leíste esta semana.",
+			verify: "Primero verifica tu correo en los <account>ajustes de la cuenta</account>.",
+			chat: {
+				title: "ChatGPT, Claude o Grok",
+				steps:
+					"En los ajustes de la app, añade un conector personalizado y pega esta dirección. Te pedirá que inicies sesión en Klipstack y que le des permiso.",
+				copy: "Copiar dirección",
+			},
+			agent: {
+				title: "Un agente en tu ordenador",
+				description:
+					"Claude Code, Codex y otros agentes pueden configurarlo solos: copia estas instrucciones y pégalas en el agente.",
+				copy: "Copiar instrucciones",
+				prompt:
+					"Conéctate a Klipstack, mi app para leer más tarde, como servidor MCP remoto en {{url}} (HTTP en streaming). Inicia sesión con OAuth: abre el enlace de inicio de sesión que te dé y dime que lo apruebe. Después lista algunos artículos de mi biblioteca para comprobar que funciona.",
+			},
+		},
+		feeds: {
+			title: "Blogs que sigues",
+			description:
+				"Sigue los blogs que te gustan en <feed>Feeds</feed>, o trae tus feeds desde otro lector con un archivo OPML. Allí aparecen sus publicaciones nuevas, y guardas las que quieras leer.",
+			importers:
+				"¿Vienes de Pocket, Instapaper u Omnivore? Un importador para sus exportaciones está en nuestra lista.",
+		},
 		errors: {
+			too_many: "Guarda hasta {{max}} enlaces de una vez.",
 			invalid_url: "Eso no parece un enlace válido.",
 			unsupported_twitter: "Solo se pueden guardar publicaciones de X, no perfiles ni feeds.",
 			unsupported_youtube: "Los vídeos de YouTube aún no están soportados.",
