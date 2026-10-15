@@ -416,6 +416,7 @@ export default {
 		show: "Keyboard shortcuts",
 		off: "Single-key shortcuts are off.",
 		turnOn: "Turn them on",
+		all: "All shortcuts",
 		groups: {
 			general: "Everywhere",
 			lists: "In lists",

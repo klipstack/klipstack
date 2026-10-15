@@ -424,6 +424,7 @@ export default {
 		show: "Atajos de teclado",
 		off: "Los atajos de una sola tecla están desactivados.",
 		turnOn: "Activarlos",
+		all: "Todos los atajos",
 		groups: {
 			general: "En todas partes",
 			lists: "En las listas",

@@ -320,3 +320,46 @@ test("Settings lists every shortcut; the AI's only with AI", async ({ page, brow
 	await expect(without.getByRole("row", { name: /Ask the AI/ })).toHaveCount(0)
 	await other.close()
 })
+
+test("? lists the reader's shortcuts; so does the button in the top bar", async ({ page }) => {
+	await page.setViewportSize({ width: 1280, height: 800 })
+	await open(page)
+	const dialog = page.getByRole("dialog", { name: "Keyboard shortcuts" })
+	await page.keyboard.press("?")
+	await expect(dialog).toBeVisible()
+	await expect(dialog.getByRole("region", { name: "In the reader" })).toContainText(
+		"Next or previous paragraph",
+	)
+	await expect(dialog.getByRole("region", { name: "Everywhere" })).toBeVisible()
+	await expect(dialog.getByRole("region", { name: "In lists" })).toHaveCount(0)
+	// Without AI, no AI keys.
+	await expect(dialog).not.toContainText("Ask the AI")
+	// The page's keys wait while it is open.
+	await page.keyboard.press("j")
+	expect(await marked(page)).toBeNull()
+	await page.keyboard.press("Escape")
+	await expect(dialog).toHaveCount(0)
+
+	await page.getByRole("button", { name: "Keyboard shortcuts" }).click()
+	await expect(dialog).toBeVisible()
+	await expect(dialog).not.toContainText("Single-key shortcuts are off")
+	await dialog.getByRole("link", { name: "All shortcuts" }).click()
+	await expect(page).toHaveURL(/\/settings\/shortcuts$/)
+})
+
+test("with single-key shortcuts off, the list says so", async ({ page }) => {
+	await page.setViewportSize({ width: 1280, height: 800 })
+	await open(page)
+	await page.request.post("/prefs", { form: { shortcuts: "off" } })
+	await page.reload()
+	await waitForHydration(page)
+	await page.keyboard.press("?")
+	const dialog = page.getByRole("dialog", { name: "Keyboard shortcuts" })
+	await expect(dialog).toHaveCount(0)
+	await page.getByRole("button", { name: "Keyboard shortcuts" }).click()
+	await expect(dialog).toContainText("Single-key shortcuts are off.")
+	await expect(dialog.getByRole("link", { name: "Turn them on" })).toHaveAttribute(
+		"href",
+		"/settings/shortcuts",
+	)
+})

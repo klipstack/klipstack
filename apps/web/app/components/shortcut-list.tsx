@@ -45,7 +45,7 @@ function ShortcutGroup({ id, ai }: { id: Group; ai: boolean }) {
 				<tbody>
 					{rows.map((row) => (
 						<tr key={row.id} className="border-t border-border/60 first:border-t-0">
-							<td className="w-0 py-1.5 pr-4 whitespace-nowrap">
+							<td className="w-44 py-1.5 pr-4 whitespace-nowrap">
 								<span className="flex gap-1">
 									{row.keys.map((key) => (
 										<kbd

@@ -4,6 +4,7 @@ import {
 	ArrowLeft,
 	ExternalLink,
 	EyeOff,
+	Keyboard,
 	Link2,
 	Loader2,
 	MessagesSquare,
@@ -38,6 +39,7 @@ import type { SidebarTab } from "~/components/reader-sidebar"
 import { ReaderTopBar } from "~/components/reader-top-bar"
 import { TopicKicker, TopicShelf } from "~/components/reader-topics"
 import { SharedLinkBlocked, SharedVia } from "~/components/shared-via"
+import { ShortcutsDialog } from "~/components/shortcuts-dialog"
 import { TagChips, TagDialog } from "~/components/tag-dialog"
 import { tooltip } from "~/components/tooltip-host"
 import { useClientValue } from "~/hooks/use-client-value"
@@ -71,6 +73,7 @@ import {
 	articleShortcut,
 	CHAT_HINT,
 	HIGHLIGHTS_HINT,
+	READER_HINTS,
 	SHORTCUT_HINTS,
 } from "~/lib/shortcuts"
 import { showToast } from "~/lib/toast"
@@ -362,6 +365,9 @@ function Reader({ loaderData }: Route.ComponentProps) {
 		return () => document.removeEventListener("keydown", onKey)
 	}, [])
 
+	// The keyboard shortcuts' list: `?` (ReaderArticle) or the top bar's button.
+	const [shortcutsOpen, setShortcutsOpen] = useState(false)
+
 	// ---- command palette: this article's actions ----
 	useCommands(() => ({
 		heading: tc("palette.article"),
@@ -424,6 +430,17 @@ function Reader({ loaderData }: Route.ComponentProps) {
 						},
 					]
 				: []),
+			...(ready
+				? [
+						{
+							id: "article-shortcuts",
+							label: tc("shortcuts.title"),
+							icon: Keyboard,
+							shortcut: READER_HINTS.help,
+							run: () => setShortcutsOpen(true),
+						},
+					]
+				: []),
 			{
 				id: "article-original",
 				label: t("original"),
@@ -473,6 +490,7 @@ function Reader({ loaderData }: Route.ComponentProps) {
 				onSidebar={toggleSidebar}
 				onChat={chatting ? () => showSidebarTab("chat") : undefined}
 				onTags={() => setTagging(true)}
+				onShortcuts={ready ? () => setShortcutsOpen(true) : undefined}
 				outline={
 					outline.available
 						? {
@@ -494,6 +512,7 @@ function Reader({ loaderData }: Route.ComponentProps) {
 					showSidebarTab={showSidebarTab}
 					engage={engage}
 					outline={outline}
+					onShortcuts={() => setShortcutsOpen(true)}
 					header={
 						<header ref={titleRef} className="mb-8">
 							<TopicKicker topics={loaderData.topics.topics} />
@@ -577,6 +596,7 @@ function Reader({ loaderData }: Route.ComponentProps) {
 					onClose={() => setTagging(false)}
 				/>
 			) : null}
+			<ShortcutsDialog open={shortcutsOpen} ai={chatting} onClose={() => setShortcutsOpen(false)} />
 		</div>
 	)
 }

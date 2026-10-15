@@ -118,6 +118,7 @@ export function ReaderArticle({
 	showSidebarTab,
 	engage,
 	outline,
+	onShortcuts,
 	header,
 	footer,
 }: {
@@ -135,6 +136,8 @@ export function ReaderArticle({
 	engage: () => void
 	/** The article's contents, shared with the top bar's button. */
 	outline: OutlineState
+	/** `?`: the list of keyboard shortcuts. */
+	onShortcuts: () => void
 	header: React.ReactNode
 	footer: (note: ArticleNote) => React.ReactNode
 }) {
@@ -708,6 +711,9 @@ export function ReaderArticle({
 					})
 				return true
 			}
+			case "help":
+				onShortcuts()
+				return true
 			case "focus":
 				cursor.toggleFocus()
 				return true
