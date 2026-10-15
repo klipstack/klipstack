@@ -92,12 +92,17 @@ in `.claude/skills/` hold the how; follow the one that fits the task, without be
 - `fix-bug`: a check that fails on the bug before any fix, and passes after.
 - `build-feature`: the owner's open decisions first, each with your recommendation. Then thin
   slices, test-first.
+- `refactor`: a change of structure, not behavior. Pin the behavior first; the tests stay as
+  they are.
 - `write-tests`: the real database, mocks only at the process boundary, every new test seen
   failing once.
 - `review-changes`: when the owner says the work is ready for a pull request, or asks for a
   review, fresh subagents review the diff against the task and `.agents/checks/`.
 - `learn`: when corrected, or when a mistake repeats, add a check, a test or a rule, not a
   promise.
+
+Copy the steps of the skill you follow into your todo list, as written. A step you skip stays
+there as `skip: <reason>`, so the owner can see it.
 
 Never make a check pass by weakening it: no skipped, deleted or loosened tests, and no
 `--no-verify`. If a test is wrong, change it openly and say so in the report. Hooks enforce part

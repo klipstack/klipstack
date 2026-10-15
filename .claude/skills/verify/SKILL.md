@@ -70,7 +70,8 @@ In your final message, and in the pull request's Verification section:
 - What you ran and what it showed: commands, test names, screenshot paths, numbers.
 - What you did not verify, and why. "Not verified" is an honest answer. A guess written as a fact
   is not.
-- Mark the claims you inferred but did not check as inferred.
+- Say how you know each claim: you ran it (the command and its output), you traced it in the
+  code (file and line), or you inferred it. Only the first is proof; label the others.
 
 "Should work", "probably" and "looks right" mean nothing was checked. Run the check, or say it is
 unverified.
