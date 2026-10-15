@@ -52,7 +52,8 @@ test("a question about a passage streams its answer, with a citation, and is kep
 	expect(sent).toContainEqual(
 		expect.objectContaining({
 			type: "citation",
-			citation: expect.objectContaining({ exact: PASSAGE }),
+			// The passage's whole sentence.
+			citation: expect.objectContaining({ exact: expect.stringContaining(PASSAGE) }),
 		}),
 	)
 	const last = sent.at(-1)!

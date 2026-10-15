@@ -19,7 +19,8 @@
 		"test:e2e": "playwright test",
 		"typecheck": "react-router typegen && tsc",
 		"demo": "tsx scripts/demo.ts",
-		"topics": "tsx scripts/topics/sim.ts"
+		"topics": "tsx scripts/topics/sim.ts",
+		"citations": "tsx scripts/citations.ts"
 	},
 	"dependencies": {
 		"@ai-sdk/anthropic": "4.0.63",
