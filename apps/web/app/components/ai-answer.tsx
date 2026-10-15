@@ -58,6 +58,8 @@ export function AiAnswer({
 					return (
 						<List
 							key={key}
+							// A list the model broke up with blank lines goes on counting.
+							start={block.kind === "ol" ? block.start : undefined}
 							className={cn(
 								"flex flex-col gap-1.5 pl-4",
 								block.kind === "ol" ? "list-decimal" : "list-disc",
@@ -82,7 +84,7 @@ const NUMBERED = /^\s*\d+[.)]\s+/
 const HEADING = /^#{1,3}\s+/
 const MARKS = new RegExp(`${MARK}\\d+${MARK}`, "g")
 
-type Block = { kind: "heading" | "p" | "ul" | "ol"; lines: string[] }
+type Block = { kind: "heading" | "p" | "ul" | "ol"; lines: string[]; start?: number }
 
 /** A paragraph's lines as headings, lists and text, each list item without its marker. */
 function blocks(text: string): Block[] {
@@ -98,6 +100,8 @@ function blocks(text: string): Block[] {
 		const bare = line.replace(kind === "ul" ? BULLET : kind === "ol" ? NUMBERED : HEADING, "")
 		const last = out.at(-1)
 		if (last && last.kind === kind && kind !== "heading") last.lines.push(bare)
+		else if (kind === "ol")
+			out.push({ kind, lines: [bare], start: Number.parseInt(line.trim(), 10) })
 		else out.push({ kind, lines: [kind === "p" ? line : bare] })
 	}
 	return out
@@ -161,10 +165,10 @@ export function plainAnswer(text: string): string {
  * doesn't, or one still being written) its first sentence.
  */
 export function answerLead(text: string): string {
-	const bold = /^\s*\*\*([^*]+)\*\*/.exec(text)
-	if (bold) return bold[1]!.trim()
+	const bold = /^\s*\*\*(.+?)\*\*(?!\*)/.exec(text)
+	if (bold) return plainAnswer(bold[1]!).trim()
 	const plain = plainAnswer(text)
-		.replace(/^\s*\*\*/, "")
+		.replace(/^\s*(?:\*\*|#{1,3}\s+|[-*]\s+|\d+[.)]\s+)/, "")
 		.trim()
 	return (/^[\s\S]+?[.!?](?=\s|$)/.exec(plain)?.[0] ?? plain).trim()
 }

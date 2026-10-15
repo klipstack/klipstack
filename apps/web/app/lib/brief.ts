@@ -11,9 +11,15 @@ export const BRIEF_SECTIONS = {
 
 export type BriefSection = (typeof BRIEF_SECTIONS)[keyof typeof BRIEF_SECTIONS]
 
-/** A heading line's section, or null for a line that isn't one of them. */
+/**
+ * A heading line's section, or null for a line that isn't one of them. Forgiving of case and a
+ * trailing colon, which a model may add.
+ */
 export function briefSection(heading: string): BriefSection | null {
-	return BRIEF_SECTIONS[heading.trim() as keyof typeof BRIEF_SECTIONS] ?? null
+	const bare = heading.trim().replace(/:$/, "").toLowerCase()
+	for (const [title, section] of Object.entries(BRIEF_SECTIONS))
+		if (title.toLowerCase() === bare) return section
+	return null
 }
 
 /** The brief in a few lines: its gist, or the bullets of a brief written before the sections. */

@@ -173,6 +173,15 @@ test("one word can be defined, not highlighted; typing with a selection asks", a
 	await expect(margin.getByRole("button", { name: /Define/ })).toHaveText(
 		/^Define\s*“schedule”\s*A fixed answer for tests\.$/,
 	)
+	// A latest question left without an answer says so, rather than seeming still on its way.
+	await margin.getByRole("button", { name: /Ask/ }).click()
+	await card.getByRole("textbox", { name: "Ask a follow-up…" }).fill("[fake:fail] And?")
+	await card.getByRole("textbox", { name: "Ask a follow-up…" }).press("Enter")
+	await expect(card).toContainText("Couldn't answer. Try again.")
+	await card.getByRole("button", { name: "Collapse" }).click()
+	await expect(margin.getByRole("button", { name: /Ask/ })).toHaveText(
+		/^Ask\s*\[fake:fail\] And\?\s*Couldn't answer\. Try again\.$/,
+	)
 })
 
 test("Ask far down the article opens its field where the reader is", async ({ page }) => {

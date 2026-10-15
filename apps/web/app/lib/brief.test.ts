@@ -8,6 +8,7 @@ describe("brief", () => {
 			for (const heading of Object.keys(BRIEF_SECTIONS))
 				expect(briefSystemPrompt(language)).toContain(`"## ${heading}"`)
 		expect(briefSection(" Keep in mind")).toBe("caveats")
+		expect(briefSection("Key Claims:")).toBe("claims")
 		expect(briefSection("Puntos clave")).toBeNull()
 	})
 

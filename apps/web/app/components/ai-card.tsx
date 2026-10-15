@@ -69,10 +69,17 @@ export function AiCard(props: Props) {
 	// The latest question and its answer: the reader's words, or the passage for Explain and Define.
 	const asked = card.messages.findLastIndex((m) => m.role === "user")
 	const question = card.messages[asked]?.text
-	const answer = card.streaming
-		? streamed.text
-		: card.messages.slice(asked + 1).find((m) => m.role === "assistant" && m.status === "done")
-				?.text
+	const reply = card.messages.slice(asked + 1).find((m) => m.role === "assistant")
+	const answer = card.streaming ? streamed.text : reply?.status === "done" ? reply.text : undefined
+	// Not answered: says so, as the open card does.
+	const unanswered =
+		card.streaming || answer
+			? null
+			: reply?.status === "refused"
+				? t("ai.refused")
+				: reply?.status === "failed" || card.failure
+					? t("ai.failed")
+					: null
 
 	if (!open)
 		return (
@@ -96,6 +103,7 @@ export function AiCard(props: Props) {
 					<span className="line-clamp-2 italic">“{card.exact}”</span>
 				)}
 				{answer ? <span className="mt-0.5 line-clamp-3">{answerLead(answer)}</span> : null}
+				{unanswered ? <span className="mt-0.5 block">{unanswered}</span> : null}
 			</button>
 		)
 	return <OpenCard {...props} />
