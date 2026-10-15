@@ -1,11 +1,22 @@
 import { randomUUID } from "node:crypto"
-import { assets, db, feeds, inArray, subscriptions, usageCounts } from "@klipstack/db"
+import {
+	assets,
+	db,
+	documents,
+	documentVersions,
+	feeds,
+	highlights,
+	inArray,
+	subscriptions,
+	usageCounts,
+} from "@klipstack/db"
 import { afterAll, describe, expect, it } from "vitest"
 import { authorizeAdmin } from "~/lib/admin.server"
 import { env } from "~/lib/env.server"
 import { countRefusal, defaultLimits, monthOf } from "~/lib/limits.server"
+import { findStarterText, starterUrlHash } from "~/lib/starter-texts.server"
 import { adminFixtures } from "~/test/admin-fixtures"
-import { listTopicUsage, listUsage } from "./admin-usage.server"
+import { listStarterUsage, listTopicUsage, listUsage } from "./admin-usage.server"
 
 const fx = adminFixtures("admin-usage")
 const feedIds: string[] = []
@@ -190,5 +201,84 @@ describe("listTopicUsage", () => {
 				},
 			},
 		])
+	})
+})
+
+describe("listStarterUsage", () => {
+	/** A copy of a starter text in a library, as saving it leaves it, with `values` over that. */
+	async function copy(
+		userId: string,
+		slug: string,
+		values: Partial<typeof documents.$inferInsert> = {},
+	) {
+		const text = findStarterText(slug)!
+		const [doc] = await db
+			.insert(documents)
+			.values({
+				userId,
+				sourceUrl: text.url,
+				urlHash: starterUrlHash(text),
+				status: "ready",
+				...values,
+			})
+			.returning({ id: documents.id })
+		return doc!.id
+	}
+
+	async function highlight(userId: string, documentId: string, note: string | null) {
+		const [version] = await db
+			.insert(documentVersions)
+			.values({
+				documentId,
+				version: 1,
+				html: "<p>Text</p>",
+				text: "Text",
+				textHash: randomUUID(),
+				extractor: "test",
+				extractorVersion: "0",
+			})
+			.returning({ id: documentVersions.id })
+		await db.insert(highlights).values({
+			userId,
+			documentId,
+			versionId: version!.id,
+			startOffset: 0,
+			endOffset: 4,
+			exact: "Text",
+			note,
+		})
+	}
+
+	it("counts, per text, the libraries that have it and what their readers did with it", async () => {
+		const ctx = await authorizeAdmin(await (await fx.account({ role: "admin" })).session())
+		// Other tests' libraries may hold starter texts too: what this one adds is the difference.
+		const before = await listStarterUsage(ctx)
+		const [a, b, c, d] = await Promise.all([fx.account(), fx.account(), fx.account(), fx.account()])
+		await copy(a.id, "bacon-of-studies", { readAt: new Date() })
+		await highlight(b.id, await copy(b.id, "bacon-of-studies"), null)
+		await highlight(c.id, await copy(c.id, "bacon-of-studies"), "Mine.")
+		await copy(d.id, "bacon-of-studies", { note: "On the whole essay." })
+		// Not counted: another text, and a copy in the trash.
+		await copy(a.id, "guide-es")
+		await copy(b.id, "seneca-on-reading", { deletedAt: new Date(), readAt: new Date() })
+
+		const after = await listStarterUsage(ctx)
+		const diff = (slug: string) => {
+			const was = before.find((row) => row.slug === slug)!
+			const now = after.find((row) => row.slug === slug)!
+			return {
+				saved: now.saved - was.saved,
+				finished: now.finished - was.finished,
+				highlighted: now.highlighted - was.highlighted,
+				noted: now.noted - was.noted,
+			}
+		}
+		expect(diff("bacon-of-studies")).toEqual({ saved: 4, finished: 1, highlighted: 2, noted: 2 })
+		expect(diff("guide-es")).toEqual({ saved: 1, finished: 0, highlighted: 0, noted: 0 })
+		expect(diff("seneca-on-reading")).toEqual({ saved: 0, finished: 0, highlighted: 0, noted: 0 })
+		expect(after.find((row) => row.slug === "bacon-of-studies")).toMatchObject({
+			title: "Of Studies",
+			language: "en",
+		})
 	})
 })

@@ -209,6 +209,16 @@ export default {
 			"El costo de IA es una estimación en dólares estadounidenses (USD), a partir de los tokens de cada respuesta terminada. La factura está en la consola de Anthropic.",
 		topicCostNote:
 			"El costo de temas es la misma estimación para los temas: Haiku proponiéndolos, haciéndolos crecer y revisándolos, y Jev ordenando artículos (la factura de TypeSafe). Se cuenta aparte desde octubre de 2026; antes, iba en el costo de IA.",
+		starter: {
+			title: "Textos para empezar",
+			description:
+				"La guía y los ensayos que se ofrecen a los lectores nuevos, tal como están ahora en las bibliotecas: cuántas tienen cada uno y, de esas, en cuántas se terminó, se subrayó y se escribió una nota. Una copia en la papelera ya no cuenta.",
+			text: "Texto",
+			saved: "En bibliotecas",
+			finished: "Terminado",
+			highlighted: "Con subrayados",
+			noted: "Con notas",
+		},
 		topics: {
 			title: "Temas este mes",
 			description:

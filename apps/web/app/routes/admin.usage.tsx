@@ -8,7 +8,7 @@ import { isUsageOrder, USAGE_ORDERS, USAGE_TOP, type UsageOrder } from "~/lib/ad
 import { requireAdmin } from "~/lib/admin.server"
 import { getLocale } from "~/lib/i18n.server"
 import { cn } from "~/lib/utils"
-import { listTopicUsage, listUsage } from "~/services/admin-usage.server"
+import { listStarterUsage, listTopicUsage, listUsage } from "~/services/admin-usage.server"
 import type { Route } from "./+types/admin.usage"
 
 const MB = 1024 * 1024
@@ -17,10 +17,9 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 	const ctx = await requireAdmin(context, request)
 	const raw = new URL(request.url).searchParams.get("by")
 	const by: UsageOrder = isUsageOrder(raw) ? raw : "refused"
-	const [{ rows, limits, month, aiCostUsd, topicCostUsd }, topicUsage] = await Promise.all([
-		listUsage(ctx, by),
-		listTopicUsage(ctx),
-	])
+	const [{ rows, limits, month, aiCostUsd, topicCostUsd }, topicUsage, starter] = await Promise.all(
+		[listUsage(ctx, by), listTopicUsage(ctx), listStarterUsage(ctx)],
+	)
 	// Money is formatted here, as numbers are in Settings: the server's Intl and the browser's may
 	// differ. Cents an account spends show as less than one cent, not as nothing.
 	const usd = new Intl.NumberFormat(getLocale(context), { style: "currency", currency: "USD" })
@@ -45,6 +44,7 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 			// The columns, in order: the list stays on the server, with the database's code.
 			uses: [...topicUseMetrics],
 		},
+		starter,
 	}
 }
 
@@ -178,6 +178,7 @@ export default function AdminUsage({ loaderData }: Route.ComponentProps) {
 			</p>
 			<p className="mt-1 text-sm text-muted-fg">{t("usage.topicCostNote")}</p>
 			<TopicUsage topics={loaderData.topics} />
+			<StarterUsage rows={loaderData.starter} />
 		</>
 	)
 }
@@ -233,6 +234,38 @@ function TopicUsage({ topics }: { topics: Route.ComponentProps["loaderData"]["to
 				<Empty>{t("usage.topics.empty")}</Empty>
 			)}
 			<p className="mt-4 text-sm text-muted-fg">{t("usage.topics.usesNote")}</p>
+		</section>
+	)
+}
+
+/** How the starter texts are used: per text, the libraries that have it now. */
+function StarterUsage({ rows }: { rows: Route.ComponentProps["loaderData"]["starter"] }) {
+	const { t } = useTranslation("admin")
+	const counts = ["saved", "finished", "highlighted", "noted"] as const
+	return (
+		<section className="mt-8" aria-labelledby="starter-usage">
+			<h2 id="starter-usage" className="mb-2 text-lg font-semibold">
+				{t("usage.starter.title")}
+			</h2>
+			<p className="mb-4 text-sm text-muted-fg">{t("usage.starter.description")}</p>
+			<Table
+				caption={t("usage.starter.title")}
+				head={[t("usage.starter.text"), ...counts.map((count) => t(`usage.starter.${count}`))]}
+			>
+				{rows.map((row) => (
+					<tr key={row.slug}>
+						<td>
+							{row.title}
+							<div className="text-xs text-muted-fg">{row.language}</div>
+						</td>
+						{counts.map((count) => (
+							<td key={count} className={cn("tabular-nums", !row[count] && "text-muted-fg")}>
+								{row[count]}
+							</td>
+						))}
+					</tr>
+				))}
+			</Table>
 		</section>
 	)
 }
