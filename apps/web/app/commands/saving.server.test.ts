@@ -1,8 +1,10 @@
 import { createHash, randomUUID } from "node:crypto"
+import { gunzipSync } from "node:zlib"
 import { HTML_MAX_BYTES, URL_MAX } from "@klipstack/api-contract"
 import {
 	assets,
 	db,
+	documentRaw,
 	documents,
 	eq,
 	feedItems,
@@ -69,6 +71,23 @@ describe("saveArticle", () => {
 		expect(again).toMatchObject({ created: false, article: { id: first.article.id, tags: [] } })
 	})
 
+	it("keeps the page as served with the capture, and counts it as storage", async () => {
+		const userId = await newUser()
+		const html = "<p>Cut short.</p>"
+		const servedHtml = `<p>${"The whole article. ".repeat(2000)}</p>`
+		const { article } = await saveArticle(userId, {
+			url: url("served"),
+			html,
+			servedHtml,
+			source: "extension",
+		})
+		const [raw] = await db.select().from(documentRaw).where(eq(documentRaw.documentId, article.id))
+		expect(gunzipSync(raw!.rawHtml).toString("utf8")).toBe(html)
+		expect(gunzipSync(raw!.servedHtml!).toString("utf8")).toBe(servedHtml)
+		const stored = raw!.rawHtml.length + raw!.servedHtml!.length
+		expect((await usageOf(userId)).storage.used).toBe(stored)
+	})
+
 	it("counts every save, from anywhere, against one limit; a refused URL costs nothing", async () => {
 		const userId = await newUser()
 		spend(userId, 1)
@@ -93,6 +112,12 @@ describe("saveArticle", () => {
 			{ url: "", source: "web" as const },
 			{ url: `https://example.com/${"a".repeat(URL_MAX)}`, source: "web" as const },
 			{ url: url("big"), html: "é".repeat(HTML_MAX_BYTES / 2 + 1), source: "extension" as const },
+			{
+				url: url("big-served"),
+				html: "<p>Cut</p>",
+				servedHtml: "é".repeat(HTML_MAX_BYTES / 2 + 1),
+				source: "extension" as const,
+			},
 		])
 			await expect(saveArticle(userId, input)).rejects.toMatchObject({ code: "invalid_request" })
 		// The one save left is still there.

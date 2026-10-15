@@ -70,6 +70,8 @@ export interface SaveInput {
 	url: string
 	/** Rendered DOM captured by the extension or an agent; skips server-side fetching. */
 	html?: string | null
+	/** With `html`, the page as the site served it (`saveArticle`). */
+	servedHtml?: string | null
 	source: SaveSource
 }
 
@@ -83,6 +85,7 @@ export async function saveDocument({
 	userId,
 	url,
 	html,
+	servedHtml,
 	source,
 }: SaveInput): Promise<{ document: Document; created: boolean }> {
 	if (!isHttpUrl(url)) throw refuse("invalid_url")
@@ -99,7 +102,7 @@ export async function saveDocument({
 	asSaved.hash = ""
 	const fetchUrl = asSaved.href
 	// X pages are an empty JavaScript shell to us; the worker reads posts through an API instead.
-	const capture = parseXStatusUrl(normalized) ? null : html
+	const capture = parseXStatusUrl(normalized) || !html ? null : { html, servedHtml }
 	const hash = urlHash(normalized)
 
 	// A post saved before as the article it shared finds that article.
@@ -186,13 +189,14 @@ export async function saveDocument({
 async function storeCapture(
 	documentId: string,
 	finalUrl: string,
-	html: string,
+	{ html, servedHtml }: { html: string; servedHtml?: string | null },
 	source: SaveSource,
 	tx: Tx,
 ) {
 	await tx.insert(documentRaw).values({
 		documentId,
 		rawHtml: gzipSync(Buffer.from(html, "utf8")),
+		servedHtml: servedHtml ? gzipSync(Buffer.from(servedHtml, "utf8")) : null,
 		finalUrl,
 		httpStatus: null,
 		contentType: "text/html",

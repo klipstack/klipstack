@@ -3,7 +3,7 @@ import { and, db, desc, documentRaw, documents, eq, notifyDocumentEvent, sql } f
 import {
 	ExtractError,
 	type ExtractErrorCode,
-	extractArticle,
+	extractCapture,
 	extractXPost,
 	fetchPage,
 	fetchXPost,
@@ -105,16 +105,23 @@ export async function handleExtract(job: JobWithMetadata<JobPayloads["extract"]>
 		// `rawHtml` holds the API JSON for posts on X.
 		const body = gunzipSync(raw.rawHtml).toString("utf8")
 		const url = raw.finalUrl ?? doc.sourceUrl
-		const article =
+		const servedHtml = raw.servedHtml ? gunzipSync(raw.servedHtml).toString("utf8") : null
+		const { article, used } =
 			raw.contentType === X_RAW_CONTENT_TYPE
-				? extractXPost(body, url)
-				: await extractArticle({ html: body, url })
+				? { article: extractXPost(body, url), used: "rendered" as const }
+				: await extractCapture({ html: body, servedHtml, url })
 		// A post that only passes a link along: the linked article is saved in its place.
 		if (await saveSharedArticle(doc, raw, article, url)) return
 
 		const published = await db.transaction(async (tx) => {
 			const versionId = await publishExtraction(tx, doc, raw.id, article, url)
 			if (!versionId) return null
+			// The capture keeps the page the version came from, and not the other one.
+			if (raw.servedHtml)
+				await tx
+					.update(documentRaw)
+					.set({ servedHtml: null, ...(used === "served" ? { rawHtml: raw.servedHtml } : {}) })
+					.where(eq(documentRaw.id, raw.id))
 			// The image job exists only if this version does: same transaction, shared admission.
 			await admitImages(tx, versionId)
 			// Posts kept because this article couldn't be opened from them join it now.
@@ -132,6 +139,7 @@ export async function handleExtract(job: JobWithMetadata<JobPayloads["extract"]>
 			documentId,
 			extractor: article.extractor.name,
 			words: article.wordCount,
+			...(raw.servedHtml ? { used } : {}),
 		})
 	} catch (error) {
 		const reason = failureReasonFor(error)

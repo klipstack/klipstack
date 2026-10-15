@@ -178,6 +178,12 @@ export const documentRaw = pgTable(
 			.notNull()
 			.references(() => documents.id, { onDelete: "cascade" }),
 		rawHtml: bytea("raw_html").notNull(),
+		/**
+		 * With an extension capture, the same page as the site served it (gzipped, scripts removed):
+		 * extraction keeps it when the rendered page was cut short. Cleared once a version is published
+		 * from the capture; until then a retry reads it again.
+		 */
+		servedHtml: bytea("served_html"),
 		finalUrl: text("final_url"),
 		httpStatus: integer("http_status"),
 		contentType: text("content_type"),

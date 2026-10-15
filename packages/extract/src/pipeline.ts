@@ -177,6 +177,43 @@ export async function extractArticle({
 	})
 }
 
+/**
+ * The page as the site served it wins only with this many times the words of the rendered page:
+ * a paywall that hides the article in the browser cuts most of it, while blocks that scripts add
+ * or remove move a few words either way.
+ */
+const SERVED_MARGIN = 1.25
+
+/**
+ * Extracts a capture: the page as the reader saw it (`html`) and, when the extension could fetch
+ * it, the same page as the site served it (`servedHtml`), before the page's scripts ran. Some
+ * paywalls send the whole article and hide it in the browser; the served page has it all. The
+ * rendered page is kept unless the served one has clearly more article, or the rendered one has
+ * none. Without either article, the rendered page's error.
+ */
+export async function extractCapture({
+	html,
+	servedHtml,
+	url,
+}: {
+	html: string
+	servedHtml?: string | null
+	url: string
+}): Promise<{ article: ExtractedArticle; used: "rendered" | "served" }> {
+	if (!servedHtml) return { article: await extractArticle({ html, url }), used: "rendered" }
+	const served = await extractArticle({ html: servedHtml, url }).catch(() => null)
+	let rendered: ExtractedArticle
+	try {
+		rendered = await extractArticle({ html, url })
+	} catch (error) {
+		if (served) return { article: served, used: "served" }
+		throw error
+	}
+	if (served && served.wordCount >= rendered.wordCount * SERVED_MARGIN)
+		return { article: served, used: "served" }
+	return { article: rendered, used: "rendered" }
+}
+
 export type ArticleFields = Pick<
 	ExtractedArticle,
 	| "title"

@@ -171,7 +171,8 @@ export function storedBytes(only?: string): SQL {
 	return sql`
 		select a.user_id, a.bytes::bigint as bytes from assets a ${of(sql`a.user_id`)}
 		union all
-		select d.user_id, octet_length(r.raw_html)::bigint from document_raw r
+		select d.user_id, (octet_length(r.raw_html) + coalesce(octet_length(r.served_html), 0))::bigint
+			from document_raw r
 			join documents d on d.id = r.document_id ${of(sql`d.user_id`)}
 		union all
 		select d.user_id, (octet_length(v.html) + octet_length(v.text))::bigint from document_versions v

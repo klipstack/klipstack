@@ -27,6 +27,9 @@ settings=(
   -e PORT="$web_port"
   -e STORAGE_DRIVER=fs
 )
+# Off the host network, `host.docker.internal` is this machine: Docker Desktop names it on its own,
+# Docker on Linux only when asked.
+[ "$network" = host ] || settings+=(--add-host=host.docker.internal:host-gateway)
 
 echo "migrations"
 docker run --rm "${settings[@]}" "$image" pnpm --filter @klipstack/db migrate

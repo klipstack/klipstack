@@ -21,6 +21,45 @@ describe("savePage", () => {
 			{ url: "https://a.example/p", html: null, source: "extension" },
 		])
 	})
+
+	it("does not send it again for other refusals", async () => {
+		let calls = 0
+		const signedOut = (async () => {
+			calls++
+			return new Response(JSON.stringify({ error: { code: "unauthorized" } }), { status: 401 })
+		}) as unknown as typeof fetch
+		const page = { url: "https://a.example/p", html: "<html/>", servedHtml: "<html>all</html>" }
+		expect(await savePage("https://k", page, signedOut)).toMatchObject({ ok: false, status: 401 })
+		expect(calls).toBe(1)
+	})
+})
+
+describe("savePage with the page as served", () => {
+	it("drops the served page first, then the rendered one, when the server finds them too large", async () => {
+		const bodies: unknown[] = []
+		const fetchImpl = (async (_: unknown, init?: RequestInit) => {
+			bodies.push(JSON.parse(String(init?.body)))
+			return bodies.length < 3
+				? new Response("Request body is too large.", { status: 413 })
+				: new Response(JSON.stringify({ article: { id: "1" }, created: true }), { status: 202 })
+		}) as unknown as typeof fetch
+		const r = await savePage(
+			"https://k",
+			{ url: "https://a.example/p", html: "<html/>", servedHtml: "<html>all</html>" },
+			fetchImpl,
+		)
+		expect(r).toMatchObject({ ok: true, id: "1" })
+		expect(bodies).toEqual([
+			{
+				url: "https://a.example/p",
+				html: "<html/>",
+				servedHtml: "<html>all</html>",
+				source: "extension",
+			},
+			{ url: "https://a.example/p", html: "<html/>", source: "extension" },
+			{ url: "https://a.example/p", html: null, source: "extension" },
+		])
+	})
 })
 
 describe("savePage refusals", () => {

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto"
-import { gzipSync } from "node:zlib"
+import { gunzipSync, gzipSync } from "node:zlib"
 import {
 	db,
 	documentOutlinks,
@@ -34,13 +34,13 @@ vi.mock("@klipstack/extract", async (original) => {
 	const real = await original<typeof import("@klipstack/extract")>()
 	return {
 		...real,
-		extractArticle: async (input: Parameters<typeof real.extractArticle>[0]) => {
+		extractCapture: async (input: Parameters<typeof real.extractCapture>[0]) => {
 			barrier.started.shift()?.()
 			await barrier.gate
 			const failure = barrier.failure
 			barrier.failure = null
 			if (failure) throw failure
-			return real.extractArticle(input)
+			return real.extractCapture(input)
 		},
 	}
 })
@@ -137,6 +137,51 @@ const docOf = async (id: string) =>
 	(await db.select().from(documents).where(eq(documents.id, id)))[0]
 
 describe("handleExtract", () => {
+	it("publishes the page as served when the rendered one was cut short, and keeps only it", async () => {
+		const doc = await saved("Cut short")
+		const served = page("Cut short", "<p>The rest of the article, which the paywall hid.</p>")
+		const cut = "<!doctype html><body><article><p>Subscribe to keep reading.</p></article></body>"
+		await db
+			.update(documentRaw)
+			.set({
+				rawHtml: gzipSync(Buffer.from(cut, "utf8")),
+				servedHtml: gzipSync(Buffer.from(served, "utf8")),
+			})
+			.where(eq(documentRaw.documentId, doc.id))
+
+		await handleExtract(job(doc.id))
+
+		const [version] = await db
+			.select({ text: documentVersions.text })
+			.from(documentVersions)
+			.where(eq(documentVersions.documentId, doc.id))
+		expect(version?.text).toContain("which the paywall hid")
+		const [raw] = await db.select().from(documentRaw).where(eq(documentRaw.documentId, doc.id))
+		expect(raw?.servedHtml).toBeNull()
+		expect(gunzipSync(raw!.rawHtml).toString("utf8")).toBe(served)
+	})
+
+	it("publishes the rendered page when the served one is no longer, and drops the served one", async () => {
+		const doc = await saved("Same length")
+		const [before] = await db.select().from(documentRaw).where(eq(documentRaw.documentId, doc.id))
+		const served = page("Same length", "<p>A box that the page's scripts removed later.</p>")
+		await db
+			.update(documentRaw)
+			.set({ servedHtml: gzipSync(Buffer.from(served, "utf8")) })
+			.where(eq(documentRaw.documentId, doc.id))
+
+		await handleExtract(job(doc.id))
+
+		const [version] = await db
+			.select({ text: documentVersions.text })
+			.from(documentVersions)
+			.where(eq(documentVersions.documentId, doc.id))
+		expect(version?.text).not.toContain("scripts removed later")
+		const [raw] = await db.select().from(documentRaw).where(eq(documentRaw.documentId, doc.id))
+		expect(raw?.servedHtml).toBeNull()
+		expect(raw?.rawHtml).toEqual(before?.rawHtml)
+	})
+
 	it("publishes the stored capture as the current version", async () => {
 		const doc = await saved("First capture")
 		await handleExtract(job(doc.id))

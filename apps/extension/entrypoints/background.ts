@@ -81,22 +81,27 @@ async function savePage(tab: Browser.tabs.Tab): Promise<SaveOutcome> {
 	}
 	await setBadge(tab.id, "…", "#243f6c")
 	const settings = await getSettings()
-	const captured = isServerCapturedUrl(tab.url) ? null : await captureTab(tab.id)
-	const payload = captured ? { url: captured.url, html: captured.html } : { url: tab.url }
+	// Shown before the capture, which fetches the page again: that can take a few seconds.
 	void toast(tab.id, { kind: "saving", title: msg("toastSaving") })
+	const captured = isServerCapturedUrl(tab.url) ? null : await captureTab(tab.id)
+	const payload = captured
+		? { url: captured.url, html: captured.html, servedHtml: captured.servedHtml }
+		: { url: tab.url }
 	const result = await sendPage(settings.appUrl, payload)
 	await flash(tab.id, result.ok ? "✓" : "!", result.ok ? "#15803d" : "#b91c1c")
 	await toast(tab.id, outcomeToast(result, settings.appUrl))
 	return result
 }
 
-async function captureTab(tabId: number): Promise<ReturnType<typeof capturePage> | null> {
+type Capture = Awaited<ReturnType<typeof capturePage>>
+
+async function captureTab(tabId: number): Promise<Capture | null> {
 	try {
 		const [result] = await browser.scripting.executeScript({
 			target: { tabId },
 			func: capturePage,
 		})
-		return (result?.result as ReturnType<typeof capturePage> | undefined) ?? null
+		return (result?.result as Capture | undefined) ?? null
 	} catch {
 		return null
 	}

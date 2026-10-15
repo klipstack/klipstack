@@ -10,15 +10,20 @@ import { feedItemUrl, markFeedItemViewed } from "~/services/feeds.server"
  * feed), the extension, the API and MCP. They share one limit.
  */
 
+const Page = z.string().refine((html) => utf8Length(html) <= HTML_MAX_BYTES, {
+	message: `The page may not exceed ${HTML_MAX_BYTES} bytes.`,
+})
+
 const SaveRequest = z.object({
 	url: z.string().trim().min(1).max(URL_MAX),
 	/** The rendered page, captured by the extension or an agent: extracted instead of fetched. */
-	html: z
-		.string()
-		.refine((html) => utf8Length(html) <= HTML_MAX_BYTES, {
-			message: `The page may not exceed ${HTML_MAX_BYTES} bytes.`,
-		})
-		.nullish(),
+	html: Page.nullish(),
+	/**
+	 * With `html`, the same page as the site served it, which the extension fetches too: some
+	 * paywalls send the whole article and cut it in the browser. Extraction keeps the longer. Over
+	 * the web, both pages share the capture's body cap (`CAPTURE_BODY`).
+	 */
+	servedHtml: Page.nullish(),
 	/** Where the save came from, kept with the capture. */
 	source: z.enum(["web", "extension", "api", "feed"]),
 })
@@ -31,11 +36,11 @@ export type SaveRequest = z.input<typeof SaveRequest>
  * save limit; a refused URL does not.
  */
 export async function saveArticle(userId: string, input: SaveRequest) {
-	const { url, html, source } = parseInput(SaveRequest, input)
+	const { url, html, servedHtml, source } = parseInput(SaveRequest, input)
 	const limited = rateLimit(`save:${userId}`, SAVE_LIMIT.limit, SAVE_LIMIT.windowMs)
 	if (!limited.ok) throw rateLimited(limited.retryAfterSeconds, "saves")
 	try {
-		const { document, created } = await saveDocument({ userId, url, html, source })
+		const { document, created } = await saveDocument({ userId, url, html, servedHtml, source })
 		// An article saved before may have just been queued again, and has tags: read it again.
 		const article = (created ? null : await getDocument(userId, document.id)) ?? {
 			...document,

@@ -654,6 +654,7 @@ export async function readPostInstead(userId: string, id: string): Promise<{ que
 		await tx.insert(documentRaw).values({
 			documentId: articleId,
 			rawHtml: raw.rawHtml,
+			servedHtml: raw.servedHtml,
 			finalUrl: raw.finalUrl,
 			httpStatus: raw.httpStatus,
 			contentType: raw.contentType,

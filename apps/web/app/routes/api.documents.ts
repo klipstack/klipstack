@@ -8,12 +8,12 @@ import { articleSummary } from "~/services/article-summary.server"
 import type { Route } from "./+types/api.documents"
 
 /**
- * POST /api/documents  { url, html?, source? }
+ * POST /api/documents  { url, html?, servedHtml?, source? }
  * Save a page, for the browser session only: the reader's link popover and the extension (which
- * sends the cookies of the browser it runs in). `html` is the rendered DOM the extension captured;
- * without it the worker fetches the URL itself. Answers as `POST /api/v1/articles` does: 202 with
- * `{article, created}` when new, 200 when already saved, and the API's error body. Programs use
- * that endpoint with a token instead.
+ * sends the cookies of the browser it runs in). `html` is the rendered DOM the extension captured
+ * and `servedHtml` the page as the site served it; without `html` the worker fetches the URL
+ * itself. Answers as `POST /api/v1/articles` does: 202 with `{article, created}` when new, 200
+ * when already saved, and the API's error body. Programs use that endpoint with a token instead.
  */
 export async function action({ request, context }: Route.ActionArgs) {
 	if (request.method !== "POST")
@@ -37,6 +37,7 @@ export async function action({ request, context }: Route.ActionArgs) {
 		const { article, created } = await saveArticle(user.id, {
 			url: body.url as string,
 			html: body.html ?? null,
+			servedHtml: body.servedHtml ?? null,
 			source: body.source ?? (body.html ? "extension" : "api"),
 		})
 		return Response.json(

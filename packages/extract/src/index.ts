@@ -40,6 +40,7 @@ export {
 	type ExtractedArticle,
 	type ExtractInput,
 	extractArticle,
+	extractCapture,
 	finishArticle,
 } from "./pipeline"
 export { sanitizeHtml } from "./sanitize"

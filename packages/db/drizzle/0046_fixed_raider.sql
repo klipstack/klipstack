@@ -1,0 +1,1 @@
+ALTER TABLE "document_raw" ADD COLUMN "served_html" "bytea";
