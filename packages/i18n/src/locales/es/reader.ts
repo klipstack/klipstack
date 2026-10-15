@@ -223,6 +223,11 @@ export default {
 		refused: "No se pudo responder esta pregunta.",
 		citation: "Pasaje {{n}} del artículo",
 		askPlaceholder: "Pregunta sobre este pasaje…",
+		suggestions: {
+			example: "Dame un ejemplo",
+			matters: "¿Por qué importa?",
+			evidence: "¿Qué pruebas hay?",
+		},
 		followUpPlaceholder: "Haz otra pregunta…",
 		send: "Enviar",
 		retry: "Responder de nuevo",

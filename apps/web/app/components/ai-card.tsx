@@ -34,6 +34,9 @@ export const AI_ACTION_ICONS = {
 
 const FLOATING_WIDTH = 360
 
+/** Questions offered under an empty field about a passage, for a reader without one in mind. */
+const SUGGESTIONS = ["example", "matters", "evidence"] as const
+
 interface Props {
 	card: Card
 	/** Where the answer being written is, word by word. */
@@ -240,6 +243,7 @@ function OpenCard({
 					<QuestionField
 						initial={card.draft.question}
 						placeholder={t("ai.askPlaceholder")}
+						suggestions={SUGGESTIONS.map((key) => t(`ai.suggestions.${key}`))}
 						onSend={onSend}
 						onEscape={onClose}
 					/>
@@ -351,16 +355,21 @@ export function QuestionsLeft({ failed }: { failed?: boolean }) {
 	)
 }
 
-/** A one-line question that grows as it is typed. Enter sends; Shift+Enter is a new line. */
+/**
+ * A one-line question that grows as it is typed. Enter sends; Shift+Enter is a new line. Under it
+ * while it is empty, `suggestions` send themselves in one press.
+ */
 export function QuestionField({
 	initial = "",
 	placeholder,
+	suggestions = [],
 	onSend,
 	onEscape,
 	autoFocus = true,
 }: {
 	initial?: string
 	placeholder: string
+	suggestions?: string[]
 	onSend: (question: string) => void
 	onEscape: () => void
 	autoFocus?: boolean
@@ -381,7 +390,7 @@ export function QuestionField({
 		onSend(value.trim())
 		setValue("")
 	}
-	return (
+	const field = (
 		<div className="mt-2 flex items-end gap-1 rounded-lg border border-border bg-bg px-2 py-1 focus-within:ring-2 focus-within:ring-ring">
 			<textarea
 				ref={ref}
@@ -412,5 +421,23 @@ export function QuestionField({
 				<ArrowUp className="size-3.5" aria-hidden />
 			</button>
 		</div>
+	)
+	if (!suggestions.length || value.trim()) return field
+	return (
+		<>
+			{field}
+			<div className="mt-2 flex flex-wrap gap-1.5">
+				{suggestions.map((suggestion) => (
+					<button
+						key={suggestion}
+						type="button"
+						onClick={() => onSend(suggestion)}
+						className="rounded-full border border-border px-2.5 py-0.5 text-xs text-muted-fg transition-colors hover:bg-muted hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+					>
+						{suggestion}
+					</button>
+				))}
+			</div>
+		</>
 	)
 }

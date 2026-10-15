@@ -153,6 +153,8 @@ test("one word can be defined, not highlighted; typing with a selection asks", a
 	await page.keyboard.type("Why two?")
 	const question = card.getByRole("textbox", { name: "Ask about this passage…" })
 	await expect(question).toHaveValue("Why two?")
+	// A question of the reader's own: no suggestions under it.
+	await expect(card.getByRole("button", { name: "Give me an example" })).toHaveCount(0)
 	await shot(page, "5-ask")
 	await question.press("Enter")
 	await expect(card).toContainText("Why two?")
@@ -182,6 +184,18 @@ test("Ask far down the article opens its field where the reader is", async ({ pa
 	// Focusing the field doesn't jump to where the card sat before the margin placed it.
 	expect(Math.abs((await page.evaluate(() => window.scrollY)) - scrolled)).toBeLessThan(50)
 	await expect(question).toBeInViewport()
+
+	// Without a question in mind, a suggestion asks itself in one press.
+	const card = page.getByTestId("ai-card")
+	await expect(card.getByRole("button")).toContainText([
+		"Give me an example",
+		"Why does it matter?",
+		"What is the evidence?",
+	])
+	await card.getByRole("button", { name: "Why does it matter?" }).click()
+	await expect(card).toContainText("Why does it matter?")
+	await expect(card).toContainText("Answer 1.")
+	await expect(card.getByRole("button", { name: "What is the evidence?" })).toHaveCount(0)
 })
 
 test("without a margin the card floats under the passage; without the feature, no AI", async ({
