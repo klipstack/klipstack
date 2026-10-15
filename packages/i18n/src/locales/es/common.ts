@@ -432,6 +432,7 @@ export default {
 		},
 		rows: {
 			palette: "Paleta de comandos: buscar, ir, actuar",
+			paste: "Guardar el enlace que copiaste",
 			submit: "Listo, en un campo de texto",
 			listMove: "Artículo siguiente o anterior",
 			listArrows: "Moverse entre las tarjetas",

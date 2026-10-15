@@ -424,6 +424,7 @@ export default {
 		},
 		rows: {
 			palette: "Command palette: search, go to, act",
+			paste: "Save the link you copied",
 			submit: "Done, in a text field",
 			listMove: "Next or previous article",
 			listArrows: "Move between the cards",

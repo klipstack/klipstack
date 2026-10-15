@@ -18,7 +18,6 @@ export function SaveLinkDialog() {
 	const { t } = useTranslation("library")
 	const dialogRef = useRef<HTMLDialogElement>(null)
 	const formRef = useRef<HTMLFormElement>(null)
-	const buttonRef = useRef<HTMLButtonElement>(null)
 	const fetcher = useFetcher<WebResult<{ saved: true }> & { url?: string }>()
 	const location = useLocation()
 	const saving = fetcher.state !== "idle"
@@ -44,35 +43,16 @@ export function SaveLinkDialog() {
 	})
 	useEffect(() => onAnswer(fetcher.data), [fetcher.data])
 
-	const open = useCallback((url?: string) => {
+	const open = useCallback(() => {
 		const d = dialogRef.current
 		if (!d) return
 		d.showModal()
-		const input = d.querySelector("input")
-		if (input && url !== undefined) input.value = url
-		input?.focus()
+		d.querySelector("input")?.focus()
 	}, [])
-
-	// Pasting a link anywhere on the page (not into a field) opens the dialog with it. Only the
-	// visible instance reacts: the layout renders one in the phone bar and pages one on desktop.
-	useEffect(() => {
-		const onPaste = (e: ClipboardEvent) => {
-			const target = e.target as HTMLElement | null
-			if (target?.closest("input, textarea, [contenteditable]")) return
-			if (!buttonRef.current || buttonRef.current.offsetParent === null) return
-			const text = e.clipboardData?.getData("text")?.trim() ?? ""
-			if (!/^https?:\/\/\S+$/i.test(text)) return
-			e.preventDefault()
-			open(text)
-		}
-		document.addEventListener("paste", onPaste)
-		return () => document.removeEventListener("paste", onPaste)
-	}, [open])
 
 	return (
 		<>
 			<Button
-				ref={buttonRef}
 				type="button"
 				variant="ghost"
 				size="icon"

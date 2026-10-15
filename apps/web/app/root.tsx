@@ -17,6 +17,7 @@ import "./app.css"
 import { CommandPalette } from "./components/command-palette"
 import { ErrorContent } from "./components/error-content"
 import { NavigationProgress } from "./components/navigation-progress"
+import { PasteToSave } from "./components/paste-to-save"
 import { ToastHost } from "./components/toast-host"
 import { TooltipHost } from "./components/tooltip-host"
 import { useLiveUpdates } from "./hooks/use-live-updates"
@@ -141,6 +142,7 @@ export default function App({ loaderData: { locale, loggedIn } }: Route.Componen
 			<NavigationProgress />
 			<Outlet />
 			{loggedIn ? <CommandPalette /> : null}
+			{loggedIn ? <PasteToSave /> : null}
 			<ToastHost />
 			<TooltipHost />
 		</>

@@ -278,18 +278,6 @@ test("save via API with captured html → extracted → readable → archive", a
 	const gone = await page.request.get(`/read/${body.id}`)
 	expect(gone.status()).toBe(404)
 	expect(await completionHistory()).toEqual([])
-
-	// pasting a link on the library opens the save dialog with it
-	await page.goto("/library")
-	await waitForHydration(page)
-	await page.evaluate(() => {
-		const data = new DataTransfer()
-		data.setData("text/plain", "https://example.com/pasted-article")
-		document.body.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true }))
-	})
-	const dialog = page.getByRole("dialog", { name: "Save a link" })
-	await expect(dialog).toBeVisible()
-	await expect(dialog.getByLabel("Link")).toHaveValue("https://example.com/pasted-article")
 })
 
 test("an open library sees saves from elsewhere and their extraction finishing (live updates)", async ({

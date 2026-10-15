@@ -153,6 +153,18 @@ export function isCopyShortcut(e: KeyboardEvent): boolean {
 	return window.getSelection()?.isCollapsed !== false
 }
 
+/** ⌘V / Ctrl+V anywhere, outside a field: the link on the clipboard is saved. */
+export const PASTE_HINT = "⌘V"
+
+/** A paste outside a field and a dialog, of a link and nothing else: that link. */
+export function pastedLink(e: ClipboardEvent): string | null {
+	if (e.defaultPrevented) return null
+	const target = e.target instanceof Element ? e.target : null
+	if (target?.closest(`${TYPING}, ${OVERLAY}`) || modalOpen()) return null
+	const text = e.clipboardData?.getData("text/plain").trim() ?? ""
+	return /^https?:\/\/\S+$/i.test(text) ? text : null
+}
+
 export function listShortcut(e: KeyboardEvent): ListShortcut | null {
 	if (!bareKey(e)) return null
 	return LIST_KEYS[e.key] ?? null
@@ -217,6 +229,7 @@ export const SHORTCUT_GROUPS = [
 		id: "general",
 		rows: [
 			{ id: "palette", keys: ["⌘K"] },
+			{ id: "paste", keys: [PASTE_HINT] },
 			{ id: "submit", keys: [SUBMIT_HINT] },
 		],
 	},

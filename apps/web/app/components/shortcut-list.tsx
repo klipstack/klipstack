@@ -41,12 +41,12 @@ function ShortcutGroup({ id, ai }: { id: Group; ai: boolean }) {
 			>
 				{t(`shortcuts.groups.${id}`)}
 			</h2>
-			<table className="w-full text-sm">
+			<table className="w-full table-fixed text-sm">
 				<tbody>
 					{rows.map((row) => (
 						<tr key={row.id} className="border-t border-border/60 first:border-t-0">
-							<td className="w-44 py-1.5 pr-4 whitespace-nowrap">
-								<span className="flex gap-1">
+							<td className="w-32 py-1.5 pr-4 sm:w-48">
+								<span className="flex flex-wrap gap-1">
 									{row.keys.map((key) => (
 										<kbd
 											key={key}
