@@ -206,7 +206,12 @@ export default {
 		},
 		brief: {
 			title: "Resumen",
-			make: "Resume este artículo en tres puntos",
+			make: "Resume este artículo",
+			sections: {
+				claims: "Afirmaciones clave",
+				caveats: "Ten en cuenta",
+				parts: "Partes del texto",
+			},
 			writing: "Escribiendo el resumen…",
 		},
 		collapse: "Contraer",
@@ -218,6 +223,11 @@ export default {
 		refused: "No se pudo responder esta pregunta.",
 		citation: "Pasaje {{n}} del artículo",
 		askPlaceholder: "Pregunta sobre este pasaje…",
+		suggestions: {
+			example: "Dame un ejemplo",
+			matters: "¿Por qué importa?",
+			evidence: "¿Qué pruebas hay?",
+		},
 		followUpPlaceholder: "Haz otra pregunta…",
 		send: "Enviar",
 		retry: "Responder de nuevo",

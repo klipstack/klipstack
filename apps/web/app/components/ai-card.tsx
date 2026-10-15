@@ -16,7 +16,7 @@ import { AiResetsOnContext, useQuestionsLeft } from "~/hooks/use-ai-allowance"
 import { type AnswerStore, type AiCard as Card, useWritten } from "~/hooks/use-ai-threads"
 import type { AiFailure } from "~/lib/ai-stream.client"
 import { cn } from "~/lib/utils"
-import { AiAnswer, plainAnswer } from "./ai-answer"
+import { AiAnswer, answerLead, plainAnswer } from "./ai-answer"
 import { InkThinking } from "./ink-thinking"
 import { tooltip } from "./tooltip-host"
 
@@ -33,6 +33,9 @@ export const AI_ACTION_ICONS = {
 } as const
 
 const FLOATING_WIDTH = 360
+
+/** Questions offered under an empty field about a passage, for a reader without one in mind. */
+const SUGGESTIONS = ["example", "matters", "evidence"] as const
 
 interface Props {
 	card: Card
@@ -55,7 +58,7 @@ interface Props {
 
 /**
  * A question about a passage and its answers. Collapsed in the margin it shows the action, the
- * passage and the answer's first line; open, the whole thread, the answer streaming in, its
+ * latest question (or the passage) and the bold sentence its answer opens with; open, the whole thread, the answer streaming in, its
  * citations as chips, and a field for a follow-up.
  */
 export function AiCard(props: Props) {
@@ -63,9 +66,20 @@ export function AiCard(props: Props) {
 	const { t } = useTranslation("reader")
 	const Icon = AI_ACTION_ICONS[card.action]
 	const streamed = useWritten(props.written, card.id)
-	const answer = card.streaming
-		? streamed.text
-		: card.messages.findLast((m) => m.role === "assistant")?.text
+	// The latest question and its answer: the reader's words, or the passage for Explain and Define.
+	const asked = card.messages.findLastIndex((m) => m.role === "user")
+	const question = card.messages[asked]?.text
+	const reply = card.messages.slice(asked + 1).find((m) => m.role === "assistant")
+	const answer = card.streaming ? streamed.text : reply?.status === "done" ? reply.text : undefined
+	// Not answered: says so, as the open card does.
+	const unanswered =
+		card.streaming || answer
+			? null
+			: reply?.status === "refused"
+				? t("ai.refused")
+				: reply?.status === "failed" || card.failure
+					? t("ai.failed")
+					: null
 
 	if (!open)
 		return (
@@ -83,7 +97,13 @@ export function AiCard(props: Props) {
 					<Icon className="size-3" aria-hidden />
 					{t(`ai.actions.${card.action}`)}
 				</span>
-				<span className="line-clamp-3">{answer ? plainAnswer(answer) : `“${card.exact}”`}</span>
+				{question ? (
+					<span className="line-clamp-2 font-medium text-fg">{question}</span>
+				) : (
+					<span className="line-clamp-2 italic">“{card.exact}”</span>
+				)}
+				{answer ? <span className="mt-0.5 line-clamp-3">{answerLead(answer)}</span> : null}
+				{unanswered ? <span className="mt-0.5 block">{unanswered}</span> : null}
 			</button>
 		)
 	return <OpenCard {...props} />
@@ -240,6 +260,7 @@ function OpenCard({
 					<QuestionField
 						initial={card.draft.question}
 						placeholder={t("ai.askPlaceholder")}
+						suggestions={SUGGESTIONS.map((key) => t(`ai.suggestions.${key}`))}
 						onSend={onSend}
 						onEscape={onClose}
 					/>
@@ -351,16 +372,21 @@ export function QuestionsLeft({ failed }: { failed?: boolean }) {
 	)
 }
 
-/** A one-line question that grows as it is typed. Enter sends; Shift+Enter is a new line. */
+/**
+ * A one-line question that grows as it is typed. Enter sends; Shift+Enter is a new line. Under it
+ * while it is empty, `suggestions` send themselves in one press.
+ */
 export function QuestionField({
 	initial = "",
 	placeholder,
+	suggestions = [],
 	onSend,
 	onEscape,
 	autoFocus = true,
 }: {
 	initial?: string
 	placeholder: string
+	suggestions?: string[]
 	onSend: (question: string) => void
 	onEscape: () => void
 	autoFocus?: boolean
@@ -381,7 +407,7 @@ export function QuestionField({
 		onSend(value.trim())
 		setValue("")
 	}
-	return (
+	const field = (
 		<div className="mt-2 flex items-end gap-1 rounded-lg border border-border bg-bg px-2 py-1 focus-within:ring-2 focus-within:ring-ring">
 			<textarea
 				ref={ref}
@@ -412,5 +438,23 @@ export function QuestionField({
 				<ArrowUp className="size-3.5" aria-hidden />
 			</button>
 		</div>
+	)
+	if (!suggestions.length || value.trim()) return field
+	return (
+		<>
+			{field}
+			<div className="mt-2 flex flex-wrap gap-1.5">
+				{suggestions.map((suggestion) => (
+					<button
+						key={suggestion}
+						type="button"
+						onClick={() => onSend(suggestion)}
+						className="rounded-full border border-border px-2.5 py-0.5 text-xs text-muted-fg transition-colors hover:bg-muted hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+					>
+						{suggestion}
+					</button>
+				))}
+			</div>
+		</>
 	)
 }

@@ -2,6 +2,7 @@ import type { UserPrefs } from "@klipstack/db"
 import { ExternalLink, LoaderCircle } from "lucide-react"
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { briefSummary } from "~/lib/brief"
 import { clearHighlights, flashCited, renderHighlights } from "~/lib/highlights.client"
 import { cn } from "~/lib/utils"
 import type { WebResult } from "~/lib/web-result"
@@ -137,15 +138,7 @@ export function EditionArticle({
 					className="mb-6 rounded-xl border border-border bg-card p-3 font-sans text-sm leading-snug"
 				>
 					<p className="text-xs font-medium text-accent">{t("article.brief")}</p>
-					<ul className="mt-1.5 list-disc space-y-1 pl-5">
-						{article.brief
-							.split("\n")
-							.map((line) => plainAnswer(line.replace(/^\s*[-*]\s+/, "")))
-							.filter((line) => line.trim())
-							.map((line) => (
-								<li key={line}>{line}</li>
-							))}
-					</ul>
+					<p className="mt-1.5">{plainAnswer(briefSummary(article.brief))}</p>
 				</section>
 			) : null}
 			{missing ? (

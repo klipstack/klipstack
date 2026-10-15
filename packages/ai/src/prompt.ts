@@ -94,13 +94,30 @@ function articlePart(article: AnswerInput["article"]) {
 	}
 }
 
+/**
+ * The headings that open the brief's sections, after its gist. The model writes them in English
+ * whatever the language; the app shows them in the reader's (`apps/web/app/lib/brief.ts`).
+ */
+const BRIEF_SECTIONS = { claims: "Key claims", caveats: "Keep in mind", parts: "Parts" } as const
+
 /** The brief's fixed instructions, cacheable like the answers'. Only the language changes them. */
 export function briefSystemPrompt(language: AiLanguage): string {
-	return `You write a brief of an article someone saved in Klipstack, a read-later app, so they can see what it says before or after reading it. The article is the document in the first message.
+	const { claims, caveats, parts } = BRIEF_SECTIONS
+	return `You write a brief of an article someone saved in Klipstack, a read-later app, so they can see what it says, how to read it critically and how it is built, before or after reading it. The article is the document in the first message.
 
-- Exactly three bullets, each a line starting with "- ". Each bullet is one short sentence with one of the article's main points, in the order the article makes them. At most 70 words in all.
-- Cite the part of the article each bullet comes from. Say it in your own words: a citation already links to the passage, so don't copy the article's sentences.
-- Only what the article says. No introduction, no heading, no closing line, no opinion of your own.
+Write exactly this, in this order, and nothing else:
+
+1. The gist: one paragraph of two or three sentences, with no heading. What the article argues or reports, and why it matters.
+2. A line "## ${claims}", then the article's main claims as a numbered list ("1. ", "2. "…), three or four, in the order the article makes them. One short sentence each.
+3. A line "## ${caveats}", then two or three bullets ("- "): what a critical reader should notice. For example a claim resting on an anecdote or a single case, weak or missing evidence, an unstated assumption, something the author never tests, a counterargument left out. Only what is true of this article; never a generic warning.
+4. A line "## ${parts}", then one bullet ("- ") per part of the article, three to five, in order: a name for the part in bold, a colon, and a few words on what it covers, cited to a passage from that part so the reader can go to it.
+
+- Write the three heading lines exactly as above, in English, whatever language you answer in.
+- At most 200 words in all. Short sentences; the reader wants to see it at a glance.
+- Cite the part of the article every claim, caveat and part comes from.
+- Use your own words throughout. A citation already links to the passage, and the reader sees it there, so never put the article's sentences or phrases into yours: attach each citation to your own sentence, and don't follow your sentence with the passage it cites.
+- The gist and the claims say only what the article says, with no opinion of your own. The caveats judge how well the article supports itself, not whether you agree with it.
+- No introduction, no title, no closing line.
 - Answer in ${LANGUAGE_NAMES[language]}, whatever the article's language.`
 }
 

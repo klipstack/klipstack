@@ -98,7 +98,12 @@ test("Explain answers in the margin with a citation; follow-ups, reload and dele
 	await page.reload()
 	await waitForHydration(page)
 	const margin = page.getByRole("region", { name: "Highlight notes" })
-	await margin.getByRole("button", { name: /Explain/ }).click()
+	// Collapsed, it reads as the latest question and the bold sentence its answer opens with.
+	const collapsed = margin.getByRole("button", { name: /Explain/ })
+	await expect(collapsed).toContainText("And managers?")
+	await expect(collapsed).toContainText("A fixed answer for tests.")
+	await expect(collapsed).not.toContainText("Answer 2.")
+	await collapsed.click()
 	await expect(card).toContainText("Answer 2.")
 	await expect(card.getByText("And managers?")).toHaveCount(1)
 	await shot(page, "4-reloaded")
@@ -153,10 +158,30 @@ test("one word can be defined, not highlighted; typing with a selection asks", a
 	await page.keyboard.type("Why two?")
 	const question = card.getByRole("textbox", { name: "Ask about this passage…" })
 	await expect(question).toHaveValue("Why two?")
+	// A question of the reader's own: no suggestions under it.
+	await expect(card.getByRole("button", { name: "Give me an example" })).toHaveCount(0)
 	await shot(page, "5-ask")
 	await question.press("Enter")
 	await expect(card).toContainText("Why two?")
 	await expect(card).toContainText("Answer 1.")
+	await card.getByRole("button", { name: "Collapse" }).click()
+	const margin = page.getByRole("region", { name: "Highlight notes" })
+	await expect(margin.getByRole("button", { name: /Ask/ })).toHaveText(
+		/^Ask\s*Why two\?\s*A fixed answer for tests\.$/,
+	)
+	// Define has no question of the reader's: the passage stands for it.
+	await expect(margin.getByRole("button", { name: /Define/ })).toHaveText(
+		/^Define\s*“schedule”\s*A fixed answer for tests\.$/,
+	)
+	// A latest question left without an answer says so, rather than seeming still on its way.
+	await margin.getByRole("button", { name: /Ask/ }).click()
+	await card.getByRole("textbox", { name: "Ask a follow-up…" }).fill("[fake:fail] And?")
+	await card.getByRole("textbox", { name: "Ask a follow-up…" }).press("Enter")
+	await expect(card).toContainText("Couldn't answer. Try again.")
+	await card.getByRole("button", { name: "Collapse" }).click()
+	await expect(margin.getByRole("button", { name: /Ask/ })).toHaveText(
+		/^Ask\s*\[fake:fail\] And\?\s*Couldn't answer\. Try again\.$/,
+	)
 })
 
 test("Ask far down the article opens its field where the reader is", async ({ page }) => {
@@ -182,6 +207,18 @@ test("Ask far down the article opens its field where the reader is", async ({ pa
 	// Focusing the field doesn't jump to where the card sat before the margin placed it.
 	expect(Math.abs((await page.evaluate(() => window.scrollY)) - scrolled)).toBeLessThan(50)
 	await expect(question).toBeInViewport()
+
+	// Without a question in mind, a suggestion asks itself in one press.
+	const card = page.getByTestId("ai-card")
+	await expect(card.getByRole("button")).toContainText([
+		"Give me an example",
+		"Why does it matter?",
+		"What is the evidence?",
+	])
+	await card.getByRole("button", { name: "Why does it matter?" }).click()
+	await expect(card).toContainText("Why does it matter?")
+	await expect(card).toContainText("Answer 1.")
+	await expect(card.getByRole("button", { name: "What is the evidence?" })).toHaveCount(0)
 })
 
 test("without a margin the card floats under the passage; without the feature, no AI", async ({
@@ -208,7 +245,7 @@ test("without a margin the card floats under the passage; without the feature, n
 	await expect(card).toContainText("Answer 1.")
 })
 
-test("the brief: asked for, three cited bullets above the text, kept for the next visit", async ({
+test("the brief: asked for, a cited gist, claims, caveats and parts above the text, kept for the next visit", async ({
 	page,
 }) => {
 	test.setTimeout(120_000)
@@ -219,15 +256,17 @@ test("the brief: asked for, three cited bullets above the text, kept for the nex
 		if (r.method() === "POST" && r.url().endsWith("/ai")) asked.push(r.postData() ?? "")
 	})
 	// Nothing is written until the reader asks. It sits above the text, not in the margin.
-	await expect(page.getByTestId("brief")).toContainText("Sum up this article in three points")
+	await expect(page.getByTestId("brief")).toContainText("Sum up this article")
 	await expect(
 		page.getByRole("region", { name: "Highlight notes" }).getByTestId("brief"),
 	).toHaveCount(0)
 	expect(asked).toEqual([])
 	await page.getByRole("button", { name: /Sum up this article/ }).click()
 	const brief = page.getByRole("region", { name: "Brief" })
-	await expect(brief.getByRole("listitem")).toHaveCount(3)
-	await expect(brief).toContainText("The first point of a fixed brief for tests.")
+	await expect(brief.getByRole("heading")).toHaveText(["Key claims", "Keep in mind", "Parts"])
+	await expect(brief.getByRole("list")).toHaveCount(3)
+	await expect(brief.getByRole("listitem")).toHaveCount(5)
+	await expect(brief).toContainText("The first claim of a fixed brief for tests.")
 	const [box, text] = await Promise.all([
 		brief.boundingBox(),
 		page.locator(".reader-content").boundingBox(),
@@ -243,8 +282,11 @@ test("the brief: asked for, three cited bullets above the text, kept for the nex
 	await page.reload()
 	await waitForHydration(page)
 	asked.length = 0
+	await expect(page.getByTestId("brief")).toHaveText(
+		/The gist of a fixed brief for tests\. Why it matters\.$/,
+	)
 	await page.getByTestId("brief").click()
-	await expect(brief.getByRole("listitem")).toHaveCount(3)
+	await expect(brief.getByRole("listitem")).toHaveCount(5)
 	expect(asked).toEqual([])
 	await brief.getByRole("button", { name: "Collapse" }).click()
 	await expect(brief).toHaveCount(0)

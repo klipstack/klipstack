@@ -1,23 +1,28 @@
 import type { AiCitation } from "@klipstack/db"
 import { Fragment } from "react"
+import { cn } from "~/lib/utils"
 
 /** Stands for citation `n` inside the text while it is parsed: no answer contains it. */
 const MARK = "\u{E000}"
 
 /**
- * An answer's text with its light Markdown (paragraphs, "- " lists, **bold**, *italics*) and a number
- * on a stroke of highlighter ink after the words each citation supports.
+ * An answer's text with its light Markdown (paragraphs, "- " and "1. " lists, "## " headings,
+ * **bold**, *italics*) and a number on a stroke of highlighter ink after the words each citation
+ * supports.
  */
 export function AiAnswer({
 	text,
 	citations,
 	onCite,
 	citeLabel,
+	heading = (title) => title,
 }: {
 	text: string
 	citations: AiCitation[]
 	onCite?: (citation: AiCitation) => void
 	citeLabel: (n: number) => string
+	/** A heading's title as shown: the brief's are in English whatever the language. */
+	heading?: (title: string) => string
 }) {
 	const marked = withMarks(text, citations)
 	const chip = (n: number) => {
@@ -38,25 +43,69 @@ export function AiAnswer({
 	}
 	return (
 		<div className="flex flex-col gap-2">
-			{paragraphs(marked).map(({ at, text }) => {
+			{paragraphs(marked).flatMap(({ at, text }) =>
 				// Where it starts in the answer: stable while the answer streams in.
-				const lines = text.split("\n")
-				if (!lines.every((line) => BULLET.test(line))) return <p key={at}>{inline(text, chip)}</p>
-				return (
-					<ul key={at} className="flex list-disc flex-col gap-1.5 pl-4">
-						{lines.map((line, i) => (
-							// oxlint-disable-next-line react/no-array-index-key -- a bullet's place is its identity while it streams
-							<li key={i}>{inline(line.replace(BULLET, ""), chip)}</li>
-						))}
-					</ul>
-				)
-			})}
+				blocks(text).map((block, b) => {
+					const key = `${at}:${b}`
+					if (block.kind === "heading")
+						return (
+							<h3 key={key} className="mt-1 text-xs font-medium text-muted-fg">
+								{heading(block.lines[0]!.replace(MARKS, ""))}
+							</h3>
+						)
+					if (block.kind === "p") return <p key={key}>{inline(block.lines.join("\n"), chip)}</p>
+					const List = block.kind === "ol" ? "ol" : "ul"
+					return (
+						<List
+							key={key}
+							// A list the model broke up with blank lines goes on counting.
+							start={block.kind === "ol" ? block.start : undefined}
+							className={cn(
+								"flex flex-col gap-1.5 pl-4",
+								block.kind === "ol" ? "list-decimal" : "list-disc",
+							)}
+						>
+							{block.lines.map((line, i) => (
+								// oxlint-disable-next-line react/no-array-index-key -- an item's place is its identity while it streams
+								<li key={i}>{inline(line, chip)}</li>
+							))}
+						</List>
+					)
+				}),
+			)}
 		</div>
 	)
 }
 
 /** A list item's start: "- " or "* ". */
 const BULLET = /^\s*[-*]\s+/
+/** A numbered item's start: "1. ". */
+const NUMBERED = /^\s*\d+[.)]\s+/
+const HEADING = /^#{1,3}\s+/
+const MARKS = new RegExp(`${MARK}\\d+${MARK}`, "g")
+
+type Block = { kind: "heading" | "p" | "ul" | "ol"; lines: string[]; start?: number }
+
+/** A paragraph's lines as headings, lists and text, each list item without its marker. */
+function blocks(text: string): Block[] {
+	const out: Block[] = []
+	for (const line of text.split("\n")) {
+		const kind = HEADING.test(line)
+			? "heading"
+			: BULLET.test(line)
+				? "ul"
+				: NUMBERED.test(line)
+					? "ol"
+					: "p"
+		const bare = line.replace(kind === "ul" ? BULLET : kind === "ol" ? NUMBERED : HEADING, "")
+		const last = out.at(-1)
+		if (last && last.kind === kind && kind !== "heading") last.lines.push(bare)
+		else if (kind === "ol")
+			out.push({ kind, lines: [bare], start: Number.parseInt(line.trim(), 10) })
+		else out.push({ kind, lines: [kind === "p" ? line : bare] })
+	}
+	return out
+}
 
 /** The answer's paragraphs, with where each starts. */
 function paragraphs(text: string): Array<{ at: number; text: string }> {
@@ -109,4 +158,17 @@ function marks(text: string, chip: Chip, key: number): React.ReactNode[] {
 /** The answer's text without its Markdown, for copying. */
 export function plainAnswer(text: string): string {
 	return text.replace(/\*\*([^*]+)\*\*/g, "$1").replace(/\*([^*\s][^*]*)\*/g, "$1")
+}
+
+/**
+ * What an answer says in one sentence: the bold sentence it opens with, else (an answer that
+ * doesn't, or one still being written) its first sentence.
+ */
+export function answerLead(text: string): string {
+	const bold = /^\s*\*\*(.+?)\*\*(?!\*)/.exec(text)
+	if (bold) return plainAnswer(bold[1]!).trim()
+	const plain = plainAnswer(text)
+		.replace(/^\s*(?:\*\*|#{1,3}\s+|[-*]\s+|\d+[.)]\s+)/, "")
+		.trim()
+	return (/^[\s\S]+?[.!?](?=\s|$)/.exec(plain)?.[0] ?? plain).trim()
 }

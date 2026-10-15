@@ -211,7 +211,8 @@ export default {
 		},
 		brief: {
 			title: "Brief",
-			make: "Sum up this article in three points",
+			make: "Sum up this article",
+			sections: { claims: "Key claims", caveats: "Keep in mind", parts: "Parts" },
 			writing: "Writing the brief…",
 		},
 		collapse: "Collapse",
@@ -223,6 +224,11 @@ export default {
 		refused: "This question couldn't be answered.",
 		citation: "Passage {{n}} of the article",
 		askPlaceholder: "Ask about this passage…",
+		suggestions: {
+			example: "Give me an example",
+			matters: "Why does it matter?",
+			evidence: "What is the evidence?",
+		},
 		followUpPlaceholder: "Ask a follow-up…",
 		send: "Send",
 		retry: "Answer again",

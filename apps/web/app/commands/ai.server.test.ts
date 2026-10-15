@@ -349,7 +349,9 @@ describe("briefArticle", () => {
 		const events = []
 		for await (const event of first.events) events.push(event)
 		const brief = await first.brief
-		expect(brief?.text.split("\n")).toHaveLength(3)
+		// Kept as it was written.
+		expect(brief?.text).toBe(events.map((e) => (e.type === "text" ? e.text : "")).join(""))
+		expect(brief?.text).toContain("## Key claims")
 		expect(brief?.citations[0]).toMatchObject({
 			start: 0,
 			exact: "Makers need long blocks of time.",
