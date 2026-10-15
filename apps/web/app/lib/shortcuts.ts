@@ -201,3 +201,63 @@ function modalOpen(): boolean {
 function isControl(el: Element | null): boolean {
 	return Boolean(el?.closest("a[href], button, [role='button'], summary"))
 }
+
+/**
+ * Every shortcut, for the list in Settings and the reader's `?`. A row's label is
+ * `common:shortcuts.rows.<id>`, a group's `common:shortcuts.groups.<id>`. `ai`: only with AI.
+ */
+interface ShortcutRow {
+	readonly id: string
+	readonly keys: readonly string[]
+	readonly ai?: boolean
+}
+
+export const SHORTCUT_GROUPS = [
+	{
+		id: "general",
+		rows: [
+			{ id: "palette", keys: ["⌘K"] },
+			{ id: "submit", keys: [SUBMIT_HINT] },
+		],
+	},
+	{
+		id: "lists",
+		rows: [
+			{ id: "listMove", keys: ["J", "K"] },
+			{ id: "listArrows", keys: ["↑", "↓", "←", "→"] },
+			{ id: "listOpen", keys: [SHORTCUT_HINTS.open, "O"] },
+			{ id: "star", keys: [SHORTCUT_HINTS.star] },
+			{ id: "shortlist", keys: [SHORTCUT_HINTS.shortlist] },
+			{ id: "archive", keys: [SHORTCUT_HINTS.archive] },
+			{ id: "unread", keys: [SHORTCUT_HINTS.unread] },
+			{ id: "tags", keys: [SHORTCUT_HINTS.tags] },
+			{ id: "delete", keys: [SHORTCUT_HINTS.delete] },
+			{ id: "select", keys: [SELECT_HINT] },
+			{ id: "selectRange", keys: ["⇧J", "⇧K"] },
+			{ id: "selectAll", keys: ["⌘A"] },
+			{ id: "clear", keys: ["Esc"] },
+			{ id: "search", keys: [SEARCH_HINT] },
+		],
+	},
+	{
+		id: "reader",
+		rows: [
+			{ id: "paragraph", keys: [READER_HINTS.nextParagraph, READER_HINTS.prevParagraph] },
+			{ id: "askParagraph", keys: [READER_HINTS.askParagraph], ai: true },
+			{ id: "stops", keys: [READER_HINTS.prevNote, READER_HINTS.nextNote] },
+			{ id: "brief", keys: [READER_HINTS.brief], ai: true },
+			{ id: "focus", keys: [READER_HINTS.focus] },
+			{ id: "leave", keys: [READER_HINTS.leave] },
+			{ id: "sidebar", keys: [HIGHLIGHTS_HINT] },
+			{ id: "chat", keys: [CHAT_HINT], ai: true },
+			{
+				id: "articleActions",
+				keys: (["star", "shortlist", "archive", "unread", "tags", "delete"] as const).map(
+					(a) => SHORTCUT_HINTS[a],
+				),
+			},
+			{ id: "copyHighlight", keys: [COPY_HINT] },
+			{ id: "help", keys: [READER_HINTS.help] },
+		],
+	},
+] as const satisfies ReadonlyArray<{ id: string; rows: readonly ShortcutRow[] }>

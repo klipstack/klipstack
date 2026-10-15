@@ -2,6 +2,9 @@ import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useFetcher, useRouteLoaderData } from "react-router"
 import { SettingsCard, SettingsPage } from "~/components/settings-page"
+import { ShortcutList } from "~/components/shortcut-list"
+import { ai } from "~/lib/ai.server"
+import { hasFeature } from "~/lib/features.server"
 import type { PageBarHandle } from "~/lib/page-bar"
 import { pageTitle } from "~/lib/page-title"
 import { requireUser } from "~/lib/session.server"
@@ -14,13 +17,17 @@ export function meta({ matches }: Route.MetaArgs) {
 
 export const handle: PageBarHandle = { pageBar: { titleKey: "settings:shortcuts.title" } }
 
-export function loader({ context, request }: Route.LoaderArgs) {
-	requireUser(context, request)
-	return null
+export async function loader({ context, request }: Route.LoaderArgs) {
+	const user = requireUser(context, request)
+	// The AI's keys are listed to those who have it.
+	return { ai: ai.available && (await hasFeature(user.id, "ai")) }
 }
 
-/** Single-key shortcuts on or off. Saved to the prefs; the root sets `data-shortcuts` from them. */
-export default function ShortcutsSettings() {
+/**
+ * Single-key shortcuts on or off, and the list of every shortcut. Saved to the prefs; the root sets
+ * `data-shortcuts` from them.
+ */
+export default function ShortcutsSettings({ loaderData }: Route.ComponentProps) {
 	const { t } = useTranslation("settings")
 	const fetcher = useFetcher()
 	const root = useRouteLoaderData<typeof rootLoader>("root")
@@ -42,6 +49,9 @@ export default function ShortcutsSettings() {
 					/>
 					{t("shortcuts.singleKey")}
 				</label>
+			</SettingsCard>
+			<SettingsCard>
+				<ShortcutList ai={loaderData.ai} />
 			</SettingsCard>
 		</SettingsPage>
 	)

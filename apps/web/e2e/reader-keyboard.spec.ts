@@ -300,3 +300,23 @@ test("f dims all but the marked paragraph; f again or Escape comes back", async 
 	await expect(content).not.toHaveAttribute("data-reading-focus")
 	expect(await marked(page)).toBeNull()
 })
+
+test("Settings lists every shortcut; the AI's only with AI", async ({ page, browser }) => {
+	await signupUser(page, "Lister", { features: ["ai"] })
+	await page.goto("/settings/shortcuts")
+	const reader = page.getByRole("region", { name: "In the reader" })
+	await expect(reader.getByRole("row", { name: /Next or previous paragraph/ })).toContainText("JK")
+	await expect(reader.getByRole("row", { name: /Ask the AI about the paragraph/ })).toBeVisible()
+	await expect(
+		page.getByRole("region", { name: "In lists" }).getByRole("row", { name: /^S Star$/ }),
+	).toBeVisible()
+	await expect(page.getByRole("region", { name: "Everywhere" })).toContainText("⌘K")
+
+	const other = await browser.newPage()
+	await signupUser(other, "Lister without AI")
+	await other.goto("/settings/shortcuts")
+	const without = other.getByRole("region", { name: "In the reader" })
+	await expect(without.getByRole("row", { name: /Next or previous paragraph/ })).toBeVisible()
+	await expect(without.getByRole("row", { name: /Ask the AI/ })).toHaveCount(0)
+	await other.close()
+})
