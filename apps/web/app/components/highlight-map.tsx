@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next"
 import { tooltip } from "~/components/tooltip-host"
 import { scrollSpan } from "~/hooks/use-reading-progress"
 import { highlightColor } from "~/lib/highlight-colors"
-import { flashCited, onPaintChange, scrollRangeIntoView } from "~/lib/highlights.client"
+import { flashCited, onPaintChange } from "~/lib/highlights.client"
 import { cn } from "~/lib/utils"
 
 /** The room the map takes at the page's right edge: its 1rem strip, 1.5rem in, and a gap. */
@@ -43,7 +43,7 @@ const LABEL_CHARS = 80
  * The marks for highlights at `spans` on a strip `height` px tall: one for each, in its color, or
  * one for several that would touch, its colors stacked.
  */
-function mapMarks(
+export function mapMarks(
 	spans: Span[],
 	items: Map<string, MapItem>,
 	height: number,
@@ -102,6 +102,9 @@ export function HighlightMap({
 	const [height, setHeight] = useState(0)
 	const [spans, setSpans] = useState<Span[]>([])
 	const [left, setLeft] = useState<{ at: number; y: number } | null>(null)
+	// Room for it between the text and the page's right edge (narrow windows, a wide text, the
+	// open sidebar's column): never over the text.
+	const [room, setRoom] = useState(false)
 
 	// Where each highlight is in the text, measured again whenever the text or the paint changes.
 	useEffect(() => {
@@ -112,6 +115,13 @@ export function HighlightMap({
 			cancelAnimationFrame(frame)
 			frame = requestAnimationFrame(() => {
 				const box = root.getBoundingClientRect()
+				const page = root.closest("article")?.parentElement
+				if (page) {
+					const right =
+						page.getBoundingClientRect().right -
+						Number.parseFloat(getComputedStyle(page).paddingRight)
+					setRoom(right - box.right >= HIGHLIGHT_MAP_ROOM)
+				}
 				if (box.height <= 0) return
 				const next: Span[] = []
 				for (const [id, range] of rangesRef.current) {
@@ -136,6 +146,8 @@ export function HighlightMap({
 		measure()
 		const observer = new ResizeObserver(measure)
 		observer.observe(root)
+		const page = root.closest("article")?.parentElement
+		if (page) observer.observe(page)
 		const off = onPaintChange(measure)
 		window.addEventListener("resize", measure)
 		return () => {
@@ -144,7 +156,8 @@ export function HighlightMap({
 			off()
 			window.removeEventListener("resize", measure)
 		}
-	}, [contentRef, rangesRef, resumedAt])
+		// The open sidebar moves the page's right edge.
+	}, [contentRef, rangesRef, resumedAt, sidebarOpen])
 
 	// The strip's height, for merging marks that would touch and for the thinnest ones.
 	const trackRef = useCallback((track: HTMLDivElement | null) => {
@@ -158,13 +171,14 @@ export function HighlightMap({
 	const marks = mapMarks(spans, new Map(items.map((h) => [h.id, h])), height, (count) =>
 		t("highlights.map.many", { count }),
 	)
-	if (!marks.length && !left) return null
+	if (!room || (!marks.length && !left)) return null
 
 	const still = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches
 	const go = (id: string) => {
 		const range = rangesRef.current.get(id)
 		if (!range) return
-		scrollRangeIntoView(range)
+		const y = range.getBoundingClientRect().top + window.scrollY - window.innerHeight / 3
+		window.scrollTo({ top: Math.max(0, y), behavior: still() ? "auto" : "smooth" })
 		flashCited(range)
 	}
 
@@ -173,9 +187,10 @@ export function HighlightMap({
 			aria-label={t("highlights.map.label")}
 			data-testid="highlight-map"
 			className={cn(
-				"group/map fixed top-24 right-6 bottom-10 z-10 w-4 max-md:hidden",
+				"group/map pointer-events-none fixed top-24 right-6 bottom-10 z-10 w-4 max-md:hidden",
 				// The open sidebar takes the page's right edge: the map moves to its edge.
-				sidebarOpen && "lg:right-[calc(20rem+1.5rem)]",
+				// Below lg it covers the map: no map then, not even for the keyboard.
+				sidebarOpen && "max-lg:hidden lg:right-[calc(20rem+1.5rem)]",
 			)}
 		>
 			{/* The text, top to bottom: a hairline. */}
@@ -193,7 +208,7 @@ export function HighlightMap({
 					}
 					aria-label={t("highlights.map.leftOff")}
 					{...tooltip(t("highlights.map.leftOff"))}
-					className="absolute right-0 flex h-4 w-3 translate-x-full -translate-y-1/2 cursor-pointer justify-center"
+					className="pointer-events-auto absolute right-0 flex h-4 w-3 translate-x-full -translate-y-1/2 cursor-pointer justify-center"
 					style={{ top: `${left.at * 100}%` }}
 				>
 					<span className="ribbon-end ink-line !static block !h-2.5 !w-1.5 opacity-80 transition-opacity hover:opacity-100" />
@@ -210,7 +225,7 @@ export function HighlightMap({
 						aria-label={mark.label}
 						{...tooltip(mark.label)}
 						// The hit area is taller than its tick: at least 12px.
-						className="absolute inset-x-0 flex min-h-3 -translate-y-1/2 cursor-pointer items-center justify-center"
+						className="pointer-events-auto absolute inset-x-0 flex min-h-3 -translate-y-1/2 cursor-pointer items-center justify-center"
 						style={{ top: `${((mark.top + mark.bottom) / 2) * 100}%`, height: px }}
 					>
 						<span
