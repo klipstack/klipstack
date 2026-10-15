@@ -13,6 +13,11 @@ where it is enforced, not where it is remembered.
 Write one sentence on what went wrong and one on what should have happened, with the place it
 happened (file, command, step).
 
+Then look for a rule that already covers it: `AGENTS.md`, the skills, `.agents/checks/`, and the
+table "What is enforced and what is asked" in `docs/development/agents.md`. If one exists, the
+mistake is a repeat: the rule was written where nothing holds it. Move it at least one level up
+the list below, in this change.
+
 ## 2. Put the rule in the strongest place that can hold it
 
 Take the first that works:
@@ -38,6 +43,8 @@ and watch the check pass. A rule nobody saw fail is a guess.
 
 An instruction that a lint rule now enforces is noise. Delete it. Two places that say the same
 thing will drift apart.
+
+Add or update the rule's row in the table in `docs/development/agents.md`, with what holds it.
 
 ## 5. Ship it on its own
 

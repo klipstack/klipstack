@@ -13,7 +13,7 @@ Each layer catches what the one before can't. The lower down, the more certain.
 │ AGENTS.md            read by every agent, every session. Short: rules + pointers      │
 ├──────────────────────────────────────────────────────────────────────────────────────┤
 │ Skills               .claude/skills/*  loaded when a task matches: verify, fix-bug,   │
-│                      build-feature, write-tests, review-changes, learn, release …     │
+│                      refactor, build-feature, write-tests, review-changes, learn …    │
 ├──────────────────────────────────────────────────────────────────────────────────────┤
 │ pnpm verify          scripts/verify: lint, typecheck and the tests a change reaches   │
 ├──────────────────────────────────────────────────────────────────────────────────────┤
@@ -43,6 +43,8 @@ Each layer catches what the one before can't. The lower down, the more certain.
 | Tests are not weakened to pass | Skills, review check, AGENTS.md | Asked, and reviewed |
 | Commands own user-data changes; strings in both languages; security docs current | Review checks | Reviewed by a fresh agent per check |
 | The owner hears about judgment calls before a pull request | AGENTS.md, release skill | Asked |
+| A skill's steps go in the todo list; a skipped one shows its reason | AGENTS.md | Asked |
+| A question that running something can answer is not put to the owner | `build-feature` skill | Asked |
 
 Instructions are advice that an agent follows most of the time. Hooks and CI always hold. When a
 rule matters and a script can check it, it belongs in a script: that is the job of the `learn`
@@ -52,13 +54,36 @@ skill.
 
 1. You ask for a change.
 2. The matching skill loads on its own. A bug brings in `fix-bug` (a failing check first),
-   a feature brings in `build-feature` (your decisions first, with recommendations).
-3. The agent works in slices and runs `pnpm verify` as it goes.
+   a feature brings in `build-feature` (your decisions first, with recommendations), a cleanup
+   brings in `refactor` (the behavior pinned by tests that stay as they are).
+3. The agent copies the skill's steps into its todo list. A step it skips stays there, marked
+   `skip:` with a reason. It works in slices and runs `pnpm verify` as it goes.
 4. If it tries to finish with unverified code, the hook sends it back once.
 5. When you say the work is ready for a pull request, `review-changes` has fresh agents read the
    diff. It runs once per pull request, not during the work.
 6. `release` opens the pull request with the evidence under Verification and turns on
    auto-merge: GitHub merges it when CI passes, and no agent waits for it.
+
+## How to ask
+
+A good request fits in a few sentences:
+- **The goal.** What is wrong, or what you want.
+- **What done means**, as something that can pass or fail. "The export includes every note" is a
+  check; "make it better" is not.
+- **The proof you want to see**: the failing and passing test, a screenshot, the API's answer, a
+  number before and after.
+- **What you already know**: the page, the account, the steps, an error message.
+- **Real constraints**: "reproduce it first", "don't change any code yet", "no change in behavior".
+
+Leave out how to do it, and the skills to use: the skills already order the steps. Hold back
+your theory of the cause at first. A stated guess makes the agent look only where you pointed.
+
+For a vague report, such as a long message or an issue from someone else, ask first: "restate
+the problem in your own words, and don't change any code yet". A misreading shows up in the
+restatement, where correcting it costs one message instead of a wrong fix.
+
+When you move to something unrelated in the same conversation, say "new task", so the agent
+starts from the matching skill instead of continuing the last one.
 
 ## Setup
 
@@ -92,7 +117,8 @@ enforces should leave it.
 The setup adapts principles from published work rather than copying any of it:
 
 - **Proof means the real thing.** "It compiles" is not evidence. Repeated mistakes become checks.
-  An instruction you had to write twice is a sign a check is missing.
+  An instruction you had to write twice is a sign a check is missing. A change is usually safe
+  because of one fact; prove that fact by running code. Skipped steps stay visible.
   - Source: Lauren Tan's [pstack](https://github.com/cursor/plugins/tree/main/pstack).
 - **Feedback loops are the speed limit.**
   - A red reproduction before any fix.

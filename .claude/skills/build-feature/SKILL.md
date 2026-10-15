@@ -10,11 +10,16 @@ description: Builds a feature or behavior change in Klipstack end to end. It set
 - Read the code the feature touches. Find the closest existing feature and how it is built, and
   follow it.
 - Facts are your job: get them from the code, the docs and `git log`.
+- Before asking the owner, check whether running something answers the question: a test, a
+  request, a timing, the page. If it does, run it and report the result instead of asking.
 - Decisions are the owner's. That covers what users see and do, names and wording, limits, data
   that is kept or deleted, and anything hard to undo.
   - Ask them all in one message, numbered, each with your recommendation, so that "yes" accepts
     all of it.
   - Decide small, reversible choices yourself and list them in the pull request.
+  - When a decision depends on how something looks or behaves, you may build two or three
+    throwaway variants, kept out of the branch, and show them with screenshots. The owner still
+    chooses.
 - Write down what done means: behaviors a user or API client can observe, each one checkable.
   "Works well" is not checkable. "A tag over 64 characters is refused with `invalid_request`" is.
 - Write down what is out of scope.
@@ -24,7 +29,8 @@ description: Builds a feature or behavior change in Klipstack end to end. It set
 - Each slice is a complete path that works and can be verified on its own: command and test,
   then its adapters, then the UI.
 - Start with the riskiest unknown.
-- If existing code must change shape first, do that in its own commit, with no change in behavior.
+- If existing code must change shape first, do that in its own commit, with no change in behavior
+  (the `refactor` skill).
 
 ## 3. Put each part where it belongs
 

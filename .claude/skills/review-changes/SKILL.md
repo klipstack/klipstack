@@ -50,6 +50,9 @@ git worktree remove --force "$w"
   - unhandled cases: empty, at the limit, another user's item, a trashed item, two requests at
     once, Spanish, a phone screen
   - tests that would still pass if the feature broke
+  - the one fact the change is safe because of, such as "this query only reads rows the user
+    owns". Name it and prove it by running the real code in the reviewer's own worktree, or
+    report it as unproven.
 - **Each check in `.agents/checks/` whose subject the diff touches.** For example, `migrations`
   applies only when `packages/db/` changed, and `i18n` only when there is user-facing text. Two
   checks always apply: `tests`, and `public-repo`. Give the check file's text to its subagent as
@@ -62,10 +65,14 @@ start each time, with only that review's question in mind.
 
 ## 3. Confirm each finding before acting on it
 
-Reviewers are wrong too. For each finding, either:
-- reproduce it, with a test or a command, or
-- trace it in the code until it is clearly real or clearly not.
+Reviewers are wrong too. A finding is only as sure as its evidence. From weakest to strongest:
+1. It was stated.
+2. The line was cited.
+3. The failing case was traced step by step through the code.
+4. A test or script that runs the real code shows it.
+5. It reproduces in the running app.
 
+Take each finding to step 3 at least before acting on it, and to step 4 when that is cheap.
 Dismiss false ones with a one-line reason.
 
 ## 4. Fix, then verify again
