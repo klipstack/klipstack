@@ -1,4 +1,4 @@
-import { rangeFromOffsets, type TextSelector } from "@klipstack/anchor"
+import { describeRange, rangeFromOffsets, type TextSelector } from "@klipstack/anchor"
 import type { AiCitation, AiThreadAction } from "@klipstack/db"
 import { Loader2 } from "lucide-react"
 import { useCallback, useEffect, useInsertionEffect, useRef, useState } from "react"
@@ -201,37 +201,6 @@ export function ReaderArticle({
 		document.addEventListener("keydown", onKey)
 		return () => document.removeEventListener("keydown", onKey)
 	}, [aiEnabled])
-
-	// ---- reading by paragraph, from the keyboard ----
-	const cursor = useReadingCursor(contentRef, html)
-	const readerAct = (shortcut: ReaderShortcut): boolean => {
-		switch (shortcut) {
-			case "nextParagraph":
-				cursor.move(1)
-				return true
-			case "prevParagraph":
-				cursor.move(-1)
-				return true
-			case "leave":
-				// Escape also closes whatever else is open: it is not taken.
-				cursor.leave()
-				return false
-			default:
-				return false
-		}
-	}
-	const latestReaderAct = useRef(readerAct)
-	useInsertionEffect(() => {
-		latestReaderAct.current = readerAct
-	})
-	useEffect(() => {
-		const onKey = (e: KeyboardEvent) => {
-			const shortcut = readerShortcut(e)
-			if (shortcut && latestReaderAct.current(shortcut)) e.preventDefault()
-		}
-		document.addEventListener("keydown", onKey)
-		return () => document.removeEventListener("keydown", onKey)
-	}, [])
 
 	// ---- painting ----
 	useEffect(() => {
@@ -655,6 +624,45 @@ export function ReaderArticle({
 			onCancel={closeNote}
 		/>
 	)
+
+	// ---- reading by paragraph, from the keyboard ----
+	const cursor = useReadingCursor(contentRef, html)
+	const readerAct = (shortcut: ReaderShortcut): boolean => {
+		switch (shortcut) {
+			case "nextParagraph":
+				cursor.move(1)
+				return true
+			case "prevParagraph":
+				cursor.move(-1)
+				return true
+			case "askParagraph": {
+				const root = contentRef.current
+				if (!aiEnabled || !cursor.current || !root) return false
+				const passage = describeRange(cursor.current, root)
+				if (!passage) return false
+				ask(passage, "ask")
+				return true
+			}
+			case "leave":
+				// Escape also closes whatever else is open: it is not taken.
+				cursor.leave()
+				return false
+			default:
+				return false
+		}
+	}
+	const latestReaderAct = useRef(readerAct)
+	useInsertionEffect(() => {
+		latestReaderAct.current = readerAct
+	})
+	useEffect(() => {
+		const onKey = (e: KeyboardEvent) => {
+			const shortcut = readerShortcut(e)
+			if (shortcut && latestReaderAct.current(shortcut)) e.preventDefault()
+		}
+		document.addEventListener("keydown", onKey)
+		return () => document.removeEventListener("keydown", onKey)
+	}, [])
 
 	return (
 		<AiAllowanceContext.Provider value={allowance.allowance}>
