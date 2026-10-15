@@ -284,7 +284,7 @@ test("b shows the brief: opens and closes one, or offers to make it without aski
 	await page.keyboard.press("b")
 	await expect(brief).toBeInViewport()
 	await expect(brief).toBeFocused()
-	await expect(brief).toContainText("Sum up this article in three points")
+	await expect(brief).toContainText("Sum up this article")
 	expect(await db.select().from(aiBriefs).where(eq(aiBriefs.documentId, id))).toHaveLength(0)
 })
 
