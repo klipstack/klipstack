@@ -1,5 +1,5 @@
 import type { AiCitation } from "@klipstack/db"
-import { ChevronUp, Copy, Loader2, RotateCcw, ScrollText } from "lucide-react"
+import { ChevronUp, Copy, RotateCcw, ScrollText } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { useQuestionsLeft } from "~/hooks/use-ai-allowance"
 import { type AnswerStore, useWritten } from "~/hooks/use-ai-threads"
@@ -9,6 +9,7 @@ import type { AiBriefView } from "~/lib/ai-threads"
 import { cn } from "~/lib/utils"
 import { AiAnswer, plainAnswer } from "./ai-answer"
 import { Failure, QuestionsLeft } from "./ai-card"
+import { InkThinking } from "./ink-thinking"
 import { tooltip } from "./tooltip-host"
 
 interface Props {
@@ -103,10 +104,7 @@ export function BriefCard({
 							citeLabel={(n) => t("ai.citation", { n })}
 						/>
 					) : (
-						<p className="flex items-center gap-1.5 text-muted-fg">
-							<Loader2 className="size-3.5 animate-spin" aria-hidden />
-							{t("ai.brief.writing")}
-						</p>
+						<InkThinking label={t("ai.brief.writing")} />
 					)
 				) : brief ? (
 					<AiAnswer

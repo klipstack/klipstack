@@ -5,7 +5,6 @@ import {
 	ChevronUp,
 	Copy,
 	Lightbulb,
-	Loader2,
 	MessageCircleQuestion,
 	MessagesSquare,
 	RotateCcw,
@@ -18,6 +17,7 @@ import { type AnswerStore, type AiCard as Card, useWritten } from "~/hooks/use-a
 import type { AiFailure } from "~/lib/ai-stream.client"
 import { cn } from "~/lib/utils"
 import { AiAnswer, plainAnswer } from "./ai-answer"
+import { InkThinking } from "./ink-thinking"
 import { tooltip } from "./tooltip-host"
 
 export type AiCardPlacement =
@@ -230,10 +230,7 @@ function OpenCard({
 							citeLabel={(n) => t("ai.citation", { n })}
 						/>
 					) : (
-						<p className="flex items-center gap-1.5 text-muted-fg">
-							<Loader2 className="size-3.5 animate-spin" aria-hidden />
-							{t("ai.thinking")}
-						</p>
+						<InkThinking label={t("ai.thinking")} />
 					)
 				) : null}
 				{card.failure ? <Failure {...card.failure} /> : null}
