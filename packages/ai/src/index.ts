@@ -45,6 +45,8 @@ export function createAi(config: AiConfig) {
 		brief: (input: BriefInput) =>
 			stream(config, {
 				tier: "quick",
+				// Four sections, each cited: more than an answer, and a brief cut short is kept as it is.
+				maxOutputTokens: 6144,
 				fake: () => fakeBrief(input, config.fake === "demo" ? DEMO_THINK_MS : 0),
 				system: briefSystemPrompt(input.language),
 				messages: briefMessages(input),
@@ -58,6 +60,8 @@ export type Ai = ReturnType<typeof createAi>
 
 interface Request {
 	tier: AiTier
+	/** Instead of the tier's. */
+	maxOutputTokens?: number
 	/** The fake model for this request, used with `config.fake`. */
 	fake: () => LanguageModel
 	system: string
@@ -74,7 +78,7 @@ function stream(config: AiConfig, input: Request): Answer {
 		model,
 		system: input.system,
 		messages: input.messages,
-		maxOutputTokens: TIERS[input.tier].maxOutputTokens,
+		maxOutputTokens: input.maxOutputTokens ?? TIERS[input.tier].maxOutputTokens,
 		abortSignal: input.signal,
 		// Errors come through the stream, as `error` parts: handled below, not logged twice.
 		onError: () => {},

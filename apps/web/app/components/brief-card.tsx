@@ -6,6 +6,7 @@ import { type AnswerStore, useWritten } from "~/hooks/use-ai-threads"
 import { BRIEF } from "~/hooks/use-brief"
 import type { AiFailure } from "~/lib/ai-stream.client"
 import type { AiBriefView } from "~/lib/ai-threads"
+import { briefSection, briefSummary } from "~/lib/brief"
 import { cn } from "~/lib/utils"
 import { AiAnswer, plainAnswer } from "./ai-answer"
 import { Failure, QuestionsLeft } from "./ai-card"
@@ -26,7 +27,8 @@ interface Props {
 
 /**
  * The article's brief, between the article's header and its text: a one-line button until the
- * reader asks for one, then three cited bullets, collapsible to one line. No follow-ups.
+ * reader asks for one, then its gist, key claims, caveats and parts, each cited, collapsible to the
+ * gist. No follow-ups.
  */
 export function BriefCard({
 	brief,
@@ -43,6 +45,10 @@ export function BriefCard({
 	const streamed = useWritten(written, BRIEF)
 	// None left this month: the button stays, dimmed, and pressing it says why; no Retry.
 	const { none } = useQuestionsLeft()
+	const heading = (title: string) => {
+		const section = briefSection(title)
+		return section ? t(`ai.brief.sections.${section}`) : title
+	}
 	const label = (
 		<span className="flex items-center gap-1 text-xs font-medium text-accent">
 			<ScrollText className="size-3" aria-hidden />
@@ -69,9 +75,7 @@ export function BriefCard({
 		return (
 			<button type="button" onClick={() => onOpen(true)} className={row} data-testid="brief">
 				{label}
-				<span className="line-clamp-2">
-					{plainAnswer(brief.text.replace(/^\s*[-*]\s+/gm, "").replace(/\n+/g, " "))}
-				</span>
+				<span className="line-clamp-2">{plainAnswer(briefSummary(brief.text))}</span>
 			</button>
 		)
 	return (
@@ -102,6 +106,7 @@ export function BriefCard({
 							citations={streamed.citations}
 							onCite={onCite}
 							citeLabel={(n) => t("ai.citation", { n })}
+							heading={heading}
 						/>
 					) : (
 						<InkThinking label={t("ai.brief.writing")} />
@@ -112,6 +117,7 @@ export function BriefCard({
 						citations={brief.citations}
 						onCite={onCite}
 						citeLabel={(n) => t("ai.citation", { n })}
+						heading={heading}
 					/>
 				) : null}
 				{failure && !writing ? <Failure {...failure} /> : null}

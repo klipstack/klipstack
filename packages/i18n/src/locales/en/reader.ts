@@ -211,7 +211,8 @@ export default {
 		},
 		brief: {
 			title: "Brief",
-			make: "Sum up this article in three points",
+			make: "Sum up this article",
+			sections: { claims: "Key claims", caveats: "Keep in mind", parts: "Parts" },
 			writing: "Writing the brief…",
 		},
 		collapse: "Collapse",

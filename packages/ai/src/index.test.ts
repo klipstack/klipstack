@@ -136,12 +136,12 @@ describe("brief", () => {
 		expect((brief!.content as unknown[])[0]).toEqual((answer!.content as unknown[])[0])
 	})
 
-	it("writes three bullets citing the article", async () => {
+	it("writes a gist, then claims, caveats and parts, citing the article", async () => {
 		const brief = createAi({ fake: true }).brief({ article, language: "en" })
 		const events = await collect(brief.events)
 		const result = await brief.done
-		expect(result.text.split("\n").filter((l) => l.startsWith("- "))).toHaveLength(3)
-		expect(events.filter((e) => e.type === "citation")).toHaveLength(1)
+		expect(result.text.match(/^## .+$/gm)).toEqual(["## Key claims", "## Keep in mind", "## Parts"])
+		expect(events.filter((e) => e.type === "citation")).toHaveLength(2)
 		expect(result.citations[0]).toMatchObject({
 			start: 0,
 			exact: "Makers need long blocks of time.",

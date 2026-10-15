@@ -95,29 +95,33 @@ export function fakeBrief(input: BriefInput, thinkMs = 0) {
 		outputTokens: { total: 30, text: 30, reasoning: 0 },
 	}
 	const delta = (d: string) => ({ type: "text-delta" as const, id: "t", delta: d })
+	const cite = {
+		type: "source" as const,
+		sourceType: "document" as const,
+		id: "c1",
+		mediaType: "text/plain",
+		title: input.article.title,
+		providerMetadata: {
+			anthropic: { citedText: first, startCharIndex: 0, endCharIndex: first.length },
+		},
+	}
 	// An article titled with `[fake:fail]` breaks off, as a provider can.
 	const failing: LanguageModelV4StreamPart[] = [
 		{ type: "text-start" as const, id: "t" },
-		delta("- The first"),
+		delta("The gist"),
 		{ type: "error" as const, error: new Error("fake provider failure") },
 	]
 	const chunks: LanguageModelV4StreamPart[] = input.article.title.includes(FAKE_FAIL)
 		? failing
 		: [
 				{ type: "text-start" as const, id: "t" },
-				delta("- The first point of a fixed brief for tests."),
-				{
-					type: "source" as const,
-					sourceType: "document" as const,
-					id: "c1",
-					mediaType: "text/plain",
-					title: input.article.title,
-					providerMetadata: {
-						anthropic: { citedText: first, startCharIndex: 0, endCharIndex: first.length },
-					},
-				},
-				delta("\n- A second point."),
-				delta("\n- A third point."),
+				delta("The gist of a fixed brief for tests. Why it matters.\n\n## Key claims\n\n"),
+				delta("1. The first claim of a fixed brief for tests."),
+				cite,
+				delta("\n2. A second claim.\n\n## Keep in mind\n\n- A caveat."),
+				delta("\n\n## Parts\n\n- **Opening**: where it starts."),
+				cite,
+				delta("\n- **The rest**: what follows."),
 				{ type: "text-end" as const, id: "t" },
 				{
 					type: "finish" as const,

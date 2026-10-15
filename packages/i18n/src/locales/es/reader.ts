@@ -206,7 +206,12 @@ export default {
 		},
 		brief: {
 			title: "Resumen",
-			make: "Resume este artículo en tres puntos",
+			make: "Resume este artículo",
+			sections: {
+				claims: "Afirmaciones clave",
+				caveats: "Ten en cuenta",
+				parts: "Partes del texto",
+			},
 			writing: "Escribiendo el resumen…",
 		},
 		collapse: "Contraer",

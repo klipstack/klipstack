@@ -208,7 +208,7 @@ test("without a margin the card floats under the passage; without the feature, n
 	await expect(card).toContainText("Answer 1.")
 })
 
-test("the brief: asked for, three cited bullets above the text, kept for the next visit", async ({
+test("the brief: asked for, a cited gist, claims, caveats and parts above the text, kept for the next visit", async ({
 	page,
 }) => {
 	test.setTimeout(120_000)
@@ -219,15 +219,17 @@ test("the brief: asked for, three cited bullets above the text, kept for the nex
 		if (r.method() === "POST" && r.url().endsWith("/ai")) asked.push(r.postData() ?? "")
 	})
 	// Nothing is written until the reader asks. It sits above the text, not in the margin.
-	await expect(page.getByTestId("brief")).toContainText("Sum up this article in three points")
+	await expect(page.getByTestId("brief")).toContainText("Sum up this article")
 	await expect(
 		page.getByRole("region", { name: "Highlight notes" }).getByTestId("brief"),
 	).toHaveCount(0)
 	expect(asked).toEqual([])
 	await page.getByRole("button", { name: /Sum up this article/ }).click()
 	const brief = page.getByRole("region", { name: "Brief" })
-	await expect(brief.getByRole("listitem")).toHaveCount(3)
-	await expect(brief).toContainText("The first point of a fixed brief for tests.")
+	await expect(brief.getByRole("heading")).toHaveText(["Key claims", "Keep in mind", "Parts"])
+	await expect(brief.getByRole("list")).toHaveCount(3)
+	await expect(brief.getByRole("listitem")).toHaveCount(5)
+	await expect(brief).toContainText("The first claim of a fixed brief for tests.")
 	const [box, text] = await Promise.all([
 		brief.boundingBox(),
 		page.locator(".reader-content").boundingBox(),
@@ -243,8 +245,11 @@ test("the brief: asked for, three cited bullets above the text, kept for the nex
 	await page.reload()
 	await waitForHydration(page)
 	asked.length = 0
+	await expect(page.getByTestId("brief")).toHaveText(
+		/The gist of a fixed brief for tests\. Why it matters\.$/,
+	)
 	await page.getByTestId("brief").click()
-	await expect(brief.getByRole("listitem")).toHaveCount(3)
+	await expect(brief.getByRole("listitem")).toHaveCount(5)
 	expect(asked).toEqual([])
 	await brief.getByRole("button", { name: "Collapse" }).click()
 	await expect(brief).toHaveCount(0)
