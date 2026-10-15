@@ -415,6 +415,7 @@ export default {
 		title: "Keyboard shortcuts",
 		show: "Keyboard shortcuts",
 		off: "Single-key shortcuts are off.",
+		offTag: "Off",
 		turnOn: "Turn them on",
 		all: "All shortcuts",
 		groups: {

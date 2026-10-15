@@ -423,6 +423,7 @@ export default {
 		title: "Atajos de teclado",
 		show: "Atajos de teclado",
 		off: "Los atajos de una sola tecla están desactivados.",
+		offTag: "Desactivado",
 		turnOn: "Activarlos",
 		all: "Todos los atajos",
 		groups: {

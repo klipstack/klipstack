@@ -63,7 +63,7 @@ export function ShortcutsDialog({
 							</Link>
 						</p>
 					) : null}
-					<ShortcutList groups={["reader", "general"]} ai={ai} compact />
+					<ShortcutList groups={["reader", "general"]} ai={ai} off={off} compact />
 					<Link to="/settings/shortcuts" className="text-sm text-accent underline">
 						{t("shortcuts.all")}
 					</Link>

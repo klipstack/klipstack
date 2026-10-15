@@ -312,6 +312,30 @@ test("Settings lists every shortcut; the AI's only with AI", async ({ page, brow
 	).toBeVisible()
 	await expect(page.getByRole("region", { name: "Everywhere" })).toContainText("⌘K")
 
+	// The switch explains itself. Turned off, the single keys are marked off, the others not.
+	const toggle = page.getByRole("checkbox", { name: "Single-key shortcuts" })
+	await expect(toggle).toHaveAccessibleDescription(/speech input or a screen reader/)
+	const paragraphRow = reader.getByRole("row", { name: /Next or previous paragraph/ })
+	const openRow = page.getByRole("region", { name: "In lists" }).getByRole("row", {
+		name: /Open the article/,
+	})
+	await expect(paragraphRow).not.toContainText("Off")
+	await Promise.all([
+		page.waitForResponse((r) => r.url().includes("/prefs") && r.request().method() === "POST"),
+		toggle.uncheck(),
+	])
+	await expect(paragraphRow).toContainText("Off")
+	await expect(page.getByRole("row", { name: /Command palette/ })).not.toContainText("Off")
+	// Enter still opens; O doesn't.
+	await expect(openRow).not.toContainText("Off")
+	await expect(openRow.locator("kbd[data-off]")).toHaveText("O")
+	// Kept for the next visit.
+	await page.reload()
+	await waitForHydration(page)
+	await expect(paragraphRow).toContainText("Off")
+	await toggle.check()
+	await expect(paragraphRow).not.toContainText("Off")
+
 	const other = await browser.newPage()
 	await signupUser(other, "Lister without AI")
 	await other.goto("/settings/shortcuts")
@@ -358,6 +382,10 @@ test("with single-key shortcuts off, the list says so", async ({ page }) => {
 	await expect(dialog).toHaveCount(0)
 	await page.getByRole("button", { name: "Keyboard shortcuts" }).click()
 	await expect(dialog).toContainText("Single-key shortcuts are off.")
+	await expect(dialog.getByRole("row", { name: /Next or previous paragraph/ })).toContainText("Off")
+	await expect(dialog.getByRole("row", { name: /Stop reading by paragraph/ })).not.toContainText(
+		"Off",
+	)
 	await expect(dialog.getByRole("link", { name: "Turn them on" })).toHaveAttribute(
 		"href",
 		"/settings/shortcuts",

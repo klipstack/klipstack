@@ -218,6 +218,14 @@ function isControl(el: Element | null): boolean {
  * Every shortcut, for the list in Settings and the reader's `?`. A row's label is
  * `common:shortcuts.rows.<id>`, a group's `common:shortcuts.groups.<id>`. `ai`: only with AI.
  */
+/**
+ * A hint for a key that types a character (a letter, `#`, `[`, `?`…): the keys the setting turns
+ * off. Enter, the arrows, Escape and ⌘ with a key keep working.
+ */
+export function isSingleKey(hint: string): boolean {
+	return !hint.startsWith("⌘") && hint !== "Esc" && !["↵", "↑", "↓", "←", "→"].includes(hint)
+}
+
 interface ShortcutRow {
 	readonly id: string
 	readonly keys: readonly string[]

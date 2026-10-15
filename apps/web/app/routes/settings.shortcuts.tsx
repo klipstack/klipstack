@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useId, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useFetcher, useRouteLoaderData } from "react-router"
 import { SettingsCard, SettingsPage } from "~/components/settings-page"
@@ -32,12 +32,14 @@ export default function ShortcutsSettings({ loaderData }: Route.ComponentProps) 
 	const fetcher = useFetcher()
 	const root = useRouteLoaderData<typeof rootLoader>("root")
 	const [on, setOn] = useState(!root?.shortcutsOff)
+	const helpId = useId()
 	return (
-		<SettingsPage title={t("shortcuts.title")} description={t("shortcuts.description")}>
+		<SettingsPage title={t("shortcuts.title")}>
 			<SettingsCard>
 				<label className="flex items-center gap-2 text-sm">
 					<input
 						type="checkbox"
+						aria-describedby={helpId}
 						checked={on}
 						onChange={(e) => {
 							setOn(e.target.checked)
@@ -49,9 +51,12 @@ export default function ShortcutsSettings({ loaderData }: Route.ComponentProps) 
 					/>
 					{t("shortcuts.singleKey")}
 				</label>
+				<p id={helpId} className="mt-2 text-sm text-muted-fg">
+					{t("shortcuts.description")}
+				</p>
 			</SettingsCard>
 			<SettingsCard>
-				<ShortcutList ai={loaderData.ai} />
+				<ShortcutList ai={loaderData.ai} off={!on} />
 			</SettingsCard>
 		</SettingsPage>
 	)
