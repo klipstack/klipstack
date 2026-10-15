@@ -19,6 +19,7 @@ import { HomeHighlights } from "~/components/home-highlights"
 import { HomeMasthead } from "~/components/home-masthead"
 import { HomeNotes } from "~/components/home-notes"
 import { MenuNavLink, MoreMenu } from "~/components/more-menu"
+import { StarterTexts } from "~/components/starter-texts"
 import { Button, buttonVariants } from "~/components/ui/button"
 import { useFeedReader } from "~/hooks/use-feed-reader"
 import { topicModels } from "~/lib/ai.server"
@@ -33,6 +34,7 @@ import { warmOffline } from "~/lib/offline.client"
 import type { PageBarHandle } from "~/lib/page-bar"
 import { requireUser } from "~/lib/session.server"
 import { isSearchShortcut } from "~/lib/shortcuts"
+import { starterTexts } from "~/lib/starter-texts.server"
 import { countTopicClick } from "~/lib/topic-use"
 import { cn } from "~/lib/utils"
 import { editionNudge } from "~/services/editions.server"
@@ -41,6 +43,7 @@ import { listNoteReminders } from "~/services/note-reminders.server"
 import { finishedLately } from "~/services/reading-history.server"
 import { readingHome } from "~/services/reading-home.server"
 import { resurfacingDay } from "~/services/resurfacing.server"
+import { starterItems } from "~/services/starter-texts.server"
 import {
 	firstTopicsNotice,
 	homeTopics,
@@ -91,6 +94,17 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 			: {}
 	return {
 		...home,
+		// Nothing saved yet: something to start with, in the reader's language.
+		starter:
+			home.emptyState?.kind === "new"
+				? await starterItems(
+						user.id,
+						starterTexts()
+							.filter((text) => text.language === locale)
+							.slice(0, HOME_STARTER_TEXTS),
+					)
+				: null,
+		language: locale,
 		finished,
 		topicsReady,
 		invitation,
@@ -107,6 +121,9 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 		title: `${t("home.title")} · Klipstack`,
 	}
 }
+
+/** The guide and the first essays: the rest are on the Add page. */
+const HOME_STARTER_TEXTS = 4
 
 /** The day's highlights, and what Home knows of the articles their notes link to. */
 async function homeHighlights(userId: string, timeZone: string) {
@@ -199,6 +216,8 @@ export default function ReadingHome({
 		timeChoice,
 		feed,
 		emptyState,
+		starter,
+		language,
 		review,
 		finished,
 		topicsReady,
@@ -365,6 +384,17 @@ export default function ReadingHome({
 						<Link to={emptyState.to} className={buttonVariants()}>
 							{t(`home.empty.${emptyState.kind}.action`)}
 						</Link>
+						{starter?.length ? (
+							<div className="mt-10 w-full max-w-xl">
+								<StarterTexts items={starter} language={language} title={t("starter.homeTitle")} />
+								<Link
+									to="/add"
+									className="mt-4 inline-block text-sm text-link underline-offset-4 hover:underline"
+								>
+									{t("starter.more")}
+								</Link>
+							</div>
+						) : null}
 					</div>
 				) : null}
 			</div>

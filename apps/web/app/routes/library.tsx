@@ -317,6 +317,11 @@ export default function Library({ loaderData }: Route.ComponentProps) {
 					<p className="max-w-sm text-sm">
 						{t(`empty.${loaderData.view}.description`, { days: TRASH_RETENTION_DAYS })}
 					</p>
+					{loaderData.view === "inbox" ? (
+						<Link to="/add" className="text-sm text-link underline-offset-4 hover:underline">
+							{t("starter.find")}
+						</Link>
+					) : null}
 				</div>
 			) : (
 				<DocumentList

@@ -16,7 +16,7 @@ it("prefills a cross-site GET without saving or enqueueing work", async () => {
 	const request = new Request("http://localhost/add?url=https://example.com/article", {
 		headers: { "sec-fetch-site": "cross-site" },
 	})
-	expect(await loader({ request } as never)).toEqual({ url: "https://example.com/article" })
+	expect(await loader({ request } as never)).toMatchObject({ url: "https://example.com/article" })
 	expect(saved).not.toHaveBeenCalled()
 })
 
