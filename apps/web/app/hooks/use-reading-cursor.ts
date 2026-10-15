@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { supportsHighlightApi } from "~/lib/highlights.client"
 
 /** What `j` and `k` step through: the innermost blocks of text. */
@@ -54,16 +54,19 @@ function onScreen(range: Range): boolean {
 	return rect.bottom > TOP && rect.top < window.innerHeight
 }
 
-/** The paragraph at a third of the way down the window, as `scrollRangeIntoView` puts a passage. */
-function scrollToParagraph(range: Range) {
+/**
+ * Scrolls a range to a third of the way down the window, as `scrollRangeIntoView` puts a passage,
+ * unless all of it can be read where it is. Whether the page moves.
+ */
+function scrollToRange(range: Range): boolean {
 	const rect = range.getBoundingClientRect()
-	// Already where it can be read, and all of it: the page stays still.
-	if (rect.top >= TOP && rect.bottom <= window.innerHeight * 0.85) return
+	if (rect.top >= TOP && rect.bottom <= window.innerHeight * 0.85) return false
 	const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches
 	window.scrollTo({
 		top: Math.max(0, rect.top + window.scrollY - window.innerHeight / 3),
 		behavior: still ? "auto" : "smooth",
 	})
+	return true
 }
 
 /**
@@ -87,11 +90,42 @@ export function useReadingCursor(contentRef: React.RefObject<HTMLElement | null>
 		return () => void CSS.highlights.delete(READING_HIGHLIGHT)
 	}, [current])
 
-	const go = useCallback((range: Range | undefined) => {
-		if (!range) return
-		setCurrent(range)
-		scrollToParagraph(range)
+	// While the page scrolls to the marked paragraph it may be off screen still: it counts as there.
+	const scrolling = useRef(false)
+	useEffect(() => {
+		let timer = 0
+		const done = () => {
+			window.clearTimeout(timer)
+			scrolling.current = false
+		}
+		// Safari before 26 has no `scrollend`: a smooth scroll is over well within a second.
+		const started = () => {
+			window.clearTimeout(timer)
+			timer = window.setTimeout(done, 1000)
+		}
+		window.addEventListener("scrollend", done)
+		window.addEventListener("klip-reading-scroll", started)
+		return () => {
+			done()
+			window.removeEventListener("scrollend", done)
+			window.removeEventListener("klip-reading-scroll", started)
+		}
 	}, [])
+	const scrollTo = useCallback((range: Range) => {
+		if (!scrollToRange(range)) return
+		scrolling.current = true
+		window.dispatchEvent(new Event("klip-reading-scroll"))
+	}, [])
+	const inView = useCallback((range: Range) => scrolling.current || onScreen(range), [])
+
+	const go = useCallback(
+		(range: Range | undefined) => {
+			if (!range) return
+			setCurrent(range)
+			scrollTo(range)
+		},
+		[scrollTo],
+	)
 
 	/** One paragraph on, or back. With none marked, or the marked one scrolled away: the first on screen. */
 	const move = useCallback(
@@ -100,18 +134,19 @@ export function useReadingCursor(contentRef: React.RefObject<HTMLElement | null>
 			if (!root) return
 			const all = paragraphsIn(root)
 			const at = current ? all.findIndex((p) => sameStart(p, current)) : -1
-			if (at < 0 || !onScreen(current!)) {
+			if (at < 0 || !inView(current!)) {
 				go(all.find(onScreen) ?? all[0])
 				return
 			}
 			go(all[at + step])
 		},
-		[contentRef, current, go],
+		[contentRef, current, go, inView],
 	)
 
-	/** Marks the paragraph a passage starts in, without scrolling. */
+	/** Marks the paragraph a passage starts in, and scrolls to the passage. */
 	const markAt = useCallback(
 		(passage: Range) => {
+			scrollTo(passage)
 			const root = contentRef.current
 			if (!root) return
 			const found = paragraphsIn(root).find(
@@ -121,17 +156,17 @@ export function useReadingCursor(contentRef: React.RefObject<HTMLElement | null>
 			)
 			if (found) setCurrent(found)
 		},
-		[contentRef],
+		[contentRef, scrollTo],
 	)
 
 	/** The marked paragraph, or the first on screen, marked. */
 	const ensure = useCallback((): Range | null => {
 		const root = contentRef.current
-		if (current && onScreen(current)) return current
+		if (current && inView(current)) return current
 		const first = root ? (paragraphsIn(root).find(onScreen) ?? null) : null
 		setCurrent(first)
 		return first
-	}, [contentRef, current])
+	}, [contentRef, current, inView])
 
 	const toggleFocus = useCallback(() => {
 		if (focus) setFocus(false)

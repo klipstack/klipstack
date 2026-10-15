@@ -1,4 +1,4 @@
-import { aiThreads, db, documentVersions, eq, user } from "@klipstack/db"
+import { aiMessages, aiThreads, db, documentVersions, eq, highlights, user } from "@klipstack/db"
 import { expect, type Page, test } from "@playwright/test"
 import { signupUser, waitForHydration } from "./helpers"
 import { insertArticle } from "./seed"
@@ -16,14 +16,47 @@ const HTML = `<h2>Two schedules</h2>
 <ul><li>First item</li><li>Second item</li></ul>
 ${LONG}`
 
-async function open(page: Page, features: "ai"[] = []) {
+/** The article's text, as extraction keeps it (every text node, in order): offsets count in it. */
+const TEXT = HTML.replace(/<[^>]+>/g, "")
+
+async function open(page: Page, features: "ai"[] = [], seed?: (ids: Ids) => Promise<void>) {
 	const email = await signupUser(page, "Paragraphs", { features })
 	const [owner] = await db.select({ id: user.id }).from(user).where(eq(user.email, email))
 	const id = await insertArticle(owner!.id, "Paragraphs", HTML)
+	const [version] = await db
+		.update(documentVersions)
+		.set({ text: TEXT })
+		.where(eq(documentVersions.documentId, id))
+		.returning({ id: documentVersions.id })
+	await seed?.({ userId: owner!.id, documentId: id, versionId: version!.id })
 	await page.goto(`/read/${id}`)
 	await expect(page.locator(".reader-content")).toContainText("Two schedules")
 	await waitForHydration(page)
 	return id
+}
+
+interface Ids {
+	userId: string
+	documentId: string
+	versionId: string
+}
+
+/** Where a passage is in the article's text. */
+function at(exact: string) {
+	const start = TEXT.indexOf(exact)
+	if (start < 0) throw new Error(`not in the article: ${exact}`)
+	return { exact, startOffset: start, endOffset: start + exact.length }
+}
+
+async function seedThread(ids: Ids, exact: string, answer: string) {
+	const [thread] = await db
+		.insert(aiThreads)
+		.values({ ...ids, ...at(exact), action: "explain" })
+		.returning({ id: aiThreads.id })
+	await db.insert(aiMessages).values([
+		{ threadId: thread!.id, role: "user", text: "" },
+		{ threadId: thread!.id, role: "assistant", text: answer },
+	])
 }
 
 /** The marked paragraph's text, from the highlight that paints it; null when none is. */
@@ -129,14 +162,6 @@ test("Enter asks about the marked paragraph; nothing is asked before the questio
 	test.setTimeout(90_000)
 	await page.setViewportSize({ width: 1440, height: 900 })
 	const id = await open(page, ["ai"])
-	// The version's text, as extraction keeps it: what the AI looks the passage up in.
-	const text = await page.evaluate(() => {
-		const walker = document.createTreeWalker(document.querySelector(".reader-content")!, 4)
-		let all = ""
-		for (let node = walker.nextNode(); node; node = walker.nextNode()) all += (node as Text).data
-		return all
-	})
-	await db.update(documentVersions).set({ text }).where(eq(documentVersions.documentId, id))
 	for (let i = 0; i < 3; i++) await page.keyboard.press("j")
 	await expect.poll(() => marked(page)).toMatch(/^One reason programmers/)
 	await page.keyboard.press("Enter")
@@ -162,4 +187,50 @@ test("without AI, Enter on a paragraph asks nothing", async ({ page }) => {
 	await page.keyboard.press("Enter")
 	await expect(page.getByTestId("ai-card")).toHaveCount(0)
 	expect(await marked(page)).toBe("Two schedules")
+})
+
+test("] and [ go from answer to note in the article's order, and mark their paragraph", async ({
+	page,
+}) => {
+	test.setTimeout(90_000)
+	await page.setViewportSize({ width: 1440, height: 900 })
+	await open(page, ["ai"], async (ids) => {
+		await seedThread(ids, "There are two types of schedule.", "First answer.")
+		await seedThread(ids, "Paragraph 12.", "Second answer.")
+		await db.insert(highlights).values([
+			{ ...ids, ...at("Paragraph 5."), note: "A note on five." },
+			// No note: not a stop.
+			{ ...ids, ...at("Paragraph 8.") },
+		])
+	})
+	const openCard = page.getByRole("dialog", { name: "Explain" })
+	const active = () =>
+		page.evaluate(() => {
+			const range = CSS.highlights.get("klip-active")?.values().next().value as Range | undefined
+			return range?.toString() ?? null
+		})
+
+	await page.keyboard.press("]")
+	await expect(openCard).toContainText("First answer.")
+	await expect.poll(() => marked(page)).toBe("There are two types of schedule.")
+
+	await page.keyboard.press("]")
+	await expect(openCard).toHaveCount(0)
+	await expect.poll(() => active()).toBe("Paragraph 5.")
+	await expect.poll(() => marked(page)).toMatch(/^Paragraph 5\./)
+
+	await page.keyboard.press("]")
+	await expect(openCard).toContainText("Second answer.")
+	await expect.poll(() => marked(page)).toMatch(/^Paragraph 12\./)
+	// The last one: ] stays.
+	await page.keyboard.press("]")
+	await expect(openCard).toContainText("Second answer.")
+
+	await page.keyboard.press("[")
+	await expect.poll(() => active()).toBe("Paragraph 5.")
+	await expect.poll(() => marked(page)).toMatch(/^Paragraph 5\./)
+	// Where [ takes Option or AltGr to type.
+	await page.keyboard.press("Alt+[")
+	await expect(openCard).toContainText("First answer.")
+	await expect.poll(() => marked(page)).toBe("There are two types of schedule.")
 })

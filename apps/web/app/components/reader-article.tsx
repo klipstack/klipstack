@@ -627,6 +627,50 @@ export function ReaderArticle({
 
 	// ---- reading by paragraph, from the keyboard ----
 	const cursor = useReadingCursor(contentRef, html)
+	// The answer or note `[`/`]` went to last: the next step goes on from it.
+	const lastStop = useRef<Range | null>(null)
+	/** The AI answers and the notes in the article, in its order. */
+	const stops = () => {
+		const out: Array<{ kind: "thread" | "note"; id: string; range: Range }> = []
+		for (const card of shownCards) {
+			const range = threadRangesRef.current.get(card.id)
+			if (range) out.push({ kind: "thread", id: card.id, range })
+		}
+		for (const item of items) {
+			const range = item.note && !isTemporary(item.id) ? rangesRef.current.get(item.id) : null
+			if (range) out.push({ kind: "note", id: item.id, range })
+		}
+		return out.sort((a, b) => a.range.compareBoundaryPoints(Range.START_TO_START, b.range))
+	}
+	const goToStop = (step: 1 | -1): boolean => {
+		const all = stops()
+		const paragraph = cursor.ensure()
+		if (!paragraph || !all.length) return false
+		// From the last stop while it is in the marked paragraph, else from the paragraph's start, so
+		// that ] reaches a stop inside it.
+		const last = lastStop.current
+		const fromStop = last && paragraph.isPointInRange(last.startContainer, last.startOffset)
+		const from = fromStop ? last : paragraph
+		const after = (r: Range) => r.compareBoundaryPoints(Range.START_TO_START, from)
+		const next =
+			step === 1
+				? all.find((s) => (fromStop ? after(s.range) > 0 : after(s.range) >= 0))
+				: all.findLast((s) => after(s.range) < 0)
+		if (!next) return true
+		lastStop.current = next.range
+		cursor.markAt(next.range)
+		if (next.kind === "thread") {
+			closePopover()
+			ai.open(next.id)
+		} else {
+			ai.close()
+			if (marginRoom) {
+				setActiveId(next.id)
+				setActiveHighlight(next.range)
+			} else focusResize(next.id)
+		}
+		return true
+	}
 	const readerAct = (shortcut: ReaderShortcut): boolean => {
 		switch (shortcut) {
 			case "nextParagraph":
@@ -643,6 +687,10 @@ export function ReaderArticle({
 				ask(passage, "ask")
 				return true
 			}
+			case "nextNote":
+				return goToStop(1)
+			case "prevNote":
+				return goToStop(-1)
 			case "leave":
 				// Escape also closes whatever else is open: it is not taken.
 				cursor.leave()
