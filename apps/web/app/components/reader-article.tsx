@@ -691,6 +691,26 @@ export function ReaderArticle({
 				return goToStop(1)
 			case "prevNote":
 				return goToStop(-1)
+			case "brief": {
+				if (!aiEnabled) return false
+				// A brief made opens or closes; none yet, its button gets the focus: Enter makes one.
+				const opening = !brief.brief || brief.writing || !brief.open
+				if (brief.brief && !brief.writing) brief.setOpen(opening)
+				if (opening)
+					requestAnimationFrame(() => {
+						const card = articleRef.current?.querySelector<HTMLElement>("[data-brief]")
+						if (!card) return
+						const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+						const top = card.getBoundingClientRect().top + window.scrollY - window.innerHeight / 3
+						window.scrollTo({ top: Math.max(0, top), behavior: still ? "auto" : "smooth" })
+						if (!brief.brief && card instanceof HTMLButtonElement)
+							card.focus({ preventScroll: true })
+					})
+				return true
+			}
+			case "focus":
+				cursor.toggleFocus()
+				return true
 			case "leave":
 				// Escape also closes whatever else is open: it is not taken.
 				cursor.leave()
@@ -761,6 +781,8 @@ export function ReaderArticle({
 							// While a highlight's toolbar or note editor is open, the others dim (app.css).
 							data-focus={resize.state !== "pointer" && focusItem ? "true" : undefined}
 							data-resizing={resize.state === "pointer" ? "true" : undefined}
+							// Focus mode (`f`): all but the marked paragraph dims (app.css).
+							data-reading-focus={cursor.focus ? "" : undefined}
 							// Its color, for the mark in focus (`klip-active`).
 							{...(marked ? highlightColor(marked.color) : {})}
 							className="reader-content prose max-w-none"

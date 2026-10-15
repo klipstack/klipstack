@@ -1,4 +1,13 @@
-import { aiMessages, aiThreads, db, documentVersions, eq, highlights, user } from "@klipstack/db"
+import {
+	aiBriefs,
+	aiMessages,
+	aiThreads,
+	db,
+	documentVersions,
+	eq,
+	highlights,
+	user,
+} from "@klipstack/db"
 import { expect, type Page, test } from "@playwright/test"
 import { signupUser, waitForHydration } from "./helpers"
 import { insertArticle } from "./seed"
@@ -233,4 +242,61 @@ test("] and [ go from answer to note in the article's order, and mark their para
 	await page.keyboard.press("Alt+[")
 	await expect(openCard).toContainText("First answer.")
 	await expect.poll(() => marked(page)).toBe("There are two types of schedule.")
+})
+
+test("b shows the brief: opens and closes one, or offers to make it without asking", async ({
+	page,
+}) => {
+	test.setTimeout(90_000)
+	await page.setViewportSize({ width: 1280, height: 800 })
+	const id = await open(page, ["ai"])
+	const brief = page.getByTestId("brief")
+	await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight / 2))
+	await page.keyboard.press("b")
+	await expect(brief).toBeInViewport()
+	await expect(brief).toBeFocused()
+	await expect(brief).toContainText("Sum up this article in three points")
+	expect(await db.select().from(aiBriefs).where(eq(aiBriefs.documentId, id))).toHaveLength(0)
+})
+
+test("b opens and closes a brief already made", async ({ page }) => {
+	await page.setViewportSize({ width: 1280, height: 800 })
+	await open(page, ["ai"], async (ids) => {
+		await db.insert(aiBriefs).values({ ...ids, text: "- The kept brief.", model: "fake:e2e" })
+	})
+	const region = page.getByRole("region", { name: "Brief" })
+	await expect(region).toHaveCount(0)
+	await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight / 2))
+	await page.keyboard.press("b")
+	await expect(region).toContainText("The kept brief.")
+	await expect(region).toBeInViewport()
+	await page.keyboard.press("b")
+	await expect(region).toHaveCount(0)
+})
+
+test("f dims all but the marked paragraph; f again or Escape comes back", async ({ page }) => {
+	await page.setViewportSize({ width: 1280, height: 800 })
+	await open(page)
+	const content = page.locator(".reader-content")
+	await page.keyboard.press("f")
+	await expect(content).toHaveAttribute("data-reading-focus", "")
+	// Marked on the way in: the first paragraph on screen.
+	expect(await marked(page)).toBe("Two schedules")
+	// Dimmed: a paragraph's text is fainter than the page's.
+	const color = (selector: string) =>
+		page
+			.locator(selector)
+			.first()
+			.evaluate((el) => getComputedStyle(el).color)
+	expect(await color(".reader-content blockquote p")).not.toBe(await color("h1"))
+	await page.keyboard.press("j")
+	expect(await marked(page)).toBe("July 2009")
+	await expect(content).toHaveAttribute("data-reading-focus", "")
+	await page.keyboard.press("f")
+	await expect(content).not.toHaveAttribute("data-reading-focus")
+	expect(await marked(page)).toBe("July 2009")
+	await page.keyboard.press("f")
+	await page.keyboard.press("Escape")
+	await expect(content).not.toHaveAttribute("data-reading-focus")
+	expect(await marked(page)).toBeNull()
 })
