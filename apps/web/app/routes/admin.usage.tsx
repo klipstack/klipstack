@@ -256,7 +256,9 @@ function StarterUsage({ rows }: { rows: Route.ComponentProps["loaderData"]["star
 					<tr key={row.slug}>
 						<td>
 							{row.title}
-							<div className="text-xs text-muted-fg">{row.language}</div>
+							<div className="text-xs text-muted-fg">
+								{t(`usage.starter.language.${row.language}`)}
+							</div>
 						</td>
 						{counts.map((count) => (
 							<td key={count} className={cn("tabular-nums", !row[count] && "text-muted-fg")}>

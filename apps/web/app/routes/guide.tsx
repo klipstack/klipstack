@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next"
-import { Form, redirect } from "react-router"
+import { Form, Link, redirect } from "react-router"
 import { PublicPage } from "~/components/public-page"
 import { buttonVariants } from "~/components/ui/button"
 import { env } from "~/lib/env.server"
@@ -11,6 +11,7 @@ import {
 	STARTER_LANGUAGES,
 	type StarterLanguage,
 } from "~/lib/starter-texts.server"
+import { savedStarterTexts } from "~/services/starter-texts.server"
 import type { Route } from "./+types/guide"
 
 const isStarterLanguage = (value: string | undefined): value is StarterLanguage =>
@@ -27,8 +28,14 @@ export async function loader({ context, params }: Route.LoaderArgs) {
 		throw redirect(guidePath(isStarterLanguage(preferred) ? preferred : "en"))
 	}
 	const guide = findStarterText(`guide-${language}`)!
+	const session = getSession(context)
+	// A reader who has it opens their copy instead.
+	const articleId = session
+		? ((await savedStarterTexts(session.user.id, [guide])).get(guide.slug) ?? null)
+		: null
 	return {
-		loggedIn: Boolean(getSession(context)),
+		loggedIn: Boolean(session),
+		articleId,
 		slug: guide.slug,
 		language,
 		title: guide.title,
@@ -53,7 +60,16 @@ export default function Guide({ loaderData }: Route.ComponentProps) {
 	return (
 		<PublicPage loggedIn={loaderData.loggedIn}>
 			<main className="mx-auto w-full max-w-2xl pt-6 pb-20 sm:pt-10" lang={loaderData.language}>
-				{loaderData.loggedIn ? (
+				{loaderData.articleId ? (
+					<div className="mb-6 flex justify-end">
+						<Link
+							to={`/read/${loaderData.articleId}`}
+							className={buttonVariants({ variant: "secondary", size: "sm" })}
+						>
+							{t("starter.openSaved")}
+						</Link>
+					</div>
+				) : loaderData.loggedIn ? (
 					<Form method="post" action="/add" className="mb-6 flex justify-end">
 						<input type="hidden" name="starter" value={loaderData.slug} />
 						<button type="submit" className={buttonVariants({ variant: "secondary", size: "sm" })}>

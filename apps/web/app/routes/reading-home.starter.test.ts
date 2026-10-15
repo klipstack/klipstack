@@ -1,5 +1,5 @@
-import { db, documents, eq, newId, user } from "@klipstack/db"
-import { afterAll, beforeAll, expect, it, vi } from "vitest"
+import { db, documents, inArray, newId, user } from "@klipstack/db"
+import { afterAll, beforeAll, beforeEach, expect, it, vi } from "vitest"
 import { findStarterText, starterUrlHash } from "~/lib/starter-texts.server"
 import { loader } from "./reading-home"
 
@@ -14,12 +14,18 @@ vi.mock("~/lib/i18n.server", async () => {
 })
 
 const userId = `test-reading-home-starter-${newId()}`
+const spanishId = `test-reading-home-starter-es-${newId()}`
 beforeAll(async () => {
-	session.user.id = userId
-	await db.insert(user).values({ id: userId, name: "Reader", email: `${userId}@example.com` })
+	await db.insert(user).values([
+		{ id: userId, name: "Reader", email: `${userId}@example.com` },
+		{ id: spanishId, name: "Lectora", email: `${spanishId}@example.com`, locale: "es" },
+	])
+})
+beforeEach(() => {
+	session.user = { id: userId, name: "Reader", locale: "en" }
 })
 afterAll(async () => {
-	await db.delete(user).where(eq(user.id, userId))
+	await db.delete(user).where(inArray(user.id, [userId, spanishId]))
 })
 
 const home = () =>
@@ -67,4 +73,14 @@ it("offers the starter texts while nothing is left to read, without the ones the
 		title: "Next",
 	})
 	expect(await slugs()).toBeNull()
+})
+
+it("offers a Spanish reader the Spanish texts", async () => {
+	session.user = { id: spanishId, name: "Lectora", locale: "es" }
+	expect(await slugs()).toEqual([
+		"guide-es",
+		"becquer-cartas-literarias",
+		"feijoo-prologo-al-lector",
+		"cervantes-prologo-quijote",
+	])
 })

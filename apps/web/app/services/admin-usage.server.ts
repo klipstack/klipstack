@@ -15,7 +15,7 @@ import {
 	monthOf,
 	storedBytes,
 } from "~/lib/limits.server"
-import { starterTexts, starterUrlHash } from "~/lib/starter-texts.server"
+import { type StarterLanguage, starterTexts, starterUrlHash } from "~/lib/starter-texts.server"
 
 export interface AdminUsageRow {
 	id: string
@@ -211,7 +211,7 @@ export async function listTopicUsage(ctx: AdminContext): Promise<{
 export interface AdminStarterRow {
 	slug: string
 	title: string
-	language: string
+	language: StarterLanguage
 	/** Accounts with it in their library now (not in the trash), and of those, how many… */
 	saved: number
 	/** …finished it, */

@@ -225,7 +225,12 @@ describe("listStarterUsage", () => {
 		return doc!.id
 	}
 
-	async function highlight(userId: string, documentId: string, note: string | null) {
+	async function highlight(
+		userId: string,
+		documentId: string,
+		note: string | null,
+		deletedAt: Date | null = null,
+	) {
 		const [version] = await db
 			.insert(documentVersions)
 			.values({
@@ -246,6 +251,7 @@ describe("listStarterUsage", () => {
 			endOffset: 4,
 			exact: "Text",
 			note,
+			deletedAt,
 		})
 	}
 
@@ -253,11 +259,19 @@ describe("listStarterUsage", () => {
 		const ctx = await authorizeAdmin(await (await fx.account({ role: "admin" })).session())
 		// Other tests' libraries may hold starter texts too: what this one adds is the difference.
 		const before = await listStarterUsage(ctx)
-		const [a, b, c, d] = await Promise.all([fx.account(), fx.account(), fx.account(), fx.account()])
+		const [a, b, c, d, e] = await Promise.all([
+			fx.account(),
+			fx.account(),
+			fx.account(),
+			fx.account(),
+			fx.account(),
+		])
 		await copy(a.id, "bacon-of-studies", { readAt: new Date() })
 		await highlight(b.id, await copy(b.id, "bacon-of-studies"), null)
 		await highlight(c.id, await copy(c.id, "bacon-of-studies"), "Mine.")
 		await copy(d.id, "bacon-of-studies", { note: "On the whole essay." })
+		// A deleted highlight, and its note, no longer count.
+		await highlight(e.id, await copy(e.id, "bacon-of-studies"), "Gone.", new Date())
 		// Not counted: another text, and a copy in the trash.
 		await copy(a.id, "guide-es")
 		await copy(b.id, "seneca-on-reading", { deletedAt: new Date(), readAt: new Date() })
@@ -273,7 +287,7 @@ describe("listStarterUsage", () => {
 				noted: now.noted - was.noted,
 			}
 		}
-		expect(diff("bacon-of-studies")).toEqual({ saved: 4, finished: 1, highlighted: 2, noted: 2 })
+		expect(diff("bacon-of-studies")).toEqual({ saved: 5, finished: 1, highlighted: 2, noted: 2 })
 		expect(diff("guide-es")).toEqual({ saved: 1, finished: 0, highlighted: 0, noted: 0 })
 		expect(diff("seneca-on-reading")).toEqual({ saved: 0, finished: 0, highlighted: 0, noted: 0 })
 		expect(after.find((row) => row.slug === "bacon-of-studies")).toMatchObject({

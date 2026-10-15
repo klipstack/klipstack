@@ -215,6 +215,7 @@ export default {
 			finished: "Finished",
 			highlighted: "Highlighted",
 			noted: "With notes",
+			language: { en: "English", es: "Spanish" },
 		},
 		topics: {
 			title: "Topics this month",

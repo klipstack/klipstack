@@ -218,6 +218,7 @@ export default {
 			finished: "Terminado",
 			highlighted: "Con subrayados",
 			noted: "Con notas",
+			language: { en: "Inglés", es: "Español" },
 		},
 		topics: {
 			title: "Temas este mes",

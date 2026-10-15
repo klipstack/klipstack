@@ -285,6 +285,16 @@ describe("saveStarterText", () => {
 		expect(raws).toHaveLength(1)
 	})
 
+	it("adds the reader's own copy when someone else has the text", async () => {
+		const [a, b] = [await newUser(), await newUser()]
+		const theirs = await saveStarterText(a, "guide-en")
+		const mine = await saveStarterText(b, "guide-en")
+		expect(mine.created).toBe(true)
+		expect(mine.articleId).not.toBe(theirs.articleId)
+		const [doc] = await db.select().from(documents).where(eq(documents.id, mine.articleId))
+		expect(doc!.userId).toBe(b)
+	})
+
 	it("adds a new copy when the reader's is in the trash", async () => {
 		const userId = await newUser()
 		const first = await saveStarterText(userId, "guide-en")

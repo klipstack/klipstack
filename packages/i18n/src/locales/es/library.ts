@@ -205,6 +205,7 @@ export default {
 		add: "Añadir a la biblioteca",
 		addLabel: "Añadir {{title}} a tu biblioteca",
 		saved: "En tu biblioteca",
+		openSaved: "Abrir en tu biblioteca",
 		openLabel: "Abrir {{title}}",
 	},
 	add: {
