@@ -136,10 +136,23 @@ test("highlight map: a tick in each highlight's colour where it sits, and a clic
 	await page.setViewportSize({ width: 1440, height: 900 })
 	await expect(margin).toHaveCount(1)
 
+	// Between its ticks the strip lets the pointer through, to the page under it.
+	const box = (await map.boundingBox())!
+	const under = await page.evaluate(
+		([x, y]) => document.elementFromPoint(x!, y!)?.closest("[data-testid=highlight-map]") ?? null,
+		[box.x + box.width / 2, box.y + box.height * 0.3],
+	)
+	expect(under).toBeNull()
+
+	// A click goes there; at once when the reader asks for less motion.
+	await page.emulateMedia({ reducedMotion: "reduce" })
 	const two = page.locator(".reader-content p", { hasText: "Marker two" })
 	await expect(two).not.toBeInViewport()
 	await marks.nth(1).click()
+	const landed = await page.evaluate(() => window.scrollY)
 	await expect(two).toBeInViewport()
+	expect(await page.evaluate(() => window.scrollY)).toBe(landed)
+	await page.emulateMedia({ reducedMotion: "no-preference" })
 
 	// A highlight made while reading gets its mark.
 	await page.getByText("Marker five").scrollIntoViewIfNeeded()
@@ -164,7 +177,14 @@ test("highlight map: a tick in each highlight's colour where it sits, and a clic
 	// there is no map over it.
 	await page.setViewportSize({ width: 1024, height: 900 })
 	await expect(map).toBeHidden()
-	await page.getByTestId("toggle-sidebar").click()
+	// Below lg the sidebar covers the page: no map behind it, not even for the keyboard.
+	await page.setViewportSize({ width: 900, height: 900 })
+	await expect(map).toBeHidden()
+	await page
+		.getByRole("complementary")
+		.getByRole("button", { name: "Close", exact: true })
+		.first()
+		.click()
 	await expect(map).toBeVisible()
 
 	// Not on a phone's width: the sidebar's list does this there.

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { tooltip } from "~/components/tooltip-host"
 import { scrollSpan } from "~/hooks/use-reading-progress"
@@ -77,6 +77,15 @@ export function mapMarks(
 	return marks
 }
 
+/** Whether the map fits between the text's right edge and the page's (less its padding). */
+function hasRoom(text: HTMLElement): boolean {
+	const page = text.closest("article")?.parentElement
+	if (!page) return false
+	const right =
+		page.getBoundingClientRect().right - Number.parseFloat(getComputedStyle(page).paddingRight)
+	return right - text.getBoundingClientRect().right >= HIGHLIGHT_MAP_ROOM
+}
+
 /**
  * Where the article's highlights are: a thin strip near the window's right edge stands for the
  * whole text, with a tick in each highlight's colour where it sits, a dot beside those with a note,
@@ -106,6 +115,12 @@ export function HighlightMap({
 	// open sidebar's column): never over the text.
 	const [room, setRoom] = useState(false)
 
+	// Before paint when the sidebar opens or closes: the map is never drawn over the text first.
+	useLayoutEffect(() => {
+		const root = contentRef.current
+		if (root) setRoom(hasRoom(root))
+	}, [contentRef, sidebarOpen])
+
 	// Where each highlight is in the text, measured again whenever the text or the paint changes.
 	useEffect(() => {
 		const root = contentRef.current
@@ -115,13 +130,7 @@ export function HighlightMap({
 			cancelAnimationFrame(frame)
 			frame = requestAnimationFrame(() => {
 				const box = root.getBoundingClientRect()
-				const page = root.closest("article")?.parentElement
-				if (page) {
-					const right =
-						page.getBoundingClientRect().right -
-						Number.parseFloat(getComputedStyle(page).paddingRight)
-					setRoom(right - box.right >= HIGHLIGHT_MAP_ROOM)
-				}
+				setRoom(hasRoom(root))
 				if (box.height <= 0) return
 				const next: Span[] = []
 				for (const [id, range] of rangesRef.current) {
