@@ -19,8 +19,11 @@ export interface AiConfig {
 	anthropicApiKey?: string
 	/** TypeSafe's key, for Jev: automatic topics need it as well as Anthropic's. */
 	typesafeApiKey?: string
-	/** A fixed answer instead of a provider, for tests and local work without a key. */
-	fake?: boolean
+	/**
+	 * A fixed answer instead of a provider, for tests and local work without a key. `demo`: longer
+	 * answers citing a few of the article's sentences, for the demo app.
+	 */
+	fake?: boolean | "demo"
 	/** For tests: what the provider's client sends requests with. */
 	fetch?: typeof fetch
 }

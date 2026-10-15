@@ -164,6 +164,8 @@ export default {
 		margin: { label: "Highlight notes" },
 		sidebar: {
 			title: "Notes and highlights",
+			/** The sidebar's tab beside the chat's. */
+			tab: "Notes",
 			toggle: "Notes and highlights",
 			/** The article's private note, here and at the end of the article. */
 			note: "Your note",
@@ -193,7 +195,7 @@ export default {
 	ai: {
 		actions: { explain: "Explain", define: "Define", ask: "Ask", chat: "Chat" },
 		chat: {
-			tab: "Chat",
+			tab: "Ask",
 			open: "Chat about this article",
 			empty: "Ask anything about this article. Answers cite the parts they use.",
 			placeholder: "Ask about this article…",

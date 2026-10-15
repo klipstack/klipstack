@@ -5,8 +5,8 @@ import { Fragment } from "react"
 const MARK = "\u{E000}"
 
 /**
- * An answer's text with its light Markdown (paragraphs, "- " lists, **bold**, *italics*) and a numbered chip
- * after the words each citation supports.
+ * An answer's text with its light Markdown (paragraphs, "- " lists, **bold**, *italics*) and a number
+ * on a stroke of highlighter ink after the words each citation supports.
  */
 export function AiAnswer({
 	text,
@@ -30,7 +30,7 @@ export function AiAnswer({
 				onClick={() => onCite?.(citation)}
 				aria-label={citeLabel(n + 1)}
 				title={citation.exact}
-				className="mx-0.5 inline-flex h-4 min-w-4 -translate-y-px items-center justify-center rounded bg-accent/15 px-1 align-middle text-[10px] font-semibold leading-none text-accent hover:bg-accent/25 disabled:cursor-default disabled:opacity-60"
+				className="cite-mark"
 			>
 				{n + 1}
 			</button>

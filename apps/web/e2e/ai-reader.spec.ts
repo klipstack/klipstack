@@ -259,7 +259,7 @@ test("the chat: questions about the whole article in the sidebar, kept, and clea
 	// Its own button opens the sidebar on the chat, in one click.
 	await page.getByRole("button", { name: "Chat about this article" }).click()
 	const sidebar = page.getByRole("complementary", { name: "Notes and highlights" })
-	await expect(sidebar.getByRole("tab", { name: "Chat" })).toHaveAttribute("aria-selected", "true")
+	await expect(sidebar.getByRole("tab", { name: "Ask" })).toHaveAttribute("aria-selected", "true")
 	const chat = sidebar.getByTestId("chat")
 	await expect(chat).toContainText("Ask anything about this article")
 	const field = chat.getByRole("textbox", { name: "Ask about this article…" })
@@ -270,6 +270,34 @@ test("the chat: questions about the whole article in the sidebar, kept, and clea
 	await expect(chat).toContainText("Answer 1.")
 	await chat.getByRole("button", { name: "Passage 1 of the article" }).click()
 	await expect.poll(() => page.evaluate(() => CSS.highlights.has("klip-cited"))).toBe(true)
+	// The citation is a number on a stroke of highlighter ink.
+	await expect(chat.getByRole("button", { name: "Passage 1 of the article" })).toHaveCSS(
+		"background-image",
+		/gradient/,
+	)
+	// The flash fades, then leaves the passage as it was: it is not a highlight. Watched in the page,
+	// frame by frame, as the fading step is short.
+	expect(
+		await page.evaluate(
+			() =>
+				new Promise<boolean>((resolve) => {
+					const started = performance.now()
+					const look = () => {
+						if (CSS.highlights.has("klip-cited-fading")) resolve(true)
+						else if (performance.now() - started > 5000) resolve(false)
+						else requestAnimationFrame(look)
+					}
+					look()
+				}),
+		),
+	).toBe(true)
+	await expect
+		.poll(() =>
+			page.evaluate(
+				() => CSS.highlights.has("klip-cited") || CSS.highlights.has("klip-cited-fading"),
+			),
+		)
+		.toBe(false)
 	await chat.getByRole("textbox", { name: "Ask about this article…" }).fill("And managers?")
 	await chat.getByRole("textbox", { name: "Ask about this article…" }).press("Enter")
 	await expect(chat).toContainText("Answer 2.")
@@ -286,14 +314,11 @@ test("the chat: questions about the whole article in the sidebar, kept, and clea
 	await page.keyboard.press("Escape")
 	await expect(sidebar).toHaveCount(0)
 	await page.keyboard.press("c")
-	await expect(sidebar.getByRole("tab", { name: "Chat" })).toHaveAttribute("aria-selected", "true")
+	await expect(sidebar.getByRole("tab", { name: "Ask" })).toHaveAttribute("aria-selected", "true")
 	// The question field has the keyboard, so `h` would be typed there: Escape closes first.
 	await page.keyboard.press("Escape")
 	await page.keyboard.press("h")
-	await expect(sidebar.getByRole("tab", { name: "Notes and highlights" })).toHaveAttribute(
-		"aria-selected",
-		"true",
-	)
+	await expect(sidebar.getByRole("tab", { name: "Notes" })).toHaveAttribute("aria-selected", "true")
 	await page.keyboard.press("h")
 	await expect(sidebar).toHaveCount(0)
 
@@ -321,7 +346,7 @@ test("without the feature, the toolbar has no AI", async ({ page }) => {
 	await expect(page.getByTestId("brief")).toHaveCount(0)
 	await expect(page.getByRole("button", { name: "Chat about this article" })).toHaveCount(0)
 	await page.keyboard.press("h")
-	await expect(page.getByRole("tab", { name: "Chat" })).toHaveCount(0)
+	await expect(page.getByRole("tab", { name: "Ask" })).toHaveCount(0)
 })
 
 /** Sets the article's owner's AI questions this month, as if they had asked them. */

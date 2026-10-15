@@ -129,4 +129,6 @@ Anthropic. The privacy policy says so; if you run a server for other people, say
 
 - No key: set `AI_FAKE=1` in the local `.env` to get a fixed answer with one citation, without
   calling anyone. The browser tests always use it. Never set it on a real server.
+- `AI_FAKE=demo`: longer fixed answers that cite three of the article's sentences, so the chat
+  reads like a real one. The demo app (`pnpm orb:app`) uses it, with AI on for the demo account.
 - Real answers locally: a separate key (never the production one) in the local `.env`.

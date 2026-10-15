@@ -4,7 +4,7 @@ import { env } from "./env.server"
 /** The AI module, set up from the env. */
 export const ai = createAi({
 	anthropicApiKey: env.ANTHROPIC_API_KEY || undefined,
-	fake: env.AI_FAKE === "1",
+	fake: env.AI_FAKE === "demo" ? "demo" : env.AI_FAKE === "1",
 })
 
 /** The models behind automatic topics: the web app only asks whether they are set up. */

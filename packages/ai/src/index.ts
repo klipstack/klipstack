@@ -1,6 +1,6 @@
 import { type LanguageModel, type ModelMessage, streamText } from "ai"
 import { anthropicCitation, citationRange } from "./citations"
-import { fakeBrief, fakeModel } from "./fake"
+import { fakeBrief, fakeDemoModel, fakeModel } from "./fake"
 import { type AiConfig, isConfigured, languageModel, TIERS } from "./models"
 import { briefMessages, briefSystemPrompt, buildMessages, systemPrompt } from "./prompt"
 import {
@@ -35,7 +35,7 @@ export function createAi(config: AiConfig) {
 		answer: (input: AnswerInput) =>
 			stream(config, {
 				tier: input.tier,
-				fake: () => fakeModel(input),
+				fake: () => (config.fake === "demo" ? fakeDemoModel(input) : fakeModel(input)),
 				system: systemPrompt(input.language),
 				messages: buildMessages(input),
 				article: input.article.text,

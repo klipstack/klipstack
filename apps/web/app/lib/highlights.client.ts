@@ -224,6 +224,7 @@ export function replaceHighlightRange(
 const THREAD = "klip-ai"
 const THREAD_FOCUS = "klip-ai-focus"
 const CITED = "klip-cited"
+const CITED_FADING = "klip-cited-fading"
 
 /**
  * Underline the passages AI threads are about, on the version on screen. Returns id → Range, like
@@ -251,6 +252,7 @@ export function clearThreads() {
 	CSS.highlights.delete(THREAD)
 	CSS.highlights.delete(THREAD_FOCUS)
 	CSS.highlights.delete(CITED)
+	CSS.highlights.delete(CITED_FADING)
 }
 
 /** Marks the passage of the thread open or hovered. */
@@ -260,13 +262,22 @@ export function setThreadFocus(range: Range | null) {
 	else CSS.highlights.set(THREAD_FOCUS, new Highlight(range))
 }
 
-let citedTimer: number | undefined
-/** Flashes a cited passage for a moment, once it is scrolled to. */
+let citedTimers: number[] = []
+/** Flashes a cited passage in the citation's ink for a moment, once it is scrolled to, then fades it. */
 export function flashCited(range: Range) {
 	if (!supportsHighlightApi()) return
+	for (const timer of citedTimers) window.clearTimeout(timer)
+	CSS.highlights.delete(CITED_FADING)
 	const cited = new Highlight(range)
 	cited.priority = 2
 	CSS.highlights.set(CITED, cited)
-	window.clearTimeout(citedTimer)
-	citedTimer = window.setTimeout(() => CSS.highlights.delete(CITED), 1800)
+	citedTimers = [
+		window.setTimeout(() => {
+			CSS.highlights.delete(CITED)
+			const fading = new Highlight(range)
+			fading.priority = 2
+			CSS.highlights.set(CITED_FADING, fading)
+		}, 1500),
+		window.setTimeout(() => CSS.highlights.delete(CITED_FADING), 1900),
+	]
 }

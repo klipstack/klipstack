@@ -96,6 +96,30 @@ describe("answer, with the fake model", () => {
 		await expect(answer.done).rejects.toMatchObject({ reason: "aborted" })
 	})
 
+	it("demo: cites the article's first, middle and last sentences, where they are", async () => {
+		const sentences = [
+			"Makers need long blocks of time to get anything hard done at all.",
+			"Short. A single meeting can blow a whole afternoon for someone who makes things.",
+			"Managers work in one hour slots, and their day is cut up to match it.",
+			"So the two schedules clash, and the maker usually pays the cost of it.",
+		]
+		const article = { title: "Schedules", text: sentences.join(" ") }
+		const answer = createAi({ fake: "demo" }).answer({
+			...input([{ role: "user", text: "What is it about?" }], "ask"),
+			article,
+		})
+		await collect(answer.events)
+		const result = await answer.done
+		const cited = [sentences[0]!, sentences[2]!, sentences[3]!].map((exact) => ({
+			exact,
+			start: article.text.indexOf(exact),
+			end: article.text.indexOf(exact) + exact.length,
+		}))
+		expect(result.citations.map(({ exact, start, end }) => ({ exact, start, end }))).toEqual(cited)
+		// Each citation sits right after the words it supports, before the sentence's full stop.
+		for (const c of result.citations) expect(result.text[c.at]).toBe(".")
+	})
+
 	it("is unavailable without a key or the fake", () => {
 		expect(createAi({}).available).toBe(false)
 		expect(createAi({ anthropicApiKey: "k" }).available).toBe(true)

@@ -160,6 +160,8 @@ export default {
 		margin: { label: "Notas de subrayados" },
 		sidebar: {
 			title: "Notas y subrayados",
+			/** The sidebar's tab beside the chat's. */
+			tab: "Notas",
 			toggle: "Notas y subrayados",
 			note: "Tu nota",
 			noteOnlyYou: "solo tú",
@@ -187,7 +189,7 @@ export default {
 	ai: {
 		actions: { explain: "Explicar", define: "Definir", ask: "Preguntar", chat: "Chat" },
 		chat: {
-			tab: "Chat",
+			tab: "Preguntar",
 			open: "Chatear sobre este artículo",
 			empty:
 				"Pregunta lo que quieras sobre este artículo. Las respuestas citan las partes que usan.",
