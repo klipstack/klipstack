@@ -18,6 +18,7 @@ import { prefetchNoteEditor } from "~/components/note-field"
 import { tiltFor } from "~/components/post-it"
 import { type OutlineState, ReaderOutline } from "~/components/reader-outline"
 import { ReaderSidebar, type SidebarTab } from "~/components/reader-sidebar"
+import { ReadingMarker } from "~/components/reading-marker"
 import { SelectionToolbar } from "~/components/selection-toolbar"
 import {
 	type ArticleSelection,
@@ -35,6 +36,7 @@ import { useHighlightResize } from "~/hooks/use-highlight-resize"
 import { useMediaQuery } from "~/hooks/use-media-query"
 import { type ArticleNote, useNoteAutosave } from "~/hooks/use-note-autosave"
 import { useAlignForSheet } from "~/hooks/use-reader-bar"
+import { useReadingCursor } from "~/hooks/use-reading-cursor"
 import { copyText } from "~/lib/copy-link"
 import { highlightColor } from "~/lib/highlight-colors"
 import {
@@ -52,7 +54,12 @@ import {
 } from "~/lib/highlights.client"
 import { readerClassNames, type resolvePrefs } from "~/lib/prefs"
 import { rangeText } from "~/lib/range-text.client"
-import { isChatShortcut, isHighlightsShortcut } from "~/lib/shortcuts"
+import {
+	isChatShortcut,
+	isHighlightsShortcut,
+	type ReaderShortcut,
+	readerShortcut,
+} from "~/lib/shortcuts"
 import { LONG_UNDO_MS, showToast } from "~/lib/toast"
 import { cn } from "~/lib/utils"
 import type { ReaderData } from "~/routes/read"
@@ -194,6 +201,37 @@ export function ReaderArticle({
 		document.addEventListener("keydown", onKey)
 		return () => document.removeEventListener("keydown", onKey)
 	}, [aiEnabled])
+
+	// ---- reading by paragraph, from the keyboard ----
+	const cursor = useReadingCursor(contentRef, html)
+	const readerAct = (shortcut: ReaderShortcut): boolean => {
+		switch (shortcut) {
+			case "nextParagraph":
+				cursor.move(1)
+				return true
+			case "prevParagraph":
+				cursor.move(-1)
+				return true
+			case "leave":
+				// Escape also closes whatever else is open: it is not taken.
+				cursor.leave()
+				return false
+			default:
+				return false
+		}
+	}
+	const latestReaderAct = useRef(readerAct)
+	useInsertionEffect(() => {
+		latestReaderAct.current = readerAct
+	})
+	useEffect(() => {
+		const onKey = (e: KeyboardEvent) => {
+			const shortcut = readerShortcut(e)
+			if (shortcut && latestReaderAct.current(shortcut)) e.preventDefault()
+		}
+		document.addEventListener("keydown", onKey)
+		return () => document.removeEventListener("keydown", onKey)
+	}, [])
 
 	// ---- painting ----
 	useEffect(() => {
@@ -707,6 +745,13 @@ export function ReaderArticle({
 							renderEditor={(item) => noteEditor(item, { kind: "margin" })}
 							cards={marginCards}
 							cardRangesRef={threadRangesRef}
+						/>
+					) : null}
+					{cursor.current ? (
+						<ReadingMarker
+							paragraph={cursor.current}
+							articleRef={articleRef}
+							contentRef={contentRef}
 						/>
 					) : null}
 					{footer(note)}

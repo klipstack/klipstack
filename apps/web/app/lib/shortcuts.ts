@@ -84,6 +84,53 @@ export function isChatShortcut(e: KeyboardEvent): boolean {
 }
 
 /**
+ * Reader-only, reading by paragraph: `j`/`k` move a marker from paragraph to paragraph, Enter asks
+ * the AI about the marked one, `[`/`]` go to the previous or next AI answer or note, `b` shows the
+ * brief, `f` dims all but the marked paragraph, `?` lists the shortcuts. Escape leaves.
+ */
+export type ReaderShortcut =
+	| "nextParagraph"
+	| "prevParagraph"
+	| "askParagraph"
+	| "prevNote"
+	| "nextNote"
+	| "brief"
+	| "focus"
+	| "help"
+	| "leave"
+
+const READER_KEYS: Record<string, ReaderShortcut> = {
+	j: "nextParagraph",
+	k: "prevParagraph",
+	"[": "prevNote",
+	"]": "nextNote",
+	b: "brief",
+	f: "focus",
+	"?": "help",
+}
+
+export const READER_HINTS: Record<ReaderShortcut, string> = {
+	nextParagraph: "J",
+	prevParagraph: "K",
+	askParagraph: "↵",
+	prevNote: "[",
+	nextNote: "]",
+	brief: "B",
+	focus: "F",
+	help: "?",
+	leave: "Esc",
+}
+
+export function readerShortcut(e: KeyboardEvent): ReaderShortcut | null {
+	// `[` and `]` need Option or AltGr on some layouts (Spanish, German, French…).
+	const bracket = e.key === "[" || e.key === "]"
+	if (!bareKey(e, bracket)) return null
+	if (e.key === "Enter") return isControl(document.activeElement) ? null : "askParagraph"
+	if (e.key === "Escape") return "leave"
+	return READER_KEYS[e.key] ?? null
+}
+
+/**
  * Reader-only: ⌘C / Ctrl+C with nothing selected copies the highlight in focus. A selection
  * stops being one the moment it becomes a highlight, so the browser has nothing left to copy.
  */
@@ -132,8 +179,10 @@ function charactersOff(e: KeyboardEvent): boolean {
 	return e.key.length === 1 && document.documentElement.dataset.shortcuts === "off"
 }
 
-function bareKey(e: KeyboardEvent): boolean {
-	if (e.metaKey || e.ctrlKey || e.altKey || e.isComposing || e.defaultPrevented) return false
+/** `altGr`: Option or AltGr (Ctrl+Alt on Windows) may be down, as typing the key needs on some layouts. */
+function bareKey(e: KeyboardEvent, altGr = false): boolean {
+	if (e.metaKey || e.isComposing || e.defaultPrevented) return false
+	if (altGr ? e.ctrlKey && !e.altKey : e.ctrlKey || e.altKey) return false
 	if (charactersOff(e)) return false
 	const target = e.target instanceof Element ? e.target : null
 	if (target?.closest(`${TYPING}, ${OVERLAY}, [data-resize-handles]`)) return false

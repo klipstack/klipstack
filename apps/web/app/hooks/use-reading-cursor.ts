@@ -1,0 +1,149 @@
+import { useCallback, useEffect, useState } from "react"
+import { supportsHighlightApi } from "~/lib/highlights.client"
+
+/** What `j` and `k` step through: the innermost blocks of text. */
+const BLOCKS = "p, li, blockquote, pre, h1, h2, h3, h4, h5, h6, dt, dd, figcaption"
+/** The marked paragraph, painted: full strength in the focus mode (app.css). */
+export const READING_HIGHLIGHT = "klip-reading"
+/** Below the sticky top bar. */
+const TOP = 72
+
+/**
+ * The article's paragraphs in order, as ranges of its text. A block with blocks inside (a list item
+ * with paragraphs, a quote) is left to them, and a block split by blank lines (`<br><br>`, as some
+ * pages write paragraphs) is one paragraph per part.
+ */
+export function paragraphsIn(root: HTMLElement): Range[] {
+	const out: Range[] = []
+	for (const block of root.querySelectorAll<HTMLElement>(BLOCKS)) {
+		if (block.querySelector(BLOCKS) || block.getClientRects().length === 0) continue
+		let first: Text | null = null
+		let last: Text | null = null
+		let breaks = 0
+		const close = () => {
+			if (first && last) {
+				const range = document.createRange()
+				range.setStart(first, first.data.length - first.data.trimStart().length)
+				range.setEnd(last, last.data.trimEnd().length)
+				out.push(range)
+			}
+			first = last = null
+		}
+		const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT)
+		for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+			if (node instanceof HTMLBRElement) {
+				breaks++
+				continue
+			}
+			if (!(node instanceof Text) || !node.data.trim()) continue
+			if (breaks >= 2) close()
+			breaks = 0
+			first ??= node
+			last = node
+		}
+		close()
+	}
+	return out
+}
+
+const sameStart = (a: Range, b: Range) =>
+	a.startContainer === b.startContainer && a.startOffset === b.startOffset
+
+function onScreen(range: Range): boolean {
+	const rect = range.getBoundingClientRect()
+	return rect.bottom > TOP && rect.top < window.innerHeight
+}
+
+/** The paragraph at a third of the way down the window, as `scrollRangeIntoView` puts a passage. */
+function scrollToParagraph(range: Range) {
+	const rect = range.getBoundingClientRect()
+	// Already where it can be read, and all of it: the page stays still.
+	if (rect.top >= TOP && rect.bottom <= window.innerHeight * 0.85) return
+	const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+	window.scrollTo({
+		top: Math.max(0, rect.top + window.scrollY - window.innerHeight / 3),
+		behavior: still ? "auto" : "smooth",
+	})
+}
+
+/**
+ * Reading paragraph by paragraph: the marked paragraph, moved by `j` and `k`, and the focus mode
+ * that dims the rest. Starts over when the article's text changes.
+ */
+export function useReadingCursor(contentRef: React.RefObject<HTMLElement | null>, html: string) {
+	const [current, setCurrent] = useState<Range | null>(null)
+	const [focus, setFocus] = useState(false)
+
+	// New text: its paragraphs are new nodes.
+	const [text, setText] = useState(html)
+	if (text !== html) {
+		setText(html)
+		setCurrent(null)
+		setFocus(false)
+	}
+	useEffect(() => {
+		if (!current || !supportsHighlightApi()) return
+		CSS.highlights.set(READING_HIGHLIGHT, new Highlight(current))
+		return () => void CSS.highlights.delete(READING_HIGHLIGHT)
+	}, [current])
+
+	const go = useCallback((range: Range | undefined) => {
+		if (!range) return
+		setCurrent(range)
+		scrollToParagraph(range)
+	}, [])
+
+	/** One paragraph on, or back. With none marked, or the marked one scrolled away: the first on screen. */
+	const move = useCallback(
+		(step: 1 | -1) => {
+			const root = contentRef.current
+			if (!root) return
+			const all = paragraphsIn(root)
+			const at = current ? all.findIndex((p) => sameStart(p, current)) : -1
+			if (at < 0 || !onScreen(current!)) {
+				go(all.find(onScreen) ?? all[0])
+				return
+			}
+			go(all[at + step])
+		},
+		[contentRef, current, go],
+	)
+
+	/** Marks the paragraph a passage starts in, without scrolling. */
+	const markAt = useCallback(
+		(passage: Range) => {
+			const root = contentRef.current
+			if (!root) return
+			const found = paragraphsIn(root).find(
+				(p) =>
+					p.comparePoint(passage.startContainer, passage.startOffset) === 0 ||
+					p.compareBoundaryPoints(Range.START_TO_START, passage) > 0,
+			)
+			if (found) setCurrent(found)
+		},
+		[contentRef],
+	)
+
+	/** The marked paragraph, or the first on screen, marked. */
+	const ensure = useCallback((): Range | null => {
+		const root = contentRef.current
+		if (current && onScreen(current)) return current
+		const first = root ? (paragraphsIn(root).find(onScreen) ?? null) : null
+		setCurrent(first)
+		return first
+	}, [contentRef, current])
+
+	const toggleFocus = useCallback(() => {
+		if (focus) setFocus(false)
+		else if (ensure()) setFocus(true)
+	}, [ensure, focus])
+
+	const leave = useCallback(() => {
+		setCurrent(null)
+		setFocus(false)
+	}, [])
+
+	return { current, focus, move, markAt, ensure, toggleFocus, leave }
+}
+
+export type ReadingCursor = ReturnType<typeof useReadingCursor>
