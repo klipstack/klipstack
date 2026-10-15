@@ -484,6 +484,33 @@ body {
 		background-size: 0% 90%;
 	}
 }
+/* An answer on its way (InkThinking): a short pen stroke draws itself, rests, and lifts from where
+   it began, in the notes' ink, with the swipes' easing. Still, and drawn, with reduced motion. */
+.ink-stroke path {
+	stroke: currentColor;
+	stroke-width: 1.6;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+	stroke-dasharray: 1 1;
+	animation: ink-stroke 1.6s cubic-bezier(0.3, 0.7, 0.2, 1) infinite;
+	@media (prefers-reduced-motion: reduce) {
+		animation: none;
+		stroke-dashoffset: 0;
+	}
+}
+@keyframes ink-stroke {
+	0% {
+		stroke-dashoffset: 1;
+	}
+	45%,
+	70% {
+		stroke-dashoffset: 0;
+	}
+	100% {
+		stroke-dashoffset: -1;
+	}
+}
+
 /* A page's title and Home's sections: the logo's serif, as the landing page sets its own. */
 @utility page-title {
 	font-family: var(--font-display);

@@ -96,6 +96,7 @@ describe("answer, with the fake model", () => {
 		await expect(answer.done).rejects.toMatchObject({ reason: "aborted" })
 	})
 
+	// The demo model thinks for three seconds before its first word, as a provider does.
 	it("demo: cites the article's first, middle and last sentences, where they are", async () => {
 		const sentences = [
 			"Makers need long blocks of time to get anything hard done at all.",
@@ -118,7 +119,7 @@ describe("answer, with the fake model", () => {
 		expect(result.citations.map(({ exact, start, end }) => ({ exact, start, end }))).toEqual(cited)
 		// Each citation sits right after the words it supports, before the sentence's full stop.
 		for (const c of result.citations) expect(result.text[c.at]).toBe(".")
-	})
+	}, 10_000)
 
 	it("is unavailable without a key or the fake", () => {
 		expect(createAi({}).available).toBe(false)

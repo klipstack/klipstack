@@ -6,6 +6,7 @@ import { useQuestionsLeft } from "~/hooks/use-ai-allowance"
 import { type AiCard, type AnswerStore, useWritten } from "~/hooks/use-ai-threads"
 import { AiAnswer, plainAnswer } from "./ai-answer"
 import { Failure, QuestionField, QuestionsLeft } from "./ai-card"
+import { InkThinking } from "./ink-thinking"
 import { tooltip } from "./tooltip-host"
 
 interface Props {
@@ -111,9 +112,7 @@ export function ChatPanel({
 							/>
 						</div>
 					) : (
-						<p className="animate-pulse font-serif text-base italic text-muted-fg motion-reduce:animate-none">
-							{t("ai.thinking")}
-						</p>
+						<InkThinking label={t("ai.thinking")} />
 					)
 				) : null}
 				{chat?.failure && !busy ? <Failure {...chat.failure} /> : null}

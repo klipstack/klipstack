@@ -143,7 +143,8 @@ function sentences(text: string) {
 
 /**
  * The demo app's model: an answer of two short paragraphs that reads like a real one, citing three
- * of the article's sentences (from its start, middle and end), streamed word by word.
+ * of the article's sentences (from its start, middle and end), streamed word by word after a
+ * few seconds' thought, as a real provider takes before its first word.
  */
 export function fakeDemoModel(input: AnswerInput) {
 	const all = sentences(input.article.text)
@@ -188,7 +189,7 @@ export function fakeDemoModel(input: AnswerInput) {
 		provider: "fake",
 		modelId: "demo",
 		doStream: async () => ({
-			stream: simulateReadableStream({ chunks: parts, chunkDelayInMs: 40 }),
+			stream: simulateReadableStream({ chunks: parts, initialDelayInMs: 3000, chunkDelayInMs: 40 }),
 		}),
 	})
 }
