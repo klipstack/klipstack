@@ -112,7 +112,7 @@ export function ChatPanel({
 							/>
 						</div>
 					) : (
-						<InkThinking label={t("ai.thinking")} />
+						<InkThinking label={t("ai.thinking")} className="font-serif text-base italic" />
 					)
 				) : null}
 				{chat?.failure && !busy ? <Failure {...chat.failure} /> : null}

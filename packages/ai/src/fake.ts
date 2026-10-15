@@ -84,7 +84,11 @@ function firstSentence(text: string) {
 	return { exact, start: 0, end: exact.length }
 }
 
-export function fakeBrief(input: BriefInput) {
+/** How long the demo's model thinks before its first word, as a provider does. */
+export const DEMO_THINK_MS = 3000
+
+/** The brief, after `thinkMs` (the demo's pause) before its first word. */
+export function fakeBrief(input: BriefInput, thinkMs = 0) {
 	const first = firstSentence(input.article.text).exact
 	const usage = {
 		inputTokens: { total: 100, noCache: 100, cacheRead: 0, cacheWrite: 0 },
@@ -124,7 +128,9 @@ export function fakeBrief(input: BriefInput) {
 	return new MockLanguageModelV4({
 		provider: "fake",
 		modelId: "fixed",
-		doStream: async () => ({ stream: simulateReadableStream({ chunks, chunkDelayInMs: 30 }) }),
+		doStream: async () => ({
+			stream: simulateReadableStream({ chunks, initialDelayInMs: thinkMs, chunkDelayInMs: 30 }),
+		}),
 	})
 }
 
@@ -143,8 +149,8 @@ function sentences(text: string) {
 
 /**
  * The demo app's model: an answer of two short paragraphs that reads like a real one, citing three
- * of the article's sentences (from its start, middle and end), streamed word by word after a
- * few seconds' thought, as a real provider takes before its first word.
+ * of the article's sentences (from its start, middle and end), streamed word by word after
+ * `DEMO_THINK_MS`.
  */
 export function fakeDemoModel(input: AnswerInput) {
 	const all = sentences(input.article.text)
@@ -189,7 +195,11 @@ export function fakeDemoModel(input: AnswerInput) {
 		provider: "fake",
 		modelId: "demo",
 		doStream: async () => ({
-			stream: simulateReadableStream({ chunks: parts, initialDelayInMs: 3000, chunkDelayInMs: 40 }),
+			stream: simulateReadableStream({
+				chunks: parts,
+				initialDelayInMs: DEMO_THINK_MS,
+				chunkDelayInMs: 40,
+			}),
 		}),
 	})
 }

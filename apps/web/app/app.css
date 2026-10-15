@@ -491,23 +491,25 @@ body {
 	stroke-width: 1.6;
 	stroke-linecap: round;
 	stroke-linejoin: round;
-	stroke-dasharray: 1 1;
+	stroke-dasharray: 1 2;
 	animation: ink-stroke 1.6s cubic-bezier(0.3, 0.7, 0.2, 1) infinite;
 	@media (prefers-reduced-motion: reduce) {
 		animation: none;
 		stroke-dashoffset: 0;
 	}
 }
+/* The gap is longer than the path, and the ends sit a little past it: a round cap never leaves a
+   dot at either end between strokes. */
 @keyframes ink-stroke {
 	0% {
-		stroke-dashoffset: 1;
+		stroke-dashoffset: 1.05;
 	}
 	45%,
 	70% {
 		stroke-dashoffset: 0;
 	}
 	100% {
-		stroke-dashoffset: -1;
+		stroke-dashoffset: -1.05;
 	}
 }
 

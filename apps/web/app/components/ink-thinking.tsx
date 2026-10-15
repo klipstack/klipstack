@@ -1,14 +1,16 @@
+import { cn } from "~/lib/utils"
+
 /**
  * While an answer is on its way, in place of a spinner: a short pen stroke beside what is happening
  * ("Thinking…"), drawing itself again and again in the notes' ink (`.ink-stroke` in app.css).
- * Still, and drawn, with reduced motion.
+ * Sized to its text, which the container sets. Still, and drawn, with reduced motion.
  */
-export function InkThinking({ label }: { label: string }) {
+export function InkThinking({ label, className }: { label: string; className?: string }) {
 	return (
-		<p className="flex items-center gap-2 font-serif text-base italic text-muted-fg">
+		<p className={cn("flex items-center gap-[0.5em] text-muted-fg", className)}>
 			<svg
 				viewBox="0 0 28 12"
-				className="ink-stroke h-3 w-7 shrink-0 text-note-fg"
+				className="ink-stroke h-[0.75em] w-[1.75em] shrink-0 text-note-fg"
 				fill="none"
 				aria-hidden
 			>
