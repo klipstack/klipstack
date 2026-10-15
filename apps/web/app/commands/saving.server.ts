@@ -1,4 +1,11 @@
-import { HTML_MAX_BYTES, Id, Ids, URL_MAX, utf8Length } from "@klipstack/api-contract"
+import {
+	HTML_MAX_BYTES,
+	Id,
+	Ids,
+	SAVE_LINKS_MAX,
+	URL_MAX,
+	utf8Length,
+} from "@klipstack/api-contract"
 import { z } from "zod"
 import { AppError, notFound, parseInput, rateLimited } from "~/lib/app-error"
 import { rateLimit, SAVE_LIMIT } from "~/lib/rate-limit.server"
@@ -53,6 +60,38 @@ export async function saveArticle(userId: string, input: SaveRequest) {
 		if (error instanceof AppError) limited.refund()
 		throw error
 	}
+}
+
+/** One link's outcome in `saveLinks`: its article, or why it was not saved. */
+export type LinkResult =
+	| { url: string; ok: true; articleId: string; created: boolean }
+	| { url: string; ok: false; code: string; message: string; details?: Record<string, unknown> }
+
+const Links = z
+	.array(z.string().trim().min(1))
+	.min(1)
+	.max(SAVE_LINKS_MAX, `Save at most ${SAVE_LINKS_MAX} links at once.`)
+	.transform((all) => [...new Set(all)])
+
+/**
+ * Saves several links from the web, one by one, each as `saveArticle` saves it. Every link gets its
+ * outcome, in order: a refused one (not a link, unsupported, past the save limit or a cap) does not
+ * stop the rest from being tried.
+ */
+export async function saveLinks(userId: string, urls: string[]): Promise<LinkResult[]> {
+	const list = parseInput(Links, urls)
+	const results: LinkResult[] = []
+	for (const url of list) {
+		try {
+			const { article, created } = await saveArticle(userId, { url, source: "web" })
+			results.push({ url, ok: true, articleId: article.id, created })
+		} catch (error) {
+			if (!(error instanceof AppError)) throw error
+			const { code, message, details } = error
+			results.push({ url, ok: false, code, message, ...(details ? { details } : {}) })
+		}
+	}
+	return results
 }
 
 const NO_POST = "No post with that id in the feed."
