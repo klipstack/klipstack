@@ -8,6 +8,7 @@ import { highlightColor, highlightColorName } from "~/lib/highlight-colors"
 import type { RenderableHighlight } from "~/lib/highlights.client"
 import type { LinkTargets } from "~/lib/note-links"
 import { cn } from "~/lib/utils"
+import { ClippingPaper } from "./clipping"
 import { LinkArticleButton } from "./link-article-button"
 import type { NoteEditorApi } from "./note-editor"
 import { NoteField } from "./note-field"
@@ -34,6 +35,8 @@ interface Props {
 	contentLinks: { to: ContentLink[]; from: ContentLink[] }
 	/** Where Back should return to, for the links inside notes. */
 	from: string
+	/** The reader's font setting: the quotes and answers are set in it, as the article is. */
+	font: string
 	onSelect: (id: string) => void
 	onClose: () => void
 	/** The article's chat (AI accounts): a second tab beside notes and highlights. */
@@ -60,6 +63,9 @@ export interface ContentLink {
 	sourceUrl: string
 }
 
+/** A section's name: the titles' serif, small. */
+const SECTION = "px-4 pt-3 pb-2 font-display text-base font-medium text-muted-fg"
+
 const NEXT = new Set(["j", "ArrowDown"])
 const PREV = new Set(["k", "ArrowUp"])
 
@@ -77,6 +83,7 @@ export function ReaderSidebar({
 	backlinks,
 	contentLinks,
 	from,
+	font,
 	onSelect,
 	onClose,
 	chat,
@@ -140,13 +147,20 @@ export function ReaderSidebar({
 			tabIndex={-1}
 			aria-label={t("highlights.sidebar.title")}
 			onKeyDown={onKeyDown}
-			className="fixed inset-y-0 right-0 z-20 flex w-80 max-w-[90vw] flex-col border-l outline-none border-border bg-card shadow-xl"
+			className={cn(
+				"sheet-edge fixed inset-y-0 right-0 z-20 flex w-80 max-w-[90vw] flex-col bg-bg outline-none",
+				`reader-font-${font}`,
+			)}
 		>
-			{/* Same height as the reader header (safe-top + 52px row), so the bottom borders line up. */}
-			<div className="safe-top flex items-center justify-between border-b border-border px-4">
+			{/* A sheet over the page: no rule under its header, which is as tall as the reader's. */}
+			<div className="safe-top flex items-center justify-between px-4">
 				<div className="flex h-13 flex-1 items-center justify-between">
 					{chat ? (
-						<div role="tablist" aria-label={t("highlights.sidebar.title")} className="flex gap-1">
+						<div
+							role="tablist"
+							aria-label={t("highlights.sidebar.title")}
+							className="-ml-2 flex gap-1"
+						>
 							{(["notes", "chat"] as const).map((name) => (
 								<button
 									key={name}
@@ -154,17 +168,14 @@ export function ReaderSidebar({
 									role="tab"
 									aria-selected={tab === name}
 									onClick={() => onTab?.(name)}
-									className={cn(
-										"rounded-md px-2 py-1 text-sm font-semibold",
-										tab === name ? "bg-muted text-fg" : "text-muted-fg hover:text-fg",
-									)}
+									className="chip font-display text-base aria-selected:marked"
 								>
-									{name === "notes" ? t("highlights.sidebar.title") : t("ai.chat.tab")}
+									{name === "notes" ? t("highlights.sidebar.tab") : t("ai.chat.tab")}
 								</button>
 							))}
 						</div>
 					) : (
-						<h2 className="text-sm font-semibold">{t("highlights.sidebar.title")}</h2>
+						<h2 className="font-display text-lg font-medium">{t("highlights.sidebar.title")}</h2>
 					)}
 					<button
 						type="button"
@@ -181,9 +192,11 @@ export function ReaderSidebar({
 				<div className={cn("flex min-h-0 flex-1 flex-col", !chatting && "hidden")}>{chat}</div>
 			) : null}
 			<div className={cn("flex-1 overflow-y-auto", chatting && "hidden")}>
-				<section className="border-b border-border p-4">
-					<div className="mb-2 flex items-center justify-between gap-2 text-xs">
-						<ArticleNoteLabel />
+				<section className="px-4 pt-2 pb-5">
+					<div className="mb-3 flex items-baseline justify-between gap-2 text-xs">
+						<span className="font-display text-base">
+							<ArticleNoteLabel />
+						</span>
 						<NoteStatus status={note.status} onRetry={note.onFlush} />
 					</div>
 					{/* Written straight on the paper: the editor is the note. */}
@@ -209,57 +222,53 @@ export function ReaderSidebar({
 					</PostIt>
 					<LinkArticleButton api={noteApi} className="-ml-2 mt-1" />
 				</section>
-				<h3 className="px-4 pt-4 text-xs font-medium text-muted-fg">
+				<h3 className={SECTION}>
 					{items.length > 0
 						? t("highlights.sidebar.highlights", { count: items.length })
 						: t("highlights.sidebar.highlights")}
 				</h3>
 				{items.length === 0 ? (
-					<p className="px-4 py-2 text-sm text-muted-fg">{t("highlights.sidebar.empty")}</p>
+					<p className="px-4 py-2 font-serif text-base italic text-muted-fg">
+						{t("highlights.sidebar.empty")}
+					</p>
 				) : (
-					<ol ref={listRef} className="p-2">
+					<ol ref={listRef} className="flex flex-col gap-2 pt-1 pr-4 pb-4 pl-3">
 						{items.map((h) => (
 							<li key={h.id}>
-								{/* The whole row goes to the highlight — quote and note together. The note's links
-								    are text here, so there is nothing else inside to click. */}
+								{/* A clipping of the quote, in the reader's type and marked as in the article; its
+								    note a post-it stuck on it. The whole clipping goes to the highlight. The note's
+								    links are text here, so there is nothing else inside to click. */}
 								<button
 									type="button"
 									data-id={h.id}
+									data-active={activeId === h.id ? "" : undefined}
+									{...highlightColor(h.color)}
 									onClick={() => onSelect(h.id)}
-									className={cn(
-										"flex w-full gap-2 rounded-lg px-2 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring",
-										activeId === h.id ? "bg-fg/10" : "hover:bg-muted",
-									)}
+									className="clipping clipping-sm block w-full px-4 pt-[calc(var(--clip-top)+0.625rem)] pb-3 text-left focus-visible:outline-none"
 								>
-									<span className="min-w-0 flex-1">
-										{/* Marked as it is in the article, in its color. */}
-										<span className="line-clamp-3 px-0.5 text-sm">
-											<span
-												{...highlightColor(h.color)}
-												data-testid="highlight-quote"
-												className="marker"
-											>
-												{h.exact}
-											</span>
+									<ClippingPaper id={h.id} />
+									<span className="reader-type line-clamp-6 text-[0.95rem] leading-normal text-fg">
+										<span data-testid="highlight-quote" className="marker">
+											{h.exact}
 										</span>
-										{h.note ? (
-											<PostIt
-												as="span"
-												variant="compact"
-												fit={h.note}
-												color={highlightColorName(h.color)}
-												tilt={tiltFor(h.id)}
-												className="mt-3 mb-1 text-base leading-snug"
-											>
-												<NoteText text={h.note} linkTargets={linkTargets} plainLinks />
-											</PostIt>
-										) : null}
-										{h.orphaned ? (
-											<span className="mt-1 block text-xs text-danger">
-												{t("highlights.orphaned")}
-											</span>
-										) : null}
 									</span>
+									{h.note ? (
+										<PostIt
+											as="span"
+											variant="compact"
+											fit={h.note}
+											color={highlightColorName(h.color)}
+											tilt={tiltFor(h.id)}
+											className="mt-3 -mr-2 ml-auto text-[0.95rem] leading-snug"
+										>
+											<NoteText text={h.note} linkTargets={linkTargets} plainLinks />
+										</PostIt>
+									) : null}
+									{h.orphaned ? (
+										<span className="mt-1 block font-sans text-xs text-danger">
+											{t("highlights.orphaned")}
+										</span>
+									) : null}
 								</button>
 							</li>
 						))}
@@ -302,9 +311,9 @@ function LinkSection({
 }) {
 	if (links.length === 0) return null
 	return (
-		<section data-testid={testId} className="border-t border-border p-4">
-			<h3 className="mb-2 text-xs font-medium text-muted-fg">{title}</h3>
-			<ul className="space-y-1">
+		<section data-testid={testId} className="pb-4">
+			<h3 className={SECTION}>{title}</h3>
+			<ul className="space-y-0.5 px-2">
 				{links.map((l) => (
 					<li key={`${l.documentId}:${l.highlightId ?? ""}`}>
 						<Link
@@ -314,7 +323,9 @@ function LinkSection({
 							state={{ from }}
 							className="block rounded-lg px-2 py-1.5 hover:bg-muted"
 						>
-							<span className="line-clamp-2 block text-sm">{l.title ?? l.sourceUrl}</span>
+							<span className="line-clamp-2 block font-display text-base leading-snug">
+								{l.title ?? l.sourceUrl}
+							</span>
 							{l.exact ? (
 								<span className="mt-0.5 line-clamp-1 block text-xs text-muted-fg">{l.exact}</span>
 							) : null}

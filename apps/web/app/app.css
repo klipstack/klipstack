@@ -407,7 +407,8 @@ body {
    pen lands a little early and lifts a little late, and pools at both ends. INK_HEIGHT and INK_DROP
    (lib/highlight-ink.ts) are the same numbers. */
 .marker,
-.hl-ink {
+.hl-ink,
+.cite-mark {
 	--ink: linear-gradient(
 		90deg,
 		color-mix(in oklch, var(--hl), var(--k-fg) 9%),
@@ -563,7 +564,7 @@ body {
 	color: var(--k-muted-fg);
 	border-radius: 0.55em 0.8em 0.7em 0.45em / 0.8em 0.7em 0.8em 0.65em;
 	@media (hover: hover) {
-		&:hover:not(.marked, [aria-current]) {
+		&:hover:not(.marked, [aria-current], [aria-selected="true"]) {
 			@apply ink-hover;
 		}
 	}
@@ -675,10 +676,76 @@ body {
 	left: 0.5rem;
 	rotate: -11deg;
 }
+/* The reader's sidebar: a smaller clipping for each highlight, its paper lifting when it is the
+   highlight in hand. */
+.clipping-sm {
+	--clip-top: 0.75rem;
+}
+.clipping-sm > .clipping-tape {
+	top: 0.25rem;
+	width: 3.25rem;
+	height: 1rem;
+}
+.clipping[data-active] > .clipping-paper,
+.clipping:focus-visible > .clipping-paper {
+	filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.1)) drop-shadow(0 12px 14px rgb(0 0 0 / 0.16));
+}
+/* Its cut edge drawn in its highlight's color. */
+.clipping[data-active] > .clipping-paper::before,
+.clipping:focus-visible > .clipping-paper::before {
+	background: var(--hl-solid);
+}
+.clipping[data-active] > .clipping-paper::after,
+.clipping:focus-visible > .clipping-paper::after {
+	inset: 2px;
+}
 @media (prefers-reduced-motion: reduce) {
 	.clipping-paper {
 		transition: none;
 	}
+}
+
+/* Type that follows the reader's font setting outside the article (`reader-font-*`). */
+.reader-type {
+	font-family: var(--reader-font, var(--font-serif));
+}
+
+/* A citation in an AI answer: its number on a short stroke of highlighter ink. */
+.cite-mark {
+	--hl: var(--hl-yellow);
+	background: var(--ink) no-repeat 0 70% / 100% 75%;
+	border-radius: 0.35em 0.5em 0.45em 0.3em / 0.6em 0.55em 0.6em 0.5em;
+	padding: 0 0.32em 0 0.26em;
+	margin-inline: 0.1em;
+	font-family: var(--font-sans);
+	font-size: 0.74em;
+	font-weight: 650;
+	font-variant-numeric: tabular-nums;
+	line-height: 1;
+	vertical-align: 0.35em;
+	color: var(--k-fg);
+	position: relative;
+}
+/* Pointed at, its ink deepens, as where two strokes cross. */
+.cite-mark:hover:not(:disabled) {
+	--hl: color-mix(in oklch, var(--hl-yellow), var(--hl-deepen));
+}
+/* A finger's worth to tap, around a small number. */
+.cite-mark::after {
+	content: "";
+	position: absolute;
+	inset: -0.6em -0.35em;
+}
+.cite-mark:disabled {
+	cursor: default;
+	opacity: 0.6;
+}
+
+/* The sidebar is a sheet laid over the page: a soft shadow on its edge in place of a border. */
+.sheet-edge {
+	box-shadow:
+		-1px 0 0 color-mix(in oklch, var(--k-border) 55%, transparent),
+		-18px 0 40px -22px oklch(0.25 0.04 60 / 0.4);
 }
 
 ::highlight(klip-note) {
@@ -695,8 +762,13 @@ body {
 ::highlight(klip-ai-focus) {
 	background-color: color-mix(in oklch, var(--k-accent) 14%, transparent);
 }
+/* A followed citation's passage flashes in the citation's own ink, the highlighter's yellow, and
+   fades out in steps (`flashCited`): a ::highlight can't be animated. */
 ::highlight(klip-cited) {
-	background-color: color-mix(in oklch, var(--k-accent) 28%, transparent);
+	background-color: color-mix(in oklch, var(--hl-yellow) 85%, transparent);
+}
+::highlight(klip-cited-fading) {
+	background-color: color-mix(in oklch, var(--hl-yellow) 40%, transparent);
 }
 /* A highlight's editor is open: the text and the other highlights fade and lose their note marks; it
    shows at full strength, with full-strength text. */

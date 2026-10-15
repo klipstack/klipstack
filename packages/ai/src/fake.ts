@@ -127,3 +127,68 @@ export function fakeBrief(input: BriefInput) {
 		doStream: async () => ({ stream: simulateReadableStream({ chunks, chunkDelayInMs: 30 }) }),
 	})
 }
+
+/** The article's sentences with where each starts, skipping the very short ones. */
+function sentences(text: string) {
+	const out: Array<{ exact: string; start: number; end: number }> = []
+	const pattern = /[^.!?\n]+[.!?]/g
+	for (let match = pattern.exec(text); match; match = pattern.exec(text)) {
+		const lead = match[0].length - match[0].trimStart().length
+		const exact = match[0].trim()
+		if (exact.length >= 60 && exact.length <= 260)
+			out.push({ exact, start: match.index + lead, end: match.index + lead + exact.length })
+	}
+	return out
+}
+
+/**
+ * The demo app's model: an answer of two short paragraphs that reads like a real one, citing three
+ * of the article's sentences (from its start, middle and end), streamed word by word.
+ */
+export function fakeDemoModel(input: AnswerInput) {
+	const all = sentences(input.article.text)
+	const picks = [all[0], all[Math.floor(all.length / 2)], all.at(-1)].filter(
+		(s, i, list): s is NonNullable<typeof s> => !!s && list.indexOf(s) === i,
+	)
+	const usage = {
+		inputTokens: { total: 100, noCache: 100, cacheRead: 0, cacheWrite: 0 },
+		outputTokens: { total: 80, text: 80, reasoning: 0 },
+	}
+	const parts: LanguageModelV4StreamPart[] = [{ type: "text-start", id: "t" }]
+	const say = (words: string) => {
+		for (const word of words.split(/(?<= )/))
+			parts.push({ type: "text-delta", id: "t", delta: word })
+	}
+	const cite = (n: number) => {
+		const s = picks[n]
+		if (!s) return
+		parts.push({
+			type: "source",
+			sourceType: "document",
+			id: `c${n}`,
+			mediaType: "text/plain",
+			title: input.article.title,
+			providerMetadata: {
+				anthropic: { citedText: s.exact, startCharIndex: s.start, endCharIndex: s.end },
+			},
+		})
+	}
+	say("The article sets out its argument early: the opening frames the question it means to answer")
+	cite(0)
+	say(". From there it builds its case step by step, and the *middle* is where it is most direct")
+	cite(1)
+	say(".\n\nIt closes by coming back to that opening, now with an answer of its own")
+	cite(2)
+	say(". **In short:** read the beginning and the end together.")
+	parts.push(
+		{ type: "text-end", id: "t" },
+		{ type: "finish", usage, finishReason: { unified: "stop", raw: "end_turn" } },
+	)
+	return new MockLanguageModelV4({
+		provider: "fake",
+		modelId: "demo",
+		doStream: async () => ({
+			stream: simulateReadableStream({ chunks: parts, chunkDelayInMs: 40 }),
+		}),
+	})
+}

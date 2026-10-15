@@ -428,11 +428,23 @@ test("a highlight's color: picked in its toolbar, shown on the text, its note an
 	await expect(editor).toBeHidden()
 	expect(await textStart(marginNote)).toEqual(shown)
 
-	// The sidebar's quote is marked in green, the note under it a post-it.
+	// The sidebar's quote is marked in green, the note under it a post-it. It is set in the reader's
+	// font, as the article is: here the sans.
+	await page.getByRole("button", { name: "Reading preferences" }).click()
+	await page
+		.getByRole("dialog", { name: "Reading preferences" })
+		.getByText("Sans", { exact: true })
+		.click()
+	await page.keyboard.press("Escape")
 	await page.getByTestId("toggle-sidebar").click()
 	const sidebar = page.getByRole("complementary", { name: "Notes and highlights" })
 	const row = sidebar.getByRole("button", { name: QUOTE })
 	await expectMarked(row.getByTestId("highlight-quote"), "green")
+	const articleFont = await page
+		.locator(".reader-content")
+		.evaluate((el) => getComputedStyle(el).fontFamily)
+	expect(articleFont).toContain("system-ui")
+	await expect(row.getByTestId("highlight-quote")).toHaveCSS("font-family", articleFont)
 	await expect(row.locator("[data-post-it]")).toHaveText(NOTE)
 	await expect(row.locator("[data-post-it]")).toHaveCSS("background-color", greenPaper)
 

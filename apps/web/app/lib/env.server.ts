@@ -85,8 +85,11 @@ const schema = z.object({
 	ANTHROPIC_API_KEY: z.string().optional(),
 	/** TypeSafe's key, for Jev: automatic topics need it and Anthropic's. */
 	TYPESAFE_API_KEY: z.string().optional(),
-	/** "1": a fixed answer instead of a provider, for the e2e tests and work without a key. */
-	AI_FAKE: z.enum(["0", "1"]).default("0"),
+	/**
+	 * "1": a fixed answer instead of a provider, for the e2e tests and work without a key. "demo":
+	 * longer answers citing the article, for the demo app (`pnpm orb:app`).
+	 */
+	AI_FAKE: z.enum(["0", "1", "demo"]).default("0"),
 })
 
 const parsed = schema.safeParse(process.env)

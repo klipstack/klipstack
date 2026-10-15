@@ -1,5 +1,5 @@
 import type { AiCitation } from "@klipstack/db"
-import { Copy, Loader2, RotateCcw, Trash2 } from "lucide-react"
+import { Copy, RotateCcw, Trash2 } from "lucide-react"
 import { useLayoutEffect, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import { useQuestionsLeft } from "~/hooks/use-ai-allowance"
@@ -60,29 +60,31 @@ export function ChatPanel({
 	const { none } = useQuestionsLeft()
 
 	return (
-		<div className="flex min-h-0 flex-1 flex-col font-sans text-sm leading-snug" data-testid="chat">
+		<div className="flex min-h-0 flex-1 flex-col text-sm leading-snug" data-testid="chat">
 			<div
 				ref={turnsRef}
 				onScroll={(e) => {
 					const el = e.currentTarget
 					pinned.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24
 				}}
-				className="flex flex-1 flex-col gap-3 overflow-y-auto p-4"
+				className="flex flex-1 flex-col gap-5 overflow-y-auto px-5 pt-3 pb-4"
 				aria-live="polite"
 			>
 				{!chat || chat.messages.length === 0 ? (
-					<p className="text-muted-fg">{t("ai.chat.empty")}</p>
+					<p className="font-serif text-base italic text-muted-fg">{t("ai.chat.empty")}</p>
 				) : null}
 				{chat?.messages.map((message) =>
 					message.role === "user" ? (
+						// The reader's question, written as a note is: the post-its' italic serif and ink.
 						<p
 							key={message.id}
-							className="self-end rounded-lg bg-muted px-3 py-2 font-medium text-fg"
+							className="border-l-2 border-(--hl-solid) pl-3 font-serif text-base italic leading-snug text-note-fg"
 						>
 							{message.text}
 						</p>
 					) : (
-						<div key={message.id}>
+						// The answer, a short passage in the reader's own typeface.
+						<div key={message.id} className="reader-type text-[1.0625rem] leading-[1.6]">
 							{message.status === "failed" ? (
 								<p className="text-danger">{t("ai.failed")}</p>
 							) : message.status === "refused" ? (
@@ -100,22 +102,23 @@ export function ChatPanel({
 				)}
 				{busy ? (
 					streamed.text ? (
-						<AiAnswer
-							text={streamed.text}
-							citations={streamed.citations}
-							onCite={canCite ? onCite : undefined}
-							citeLabel={cite}
-						/>
+						<div className="reader-type text-[1.0625rem] leading-[1.6]">
+							<AiAnswer
+								text={streamed.text}
+								citations={streamed.citations}
+								onCite={canCite ? onCite : undefined}
+								citeLabel={cite}
+							/>
+						</div>
 					) : (
-						<p className="flex items-center gap-1.5 text-muted-fg">
-							<Loader2 className="size-3.5 animate-spin" aria-hidden />
+						<p className="animate-pulse font-serif text-base italic text-muted-fg motion-reduce:animate-none">
 							{t("ai.thinking")}
 						</p>
 					)
 				) : null}
 				{chat?.failure && !busy ? <Failure {...chat.failure} /> : null}
 			</div>
-			<div className="border-t border-border p-3">
+			<div className="px-4 pt-1 pb-3">
 				{chat && !busy ? (
 					<div className="mb-1 flex items-center gap-0.5">
 						{(last?.role === "user" || chat.failure || last?.role === "assistant") && !none ? (

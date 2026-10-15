@@ -31,7 +31,10 @@ production, and starts two orb services: `klipstack-web` on port 5190 behind a p
 portal address, the account's email and password, and a one-time sign-in link. The portal's
 description in Amp's Portals tab shows the email and password too. The production build is used
 because the dev server is slow to load through a portal, and Vite's re-bundling can leave an open
-page unresponsive.
+page unresponsive. The account has AI on, and the app answers with a fake model (`AI_FAKE=demo`) whose
+answers cite the article, so the chat and the margin answers can be tried without a provider key.
+A `klipstack-web` service started before that keeps its old command: stop it once
+(`amp orb service stop klipstack-web`) and run `pnpm orb:app` again.
 
 ### Its own database
 

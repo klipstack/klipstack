@@ -775,6 +775,7 @@ export function ReaderArticle({
 						backlinks={data.backlinks}
 						contentLinks={data.contentLinks}
 						from={location.pathname}
+						font={prefs.font}
 						onSelect={selectFromSidebar}
 						onClose={() => {
 							note.flush()

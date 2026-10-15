@@ -96,6 +96,10 @@ else
   echo "In place."
 fi
 
+# The demo app answers questions with the demo fake (AI_FAKE=demo, below): the account has AI on.
+psql -q "$DATABASE_URL" -c "insert into user_features (user_id, feature)
+  select id, 'ai' from \"user\" where email = 'reader@demo.klipstack.test' on conflict do nothing" >/dev/null
+
 step "Build"
 run build pnpm --filter @klipstack/web build
 echo "Built."
@@ -109,7 +113,7 @@ service() {
 # server.js listens on $PORT; the portal proxy is its only client (TRUST_PROXY=loopback).
 web_out=$(service klipstack-web --port 5190 --portal --title Klipstack \
   --description "Sign in as reader@demo.klipstack.test, password local-reader-only" \
-  --command "cd apps/web && DATABASE_URL='$DATABASE_URL' APP_URL=\"\$PUBLIC_URL\" NODE_ENV=production exec node server.js") || {
+  --command "cd apps/web && DATABASE_URL='$DATABASE_URL' APP_URL=\"\$PUBLIC_URL\" AI_FAKE=demo NODE_ENV=production exec node server.js") || {
   echo "$web_out" >&2
   exit 1
 }
