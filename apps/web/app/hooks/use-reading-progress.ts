@@ -116,7 +116,7 @@ export function useReadingProgress(doc: Doc, ready: boolean) {
  * (`data-after-reading`: the end of the article with its note, then the shelf of what to read
  * next), so an article read to its end is read.
  */
-function scrollSpan(el: HTMLElement): number {
+export function scrollSpan(el: HTMLElement): number {
 	const after = document.querySelector<HTMLElement>("[data-after-reading]")
 	if (!after) return el.scrollHeight - el.clientHeight
 	const top =

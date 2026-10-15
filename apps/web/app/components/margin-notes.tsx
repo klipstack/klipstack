@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { HIGHLIGHT_MAP_ROOM } from "~/components/highlight-map"
 import { highlightColor, highlightColorName } from "~/lib/highlight-colors"
 import { firstRect, type RenderableHighlight } from "~/lib/highlights.client"
 import { layoutMargin, sameTops } from "~/lib/margin-layout"
@@ -8,9 +9,12 @@ import { cn } from "~/lib/utils"
 import { NoteText } from "./note-text"
 import { PostIt, tiltFor } from "./post-it"
 
-/** Note column width (13rem), its gap to the article (8px, plus the article's own padding) and to the page edge. */
+/**
+ * Note column width (13rem), its gap to the article (8px, plus the article's own padding), and the
+ * highlight map's room at the page's edge.
+ */
 const NOTE_WIDTH = 208
-const NEEDED = NOTE_WIDTH + 8 + 16
+const NEEDED = NOTE_WIDTH + 8 + HIGHLIGHT_MAP_ROOM
 const GAP = 12
 
 /**
