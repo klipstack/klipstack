@@ -380,6 +380,53 @@ describe("the reader page: citations", () => {
 	})
 })
 
+describe("the reader page: AI threads", () => {
+	it("underlines the threads' passages; a tap opens the smaller of a thread and a highlight", () => {
+		const html = "<p>Alpha beta.</p><p>Delta epsilon zeta.</p>"
+		const text = storedText(html)
+		const long = highlightOf(html, "long", "Delta epsilon zeta.")
+		const page = openPage(html, [long])
+		const at = (quote: string) => ({
+			start: text.indexOf(quote),
+			end: text.indexOf(quote) + quote.length,
+		})
+		page.window.eval(
+			`window.klipThreads(${JSON.stringify([
+				{ id: "word", ...at("epsilon") },
+				{ id: "para", ...at("Alpha beta.") },
+			])})`,
+		)
+		expect(page.registry.get("klip-ai")?.ranges.map((r) => r.toString())).toEqual([
+			"epsilon",
+			"Alpha beta.",
+		])
+		const tapAt = (node: Text, offset: number) => {
+			const caret = page.window.document.createRange()
+			caret.setStart(node, offset)
+			Object.assign(page.window.document, { caretRangeFromPoint: () => caret })
+			page.messages.length = 0
+			page.window.document.body.dispatchEvent(
+				new page.window.MouseEvent("click", { bubbles: true, cancelable: true }),
+			)
+			return page.messages
+		}
+		const [first, second] = Array.from(
+			page.article.querySelectorAll("p"),
+			(p) => p.firstChild as Text,
+		)
+		// A few words of a highlight: the thread, the smaller.
+		expect(tapAt(second!, second!.data.indexOf("psilon"))).toEqual([{ type: "thread", id: "word" }])
+		// Elsewhere in the highlight: the highlight.
+		expect(tapAt(second!, 1)).toEqual([{ type: "highlight", id: "long" }])
+		expect(tapAt(first!, 2)).toEqual([{ type: "thread", id: "para" }])
+		page.window.eval('window.klipThreadFocus("word")')
+		expect(page.registry.get("klip-ai-focus")?.ranges.map((r) => r.toString())).toEqual(["epsilon"])
+		page.window.eval("window.klipThreadFocus(null); window.klipThreads([])")
+		expect(page.registry.has("klip-ai-focus")).toBe(false)
+		expect(page.registry.has("klip-ai")).toBe(false)
+	})
+})
+
 describe("the reader page: reading and links", () => {
 	it("tells the app where the reader is after a scroll", async () => {
 		const { window, messages } = openPage("<p>Text.</p>")
