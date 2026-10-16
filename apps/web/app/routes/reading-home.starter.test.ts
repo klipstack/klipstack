@@ -63,7 +63,7 @@ it("offers the starter texts while nothing is left to read, without the ones the
 			"bacon-of-studies",
 			"chopin-story-of-an-hour",
 			"marcus-aurelius-book-two",
-			"darwin-earthworms",
+			"faraday-candle-lecture-one",
 		],
 	})
 
@@ -77,7 +77,7 @@ it("offers the starter texts while nothing is left to read, without the ones the
 			"bacon-of-studies",
 			"ohenry-gift-of-the-magi",
 			"marcus-aurelius-book-two",
-			"darwin-earthworms",
+			"faraday-candle-lecture-one",
 		],
 	})
 
@@ -100,7 +100,7 @@ it("offers a Spanish reader the Spanish texts", async () => {
 			"becquer-cartas-literarias",
 			"dario-el-rey-burgues",
 			"balmes-la-atencion",
-			"sastre-la-avispa-solitaria",
+			"darwin-origen-de-las-especies",
 		],
 	})
 })
@@ -140,7 +140,7 @@ it("leaves the guide out for a reader who has saved 10 articles", async () => {
 			"bacon-of-studies",
 			"chopin-story-of-an-hour",
 			"marcus-aurelius-book-two",
-			"darwin-earthworms",
+			"faraday-candle-lecture-one",
 		],
 	})
 })

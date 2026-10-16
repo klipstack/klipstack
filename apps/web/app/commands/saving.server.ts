@@ -139,14 +139,17 @@ export async function saveFeedItems(userId: string, ids: string[]) {
 
 /**
  * Adds a starter text (`lib/starter-texts.server.ts`) to the library, from the page that ships
- * with the app. One already there is left as it is, highlights, notes and all, even when the text
- * has changed since: the reader opens their copy. The article's id.
+ * with the app or, for a linked one, from its site. One already there is left as it is,
+ * highlights, notes and all, even when the text has changed since: the reader opens their copy. A
+ * linked one is saved as any link, so a copy whose fetch failed is fetched again. The article's id.
  */
 export async function saveStarterText(userId: string, slug: string) {
 	const text = findStarterText(parseInput(StarterSlug, slug))
 	if (!text) throw notFound("No starter text with that name.")
-	const saved = (await savedStarterTexts(userId, [text])).get(text.slug)
-	if (saved) return { articleId: saved, created: false }
+	if (text.kind !== "link") {
+		const saved = (await savedStarterTexts(userId, [text])).get(text.slug)
+		if (saved) return { articleId: saved, created: false }
+	}
 	const { article, created } = await saveArticle(userId, {
 		url: text.url,
 		html: text.html,

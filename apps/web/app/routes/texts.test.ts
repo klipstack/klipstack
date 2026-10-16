@@ -1,6 +1,6 @@
 import { db, documents, eq, inArray, newId, user } from "@klipstack/db"
 import { afterAll, beforeAll, expect, it, vi } from "vitest"
-import { starterGuide, starterUrlHash } from "~/lib/starter-texts.server"
+import { findStarterText, starterGuide, starterUrlHash } from "~/lib/starter-texts.server"
 import { loader } from "./texts"
 
 const session = vi.hoisted(() => ({ user: { id: "", name: "Reader", locale: "en" } }))
@@ -76,6 +76,36 @@ it("puts the guide last once the reader has it, or has saved 10 articles", async
 		expect((await texts("")).guideFirst).toBe(true)
 		await db.insert(documents).values(saved(1))
 		expect(await texts("")).toMatchObject({ guide: "guide-en", guideFirst: false })
+	} finally {
+		await db.delete(documents).where(eq(documents.userId, userId))
+	}
+})
+
+it("names a linked text's site, and knows when the reader has it", async () => {
+	const link = findStarterText("graham-keep-your-identity-small")!
+	const book = async () =>
+		(
+			await loader({
+				request: new Request("http://localhost/texts"),
+				context: {},
+				params: {},
+			} as never)
+		).shelves
+			.flatMap((shelf) => shelf.items)
+			.find((item) => item.slug === link.slug)!
+	expect(await book()).toMatchObject({ kind: "link", site: "paulgraham.com", articleId: null })
+	try {
+		const [doc] = await db
+			.insert(documents)
+			.values({
+				userId,
+				sourceUrl: link.url,
+				urlHash: starterUrlHash(link),
+				status: "queued",
+				title: "",
+			})
+			.returning({ id: documents.id })
+		expect((await book()).articleId).toBe(doc!.id)
 	} finally {
 		await db.delete(documents).where(eq(documents.userId, userId))
 	}

@@ -1,5 +1,6 @@
 import { JSDOM } from "jsdom"
 import { describe, expect, it } from "vitest"
+import { STARTER_LINKS } from "../starter/links"
 import {
 	STARTER_LANGUAGES,
 	STARTER_TOPICS,
@@ -12,7 +13,7 @@ describe("the catalog", () => {
 	it.each(STARTER_LANGUAGES)("has a guide and a full shelf of each topic in %s", (language) => {
 		expect(starterGuide(language).kind).toBe("guide")
 		const texts = starterTextsIn(language)
-		expect(texts.every((text) => text.language === language && text.kind === "text")).toBe(true)
+		expect(texts.every((text) => text.language === language && text.kind !== "guide")).toBe(true)
 		for (const topic of STARTER_TOPICS) {
 			expect(texts.filter((text) => text.topic === topic).length, topic).toBeGreaterThanOrEqual(3)
 		}
@@ -23,6 +24,16 @@ describe("the catalog", () => {
 		expect(new Set(texts.map((text) => text.slug)).size).toBe(texts.length)
 		expect(new Set(texts.map((text) => text.url)).size).toBe(texts.length)
 	})
+
+	it.each(STARTER_LINKS.map((link) => [link.slug, link]))(
+		"%s links to a web page, with what its book shows",
+		(_slug, link) => {
+			// http only where the site has no https (Sutton's).
+			expect(["https:", "http:"]).toContain(new URL(link.url).protocol)
+			expect(link.title && link.author && link.description).toBeTruthy()
+			expect(link.minutes).toBeGreaterThan(0)
+		},
+	)
 })
 
 // The guide's public page shows its markup as it is, without the sanitizing extraction gives a
@@ -45,18 +56,17 @@ const ALLOWED = new Set([
 ])
 
 describe("the bundled pages", () => {
-	it.each(starterTexts().map((text) => [text.slug, text.article]))(
-		"%s holds only text markup, without attributes but a list's start",
-		(_slug, article) => {
-			const elements = [...new JSDOM(article).window.document.body.querySelectorAll("*")]
-			expect(elements.length).toBeGreaterThan(0)
-			for (const element of elements) {
-				expect(ALLOWED.has(element.tagName), element.tagName).toBe(true)
-				const names = [...element.attributes].map((attribute) => attribute.name)
-				expect(names, element.outerHTML.slice(0, 80)).toEqual(
-					element.tagName === "OL" ? names.filter((name) => name === "start") : [],
-				)
-			}
-		},
-	)
+	it.each(
+		starterTexts().flatMap((text) => (text.article === null ? [] : [[text.slug, text.article]])),
+	)("%s holds only text markup, without attributes but a list's start", (_slug, article) => {
+		const elements = [...new JSDOM(article).window.document.body.querySelectorAll("*")]
+		expect(elements.length).toBeGreaterThan(0)
+		for (const element of elements) {
+			expect(ALLOWED.has(element.tagName), element.tagName).toBe(true)
+			const names = [...element.attributes].map((attribute) => attribute.name)
+			expect(names, element.outerHTML.slice(0, 80)).toEqual(
+				element.tagName === "OL" ? names.filter((name) => name === "start") : [],
+			)
+		}
+	})
 })

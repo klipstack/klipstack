@@ -193,7 +193,7 @@ export default {
 	starter: {
 		title: "Something to read",
 		description:
-			"Texts from the public domain to try highlights and notes on: essays, stories and speeches. Choose a book to add it to your library.",
+			"Essays, stories and speeches to try highlights and notes on. A book marked with a site is saved from the site that publishes it. Choose a book to add it to your library.",
 		shelf: "Books to start with",
 		guide: {
 			eyebrow: "New to Klipstack?",
@@ -206,7 +206,11 @@ export default {
 		topics: {
 			reading: { title: "Reading & writing", description: "Writers on books, style and readers." },
 			stories: { title: "Stories", description: "Short fiction to read in one sitting." },
-			living: { title: "How to live", description: "Old advice on time, work and character." },
+			living: { title: "How to live", description: "Advice on time, work and character." },
+			ideas: {
+				title: "Ideas & work",
+				description: "Essays on making things, technology and thinking for yourself.",
+			},
 			science: {
 				title: "Science & nature",
 				description: "Scientists and naturalists explaining the world.",
@@ -223,6 +227,8 @@ export default {
 		minutes_other: "{{count}} min",
 		add: "Add to library",
 		addLabel: "Add {{title}} to your library",
+		addFrom: "Add to library from {{site}}",
+		addFromLabel: "Add {{title}} to your library from {{site}}",
 		saved: "In your library",
 		openSaved: "Open in your library",
 		openLabel: "Open {{title}}",

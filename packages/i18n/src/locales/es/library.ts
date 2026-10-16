@@ -193,7 +193,7 @@ export default {
 	starter: {
 		title: "Algo para leer",
 		description:
-			"Textos de dominio público para probar los subrayados y las notas: ensayos, cuentos y discursos. Elige un libro para añadirlo a tu biblioteca.",
+			"Ensayos, cuentos y discursos para probar los subrayados y las notas. Un libro que lleva el nombre de un sitio se guarda desde el sitio que lo publica. Elige un libro para añadirlo a tu biblioteca.",
 		shelf: "Libros para empezar",
 		guide: {
 			eyebrow: "¿Es tu primera vez en Klipstack?",
@@ -211,7 +211,11 @@ export default {
 			stories: { title: "Cuentos", description: "Ficción breve para leer de una sentada." },
 			living: {
 				title: "Cómo vivir",
-				description: "Consejos antiguos sobre el tiempo, el trabajo y el carácter.",
+				description: "Consejos sobre el tiempo, el trabajo y el carácter.",
+			},
+			ideas: {
+				title: "Ideas y trabajo",
+				description: "Ensayos sobre crear, la tecnología y pensar por cuenta propia.",
 			},
 			science: {
 				title: "Ciencia y naturaleza",
@@ -229,6 +233,8 @@ export default {
 		minutes_other: "{{count}} min",
 		add: "Añadir a la biblioteca",
 		addLabel: "Añadir {{title}} a tu biblioteca",
+		addFrom: "Añadir a la biblioteca desde {{site}}",
+		addFromLabel: "Añadir {{title}} a tu biblioteca desde {{site}}",
 		saved: "En tu biblioteca",
 		openSaved: "Abrir en tu biblioteca",
 		openLabel: "Abrir {{title}}",
