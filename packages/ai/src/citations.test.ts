@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { anthropicCitation, citationRange } from "./citations"
+import { citationRange } from "./citations"
 
 const text = "One sentence here. Another sentence follows.\n\nOne sentence here."
 
@@ -31,19 +31,5 @@ describe("citationRange", () => {
 	it("drops a quote the text does not have, or an empty one", () => {
 		expect(citationRange(text, { start: 0, end: 5, citedText: "Not in it." }, 0)).toBeNull()
 		expect(citationRange(text, { start: 0, end: 1, citedText: " " }, 0)).toBeNull()
-	})
-})
-
-describe("anthropicCitation", () => {
-	it("reads the provider's metadata", () => {
-		expect(
-			anthropicCitation({ anthropic: { citedText: "x", startCharIndex: 1, endCharIndex: 2 } }),
-		).toEqual({ citedText: "x", start: 1, end: 2 })
-		expect(anthropicCitation({ anthropic: { citedText: "x", startPageNumber: 1 } })).toEqual({
-			citedText: "x",
-			start: undefined,
-			end: undefined,
-		})
-		expect(anthropicCitation(undefined)).toBeNull()
 	})
 })

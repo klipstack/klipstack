@@ -21,3 +21,5 @@ packages/db/src/schema/auth.generated.ts
 **/.amp/portals/*
 # Auto-topics simulator: corpus, model answers and runs (apps/web/scripts/topics)
 /.topics-sim/
+# AI citations measurement: the answers of each run (apps/web/scripts/citations.ts)
+/.citations/
