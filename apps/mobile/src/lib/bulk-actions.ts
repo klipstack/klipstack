@@ -87,7 +87,11 @@ export function afterAction(
 	switch (action) {
 		case "star":
 		case "unstar":
-			return { ...item, starred: action === "star" }
+			return {
+				...item,
+				starred: action === "star",
+				starredAt: action === "star" ? (item.starredAt ?? now) : null,
+			}
 		case "shortlist":
 		case "unshortlist":
 			return { ...item, shortlisted: action === "shortlist" }

@@ -564,6 +564,11 @@ describe("writes", () => {
 				unfinished: 1,
 				finished: 0,
 			})
+			// Starred groups by when the stars were given, as the web does.
+			expect((await client.articles.list({ view: "starred" })).items).toMatchObject([
+				{ title: "Archived starred", starred: true, starredAt: now.toISOString() },
+			])
+			expect((await client.articles.list()).items[0]?.starredAt).toBeNull()
 			expect(await errorOf(client.articles.counts({ topic: MISSING }))).toMatchObject({
 				status: 404,
 				code: "not_found",

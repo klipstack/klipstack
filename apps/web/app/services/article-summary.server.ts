@@ -22,6 +22,7 @@ export function articleSummary(card: LibraryCard) {
 		location: card.archivedAt ? ("archive" as const) : ("inbox" as const),
 		archivedAt: card.archivedAt?.toISOString() ?? null,
 		starred: Boolean(card.starredAt),
+		starredAt: card.starredAt?.toISOString() ?? null,
 		shortlisted: Boolean(card.shortlistedAt),
 		opened: Boolean(card.firstOpenedAt),
 		progress: Math.round(card.readingProgress * 100) / 100,

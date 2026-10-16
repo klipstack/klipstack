@@ -71,6 +71,16 @@ describe("afterAction", () => {
 		expect(done.location).toBe("archive")
 	})
 
+	it("dates a new star, for Starred's sections, and keeps an old one", () => {
+		const starred = afterAction(article(), "star", now)
+		expect(starred).toMatchObject({ starred: true, starredAt: now })
+		const before = "2026-09-01T10:00:00.000Z"
+		expect(afterAction(article({ starred: true, starredAt: before }), "star", now).starredAt).toBe(
+			before,
+		)
+		expect(afterAction(starred, "unstar", now)).toMatchObject({ starred: false, starredAt: null })
+	})
+
 	it("takes a restored article out of the trash", () => {
 		const trashed = article({ trashedAt: "2026-09-20T10:00:00.000Z" })
 		expect(afterAction(trashed, "restore", now).trashedAt).toBeNull()
