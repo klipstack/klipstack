@@ -53,8 +53,23 @@ test("the Add page saves several links and lists each one's outcome", async ({ p
 	await waitForHydration(page)
 	const stamp = Date.now()
 	const one = `https://example.com/add-page-${stamp}/one`
-	await page.getByLabel("Link", { exact: true }).fill(`${one}\nhttps://www.youtube.com/watch?v=x`)
-	await page.getByRole("button", { name: "Save", exact: true }).click()
+	const field = page.getByLabel("Link", { exact: true })
+	const height = () => field.evaluate((el) => el.getBoundingClientRect().height)
+	// Two lines to start; it grows with what is typed, up to eight lines.
+	const empty = await height()
+	await field.fill(Array.from({ length: 4 }, (_, i) => `https://example.com/${i}`).join("\n"))
+	expect(await height()).toBeGreaterThan(empty)
+	await field.fill(Array.from({ length: 20 }, (_, i) => `https://example.com/${i}`).join("\n"))
+	const capped = await height()
+	await field.fill(Array.from({ length: 30 }, (_, i) => `https://example.com/${i}`).join("\n"))
+	expect(await height()).toBe(capped)
+
+	// Enter starts a new line; ⌘↵ / Ctrl+Enter saves.
+	await field.fill(one)
+	await field.press("Enter")
+	await field.pressSequentially("https://www.youtube.com/watch?v=x")
+	await expect(field).toHaveValue(`${one}\nhttps://www.youtube.com/watch?v=x`)
+	await field.press("Control+Enter")
 	const results = page.getByRole("list", { name: "Links saved" })
 	await expect(results.getByText(one)).toBeVisible()
 	await expect(results.getByText("YouTube videos are not supported yet.")).toBeVisible()

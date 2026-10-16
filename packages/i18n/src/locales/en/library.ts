@@ -220,7 +220,7 @@ export default {
 		title: "Save a link",
 		description:
 			"Paste the address of an article. We fetch it, extract the text, and keep a clean copy for you.",
-		several: "One link per line, up to {{max}}. Enter saves; Shift+Enter starts a new line.",
+		several: "One link per line, up to {{max}}. {{keys}} or Ctrl+Enter saves.",
 		results: "Links saved",
 		savedMany: "{{count}} links saved.",
 		savedMany_one: "{{count}} link saved.",

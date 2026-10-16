@@ -5,11 +5,13 @@ import { useTranslation } from "react-i18next"
 import { Link } from "react-router"
 import type { LinkResult } from "~/commands/saving.server"
 import { saveErrorKey } from "~/lib/save-errors"
+import { isSubmitShortcut, SUBMIT_HINT } from "~/lib/shortcuts"
 import { cn } from "~/lib/utils"
 
 /**
  * The Save link field, in the dialog and on the Add page: one link, or several, one per line, up
- * to `SAVE_LINKS_MAX`. It grows with what is pasted; Enter saves, Shift+Enter adds a line.
+ * to `SAVE_LINKS_MAX`. Two lines tall, it grows with what is pasted (CSS `field-sizing`, where the
+ * browser has it) up to eight; Enter starts a line, ⌘↵ / Ctrl+Enter saves, as the Save button.
  */
 export function LinksField({
 	defaultValue,
@@ -32,7 +34,7 @@ export function LinksField({
 			<textarea
 				id={id}
 				name="url"
-				rows={1}
+				rows={2}
 				required
 				autoComplete="off"
 				autoCapitalize="off"
@@ -45,11 +47,11 @@ export function LinksField({
 				aria-invalid={Boolean(errorText) || undefined}
 				aria-describedby={`${id}-${errorText ? "error" : "hint"}`}
 				onKeyDown={(e) => {
-					if (e.key !== "Enter" || e.shiftKey || e.nativeEvent.isComposing) return
+					if (!isSubmitShortcut(e.nativeEvent)) return
 					e.preventDefault()
 					e.currentTarget.form?.requestSubmit()
 				}}
-				className="max-h-56 min-h-10 w-full resize-none rounded-lg border border-border bg-card px-3 py-2 text-sm text-fg shadow-xs [field-sizing:content] placeholder:text-muted-fg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none aria-invalid:border-danger"
+				className="max-h-[calc(8lh+1rem)] min-h-[calc(2lh+1rem)] w-full resize-none rounded-lg border border-border bg-card px-3 py-2 text-sm text-fg shadow-xs [field-sizing:content] placeholder:text-muted-fg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none aria-invalid:border-danger"
 			/>
 			{errorText ? (
 				<p id={`${id}-error`} className="text-sm text-danger">
@@ -57,7 +59,7 @@ export function LinksField({
 				</p>
 			) : (
 				<p id={`${id}-hint`} className="text-xs text-muted-fg">
-					{t("add.several", { max: SAVE_LINKS_MAX })}
+					{t("add.several", { max: SAVE_LINKS_MAX, keys: SUBMIT_HINT })}
 				</p>
 			)}
 		</div>
