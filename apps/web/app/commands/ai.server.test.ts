@@ -456,6 +456,26 @@ describe("races", () => {
 		expect(await briefArticle(userId, id, en)).toMatchObject({ id: (await first.brief)!.id })
 	})
 
+	it("charges two briefs asked at once as one: the second is refused before it counts", async () => {
+		const id = await article()
+		const before = (await usageOf(userId)).ai.used
+		const both = await Promise.allSettled([
+			briefArticle(userId, id, en),
+			briefArticle(userId, id, en),
+		])
+		const refused = both.filter((r) => r.status === "rejected")
+		expect(refused.map((r) => (r as PromiseRejectedResult).reason.code)).toEqual([
+			"already_pending",
+		])
+		const first = both.find((r) => r.status === "fulfilled")!.value
+		if (!("events" in first)) throw new Error("expected a new brief")
+		for await (const _ of first.events) {
+			// read to its end, as the route does
+		}
+		await first.brief
+		expect((await usageOf(userId)).ai.used).toBe(before + 1)
+	})
+
 	it("keeps no failed brief", async () => {
 		const id = await article(TEXT, `Schedules ${FAKE_FAIL}`)
 		const failing = await briefArticle(userId, id, en)

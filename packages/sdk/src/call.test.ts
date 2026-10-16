@@ -1,4 +1,4 @@
-import { defineEndpoint, empty, json, text } from "@klipstack/api-contract"
+import { defineEndpoint, empty, events, json, text } from "@klipstack/api-contract"
 import { describe, expect, it } from "vitest"
 import { z } from "zod"
 import { type ClientOptions, createCaller } from "./call"
@@ -74,6 +74,19 @@ const table = {
 		scope: "write",
 		params: z.object({ id: z.uuid() }),
 		response: empty(),
+		errors: [],
+	}),
+	"things.watch": defineEndpoint({
+		id: "things.watch",
+		method: "POST",
+		path: "/watch",
+		scope: "write",
+		response: events(
+			z.discriminatedUnion("type", [
+				z.object({ type: z.literal("text"), text: z.string() }),
+				z.object({ type: z.literal("done"), n: z.number() }),
+			]),
+		),
 		errors: [],
 	}),
 	"things.public": defineEndpoint({
@@ -401,5 +414,45 @@ describe("cancelling", () => {
 			name: "AbortError",
 		})
 		expect(calls).toEqual([])
+	})
+})
+
+describe("events", () => {
+	const stream = (...lines: unknown[]) =>
+		new Response(lines.map((line) => `data: ${JSON.stringify(line)}\n\n`).join(""), {
+			headers: { "content-type": "text/event-stream" },
+		})
+	const all = async (iterable: AsyncIterable<unknown>) => {
+		const out: unknown[] = []
+		for await (const event of iterable) out.push(event)
+		return out
+	}
+
+	it("asks for an event stream and reads each event, skipping a kind it doesn't know", async () => {
+		const { call, calls } = client(() =>
+			stream({ type: "text", text: "Hi" }, { type: "later", x: 1 }, { type: "done", n: 2 }),
+		)
+		expect(await all(await call("things.watch"))).toEqual([
+			{ type: "text", text: "Hi" },
+			{ type: "done", n: 2 },
+		])
+		expect(calls[0]?.headers.get("accept")).toBe("text/event-stream")
+	})
+
+	it("fails on an event of a known kind that breaks the contract", async () => {
+		const { call } = client(() => stream({ type: "text", text: "Hi" }, { type: "done", n: "two" }))
+		const seen: unknown[] = []
+		const reading = (async () => {
+			for await (const event of await call("things.watch")) seen.push(event)
+		})()
+		await expect(reading).rejects.toBeInstanceOf(KlipstackContractError)
+		expect(seen).toEqual([{ type: "text", text: "Hi" }])
+	})
+
+	it("answers a refusal before the stream as an API error", async () => {
+		const { call } = client(() => error(403, "limit_reached", { details: { max: 5 } }))
+		const refused = await call("things.watch").catch((e: unknown) => e)
+		expect(refused).toBeInstanceOf(KlipstackApiError)
+		expect(refused).toMatchObject({ code: "limit_reached", details: { max: 5 } })
 	})
 })

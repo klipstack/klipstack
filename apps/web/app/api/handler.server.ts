@@ -1,5 +1,6 @@
 import type {
 	Endpoint,
+	EventInput,
 	InferBody,
 	InferParams,
 	InferQuery,
@@ -29,14 +30,19 @@ export type HandlerContext<E> = {
 	body: InferBody<E>
 } & Auth<E>
 
-/** json: the schema's input, or `reply(status, data)` · text: string · binary: Response · empty: void */
+/**
+ * json: the schema's input, or `reply(status, data)` · text: string · binary: Response · events: an
+ * async iterable of the schema's input · empty: void
+ */
 export type HandlerResult<E> = E extends { response: { kind: "json" } }
 	? JsonInput<E> | Reply<JsonInput<E>>
 	: E extends { response: { kind: "text" } }
 		? string
 		: E extends { response: { kind: "binary" } }
 			? Response
-			: undefined
+			: E extends { response: { kind: "events" } }
+				? AsyncIterable<EventInput<E>>
+				: undefined
 
 export type Handler<E extends Endpoint> = (ctx: HandlerContext<E>) => Promise<HandlerResult<E>>
 

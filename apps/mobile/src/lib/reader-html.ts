@@ -457,4 +457,8 @@ html.hl-dragging, html.hl-dragging * { -webkit-user-select: none; user-select: n
 .shelf-minutes { margin-top: auto; font-size: 0.75rem; color: var(--muted-fg); }
 /* The sentence being read aloud. */
 ::highlight(klip-speaking) { background-color: var(--speaking); }
+/* A followed citation's passage flashes in the citation's own ink, the highlighter's yellow, and
+   fades out in steps (\`klipCite\`): a ::highlight can't be animated. */
+::highlight(klip-cited) { background-color: color-mix(in oklch, var(--hl-0) 85%, transparent); }
+::highlight(klip-cited-fading) { background-color: color-mix(in oklch, var(--hl-0) 40%, transparent); }
 `

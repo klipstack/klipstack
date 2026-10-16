@@ -1,6 +1,12 @@
 import type { HighlightColor } from "@klipstack/api-contract/enums"
 import { endState, secondsToFinish } from "@klipstack/api-contract/reading"
-import type { ArticleDetails, ArticleTopics, Highlight, KlipstackClient } from "@klipstack/sdk"
+import type {
+	AiCitation,
+	ArticleDetails,
+	ArticleTopics,
+	Highlight,
+	KlipstackClient,
+} from "@klipstack/sdk"
 import { createNoteAutosave, type NoteSaveStatus } from "@klipstack/sdk/note-autosave"
 import { router, Stack, useLocalSearchParams, useNavigation } from "expo-router"
 import { useCallback, useEffect, useRef, useState } from "react"
@@ -26,6 +32,7 @@ import type {
 } from "react-native-webview/lib/WebViewTypes"
 import { AppearanceSheet } from "@/components/appearance-sheet"
 import { askTitle } from "@/components/article-actions"
+import { BriefSheet } from "@/components/brief-sheet"
 import { EditionNoteSheet } from "@/components/edition-note-sheet"
 import { HighlightCard } from "@/components/highlight-card"
 import { LinkCard, type TappedLink } from "@/components/link-card"
@@ -34,7 +41,7 @@ import type { NoteLinking } from "@/components/note-field"
 import { NotesSheet } from "@/components/notes-sheet"
 import { ReaderStatus } from "@/components/reader-status"
 import { useTagSheet } from "@/components/tag-sheet"
-import { track } from "@/lib/article-changes"
+import { showToast, track } from "@/lib/article-changes"
 import { retagged } from "@/lib/article-tags"
 import { useAuth } from "@/lib/auth"
 import { copyText } from "@/lib/clipboard"
@@ -55,6 +62,7 @@ import {
 	type StoredHtml,
 } from "@/lib/offline"
 import { useReadAloud } from "@/lib/read-aloud"
+import { useReaderAi } from "@/lib/reader-ai"
 import {
 	loadColorScheme,
 	loadTypePrefs,
@@ -159,6 +167,11 @@ export default function Reader() {
 	const [scheme, setScheme] = useState(loadColorScheme)
 	// How far down the reader is, 0–1: the status line's, moved without rendering the screen.
 	const [line] = useState(() => new Animated.Value(0))
+	// The AI about this article, with the `ai` feature: its brief, for now.
+	const ai = useReaderAi(client, id, page !== null)
+	const [briefOpen, setBriefOpen] = useState(false)
+	// A citation followed from a sheet shows once the sheet is gone.
+	const citeAfterSheet = useRef<AiCitation | null>(null)
 	// Reading aloud: its language is guessed from the text when the article has none.
 	const text = useRef("")
 	const listen = useReadAloud({
@@ -717,6 +730,19 @@ export default function Reader() {
 		)
 	}
 
+	/** Scrolls to the passage an answer cites, and flashes it. */
+	function cite(citation: AiCitation) {
+		web.current?.injectJavaScript(
+			`window.klipCite && window.klipCite(${citation.start}, ${citation.end}); true;`,
+		)
+	}
+
+	/** The brief: the kept one, or, asked for here, written now. */
+	function openBrief() {
+		setBriefOpen(true)
+		if (!ai.brief.brief && !ai.brief.writing) void ai.brief.make()
+	}
+
 	/** Applies a change to one highlight now, and undoes it if the API refuses it. */
 	async function changeHighlight(
 		highlightId: string,
@@ -867,6 +893,17 @@ export default function Reader() {
 							tintColor={colors.accent}
 							onPress={() => (listen.status ? listen.close() : void listen.start())}
 						/>
+					) : null}
+					{page && ai.enabled ? (
+						<Stack.Toolbar.Menu
+							icon="sparkles"
+							accessibilityLabel="Ask AI"
+							tintColor={colors.accent}
+						>
+							<Stack.Toolbar.MenuAction icon="list.bullet.rectangle.portrait" onPress={openBrief}>
+								Sum Up This Article
+							</Stack.Toolbar.MenuAction>
+						</Stack.Toolbar.Menu>
 					) : null}
 					{article.status === "ready" ? (
 						<Stack.Toolbar.Button
@@ -1097,6 +1134,34 @@ export default function Reader() {
 					onSelect={showHighlight}
 					linking={linking}
 					backlinks={article.noteLinks.from}
+					colors={colors}
+				/>
+			) : null}
+			{article && ai.enabled ? (
+				<BriefSheet
+					visible={briefOpen}
+					title={article.title || hostOf(article.url)}
+					brief={ai.brief}
+					allowance={ai.allowance}
+					onCite={(citation) => {
+						// Its offsets are into the text the brief read: the page's, unless it changed since.
+						if (ai.brief.brief && ai.brief.brief.versionId !== versionId.current)
+							return void showToast({
+								message: "That passage is from another version of the article.",
+							})
+						citeAfterSheet.current = citation
+						setBriefOpen(false)
+					}}
+					onCopy={(text) => {
+						void copyText(text)
+						showToast({ message: "Brief copied" })
+					}}
+					onClose={() => setBriefOpen(false)}
+					onDismiss={() => {
+						const citation = citeAfterSheet.current
+						citeAfterSheet.current = null
+						if (citation) cite(citation)
+					}}
 					colors={colors}
 				/>
 			) : null}

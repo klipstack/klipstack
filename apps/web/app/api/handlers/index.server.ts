@@ -1,6 +1,7 @@
 import type { Endpoints } from "@klipstack/api-contract"
 import type { HandlerTable } from "../handler.server"
 import { me } from "./account.server"
+import * as ai from "./ai.server"
 import * as articles from "./articles.server"
 import * as library from "./library.server"
 import { openapi } from "./meta.server"
@@ -66,4 +67,13 @@ export const handlers: HandlerTable<Endpoints> = {
 	"savedSearches.delete": writes.removeSavedSearch,
 	"export.get": library.exportAll,
 	"openapi.get": openapi,
+	"ai.get": ai.status,
+	"ai.article": ai.article,
+	"ai.ask": ai.ask,
+	"ai.chat": ai.chat,
+	"ai.followUp": ai.more,
+	"ai.retry": ai.again,
+	"ai.delete": ai.remove,
+	"ai.restore": ai.restore,
+	"ai.brief": ai.brief,
 }

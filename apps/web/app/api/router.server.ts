@@ -7,6 +7,7 @@ import {
 import { LIBRARY_WRITE_SCOPE } from "@klipstack/api-contract/auth"
 import { logError } from "@klipstack/log"
 import { z } from "zod"
+import { eventStream } from "~/lib/ai-events.server"
 import { AppError } from "~/lib/app-error"
 import { type BodyTimeouts, BodyRefusal, discardBody, readBody } from "~/lib/body-reader.server"
 import { LARGE_UPLOADS, takeUploadSlot } from "~/lib/upload-slots.server"
@@ -255,6 +256,8 @@ export function createApiRouter<T extends Record<string, Endpoint>>({
 				})
 			case "binary":
 				return result as Response
+			case "events":
+				return eventStream(result as AsyncIterable<unknown>)
 			case "empty":
 				return new Response(null, { status: 204 })
 		}

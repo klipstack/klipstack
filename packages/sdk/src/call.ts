@@ -12,6 +12,7 @@ import {
 } from "@klipstack/api-contract"
 import type { z } from "zod"
 import { KlipstackApiError, KlipstackContractError, KlipstackInputError } from "./errors"
+import { sseData } from "./events"
 
 /**
  * Returns the current API key or access token. The SDK asks with `refresh: true` once after a 401,
@@ -223,6 +224,7 @@ function fillPath(path: string, params: Record<string, unknown>): string {
 function acceptFor(response: ResponseKind): string {
 	if (response.kind === "json") return "application/json"
 	if (response.kind === "text") return response.contentType.split(";")[0] ?? "*/*"
+	if (response.kind === "events") return "text/event-stream"
 	return "*/*"
 }
 
@@ -266,8 +268,27 @@ async function read(id: string, kind: ResponseKind, response: Response): Promise
 			return response.text()
 		case "binary":
 			return response
+		case "events":
+			return checkedEvents(id, kind.schema, response)
 		case "empty":
 			await response.body?.cancel()
 			return undefined
 	}
 }
+
+/**
+ * An events endpoint's events as they arrive, each checked against the contract. An event of a
+ * type this version does not know is skipped: a new kind of event never breaks an older client.
+ */
+async function* checkedEvents(id: string, schema: z.ZodType, response: Response) {
+	if (!response.body) return
+	for await (const value of sseData(response.body)) {
+		const parsed = schema.safeParse(value)
+		if (parsed.success) yield parsed.data
+		else if (!parsed.error.issues.every(unknownType))
+			throw new KlipstackContractError(id, parsed.error.issues)
+	}
+}
+
+const unknownType = (issue: z.core.$ZodIssue) =>
+	issue.code === "invalid_union" && issue.path.length === 1 && issue.path[0] === "type"

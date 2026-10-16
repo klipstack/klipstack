@@ -131,6 +131,35 @@ export function createClient(options: ClientOptions) {
 		snooze: () => call("noteReminders.snooze"),
 	}
 
+	type Language = { language?: "en" | "es"; signal?: AbortSignal }
+	/**
+	 * The AI about an article. Each question, follow-up, retry and new brief counts against the
+	 * account's monthly cap. Answers arrive as events, as they are written: iterate them to the end.
+	 */
+	const ai = {
+		/** Whether the account can ask, and this month's questions used against its cap. */
+		status: () => call("ai.get"),
+		/** The article's threads with their turns (its chat among them), and its brief. */
+		article: (articleId: string) => call("ai.article", { params: { id: articleId } }),
+		/** Explain, Define or Ask about a passage; `start` and `end` from `articles.html`'s text. */
+		ask: (articleId: string, body: BodyOf<"ai.ask">, { signal }: { signal?: AbortSignal } = {}) =>
+			call("ai.ask", { params: { id: articleId }, body, signal }),
+		/** A question in the article's chat (the first one starts it). */
+		chat: (articleId: string, question: string, { language, signal }: Language = {}) =>
+			call("ai.chat", { params: { id: articleId }, body: { question, language }, signal }),
+		followUp: (threadId: string, question: string, { language, signal }: Language = {}) =>
+			call("ai.followUp", { params: { id: threadId }, body: { question, language }, signal }),
+		/** Answers the last question again, in place of its answer. */
+		retry: (threadId: string, { language, signal }: Language = {}) =>
+			call("ai.retry", { params: { id: threadId }, body: { language }, signal }),
+		/** Deletes a thread with its answers; `restore` undoes it. */
+		delete: (threadId: string) => call("ai.delete", { params: { id: threadId } }),
+		restore: (threadId: string) => call("ai.restore", { params: { id: threadId } }),
+		/** The article's brief: the kept one at no cost (only a `brief` event), or a new one. */
+		brief: (articleId: string, { language, signal }: Language = {}) =>
+			call("ai.brief", { params: { id: articleId }, body: { language }, signal }),
+	}
+
 	return {
 		call,
 		/** The account behind the token, and what the token may do. */
@@ -142,6 +171,7 @@ export function createClient(options: ClientOptions) {
 		},
 		links,
 		highlights,
+		ai,
 		notebook,
 		dailyHighlights,
 		noteReminders,
@@ -278,4 +308,13 @@ export const FACADE: Record<EndpointId, string> = {
 	"savedSearches.delete": "savedSearches.delete",
 	"export.get": "export",
 	"openapi.get": "openapi",
+	"ai.get": "ai.status",
+	"ai.article": "ai.article",
+	"ai.ask": "ai.ask",
+	"ai.chat": "ai.chat",
+	"ai.followUp": "ai.followUp",
+	"ai.retry": "ai.retry",
+	"ai.delete": "ai.delete",
+	"ai.restore": "ai.restore",
+	"ai.brief": "ai.brief",
 }
