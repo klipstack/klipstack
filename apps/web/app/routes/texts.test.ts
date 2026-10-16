@@ -1,5 +1,6 @@
-import { db, documents, inArray, newId, user } from "@klipstack/db"
+import { db, documents, eq, inArray, newId, user } from "@klipstack/db"
 import { afterAll, beforeAll, expect, it, vi } from "vitest"
+import { starterGuide, starterUrlHash } from "~/lib/starter-texts.server"
 import { loader } from "./texts"
 
 const session = vi.hoisted(() => ({ user: { id: "", name: "Reader", locale: "en" } }))
@@ -48,15 +49,34 @@ it("shows the texts in the language asked for, and the guide in the reader's", a
 	expect((await texts("?lang=fr")).shown).toBe("en")
 })
 
-it("puts the guide last for a reader who has saved 10 articles, without it", async () => {
-	await db.insert(documents).values(
-		Array.from({ length: 10 }, (_, i) => ({
+it("puts the guide last once the reader has it, or has saved 10 articles", async () => {
+	const saved = (n: number) =>
+		Array.from({ length: n }, () => ({
 			userId,
-			sourceUrl: `https://example.com/saved-${i}`,
+			sourceUrl: `https://example.com/saved-${newId()}`,
 			urlHash: newId(),
 			status: "ready" as const,
 			title: "Saved",
-		})),
-	)
-	expect(await texts("")).toMatchObject({ guide: "guide-en", guideFirst: false })
+		}))
+	try {
+		// The guide saved: last, though new.
+		const guide = starterGuide("en")
+		await db.insert(documents).values({
+			userId,
+			sourceUrl: guide.url,
+			urlHash: starterUrlHash(guide),
+			status: "ready",
+			title: guide.title,
+		})
+		expect(await texts("")).toMatchObject({ guide: "guide-en", guideFirst: false })
+		await db.delete(documents).where(eq(documents.userId, userId))
+
+		// Nine saved: still first. The tenth: last, without the guide.
+		await db.insert(documents).values(saved(9))
+		expect((await texts("")).guideFirst).toBe(true)
+		await db.insert(documents).values(saved(1))
+		expect(await texts("")).toMatchObject({ guide: "guide-en", guideFirst: false })
+	} finally {
+		await db.delete(documents).where(eq(documents.userId, userId))
+	}
 })

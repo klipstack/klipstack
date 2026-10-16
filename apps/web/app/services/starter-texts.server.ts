@@ -1,9 +1,10 @@
-import { and, db, documents, eq, inArray, isNull } from "@klipstack/db"
+import { and, db, documents, eq, inArray, isNull, notInArray } from "@klipstack/db"
 import {
 	STARTER_TOPICS,
 	type StarterLanguage,
 	type StarterText,
 	starterGuide,
+	starterTexts,
 	starterTextsIn,
 	starterUrlHash,
 } from "~/lib/starter-texts.server"
@@ -42,7 +43,10 @@ export async function starterItems(userId: string, texts: StarterText[]): Promis
 	}))
 }
 
-/** How many saved articles, the trash aside, make a reader no longer new to Klipstack. */
+/**
+ * How many saved articles, the trash and the starter texts aside, make a reader no longer new to
+ * Klipstack: ten books added from these shelves are still a first visit.
+ */
 const EXPERIENCED = 10
 
 /** Whether the reader has saved enough to know their way around: the guide is not for them first. */
@@ -50,7 +54,13 @@ export async function experiencedReader(userId: string): Promise<boolean> {
 	const rows = await db
 		.select({ id: documents.id })
 		.from(documents)
-		.where(and(eq(documents.userId, userId), isNull(documents.deletedAt)))
+		.where(
+			and(
+				eq(documents.userId, userId),
+				isNull(documents.deletedAt),
+				notInArray(documents.urlHash, starterTexts().map(starterUrlHash)),
+			),
+		)
 		.limit(EXPERIENCED)
 	return rows.length >= EXPERIENCED
 }

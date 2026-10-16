@@ -118,8 +118,18 @@ it("leaves the guide out for a reader who has saved 10 articles", async () => {
 			archivedAt: new Date(),
 			deletedAt,
 		}))
-	// Nine, and one in the trash: still new to it.
+	// Nine, one in the trash and a starter text: still new to it.
 	await db.insert(documents).values([...read(9), ...read(1, new Date())])
+	const story = findStarterText("poe-tell-tale-heart")!
+	await db.insert(documents).values({
+		userId: veteranId,
+		sourceUrl: story.url,
+		urlHash: starterUrlHash(story),
+		status: "ready",
+		title: story.title,
+		readAt: new Date(),
+		archivedAt: new Date(),
+	})
 	expect((await home()).emptyState?.kind).toBe("caughtUp")
 	expect((await offer())?.guide).toBe("guide-en")
 	// The tenth: the books, without the guide.
