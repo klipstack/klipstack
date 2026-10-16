@@ -2,6 +2,7 @@ import type {
 	articleHtml,
 	articleMarkdown,
 	articleTopics,
+	countArticles,
 	getArticle,
 	listArticles,
 	lookupArticles,
@@ -14,6 +15,7 @@ import { parse } from "~/lib/note-links"
 import { rateLimit } from "~/lib/rate-limit.server"
 import { appOrigin, articleSummary, readerUrl } from "~/services/article-summary.server"
 import {
+	countFilters,
 	findSavedByUrls,
 	getDocument,
 	getDocumentForReader,
@@ -54,6 +56,13 @@ export const list: Handler<typeof listArticles> = async ({ userId, query }) => {
 		topic,
 	})
 	return { items: page.items.map(articleSummary), nextCursor: page.nextCursor }
+}
+
+/** The web's filter chips count the same way (routes/library.tsx). */
+export const counts: Handler<typeof countArticles> = async ({ userId, query }) => {
+	const topic = query.topic ? await topicAsked(userId, query.topic) : null
+	if (query.topic && !topic) throw notFound(NO_TOPIC)
+	return { counts: await countFilters(userId, query.view, topic) }
 }
 
 export const search: Handler<typeof searchArticles> = async ({ userId, query }) => {

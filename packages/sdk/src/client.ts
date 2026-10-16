@@ -25,6 +25,8 @@ export function createClient(options: ClientOptions) {
 		/** Every article of a view, page after page. */
 		all: (query: Omit<QueryOf<"articles.list">, "cursor"> = {}) =>
 			paginate((cursor) => call("articles.list", { query: { ...query, cursor } })),
+		/** How many articles each of a list's filters would show: the filter chips' counts. */
+		counts: (query: QueryOf<"articles.counts"> = {}) => call("articles.counts", { query }),
 		search: (q: string, query: Omit<QueryOf<"articles.search">, "q"> = {}) =>
 			call("articles.search", { query: { ...query, q } }),
 		/** Saved articles by original URL; `id` is null for URLs not in the library. */
@@ -45,6 +47,8 @@ export function createClient(options: ClientOptions) {
 			batched(ids, (part) => call("articles.update", { body: { ...changes, ids: part } })),
 		/** Puts back what `update` changed, with one of the tokens in its `undo`, for 15 minutes. */
 		undo: (token: string) => call("articles.undo", { body: { token } }),
+		/** Archives every finished article in the library; `undo` puts them back, still finished. */
+		archiveRead: () => call("articles.archiveRead"),
 		rename: (id: string, title: string) =>
 			call("articles.rename", { params: { id }, body: { title } }),
 		trash: (ids: readonly string[]) =>
@@ -253,6 +257,7 @@ export type KlipstackClient = ReturnType<typeof createClient>
 export const FACADE: Record<EndpointId, string> = {
 	"me.get": "me",
 	"articles.list": "articles.list",
+	"articles.counts": "articles.counts",
 	"articles.search": "articles.search",
 	"annotations.search": "annotations.search",
 	"articles.lookup": "articles.lookup",
@@ -264,6 +269,7 @@ export const FACADE: Record<EndpointId, string> = {
 	"articles.save": "articles.save",
 	"articles.update": "articles.update",
 	"articles.undo": "articles.undo",
+	"articles.archiveRead": "articles.archiveRead",
 	"articles.rename": "articles.rename",
 	"articles.trash": "articles.trash",
 	"articles.restore": "articles.restore",

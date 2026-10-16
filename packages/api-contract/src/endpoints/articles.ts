@@ -49,6 +49,32 @@ export const listArticles = defineEndpoint({
 	errors: ["not_found"],
 })
 
+const filterCounts = Object.fromEntries(
+	LIST_FILTERS.map((f) => [f, z.number().int().optional()]),
+) as Record<(typeof LIST_FILTERS)[number], z.ZodOptional<z.ZodNumber>>
+
+export const countArticles = defineEndpoint({
+	id: "articles.counts",
+	method: "GET",
+	path: "/articles/counts",
+	scope: "read",
+	summary:
+		"How many articles each of a list's filters would show, as the web's filter chips count them: the library's filters for `inbox`, the archive's for `archive` and `starred`. With `topic`, only that topic's articles.",
+	query: z.object({
+		view: z.enum(["inbox", "archive", "starred"]).default("inbox"),
+		/** One of the user's topics (GET /topics), or `none`: sorted into no topic. */
+		topic: z.union([Id, z.literal("none")]).optional(),
+	}),
+	response: json(
+		z.object({
+			/** One count per filter the view takes (GET /articles `filter`); the others are absent. */
+			counts: z.object(filterCounts),
+		}),
+	),
+	/** `not_found`: `topic` is none of the user's topics now. */
+	errors: ["not_found"],
+})
+
 export const searchArticles = defineEndpoint({
 	id: "articles.search",
 	method: "GET",

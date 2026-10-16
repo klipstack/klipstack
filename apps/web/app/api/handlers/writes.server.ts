@@ -1,5 +1,7 @@
 import {
 	type appendNote,
+	type archiveReadArticles,
+	BATCH_MAX,
 	type createHighlight,
 	type createSavedSearch as createSavedSearchEndpoint,
 	type createTag as createTagEndpoint,
@@ -41,6 +43,7 @@ import {
 	updateHighlight as updateHighlightCommand,
 } from "~/commands/annotations.server"
 import {
+	archiveFinished,
 	updateArticles as changeArticles,
 	NO_ARTICLE,
 	openArticle as openArticleCommand,
@@ -126,6 +129,15 @@ export const undo: Handler<typeof undoArticles> = async ({ userId, body }) => {
 	const record = readUndo<UndoRecord>(userId, body.token)
 	if (!record) throw new AppError("invalid_request", "This undo has expired.")
 	return { items: await summaries(userId, await undoChanges(userId, record)) }
+}
+
+/** The web's "Archive all read". An undo token holds a batch's worth, to stay small. */
+export const archiveRead: Handler<typeof archiveReadArticles> = async ({ userId }) => {
+	const { archived, undo } = await archiveFinished(userId)
+	const tokens = []
+	for (let i = 0; i < undo.docs.length; i += BATCH_MAX)
+		tokens.push(signUndo(userId, { ...undo, docs: undo.docs.slice(i, i + BATCH_MAX) }))
+	return { archived, undo: tokens }
 }
 
 export const rename: Handler<typeof renameArticle> = async ({ userId, params, body }) => {

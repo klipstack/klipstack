@@ -3,19 +3,37 @@ import { SEARCH_LIMIT_MAX } from "@klipstack/api-contract/search-query"
 import type { ArticleSummary } from "@klipstack/sdk"
 import { Stack, useFocusEffect } from "expo-router"
 import { useCallback, useMemo, useRef, useState } from "react"
-import { ActivityIndicator, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native"
+import {
+	ActivityIndicator,
+	AppState,
+	Pressable,
+	RefreshControl,
+	StyleSheet,
+	Text,
+	View,
+} from "react-native"
 import { useArticleActions } from "@/components/article-actions"
 import { ArticleList, type CardMenu, useImageHeaders } from "@/components/article-card"
 import { LayoutButton } from "@/components/list-layout"
+import { listMenuItem, useFilterChoice, useTopicChoice } from "@/components/list-menu"
 import { useMultiSelect } from "@/components/multi-select"
 import { usePagedList } from "@/components/paged-list"
 import { SELECTION_BAR_SPACE, SelectionBar } from "@/components/selection-bar"
 import { HeaderButtons, HeaderTextButton, SaveLinkButton } from "@/components/tab-stack"
 import { useTagSheet } from "@/components/tag-sheet"
-import { topicHeaderItem, useTopicChoice } from "@/components/topic-choice"
+import { onChange, showToast, track } from "@/lib/article-changes"
 import { retagged } from "@/lib/article-tags"
 import { useAuth } from "@/lib/auth"
 import { actedOn, bulkActions, bulkNotice, type LibraryView, stillShown } from "@/lib/bulk-actions"
+import {
+	archivedReadNotice,
+	type FilterChoice,
+	type FilterCounts,
+	filterLine,
+	keepsWholeList,
+	narrowKept,
+	stillInFilter,
+} from "@/lib/library-filters"
 import {
 	chosenTopic,
 	keptOffline,
@@ -43,11 +61,14 @@ const PAGE_SIZE = 30
  * them. A long press on one article opens its menu, whose actions go the same way. The trash says
  * how long it keeps articles, and its articles can only be restored.
  *
- * Inbox, Starred and Archive narrow to one of the reader's topics, or to No topic, as on the web:
- * the header's filter menu, only for a reader with topics. The line above the list says what the
- * topic holds. Each list keeps its choice while the app runs (`useTopicChoice`); a topic that
- * ended shows every topic again, and says so. A topic's own list (`topic`, from the Topics screen)
- * has no menu: it is that topic's, across the whole library (`view: "all"`).
+ * Inbox, Starred and Archive have the web's filters, with their counts, and Inbox its sort orders:
+ * the header's Show menu (`listMenuItem`). A reader with topics also narrows them there to one
+ * topic, or to No topic. The lines above the list say what the topic holds and what the filter
+ * shows; Inbox's Read offers to archive them all, with an undo. Each list keeps its choices while
+ * the app runs (`useTopicChoice`, `useFilterChoice`); a topic that ended shows every topic again,
+ * and says so. Archive and Starred are in sections by when articles got there (`date-groups.ts`).
+ * A topic's own list (`topic`, from the Topics screen) has no menu: it is that topic's, across the
+ * whole library (`view: "all"`).
  */
 export function LibraryList({
 	view,
@@ -72,6 +93,7 @@ export function LibraryList({
 	const filterable =
 		!fixedTopic && (view === "inbox" || view === "starred" || view === "archive") ? view : null
 	const [topic, setTopic] = useTopicChoice(filterable)
+	const { filter, sort, setFilter, setSort } = useFilterChoice(filterable)
 	const [gone, setGone] = useState(false)
 	const choose = useCallback(
 		(next: string | null) => {
@@ -110,6 +132,40 @@ export function LibraryList({
 	// What the list asks for: the chosen topic once the topics confirm it (`topicToAsk`).
 	const asked = fixedTopic ?? (filterable ? topicToAsk(topic, topics) : null)
 
+	// How many each filter shows, of the topic's articles when one is chosen: the menu's counts.
+	// Loaded on each return here and to the app, when the topic changes, when articles change, and
+	// after the list's own actions.
+	const [counts, setCounts] = useState<{ topic: string | null; counts: FilterCounts } | null>(null)
+	const countsAsked = useRef(0)
+	const loadCounts = useCallback(() => {
+		if (!client || !filterable || asked === undefined) return
+		const mine = ++countsAsked.current
+		client.articles
+			.counts({ view: filterable, topic: asked ?? undefined })
+			.then((answer) => {
+				if (mine === countsAsked.current) setCounts({ topic: asked, counts: answer.counts })
+			})
+			.catch(() => {
+				// Offline, or the topic ended: the menu offers every filter, uncounted, and the list says
+				// why.
+				if (mine === countsAsked.current) setCounts(null)
+			})
+	}, [client, filterable, asked])
+	useFocusEffect(
+		useCallback(() => {
+			loadCounts()
+			const off = onChange(loadCounts)
+			const sub = AppState.addEventListener("change", (state) => {
+				if (state === "active") loadCounts()
+			})
+			return () => {
+				off()
+				sub.remove()
+			}
+		}, [loadCounts]),
+	)
+	const shownCounts = counts && counts.topic === (asked ?? null) ? counts.counts : null
+
 	const fetchPage = useMemo(() => {
 		if (!client || asked === undefined) return null
 		if (view) {
@@ -117,7 +173,9 @@ export function LibraryList({
 				try {
 					return await client.articles.list({
 						view,
-						sort: "newest",
+						filter: filter ?? undefined,
+						// Archive and Starred have one order, by when articles got there, as on the web.
+						sort: view === "inbox" ? sort : "newest",
 						limit,
 						cursor,
 						topic: asked ?? undefined,
@@ -137,29 +195,41 @@ export function LibraryList({
 			const page = await client.articles.search(query, { limit, offset: Number(cursor ?? 0) })
 			return { items: page.items, nextCursor: page.nextOffset?.toString() ?? null }
 		}
-	}, [client, view, query, asked, filterable, ended, fixedTopic])
-	// Inbox and Starred are kept for offline reading, as on the web (src/lib/offline.ts). One topic's
-	// share of them is not the list to keep, nor to show offline: it gets the offline note alone.
+	}, [client, view, query, asked, filterable, filter, sort, ended, fixedTopic])
+	// Inbox and Starred are kept for offline reading, as on the web (src/lib/offline.ts): all of it,
+	// newest first. One topic's share of them is not the list to keep, nor to show offline: it gets
+	// the offline note alone. A filter or another order shows what was kept, narrowed and sorted on
+	// the phone, when the kept articles say enough (`narrowKept`).
 	const offline = useMemo(() => {
 		if (!client || (view !== "inbox" && view !== "starred")) return undefined
 		const kept = keptOffline(view, asked ?? null)
+		const whole = keepsWholeList(filter, sort)
 		return {
 			loaded: (items: ArticleSummary[]) => {
-				if (!kept) return
+				if (!kept || !whole) return
 				saveList(view, items)
 				void downloadAhead(client, view, items)
 			},
-			kept: () => (kept ? loadList(view) : null),
+			kept: () => {
+				const items = kept ? loadList(view) : null
+				return items && narrowKept(items, view, filter, sort)
+			},
 		}
-	}, [client, view, asked])
+	}, [client, view, asked, filter, sort])
 	const list = usePagedList(fetchPage, PAGE_SIZE, view ? undefined : SEARCH_LIMIT_MAX, offline)
 	const { items, error, edit, load } = list
 	const select = useMultiSelect(items)
 
 	const act = useArticleActions({
 		client,
-		apply: (changed) => edit((shown) => replaced(shown, changed, view ? { view } : { query })),
+		apply: (changed) =>
+			edit((shown) =>
+				replaced(shown, changed, view ? { view } : { query }).filter(
+					(a) => !filterable || stillInFilter(filterable, filter, a),
+				),
+			),
 		done: (action, count, conflicts) => {
+			loadCounts()
 			if (select.selecting) select.say(bulkNotice(action, count, conflicts))
 		},
 		reload: () => void load(),
@@ -178,6 +248,36 @@ export function LibraryList({
 		[act, openTags, start],
 	)
 
+	// Inbox's Read: every read article to the archive, every topic's, with an undo.
+	const [archiving, setArchiving] = useState(false)
+	const archiveRead = useCallback(async () => {
+		if (!client) return
+		setArchiving(true)
+		try {
+			// Lists load again once it lands (`track`), this one too.
+			const { archived, undo } = await track(client.articles.archiveRead())
+			showToast({
+				message: archivedReadNotice(archived.length),
+				action: undo.length
+					? {
+							label: "Undo",
+							run: () =>
+								void track(Promise.all(undo.map((token) => client.articles.undo(token)))).catch(
+									() =>
+										showToast({
+											message: "Couldn't undo it: it's been too long, or you're offline.",
+										}),
+								),
+						}
+					: undefined,
+			})
+		} catch (e) {
+			showToast({ message: `Not archived: ${e instanceof Error ? e.message : String(e)}` })
+		} finally {
+			setArchiving(false)
+		}
+	}, [client])
+
 	const note =
 		view === "trash"
 			? `Articles in the trash are deleted permanently after ${TRASH_RETENTION_DAYS} days.`
@@ -186,7 +286,6 @@ export function LibraryList({
 				: null
 	const loaded = typeof topics === "object" ? topics : null
 	const shown = loaded && asked ? chosenTopic(loaded, asked) : null
-	const topicMenu = filterable && loaded?.items.length ? loaded : null
 	const buttons = (
 		<HeaderButtons>
 			{items?.length ? <HeaderTextButton label="Select" onPress={() => start()} /> : null}
@@ -204,10 +303,21 @@ export function LibraryList({
 								// The back button, after Select All.
 								headerLeft: undefined,
 								headerRight: () => buttons,
-								// With topics, the topic menu first: a native menu, which only these items can hold.
-								unstable_headerRightItems: topicMenu
+								// The Show menu first: a native menu, which only these items can hold.
+								unstable_headerRightItems: filterable
 									? () => [
-											topicHeaderItem(topicMenu, asked ?? null, choose, colors.accent),
+											listMenuItem({
+												view: filterable,
+												counts: shownCounts,
+												filter,
+												sort,
+												topics: loaded?.items.length ? loaded : null,
+												topic: asked ?? null,
+												chooseFilter: setFilter,
+												chooseSort: setSort,
+												chooseTopic: choose,
+												tint: colors.accent,
+											}),
 											{ type: "custom", element: buttons, hidesSharedBackground: true },
 										]
 									: undefined,
@@ -222,11 +332,19 @@ export function LibraryList({
 					select.selecting ? { paddingBottom: SELECTION_BAR_SPACE } : undefined
 				}
 				data={items ?? []}
+				groupAt={
+					view === "archive"
+						? (a) => a.archivedAt
+						: view === "starred"
+							? (a) => a.starredAt
+							: undefined
+				}
 				refreshControl={
 					<RefreshControl
 						refreshing={list.refreshing}
 						onRefresh={() => {
 							loadTopics()
+							loadCounts()
 							void list.refresh()
 						}}
 					/>
@@ -261,6 +379,23 @@ export function LibraryList({
 								</Pressable>
 							</View>
 						) : null}
+						{filterable && filter ? (
+							<FilterLine
+								filter={filter}
+								count={shownCounts?.[filter]}
+								// It archives every read article, not only the topic's: as on the web, not offered
+								// while a topic is chosen.
+								archive={
+									filterable === "inbox" &&
+									filter === "read" &&
+									!asked &&
+									(shownCounts?.read ?? 0) > 0
+										? { run: () => void archiveRead(), busy: archiving }
+										: null
+								}
+								clear={() => setFilter(null)}
+							/>
+						) : null}
 						{error && items ? (
 							<Text style={[styles.banner, { color: colors.mutedFg }]}>{error}</Text>
 						) : note && (items?.length || gone) ? (
@@ -277,11 +412,13 @@ export function LibraryList({
 							(items
 								? fixedTopic
 									? empty
-									: asked === "none"
-										? "No articles without a topic here."
-										: asked
-											? "No articles in this topic here."
-											: empty
+									: filter
+										? "Nothing here right now."
+										: asked === "none"
+											? "No articles without a topic here."
+											: asked
+												? "No articles in this topic here."
+												: empty
 								: "Loading…")}
 					</Text>
 				}
@@ -299,6 +436,47 @@ export function LibraryList({
 			) : null}
 			{tags.sheet}
 		</>
+	)
+}
+
+/** What a filtered list shows, and the ways out: all of it, or Inbox's read ones archived. */
+function FilterLine({
+	filter,
+	count,
+	archive,
+	clear,
+}: {
+	filter: Exclude<FilterChoice, null>
+	count: number | undefined
+	archive: { run: () => void; busy: boolean } | null
+	clear: () => void
+}) {
+	const colors = useColors()
+	const link = (label: string, onPress: () => void, disabled = false) => (
+		<Pressable accessibilityRole="button" hitSlop={8} disabled={disabled} onPress={onPress}>
+			{({ pressed }) => (
+				<Text
+					style={[
+						styles.topicText,
+						{ color: colors.accent },
+						(pressed || disabled) && styles.pressed,
+					]}
+				>
+					{label}
+				</Text>
+			)}
+		</Pressable>
+	)
+	return (
+		<View style={styles.filter}>
+			<Text style={[styles.topicText, styles.filterName, { color: colors.fg }]}>
+				{filterLine(filter, count)}
+			</Text>
+			<View style={styles.filterActions}>
+				{archive ? link("Archive all read", archive.run, archive.busy) : null}
+				{link("Show all", clear)}
+			</View>
+		</View>
 	)
 }
 
@@ -325,4 +503,7 @@ const styles = StyleSheet.create({
 	topicText: { fontSize: 15, lineHeight: 20 },
 	intro: { paddingTop: 4, paddingBottom: 12 },
 	pressed: { opacity: 0.5 },
+	filter: { paddingTop: 4, paddingBottom: 12, gap: 4 },
+	filterName: { fontWeight: "600" },
+	filterActions: { flexDirection: "row", gap: 20 },
 })

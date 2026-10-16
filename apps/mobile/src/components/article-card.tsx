@@ -22,6 +22,7 @@ import { useListLayout } from "@/components/list-layout"
 import { articleByline, articleMeta, shortDate, siteName } from "@/lib/article-meta"
 import { useAuth } from "@/lib/auth"
 import { copyText } from "@/lib/clipboard"
+import { inSections } from "@/lib/date-groups"
 import { leadImageSource } from "@/lib/lead-image"
 import { type Colors, useColors } from "@/lib/theme"
 
@@ -578,10 +579,16 @@ export const CARD_FRAME = TINT
 // A row's frame reaches this far past its content, into the list's side margins.
 const ROW_INSET = 12
 
+/** One line of a list in sections: a heading, or a row (one article, or two cards side by side). */
+type Line =
+	| { key: string; heading: string; first: boolean }
+	| { key: string; items: ArticleSummary[]; first: boolean; heading?: never }
+
 /**
  * Articles in the layout chosen with the header's switch (`LayoutButton`): two columns of cards,
  * as the web's grid on a narrow screen, or rows. With a `selection`, taps check articles; a
- * checked one is tinted, as on the web.
+ * checked one is tinted, as on the web. With `groupAt` (when each got into the list, newest first),
+ * a heading for each date group, as the web's Archive and Starred (`date-groups.ts`).
  */
 export function ArticleList(
 	props: Omit<FlatListProps<ArticleSummary>, "renderItem" | "numColumns"> & {
@@ -589,12 +596,13 @@ export function ArticleList(
 		selection?: Selection | null
 		/** The long-press menu, when the list can act on its articles; none while selecting. */
 		menu?: CardMenu | null
+		groupAt?: (item: ArticleSummary) => string | null | undefined
 	},
 ) {
 	const colors = useColors()
 	const layout = useListLayout()
 	const { width } = useWindowDimensions()
-	const { headers, selection, menu, contentContainerStyle, ...rest } = props
+	const { headers, selection, menu, contentContainerStyle, groupAt, data, ...rest } = props
 	// Two columns with the gap between them and at both sides. A card's frame (its background, and
 	// the tint of a checked one) reaches past its content by `TINT`, on every side.
 	const cell = { width: (width - GAP * 3) / 2 + TINT * 2, margin: -TINT }
@@ -605,53 +613,111 @@ export function ArticleList(
 	const shared = {
 		...rest,
 		extraData: selection,
-		keyExtractor: (item: ArticleSummary) => item.id,
 		contentInsetAdjustmentBehavior: "automatic" as const,
 		style: { backgroundColor: colors.bg },
+	}
+	const row = (item: ArticleSummary) => (
+		<ArticleRow item={item} colors={colors} headers={headers} {...check(item)} />
+	)
+	const card = (item: ArticleSummary) => {
+		const { checked, onCheck, menu: cardMenu } = check(item)
+		return (
+			<View key={item.id} style={cell}>
+				<ArticleCard
+					item={item}
+					colors={colors}
+					headers={headers}
+					checked={checked}
+					onCheck={onCheck}
+					menu={cardMenu}
+					framed
+				/>
+			</View>
+		)
+	}
+	const separator = <View style={[styles.separator, { backgroundColor: colors.divider }]} />
+
+	// No dates (a server from before `starredAt`, a list kept by an older app): no headings.
+	if (groupAt && Array.from(data ?? []).some(groupAt)) {
+		const lines = sectionLines(data ?? [], groupAt, layout === "grid" ? 2 : 1)
+		return (
+			<FlatList<Line>
+				key={`${layout}-sections`}
+				{...(shared as Omit<FlatListProps<Line>, "renderItem">)}
+				data={lines}
+				keyExtractor={(line) => line.key}
+				contentContainerStyle={[
+					layout === "grid" ? styles.grid : styles.rows,
+					contentContainerStyle,
+				]}
+				renderItem={({ item: line }) =>
+					line.heading !== undefined ? (
+						<Text
+							accessibilityRole="header"
+							style={[styles.heading, line.first && styles.firstHeading, { color: colors.fg }]}
+						>
+							{line.heading}
+						</Text>
+					) : layout === "grid" ? (
+						<View style={styles.row}>{line.items.map(card)}</View>
+					) : (
+						<View>
+							{line.first ? null : separator}
+							{row(line.items[0]!)}
+						</View>
+					)
+				}
+			/>
+		)
 	}
 	// A FlatList can't change its number of columns: each layout is a list of its own.
 	return layout === "list" ? (
 		<FlatList
 			key="list"
 			{...shared}
+			data={data}
+			keyExtractor={(item: ArticleSummary) => item.id}
 			contentContainerStyle={[styles.rows, contentContainerStyle]}
-			ItemSeparatorComponent={() => (
-				<View style={[styles.separator, { backgroundColor: colors.divider }]} />
-			)}
-			renderItem={({ item }) => (
-				<ArticleRow item={item} colors={colors} headers={headers} {...check(item)} />
-			)}
+			ItemSeparatorComponent={() => separator}
+			renderItem={({ item }) => row(item)}
 		/>
 	) : (
 		<FlatList
 			key="grid"
 			{...shared}
+			data={data}
+			keyExtractor={(item: ArticleSummary) => item.id}
 			numColumns={2}
 			columnWrapperStyle={styles.row}
 			contentContainerStyle={[styles.grid, contentContainerStyle]}
-			renderItem={({ item }) => {
-				const { checked, onCheck, menu: cardMenu } = check(item)
-				return (
-					<View style={cell}>
-						<ArticleCard
-							item={item}
-							colors={colors}
-							headers={headers}
-							checked={checked}
-							onCheck={onCheck}
-							menu={cardMenu}
-							framed
-						/>
-					</View>
-				)
-			}}
+			renderItem={({ item }) => card(item)}
 		/>
 	)
 }
 
+/** The list's sections as lines: each heading, then its articles `columns` to a row. */
+function sectionLines(
+	items: ArrayLike<ArticleSummary>,
+	groupAt: (item: ArticleSummary) => string | null | undefined,
+	columns: number,
+): Line[] {
+	const lines: Line[] = []
+	for (const section of inSections(Array.from(items), groupAt, new Date())) {
+		lines.push({ key: `heading-${section.title}`, heading: section.title, first: !lines.length })
+		for (let i = 0; i < section.items.length; i += columns) {
+			const items = section.items.slice(i, i + columns)
+			lines.push({ key: items.map((a) => a.id).join("+"), items, first: i === 0 })
+		}
+	}
+	return lines
+}
+
 const styles = StyleSheet.create({
 	grid: { paddingHorizontal: GAP, paddingTop: 8, paddingBottom: 32, gap: 24 },
-	row: { gap: GAP },
+	row: { flexDirection: "row", gap: GAP },
+	// A date group of Archive or Starred.
+	heading: { fontSize: 20, fontWeight: "700", paddingTop: 20, paddingBottom: 4 },
+	firstHeading: { paddingTop: 4 },
 	rows: { paddingHorizontal: GAP, paddingBottom: 32 },
 	framed: { padding: TINT, borderRadius: 12 + TINT },
 	articleRow: {

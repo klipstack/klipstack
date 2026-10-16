@@ -29,6 +29,7 @@ import {
 	articleHtml,
 	articleMarkdown,
 	articleTopics,
+	countArticles,
 	getArticle,
 	listArticles,
 	lookupArticles,
@@ -59,6 +60,7 @@ import {
 } from "./endpoints/notebook"
 import {
 	appendNote,
+	archiveReadArticles,
 	createHighlight,
 	createSavedSearch,
 	createTag,
@@ -94,6 +96,7 @@ import {
 export const endpoints = {
 	"me.get": getMe,
 	"articles.list": listArticles,
+	"articles.counts": countArticles,
 	"articles.search": searchArticles,
 	"annotations.search": searchAnnotations,
 	"articles.lookup": lookupArticles,
@@ -105,6 +108,7 @@ export const endpoints = {
 	"articles.save": saveArticle,
 	"articles.update": updateArticles,
 	"articles.undo": undoArticles,
+	"articles.archiveRead": archiveReadArticles,
 	"articles.rename": renameArticle,
 	"articles.trash": trashArticles,
 	"articles.restore": restoreArticles,

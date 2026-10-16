@@ -99,6 +99,11 @@ const articleSummaryShape = {
 	location: z.enum(["inbox", "archive"]),
 	archivedAt: Time.nullable(),
 	starred: z.boolean(),
+	/**
+	 * When it was starred; null when it isn't. Starred lists newest stars first. Optional: servers
+	 * before 2026-10-16 don't send it.
+	 */
+	starredAt: Time.nullable().optional(),
 	/** Marked for the user's next edition, the public page of articles they share. */
 	shortlisted: z.boolean(),
 	/** Ever opened in the reader. */

@@ -395,8 +395,13 @@ export async function undoChanges(userId: string, undo: UndoRecord): Promise<str
 	return revertChanges(userId, undo)
 }
 
-/** Archives every finished article still in the library; their ids, for `undoArchive`. */
-export async function archiveFinished(userId: string): Promise<string[]> {
+/**
+ * Archives every finished article still in the library, every topic's. Their ids, for `undoArchive`,
+ * and what `undoChanges` needs to put them back the same way: in the library, still finished.
+ */
+export async function archiveFinished(
+	userId: string,
+): Promise<{ archived: string[]; undo: UndoRecord }> {
 	const rows = await db
 		.update(documents)
 		.set({ archivedAt: new Date() })
@@ -409,7 +414,11 @@ export async function archiveFinished(userId: string): Promise<string[]> {
 			),
 		)
 		.returning({ id: documents.id })
-	return rows.map((r) => r.id)
+	const archived = rows.map((r) => r.id)
+	return {
+		archived,
+		undo: { ...emptyUndo(), docs: archived.map((id) => ({ id, archivedAt: null })) },
+	}
 }
 
 /**

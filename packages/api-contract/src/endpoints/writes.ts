@@ -131,6 +131,27 @@ export const undoArticles = defineEndpoint({
 	errors: [],
 })
 
+export const archiveReadArticles = defineEndpoint({
+	id: "articles.archiveRead",
+	method: "POST",
+	path: "/articles/archive-read",
+	scope: "write",
+	summary:
+		"Archives every finished article in the library (the `read` filter of GET /articles), as the web's \"Archive all read\" does. They stay finished. Every topic's: there is no `topic`.",
+	response: json(
+		z.object({
+			/** The articles archived. */
+			archived: z.array(Id),
+			/**
+			 * For `POST /articles/undo`: back in the library, still finished. One token per ${BATCH_MAX}
+			 * articles archived; none when nothing was read.
+			 */
+			undo: z.array(z.string()),
+		}),
+	),
+	errors: [],
+})
+
 export const renameArticle = defineEndpoint({
 	id: "articles.rename",
 	method: "PATCH",
