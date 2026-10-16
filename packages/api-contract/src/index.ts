@@ -8,6 +8,7 @@ export * from "./endpoints/home"
 export * from "./endpoints/library"
 export * from "./endpoints/meta"
 export * from "./endpoints/notebook"
+export * from "./endpoints/review"
 export * from "./endpoints/writes"
 export * from "./enums"
 export * from "./errors"
@@ -65,6 +66,7 @@ import {
 	snoozeNoteReminders,
 	unskipNote,
 } from "./endpoints/notebook"
+import { getReviewSuggestion, listReview, snoozeReview } from "./endpoints/review"
 import {
 	appendNote,
 	archiveReadArticles,
@@ -146,6 +148,9 @@ export const endpoints = {
 	"home.rediscover": listRediscover,
 	"editions.next": getNextEdition,
 	"editions.snoozeNudge": snoozeNextEdition,
+	"review.list": listReview,
+	"review.suggested": getReviewSuggestion,
+	"review.snooze": snoozeReview,
 	"feed.get": getFeed,
 	"feed.saveItems": saveFeedItems,
 	"feed.dismissItems": dismissFeedItems,

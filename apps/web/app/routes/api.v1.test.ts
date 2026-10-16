@@ -624,22 +624,6 @@ describe("writes", () => {
 		},
 	)
 
-	it("doesn't keep articles: reviewing old saves is the web's only, for now", async () => {
-		const { id, key } = await users.create("API Keeper")
-		const article = await insertArticle(id, "Kept", "<p>Kept</p>")
-		const res = await request("/api/v1/articles", {
-			method: "PATCH",
-			token: key,
-			...json({ ids: [article], starred: true, kept: true }),
-		})
-		expect(res.status).toBe(200)
-		const [row] = await db
-			.select({ starredAt: documents.starredAt, keptAt: documents.keptAt })
-			.from(documents)
-			.where(eq(documents.id, article))
-		expect(row).toEqual({ starredAt: expect.any(Date), keptAt: null })
-	})
-
 	it(
 		"save, triage, tags, saved searches, rename, trash and restore",
 		{ timeout: 30_000 },

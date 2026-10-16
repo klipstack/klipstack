@@ -149,6 +149,15 @@ export function createClient(options: ClientOptions) {
 		snoozeNudge: () => call("editions.snoozeNudge"),
 	}
 
+	const review = {
+		/** Old saves never opened, the oldest first; keep them with `articles.update(ids, { kept: true })`. */
+		list: () => call("review.list"),
+		/** Whether Home suggests the review now. */
+		suggested: () => call("review.suggested"),
+		/** "Not now", or the review opened from Home: no suggestion for a month. */
+		snooze: () => call("review.snooze"),
+	}
+
 	type Language = { language?: "en" | "es"; signal?: AbortSignal }
 	/**
 	 * The AI about an article. Each question, follow-up, retry and new brief counts against the
@@ -195,6 +204,7 @@ export function createClient(options: ClientOptions) {
 		noteReminders,
 		home,
 		editions,
+		review,
 		annotations: {
 			/** Highlights and article notes with the words of `q`, grouped, with snippets. */
 			search: (q: string, query: Omit<QueryOf<"annotations.search">, "q"> = {}) =>
@@ -316,6 +326,9 @@ export const FACADE: Record<EndpointId, string> = {
 	"home.rediscover": "home.rediscover",
 	"editions.next": "editions.next",
 	"editions.snoozeNudge": "editions.snoozeNudge",
+	"review.list": "review.list",
+	"review.suggested": "review.suggested",
+	"review.snooze": "review.snooze",
 	"feed.get": "feed.get",
 	"feed.saveItems": "feed.saveItems",
 	"feed.dismissItems": "feed.dismissItems",
