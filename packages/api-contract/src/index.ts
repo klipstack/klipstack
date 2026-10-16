@@ -2,6 +2,7 @@ export * from "./auth"
 export * from "./details"
 export * from "./endpoint"
 export * from "./endpoints/account"
+export * from "./endpoints/ai"
 export * from "./endpoints/articles"
 export * from "./endpoints/library"
 export * from "./endpoints/meta"
@@ -13,6 +14,17 @@ export * from "./names"
 export * from "./schemas"
 
 import { getMe } from "./endpoints/account"
+import {
+	articleAi,
+	askAi,
+	briefAi,
+	chatAi,
+	deleteAiThread,
+	followUpAi,
+	getAi,
+	restoreAiThread,
+	retryAi,
+} from "./endpoints/ai"
 import {
 	articleHtml,
 	articleMarkdown,
@@ -136,6 +148,15 @@ export const endpoints = {
 	"savedSearches.rename": renameSavedSearch,
 	"savedSearches.delete": deleteSavedSearch,
 	"export.get": exportLibrary,
+	"ai.get": getAi,
+	"ai.article": articleAi,
+	"ai.ask": askAi,
+	"ai.chat": chatAi,
+	"ai.followUp": followUpAi,
+	"ai.retry": retryAi,
+	"ai.delete": deleteAiThread,
+	"ai.restore": restoreAiThread,
+	"ai.brief": briefAi,
 	"openapi.get": getOpenApi,
 } as const
 

@@ -125,6 +125,12 @@ export function buildOpenApiDocument({
 				description: "The file, with its own content type.",
 				content: { "*/*": { schema: { type: "string", format: "binary" } } },
 			}
+		} else if (kind.kind === "events") {
+			responses[200] = {
+				description:
+					"Server-sent events, sent as they come: each `data:` line is one JSON value of this schema.",
+				content: { "text/event-stream": { schema: convert(kind.schema, "output") } },
+			}
 		} else {
 			responses[204] = { description: "Done; no content." }
 		}
@@ -132,7 +138,8 @@ export function buildOpenApiDocument({
 		const own: ErrorCode[] = endpoint.body
 			? ["too_large", "request_timeout", ...endpoint.errors]
 			: [...endpoint.errors]
-		for (const code of [...COMMON_ERRORS, ...own]) {
+		// An endpoint may list one of these too, for a reason of its own (`too_large`).
+		for (const code of new Set([...COMMON_ERRORS, ...own])) {
 			if (endpoint.scope === "none" && AUTH_ERRORS.has(code)) continue
 			const list = byStatus.get(ERROR_STATUS[code]) ?? []
 			list.push(code)

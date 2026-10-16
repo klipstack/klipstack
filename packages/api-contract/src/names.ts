@@ -22,6 +22,9 @@ export const FEED_TITLE_MAX = 200
 /** Longest highlighted quote, in characters. */
 export const QUOTE_MAX = 20_000
 
+/** Longest question to the AI about an article or a passage, in characters. */
+export const QUESTION_MAX = 2000
+
 /** Longest article note, in characters. */
 export const NOTE_MAX = 100_000
 /** Longest highlight note, in characters. */

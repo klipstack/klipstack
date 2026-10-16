@@ -1,6 +1,6 @@
 import { type AiLanguage, type AnswerEvent, AI_ACTIONS, AiError, type Turn } from "@klipstack/ai"
 import { resolveSelector } from "@klipstack/anchor"
-import { Id, NUL_REFUSED, QUOTE_MAX, withoutNul } from "@klipstack/api-contract"
+import { Id, NUL_REFUSED, QUESTION_MAX, QUOTE_MAX, withoutNul } from "@klipstack/api-contract"
 import {
 	type AiBrief,
 	type AiMessage,
@@ -51,8 +51,6 @@ const sameActions: [AiThreadAction, (typeof AI_ACTIONS)[number]] extends [
 	? true
 	: never = true
 void sameActions
-/** Characters in a question. */
-export const QUESTION_MAX = 2000
 /** A question left unanswered this long is taken as lost, and can be asked again. */
 const PENDING_MS = 90_000
 

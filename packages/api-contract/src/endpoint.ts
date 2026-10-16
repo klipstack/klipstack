@@ -11,6 +11,11 @@ export type ResponseKind =
 	| { kind: "text"; contentType: string }
 	/** A file (images, the export): the handler returns the whole Response. */
 	| { kind: "binary" }
+	/**
+	 * Server-sent events (`text/event-stream`): one JSON value of `schema` per `data:` line, sent
+	 * as it comes. The handler returns them as an async iterable; refusals come before the first.
+	 */
+	| { kind: "events"; schema: z.ZodType }
 	/** 204 */
 	| { kind: "empty" }
 
@@ -19,6 +24,7 @@ export function json<S extends z.ZodType>(schema: S, statuses: readonly JsonStat
 }
 export const text = (contentType: string) => ({ kind: "text", contentType }) as const
 export const binary = () => ({ kind: "binary" }) as const
+export const events = <S extends z.ZodType>(schema: S) => ({ kind: "events" as const, schema })
 export const empty = () => ({ kind: "empty" }) as const
 
 export interface EndpointShape {
@@ -129,6 +135,18 @@ export type JsonInput<E> = E extends {
 	? z.input<S>
 	: never
 
+/** One event of an events endpoint, as sent (`EventInput`) and as read (`EventOutput`). */
+export type EventOutput<E> = E extends {
+	response: { kind: "events"; schema: infer S extends z.ZodType }
+}
+	? z.output<S>
+	: never
+export type EventInput<E> = E extends {
+	response: { kind: "events"; schema: infer S extends z.ZodType }
+}
+	? z.input<S>
+	: never
+
 /** What the SDK returns for an endpoint. */
 export type InferResponse<E> = E extends { response: { kind: "json" } }
 	? JsonOutput<E>
@@ -136,4 +154,6 @@ export type InferResponse<E> = E extends { response: { kind: "json" } }
 		? string
 		: E extends { response: { kind: "binary" } }
 			? Response
-			: undefined
+			: E extends { response: { kind: "events" } }
+				? AsyncIterable<EventOutput<E>>
+				: undefined
