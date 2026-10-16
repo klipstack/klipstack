@@ -14,7 +14,7 @@ import { isStarterLanguage, STARTER_LANGUAGES, STARTER_TOPICS } from "~/lib/star
 import { starterGuide, starterTextsIn } from "~/lib/starter-texts.server"
 import { cn } from "~/lib/utils"
 import { refused } from "~/lib/web-action.server"
-import { starterItems } from "~/services/starter-texts.server"
+import { experiencedReader, starterItems } from "~/services/starter-texts.server"
 import type { Route } from "./+types/texts"
 
 export function meta({ matches }: Route.MetaArgs) {
@@ -30,14 +30,16 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 	const asked = new URL(request.url).searchParams.get("lang")
 	const shown = isStarterLanguage(asked) ? asked : language
 	// The guide is about the app, so it is in the app's language whichever texts are shown.
-	const [guide, ...texts] = await starterItems(user.id, [
-		starterGuide(language),
-		...starterTextsIn(shown),
+	const [[guide, ...texts], experienced] = await Promise.all([
+		starterItems(user.id, [starterGuide(language), ...starterTextsIn(shown)]),
+		experiencedReader(user.id),
 	])
 	return {
 		language,
 		shown,
 		guide: guide!,
+		// First for a reader new to Klipstack; last once they have it, or know their way around.
+		guideFirst: !guide!.articleId && !experienced,
 		shelves: STARTER_TOPICS.map((topic) => ({
 			topic,
 			items: texts.filter((text) => text.topic === topic),
@@ -65,7 +67,7 @@ export async function action({ context, request }: Route.ActionArgs) {
  */
 export default function Texts({ loaderData, actionData }: Route.ComponentProps) {
 	const { t } = useTranslation("library")
-	const { language, shown, guide, shelves } = loaderData
+	const { language, shown, guide, guideFirst, shelves } = loaderData
 	// A book from here, Home, the library or the guide that could not be added: why.
 	const error = actionData?.ok === false ? actionData.error : null
 	return (
@@ -82,7 +84,7 @@ export default function Texts({ loaderData, actionData }: Route.ComponentProps) 
 					{t(saveErrorKey(error), { max: SAVE_LINKS_MAX })}
 				</p>
 			) : null}
-			{guide.articleId ? null : <StarterGuide item={guide} className="mt-4 max-w-xl" />}
+			{guideFirst ? <StarterGuide item={guide} className="mt-4 max-w-xl" /> : null}
 			<p className="mt-6 max-w-2xl text-sm leading-relaxed text-muted-fg">
 				{t("starter.description")}
 			</p>
@@ -101,7 +103,7 @@ export default function Texts({ loaderData, actionData }: Route.ComponentProps) 
 					/>
 				</section>
 			))}
-			{guide.articleId ? <StarterGuide item={guide} className="mt-12 max-w-xl" /> : null}
+			{guideFirst ? null : <StarterGuide item={guide} className="mt-12 max-w-xl" />}
 		</main>
 	)
 }

@@ -1,5 +1,6 @@
-import { db, inArray, newId, user } from "@klipstack/db"
+import { db, documents, eq, inArray, newId, user } from "@klipstack/db"
 import { afterAll, beforeAll, expect, it, vi } from "vitest"
+import { starterGuide, starterUrlHash } from "~/lib/starter-texts.server"
 import { loader } from "./texts"
 
 const session = vi.hoisted(() => ({ user: { id: "", name: "Reader", locale: "en" } }))
@@ -25,6 +26,7 @@ const texts = async (query: string) => {
 		guide: data.guide.slug,
 		languages: [...new Set(data.shelves.flatMap((shelf) => shelf.items.map((i) => i.language)))],
 		first: data.shelves[0]!.items[0]!.slug,
+		guideFirst: data.guideFirst,
 	}
 }
 
@@ -34,13 +36,47 @@ it("shows the texts in the language asked for, and the guide in the reader's", a
 		guide: "guide-en",
 		languages: ["en"],
 		first: "bacon-of-studies",
+		guideFirst: true,
 	})
 	expect(await texts("?lang=es")).toEqual({
 		shown: "es",
 		guide: "guide-en",
 		languages: ["es"],
 		first: "becquer-cartas-literarias",
+		guideFirst: true,
 	})
 	// A language there are no texts in: the reader's own.
 	expect((await texts("?lang=fr")).shown).toBe("en")
+})
+
+it("puts the guide last once the reader has it, or has saved 10 articles", async () => {
+	const saved = (n: number) =>
+		Array.from({ length: n }, () => ({
+			userId,
+			sourceUrl: `https://example.com/saved-${newId()}`,
+			urlHash: newId(),
+			status: "ready" as const,
+			title: "Saved",
+		}))
+	try {
+		// The guide saved: last, though new.
+		const guide = starterGuide("en")
+		await db.insert(documents).values({
+			userId,
+			sourceUrl: guide.url,
+			urlHash: starterUrlHash(guide),
+			status: "ready",
+			title: guide.title,
+		})
+		expect(await texts("")).toMatchObject({ guide: "guide-en", guideFirst: false })
+		await db.delete(documents).where(eq(documents.userId, userId))
+
+		// Nine saved: still first. The tenth: last, without the guide.
+		await db.insert(documents).values(saved(9))
+		expect((await texts("")).guideFirst).toBe(true)
+		await db.insert(documents).values(saved(1))
+		expect(await texts("")).toMatchObject({ guide: "guide-en", guideFirst: false })
+	} finally {
+		await db.delete(documents).where(eq(documents.userId, userId))
+	}
 })
