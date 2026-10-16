@@ -82,7 +82,7 @@ describe("a page behind a wall that refuses the browser's name", () => {
 		expect(requests).toHaveLength(1)
 	})
 
-	it("keeps the address checks on the retry", async () => {
+	it("checks the addresses the retry is redirected to", async () => {
 		await expect(fetchPage("https://site.example/wall-to-internal")).rejects.toMatchObject({
 			code: "blocked_host",
 		})
