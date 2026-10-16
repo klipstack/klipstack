@@ -640,7 +640,7 @@ body {
 	filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.1)) drop-shadow(0 5px 8px rgb(0 0 0 / 0.06));
 	transition: filter 0.2s;
 }
-.clipping:hover > .clipping-paper {
+.clipping:not([data-still]):hover > .clipping-paper {
 	filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.1)) drop-shadow(0 12px 14px rgb(0 0 0 / 0.14));
 }
 .clipping-paper::before,

@@ -3,6 +3,7 @@ import { parseEditionText } from "~/lib/edition-text"
 import type { EditionItemView, EditionLink, EditionView } from "~/lib/edition-view"
 import { cn } from "~/lib/utils"
 import { BrandMarkSmall } from "./brand-mark"
+import { ClippingPaper } from "./clipping"
 import { CurrentMarker } from "./edition-current-marker"
 import { PostIt } from "./post-it"
 
@@ -308,24 +309,39 @@ function Commentary({
 					return (
 						// oxlint-disable-next-line react/no-array-index-key -- quotes have no identity of their own
 						<figure key={i} className={pull ? "mt-8" : "mt-5"}>
-							{pull ? (
-								<div
-									aria-hidden="true"
-									className="h-6 font-serif text-5xl leading-none text-accent"
-								>
-									“
-								</div>
-							) : null}
-							<blockquote
+							{/* Clipped from the article, as the Notebook keeps quotes: the reader's paper and tape,
+							    without the marker's ink, which is the author's own reading. Not a link, so it never
+							    lifts. A short first quote is a larger clipping, in larger type. */}
+							<div
+								data-still=""
 								className={cn(
-									"font-serif whitespace-pre-wrap break-words",
+									// As wide as its text: a short quote is a small piece of paper.
+									"clipping w-fit max-w-full min-w-32",
 									pull
-										? "text-lg leading-snug text-pretty @xl:text-xl"
-										: "border-l-2 border-accent/30 pl-4 text-[1.0625rem] leading-relaxed",
+										? "px-6 pt-[calc(var(--clip-top)+1rem)] pb-5"
+										: "clipping-sm px-5 pt-[calc(var(--clip-top)+0.875rem)] pb-4",
 								)}
 							>
-								{highlight.exact}
-							</blockquote>
+								<ClippingPaper id={`${item.url}#${i}`} />
+								{pull ? (
+									<div
+										aria-hidden="true"
+										className="-mb-2 h-9 font-serif text-5xl leading-none text-accent"
+									>
+										“
+									</div>
+								) : null}
+								<blockquote
+									className={cn(
+										"font-serif whitespace-pre-wrap break-words",
+										pull
+											? "text-lg leading-snug text-pretty @xl:text-xl"
+											: "text-[1.0625rem] leading-relaxed",
+									)}
+								>
+									{highlight.exact}
+								</blockquote>
+							</div>
 							{highlight.note ? (
 								<figcaption>
 									<EditionText
@@ -333,8 +349,8 @@ function Commentary({
 										anchors={anchors}
 										newTab={newTab}
 										className={cn(
-											"text-sm leading-relaxed text-muted-fg",
-											pull ? "mt-3" : "mt-2 pl-4.5",
+											"mt-2 text-sm leading-relaxed text-muted-fg",
+											pull ? "px-6" : "px-5",
 										)}
 									/>
 								</figcaption>
