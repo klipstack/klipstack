@@ -1,11 +1,26 @@
-import { db, documents, editions, eq, readingCompletions } from "@klipstack/db"
+import {
+	db,
+	documents,
+	documentTopics,
+	editions,
+	eq,
+	readingCompletions,
+	topicLibraries,
+	topics,
+	userFeatures,
+} from "@klipstack/db"
 import { stopBoss } from "@klipstack/queue"
 import type { KlipstackApiError } from "@klipstack/sdk"
-import { afterAll, describe, expect, it } from "vitest"
+import { afterAll, describe, expect, it, vi } from "vitest"
 import { startEdition } from "~/commands/editions.server"
 import { env } from "~/lib/env.server"
 import { apiUsers } from "~/test/api-harness"
 import { insertArticle } from "../../e2e/seed"
+
+// Topic models, as on a server with both keys: a topic needs them.
+vi.hoisted(() => {
+	process.env.AI_FAKE = "1"
+})
 
 /**
  * What Home shows beside the library's lists, in /api/v1, through the SDK as the iPhone app calls
@@ -94,6 +109,8 @@ describe("From a while ago in the API", () => {
 		await article(me.id, "Queued", { createdAt: ago(20), status: "queued" })
 		await article(other.id, "Theirs", { createdAt: ago(20) })
 
+		// The cutoff before the request: the day can't turn under it unseen.
+		const today = Date.parse(new Date().toISOString().slice(0, 10))
 		const answer = await me.client.home.rediscover()
 		expect(answer.items.map((a) => a.id).sort()).toEqual([old, older].sort())
 		expect(answer.items.find((a) => a.id === old)).toMatchObject({
@@ -101,22 +118,45 @@ describe("From a while ago in the API", () => {
 			readingMinutes: 12,
 			readerUrl: `${origin}/read/${old}`,
 		})
-		// The start of today in UTC, 14 days back: the day's cutoff, the same all day.
-		const today = Date.parse(new Date().toISOString().slice(0, 10))
-		expect(answer).toMatchObject({
-			savedBefore: new Date(today - 14 * DAY_MS).toISOString(),
-			afterDays: 14,
-		})
+		// The start of today in UTC, 14 days back: the day's cutoff, the same all day. A run across
+		// midnight UTC gets the next day's.
+		expect([today, today + DAY_MS].map((t) => new Date(t - 14 * DAY_MS).toISOString())).toContain(
+			answer.savedBefore,
+		)
+		expect(answer.afterDays).toBe(14)
 		// The day's order holds through the day.
 		expect((await me.client.home.rediscover()).items.map((a) => a.id)).toEqual(
 			answer.items.map((a) => a.id),
 		)
 	})
 
-	it("is not_found for a topic that is not the reader's", async () => {
-		const me = await users.create("Topic")
-		const error = await errorOf(me.client.home.rediscover({ topic: MISSING }))
-		expect(error.code).toBe("not_found")
+	it("narrows to the reader's topic, and is not_found for another reader's", async () => {
+		const withTopic = async (name: string) => {
+			const reader = await users.create(name)
+			await db.insert(userFeatures).values({ userId: reader.id, feature: "topics" })
+			await db
+				.insert(topicLibraries)
+				.values({ userId: reader.id, proposedAt: new Date(), confirmedAt: new Date() })
+			const [topic] = await db
+				.insert(topics)
+				.values({ userId: reader.id, name, description: "d", status: "active", origin: "first" })
+				.returning({ id: topics.id })
+			const inIt = await article(reader.id, `${name} in`, { createdAt: ago(20) })
+			await article(reader.id, `${name} out`, { createdAt: ago(20) })
+			await db
+				.insert(documentTopics)
+				.values({ documentId: inIt, topicId: topic!.id, probability: 0.9, level: "applied" })
+			return { ...reader, topic: topic!.id, inIt }
+		}
+		const me = await withTopic("Mine")
+		const other = await withTopic("Theirs")
+		expect((await me.client.home.rediscover({ topic: me.topic })).items.map((a) => a.id)).toEqual([
+			me.inIt,
+		])
+		for (const topic of [other.topic, MISSING]) {
+			const error = await errorOf(me.client.home.rediscover({ topic }))
+			expect(error.code).toBe("not_found")
+		}
 	})
 })
 
@@ -148,7 +188,12 @@ describe("the next edition in the API", () => {
 		await me.client.editions.snoozeNudge()
 		expect(await me.client.editions.next()).toMatchObject({ marked: 3, nudge: null })
 		// Another reader's marks and snooze are their own.
-		expect(await other.client.editions.next()).toMatchObject({ marked: 0, nudge: null })
+		for (const title of ["A", "B", "C"])
+			await article(other.id, title, { shortlistedAt: new Date() })
+		expect(await other.client.editions.next()).toMatchObject({
+			marked: 3,
+			nudge: { reason: "marked" },
+		})
 	})
 
 	it("names the draft in progress, due a week after it was started", async () => {

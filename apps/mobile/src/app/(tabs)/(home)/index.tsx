@@ -155,19 +155,23 @@ export default function Home() {
 				})
 				.catch(() => {})
 			// Alongside too; a server before them answers 404: Home without the line or the ear.
+			// Offline, neither: what they said may be out of date.
+			const hideOffline = (hide: () => void) => (e: unknown) => {
+				if (mine === generation.current && canUseOffline(e)) hide()
+			}
 			void client.home
 				.finished(Intl.DateTimeFormat().resolvedOptions().timeZone)
 				.then((answer) => {
 					if (mine === generation.current) setFinished(answer)
 				})
-				.catch(() => {})
+				.catch(hideOffline(() => setFinished(null)))
 			void client.editions
 				.next()
 				.then((answer) => {
 					if (mine !== generation.current) return
 					setEdition(editionPutOff.current ? { ...answer, nudge: null } : answer)
 				})
-				.catch(() => {})
+				.catch(hideOffline(() => setEdition(null)))
 			// In a topic, Home is about its articles, as on the web. A server before them answers 404:
 			// Home without the section.
 			if (!topic)
@@ -492,9 +496,10 @@ export default function Home() {
 							title="From a while ago"
 							note={`Saved more than ${afterDays} ${afterDays === 1 ? "day" : "days"} ago. A different few each day.`}
 							onMore={() => {
-								// Inbox's unread saves, oldest first, in the same topic: as the web's link.
+								// Inbox's unread saves, oldest first, in the same topic or all of them: as the
+								// web's link.
 								chooseFilter("inbox", "unread", "oldest")
-								if (topic) chooseTopic("inbox", topic)
+								chooseTopic("inbox", topic ?? null)
 								router.navigate("/library/inbox", { withAnchor: true })
 							}}
 							colors={colors}
