@@ -11,8 +11,10 @@ import {
 	HIGHLIGHT_COLORS,
 	type markFeedViewed,
 	type openArticle,
+	type purgeArticles,
 	type readPost as readPostEndpoint,
 	type renameArticle,
+	type retryArticle as retryArticleEndpoint,
 	type renameSavedSearch as renameSavedSearchEndpoint,
 	type renameTag as renameTagEndpoint,
 	type resizeHighlight,
@@ -40,8 +42,10 @@ import {
 	updateArticles as changeArticles,
 	NO_ARTICLE,
 	openArticle as openArticleCommand,
+	purgeArticles as purgeArticleIds,
 	readPostInstead,
 	restoreArticles as restoreArticleIds,
+	retryArticle as retryArticleCommand,
 	saveReadingPosition,
 	trashArticles as trashArticleIds,
 	undoChanges,
@@ -134,6 +138,14 @@ export const trash: Handler<typeof trashArticles> = ({ userId, body }) =>
 
 export const restore: Handler<typeof restoreArticles> = ({ userId, body }) =>
 	restoreArticleIds(userId, body.ids)
+
+/** The trash's "Delete forever". */
+export const purge: Handler<typeof purgeArticles> = ({ userId, body }) =>
+	purgeArticleIds(userId, body.ids)
+
+/** A failed save's "Retry". */
+export const retry: Handler<typeof retryArticleEndpoint> = ({ userId, params }) =>
+	retryArticleCommand(userId, params.id)
 
 // ---- reading ----
 

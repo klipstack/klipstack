@@ -22,6 +22,9 @@ const router = createApiRouter({
 	limits: {
 		"articles.save": (userId) =>
 			peekRateLimit(`save:${userId}`, SAVE_LIMIT.limit, SAVE_LIMIT.windowMs),
+		// A retry fetches the page again: a save.
+		"articles.retry": (userId) =>
+			peekRateLimit(`save:${userId}`, SAVE_LIMIT.limit, SAVE_LIMIT.windowMs),
 		"feeds.follow": (userId) =>
 			peekRateLimit(`subscribe:${userId}`, SAVE_LIMIT.limit, SAVE_LIMIT.windowMs),
 	},

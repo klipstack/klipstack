@@ -19,6 +19,7 @@ import { strFromU8, unzipSync } from "fflate"
 import { JSDOM } from "jsdom"
 import { afterAll, describe, expect, it } from "vitest"
 import { env } from "~/lib/env.server"
+import { rateLimit, SAVE_LIMIT } from "~/lib/rate-limit.server"
 import { getDocument, setNote } from "~/services/documents.server"
 import { createEdition } from "~/services/editions.server"
 import { createHighlight } from "~/services/highlights.server"
@@ -790,6 +791,67 @@ describe("writes", () => {
 			expect((await client.articles.update([theirs], { starred: true })).notFound).toEqual([theirs])
 		},
 	)
+
+	it("retries a failed save, and deletes articles in the trash for good", async () => {
+		const { id: owner, client } = await users.create("API Retry")
+		const failedUrl = `https://example.com/failed-${newId()}`
+		const [failedRow] = await db
+			.insert(documents)
+			.values({
+				userId: owner,
+				sourceUrl: failedUrl,
+				urlHash: urlHash(failedUrl),
+				status: "failed",
+				failureReason: "fetch_failed",
+			})
+			.returning({ id: documents.id })
+		const failed = failedRow!.id
+		const ready = await insertArticle(owner, "Ready", "<p>Read me.</p>")
+
+		// Retry queues a failed save again, once; a save that hadn't failed stays as it is.
+		expect(await client.articles.retry(failed)).toEqual({ queued: true })
+		expect(await client.articles.get(failed)).toMatchObject({ status: "queued" })
+		expect(await client.articles.retry(failed)).toEqual({ queued: false })
+		expect(await client.articles.retry(ready)).toEqual({ queued: false })
+		expect(await client.articles.get(ready)).toMatchObject({ status: "ready" })
+
+		// Missing, another user's or in the trash: not found.
+		const theirs = await insertArticle(await otherUser(), "Theirs", "<p>Not yours.</p>")
+		await client.articles.trash([ready])
+		for (const id of [MISSING, theirs, ready])
+			expect(await errorOf(client.articles.retry(id))).toMatchObject({
+				status: 404,
+				code: "not_found",
+			})
+
+		// Purge takes only what is in the trash, and only the owner's.
+		expect(await client.articles.purge([ready, failed, theirs, MISSING])).toEqual({
+			purged: [ready],
+			notFound: [failed, theirs, MISSING],
+		})
+		expect((await client.articles.list({ view: "trash" })).items).toEqual([])
+		expect(await client.articles.restore([ready])).toMatchObject({
+			restored: [],
+			notFound: [ready],
+		})
+		expect(await client.articles.get(failed)).toMatchObject({ id: failed })
+		expect(await db.select().from(documents).where(eq(documents.id, theirs))).toHaveLength(1)
+		await expect(client.articles.purge([])).rejects.toBeInstanceOf(KlipstackInputError)
+
+		// A retry fetches the page again: it counts as a save, and past the save limit it waits.
+		const againUrl = `https://example.com/failed-${newId()}`
+		const [againRow] = await db
+			.insert(documents)
+			.values({ userId: owner, sourceUrl: againUrl, urlHash: urlHash(againUrl), status: "failed" })
+			.returning({ id: documents.id })
+		for (let i = 0; i < SAVE_LIMIT.limit; i++)
+			rateLimit(`save:${owner}`, SAVE_LIMIT.limit, SAVE_LIMIT.windowMs)
+		expect(await errorOf(client.articles.retry(againRow!.id))).toMatchObject({
+			status: 429,
+			code: "rate_limited",
+		})
+		expect(await client.articles.get(againRow!.id)).toMatchObject({ status: "failed" })
+	})
 
 	it("the mark says what it did to the draft in progress, and undo puts it back", async () => {
 		const { id: owner, client } = await users.create("API Draft")

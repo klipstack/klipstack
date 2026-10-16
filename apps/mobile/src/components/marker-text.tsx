@@ -1,5 +1,5 @@
 import type { HighlightColor } from "@klipstack/api-contract/enums"
-import { useState } from "react"
+import { type ReactNode, useState } from "react"
 import {
 	type StyleProp,
 	StyleSheet,
@@ -26,7 +26,8 @@ export function MarkerText({
 	style,
 	containerStyle,
 }: {
-	text: string
+	/** The quote; runs of `Text` inside, such as the words a search found in bold, are fine. */
+	text: ReactNode
 	color: HighlightColor
 	seed: string
 	numberOfLines?: number

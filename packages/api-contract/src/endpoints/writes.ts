@@ -191,6 +191,36 @@ export const openArticle = defineEndpoint({
 	errors: ["not_found"],
 })
 
+export const purgeArticles = defineEndpoint({
+	id: "articles.purge",
+	method: "POST",
+	path: "/articles/purge",
+	scope: "write",
+	summary: `Deletes up to ${BATCH_MAX} articles in the trash for good, with their highlights and notes. There is no undo. Articles not in the trash are left alone.`,
+	body: z.object({ ids: Ids }),
+	response: json(
+		z.object({
+			purged: z.array(Id),
+			/** Not in the trash: missing, another user's, or still in the library. */
+			notFound: z.array(Id),
+		}),
+	),
+	errors: [],
+})
+
+export const retryArticle = defineEndpoint({
+	id: "articles.retry",
+	method: "POST",
+	path: "/articles/:id/retry",
+	scope: "write",
+	summary:
+		"Tries again to read an article whose save failed (`status: failed`): it is queued, and its `status` follows. `queued`: false when it had not failed. It fetches the page again, so it counts against the save limit, as POST /articles does; one that queues nothing does not count.",
+	params,
+	response: json(z.object({ queued: z.boolean() })),
+	/** `not_found`: not the user's article, or in the trash. */
+	errors: ["not_found"],
+})
+
 export const readPost = defineEndpoint({
 	id: "articles.readPost",
 	method: "POST",

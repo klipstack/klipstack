@@ -4,16 +4,22 @@ import { useCallback, useInsertionEffect, useRef } from "react"
 import { Alert } from "react-native"
 import { actedOn, afterAction, BULK_CHANGES, type BulkAction } from "@/lib/bulk-actions"
 import { afterMarking } from "@/lib/draft-undo"
+import { waitForExtraction } from "@/lib/extraction"
 
-/** What the actions change themselves: Tags opens the tag sheet instead (`useTagSheet`). */
-export type ArticleAction = Exclude<BulkAction, "tag">
+/**
+ * What the actions change themselves: Tags opens the tag sheet instead (`useTagSheet`). Two are the
+ * long-press menu's only, as on the web: Try Again for a failed save (`retry`), and Delete Forever
+ * in the trash (`purge`).
+ */
+export type ArticleAction = Exclude<BulkAction, "tag"> | "retry" | "purge"
 
 /**
  * Star, archive, finish, mark unread, delete and restore, for a screen's articles: what
  * multi-select's bar and the long-press menu do. `apply` gets the articles as the action leaves
  * them, at once, then as the server has them; `done`, how many the server changed, and how many it
  * couldn't restore (the same page was saved again since: they stay in the trash). Delete asks
- * first: there is no undo, only the Trash. Unmarking that took articles out of the draft edition
+ * first: there is no undo, only the Trash. Delete Forever asks too, and the screen loads again
+ * after it; Try Again shows the save under way, and the screen loads again once it is done. Unmarking that took articles out of the draft edition
  * in progress offers an undo, as on the web: `apply` gets them back marked. On failure an alert
  * says so, and `reload` puts the screen right.
  */
@@ -34,8 +40,22 @@ export function useArticleActions(options: {
 		if (!client) return
 		const ids = acted.map((a) => a.id)
 		const now = new Date().toISOString()
-		latest.current.apply(new Map(acted.map((a) => [a.id, afterAction(a, action, now)])))
 		try {
+			if (action === "retry") {
+				latest.current.apply(
+					new Map(acted.map((a) => [a.id, { ...a, status: "queued" as const, failure: null }])),
+				)
+				for (const id of ids) {
+					const { queued } = await client.articles.retry(id)
+					if (queued) await waitForExtraction(client, id)
+				}
+				return latest.current.reload()
+			}
+			if (action === "purge") {
+				await client.articles.purge(ids)
+				return latest.current.reload()
+			}
+			latest.current.apply(new Map(acted.map((a) => [a.id, afterAction(a, action, now)])))
 			if (action === "delete") {
 				const { trashed } = await client.articles.trash(ids)
 				latest.current.done?.(action, trashed.length, 0)
@@ -63,6 +83,26 @@ export function useArticleActions(options: {
 
 	return useCallback(
 		(action: ArticleAction, articles: ArticleSummary[]) => {
+			if (action === "retry")
+				return void run(
+					action,
+					articles.filter((a) => a.status === "failed"),
+				)
+			if (action === "purge") {
+				const one = articles.length === 1
+				return Alert.alert(
+					one ? "Delete this article forever?" : `Delete ${articles.length} articles forever?`,
+					`${one ? "Its" : "Their"} highlights and notes go too. This can't be undone.`,
+					[
+						{ text: "Cancel", style: "cancel" },
+						{
+							text: "Delete Forever",
+							style: "destructive",
+							onPress: () => void run(action, articles),
+						},
+					],
+				)
+			}
 			const acted = actedOn(articles, action)
 			if (acted.length === 0) return
 			if (action !== "delete") return void run(action, acted)

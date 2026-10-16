@@ -51,6 +51,11 @@ export function createClient(options: ClientOptions) {
 			batched(ids, (part) => call("articles.trash", { body: { ids: part } })),
 		restore: (ids: readonly string[]) =>
 			batched(ids, (part) => call("articles.restore", { body: { ids: part } })),
+		/** Deletes articles in the trash for good; there is no undo. */
+		purge: (ids: readonly string[]) =>
+			batched(ids, (part) => call("articles.purge", { body: { ids: part } })),
+		/** Tries a failed save again; `queued`: false when it had not failed. */
+		retry: (id: string) => call("articles.retry", { params: { id } }),
 		/** Records that the user is reading it; returns where the reading stands. */
 		open: (id: string) => call("articles.open", { params: { id } }),
 		/** Turns an article saved through a post back into the post (`via`, `restorable`). */
@@ -230,7 +235,9 @@ export const FACADE: Record<EndpointId, string> = {
 	"articles.trash": "articles.trash",
 	"articles.restore": "articles.restore",
 	"articles.open": "articles.open",
+	"articles.purge": "articles.purge",
 	"articles.readPost": "articles.readPost",
+	"articles.retry": "articles.retry",
 	"articles.setPosition": "articles.setPosition",
 	"articles.setNote": "articles.setNote",
 	"articles.appendNote": "articles.appendNote",
