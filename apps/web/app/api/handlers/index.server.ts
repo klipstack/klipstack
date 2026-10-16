@@ -41,6 +41,7 @@ export const handlers: HandlerTable<Endpoints> = {
 	"highlights.update": writes.editHighlight,
 	"highlights.resize": writes.moveHighlight,
 	"highlights.delete": writes.removeOne,
+	"highlights.restore": writes.bringBackOne,
 	"notebook.get": notebook.notebook,
 	"dailyHighlights.list": notebook.daily,
 	"dailyHighlights.dismiss": notebook.dismissDaily,

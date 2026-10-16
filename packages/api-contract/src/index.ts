@@ -74,6 +74,7 @@ import {
 	undoArticles,
 	updateArticles,
 	resizeHighlight,
+	restoreHighlight,
 	updateHighlight,
 } from "./endpoints/writes"
 
@@ -111,6 +112,7 @@ export const endpoints = {
 	"highlights.update": updateHighlight,
 	"highlights.resize": resizeHighlight,
 	"highlights.delete": deleteHighlight,
+	"highlights.restore": restoreHighlight,
 	"notebook.get": getNotebook,
 	"dailyHighlights.list": listDailyHighlights,
 	"dailyHighlights.dismiss": dismissDailyHighlight,

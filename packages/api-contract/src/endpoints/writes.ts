@@ -388,9 +388,22 @@ export const deleteHighlight = defineEndpoint({
 	method: "DELETE",
 	path: "/highlights/:id",
 	scope: "write",
-	summary: "Deletes a highlight (the reader can restore it right after).",
+	summary: "Deletes a highlight, with its note. POST /highlights/{id}/restore undoes it.",
 	params,
 	response: empty(),
+	errors: ["not_found"],
+})
+
+export const restoreHighlight = defineEndpoint({
+	id: "highlights.restore",
+	method: "POST",
+	path: "/highlights/:id/restore",
+	scope: "write",
+	summary:
+		"Undoes DELETE /highlights/{id}: the highlight comes back as it was, with its note, while its article is in the library.",
+	params,
+	response: json(z.object({ highlight: Highlight })),
+	/** `not_found`: not the user's, not deleted, or its article is in the trash. */
 	errors: ["not_found"],
 })
 
