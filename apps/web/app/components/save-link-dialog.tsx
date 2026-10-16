@@ -1,4 +1,4 @@
-import { Bookmark, Plus, X } from "lucide-react"
+import { Bookmark, ChevronRight, Plus, X } from "lucide-react"
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react"
 import { Trans, useTranslation } from "react-i18next"
 import { Link, useFetcher, useLocation, useNavigate, useRouteLoaderData } from "react-router"
@@ -8,6 +8,7 @@ import { tooltip } from "~/components/tooltip-host"
 import { Button } from "~/components/ui/button"
 import { prepareMotion } from "~/lib/motion"
 import { showToast } from "~/lib/toast"
+import { cn } from "~/lib/utils"
 import type { WebResult } from "~/lib/web-result"
 import type { loader as layoutLoader } from "~/routes/app-layout"
 
@@ -34,7 +35,7 @@ export function saveLinkPath(url = "") {
 }
 
 /** The "Save link" button pages and the phone's top bar show. */
-export function SaveLinkButton() {
+export function SaveLinkButton({ className }: { className?: string }) {
 	const { t } = useTranslation("library")
 	const navigate = useNavigate()
 	return (
@@ -46,11 +47,42 @@ export function SaveLinkButton() {
 			aria-haspopup="dialog"
 			aria-label={t("add.button")}
 			{...tooltip(t("add.button"))}
-			className="size-10 rounded-md text-accent"
+			className={cn("size-10 rounded-md text-accent", className)}
 		>
 			<Plus className="size-5" aria-hidden />
 		</Button>
 	)
+}
+
+/**
+ * What is in the field and not saved yet, kept for the browser tab: closing the dialog, another
+ * page or a reload keeps it; saving clears it.
+ */
+const DRAFT_KEY = "klipstack:save-link-draft"
+const draft = {
+	get: () => {
+		try {
+			return sessionStorage.getItem(DRAFT_KEY) ?? ""
+		} catch {
+			return ""
+		}
+	},
+	set: (value: string) => {
+		try {
+			if (value.trim()) sessionStorage.setItem(DRAFT_KEY, value)
+			else sessionStorage.removeItem(DRAFT_KEY)
+		} catch {
+			// Private modes without storage: the draft lasts as long as the page.
+		}
+	},
+}
+
+/** `url` on a line of its own after what is there, unless it is there already. */
+function withLink(text: string, url: string) {
+	if (!url) return text
+	const lines = text.split("\n").map((line) => line.trim())
+	if (lines.includes(url)) return text
+	return text.trim() ? `${text.trimEnd()}\n${url}` : url
 }
 
 export function SaveLinkDialog() {
@@ -58,8 +90,6 @@ export function SaveLinkDialog() {
 	const layout = useRouteLoaderData<typeof layoutLoader>("routes/app-layout")
 	const dialogRef = useRef<HTMLDialogElement>(null)
 	const formRef = useRef<HTMLFormElement>(null)
-	// What the field starts with, and a key to start it again with each opening.
-	const [prefill, setPrefill] = useState({ url: "", key: 0 })
 	const fetcher = useFetcher<
 		WebResult<{ saved: true } | { batch: LinkResult[] }> & { url?: string }
 	>()
@@ -71,20 +101,19 @@ export function SaveLinkDialog() {
 	const batch = fetcher.data?.ok && "batch" in fetcher.data ? fetcher.data.batch : null
 	const refused = batch?.filter((result) => !result.ok) ?? []
 
-	const close = useCallback(() => {
-		dialogRef.current?.close()
-		formRef.current?.reset()
-	}, [])
+	// Closing keeps what was typed (the draft); only a save empties the field.
+	const close = useCallback(() => dialogRef.current?.close(), [])
 	const open = useCallback((url: string) => {
 		const d = dialogRef.current
 		if (!d) return
-		setPrefill((before) => ({ url, key: before.key + 1 }))
 		if (!d.open) d.showModal()
+		// Here and now, in the tap that opened it: a phone raises its keyboard only then.
+		const field = d.querySelector("textarea")
+		if (!field) return
+		field.value = withLink(field.value || draft.get(), url)
+		draft.set(field.value)
+		field.focus()
 	}, [])
-	// Each opening draws the field again, with what it starts with: then it takes the focus.
-	useEffect(() => {
-		if (prefill.key && dialogRef.current?.open) dialogRef.current.querySelector("textarea")?.focus()
-	}, [prefill.key])
 
 	useEffect(() => {
 		mounted++
@@ -123,8 +152,17 @@ export function SaveLinkDialog() {
 	// error keeps the dialog open, with the message under the field.
 	const onAnswer = useEffectEvent((answer: typeof fetcher.data) => {
 		if (!answer?.ok) return
-		if ("batch" in answer && answer.batch.some((result) => !result.ok)) return
+		// Several links, some refused: those are what is left to save.
+		const left = "batch" in answer ? answer.batch.filter((result) => !result.ok) : []
+		if (left.length) {
+			draft.set(left.map((result) => result.url).join("\n"))
+			return
+		}
 		close()
+		draft.set("")
+		if (formRef.current) formRef.current.reset()
+		const field = dialogRef.current?.querySelector("textarea")
+		if (field) field.value = ""
 		// The library's first page, newest first, shows the new card, clipped as it comes in; anywhere
 		// else (another page, a filter, another order) the toast is clipped.
 		showToast({
@@ -139,7 +177,7 @@ export function SaveLinkDialog() {
 		<dialog
 			ref={dialogRef}
 			aria-label={t("add.title")}
-			className="m-auto w-[min(34rem,94vw)] rounded-2xl border border-border bg-card p-0 text-fg shadow-2xl backdrop:bg-black/40"
+			className="mx-auto mt-[8vh] mb-auto w-[min(34rem,94vw)] sm:mt-[12vh] rounded-2xl border border-border bg-card p-0 text-fg shadow-2xl backdrop:bg-black/40"
 			onClick={(e) => {
 				if (e.target === dialogRef.current) dialogRef.current?.close()
 			}}
@@ -153,6 +191,9 @@ export function SaveLinkDialog() {
 					method="post"
 					action="/library"
 					onSubmit={() => prepareMotion()}
+					onInput={(e) => {
+						if (e.target instanceof HTMLTextAreaElement) draft.set(e.target.value)
+					}}
 					className="flex flex-col gap-4"
 				>
 					<div className="flex items-start justify-between gap-4">
@@ -172,11 +213,9 @@ export function SaveLinkDialog() {
 					{batch && refused.length ? <LinkResults results={batch} /> : null}
 					<LinksField
 						// Again with only the links that were not saved, to fix or drop.
-						key={fetcher.data && "batch" in fetcher.data ? `batch-${prefill.key}` : prefill.key}
+						key={batch ? `batch:${refused.map((result) => result.url).join(" ")}` : "links"}
 						defaultValue={
-							refused.length
-								? refused.map((result) => result.url).join("\n")
-								: (fetcher.data?.url ?? prefill.url)
+							refused.length ? refused.map((result) => result.url).join("\n") : fetcher.data?.url
 						}
 						error={error}
 					/>
@@ -213,63 +252,73 @@ function Anywhere({
 	const bookmarklet = `javascript:(function(){location.href=${JSON.stringify(`${appUrl}/add?url=`)}+encodeURIComponent(location.href)})()`
 	const heading = "text-xs font-medium tracking-wide text-muted-fg uppercase"
 	return (
-		<div className="flex flex-col gap-4 border-t border-border pt-4 text-sm">
-			{/* A touch screen has no bookmarks bar to drag it to. */}
-			<section aria-labelledby="save-anywhere" className="[@media(pointer:coarse)]:hidden">
-				<h3 id="save-anywhere" className={heading}>
-					{t("add.anywhere.title")}
-				</h3>
-				<p className="mt-1 text-muted-fg">{t("add.anywhere.description")}</p>
-				<a
-					// By hand: React blocks a `javascript:` href, which is what a bookmarklet is. It is for
-					// dragging to the bookmarks bar, not for clicking here.
-					href="/add"
-					ref={(link) => {
-						link?.setAttribute("href", bookmarklet)
-						if (link) link.onclick = (event) => event.preventDefault()
-					}}
-					draggable
-					className="mt-2 inline-flex cursor-grab items-center gap-1.5 rounded-full border border-border bg-muted px-3 py-1.5 font-medium text-fg"
-				>
-					<Bookmark className="size-4" aria-hidden />
-					{t("add.anywhere.label")}
-				</a>
-			</section>
-			<section aria-labelledby="save-assistant">
-				<h3 id="save-assistant" className={heading}>
-					{t("add.assistant.title")}
-				</h3>
-				<p className="mt-1 text-muted-fg">
-					{emailVerified ? (
-						t("add.assistant.description")
-					) : (
-						<Trans
-							t={t}
-							i18nKey="add.assistant.verify"
-							components={{
-								account: <Link to="/settings/account" className="text-link hover:underline" />,
-							}}
-						/>
-					)}
-				</p>
-				<div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
-					<CopyButton
-						text={t("add.assistant.prompt", { url: mcpUrl })}
-						label={t("add.assistant.copy")}
-					/>
-					<Link to="/settings/connected-apps" className="text-link hover:underline">
-						{t("add.assistant.manage")}
-					</Link>
-				</div>
-			</section>
-			<p className="text-muted-fg">
-				<Trans
-					t={t}
-					i18nKey="add.feed"
-					components={{ feed: <Link to="/feed" className="text-link hover:underline" /> }}
+		// Folded by default: worth a look at first, in the way after that.
+		<details className="group/more details-slide border-t border-border pt-3 text-sm">
+			<summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-md py-1 font-medium text-muted-fg select-none hover:text-fg [&::-webkit-details-marker]:hidden">
+				<ChevronRight
+					className="size-4 motion-safe:transition-transform group-open/more:rotate-90"
+					aria-hidden
 				/>
-			</p>
-		</div>
+				{t("add.others")}
+			</summary>
+			<div className="flex flex-col gap-4 pt-3">
+				{/* A touch screen has no bookmarks bar to drag it to. */}
+				<section aria-labelledby="save-anywhere" className="[@media(pointer:coarse)]:hidden">
+					<h3 id="save-anywhere" className={heading}>
+						{t("add.anywhere.title")}
+					</h3>
+					<p className="mt-1 text-muted-fg">{t("add.anywhere.description")}</p>
+					<a
+						// By hand: React blocks a `javascript:` href, which is what a bookmarklet is. It is for
+						// dragging to the bookmarks bar, not for clicking here.
+						href="/add"
+						ref={(link) => {
+							link?.setAttribute("href", bookmarklet)
+							if (link) link.onclick = (event) => event.preventDefault()
+						}}
+						draggable
+						className="mt-2 inline-flex cursor-grab items-center gap-1.5 rounded-full border border-border bg-muted px-3 py-1.5 font-medium text-fg"
+					>
+						<Bookmark className="size-4" aria-hidden />
+						{t("add.anywhere.label")}
+					</a>
+				</section>
+				<section aria-labelledby="save-assistant">
+					<h3 id="save-assistant" className={heading}>
+						{t("add.assistant.title")}
+					</h3>
+					<p className="mt-1 text-muted-fg">
+						{emailVerified ? (
+							t("add.assistant.description")
+						) : (
+							<Trans
+								t={t}
+								i18nKey="add.assistant.verify"
+								components={{
+									account: <Link to="/settings/account" className="text-link hover:underline" />,
+								}}
+							/>
+						)}
+					</p>
+					<div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
+						<CopyButton
+							text={t("add.assistant.prompt", { url: mcpUrl })}
+							label={t("add.assistant.copy")}
+						/>
+						<Link to="/settings/connected-apps" className="text-link hover:underline">
+							{t("add.assistant.manage")}
+						</Link>
+					</div>
+				</section>
+				<p className="text-muted-fg">
+					<Trans
+						t={t}
+						i18nKey="add.feed"
+						components={{ feed: <Link to="/feed" className="text-link hover:underline" /> }}
+					/>
+				</p>
+			</div>
+		</details>
 	)
 }
 

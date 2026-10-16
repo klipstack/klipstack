@@ -13,6 +13,7 @@ test("the dialog saves several links at once, and keeps the ones it could not sa
 
 	await page.getByRole("button", { name: "Save link" }).click()
 	const dialog = page.getByRole("dialog", { name: "Save a link" })
+	await expect(dialog.getByLabel("Link", { exact: true })).toBeFocused()
 	await dialog.getByLabel("Link", { exact: true }).fill(`${one}\nnot a link`)
 	await dialog.getByRole("button", { name: "Save", exact: true }).click()
 	// One refused: the dialog stays, says what happened to each, and keeps only the refused one.
@@ -35,7 +36,9 @@ test("the dialog saves several links at once, and keeps the ones it could not sa
 	await expect(dialog.getByText("Save up to 10 links at once.")).toBeVisible()
 	await expect(dialog.getByLabel("Link", { exact: true })).toHaveValue(many.join("\n"))
 
-	// Below the field, the bookmarklet and an AI assistant's prompt.
+	// Below the field, folded: the bookmarklet and an AI assistant's prompt.
+	await expect(dialog.getByRole("button", { name: "Copy prompt" })).toBeHidden()
+	await dialog.getByText("Other ways to save").click()
 	await expect(dialog.getByRole("link", { name: "Save to Klipstack" })).toHaveAttribute(
 		"href",
 		/^javascript:.*\/add\?url=/,
@@ -77,6 +80,37 @@ test("the Save link field grows, Enter starts a line and Ctrl+Enter saves", asyn
 	await expect(results.getByText(one)).toBeVisible()
 	await expect(results.getByText("YouTube videos are not supported yet.")).toBeVisible()
 	await expect(field).toHaveValue("https://www.youtube.com/watch?v=x")
+})
+
+test("links typed and not saved stay in the field until they are", async ({ page }) => {
+	await signupUser(page, "Draft Links")
+	await page.goto("/library")
+	await waitForHydration(page)
+	const dialog = page.getByRole("dialog", { name: "Save a link" })
+	const field = dialog.getByLabel("Link", { exact: true })
+	const typed = `https://example.com/draft-${Date.now()}`
+	await page.getByRole("button", { name: "Save link" }).click()
+	await field.fill(typed)
+	await page.keyboard.press("Escape")
+	await expect(dialog).toBeHidden()
+
+	// Another page, and a reload: still there.
+	await page.goto("/notebook")
+	await page.reload()
+	await waitForHydration(page)
+	await page.keyboard.press("Control+k")
+	await page.getByRole("option", { name: "Save a link" }).click()
+	await expect(field).toHaveValue(typed)
+
+	// A shared link joins it on a line of its own.
+	await page.goto("/add?url=https://example.com/shared")
+	await expect(field).toHaveValue(`${typed}\nhttps://example.com/shared`)
+
+	// Saved: the field starts empty again.
+	await field.press("Control+Enter")
+	await expect(page.getByRole("status").getByText("2 links saved.")).toBeVisible()
+	await page.getByRole("button", { name: "Save link" }).click()
+	await expect(field).toHaveValue("")
 })
 
 test("the command menu opens the Save link dialog where the reader is", async ({ page }) => {

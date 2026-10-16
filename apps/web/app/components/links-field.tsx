@@ -4,8 +4,9 @@ import { useId } from "react"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router"
 import type { LinkResult } from "~/commands/saving.server"
+import { useSubmitHint } from "~/lib/commands"
 import { saveErrorKey } from "~/lib/save-errors"
-import { isSubmitShortcut, SUBMIT_HINT } from "~/lib/shortcuts"
+import { isSubmitShortcut } from "~/lib/shortcuts"
 import { cn } from "~/lib/utils"
 
 /**
@@ -25,6 +26,7 @@ export function LinksField({
 }) {
 	const { t } = useTranslation("library")
 	const id = useId()
+	const submitHint = useSubmitHint()
 	const errorText = error ? t(saveErrorKey(error), { max: SAVE_LINKS_MAX }) : null
 	return (
 		<div className="flex flex-col gap-1.5">
@@ -59,7 +61,14 @@ export function LinksField({
 				</p>
 			) : (
 				<p id={`${id}-hint`} className="text-xs text-muted-fg">
-					{t("add.several", { max: SAVE_LINKS_MAX, keys: SUBMIT_HINT })}
+					{t("add.several", { max: SAVE_LINKS_MAX })}
+					{/* The platform's own shortcut, and none on a touch screen. */}
+					{submitHint ? (
+						<span className="[@media(pointer:coarse)]:hidden">
+							{" "}
+							{t("add.shortcut", { keys: submitHint })}
+						</span>
+					) : null}
 				</p>
 			)}
 		</div>

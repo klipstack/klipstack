@@ -219,11 +219,13 @@ export default {
 		title: "Save a link",
 		description:
 			"Paste the address of an article. We fetch it, extract the text, and keep a clean copy for you.",
-		several: "One link per line, up to {{max}}. {{keys}} or Ctrl+Enter saves.",
+		several: "One link per line, up to {{max}}.",
+		shortcut: "{{keys}} saves.",
 		results: "Links saved",
 		savedMany: "{{count}} links saved.",
 		savedMany_one: "{{count}} link saved.",
 		savedMany_other: "{{count}} links saved.",
+		others: "Other ways to save",
 		anywhere: {
 			title: "From any page",
 			description: "Drag it to your bookmarks bar, then click it on any article to save it here.",

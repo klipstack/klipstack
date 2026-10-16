@@ -80,3 +80,12 @@ export function usePaletteHint(): string {
 		() => "",
 	)
 }
+
+/** "⌘↵" on Apple platforms, "Ctrl+Enter" elsewhere. Empty until mounted, so hydration matches. */
+export function useSubmitHint(): string {
+	return useSyncExternalStore(
+		() => () => undefined,
+		() => (/Mac|iPhone|iPad/.test(navigator.platform) ? "⌘↵" : "Ctrl+Enter"),
+		() => "",
+	)
+}

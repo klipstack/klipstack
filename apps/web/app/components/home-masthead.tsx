@@ -45,7 +45,8 @@ export function HomeMasthead({
 						>
 							<Search className="size-5" aria-hidden />
 						</Link>
-						<SaveLinkButton />
+						{/* As big as the search button beside it, inside the row's rule. */}
+						<SaveLinkButton className="size-9" />
 					</div>
 				</div>
 			</div>

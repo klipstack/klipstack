@@ -1212,3 +1212,23 @@ input[type="search"]::-webkit-search-decoration {
 	animation: shelf-fade linear both;
 	animation-timeline: scroll(self inline);
 }
+
+/* A <details> that opens and closes by sliding, where the browser can animate to `auto`. */
+@utility details-slide {
+	interpolate-size: allow-keywords;
+	&::details-content {
+		block-size: 0;
+		overflow: clip;
+		transition:
+			block-size 200ms ease,
+			content-visibility 200ms allow-discrete;
+	}
+	&[open]::details-content {
+		block-size: auto;
+	}
+	@media (prefers-reduced-motion: reduce) {
+		&::details-content {
+			transition: none;
+		}
+	}
+}

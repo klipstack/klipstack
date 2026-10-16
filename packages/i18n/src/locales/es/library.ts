@@ -219,11 +219,13 @@ export default {
 		title: "Guardar un enlace",
 		description:
 			"Pega la dirección de un artículo. Lo descargamos, extraemos el texto y guardamos una copia limpia.",
-		several: "Un enlace por línea, hasta {{max}}. {{keys}} o Ctrl+Intro guarda.",
+		several: "Un enlace por línea, hasta {{max}}.",
+		shortcut: "{{keys}} guarda.",
 		results: "Enlaces guardados",
 		savedMany: "{{count}} enlaces guardados.",
 		savedMany_one: "{{count}} enlace guardado.",
 		savedMany_other: "{{count}} enlaces guardados.",
+		others: "Otras formas de guardar",
 		anywhere: {
 			title: "Desde cualquier página",
 			description:
