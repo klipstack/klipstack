@@ -193,7 +193,7 @@ export default {
 	starter: {
 		title: "Something to read",
 		description:
-			"Essays, stories and speeches to try highlights and notes on. Most come with Klipstack; the ones marked with a site are saved from their authors' pages. Choose a book to add it to your library.",
+			"Essays, stories and speeches to try highlights and notes on. A book marked with a site is saved from the site that publishes it. Choose a book to add it to your library.",
 		shelf: "Books to start with",
 		guide: {
 			eyebrow: "New to Klipstack?",

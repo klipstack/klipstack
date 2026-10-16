@@ -193,7 +193,7 @@ export default {
 	starter: {
 		title: "Algo para leer",
 		description:
-			"Ensayos, cuentos y discursos para probar los subrayados y las notas. La mayoría vienen con Klipstack; los que llevan el nombre de un sitio se guardan desde la página de su autor. Elige un libro para añadirlo a tu biblioteca.",
+			"Ensayos, cuentos y discursos para probar los subrayados y las notas. Un libro que lleva el nombre de un sitio se guarda desde el sitio que lo publica. Elige un libro para añadirlo a tu biblioteca.",
 		shelf: "Libros para empezar",
 		guide: {
 			eyebrow: "¿Es tu primera vez en Klipstack?",

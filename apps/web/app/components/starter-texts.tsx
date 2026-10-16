@@ -195,7 +195,7 @@ function StarterBook({
 			<span className="mt-auto pt-2 pr-7 text-[11px] leading-tight opacity-80">
 				{item.author}
 				<span className="block opacity-80">{t("starter.minutes", { count: item.minutes })}</span>
-				{/* On its author's site: adding it saves it from there. */}
+				{/* On the site that publishes it: adding it saves it from there. */}
 				{item.site ? (
 					<span className="mt-0.5 flex min-w-0 items-center gap-1 opacity-80">
 						<Globe aria-hidden className="size-3 shrink-0" />

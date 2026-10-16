@@ -280,7 +280,19 @@ describe("saveStarterText", () => {
 			await db.select().from(documentRaw).where(eq(documentRaw.documentId, articleId)),
 		).toEqual([])
 		// And the shelves know it is theirs.
-		expect((await saveStarterText(userId, "orwell-why-i-write")).articleId).toBe(articleId)
+		expect(await saveStarterText(userId, "orwell-why-i-write")).toEqual({
+			articleId,
+			created: false,
+		})
+		// Its fetch failed, and the job is done: adding it again fetches it again.
+		await db.update(documents).set({ status: "failed" }).where(eq(documents.id, articleId))
+		await db.execute(sql`delete from pgboss.job where data->>'documentId' = ${articleId}`)
+		expect(await saveStarterText(userId, "orwell-why-i-write")).toEqual({
+			articleId,
+			created: false,
+		})
+		const [again] = await db.select().from(documents).where(eq(documents.id, articleId))
+		expect(again!.status).toBe("queued")
 	})
 
 	it("opens the reader's copy when they have it, leaving it as it is", async () => {
