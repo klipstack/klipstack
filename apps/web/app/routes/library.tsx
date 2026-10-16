@@ -26,7 +26,7 @@ import { MenuButton, MenuNavLink, MoreMenu } from "~/components/more-menu"
 import { PinnedControls } from "~/components/pinned-controls"
 import { SaveLinkButton } from "~/components/save-link-dialog"
 import { SelectionBar } from "~/components/selection-bar"
-import { StarterTexts } from "~/components/starter-texts"
+import { StarterOffer } from "~/components/starter-texts"
 import { tooltip } from "~/components/tooltip-host"
 import { useListCursor } from "~/hooks/use-list-cursor"
 import { AppError } from "~/lib/app-error"
@@ -339,20 +339,12 @@ export default function Library({ loaderData }: Route.ComponentProps) {
 					<p className="max-w-sm text-sm">
 						{t(`empty.${loaderData.view}.description`, { days: TRASH_RETENTION_DAYS })}
 					</p>
-					{loaderData.starter?.length ? (
-						<div className="mt-8 w-full max-w-xl">
-							<StarterTexts
-								items={loaderData.starter}
-								language={loaderData.language}
-								title={t("starter.homeTitle")}
-							/>
-							<Link
-								to="/texts"
-								className="mt-4 inline-block text-sm text-link underline-offset-4 hover:underline"
-							>
-								{t("starter.more")}
-							</Link>
-						</div>
+					{loaderData.starter ? (
+						<StarterOffer
+							offer={loaderData.starter}
+							language={loaderData.language}
+							className="mt-8 w-full max-w-xl"
+						/>
 					) : null}
 				</div>
 			) : (

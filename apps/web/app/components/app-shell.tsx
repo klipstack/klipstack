@@ -3,6 +3,7 @@ import {
 	ArrowLeft,
 	Bookmark,
 	CircleAlert,
+	Compass,
 	House,
 	LibraryBig,
 	Menu,
@@ -56,6 +57,8 @@ const items = [
 	// One link, not the tags themselves: a library can have hundreds. The command menu finds one.
 	{ to: "/tags", key: "nav.tags", icon: Tag },
 	{ to: "/topics", key: "nav.topics", icon: Shapes },
+	// Texts to add with one click: the starter shelves, for everyone, not only an empty library.
+	{ to: "/texts", key: "nav.discover", icon: Compass },
 	{ to: "/trash", key: "nav.trash", icon: Trash2 },
 ] as const
 

@@ -34,35 +34,50 @@ const home = () =>
 		context: {},
 		params: {},
 	} as never)
-const slugs = async () => (await home()).starter?.map((item) => item.slug) ?? null
+const offer = async () => {
+	const starter = (await home()).starter
+	return starter
+		? { guide: starter.guide?.slug ?? null, texts: starter.texts.map((item) => item.slug) }
+		: null
+}
 
-it("offers the starter texts while nothing is left to read, without the ones the reader has", async () => {
-	// Nothing saved: the guide and the first essays, in the reader's language.
-	expect(await slugs()).toEqual([
-		"guide-en",
-		"bacon-of-studies",
-		"seneca-on-reading",
-		"stevenson-books-influenced",
-	])
-
-	// The guide read and archived: Home is caught up, and still offers the rest.
-	const guide = findStarterText("guide-en")!
+async function save(slug: string, values: { readAt?: Date; archivedAt?: Date } = {}) {
+	const text = findStarterText(slug)!
 	await db.insert(documents).values({
 		userId,
-		sourceUrl: guide.url,
-		urlHash: starterUrlHash(guide),
+		sourceUrl: text.url,
+		urlHash: starterUrlHash(text),
 		status: "ready",
-		title: guide.title,
-		readAt: new Date(),
-		archivedAt: new Date(),
+		title: text.title,
+		...values,
 	})
+}
+
+it("offers the starter texts while nothing is left to read, without the ones the reader has", async () => {
+	// Nothing saved: the guide, and a text from each topic in turn, in the reader's language.
+	expect(await offer()).toEqual({
+		guide: "guide-en",
+		texts: [
+			"bacon-of-studies",
+			"chopin-story-of-an-hour",
+			"marcus-aurelius-book-two",
+			"darwin-earthworms",
+		],
+	})
+
+	// The guide and a story read and archived: Home is caught up, and offers the next ones.
+	await save("guide-en", { readAt: new Date(), archivedAt: new Date() })
+	await save("chopin-story-of-an-hour", { readAt: new Date(), archivedAt: new Date() })
 	expect((await home()).emptyState?.kind).toBe("caughtUp")
-	expect(await slugs()).toEqual([
-		"bacon-of-studies",
-		"seneca-on-reading",
-		"stevenson-books-influenced",
-		"hazlitt-familiar-style",
-	])
+	expect(await offer()).toEqual({
+		guide: null,
+		texts: [
+			"bacon-of-studies",
+			"ohenry-gift-of-the-magi",
+			"marcus-aurelius-book-two",
+			"darwin-earthworms",
+		],
+	})
 
 	// Something to read: Home is about it, not the shelf.
 	await db.insert(documents).values({
@@ -72,15 +87,18 @@ it("offers the starter texts while nothing is left to read, without the ones the
 		status: "ready",
 		title: "Next",
 	})
-	expect(await slugs()).toBeNull()
+	expect(await offer()).toBeNull()
 })
 
 it("offers a Spanish reader the Spanish texts", async () => {
 	session.user = { id: spanishId, name: "Lectora", locale: "es" }
-	expect(await slugs()).toEqual([
-		"guide-es",
-		"becquer-cartas-literarias",
-		"feijoo-prologo-al-lector",
-		"cervantes-prologo-quijote",
-	])
+	expect(await offer()).toEqual({
+		guide: "guide-es",
+		texts: [
+			"becquer-cartas-literarias",
+			"dario-el-rey-burgues",
+			"balmes-la-atencion",
+			"sastre-la-avispa-solitaria",
+		],
+	})
 })

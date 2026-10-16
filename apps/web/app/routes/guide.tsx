@@ -5,17 +5,9 @@ import { buttonVariants } from "~/components/ui/button"
 import { env } from "~/lib/env.server"
 import { getInstance } from "~/lib/i18n.server"
 import { getSession } from "~/lib/session.server"
-import {
-	findStarterText,
-	guidePath,
-	STARTER_LANGUAGES,
-	type StarterLanguage,
-} from "~/lib/starter-texts.server"
+import { guidePath, isStarterLanguage, starterGuide } from "~/lib/starter-texts.server"
 import { savedStarterTexts } from "~/services/starter-texts.server"
 import type { Route } from "./+types/guide"
-
-const isStarterLanguage = (value: string | undefined): value is StarterLanguage =>
-	(STARTER_LANGUAGES as readonly string[]).includes(value ?? "")
 
 /**
  * The guide to Klipstack, open to anyone: the page a library's copy of the guide is saved from,
@@ -27,7 +19,7 @@ export async function loader({ context, params }: Route.LoaderArgs) {
 		const preferred = getInstance(context).language
 		throw redirect(guidePath(isStarterLanguage(preferred) ? preferred : "en"))
 	}
-	const guide = findStarterText(`guide-${language}`)!
+	const guide = starterGuide(language)
 	const session = getSession(context)
 	// A reader who has it opens their copy instead.
 	const articleId = session
