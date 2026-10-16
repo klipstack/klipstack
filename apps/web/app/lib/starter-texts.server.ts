@@ -1,5 +1,6 @@
 import { normalizeUrl, urlHash } from "@klipstack/extract"
 import { JSDOM } from "jsdom"
+import { STARTER_LINKS, type StarterLink } from "../starter/links"
 import { env } from "./env.server"
 import {
 	STARTER_LANGUAGES,
@@ -29,7 +30,7 @@ export {
 
 const GUIDE = "guide"
 /** Per language and topic, in the order they are offered: shortest first. */
-const TEXTS: Record<StarterLanguage, Record<StarterTopic, readonly string[]>> = {
+const TEXTS: Record<StarterLanguage, Partial<Record<StarterTopic, readonly string[]>>> = {
 	en: {
 		reading: [
 			"bacon-of-studies",
@@ -100,10 +101,9 @@ function page(path: string): string {
 	return html
 }
 
-export type StarterText = {
-	/** `guide-en`, or the text's file name. */
+type StarterBase = {
+	/** `guide-en`, the text's file name, or the link's slug. */
 	slug: string
-	kind: "guide" | "text"
 	language: StarterLanguage
 	/** The shelf it is on; none for the guide. */
 	topic: StarterTopic | null
@@ -113,10 +113,37 @@ export type StarterText = {
 	minutes: number
 	/** The address it is saved under. */
 	url: string
+}
+
+/** A text that ships with the app (`app/starter/`): the guide, or a public-domain text. */
+export type BundledText = StarterBase & {
+	kind: "guide" | "text"
 	/** The whole page, as saved. */
 	html: string
 	/** Its article's markup, as the public page shows it. */
 	article: string
+	site: null
+}
+
+/** A text on its author's site (`app/starter/links.ts`): adding it fetches it from there. */
+export type LinkedText = StarterBase & {
+	kind: "link"
+	html: null
+	article: null
+	/** The site it is fetched from, as a book names it. */
+	site: string
+}
+
+export type StarterText = BundledText | LinkedText
+
+function linkedText(link: StarterLink): LinkedText {
+	return {
+		...link,
+		kind: "link",
+		html: null,
+		article: null,
+		site: new URL(link.url).hostname.replace(/^www\./, ""),
+	}
 }
 
 const WORDS_PER_MINUTE = 230
@@ -131,7 +158,7 @@ function starterText(
 	language: StarterLanguage,
 	topic: StarterTopic | null,
 	html: string,
-): StarterText {
+): BundledText {
 	const kind = topic ? "text" : "guide"
 	const doc = new JSDOM(html).window.document
 	const meta = (name: string) =>
@@ -159,19 +186,28 @@ function starterText(
 		url,
 		html,
 		article: article.innerHTML,
+		site: null,
 	}
 }
 
 let catalog: StarterText[] | null = null
 
-/** Every starter text: per language, the guide and then the texts, topic by topic. */
+/**
+ * Every starter text: per language, the guide and then the texts, topic by topic, the bundled ones
+ * and the links together, shortest first.
+ */
 export function starterTexts(): StarterText[] {
 	catalog ??= STARTER_LANGUAGES.flatMap((language) => [
 		starterText(`${GUIDE}-${language}`, language, null, page(`${GUIDE}/${language}`)),
 		...STARTER_TOPICS.flatMap((topic) =>
-			TEXTS[language][topic].map((slug) =>
-				starterText(slug, language, topic, page(`texts/${slug}`)),
-			),
+			[
+				...(TEXTS[language][topic] ?? []).map((slug) =>
+					starterText(slug, language, topic, page(`texts/${slug}`)),
+				),
+				...STARTER_LINKS.filter((link) => link.language === language && link.topic === topic).map(
+					linkedText,
+				),
+			].sort((a, b) => a.minutes - b.minutes),
 		),
 	])
 	return catalog
@@ -182,13 +218,13 @@ export function findStarterText(slug: string): StarterText | null {
 }
 
 /** The guide in `language`. */
-export function starterGuide(language: StarterLanguage): StarterText {
-	return findStarterText(`${GUIDE}-${language}`)!
+export function starterGuide(language: StarterLanguage): BundledText {
+	return findStarterText(`${GUIDE}-${language}`) as BundledText
 }
 
-/** The texts in `language`, without the guide, topic by topic. */
+/** The texts in `language`, bundled and linked, without the guide, topic by topic. */
 export function starterTextsIn(language: StarterLanguage): StarterText[] {
-	return starterTexts().filter((text) => text.language === language && text.kind === "text")
+	return starterTexts().filter((text) => text.language === language && text.kind !== "guide")
 }
 
 /** The hash a library finds the text by (`documents.url_hash`). */

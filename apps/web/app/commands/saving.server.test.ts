@@ -266,6 +266,23 @@ describe("saveStarterText", () => {
 		)
 	})
 
+	it("saves a linked text as a link, for the worker to fetch from its site", async () => {
+		const userId = await newUser()
+		const { articleId, created } = await saveStarterText(userId, "orwell-why-i-write")
+		expect(created).toBe(true)
+		const [doc] = await db.select().from(documents).where(eq(documents.id, articleId))
+		expect(doc).toMatchObject({
+			sourceUrl:
+				"https://www.orwellfoundation.com/the-orwell-foundation/orwell/essays-and-other-works/why-i-write",
+			status: "queued",
+		})
+		expect(
+			await db.select().from(documentRaw).where(eq(documentRaw.documentId, articleId)),
+		).toEqual([])
+		// And the shelves know it is theirs.
+		expect((await saveStarterText(userId, "orwell-why-i-write")).articleId).toBe(articleId)
+	})
+
 	it("opens the reader's copy when they have it, leaving it as it is", async () => {
 		const userId = await newUser()
 		const first = await saveStarterText(userId, "guide-es")

@@ -70,8 +70,8 @@ const OFFERED = 4
 
 /**
  * What a page with nothing to read offers (Home, the empty library), in the reader's language: the
- * guide while they don't have it and are new, and texts they don't have, one from each topic in
- * turn.
+ * guide while they don't have it and are new, and texts that ship with the app they don't have, one
+ * from each topic in turn.
  */
 export async function offeredStarterTexts(userId: string, language: StarterLanguage) {
 	const guide = starterGuide(language)
@@ -80,7 +80,9 @@ export async function offeredStarterTexts(userId: string, language: StarterLangu
 		experiencedReader(userId),
 	])
 	const unread = items.filter((item) => !item.articleId)
-	const byTopic = STARTER_TOPICS.map((topic) => unread.filter((item) => item.topic === topic))
+	// The ones that ship with the app: they open at once, and on any server.
+	const bundled = unread.filter((item) => item.kind === "text")
+	const byTopic = STARTER_TOPICS.map((topic) => bundled.filter((item) => item.topic === topic))
 	const texts: StarterItem[] = []
 	for (let round = 0; texts.length < OFFERED && byTopic.some((list) => list[round]); round++) {
 		for (const list of byTopic) if (list[round] && texts.length < OFFERED) texts.push(list[round]!)

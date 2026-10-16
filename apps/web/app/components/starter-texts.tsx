@@ -1,4 +1,4 @@
-import { Bookmark, Plus } from "lucide-react"
+import { Bookmark, Globe, Plus } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Form, Link, useNavigation } from "react-router"
 import { buttonVariants } from "~/components/ui/button"
@@ -195,6 +195,13 @@ function StarterBook({
 			<span className="mt-auto pt-2 pr-7 text-[11px] leading-tight opacity-80">
 				{item.author}
 				<span className="block opacity-80">{t("starter.minutes", { count: item.minutes })}</span>
+				{/* On its author's site: adding it saves it from there. */}
+				{item.site ? (
+					<span className="mt-0.5 flex min-w-0 items-center gap-1 opacity-80">
+						<Globe aria-hidden className="size-3 shrink-0" />
+						<span className="truncate">{item.site}</span>
+					</span>
+				) : null}
 			</span>
 		</span>
 	)
@@ -221,8 +228,12 @@ function StarterBook({
 						type="submit"
 						className={cn(cover, "group")}
 						disabled={navigation.state !== "idle"}
-						aria-label={t("starter.addLabel", { title: item.title })}
-						title={t("starter.add")}
+						aria-label={
+							item.site
+								? t("starter.addFromLabel", { title: item.title, site: item.site })
+								: t("starter.addLabel", { title: item.title })
+						}
+						title={item.site ? t("starter.addFrom", { site: item.site }) : t("starter.add")}
 					>
 						{face}
 						<span

@@ -20,7 +20,8 @@
 		"typecheck": "react-router typegen && tsc",
 		"demo": "tsx scripts/demo.ts",
 		"topics": "tsx scripts/topics/sim.ts",
-		"citations": "tsx scripts/citations.ts"
+		"citations": "tsx scripts/citations.ts",
+		"starter-links": "tsx scripts/starter-links.ts"
 	},
 	"dependencies": {
 		"@ai-sdk/anthropic": "4.0.63",
