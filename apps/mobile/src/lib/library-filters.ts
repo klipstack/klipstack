@@ -154,6 +154,14 @@ export function stillInFilter(
 }
 
 /**
+ * Whether a load is the list to keep for offline reading: all of it, in its own order. A filter's
+ * or another order's page would replace the whole list the phone keeps.
+ */
+export function keepsWholeList(filter: FilterChoice, sort: ListSort): boolean {
+	return filter === null && sort === defaultSort(null)
+}
+
+/**
  * A list kept for offline reading, as a filter and an order would show it: what the phone kept of
  * the whole list, narrowed and sorted as the server would. Null when the summaries can't say
  * which articles belong (Read again, Quick reads): the list then shows the offline note alone.

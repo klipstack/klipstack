@@ -3,7 +3,15 @@ import { SEARCH_LIMIT_MAX } from "@klipstack/api-contract/search-query"
 import type { ArticleSummary } from "@klipstack/sdk"
 import { Stack, useFocusEffect } from "expo-router"
 import { useCallback, useMemo, useRef, useState } from "react"
-import { ActivityIndicator, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native"
+import {
+	ActivityIndicator,
+	AppState,
+	Pressable,
+	RefreshControl,
+	StyleSheet,
+	Text,
+	View,
+} from "react-native"
 import { useArticleActions } from "@/components/article-actions"
 import { ArticleList, type CardMenu, useImageHeaders } from "@/components/article-card"
 import { LayoutButton } from "@/components/list-layout"
@@ -19,10 +27,10 @@ import { useAuth } from "@/lib/auth"
 import { actedOn, bulkActions, bulkNotice, type LibraryView, stillShown } from "@/lib/bulk-actions"
 import {
 	archivedReadNotice,
-	defaultSort,
 	type FilterChoice,
 	type FilterCounts,
 	filterLine,
+	keepsWholeList,
 	narrowKept,
 	stillInFilter,
 } from "@/lib/library-filters"
@@ -125,7 +133,8 @@ export function LibraryList({
 	const asked = fixedTopic ?? (filterable ? topicToAsk(topic, topics) : null)
 
 	// How many each filter shows, of the topic's articles when one is chosen: the menu's counts.
-	// Loaded on each return here, when the topic changes, and when articles change.
+	// Loaded on each return here and to the app, when the topic changes, when articles change, and
+	// after the list's own actions.
 	const [counts, setCounts] = useState<{ topic: string | null; counts: FilterCounts } | null>(null)
 	const countsAsked = useRef(0)
 	const loadCounts = useCallback(() => {
@@ -137,13 +146,22 @@ export function LibraryList({
 				if (mine === countsAsked.current) setCounts({ topic: asked, counts: answer.counts })
 			})
 			.catch(() => {
-				// Offline, or the topic ended: the menu keeps what it had, and the list says why.
+				// Offline, or the topic ended: the menu offers every filter, uncounted, and the list says
+				// why.
+				if (mine === countsAsked.current) setCounts(null)
 			})
 	}, [client, filterable, asked])
 	useFocusEffect(
 		useCallback(() => {
 			loadCounts()
-			return onChange(loadCounts)
+			const off = onChange(loadCounts)
+			const sub = AppState.addEventListener("change", (state) => {
+				if (state === "active") loadCounts()
+			})
+			return () => {
+				off()
+				sub.remove()
+			}
 		}, [loadCounts]),
 	)
 	const shownCounts = counts && counts.topic === (asked ?? null) ? counts.counts : null
@@ -185,7 +203,7 @@ export function LibraryList({
 	const offline = useMemo(() => {
 		if (!client || (view !== "inbox" && view !== "starred")) return undefined
 		const kept = keptOffline(view, asked ?? null)
-		const whole = filter === null && sort === defaultSort(null)
+		const whole = keepsWholeList(filter, sort)
 		return {
 			loaded: (items: ArticleSummary[]) => {
 				if (!kept || !whole) return
@@ -211,6 +229,7 @@ export function LibraryList({
 				),
 			),
 		done: (action, count, conflicts) => {
+			loadCounts()
 			if (select.selecting) select.say(bulkNotice(action, count, conflicts))
 		},
 		reload: () => void load(),
@@ -325,6 +344,7 @@ export function LibraryList({
 						refreshing={list.refreshing}
 						onRefresh={() => {
 							loadTopics()
+							loadCounts()
 							void list.refresh()
 						}}
 					/>

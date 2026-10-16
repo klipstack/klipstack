@@ -6,6 +6,7 @@ import {
 	filterLine,
 	filterMenu,
 	inFilter,
+	keepsWholeList,
 	narrowKept,
 	sortsFor,
 	stillInFilter,
@@ -116,6 +117,29 @@ it("takes an article out of a filtered list once it no longer belongs, and keeps
 	expect(stillInFilter("inbox", null, unread)).toBe(true)
 })
 
+it("keeps for offline reading only the whole list, newest first", () => {
+	expect(keepsWholeList(null, "newest")).toBe(true)
+	expect(keepsWholeList("read", "newest")).toBe(false)
+	expect(keepsWholeList(null, "oldest")).toBe(false)
+	expect(keepsWholeList(null, "recent")).toBe(false)
+})
+
+it("decides the archive's and Starred's filters, read or not", () => {
+	const done = article("a", { finished: true, url: "https://x.com/a/status/1" })
+	const open = article("b", { opened: true })
+	expect(["finished", "unfinished", "x"].map((f) => inFilter("archive", f as never, done))).toEqual(
+		[true, false, true],
+	)
+	expect(["finished", "unfinished", "x"].map((f) => inFilter("starred", f as never, open))).toEqual(
+		[false, true, false],
+	)
+	// Inbox's X leaves out what is read.
+	expect(inFilter("inbox", "x", done)).toBe(false)
+	expect(ids(narrowKept([done, open], "starred", "finished", "newest"))).toEqual(["a"])
+})
+
+const ids = (items: ArticleSummary[] | null) => items?.map((a) => a.id) ?? null
+
 describe("narrowKept", () => {
 	const kept = [
 		article("long", { readingMinutes: 45, savedAt: "2026-10-03T00:00:00.000Z" }),
@@ -123,8 +147,6 @@ describe("narrowKept", () => {
 		article("unknown", { readingMinutes: null, savedAt: "2026-10-01T00:00:00.000Z" }),
 		article("started", { opened: true, readingMinutes: 12, savedAt: "2026-09-30T00:00:00.000Z" }),
 	]
-	const ids = (items: ArticleSummary[] | null) => items?.map((a) => a.id) ?? null
-
 	it("keeps the kept order for Newest first and Recently read", () => {
 		expect(ids(narrowKept(kept, "inbox", null, "newest"))).toEqual([
 			"long",

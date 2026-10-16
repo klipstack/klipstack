@@ -637,7 +637,8 @@ export function ArticleList(
 	}
 	const separator = <View style={[styles.separator, { backgroundColor: colors.divider }]} />
 
-	if (groupAt) {
+	// No dates (a server from before `starredAt`, a list kept by an older app): no headings.
+	if (groupAt && Array.from(data ?? []).some(groupAt)) {
 		const lines = sectionLines(data ?? [], groupAt, layout === "grid" ? 2 : 1)
 		return (
 			<FlatList<Line>
