@@ -316,7 +316,7 @@ function Commentary({
 								data-still=""
 								className={cn(
 									// As wide as its text: a short quote is a small piece of paper.
-									"clipping w-fit max-w-full",
+									"clipping w-fit max-w-full min-w-32",
 									pull
 										? "px-6 pt-[calc(var(--clip-top)+1rem)] pb-5"
 										: "clipping-sm px-5 pt-[calc(var(--clip-top)+0.875rem)] pb-4",
@@ -348,7 +348,10 @@ function Commentary({
 										text={highlight.note}
 										anchors={anchors}
 										newTab={newTab}
-										className="mt-2 px-5 text-sm leading-relaxed text-muted-fg"
+										className={cn(
+											"mt-2 text-sm leading-relaxed text-muted-fg",
+											pull ? "px-6" : "px-5",
+										)}
 									/>
 								</figcaption>
 							) : null}

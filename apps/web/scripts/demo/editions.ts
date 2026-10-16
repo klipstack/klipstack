@@ -2,6 +2,7 @@ import { db, documents, editions, eq } from "@klipstack/db"
 import {
 	addItem,
 	createEdition,
+	deleteEdition,
 	publishEdition,
 	updateEdition,
 	updateItem,
@@ -89,37 +90,53 @@ export async function seedEditions(state: State) {
 		.select({ id: documents.id, updatedAt: documents.updatedAt })
 		.from(documents)
 		.where(eq(documents.userId, state.userId))
-	for (const plan of plans) {
-		const edition = await createEdition(state.userId, { locale: "en", timeZone: "UTC" })
-		await updateEdition(state.userId, edition.id, { title: plan.title, intro: plan.intro })
-		for (const planned of plan.items) {
-			const url = Object.keys(state.documents).find((u) => u.includes(planned.url))
-			if (!url) throw new Error(`No demo article for the edition: ${planned.url}`)
-			const item = await addItem(state.userId, edition.id, state.documents[url]!.id)
-			const quotes = (planned.quotes ?? []).map((q) => (typeof q === "number" ? { index: q } : q))
-			// The reading history decides how many highlights an article has: say when one is missing.
-			for (const quote of quotes)
-				if (quote.index >= item.highlights.length)
-					throw new Error(`The demo article has no highlight ${quote.index}: ${planned.url}`)
-			await updateItem(state.userId, edition.id, item.id, {
-				includeNote: planned.note !== undefined,
-				note: planned.note ?? null,
-				highlights: item.highlights.map((h, i) => {
-					const quote = quotes.find((q) => q.index === i)
-					return {
-						highlightId: h.highlightId,
-						included: quote !== undefined,
-						note: quote && "note" in quote ? quote.note : null,
-					}
-				}),
-			})
+	// A failure leaves no edition behind, so the next seed makes them again.
+	const made: string[] = []
+	try {
+		for (const plan of plans) {
+			const edition = await createEdition(state.userId, { locale: "en", timeZone: "UTC" })
+			made.push(edition.id)
+			await updateEdition(state.userId, edition.id, { title: plan.title, intro: plan.intro })
+			for (const planned of plan.items) {
+				// A page the capture missed, or a highlight the reading history did not make, is left
+				// out: the edition shows fewer cases, and says so here.
+				const url = Object.keys(state.documents).find((u) => u.includes(planned.url))
+				if (!url) {
+					console.log(`No demo article for the edition, left out: ${planned.url}`)
+					continue
+				}
+				const item = await addItem(state.userId, edition.id, state.documents[url]!.id)
+				const quotes = (planned.quotes ?? [])
+					.map((q) => (typeof q === "number" ? { index: q } : q))
+					.filter((q) => {
+						if (q.index < item.highlights.length) return true
+						console.log(`No highlight ${q.index} to quote, left out: ${planned.url}`)
+						return false
+					})
+				await updateItem(state.userId, edition.id, item.id, {
+					includeNote: planned.note !== undefined,
+					note: planned.note ?? null,
+					highlights: item.highlights.map((h, i) => {
+						const quote = quotes.find((q) => q.index === i)
+						return {
+							highlightId: h.highlightId,
+							included: quote !== undefined,
+							note: quote && "note" in quote ? quote.note : null,
+						}
+					}),
+				})
+			}
+			if (plan.publish) {
+				const published = await publishEdition(state.userId, edition.id)
+				if (!published.ok)
+					throw new Error(`Cannot publish the demo edition: ${JSON.stringify(published.problems)}`)
+			}
 		}
-		if (plan.publish) {
-			const published = await publishEdition(state.userId, edition.id)
-			if (!published.ok)
-				throw new Error(`Cannot publish the demo edition: ${JSON.stringify(published.problems)}`)
-		}
+	} catch (error) {
+		for (const id of made) await deleteEdition(state.userId, id)
+		throw error
+	} finally {
+		for (const doc of dated)
+			await db.update(documents).set({ updatedAt: doc.updatedAt }).where(eq(documents.id, doc.id))
 	}
-	for (const doc of dated)
-		await db.update(documents).set({ updatedAt: doc.updatedAt }).where(eq(documents.id, doc.id))
 }
