@@ -30,6 +30,7 @@ import { createHighlight } from "../../app/services/highlights.server"
 import { listSavedSearches } from "../../app/services/saved-searches.server"
 import { changeTags } from "../../app/services/tags.server"
 import { cachedImage, getBlob, hash, imageUrls, loadCapture, type Capture } from "./cache"
+import { seedEditions } from "./editions"
 import { prepareFeeds } from "./feed-cache"
 import { assertFeedOwnership, removeDemoFeeds, seedFeed } from "./feeds"
 import { planHighlights } from "./highlights"
@@ -425,6 +426,7 @@ export async function runDemo(options: DemoOptions) {
 		for (const search of searches)
 			if (!existingSearches.some((row) => row.name === search.name))
 				await createSavedSearch(state.userId, { name: search.name, query: search.query })
+		await seedEditions(state)
 		console.log(JSON.stringify(await verifyDemo(state), null, 2))
 		console.log(
 			`Sign in: ${state.email}\nPassword: ${PASSWORD}\nBase date: ${state.date}\nOwnership record and corpus: ${options.cache}`,
