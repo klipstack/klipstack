@@ -230,6 +230,83 @@ export const STARTER_LINKS: readonly StarterLink[] = [
 		minutes: 32,
 	},
 	{
+		slug: "graham-what-youll-wish-youd-known",
+		language: "en",
+		topic: "living",
+		url: "https://paulgraham.com/hs.html",
+		title: "What You'll Wish You'd Known",
+		author: "Paul Graham",
+		description:
+			"A talk Paul Graham wrote in 2005 for high-school students, on staying curious and keeping your options open before you know what you want.",
+		minutes: 22,
+	},
+	{
+		slug: "graham-how-to-work-hard",
+		language: "en",
+		topic: "living",
+		url: "https://paulgraham.com/hwh.html",
+		title: "How to Work Hard",
+		author: "Paul Graham",
+		description:
+			"Paul Graham's 2021 look at what working hard really takes, and how to aim it at the right problem.",
+		minutes: 14,
+	},
+	{
+		slug: "urban-the-tail-end",
+		language: "en",
+		topic: "living",
+		url: "https://waitbutwhy.com/2015/12/the-tail-end.html",
+		title: "The Tail End",
+		author: "Tim Urban",
+		description:
+			"Tim Urban's 2015 post counting the time left with the people we love, and finding much of it is already spent.",
+		minutes: 5,
+	},
+	{
+		slug: "hamming-you-and-your-research",
+		language: "en",
+		topic: "science",
+		url: "https://www.cs.virginia.edu/~robins/YouAndYourResearch.html",
+		title: "You and Your Research",
+		author: "Richard Hamming",
+		description:
+			"Richard Hamming's 1986 talk at Bell Labs on why some scientists do great work and most don't, with the audience's questions.",
+		minutes: 63,
+	},
+	{
+		slug: "sutton-bitter-lesson",
+		language: "en",
+		topic: "ideas",
+		url: "http://www.incompleteideas.net/IncIdeas/BitterLesson.html",
+		title: "The Bitter Lesson",
+		author: "Rich Sutton",
+		description:
+			"Rich Sutton's 2019 note on seventy years of AI research: general methods that scale with computation beat human cleverness.",
+		minutes: 5,
+	},
+	{
+		slug: "gabriel-worse-is-better",
+		language: "en",
+		topic: "ideas",
+		url: "https://www.dreamsongs.com/RiseOfWorseIsBetter.html",
+		title: "The Rise of Worse Is Better",
+		author: "Richard P. Gabriel",
+		description:
+			"Richard Gabriel's 1989 essay on why simple, incomplete software that spreads tends to beat the right thing.",
+		minutes: 7,
+	},
+	{
+		slug: "licklider-man-computer-symbiosis",
+		language: "en",
+		topic: "ideas",
+		url: "https://groups.csail.mit.edu/medg/people/psz/Licklider.html",
+		title: "Man-Computer Symbiosis",
+		author: "J. C. R. Licklider",
+		description:
+			"J. C. R. Licklider's 1960 paper imagining people and computers thinking together, decades before personal computers.",
+		minutes: 28,
+	},
+	{
 		slug: "vargas-llosa-civilizacion-del-espectaculo",
 		language: "es",
 		topic: "ideas",

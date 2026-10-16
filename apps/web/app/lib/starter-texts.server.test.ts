@@ -26,9 +26,10 @@ describe("the catalog", () => {
 	})
 
 	it.each(STARTER_LINKS.map((link) => [link.slug, link]))(
-		"%s links to an https page, with what its book shows",
+		"%s links to a web page, with what its book shows",
 		(_slug, link) => {
-			expect(new URL(link.url).protocol).toBe("https:")
+			// http only where the site has no https (Sutton's).
+			expect(["https:", "http:"]).toContain(new URL(link.url).protocol)
 			expect(link.title && link.author && link.description).toBeTruthy()
 			expect(link.minutes).toBeGreaterThan(0)
 		},
