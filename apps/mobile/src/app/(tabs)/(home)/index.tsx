@@ -1,4 +1,4 @@
-import type { ArticleSummary, NoteReminder, Topic } from "@klipstack/sdk"
+import type { ArticleSummary, DailyHighlight, NoteReminder, Topic } from "@klipstack/sdk"
 import { router, useFocusEffect } from "expo-router"
 import { SymbolView } from "expo-symbols"
 import { useCallback, useMemo, useRef, useState } from "react"
@@ -27,11 +27,13 @@ import {
 	useImageHeaders,
 } from "@/components/article-card"
 import { ClipboardOffer } from "@/components/clipboard-offer"
+import { HomeHighlights } from "@/components/home-highlights"
 import { NoteReminders } from "@/components/note-reminders"
 import { useTagSheet } from "@/components/tag-sheet"
 import { onChange, settled } from "@/lib/article-changes"
 import { articleMeta } from "@/lib/article-meta"
 import { useAuth } from "@/lib/auth"
+import { localDay } from "@/lib/daily-highlights"
 import {
 	everyHomeArticle,
 	type HomeLists,
@@ -67,7 +69,8 @@ import { chooseTopic } from "@/lib/topic-choices"
  * With more unfinished articles than Home shows at once, "How much time do you have?" above it, as
  * on the web: a time narrows every section to what can be finished in it, from the lists already
  * loaded, without asking the server again. Articles finished lately without a note are asked
- * about, as on the web, when the server suggests it.
+ * about, as on the web, when the server suggests it. A few past highlights come back each day
+ * ("From your highlights"), as on the web, unless a time is chosen.
  */
 export default function Home() {
 	const { state } = useAuth()
@@ -84,6 +87,12 @@ export default function Home() {
 	const [reminders, setReminders] = useState<NoteReminder[]>([])
 	// Answered here while a load was on its way: that load's list mustn't bring them back.
 	const skipped = useRef(new Set<string>())
+	// The day's highlights, and those taken off Home here ("Not useful anymore", until undone).
+	const [daily, setDaily] = useState<{
+		items: DailyHighlight[]
+		linkTargets: Record<string, "ok" | "trash">
+	} | null>(null)
+	const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set())
 	const putOff = useRef(false)
 	const [pick, setPick] = useState<TopicPick>(null)
 	const choice = homeTopicChoice(topics, pick)
@@ -117,6 +126,13 @@ export default function Home() {
 				.then((answer) => {
 					if (mine !== generation.current || putOff.current || !answer.suggested) return
 					setReminders(answer.items.filter((r) => !skipped.current.has(r.article.id)))
+				})
+				.catch(() => {})
+			// A server before them answers 404: Home without the section.
+			void client.dailyHighlights
+				.list(localDay())
+				.then((answer) => {
+					if (mine === generation.current) setDaily(answer)
 				})
 				.catch(() => {})
 			// More than a shelf shows: the sections drop what isn't ready or shows above.
@@ -225,6 +241,26 @@ export default function Home() {
 		() => ({ act: (item, action) => act(action, [item]), tag: (item) => openTags([item]) }),
 		[act, openTags],
 	)
+
+	const hide = useCallback((id: string) => setHidden((now) => new Set(now).add(id)), [])
+	const show = useCallback(
+		(id: string) =>
+			setHidden((now) => {
+				const next = new Set(now)
+				next.delete(id)
+				return next
+			}),
+		[],
+	)
+	const noteSaved = useCallback(
+		(id: string, note: string | null) =>
+			setDaily(
+				(shown) =>
+					shown && { ...shown, items: shown.items.map((h) => (h.id === id ? { ...h, note } : h)) },
+			),
+		[],
+	)
+	const highlights = daily?.items.filter((h) => !hidden.has(h.id)) ?? []
 
 	async function onRefresh() {
 		setRefreshing(true)
@@ -353,6 +389,25 @@ export default function Home() {
 							colors={colors}
 						>
 							<Shelf items={home.again} colors={colors} headers={headers} menu={menu} />
+						</Section>
+					) : null}
+					{/* With a time chosen, the reader came to read. */}
+					{client && daily && highlights.length > 0 && minutes === null ? (
+						<Section
+							title="From your highlights"
+							note="Passages you marked, back for another look. A few each day."
+							colors={colors}
+						>
+							<HomeHighlights
+								items={highlights}
+								linkTargets={daily.linkTargets}
+								client={client}
+								onHide={hide}
+								onShow={show}
+								onNote={noteSaved}
+								colors={colors}
+								headers={headers}
+							/>
 						</Section>
 					) : null}
 					{home.quick.length ? (

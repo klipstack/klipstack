@@ -16,18 +16,31 @@ import type { SavedNote } from "@/lib/note-guard"
 import { countLine, type NotebookEntry, type NotebookGroup, plural } from "@/lib/notebook"
 import type { Colors } from "@/lib/theme"
 
-/** What every card needs from the screen: the client, the pictures' headers, note links, edits. */
-export type CardContext = {
+/** What a highlight's card needs from the screen: the client, the pictures' headers, note links. */
+export type QuoteContext = {
 	client: KlipstackClient
 	colors: Colors
 	headers: Record<string, string> | null
 	linking: (articleId: string) => NoteLinking
-	/** The article's note saved here. */
-	onArticleNote: (articleId: string, saved: SavedNote) => void
 	/** The highlight's note saved here. */
 	onHighlightNote: (id: string, note: string | null) => void
-	onDelete: (highlight: Highlight) => void
+	/** Without it, the card offers no Delete (Home). */
+	onDelete?: (highlight: QuoteHighlight) => void
 }
+
+/** What every card needs from the screen: a highlight's card's needs, and article notes' edits. */
+export type CardContext = QuoteContext & {
+	/** The article's note saved here. */
+	onArticleNote: (articleId: string, saved: SavedNote) => void
+	onDelete: (highlight: QuoteHighlight) => void
+}
+
+/** What a highlight's card shows of a highlight: the Notebook's, or one of Home's. */
+export type QuoteHighlight = Pick<Highlight, "id" | "quote" | "note" | "color">
+
+/** What a highlight's card shows of its article: Home's highlights come without a cover. */
+export type QuoteArticle = Pick<NotebookArticle, "id" | "title" | "site" | "url"> &
+	Partial<Pick<NotebookArticle, "leadImage">>
 
 /** Highlights an article's section shows before "Show all", as on the web. */
 const COLLAPSED = 6
@@ -153,20 +166,24 @@ export function Card({
  * A highlight's card: the quote, marked in its color, large when short; its note on a small post-it
  * in its color, written on in place; and, outside its article's section, where it is from. A tap on
  * the quote opens the article at the highlight; a long press, its menu (Copy, Share, Add Note,
- * Delete).
+ * Delete). On Home (`onDismiss`), Add Note and "Not useful anymore" show below it too, as on the
+ * web, and the menu has "Not useful anymore" instead of Delete.
  */
 export function QuoteCard({
 	highlight,
 	article,
 	withArticle = true,
 	dealt,
+	onDismiss,
 	ctx,
 }: {
-	highlight: Highlight
-	article: NotebookArticle
+	highlight: QuoteHighlight
+	article: QuoteArticle
 	withArticle?: boolean
 	dealt?: number
-	ctx: CardContext
+	/** "Not useful anymore": Home stops bringing it back. */
+	onDismiss?: () => void
+	ctx: QuoteContext
 }) {
 	const { colors } = ctx
 	const [pressed, setPressed] = useState(false)
@@ -192,11 +209,19 @@ export function QuoteCard({
 				Add Note
 			</Link.MenuAction>,
 		)
-	actions.push(
-		<Link.MenuAction key="delete" icon="trash" destructive onPress={() => ctx.onDelete(highlight)}>
-			Delete
-		</Link.MenuAction>,
-	)
+	if (onDismiss)
+		actions.push(
+			<Link.MenuAction key="dismiss" icon="eye.slash" onPress={onDismiss}>
+				Not Useful Anymore
+			</Link.MenuAction>,
+		)
+	const { onDelete } = ctx
+	if (onDelete)
+		actions.push(
+			<Link.MenuAction key="delete" icon="trash" destructive onPress={() => onDelete(highlight)}>
+				Delete
+			</Link.MenuAction>,
+		)
 	return (
 		<View style={[styles.card, cardSurface(colors), dealtTilt(dealt)]}>
 			<Link
@@ -245,7 +270,50 @@ export function QuoteCard({
 				colors={colors}
 				onSaved={(note) => ctx.onHighlightNote(highlight.id, note)}
 			/>
+			{onDismiss ? (
+				<View style={styles.tools}>
+					{highlight.note || writing ? null : (
+						<CardTool
+							label="Add a note"
+							symbol="note.text.badge.plus"
+							onPress={() => setWriting(true)}
+							colors={colors}
+						/>
+					)}
+					<CardTool
+						label="Not useful anymore"
+						symbol="eye.slash"
+						onPress={onDismiss}
+						colors={colors}
+					/>
+				</View>
+			) : null}
 		</View>
+	)
+}
+
+/** A small button under a card, in the muted ink: Home's Add a note and Not useful anymore. */
+function CardTool({
+	label,
+	symbol,
+	onPress,
+	colors,
+}: {
+	label: string
+	symbol: "note.text.badge.plus" | "eye.slash"
+	onPress: () => void
+	colors: Colors
+}) {
+	return (
+		<Pressable
+			accessibilityRole="button"
+			onPress={onPress}
+			hitSlop={8}
+			style={({ pressed }) => [styles.tool, pressed && styles.pressed]}
+		>
+			<SymbolView name={symbol} tintColor={colors.mutedFg} size={14} accessibilityElementsHidden />
+			<Text style={[styles.toolText, { color: colors.mutedFg }]}>{label}</Text>
+		</Pressable>
 	)
 }
 
@@ -359,14 +427,14 @@ export function Thumb({
 	colors,
 	headers,
 }: {
-	article: NotebookArticle
+	article: QuoteArticle
 	size: number
 	colors: Colors
 	headers: Record<string, string> | null
 }) {
 	const { apiUrl } = useAuth()
 	const [failed, setFailed] = useState(false)
-	const source = failed ? null : leadImageSource(article.leadImage, apiUrl, headers)
+	const source = failed ? null : leadImageSource(article.leadImage ?? null, apiUrl, headers)
 	const box = { width: size, height: size, borderRadius: size / 6, backgroundColor: colors.muted }
 	return (
 		<View style={[styles.thumb, box]}>
@@ -410,7 +478,7 @@ export function authorOf(article: NotebookArticle): string | null {
 	return article.author && article.author !== siteName(article) ? article.author : null
 }
 
-export function titleOf(article: NotebookArticle): string {
+export function titleOf(article: Pick<NotebookArticle, "title" | "url">): string {
 	return article.title || article.url
 }
 
@@ -460,6 +528,9 @@ const styles = StyleSheet.create({
 	quote: { fontFamily: "Iowan Old Style" },
 	from: { flexDirection: "row", alignItems: "center", gap: 8 },
 	fromText: { flex: 1, fontSize: 13 },
+	tools: { flexDirection: "row", flexWrap: "wrap", gap: 20, marginTop: 14 },
+	tool: { flexDirection: "row", alignItems: "center", gap: 6 },
+	toolText: { fontSize: 14 },
 	noteHead: { flexDirection: "row", alignItems: "flex-start", gap: 12, marginBottom: 12 },
 	noteTitle: { flex: 1 },
 	bookTitle: {

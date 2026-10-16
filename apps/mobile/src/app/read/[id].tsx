@@ -12,6 +12,7 @@ import {
 	Easing,
 	Linking,
 	PixelRatio,
+	Pressable,
 	Share,
 	StyleSheet,
 	Text,
@@ -38,6 +39,7 @@ import { useAuth } from "@/lib/auth"
 import { copyText } from "@/lib/clipboard"
 import type { ColorSchemePref } from "@/lib/color-scheme"
 import { afterMarking, withUndone } from "@/lib/draft-undo"
+import { waitForExtraction } from "@/lib/extraction"
 import { finishOnLeave, showFinished } from "@/lib/finish-on-leave"
 import { minutesLeft } from "@/lib/home"
 import { inTime } from "@/lib/in-time"
@@ -91,6 +93,8 @@ export default function Reader() {
 	const [error, setError] = useState<string | null>(null)
 	/** Counts loads asked for after the first: the article changed on the server (`readPost`). */
 	const [generation, setGeneration] = useState(0)
+	// A failed save being read again (Try Again).
+	const [retrying, setRetrying] = useState(false)
 	// The controls at the top float over the page, which runs under them; they hide while the reader
 	// scrolls down, and the page says when (`controlsStep` in src/page/controls.ts). Shown while
 	// loading.
@@ -433,14 +437,24 @@ export default function Reader() {
 			const { queued } = await client.articles.readPost(id)
 			if (!queued) return
 			setPage(null)
-			for (let attempt = 0; attempt < 20; attempt++) {
-				await new Promise((resolve) => setTimeout(resolve, 1000))
-				const details = await client.articles.get(id)
-				if (details.status !== "queued" && details.status !== "processing") break
-			}
+			await waitForExtraction(client, id)
 		} catch (e) {
 			Alert.alert("Couldn't switch to the post", e instanceof Error ? e.message : String(e))
 		}
+		setGeneration((n) => n + 1)
+	}
+
+	/** The save failed: the server reads the page again; the reader loads again once it is done. */
+	async function retry() {
+		if (!client) return
+		setRetrying(true)
+		try {
+			const { queued } = await client.articles.retry(id)
+			if (queued) await waitForExtraction(client, id)
+		} catch (e) {
+			Alert.alert("Couldn't try again", e instanceof Error ? e.message : String(e))
+		}
+		setRetrying(false)
 		setGeneration((n) => n + 1)
 	}
 
@@ -990,10 +1004,27 @@ export default function Reader() {
 				/>
 			) : (
 				<View style={styles.center}>
-					{error || (article && article.status !== "ready") ? (
-						<Text style={[styles.message, { color: colors.mutedFg }]}>
-							{error ?? statusMessage(article!)}
-						</Text>
+					{retrying ? (
+						<>
+							<ActivityIndicator color={colors.mutedFg} />
+							<Text style={[styles.message, { color: colors.mutedFg }]}>Trying again…</Text>
+						</>
+					) : error || (article && article.status !== "ready") ? (
+						<>
+							<Text style={[styles.message, { color: colors.mutedFg }]}>
+								{error ?? statusMessage(article!)}
+							</Text>
+							{!error && article?.status === "failed" ? (
+								<Pressable
+									accessibilityRole="button"
+									onPress={() => void retry()}
+									hitSlop={8}
+									style={({ pressed }) => pressed && styles.pressed}
+								>
+									<Text style={[styles.action, { color: colors.accent }]}>Try Again</Text>
+								</Pressable>
+							) : null}
+						</>
 					) : (
 						<ActivityIndicator color={colors.mutedFg} />
 					)}
@@ -1150,7 +1181,7 @@ function bylineOf(a: ArticleDetails): string {
 
 function statusMessage(a: ArticleDetails): string {
 	if (a.status === "failed")
-		return "Klipstack couldn't read this page. Open the original from the More menu above."
+		return "Klipstack couldn't read this page. Try again, or open the original from the More menu above."
 	return "Klipstack is still saving this article. Try again in a moment."
 }
 
@@ -1175,6 +1206,8 @@ const NAV_BAR = 44
 const styles = StyleSheet.create({
 	screen: { flex: 1 },
 	statusBar: { position: "absolute", top: 0, left: 0, right: 0 },
-	center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 32 },
+	center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 16, padding: 32 },
 	message: { fontSize: 16, lineHeight: 22, textAlign: "center" },
+	action: { fontSize: 17, fontWeight: "600" },
+	pressed: { opacity: 0.6 },
 })

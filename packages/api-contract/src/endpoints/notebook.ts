@@ -172,6 +172,7 @@ export const DailyHighlight = z
 		article: HighlightArticle,
 	})
 	.meta({ id: "DailyHighlight" })
+export type DailyHighlight = z.infer<typeof DailyHighlight>
 
 export const listDailyHighlights = defineEndpoint({
 	id: "dailyHighlights.list",
@@ -292,6 +293,7 @@ export const unskipNote = defineEndpoint({
 export const Snippet = z
 	.array(z.object({ text: z.string(), match: z.literal(true).optional() }))
 	.meta({ id: "Snippet" })
+export type Snippet = z.infer<typeof Snippet>
 
 const FoundArticle = z.object({
 	id: Id,

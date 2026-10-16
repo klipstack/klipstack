@@ -269,7 +269,7 @@ export function HighlightNote({
 	colors,
 	onSaved,
 }: {
-	highlight: Highlight
+	highlight: Pick<Highlight, "id" | "note" | "color">
 	editing: boolean
 	setEditing: (editing: boolean) => void
 	client: KlipstackClient

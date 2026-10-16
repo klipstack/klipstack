@@ -337,8 +337,8 @@ export function Tappable({
 
 /**
  * The article's long-press menu: the web card's buttons and its ⋯ menu. On top, as in Books, what
- * is done most: Star, Archive and Share; then finishing, and Tags. A failed save has only what
- * needs no text; an article in the trash can only be restored.
+ * is done most: Star, Archive and Share; then finishing, and Tags. A failed save has Try Again, and
+ * what needs no text; an article in the trash can be restored, or deleted forever.
  */
 function articleMenu(item: ArticleSummary, menu: CardMenu) {
 	const saved = item.status !== "failed"
@@ -377,11 +377,21 @@ function articleMenu(item: ArticleSummary, menu: CardMenu) {
 					Restore
 				</Link.MenuAction>
 				{original(null)}
-				{select ? <Link.Menu inline>{select}</Link.Menu> : null}
+				<Link.Menu inline>
+					{select}
+					<Link.MenuAction icon="trash" destructive onPress={() => menu.act(item, "purge")}>
+						Delete Forever
+					</Link.MenuAction>
+				</Link.Menu>
 			</Link.Menu>
 		)
 	return (
 		<Link.Menu>
+			{saved ? null : (
+				<Link.MenuAction icon="arrow.clockwise" onPress={() => menu.act(item, "retry")}>
+					Try Again
+				</Link.MenuAction>
+			)}
 			{saved ? (
 				<Link.Menu inline elementSize="medium">
 					<Link.MenuAction

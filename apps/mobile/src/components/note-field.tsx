@@ -1,4 +1,5 @@
-import type { ArticleSummary } from "@klipstack/sdk"
+import type { ArticleSummary, KlipstackClient } from "@klipstack/sdk"
+import { router } from "expo-router"
 import { type Ref, useEffect, useImperativeHandle, useRef, useState } from "react"
 import {
 	Pressable,
@@ -22,6 +23,26 @@ export type NoteLinking = {
 	recent: () => Promise<ArticleSummary[]>
 	/** The article being read: not offered as a link. */
 	articleId: string
+}
+
+/**
+ * Links in notes on a screen of cards (the Notebook, Home's highlights): shown as `linkTargets`
+ * says their articles are, opened in the reader, and picked from the library.
+ */
+export function noteLinking(
+	client: KlipstackClient | null,
+	linkTargets: Record<string, "ok" | "trash"> | undefined,
+): (articleId: string) => NoteLinking {
+	return (articleId) => ({
+		// An id the answer leaves out is gone.
+		status: (id) => linkTargets?.[id] ?? "missing",
+		open: (id) => router.push({ pathname: "/read/[id]", params: { id } }),
+		search: async (text) =>
+			client ? (await client.articles.search(text, { limit: 20 })).items : [],
+		recent: async () =>
+			client ? (await client.articles.list({ view: "inbox", sort: "recent", limit: 9 })).items : [],
+		articleId,
+	})
 }
 
 /** What the screen around a note field can ask of it. */

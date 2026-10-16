@@ -3,7 +3,6 @@ import {
 	type NotebookFilter,
 	type NotebookView,
 } from "@klipstack/api-contract/enums"
-import type { Highlight } from "@klipstack/sdk"
 import { router, Stack } from "expo-router"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import {
@@ -17,12 +16,13 @@ import {
 	View,
 } from "react-native"
 import { useImageHeaders } from "@/components/article-card"
-import type { NoteLinking } from "@/components/note-field"
+import { noteLinking } from "@/components/note-field"
 import {
 	ArticleSection,
 	BlankPostIt,
 	Card,
 	type CardContext,
+	type QuoteHighlight,
 	TopicSection,
 } from "@/components/notebook-cards"
 import { NotebookWall } from "@/components/notebook-mini"
@@ -167,25 +167,11 @@ export default function Notebook() {
 
 	// Links in notes: shown as their targets are, open their articles, and are picked from the library.
 	const linkTargets = meta?.linkTargets
-	const linking = useCallback(
-		(articleId: string): NoteLinking => ({
-			// An id the answer leaves out is gone.
-			status: (id) => linkTargets?.[id] ?? "missing",
-			open: (id) => router.push({ pathname: "/read/[id]", params: { id } }),
-			search: async (text) =>
-				client ? (await client.articles.search(text, { limit: 20 })).items : [],
-			recent: async () =>
-				client
-					? (await client.articles.list({ view: "inbox", sort: "recent", limit: 9 })).items
-					: [],
-			articleId,
-		}),
-		[client, linkTargets],
-	)
+	const linking = useMemo(() => noteLinking(client, linkTargets), [client, linkTargets])
 
 	// Gone at once; back with a reload when the server refused. Its note goes with it: ask first.
 	const remove = useCallback(
-		(highlight: Highlight) => {
+		(highlight: QuoteHighlight) => {
 			if (!client) return
 			const go = async () => {
 				edit((shown) => withoutHighlight(shown, highlight.id))

@@ -12,6 +12,7 @@ import { LayoutButton } from "@/components/list-layout"
 import { useMultiSelect } from "@/components/multi-select"
 import { PlaceButton, PlaceGroup } from "@/components/place-list"
 import { saveSearch, savedSearchSheet } from "@/components/saved-search-actions"
+import { SearchAnnotations } from "@/components/search-annotations"
 import { SELECTION_BAR_SPACE, SelectionBar } from "@/components/selection-bar"
 import { HeaderButtons, HeaderTextButton } from "@/components/tab-stack"
 import { useTagSheet } from "@/components/tag-sheet"
@@ -33,6 +34,10 @@ const DEBOUNCE_MS = 300
  *
  * A reader with topics finds them under the empty field, as Mail suggests searches: one searches
  * `topic:` and its name.
+ *
+ * Highlights and notes with the words show too, as on the web, in groups of their own
+ * (`SearchAnnotations`). They come before the articles, not after as on the web: under a page of
+ * articles a phone would hide them.
  */
 export default function Search() {
 	const { state } = useAuth()
@@ -176,6 +181,11 @@ export default function Search() {
 				data={items ?? []}
 				selection={select.selection}
 				menu={menu}
+				ListHeaderComponent={
+					client && q && !select.selecting ? (
+						<SearchAnnotations client={client} q={q} colors={colors} />
+					) : null
+				}
 				contentContainerStyle={
 					select.selecting ? { paddingBottom: SELECTION_BAR_SPACE } : undefined
 				}
