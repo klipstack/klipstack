@@ -381,25 +381,30 @@ describe("the reader page: citations", () => {
 })
 
 describe("the reader page: AI threads", () => {
-	it("underlines the threads' passages; a tap opens the smaller of a thread and a highlight", () => {
-		const html = "<p>Alpha beta.</p><p>Delta epsilon zeta.</p>"
-		const text = storedText(html)
-		const long = highlightOf(html, "long", "Delta epsilon zeta.")
-		const page = openPage(html, [long])
-		const at = (quote: string) => ({
-			start: text.indexOf(quote),
-			end: text.indexOf(quote) + quote.length,
-		})
+	const html = "<p>Alpha beta.</p><p>Delta epsilon zeta.</p>"
+	const text = storedText(html)
+	const at = (quote: string) => ({
+		start: text.indexOf(quote),
+		end: text.indexOf(quote) + quote.length,
+	})
+	/** A page with a thread on a word and one on the words from it to the end, in a highlighted
+	 * paragraph; and a thread on a paragraph with a highlighted word. */
+	function threadedPage() {
+		const page = openPage(html, [
+			highlightOf(html, "para2", "Delta epsilon zeta."),
+			highlightOf(html, "beta", "beta", "pink"),
+		])
 		page.window.eval(
 			`window.klipThreads(${JSON.stringify([
 				{ id: "word", ...at("epsilon") },
-				{ id: "para", ...at("Alpha beta.") },
+				{ id: "tail", ...at("epsilon zeta.") },
+				{ id: "para1", ...at("Alpha beta.") },
 			])})`,
 		)
-		expect(page.registry.get("klip-ai")?.ranges.map((r) => r.toString())).toEqual([
-			"epsilon",
-			"Alpha beta.",
-		])
+		const [first, second] = Array.from(
+			page.article.querySelectorAll("p"),
+			(p) => p.firstChild as Text,
+		)
 		const tapAt = (node: Text, offset: number) => {
 			const caret = page.window.document.createRange()
 			caret.setStart(node, offset)
@@ -410,20 +415,48 @@ describe("the reader page: AI threads", () => {
 			)
 			return page.messages
 		}
-		const [first, second] = Array.from(
-			page.article.querySelectorAll("p"),
-			(p) => p.firstChild as Text,
-		)
-		// A few words of a highlight: the thread, the smaller.
-		expect(tapAt(second!, second!.data.indexOf("psilon"))).toEqual([{ type: "thread", id: "word" }])
-		// Elsewhere in the highlight: the highlight.
-		expect(tapAt(second!, 1)).toEqual([{ type: "highlight", id: "long" }])
-		expect(tapAt(first!, 2)).toEqual([{ type: "thread", id: "para" }])
+		return { page, first: first!, second: second!, tapAt }
+	}
+
+	it("underlines the threads' passages, and washes the open one's", () => {
+		const { page } = threadedPage()
+		expect(page.registry.get("klip-ai")?.ranges.map((r) => r.toString())).toEqual([
+			"epsilon",
+			"epsilon zeta.",
+			"Alpha beta.",
+		])
 		page.window.eval('window.klipThreadFocus("word")')
 		expect(page.registry.get("klip-ai-focus")?.ranges.map((r) => r.toString())).toEqual(["epsilon"])
 		page.window.eval("window.klipThreadFocus(null); window.klipThreads([])")
 		expect(page.registry.has("klip-ai-focus")).toBe(false)
 		expect(page.registry.has("klip-ai")).toBe(false)
+	})
+
+	it("a tap opens the smallest of the threads and highlights under it", () => {
+		const { first, second, tapAt } = threadedPage()
+		// The word: the smaller of two threads, and smaller than the highlight.
+		expect(tapAt(second, second.data.indexOf("psilon"))).toEqual([{ type: "thread", id: "word" }])
+		// Just after the word: not on it any more.
+		expect(tapAt(second, second.data.indexOf(" zeta"))).toEqual([{ type: "thread", id: "tail" }])
+		expect(tapAt(second, 1)).toEqual([{ type: "highlight", id: "para2" }])
+		// A highlighted word inside a thread's paragraph: the highlight.
+		expect(tapAt(first, first.data.indexOf("eta"))).toEqual([{ type: "highlight", id: "beta" }])
+		expect(tapAt(first, 1)).toEqual([{ type: "thread", id: "para1" }])
+	})
+
+	it("keeps an open thread's passage above the card covering the screen's bottom", () => {
+		const { page } = threadedPage()
+		const scrolls: number[] = []
+		Object.assign(page.window, { scrollTo: ({ top }: { top: number }) => scrolls.push(top) })
+		// Under where the card will be.
+		Object.assign(page.window.Range.prototype, {
+			getBoundingClientRect: () => ({
+				top: page.window.innerHeight - 100,
+				bottom: page.window.innerHeight - 80,
+			}),
+		})
+		page.window.eval(`window.klipReveal("word", 300)`)
+		expect(scrolls).toHaveLength(1)
 	})
 })
 

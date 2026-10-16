@@ -7,6 +7,7 @@ import {
 	afterRefusal,
 	createAnswerStore,
 	isTempThread,
+	refusedNew,
 	tempId,
 	tempQuestion,
 	withQuestion,
@@ -248,10 +249,10 @@ export function useAiCards(client: KlipstackClient | null, articleId: string, ai
 
 	/**
 	 * Takes a card away; a saved thread is deleted, and `onDeleted` offers the undo with what brings
-	 * it back.
+	 * it back. A delete refused puts the card back, and says so (`onFailed`).
 	 */
 	const remove = useCallback(
-		(id: string, onDeleted?: (restore: () => Promise<void>) => void) => {
+		(id: string, onDeleted?: (restore: () => Promise<void>) => void, onFailed?: () => void) => {
 			const card = latest.current.find((c) => c.id === id)
 			setCards((prev) => prev.filter((c) => c.id !== id))
 			setOpenId((open) => (open === id ? null : open))
@@ -264,21 +265,26 @@ export function useAiCards(client: KlipstackClient | null, articleId: string, ai
 							prev.some((c) => c.id === id) ? prev : [...prev, thread as AiThreadWithMessages],
 						)
 					}),
-				() => setCards((prev) => (prev.some((c) => c.id === id) ? prev : [...prev, card])),
+				() => {
+					setCards((prev) => (prev.some((c) => c.id === id) ? prev : [...prev, card]))
+					onFailed?.()
+				},
 			)
 		},
 		[client],
 	)
 
-	/** Closes the open card. An Ask never sent goes with it. */
+	/** Closes the open card. An Ask never sent, or refused before it began, goes with it. */
 	const close = useCallback(() => {
 		setOpenId(null)
-		setCards((prev) => prev.filter((c) => !c.draft))
+		setCards((prev) => prev.filter((c) => !c.draft && (c.action === "chat" || !refusedNew(c))))
 	}, [])
 
 	const open = useCallback((id: string | null) => {
 		setOpenId(id)
-		setCards((prev) => prev.filter((c) => !c.draft || c.id === id))
+		setCards((prev) =>
+			prev.filter((c) => c.id === id || (!c.draft && (c.action === "chat" || !refusedNew(c)))),
+		)
 	}, [])
 
 	return { cards, openId, open, close, start, send, retry, remove, chat, written }

@@ -34,6 +34,23 @@ export const AI_ACTIONS: Record<
 	chat: { label: "Chat", symbol: "bubble.left.and.text.bubble.right" },
 }
 
+/** The card's height without its turns: the action, the passage, the tools and the field. */
+const CARD_CHROME = 230
+
+/** How tall the keyboard is, 0 when it is down. */
+function useKeyboardHeight() {
+	const [height, setHeight] = useState(0)
+	useEffect(() => {
+		const show = Keyboard.addListener("keyboardWillShow", (e) => setHeight(e.endCoordinates.height))
+		const hide = Keyboard.addListener("keyboardWillHide", () => setHeight(0))
+		return () => {
+			show.remove()
+			hide.remove()
+		}
+	}, [])
+	return height
+}
+
 /** Questions offered under an empty field about a passage, for a reader without one in mind. */
 const SUGGESTIONS = ["Give me an example", "Why does it matter?", "What is the evidence?"]
 
@@ -80,6 +97,7 @@ export function AiCard({
 	if (card && card !== shown) setShown(card)
 	const [slide] = useState(() => new Animated.Value(card ? 0 : 1))
 	const [cardHeight, setCardHeight] = useState(320)
+	const keyboard = useKeyboardHeight()
 	const open = card !== null
 	useEffect(() => {
 		let live = true
@@ -153,7 +171,12 @@ export function AiCard({
 						written={written}
 						allowance={allowance}
 						canCite={canCite}
-						maxHeight={height * 0.42}
+						// The card's other parts take about CARD_CHROME; with the keyboard up, the turns
+						// get what is left under the navigation bar.
+						maxHeight={Math.max(
+							80,
+							Math.min(height * 0.42, height - keyboard - insets.top - 44 - CARD_CHROME),
+						)}
 						onSend={onSend}
 						onRetry={onRetry}
 						onDelete={onDelete}
@@ -216,6 +239,7 @@ function CardBody({
 					}}
 					scrollEventThrottle={64}
 					keyboardShouldPersistTaps="handled"
+					keyboardDismissMode="interactive"
 				>
 					<View accessibilityLiveRegion="polite" style={styles.turns}>
 						<Turns card={card} onCite={cite} colors={colors} />

@@ -333,15 +333,6 @@ export default function Reader() {
 	}, [editing])
 	// The part of the screen the card covers: the highlight is kept above it.
 	const [covered, setCovered] = useState(0)
-	const revealed = editing ?? aiCards.openId
-	useEffect(() => {
-		if (!loaded.current) return
-		const at = revealed ? covered : 0
-		web.current?.injectJavaScript(
-			`window.klipReveal && window.klipReveal(${JSON.stringify(revealed)}, ${at}); true;`,
-		)
-	}, [revealed, covered])
-
 	// The AI threads' passages are underlined: those about the text on the page.
 	const threadsJson = JSON.stringify(
 		aiCards.cards
@@ -358,6 +349,15 @@ export default function Reader() {
 			`window.klipThreadFocus && window.klipThreadFocus(${JSON.stringify(aiCards.openId)}); true;`,
 		)
 	}, [aiCards.openId])
+	// After the threads: the page knows a new card's passage by then.
+	const revealed = editing ?? aiCards.openId
+	useEffect(() => {
+		if (!loaded.current) return
+		const at = revealed ? covered : 0
+		web.current?.injectJavaScript(
+			`window.klipReveal && window.klipReveal(${JSON.stringify(revealed)}, ${at}); true;`,
+		)
+	}, [revealed, covered])
 
 	useEffect(() => {
 		if (!client || !id) return
@@ -781,15 +781,18 @@ export default function Reader() {
 
 	/** Gone at once; the toast's Undo brings it back, as a highlight's does. */
 	function deleteAnswer(threadId: string) {
-		aiCards.remove(threadId, (restore) =>
-			showToast({
-				message: "Answer deleted",
-				action: {
-					label: "Undo",
-					run: () =>
-						void restore().catch(() => showToast({ message: "Couldn't bring the answer back." })),
-				},
-			}),
+		aiCards.remove(
+			threadId,
+			(restore) =>
+				showToast({
+					message: "Answer deleted",
+					action: {
+						label: "Undo",
+						run: () =>
+							void restore().catch(() => showToast({ message: "Couldn't bring the answer back." })),
+					},
+				}),
+			() => showToast({ message: "Couldn't delete the answer." }),
 		)
 	}
 

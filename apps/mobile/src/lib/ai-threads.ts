@@ -42,16 +42,18 @@ export function withQuestion(messages: readonly AiMessage[], saved: AiMessage): 
 	return [...(at < 0 ? kept : kept.slice(0, at)), saved]
 }
 
-/** A failed question is not kept, except a new chat's: it is all the card holds, and Try Again sends it. */
+/**
+ * A failed question is not kept, except a new thread's first: it is all the card holds, and Try
+ * Again sends it.
+ */
 export function afterRefusal(card: AiCard, failure: AiFailure): AiCard {
 	return {
 		...card,
 		streaming: undefined,
 		failure,
-		messages:
-			card.action === "chat" && isTempThread(card.id)
-				? card.messages
-				: card.messages.filter((m) => !isTempThread(m.id)),
+		messages: isTempThread(card.id)
+			? card.messages
+			: card.messages.filter((m) => !isTempThread(m.id)),
 	}
 }
 
@@ -103,3 +105,7 @@ export function createAnswerStore() {
 }
 
 export type AnswerStore = ReturnType<typeof createAnswerStore>
+
+/** A card for a passage refused before it began: nothing kept, nothing to show once it closes. */
+export const refusedNew = (card: AiCard) =>
+	isTempThread(card.id) && !!card.failure && !card.streaming

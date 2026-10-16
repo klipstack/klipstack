@@ -64,12 +64,14 @@ describe("afterRefusal", () => {
 		expect(after.failure).toEqual({ code: "limit_reached" })
 	})
 
-	it("keeps a new chat's question: Try Again sends it", () => {
-		const question = tempQuestion("What is it about?")
-		const after = afterRefusal(card({ id: tempId("t"), action: "chat", messages: [question] }), {
-			code: "network",
-		})
-		expect(after.messages).toEqual([question])
+	it("keeps a new thread's first question: Try Again sends it", () => {
+		for (const action of ["chat", "ask"] as const) {
+			const question = tempQuestion("What is it about?")
+			const after = afterRefusal(card({ id: tempId("t"), action, messages: [question] }), {
+				code: "network",
+			})
+			expect(after.messages).toEqual([question])
+		}
 	})
 })
 
