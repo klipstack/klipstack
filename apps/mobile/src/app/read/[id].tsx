@@ -25,6 +25,7 @@ import type {
 	WebViewMessageEvent,
 } from "react-native-webview/lib/WebViewTypes"
 import { AppearanceSheet } from "@/components/appearance-sheet"
+import { askTitle } from "@/components/article-actions"
 import { EditionNoteSheet } from "@/components/edition-note-sheet"
 import { HighlightCard } from "@/components/highlight-card"
 import { LinkCard, type TappedLink } from "@/components/link-card"
@@ -555,6 +556,25 @@ export default function Reader() {
 		}
 	}
 
+	// The new title at once, in the page's heading too; the old one back when the server refuses.
+	async function rename(title: string) {
+		if (!client || !article) return
+		const before = article.title
+		const show = (shown: string | null) => {
+			setArticle((current) => current && { ...current, title: shown })
+			web.current?.injectJavaScript(
+				`(function(){var h=document.querySelector("body > header > h1");if(h)h.textContent=${JSON.stringify(shown ?? article.url)};})(); true;`,
+			)
+		}
+		show(title)
+		try {
+			await track(client.articles.rename(article.id, title))
+		} catch (e) {
+			show(before)
+			Alert.alert("Not renamed", e instanceof Error ? e.message : String(e))
+		}
+	}
+
 	function onMessage(event: WebViewMessageEvent) {
 		// The page is ours (src/page/reader-page.ts), and its messages are `PageMessage`s.
 		let message: PageMessage
@@ -899,6 +919,13 @@ export default function Reader() {
 							onPress={() => tags.open([article])}
 						>
 							Tags…
+						</Stack.Toolbar.MenuAction>
+						<Stack.Toolbar.MenuAction
+							icon="pencil"
+							hidden={article.status === "failed"}
+							onPress={() => askTitle(article, (title) => void rename(title))}
+						>
+							Rename…
 						</Stack.Toolbar.MenuAction>
 						<Stack.Toolbar.Menu inline>
 							{page ? (
