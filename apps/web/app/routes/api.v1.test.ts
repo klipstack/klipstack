@@ -19,6 +19,7 @@ import { strFromU8, unzipSync } from "fflate"
 import { JSDOM } from "jsdom"
 import { afterAll, describe, expect, it } from "vitest"
 import { env } from "~/lib/env.server"
+import { rateLimit, SAVE_LIMIT } from "~/lib/rate-limit.server"
 import { getDocument, setNote } from "~/services/documents.server"
 import { createEdition } from "~/services/editions.server"
 import { createHighlight } from "~/services/highlights.server"
@@ -836,6 +837,20 @@ describe("writes", () => {
 		expect(await client.articles.get(failed)).toMatchObject({ id: failed })
 		expect(await db.select().from(documents).where(eq(documents.id, theirs))).toHaveLength(1)
 		await expect(client.articles.purge([])).rejects.toBeInstanceOf(KlipstackInputError)
+
+		// A retry fetches the page again: it counts as a save, and past the save limit it waits.
+		const againUrl = `https://example.com/failed-${newId()}`
+		const [againRow] = await db
+			.insert(documents)
+			.values({ userId: owner, sourceUrl: againUrl, urlHash: urlHash(againUrl), status: "failed" })
+			.returning({ id: documents.id })
+		for (let i = 0; i < SAVE_LIMIT.limit; i++)
+			rateLimit(`save:${owner}`, SAVE_LIMIT.limit, SAVE_LIMIT.windowMs)
+		expect(await errorOf(client.articles.retry(againRow!.id))).toMatchObject({
+			status: 429,
+			code: "rate_limited",
+		})
+		expect(await client.articles.get(againRow!.id)).toMatchObject({ status: "failed" })
 	})
 
 	it("the mark says what it did to the draft in progress, and undo puts it back", async () => {

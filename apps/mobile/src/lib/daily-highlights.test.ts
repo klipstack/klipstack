@@ -4,7 +4,8 @@ import { localDay } from "./daily-highlights"
 describe("localDay", () => {
 	const zone = process.env.TZ
 	afterEach(() => {
-		process.env.TZ = zone
+		if (zone === undefined) delete process.env.TZ
+		else process.env.TZ = zone
 	})
 
 	it("is the device's date at either end of its day, whatever the date is in UTC", () => {

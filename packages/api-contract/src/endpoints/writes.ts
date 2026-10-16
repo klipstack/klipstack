@@ -214,7 +214,7 @@ export const retryArticle = defineEndpoint({
 	path: "/articles/:id/retry",
 	scope: "write",
 	summary:
-		"Tries again to read an article whose save failed (`status: failed`): it is queued, and its `status` follows. `queued`: false when it had not failed.",
+		"Tries again to read an article whose save failed (`status: failed`): it is queued, and its `status` follows. `queued`: false when it had not failed. It fetches the page again, so it counts against the save limit, as POST /articles does; one that queues nothing does not count.",
 	params,
 	response: json(z.object({ queued: z.boolean() })),
 	/** `not_found`: not the user's article, or in the trash. */

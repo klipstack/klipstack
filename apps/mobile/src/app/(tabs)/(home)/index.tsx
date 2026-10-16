@@ -70,7 +70,7 @@ import { chooseTopic } from "@/lib/topic-choices"
  * on the web: a time narrows every section to what can be finished in it, from the lists already
  * loaded, without asking the server again. Articles finished lately without a note are asked
  * about, as on the web, when the server suggests it. A few past highlights come back each day
- * ("From your highlights"), as on the web, unless a time is chosen.
+ * ("From your highlights"), as on the web, unless a topic or a time is chosen.
  */
 export default function Home() {
 	const { state } = useAuth()
@@ -128,13 +128,15 @@ export default function Home() {
 					setReminders(answer.items.filter((r) => !skipped.current.has(r.article.id)))
 				})
 				.catch(() => {})
-			// A server before them answers 404: Home without the section.
-			void client.dailyHighlights
-				.list(localDay())
-				.then((answer) => {
-					if (mine === generation.current) setDaily(answer)
-				})
-				.catch(() => {})
+			// In a topic, Home is about its articles, as on the web. A server before them answers 404:
+			// Home without the section.
+			if (!topic)
+				void client.dailyHighlights
+					.list(localDay())
+					.then((answer) => {
+						if (mine === generation.current) setDaily(answer)
+					})
+					.catch(() => {})
 			// More than a shelf shows: the sections drop what isn't ready or shows above.
 			const [reading, unread, quick, long, again] = await Promise.all([
 				client.articles.list({ view: "inbox", filter: "progress", limit: 12, topic }),
@@ -391,8 +393,8 @@ export default function Home() {
 							<Shelf items={home.again} colors={colors} headers={headers} menu={menu} />
 						</Section>
 					) : null}
-					{/* With a time chosen, the reader came to read. */}
-					{client && daily && highlights.length > 0 && minutes === null ? (
+					{/* In a topic, or with a time chosen, the reader came to read. */}
+					{client && daily && highlights.length > 0 && !chosen && minutes === null ? (
 						<Section
 							title="From your highlights"
 							note="Passages you marked, back for another look. A few each day."

@@ -17,9 +17,10 @@ import {
 } from "@klipstack/db"
 import { admitExtract } from "@klipstack/queue"
 import { z } from "zod"
-import { AppError, notFound, parseInput } from "~/lib/app-error"
+import { AppError, notFound, parseInput, rateLimited } from "~/lib/app-error"
 import { READ_PROGRESS } from "~/lib/inbox-filters"
 import { isUniqueViolation } from "~/lib/postgres-errors.server"
+import { rateLimit, SAVE_LIMIT } from "~/lib/rate-limit.server"
 import {
 	type Before,
 	type Column,
@@ -611,12 +612,25 @@ export async function saveReadingPosition(
 	})
 }
 
-/** The owner's retry of a failed extraction. `queued`: false when it had not failed. */
+/**
+ * The owner's retry of a failed extraction. `queued`: false when it had not failed. It fetches the
+ * page again, so it counts as a save against the save limit; one that queues nothing costs nothing.
+ */
 export async function retryArticle(userId: string, id: string): Promise<{ queued: boolean }> {
 	const articleId = one(id)
 	if (!(await getDocument(userId, articleId))) throw notFound(NO_ARTICLE)
-	const admission = await db.transaction((tx) => admitExtract(tx, articleId, "failed"))
-	if (admission.outcome !== "admitted") return { queued: false }
+	const limited = rateLimit(`save:${userId}`, SAVE_LIMIT.limit, SAVE_LIMIT.windowMs)
+	if (!limited.ok) throw rateLimited(limited.retryAfterSeconds, "saves")
+	const admission = await db
+		.transaction((tx) => admitExtract(tx, articleId, "failed"))
+		.catch((error: unknown) => {
+			limited.refund()
+			throw error
+		})
+	if (admission.outcome !== "admitted") {
+		limited.refund()
+		return { queued: false }
+	}
 	await notifyDocumentEvent({ userId, documentId: articleId, kind: "queued" })
 	return { queued: true }
 }
