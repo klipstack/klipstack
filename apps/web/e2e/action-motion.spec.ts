@@ -108,7 +108,9 @@ test("archiving stamps the card, deleting lifts it, Undo brings it back, saving 
 	// Saved here: the new card comes in with the logo's clip.
 	await page.getByRole("button", { name: "Save link" }).first().click()
 	const dialog = page.getByRole("dialog", { name: "Save a link" })
-	await dialog.getByLabel("Link").fill(`https://example.com/motion/new-${Date.now()}`)
+	await dialog
+		.getByLabel("Link", { exact: true })
+		.fill(`https://example.com/motion/new-${Date.now()}`)
 	await dialog.getByRole("button", { name: "Save", exact: true }).click()
 	await expect.poll(async () => (await motion(page)).clips).toBe(1)
 	expect((await motion(page)).enters).toContain("clip")

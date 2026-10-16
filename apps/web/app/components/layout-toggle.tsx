@@ -20,7 +20,7 @@ export function LayoutToggle({ className }: { className?: string }) {
 			aria-label={label}
 			{...tooltip(label)}
 			data-testid="layout-toggle"
-			className={cn("rounded-md p-2.5 text-muted-fg hover:bg-muted hover:text-fg", className)}
+			className={cn("rounded-md p-2.5 text-muted-fg hover:bg-hover hover:text-fg", className)}
 		>
 			{next === "grid" ? (
 				<LayoutGrid className="size-5" aria-hidden />

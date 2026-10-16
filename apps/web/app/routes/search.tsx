@@ -25,7 +25,7 @@ import { LayoutToggle } from "~/components/layout-toggle"
 import { MenuNavLink, MoreMenu } from "~/components/more-menu"
 import { PinnedControls } from "~/components/pinned-controls"
 import { PostIt } from "~/components/post-it"
-import { SaveLinkDialog } from "~/components/save-link-dialog"
+import { SaveLinkButton } from "~/components/save-link-dialog"
 import {
 	SavedSearchDialog,
 	type SavedSearchItem,
@@ -161,7 +161,7 @@ export default function SearchPage({ loaderData }: Route.ComponentProps) {
 					inputClassName="w-full focus:w-full sm:w-full sm:focus:w-full"
 				/>
 				<LayoutToggle />
-				<SaveLinkDialog />
+				<SaveLinkButton />
 			</div>
 			<PinnedControls title={t("search.title")}>
 				<div className="flex items-center gap-2">
@@ -219,7 +219,7 @@ export default function SearchPage({ loaderData }: Route.ComponentProps) {
 					<Link
 						to={`${searchPath(query)}&page=${loaderData.nextPage}`}
 						state={location.state}
-						className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-muted"
+						className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-hover"
 					>
 						{t("loadMore")}
 					</Link>
@@ -263,7 +263,7 @@ export default function SearchPage({ loaderData }: Route.ComponentProps) {
 /** Where the other groups are, under a long list of articles. */
 function GroupLinks({ highlights, notes }: { highlights: number; notes: number }) {
 	const { t } = useTranslation("library")
-	const link = "rounded-full border border-border px-3 py-1 hover:bg-muted"
+	const link = "rounded-full border border-border px-3 py-1 hover:bg-hover"
 	return (
 		<nav
 			aria-label={t("search.groups.label")}
@@ -455,7 +455,7 @@ function MissingTopic({ q, name }: { q: string; name: string }) {
 		if (changed) void navigate(searchPath(changed.query), { replace: true, state: location.state })
 	}, [changed, navigate, location.state])
 	const button =
-		"rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-muted disabled:opacity-50"
+		"rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-hover disabled:opacity-50"
 	return (
 		<div
 			role="status"

@@ -23,7 +23,7 @@ export function PublicPage({
 				</Link>
 				<Link
 					to={account.to}
-					className="rounded-lg px-3 py-2 text-sm font-medium text-muted-fg transition-colors hover:bg-muted hover:text-fg"
+					className="rounded-lg px-3 py-2 text-sm font-medium text-muted-fg transition-colors hover:bg-hover hover:text-fg"
 				>
 					{account.label}
 				</Link>

@@ -4,7 +4,9 @@ import { EmailVerification } from "~/components/email-verification"
 import { ErrorContent } from "~/components/error-content"
 import { looksLikeAdmin } from "~/lib/admin.server"
 import { topicModels } from "~/lib/ai.server"
+import { MCP_RESOURCE } from "~/lib/auth.server"
 import { emailEnabled } from "~/lib/email.server"
+import { env } from "~/lib/env.server"
 import { listFeatures } from "~/lib/features.server"
 import { requireUser } from "~/lib/session.server"
 import { editionNudge } from "~/services/editions.server"
@@ -56,6 +58,9 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 		// Features in testing turned on for this account: their links show only then.
 		features,
 		topics,
+		// The Save link dialog: its bookmarklet, and the address an AI assistant connects to.
+		appUrl: env.APP_URL,
+		mcpUrl: MCP_RESOURCE,
 	}
 }
 

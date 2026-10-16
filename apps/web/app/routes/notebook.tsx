@@ -245,7 +245,7 @@ export default function Notebook({ loaderData }: Route.ComponentProps) {
 					</Link>
 					<Link
 						to={notebookHref(state)}
-						className="rounded-full px-3 py-1 text-sm text-muted-fg hover:bg-muted hover:text-fg"
+						className="rounded-full px-3 py-1 text-sm text-muted-fg hover:bg-hover hover:text-fg"
 					>
 						{t("notebook.shuffle.done")}
 					</Link>
@@ -309,7 +309,7 @@ function More({ state, cursor }: { state: NotebookState; cursor: string | null }
 		<div className="mt-8 flex justify-center">
 			<Link
 				to={notebookHref(state, { cursor })}
-				className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-muted"
+				className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-hover"
 			>
 				{t("notebook.loadMore")}
 			</Link>
@@ -619,7 +619,7 @@ function ArticleSection({ article, linkTargets }: { article: Article; linkTarget
 					<button
 						type="button"
 						onClick={() => setOpen((o) => !o)}
-						className="rounded-md px-2 py-1 text-sm text-link hover:bg-muted"
+						className="rounded-md px-2 py-1 text-sm text-link hover:bg-hover"
 					>
 						{open ? t("notebook.article.showLess") : t("notebook.article.showAll", { count })}
 					</button>

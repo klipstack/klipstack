@@ -52,6 +52,8 @@ export default function ConnectedAppsSettings({ loaderData }: Route.ComponentPro
 	const fetcher = useFetcher()
 	const pending = fetcher.formData ? String(fetcher.formData.get("id")) : null
 	const [copied, setCopied] = useState(false)
+	const { t: tl } = useTranslation("library")
+	const [promptCopied, setPromptCopied] = useState(false)
 	return (
 		<SettingsPage title={t("connectedApps.title")} description={t("connectedApps.description")}>
 			<SettingsCard>
@@ -75,6 +77,22 @@ export default function ConnectedAppsSettings({ loaderData }: Route.ComponentPro
 						{copied ? t("apiKeys.copied") : t("apiKeys.copy")}
 					</Button>
 				</div>
+				{/* The same prompt as the Save link dialog's: the assistant sets itself up, or says how. */}
+				<p className="mt-4 text-sm text-muted-fg">{t("connectedApps.promptHint")}</p>
+				<Button
+					type="button"
+					size="sm"
+					variant="secondary"
+					className="mt-2"
+					onClick={() => {
+						void navigator.clipboard
+							?.writeText(tl("add.assistant.prompt", { url: mcpUrl }))
+							.then(() => setPromptCopied(true))
+					}}
+				>
+					<Copy className="size-4" aria-hidden />
+					{promptCopied ? tl("add.assistant.copied") : tl("add.assistant.copy")}
+				</Button>
 				<ul className="mt-4 divide-y divide-border">
 					{apps.length === 0 ? (
 						<li className="py-2 text-sm text-muted-fg">{t("connectedApps.empty")}</li>

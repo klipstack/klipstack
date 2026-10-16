@@ -36,7 +36,7 @@ export function EditableTitle({ title, action }: { title: string | null; action:
 					onClick={() => setEditing(true)}
 					aria-label={t("title.edit")}
 					{...tooltip(t("title.edit"))}
-					className="mt-1 shrink-0 rounded-md p-1.5 text-muted-fg hover:bg-muted hover:text-fg md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
+					className="mt-1 shrink-0 rounded-md p-1.5 text-muted-fg hover:bg-hover hover:text-fg md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
 				>
 					<Pencil className="size-4" aria-hidden />
 				</button>

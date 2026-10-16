@@ -160,7 +160,7 @@ describe("home selections", () => {
 			},
 			timeChoice: false,
 			feed: [],
-			emptyState: { kind: "new", to: "/add" },
+			emptyState: { kind: "new", to: "/home?save" },
 			review: false,
 		})
 		expect((await readingHome(sparseId)).emptyState).toBeNull()

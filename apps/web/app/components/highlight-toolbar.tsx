@@ -92,7 +92,7 @@ export function HighlightToolbar({
 				type="button"
 				disabled={disabled}
 				onClick={onDelete}
-				className="rounded-md p-1.5 text-muted-fg hover:bg-muted hover:text-danger"
+				className="rounded-md p-1.5 text-muted-fg hover:bg-hover hover:text-danger"
 				aria-label={t("highlights.popover.delete")}
 				{...tooltip(t("highlights.popover.delete"))}
 			>

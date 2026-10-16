@@ -196,8 +196,7 @@ export default {
 			"Short texts to try highlights and notes on: a guide to Klipstack, and essays on reading and writing from the public domain. Choose a book to add it to your library.",
 		shelf: "Books to start with",
 		homeTitle: "Or start with one of these",
-		find: "Or find something to read",
-		more: "More to read on the Save link page",
+		more: "More to read",
 		language: { en: "In English", es: "In Spanish" },
 		minutes: "{{count}} min",
 		minutes_one: "{{count}} min",
@@ -220,7 +219,33 @@ export default {
 		title: "Save a link",
 		description:
 			"Paste the address of an article. We fetch it, extract the text, and keep a clean copy for you.",
+		several: "One link per line, up to {{max}}.",
+		shortcut: "{{keys}} saves.",
+		results: "Links saved",
+		savedMany: "{{count}} links saved.",
+		savedMany_one: "{{count}} link saved.",
+		savedMany_other: "{{count}} links saved.",
+		others: "Other ways to save",
+		anywhere: {
+			title: "From any page",
+			description: "Drag it to your bookmarks bar, then click it on any article to save it here.",
+			label: "Save to Klipstack",
+		},
+		assistant: {
+			title: "Your AI assistant",
+			description:
+				"Connect ChatGPT, Claude or another assistant, then ask it to save articles or find what you highlighted. Copy this prompt into it: it sets itself up, or tells you how.",
+			verify:
+				"To connect an AI assistant, first verify your email address in <account>Account settings</account>.",
+			copy: "Copy prompt",
+			copied: "Copied",
+			manage: "Connected apps",
+			prompt:
+				"Connect to Klipstack, my read-it-later app. It is a remote MCP server at {{url}} (streamable HTTP) that signs in with OAuth. If you can add MCP servers yourself, add it and give me the sign-in link to approve. If you can't, tell me step by step how to add it as a custom connector in this app's settings. Then list a few articles from my library to check it works.",
+		},
+		feed: "Following a blog? Add it in <feed>Feed</feed>.",
 		errors: {
+			too_many: "Save up to {{max}} links at once.",
 			invalid_url: "That does not look like a valid link.",
 			unsupported_twitter: "Only single posts from X can be saved, not profiles or feeds.",
 			unsupported_youtube: "YouTube videos are not supported yet.",
@@ -569,7 +594,7 @@ export default {
 	empty: {
 		inbox: {
 			title: "Your library is empty",
-			description: "Save a link with the button above, or use the browser extension.",
+			description: "Save a link with the button above.",
 		},
 		archive: {
 			title: "Nothing archived yet",

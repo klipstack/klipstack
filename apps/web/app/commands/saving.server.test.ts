@@ -19,7 +19,7 @@ import { env } from "~/lib/env.server"
 import { monthOf, usageOf } from "~/lib/limits.server"
 import { rateLimit, SAVE_LIMIT } from "~/lib/rate-limit.server"
 import { purgeArticles, trashArticles } from "./articles.server"
-import { saveArticle, saveFeedItems, saveStarterText } from "./saving.server"
+import { saveArticle, saveFeedItems, saveLinks, saveStarterText } from "./saving.server"
 
 const stamp = Date.now()
 const users: string[] = []
@@ -310,5 +310,53 @@ describe("saveStarterText", () => {
 			code: "not_found",
 		})
 		await expect(saveStarterText(userId, "")).rejects.toMatchObject({ code: "invalid_request" })
+	})
+})
+
+describe("saveLinks", () => {
+	it("saves each link in order, says which were there already, and refuses the bad ones alone", async () => {
+		const userId = await newUser()
+		const before = await saveArticle(userId, { url: url("links-old"), source: "web" })
+		const results = await saveLinks(userId, [
+			url("links-new"),
+			"not a link",
+			url("links-old"),
+			"https://www.youtube.com/watch?v=abc",
+			// The same link twice is saved once.
+			url("links-new"),
+		])
+		expect(results).toEqual([
+			{ url: url("links-new"), ok: true, articleId: expect.any(String), created: true },
+			expect.objectContaining({ url: "not a link", ok: false, code: "invalid_url" }),
+			{ url: url("links-old"), ok: true, articleId: before.article.id, created: false },
+			expect.objectContaining({ ok: false, code: "unsupported_youtube" }),
+		])
+	})
+
+	it("refuses more links than allowed, before saving any", async () => {
+		const userId = await newUser()
+		const links = Array.from({ length: 11 }, (_, i) => url(`links-many-${i}`))
+		await expect(saveLinks(userId, links)).rejects.toMatchObject({ code: "invalid_request" })
+		await expect(saveLinks(userId, [])).rejects.toMatchObject({ code: "invalid_request" })
+		const rows = await db.select().from(documents).where(eq(documents.userId, userId))
+		expect(rows).toHaveLength(0)
+	})
+
+	it("counts a link sent twice once against the limit", async () => {
+		const userId = await newUser()
+		const links = Array.from({ length: 10 }, (_, i) => url(`links-ten-${i}`))
+		const results = await saveLinks(userId, [...links, links[0]!])
+		expect(results.map((result) => result.url)).toEqual(links)
+	})
+
+	it("refuses what is past the save limit", async () => {
+		const userId = await newUser()
+		spend(userId, 1)
+		const results = await saveLinks(userId, [url("limit-a"), url("limit-b"), url("limit-c")])
+		expect(results.map((r) => (r.ok ? "saved" : r.code))).toEqual([
+			"saved",
+			"rate_limited",
+			"rate_limited",
+		])
 	})
 })

@@ -168,7 +168,7 @@ export function FeedArticlePopover({
 					type="button"
 					onClick={onClose}
 					aria-label={t("item.close")}
-					className="flex size-11 shrink-0 items-center justify-center rounded-lg text-muted-fg hover:bg-muted focus-visible:outline-2 focus-visible:outline-accent"
+					className="flex size-11 shrink-0 items-center justify-center rounded-lg text-muted-fg hover:bg-hover focus-visible:outline-2 focus-visible:outline-accent"
 				>
 					<X className="size-4" aria-hidden />
 				</button>
@@ -216,4 +216,4 @@ export function FeedArticlePopover({
 }
 
 const action =
-	"flex min-h-11 items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm font-medium hover:bg-muted focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50"
+	"flex min-h-11 items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm font-medium hover:bg-hover focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50"

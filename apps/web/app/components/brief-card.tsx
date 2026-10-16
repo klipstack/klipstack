@@ -100,7 +100,7 @@ export function BriefCard({
 						onClick={() => onOpen(false)}
 						aria-label={t("ai.collapse")}
 						{...tooltip(t("ai.collapse"))}
-						className="-mr-1 ml-auto rounded-md p-1 text-muted-fg hover:bg-muted hover:text-fg"
+						className="-mr-1 ml-auto rounded-md p-1 text-muted-fg hover:bg-hover hover:text-fg"
 					>
 						<ChevronUp className="size-3.5" aria-hidden />
 					</button>
@@ -142,7 +142,7 @@ export function BriefCard({
 							onClick={() => onCopy(plainAnswer(brief.text))}
 							aria-label={t("ai.copy")}
 							{...tooltip(t("ai.copy"))}
-							className="rounded-md p-1.5 text-muted-fg hover:bg-muted hover:text-fg"
+							className="rounded-md p-1.5 text-muted-fg hover:bg-hover hover:text-fg"
 						>
 							<Copy className="size-3.5" aria-hidden />
 						</button>
@@ -152,7 +152,7 @@ export function BriefCard({
 							onClick={onMake}
 							aria-label={t("ai.retry")}
 							{...tooltip(t("ai.retry"))}
-							className="rounded-md p-1.5 text-muted-fg hover:bg-muted hover:text-fg"
+							className="rounded-md p-1.5 text-muted-fg hover:bg-hover hover:text-fg"
 						>
 							<RotateCcw className="size-3.5" aria-hidden />
 						</button>

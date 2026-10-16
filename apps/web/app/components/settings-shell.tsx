@@ -95,7 +95,7 @@ function SettingsNav({ onNavigate, onClose }: { onNavigate?: () => void; onClose
 						type="button"
 						onClick={onClose}
 						aria-label={tc("actions.close")}
-						className="rounded-md p-2 text-muted-fg hover:bg-muted"
+						className="rounded-md p-2 text-muted-fg hover:bg-hover"
 					>
 						<X className="size-5" aria-hidden />
 					</button>
@@ -160,7 +160,7 @@ export function SettingsShell({ children }: { children: React.ReactNode }) {
 						aria-label={t("nav.menu")}
 						aria-expanded={open}
 						aria-controls="mobile-drawer"
-						className="rounded-md p-2.5 text-muted-fg hover:bg-muted hover:text-fg"
+						className="rounded-md p-2.5 text-muted-fg hover:bg-hover hover:text-fg"
 					>
 						<Menu className="size-5" aria-hidden />
 					</button>

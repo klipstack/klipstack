@@ -49,7 +49,7 @@ export function ShortcutsDialog({
 						<button
 							type="button"
 							onClick={onClose}
-							className="-m-1 rounded-md p-1.5 text-muted-fg hover:bg-muted"
+							className="-m-1 rounded-md p-1.5 text-muted-fg hover:bg-hover"
 							aria-label={t("actions.close")}
 						>
 							<X className="size-4" aria-hidden />

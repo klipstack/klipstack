@@ -207,7 +207,7 @@ test("every page's header row lines up with the sidebar's", async ({ page }) => 
 		"/tags",
 		"/search",
 		"/settings/account",
-		"/add",
+		"/texts",
 	]) {
 		await page.goto(path)
 		await waitForHydration(page)

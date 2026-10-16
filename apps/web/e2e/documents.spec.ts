@@ -62,17 +62,20 @@ test("shared links need confirmation and cross-origin POST cannot save", async (
 	)
 	await page.goto("https://untrusted.example/")
 	await page.getByRole("link", { name: "Shared link" }).click()
-	await expect(page.getByLabel("URL", { exact: true })).toHaveValue(url)
+	// The library, with the Save link dialog open and the link in it.
+	const dialog = page.getByRole("dialog", { name: "Save a link" })
+	await expect(dialog.getByLabel("Link", { exact: true })).toHaveValue(url)
+	await expect(page).toHaveURL(/\/library$/)
 	expect(await saved()).toHaveLength(0)
-	const csrf = await page.request.post("/add", {
+	const csrf = await page.request.post("/library", {
 		headers: { origin: "https://untrusted.example" },
 		form: { url },
 	})
 	expect([400, 403]).toContain(csrf.status())
 	expect(await saved()).toHaveLength(0)
 	await waitForHydration(page)
-	await page.getByRole("button", { name: "Save", exact: true }).click()
-	await expect(page).toHaveURL(/\/read\//)
+	await dialog.getByRole("button", { name: "Save", exact: true }).click()
+	await expect(page.getByRole("status").getByText("Saved to your library.")).toBeVisible()
 	expect(await saved()).toHaveLength(1)
 })
 
@@ -355,7 +358,7 @@ test("invalid and unsupported links are rejected with a message", async ({ page 
 	await waitForHydration(page)
 	await page.getByRole("button", { name: "Save link" }).click()
 	const dialog = page.getByRole("dialog", { name: "Save a link" })
-	await dialog.getByLabel("Link").fill("https://x.com/someone")
+	await dialog.getByLabel("Link", { exact: true }).fill("https://x.com/someone")
 	await dialog.getByRole("button", { name: "Save", exact: true }).click()
 	await expect(
 		page
@@ -374,7 +377,7 @@ test("saving a link keeps you on the page you saved it from", async ({ page }) =
 		await waitForHydration(page)
 		await page.getByRole("button", { name: "Save link" }).click()
 		const dialog = page.getByRole("dialog", { name: "Save a link" })
-		await dialog.getByLabel("Link").fill(`https://example.com/saved-from${path}`)
+		await dialog.getByLabel("Link", { exact: true }).fill(`https://example.com/saved-from${path}`)
 		await dialog.getByRole("button", { name: "Save", exact: true }).click()
 		await expect(dialog).toBeHidden()
 		await expect(page.getByText("Saved to your library.")).toBeVisible()
@@ -391,7 +394,7 @@ test("private hosts are refused by the fetcher and surface as a failure", async 
 	await waitForHydration(page)
 	await page.getByRole("button", { name: "Save link" }).click()
 	const dialog = page.getByRole("dialog", { name: "Save a link" })
-	await dialog.getByLabel("Link").fill("http://127.0.0.1:5433/secret")
+	await dialog.getByLabel("Link", { exact: true }).fill("http://127.0.0.1:5433/secret")
 	await dialog.getByRole("button", { name: "Save", exact: true }).click()
 	await expect(page.getByText("That address is not allowed.")).toBeVisible({ timeout: 30_000 })
 })

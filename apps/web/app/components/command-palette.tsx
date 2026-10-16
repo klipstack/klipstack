@@ -2,6 +2,7 @@ import { Command, defaultFilter } from "cmdk"
 import {
 	Archive,
 	Bookmark,
+	BookOpen,
 	Check,
 	Clipboard,
 	FileText,
@@ -43,6 +44,7 @@ import { cn } from "~/lib/utils"
 import type { loader as rootLoader } from "~/root"
 import type { loader as layoutLoader } from "~/routes/app-layout"
 import { Kbd } from "./more-menu"
+import { openSaveLink, saveLinkPath } from "./save-link-dialog"
 import { tooltip } from "./tooltip-host"
 
 interface SearchItem {
@@ -145,8 +147,9 @@ export function CommandPalette() {
 	const saveFromClipboard = async () => {
 		const text = await navigator.clipboard?.readText().catch(() => "")
 		const url = text?.trim() ?? ""
-		if (URL_PATTERN.test(url)) void navigate(`/add?url=${encodeURIComponent(url)}`)
-		else showToast({ message: t("palette.clipboardEmpty") })
+		if (URL_PATTERN.test(url)) {
+			if (!openSaveLink(url)) go(saveLinkPath(url))
+		} else showToast({ message: t("palette.clipboardEmpty") })
 	}
 
 	const trimmed = query.trim()
@@ -187,7 +190,18 @@ export function CommandPalette() {
 		})),
 	]
 	const actions: PaletteCommand[] = [
-		{ id: "save-link", label: tl("add.title"), icon: Plus, run: () => go("/add") },
+		{
+			id: "save-link",
+			label: tl("add.title"),
+			icon: Plus,
+			run: () => openSaveLink() || go(saveLinkPath()),
+		},
+		{
+			id: "starter-texts",
+			label: tl("starter.title"),
+			icon: BookOpen,
+			run: () => go("/texts"),
+		},
 		{
 			id: "save-clipboard",
 			label: t("palette.saveClipboard"),
@@ -245,14 +259,14 @@ export function CommandPalette() {
 					type="button"
 					onClick={close}
 					aria-label={t("actions.close")}
-					className="-mr-1.5 rounded-md p-2 text-muted-fg hover:bg-muted hover:text-fg md:hidden"
+					className="-mr-1.5 rounded-md p-2 text-muted-fg hover:bg-hover hover:text-fg md:hidden"
 				>
 					<X className="size-5" aria-hidden />
 				</button>
 				<button
 					type="button"
 					onClick={close}
-					className="hidden rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-fg hover:bg-muted md:block"
+					className="hidden rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-fg hover:bg-hover md:block"
 				>
 					esc
 				</button>
@@ -268,7 +282,7 @@ export function CommandPalette() {
 								id: "save-url",
 								label: `${tl("add.submit")}: ${trimmed}`,
 								icon: Plus,
-								run: () => go(`/add?url=${encodeURIComponent(trimmed)}`),
+								run: () => openSaveLink(trimmed) || go(saveLinkPath(trimmed)),
 							}}
 						/>
 					</Group>

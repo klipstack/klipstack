@@ -276,7 +276,7 @@ export function SearchQueryInput({
 										e.preventDefault()
 										accept(item)
 									}}
-									className="flex w-full items-baseline gap-3 px-3 py-1.5 text-left text-sm hover:bg-muted aria-selected:bg-fg/10"
+									className="flex w-full items-baseline gap-3 px-3 py-1.5 text-left text-sm hover:bg-hover aria-selected:bg-fg/10"
 								>
 									<span className="shrink-0 text-accent">{item.insert.trimEnd()}</span>
 									{hint ? <span className="min-w-0 truncate text-muted-fg">{tk(hint)}</span> : null}

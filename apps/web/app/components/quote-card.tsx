@@ -159,7 +159,7 @@ export function QuoteCard({
 						onClick={() => setEditing(true)}
 						aria-label={t("highlights.popover.addNote")}
 						{...tooltip(t("highlights.popover.addNote"))}
-						className="rounded-md bg-card/80 p-1.5 text-muted-fg hover:bg-muted hover:text-fg"
+						className="rounded-md bg-card/80 p-1.5 text-muted-fg hover:bg-hover hover:text-fg"
 					>
 						<StickyNote className="size-4" aria-hidden />
 					</button>
@@ -185,7 +185,7 @@ export function QuoteCard({
 					<input type="hidden" name="id" value={h.id} />
 					<button
 						type="submit"
-						className="rounded-md bg-card/80 p-1.5 text-muted-fg hover:bg-muted hover:text-fg"
+						className="rounded-md bg-card/80 p-1.5 text-muted-fg hover:bg-hover hover:text-fg"
 						aria-label={t("highlights.popover.delete")}
 						{...tooltip(t("highlights.popover.delete"))}
 					>

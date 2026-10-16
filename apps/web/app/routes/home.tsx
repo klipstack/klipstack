@@ -161,7 +161,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 								<li key={key} className="bg-bg">
 									<a
 										href={`#${id}`}
-										className="group flex h-full items-baseline gap-3 px-5 py-4 hover:bg-muted"
+										className="group flex h-full items-baseline gap-3 px-5 py-4 hover:bg-hover"
 									>
 										<span className="font-display text-2xl text-muted-fg" aria-hidden>
 											{i + 1}

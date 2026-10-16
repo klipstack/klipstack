@@ -1,6 +1,7 @@
 // The subpath is client-safe (constants only); the package root pulls in pg-boss.
 import { TRASH_RETENTION_DAYS } from "@klipstack/api-contract/names"
 import { addOperator } from "@klipstack/api-contract/search-query"
+import { fallbackLanguage, isLocale } from "@klipstack/i18n/languages"
 import {
 	Archive,
 	ArrowDownUp,
@@ -17,14 +18,15 @@ import { useEffect, useMemo, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import { Link, redirect, useFetcher, useLocation, useNavigate } from "react-router"
 import { archiveFinished, undoArchive } from "~/commands/articles.server"
-import { saveArticle } from "~/commands/saving.server"
+import { saveArticle, saveLinks } from "~/commands/saving.server"
 import { DocumentList } from "~/components/document-list"
 import { EmptyDrawing, type EmptyDrawingName } from "~/components/empty-drawing"
 import { LayoutToggle } from "~/components/layout-toggle"
 import { MenuButton, MenuNavLink, MoreMenu } from "~/components/more-menu"
 import { PinnedControls } from "~/components/pinned-controls"
-import { SaveLinkDialog } from "~/components/save-link-dialog"
+import { SaveLinkButton } from "~/components/save-link-dialog"
 import { SelectionBar } from "~/components/selection-bar"
+import { StarterTexts } from "~/components/starter-texts"
 import { tooltip } from "~/components/tooltip-host"
 import { useListCursor } from "~/hooks/use-list-cursor"
 import { AppError } from "~/lib/app-error"
@@ -43,6 +45,7 @@ import {
 	parseSort,
 } from "~/lib/inbox-filters"
 import { type LibraryView, viewFromPath, viewPath, viewSearchPath } from "~/lib/library-views"
+import { splitLinks } from "~/lib/links"
 import { setListLayout } from "~/lib/list-layout"
 import { warmOffline } from "~/lib/offline.client"
 import type { PageBarHandle } from "~/lib/page-bar"
@@ -62,6 +65,7 @@ import {
 	listDocuments,
 	type TopicScope,
 } from "~/services/documents.server"
+import { offeredStarterTexts } from "~/services/starter-texts.server"
 import { type ListTopics, listTopics, topicLabels, topicsInUse } from "~/services/topics.server"
 import type { Route } from "./+types/library"
 
@@ -127,6 +131,7 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 					items.map((d) => d.id),
 				)
 			: {}
+	const language = isLocale(user.locale) ? user.locale : fallbackLanguage
 	const zone = timeZoneFromCookie(request.headers.get("cookie"))
 	const now = new Date()
 	const since = (d: (typeof items)[number]) =>
@@ -152,6 +157,12 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 		// A topic asked for that is not one of the reader's now: it ended, or was never theirs.
 		topicGone: !!topics && !!asked && topic === null,
 		labels,
+		// Nothing to read: something to start with instead.
+		language,
+		starter:
+			view === "inbox" && !items.length && !cursor && !filter && !topic
+				? await offeredStarterTexts(user.id, language)
+				: null,
 	}
 }
 
@@ -167,7 +178,18 @@ export async function action({ context, request }: Route.ActionArgs) {
 			.filter(Boolean)
 		return answer(async () => ({ archived: [], moved: await undoArchive(user.id, ids) }))
 	}
-	const url = String(form.get("url") ?? "").trim()
+	const links = splitLinks(String(form.get("url") ?? ""))
+	// Several links: each one's outcome, for the dialog to show.
+	if (links.length > 1) {
+		try {
+			return { ok: true as const, batch: await saveLinks(user.id, links) }
+		} catch (error) {
+			// Too many: the dialog keeps what was typed, with the refusal.
+			if (error instanceof AppError) return refused(error, { url: links.join("\n") })
+			throw error
+		}
+	}
+	const url = links[0] ?? ""
 	// No redirect: the save dialog and a pasted link post here from any page (Home, the library, the
 	// phone bar, the reader), and saving must leave the reader where they were. The page's data
 	// reloads with the new article.
@@ -250,7 +272,7 @@ export default function Library({ loaderData }: Route.ComponentProps) {
 					{/* First, where the search page's field ends: the other buttons stay where they are. */}
 					<SearchLink view={loaderData.view} label={t("search.label")} />
 					<LayoutToggle />
-					{loaderData.view === "trash" ? null : <SaveLinkDialog />}
+					{loaderData.view === "trash" ? null : <SaveLinkButton />}
 				</div>
 			</div>
 			{loaderData.view === "trash" ? (
@@ -317,10 +339,20 @@ export default function Library({ loaderData }: Route.ComponentProps) {
 					<p className="max-w-sm text-sm">
 						{t(`empty.${loaderData.view}.description`, { days: TRASH_RETENTION_DAYS })}
 					</p>
-					{loaderData.view === "inbox" ? (
-						<Link to="/add" className="text-sm text-link underline-offset-4 hover:underline">
-							{t("starter.find")}
-						</Link>
+					{loaderData.starter?.length ? (
+						<div className="mt-8 w-full max-w-xl">
+							<StarterTexts
+								items={loaderData.starter}
+								language={loaderData.language}
+								title={t("starter.homeTitle")}
+							/>
+							<Link
+								to="/texts"
+								className="mt-4 inline-block text-sm text-link underline-offset-4 hover:underline"
+							>
+								{t("starter.more")}
+							</Link>
+						</div>
 					) : null}
 				</div>
 			) : (
@@ -339,7 +371,7 @@ export default function Library({ loaderData }: Route.ComponentProps) {
 				<div className="mt-6 flex justify-center">
 					<Link
 						to={`${viewPath(loaderData.view)}${nextPageSearch(filter, sort, loaderData.nextCursor, topic)}`}
-						className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-muted"
+						className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-hover"
 					>
 						{t("loadMore")}
 					</Link>
@@ -467,7 +499,7 @@ function ListControls({
 					<button
 						type="submit"
 						disabled={fetcher.state !== "idle"}
-						className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-muted disabled:opacity-50"
+						className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-hover disabled:opacity-50"
 					>
 						<Archive className="size-4" aria-hidden />
 						{t("filters.archiveRead")}
@@ -605,7 +637,7 @@ function SearchLink({ view, label }: { view: LibraryView; label: string }) {
 			state={{ from: location.pathname + location.search }}
 			aria-label={label}
 			{...tooltip(label, SEARCH_HINT)}
-			className="rounded-md p-2.5 text-muted-fg hover:bg-muted hover:text-fg"
+			className="rounded-md p-2.5 text-muted-fg hover:bg-hover hover:text-fg"
 		>
 			<Search className="size-5" aria-hidden />
 		</Link>

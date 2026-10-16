@@ -152,7 +152,7 @@ function PickerDialog({
 					type="button"
 					onClick={onClose}
 					aria-label={tc("actions.close")}
-					className="-mr-1.5 rounded-md p-2 text-muted-fg hover:bg-muted hover:text-fg"
+					className="-mr-1.5 rounded-md p-2 text-muted-fg hover:bg-hover hover:text-fg"
 				>
 					<X className="size-5 md:size-4" aria-hidden />
 				</button>

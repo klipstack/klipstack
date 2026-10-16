@@ -70,7 +70,7 @@ export default function Guide({ loaderData }: Route.ComponentProps) {
 						</Link>
 					</div>
 				) : loaderData.loggedIn ? (
-					<Form method="post" action="/add" className="mb-6 flex justify-end">
+					<Form method="post" action="/texts" className="mb-6 flex justify-end">
 						<input type="hidden" name="starter" value={loaderData.slug} />
 						<button type="submit" className={buttonVariants({ variant: "secondary", size: "sm" })}>
 							{t("starter.add")}
@@ -82,6 +82,13 @@ export default function Guide({ loaderData }: Route.ComponentProps) {
 					// oxlint-disable-next-line react/no-danger -- the guide ships with the app (app/starter/guide)
 					dangerouslySetInnerHTML={{ __html: loaderData.body }}
 				/>
+				{loaderData.loggedIn ? (
+					<p className="mt-10 border-t border-border pt-6">
+						<Link to="/texts" className="text-link underline-offset-4 hover:underline">
+							{t("starter.more")}
+						</Link>
+					</p>
+				) : null}
 			</main>
 		</PublicPage>
 	)

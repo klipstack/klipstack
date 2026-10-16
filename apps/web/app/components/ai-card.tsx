@@ -202,7 +202,7 @@ function OpenCard({
 					onClick={onClose}
 					aria-label={t("ai.collapse")}
 					{...tooltip(t("ai.collapse"))}
-					className="-mr-1 ml-auto rounded-md p-1 text-muted-fg hover:bg-muted hover:text-fg"
+					className="-mr-1 ml-auto rounded-md p-1 text-muted-fg hover:bg-hover hover:text-fg"
 				>
 					<ChevronUp className="size-3.5" aria-hidden />
 				</button>
@@ -277,7 +277,7 @@ function OpenCard({
 									onClick={onRetry}
 									aria-label={t("ai.retry")}
 									{...tooltip(t("ai.retry"))}
-									className="rounded-md p-1.5 text-muted-fg hover:bg-muted hover:text-fg"
+									className="rounded-md p-1.5 text-muted-fg hover:bg-hover hover:text-fg"
 								>
 									<RotateCcw className="size-3.5" aria-hidden />
 								</button>
@@ -288,7 +288,7 @@ function OpenCard({
 									onClick={() => onCopy(plainAnswer(lastAnswer.text))}
 									aria-label={t("ai.copy")}
 									{...tooltip(t("ai.copy"))}
-									className="rounded-md p-1.5 text-muted-fg hover:bg-muted hover:text-fg"
+									className="rounded-md p-1.5 text-muted-fg hover:bg-hover hover:text-fg"
 								>
 									<Copy className="size-3.5" aria-hidden />
 								</button>
@@ -298,7 +298,7 @@ function OpenCard({
 								onClick={onDelete}
 								aria-label={t("ai.delete")}
 								{...tooltip(t("ai.delete"))}
-								className="rounded-md p-1.5 text-muted-fg hover:bg-muted hover:text-danger"
+								className="rounded-md p-1.5 text-muted-fg hover:bg-hover hover:text-danger"
 							>
 								<Trash2 className="size-3.5" aria-hidden />
 							</button>
@@ -449,7 +449,7 @@ export function QuestionField({
 						key={suggestion}
 						type="button"
 						onClick={() => onSend(suggestion)}
-						className="rounded-full border border-border px-2.5 py-0.5 text-xs text-muted-fg transition-colors hover:bg-muted hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+						className="rounded-full border border-border px-2.5 py-0.5 text-xs text-muted-fg transition-colors hover:bg-hover hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 					>
 						{suggestion}
 					</button>

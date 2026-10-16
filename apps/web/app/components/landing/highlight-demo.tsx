@@ -74,7 +74,7 @@ export function HighlightDemo({
 						onChange({})
 					}}
 					disabled={Object.keys(marks).length === 0}
-					className="shrink-0 rounded-md px-2 py-1 text-sm text-muted-fg hover:bg-muted hover:text-fg disabled:opacity-40 disabled:hover:bg-transparent"
+					className="shrink-0 rounded-md px-2 py-1 text-sm text-muted-fg hover:bg-hover hover:text-fg disabled:opacity-40 disabled:hover:bg-transparent"
 				>
 					{t("home.demo.clear")}
 				</button>
@@ -116,7 +116,7 @@ export function HighlightDemo({
 												}}
 												className={cn(
 													"cursor-pointer rounded-[2px] box-decoration-clone transition-[background-color,box-shadow] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
-													mark ? HL_BG : "hover:bg-muted",
+													mark ? HL_BG : "hover:bg-hover",
 													mark && open?.id === id ? "hl-pop" : null,
 													id === NOTED && mark
 														? "underline decoration-muted-fg decoration-dotted underline-offset-[3px]"

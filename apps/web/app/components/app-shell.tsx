@@ -34,7 +34,7 @@ import { LayoutToggle } from "./layout-toggle"
 import { MobileDrawer, useMobileDrawer } from "./mobile-drawer"
 import { MenuNavLink, MoreMenu, type MoreMenuHandle } from "./more-menu"
 import { PullToRefresh } from "./pull-to-refresh"
-import { SaveLinkDialog } from "./save-link-dialog"
+import { SaveLinkButton, SaveLinkDialog } from "./save-link-dialog"
 import {
 	SavedSearchDialog,
 	type SavedSearchItem,
@@ -173,7 +173,7 @@ function SidebarContent({
 							type="button"
 							onClick={onClose}
 							aria-label={t("actions.close")}
-							className="rounded-md p-2 text-muted-fg hover:bg-muted"
+							className="rounded-md p-2 text-muted-fg hover:bg-hover"
 						>
 							<X className="size-5" aria-hidden />
 						</button>
@@ -512,7 +512,7 @@ export function AppShell({
 								type="button"
 								onClick={closeSearch}
 								aria-label={t("actions.back")}
-								className="rounded-md p-2.5 text-muted-fg hover:bg-muted hover:text-fg"
+								className="rounded-md p-2.5 text-muted-fg hover:bg-hover hover:text-fg"
 							>
 								<ArrowLeft className="size-5" aria-hidden />
 							</button>
@@ -542,7 +542,7 @@ export function AppShell({
 								aria-label={t("nav.menu")}
 								aria-expanded={open}
 								aria-controls="mobile-drawer"
-								className="rounded-md p-2.5 text-muted-fg hover:bg-muted hover:text-fg"
+								className="rounded-md p-2.5 text-muted-fg hover:bg-hover hover:text-fg"
 							>
 								<Menu className="size-5" aria-hidden />
 							</button>
@@ -554,7 +554,7 @@ export function AppShell({
 									to={bar.search.to}
 									state={{ from: location.pathname + location.search }}
 									aria-label={tk(bar.search.labelKey)}
-									className="rounded-md p-2.5 text-muted-fg hover:bg-muted hover:text-fg"
+									className="rounded-md p-2.5 text-muted-fg hover:bg-hover hover:text-fg"
 								>
 									<Search className="size-5" aria-hidden />
 								</Link>
@@ -563,14 +563,14 @@ export function AppShell({
 									type="button"
 									onClick={() => setSearchFor(routeKey)}
 									aria-label={tk(field.labelKey)}
-									className="rounded-md p-2.5 text-muted-fg hover:bg-muted hover:text-fg"
+									className="rounded-md p-2.5 text-muted-fg hover:bg-hover hover:text-fg"
 								>
 									<Search className="size-5" aria-hidden />
 								</button>
 							) : null}
 							{bar?.select ? <SelectButton /> : null}
 							{bar?.layoutToggle ? <LayoutToggle /> : null}
-							{bar?.save ? <SaveLinkDialog /> : null}
+							{bar?.save ? <SaveLinkButton /> : null}
 						</>
 					)}
 				</header>
@@ -583,6 +583,9 @@ export function AppShell({
 					<PullToRefresh scrollRef={scrollRef}>{children}</PullToRefresh>
 				</div>
 			</div>
+
+			{/* The one Save link dialog: the page's buttons, the command menu and `?save` open it. */}
+			<SaveLinkDialog />
 
 			<MobileDrawer drawer={drawer}>
 				<SidebarContent

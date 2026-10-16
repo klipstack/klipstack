@@ -164,7 +164,7 @@ function LinkCard({ link, previews, from, onSaved, onClose, hover, onPin }: Prop
 	})()
 
 	const action =
-		"flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium hover:bg-muted focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50"
+		"flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium hover:bg-hover focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50"
 	const imageUrl = preview?.imageUrl
 	const copyOriginal = async () => {
 		try {
@@ -208,7 +208,7 @@ function LinkCard({ link, previews, from, onSaved, onClose, hover, onPin }: Prop
 					ref={closeRef}
 					type="button"
 					onClick={onClose}
-					className="absolute right-2 top-2 rounded-full bg-card/95 p-2 text-muted-fg shadow-sm hover:bg-muted focus-visible:outline-2 focus-visible:outline-accent"
+					className="absolute right-2 top-2 rounded-full bg-card/95 p-2 text-muted-fg shadow-sm hover:bg-hover focus-visible:outline-2 focus-visible:outline-accent"
 					aria-label={t("highlights.toolbar.close")}
 				>
 					<X className="size-4" aria-hidden />

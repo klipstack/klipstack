@@ -247,7 +247,7 @@ function FollowingDialog({ feeds, onClose }: { feeds: FeedSubscription[]; onClos
 						type="button"
 						onClick={() => dialogRef.current?.close()}
 						aria-label={t("item.close")}
-						className="flex size-11 shrink-0 items-center justify-center rounded-lg text-muted-fg hover:bg-muted focus-visible:outline-2 focus-visible:outline-accent"
+						className="flex size-11 shrink-0 items-center justify-center rounded-lg text-muted-fg hover:bg-hover focus-visible:outline-2 focus-visible:outline-accent"
 					>
 						<X className="size-4" aria-hidden />
 					</button>
@@ -550,4 +550,4 @@ function SubscriptionHeader({
 }
 
 const subscriptionActionClass =
-	"inline-flex size-11 items-center justify-center rounded-md hover:bg-muted hover:text-fg focus-visible:outline-2 focus-visible:outline-accent md:size-8 [@media(pointer:coarse)]:size-11"
+	"inline-flex size-11 items-center justify-center rounded-md hover:bg-hover hover:text-fg focus-visible:outline-2 focus-visible:outline-accent md:size-8 [@media(pointer:coarse)]:size-11"

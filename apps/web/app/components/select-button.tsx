@@ -14,7 +14,7 @@ export function SelectButton({ className }: { className?: string }) {
 			type="button"
 			onClick={pressSelect}
 			className={cn(
-				"shrink-0 rounded-md px-2.5 py-2 text-sm font-medium text-link hover:bg-muted",
+				"shrink-0 rounded-md px-2.5 py-2 text-sm font-medium text-link hover:bg-hover",
 				className,
 			)}
 		>

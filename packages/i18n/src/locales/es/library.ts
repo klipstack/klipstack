@@ -196,8 +196,7 @@ export default {
 			"Textos breves para probar los subrayados y las notas: una guía de Klipstack y ensayos de dominio público sobre leer y escribir. Elige un libro para añadirlo a tu biblioteca.",
 		shelf: "Libros para empezar",
 		homeTitle: "O empieza con uno de estos",
-		find: "O encuentra algo para leer",
-		more: "Más para leer en la página Guardar un enlace",
+		more: "Más para leer",
 		language: { en: "En inglés", es: "En español" },
 		minutes: "{{count}} min",
 		minutes_one: "{{count}} min",
@@ -220,7 +219,34 @@ export default {
 		title: "Guardar un enlace",
 		description:
 			"Pega la dirección de un artículo. Lo descargamos, extraemos el texto y guardamos una copia limpia.",
+		several: "Un enlace por línea, hasta {{max}}.",
+		shortcut: "{{keys}} guarda.",
+		results: "Enlaces guardados",
+		savedMany: "{{count}} enlaces guardados.",
+		savedMany_one: "{{count}} enlace guardado.",
+		savedMany_other: "{{count}} enlaces guardados.",
+		others: "Otras formas de guardar",
+		anywhere: {
+			title: "Desde cualquier página",
+			description:
+				"Arrástralo a la barra de marcadores y haz clic en él en cualquier artículo para guardarlo aquí.",
+			label: "Guardar en Klipstack",
+		},
+		assistant: {
+			title: "Tu asistente de IA",
+			description:
+				"Conecta ChatGPT, Claude u otro asistente y pídele que guarde artículos o que encuentre lo que subrayaste. Copia esta instrucción en él: se configura solo, o te dice cómo.",
+			verify:
+				"Para conectar un asistente de IA, primero verifica tu correo en los <account>ajustes de la cuenta</account>.",
+			copy: "Copiar instrucción",
+			copied: "Copiada",
+			manage: "Apps conectadas",
+			prompt:
+				"Conéctate a Klipstack, mi app para leer más tarde. Es un servidor MCP remoto en {{url}} (HTTP en streaming) que inicia sesión con OAuth. Si puedes añadir servidores MCP tú mismo, añádelo y dame el enlace de inicio de sesión para que lo apruebe. Si no puedes, explícame paso a paso cómo añadirlo como conector personalizado en los ajustes de esta app. Después lista algunos artículos de mi biblioteca para comprobar que funciona.",
+		},
+		feed: "¿Sigues un blog? Añádelo en <feed>Feeds</feed>.",
 		errors: {
+			too_many: "Guarda hasta {{max}} enlaces de una vez.",
 			invalid_url: "Eso no parece un enlace válido.",
 			unsupported_twitter: "Solo se pueden guardar publicaciones de X, no perfiles ni feeds.",
 			unsupported_youtube: "Los vídeos de YouTube aún no están soportados.",
@@ -574,7 +600,7 @@ export default {
 	empty: {
 		inbox: {
 			title: "Tu biblioteca está vacía",
-			description: "Guarda un enlace con el botón de arriba o usa la extensión del navegador.",
+			description: "Guarda un enlace con el botón de arriba.",
 		},
 		archive: {
 			title: "Aún no hay nada archivado",

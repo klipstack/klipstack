@@ -23,6 +23,7 @@
 	--color-fg: var(--k-fg);
 	--color-muted: var(--k-muted);
 	--color-muted-fg: var(--k-muted-fg);
+	--color-hover: var(--k-hover);
 	--color-border: var(--k-border);
 	--color-card: var(--k-card);
 	--color-accent: var(--k-accent);
@@ -62,6 +63,8 @@
 	--k-bg: oklch(0.985 0.004 85);
 	--k-fg: oklch(0.23 0.012 260);
 	--k-muted: oklch(0.955 0.006 90);
+	/* A control under the pointer: clearly apart from the page and from cards. */
+	--k-hover: oklch(0.915 0.009 90);
 	--k-muted-fg: oklch(0.5 0.014 260);
 	--k-border: oklch(0.9 0.008 90);
 	--k-card: oklch(1 0 0);
@@ -113,6 +116,7 @@
 		--k-bg: oklch(0.2 0.011 65);
 		--k-fg: oklch(0.92 0.014 85);
 		--k-muted: oklch(0.26 0.013 65);
+		--k-hover: oklch(0.3 0.014 65);
 		--k-muted-fg: oklch(0.72 0.018 75);
 		--k-border: oklch(0.33 0.015 65);
 		--k-card: oklch(0.24 0.012 65);
@@ -152,6 +156,7 @@
 	--k-bg: oklch(0.2 0.011 65);
 	--k-fg: oklch(0.92 0.014 85);
 	--k-muted: oklch(0.26 0.013 65);
+	--k-hover: oklch(0.3 0.014 65);
 	--k-muted-fg: oklch(0.72 0.018 75);
 	--k-border: oklch(0.33 0.015 65);
 	--k-card: oklch(0.24 0.012 65);
@@ -1170,5 +1175,65 @@ input[type="search"]::-webkit-search-decoration {
 @media (pointer: coarse) {
 	[data-resize-handles] {
 		display: none;
+	}
+}
+
+/* A shelf that scrolls sideways fades out on the side that has more books, so the reader knows
+   to scroll: its scroll position drives the fades (scroll-driven animations). Where the browser has
+   none, or the shelf doesn't scroll, there is no fade. */
+@property --shelf-fade-start {
+	syntax: "<length>";
+	inherits: false;
+	initial-value: 0px;
+}
+@property --shelf-fade-end {
+	syntax: "<length>";
+	inherits: false;
+	initial-value: 0px;
+}
+@keyframes shelf-fade {
+	0% {
+		--shelf-fade-start: 0px;
+		--shelf-fade-end: 3rem;
+	}
+	8%,
+	92% {
+		--shelf-fade-start: 3rem;
+		--shelf-fade-end: 3rem;
+	}
+	100% {
+		--shelf-fade-start: 3rem;
+		--shelf-fade-end: 0px;
+	}
+}
+@utility shelf-fade {
+	mask-image: linear-gradient(
+		to right,
+		transparent,
+		#000 var(--shelf-fade-start),
+		#000 calc(100% - var(--shelf-fade-end)),
+		transparent
+	);
+	animation: shelf-fade linear both;
+	animation-timeline: scroll(self inline);
+}
+
+/* A <details> that opens and closes by sliding, where the browser can animate to `auto`. */
+@utility details-slide {
+	interpolate-size: allow-keywords;
+	&::details-content {
+		block-size: 0;
+		overflow: clip;
+		transition:
+			block-size 200ms ease,
+			content-visibility 200ms allow-discrete;
+	}
+	&[open]::details-content {
+		block-size: auto;
+	}
+	@media (prefers-reduced-motion: reduce) {
+		&::details-content {
+			transition: none;
+		}
 	}
 }

@@ -14,6 +14,8 @@ export const TRASH_RETENTION_DAYS = 30
 export const ARTICLE_TITLE_MAX = 300
 /** Longest URL a page is saved or followed from, in characters. */
 export const URL_MAX = 4096
+/** Most links saved in one go, from the Save link dialog or page. */
+export const SAVE_LINKS_MAX = 10
 /** Longest name a user gives a followed feed, in characters. */
 export const FEED_TITLE_MAX = 200
 

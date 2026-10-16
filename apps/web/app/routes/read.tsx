@@ -611,7 +611,7 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
 				<div className="mx-auto flex max-w-5xl items-center px-3 py-2">
 					<Link
 						to="/library"
-						className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-muted-fg hover:bg-muted hover:text-fg"
+						className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-muted-fg hover:bg-hover hover:text-fg"
 					>
 						<ArrowLeft className="size-4" aria-hidden />
 						{t("back")}

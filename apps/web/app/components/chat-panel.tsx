@@ -126,7 +126,7 @@ export function ChatPanel({
 								onClick={onRetry}
 								aria-label={t("ai.retry")}
 								{...tooltip(t("ai.retry"))}
-								className="rounded-md p-1.5 text-muted-fg hover:bg-muted hover:text-fg"
+								className="rounded-md p-1.5 text-muted-fg hover:bg-hover hover:text-fg"
 							>
 								<RotateCcw className="size-3.5" aria-hidden />
 							</button>
@@ -137,7 +137,7 @@ export function ChatPanel({
 								onClick={() => onCopy(plainAnswer(lastAnswer.text))}
 								aria-label={t("ai.copy")}
 								{...tooltip(t("ai.copy"))}
-								className="rounded-md p-1.5 text-muted-fg hover:bg-muted hover:text-fg"
+								className="rounded-md p-1.5 text-muted-fg hover:bg-hover hover:text-fg"
 							>
 								<Copy className="size-3.5" aria-hidden />
 							</button>
@@ -147,7 +147,7 @@ export function ChatPanel({
 							onClick={onClear}
 							aria-label={t("ai.chat.clear")}
 							{...tooltip(t("ai.chat.clear"))}
-							className="rounded-md p-1.5 text-muted-fg hover:bg-muted hover:text-danger"
+							className="rounded-md p-1.5 text-muted-fg hover:bg-hover hover:text-danger"
 						>
 							<Trash2 className="size-3.5" aria-hidden />
 						</button>

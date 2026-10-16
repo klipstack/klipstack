@@ -104,6 +104,8 @@ export default {
 		description: "Apps a las que diste acceso a tu cuenta, como asistentes de IA.",
 		mcpHint:
 			"Para conectar un asistente de IA, añade Klipstack como servidor MCP remoto con esta URL:",
+		promptHint:
+			"O copia una instrucción en el asistente: añade Klipstack por sí mismo, o te dice cómo.",
 		empty: "No hay apps conectadas.",
 		connectedOn: "Conectada el {{date}}",
 		disconnect: "Desconectar",

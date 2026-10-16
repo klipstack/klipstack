@@ -101,7 +101,7 @@ export function AccountMenu({
 				<button
 					type="submit"
 					role="menuitem"
-					className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-fg hover:bg-muted"
+					className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-fg hover:bg-hover"
 				>
 					<LogOut className="size-4" aria-hidden />
 					{t("nav.logout")}
