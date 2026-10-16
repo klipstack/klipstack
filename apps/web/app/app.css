@@ -23,6 +23,7 @@
 	--color-fg: var(--k-fg);
 	--color-muted: var(--k-muted);
 	--color-muted-fg: var(--k-muted-fg);
+	--color-hover: var(--k-hover);
 	--color-border: var(--k-border);
 	--color-card: var(--k-card);
 	--color-accent: var(--k-accent);
@@ -62,6 +63,8 @@
 	--k-bg: oklch(0.985 0.004 85);
 	--k-fg: oklch(0.23 0.012 260);
 	--k-muted: oklch(0.955 0.006 90);
+	/* A control under the pointer: clearly apart from the page and from cards. */
+	--k-hover: oklch(0.915 0.009 90);
 	--k-muted-fg: oklch(0.5 0.014 260);
 	--k-border: oklch(0.9 0.008 90);
 	--k-card: oklch(1 0 0);
@@ -113,6 +116,7 @@
 		--k-bg: oklch(0.2 0.011 65);
 		--k-fg: oklch(0.92 0.014 85);
 		--k-muted: oklch(0.26 0.013 65);
+		--k-hover: oklch(0.33 0.015 65);
 		--k-muted-fg: oklch(0.72 0.018 75);
 		--k-border: oklch(0.33 0.015 65);
 		--k-card: oklch(0.24 0.012 65);
@@ -152,6 +156,7 @@
 	--k-bg: oklch(0.2 0.011 65);
 	--k-fg: oklch(0.92 0.014 85);
 	--k-muted: oklch(0.26 0.013 65);
+	--k-hover: oklch(0.33 0.015 65);
 	--k-muted-fg: oklch(0.72 0.018 75);
 	--k-border: oklch(0.33 0.015 65);
 	--k-card: oklch(0.24 0.012 65);

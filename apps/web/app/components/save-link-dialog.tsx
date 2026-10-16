@@ -204,7 +204,7 @@ export function SaveLinkDialog() {
 						<button
 							type="button"
 							onClick={() => dialogRef.current?.close()}
-							className="-mt-1 -mr-1 rounded-md p-1.5 text-muted-fg hover:bg-muted"
+							className="-mt-1 -mr-1 rounded-md p-1.5 text-muted-fg hover:bg-hover"
 							aria-label={t("add.cancel")}
 						>
 							<X className="size-4" aria-hidden />

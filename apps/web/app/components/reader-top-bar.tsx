@@ -28,7 +28,7 @@ import type { resolvePrefs } from "~/lib/prefs"
 import { CHAT_HINT, HIGHLIGHTS_HINT, READER_HINTS, SHORTCUT_HINTS } from "~/lib/shortcuts"
 import { cn } from "~/lib/utils"
 
-const BUTTON = "rounded-md p-2 text-muted-fg hover:bg-muted hover:text-fg"
+const BUTTON = "rounded-md p-2 text-muted-fg hover:bg-hover hover:text-fg"
 
 /**
  * The reader's sticky top bar: back, reading settings, star, the chat and the highlights sidebar,
@@ -130,7 +130,7 @@ export function ReaderTopBar({
 						aria-hidden={!titleShown}
 						tabIndex={titleShown ? 0 : -1}
 						className={cn(
-							"absolute left-1/2 hidden max-w-[calc(100%-24rem)] -translate-x-1/2 truncate rounded-md px-2 py-1 text-sm font-medium text-fg transition-opacity duration-200 hover:bg-muted md:block",
+							"absolute left-1/2 hidden max-w-[calc(100%-24rem)] -translate-x-1/2 truncate rounded-md px-2 py-1 text-sm font-medium text-fg transition-opacity duration-200 hover:bg-hover md:block",
 							titleShown ? "opacity-100" : "pointer-events-none opacity-0",
 						)}
 					>

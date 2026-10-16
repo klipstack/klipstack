@@ -9,7 +9,7 @@ export const buttonVariants = cva(
 			variant: {
 				primary: "bg-accent text-accent-fg hover:opacity-90",
 				secondary: "bg-muted text-fg hover:bg-border",
-				ghost: "hover:bg-muted",
+				ghost: "hover:bg-hover",
 				link: "text-link underline-offset-4 hover:underline",
 				danger: "bg-danger text-danger-fg hover:opacity-90",
 			},

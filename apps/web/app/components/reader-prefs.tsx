@@ -88,7 +88,7 @@ export function ReaderPrefs({
 				aria-haspopup="dialog"
 				{...tooltip(t("actions.prefs"))}
 				aria-label={t("actions.prefs")}
-				className="rounded-md p-2 text-muted-fg hover:bg-muted hover:text-fg"
+				className="rounded-md p-2 text-muted-fg hover:bg-hover hover:text-fg"
 			>
 				<ALargeSmall className="size-5" aria-hidden />
 			</button>

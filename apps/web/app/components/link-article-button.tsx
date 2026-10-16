@@ -31,7 +31,7 @@ export function LinkArticleButton({
 			onMouseDown={(e) => e.preventDefault()}
 			onClick={api.linkArticle}
 			className={cn(
-				"inline-flex items-center gap-1.5 rounded-lg font-medium text-muted-fg hover:bg-muted hover:text-fg",
+				"inline-flex items-center gap-1.5 rounded-lg font-medium text-muted-fg hover:bg-hover hover:text-fg",
 				compact ? "p-1.5" : "px-2 py-1.5 text-xs",
 				className,
 			)}

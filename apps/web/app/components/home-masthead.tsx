@@ -41,7 +41,7 @@ export function HomeMasthead({
 							to="/search"
 							state={{ from: "/home" }}
 							aria-label={t("search.label")}
-							className="rounded-md p-2 text-muted-fg hover:bg-muted hover:text-fg"
+							className="rounded-md p-2 text-muted-fg hover:bg-hover hover:text-fg"
 						>
 							<Search className="size-5" aria-hidden />
 						</Link>

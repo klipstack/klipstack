@@ -180,7 +180,7 @@ export function ReaderSidebar({
 					<button
 						type="button"
 						onClick={onClose}
-						className="rounded-md p-1.5 text-muted-fg hover:bg-muted"
+						className="rounded-md p-1.5 text-muted-fg hover:bg-hover"
 						aria-label={t("highlights.toolbar.close")}
 					>
 						<X className="size-4" aria-hidden />
@@ -321,7 +321,7 @@ function LinkSection({
 								l.highlightId ? `/read/${l.documentId}#h=${l.highlightId}` : `/read/${l.documentId}`
 							}
 							state={{ from }}
-							className="block rounded-lg px-2 py-1.5 hover:bg-muted"
+							className="block rounded-lg px-2 py-1.5 hover:bg-hover"
 						>
 							<span className="line-clamp-2 block font-display text-base leading-snug">
 								{l.title ?? l.sourceUrl}

@@ -371,7 +371,7 @@ export default function Library({ loaderData }: Route.ComponentProps) {
 				<div className="mt-6 flex justify-center">
 					<Link
 						to={`${viewPath(loaderData.view)}${nextPageSearch(filter, sort, loaderData.nextCursor, topic)}`}
-						className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-muted"
+						className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-hover"
 					>
 						{t("loadMore")}
 					</Link>
@@ -499,7 +499,7 @@ function ListControls({
 					<button
 						type="submit"
 						disabled={fetcher.state !== "idle"}
-						className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-muted disabled:opacity-50"
+						className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-hover disabled:opacity-50"
 					>
 						<Archive className="size-4" aria-hidden />
 						{t("filters.archiveRead")}
@@ -637,7 +637,7 @@ function SearchLink({ view, label }: { view: LibraryView; label: string }) {
 			state={{ from: location.pathname + location.search }}
 			aria-label={label}
 			{...tooltip(label, SEARCH_HINT)}
-			className="rounded-md p-2.5 text-muted-fg hover:bg-muted hover:text-fg"
+			className="rounded-md p-2.5 text-muted-fg hover:bg-hover hover:text-fg"
 		>
 			<Search className="size-5" aria-hidden />
 		</Link>

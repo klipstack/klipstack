@@ -258,14 +258,14 @@ export function CommandPalette() {
 					type="button"
 					onClick={close}
 					aria-label={t("actions.close")}
-					className="-mr-1.5 rounded-md p-2 text-muted-fg hover:bg-muted hover:text-fg md:hidden"
+					className="-mr-1.5 rounded-md p-2 text-muted-fg hover:bg-hover hover:text-fg md:hidden"
 				>
 					<X className="size-5" aria-hidden />
 				</button>
 				<button
 					type="button"
 					onClick={close}
-					className="hidden rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-fg hover:bg-muted md:block"
+					className="hidden rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-fg hover:bg-hover md:block"
 				>
 					esc
 				</button>

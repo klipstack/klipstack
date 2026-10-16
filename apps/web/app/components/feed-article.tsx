@@ -222,4 +222,4 @@ export function FeedArticle({
 }
 
 const iconButton =
-	"inline-flex size-11 items-center justify-center rounded-md hover:bg-muted hover:text-fg disabled:opacity-50 md:size-8 [@media(pointer:coarse)]:size-11"
+	"inline-flex size-11 items-center justify-center rounded-md hover:bg-hover hover:text-fg disabled:opacity-50 md:size-8 [@media(pointer:coarse)]:size-11"

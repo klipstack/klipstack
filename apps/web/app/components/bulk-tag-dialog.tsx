@@ -129,7 +129,7 @@ export function BulkTagDialog({
 					<button
 						type="button"
 						onClick={() => dialogRef.current?.close()}
-						className="rounded-md p-1.5 text-muted-fg hover:bg-muted"
+						className="rounded-md p-1.5 text-muted-fg hover:bg-hover"
 						aria-label={t("tags.close")}
 					>
 						<X className="size-4" aria-hidden />
@@ -244,7 +244,7 @@ export function BulkTagDialog({
 					<button
 						type="button"
 						onClick={() => dialogRef.current?.close()}
-						className="rounded-lg border border-border px-3.5 py-2 text-sm font-medium hover:bg-muted"
+						className="rounded-lg border border-border px-3.5 py-2 text-sm font-medium hover:bg-hover"
 					>
 						{t("bulkTags.cancel")}
 					</button>

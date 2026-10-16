@@ -140,7 +140,7 @@ export function SearchField({
 					state={state}
 					aria-label={clearLabel}
 					{...tooltip(clearLabel)}
-					className="absolute top-1/2 right-1.5 z-10 -translate-y-1/2 rounded-md p-1 text-muted-fg hover:bg-muted hover:text-fg"
+					className="absolute top-1/2 right-1.5 z-10 -translate-y-1/2 rounded-md p-1 text-muted-fg hover:bg-hover hover:text-fg"
 				>
 					<X className="size-4" aria-hidden />
 				</Link>

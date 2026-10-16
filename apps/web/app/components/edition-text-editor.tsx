@@ -304,7 +304,7 @@ function LinkBar({
 						rel="noopener noreferrer"
 						aria-label={t("textEditor.open")}
 						{...tooltip(t("textEditor.open"))}
-						className="rounded-md p-2 text-muted-fg hover:bg-muted hover:text-fg"
+						className="rounded-md p-2 text-muted-fg hover:bg-hover hover:text-fg"
 					>
 						<ExternalLink className="size-4" aria-hidden />
 					</a>

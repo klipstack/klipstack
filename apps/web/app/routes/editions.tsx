@@ -373,7 +373,7 @@ function ShortlistRow({ entry }: { entry: ShortlistEntry }) {
 					type="submit"
 					aria-label={label}
 					{...tooltip(tl("card.unshortlist"))}
-					className="rounded-md p-1.5 text-muted-fg hover:bg-muted hover:text-fg"
+					className="rounded-md p-1.5 text-muted-fg hover:bg-hover hover:text-fg"
 				>
 					<X className="size-4" aria-hidden />
 				</button>
@@ -442,7 +442,7 @@ function CopyLink({ url }: { url: string }) {
 			aria-label={t("editor.copyLink")}
 			{...tooltip(t("editor.copyLink"))}
 			onClick={() => copyText(url, t("editor.copied"))}
-			className="rounded-md p-1.5 text-muted-fg hover:bg-muted hover:text-fg"
+			className="rounded-md p-1.5 text-muted-fg hover:bg-hover hover:text-fg"
 		>
 			<Copy className="size-4" aria-hidden />
 		</button>

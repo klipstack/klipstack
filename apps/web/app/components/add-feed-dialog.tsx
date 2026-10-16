@@ -95,7 +95,7 @@ export function AddFeedDialog({ className }: { className?: string }) {
 						<button
 							type="button"
 							onClick={close}
-							className="rounded-md p-1.5 text-muted-fg hover:bg-muted"
+							className="rounded-md p-1.5 text-muted-fg hover:bg-hover"
 							aria-label={t("add.cancel")}
 						>
 							<X className="size-4" aria-hidden />
@@ -121,7 +121,7 @@ export function AddFeedDialog({ className }: { className?: string }) {
 											type="button"
 											disabled={busy}
 											onClick={() => choose(choice.url)}
-											className="flex w-full items-center gap-2 rounded-lg border border-border px-3 py-2 text-left text-sm hover:bg-muted disabled:opacity-50"
+											className="flex w-full items-center gap-2 rounded-lg border border-border px-3 py-2 text-left text-sm hover:bg-hover disabled:opacity-50"
 										>
 											<Rss className="size-4 shrink-0 text-muted-fg" aria-hidden />
 											<span className="min-w-0 flex-1">

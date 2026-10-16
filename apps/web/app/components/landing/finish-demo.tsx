@@ -129,7 +129,7 @@ export function FinishDemo({
 								<button
 									type="button"
 									onClick={() => set({ editionNote: fromNote })}
-									className="-mr-1.5 inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs font-medium text-link hover:bg-muted"
+									className="-mr-1.5 inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs font-medium text-link hover:bg-hover"
 								>
 									<NotebookPen className="size-3.5" aria-hidden />
 									{tr("end.startFromNote")}

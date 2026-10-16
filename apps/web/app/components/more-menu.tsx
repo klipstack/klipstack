@@ -263,7 +263,7 @@ export function MoreMenu({
 					firstFocus.current = e.key === "ArrowUp" ? "last" : "first"
 					setOpen(true)
 				}}
-				className={cn("rounded-md p-1.5 text-muted-fg hover:bg-muted hover:text-fg", className)}
+				className={cn("rounded-md p-1.5 text-muted-fg hover:bg-hover hover:text-fg", className)}
 			>
 				{icon ?? <MoreHorizontal className="size-4" aria-hidden />}
 			</button>
@@ -333,7 +333,7 @@ export function MenuAction({
 				type="submit"
 				role="menuitem"
 				className={cn(
-					"flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted",
+					"flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-hover",
 					danger ? "text-danger" : "text-fg",
 				)}
 			>
@@ -369,7 +369,7 @@ export function MenuButton({
 				onClick()
 			}}
 			className={cn(
-				"flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted",
+				"flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-hover",
 				danger ? "text-danger" : "text-fg",
 			)}
 		>
@@ -399,7 +399,7 @@ export function MenuLink({
 			{...(download ? { download: true } : { target: "_blank", rel: "noopener noreferrer" })}
 			role="menuitem"
 			onClick={close}
-			className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-fg hover:bg-muted"
+			className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-fg hover:bg-hover"
 		>
 			{icon}
 			{children}
@@ -436,7 +436,7 @@ export function MenuRadio({
 			onClick={onSelect}
 			className={cn(
 				"flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm",
-				checked ? "font-medium text-fg hover:bg-muted" : "text-muted-fg hover:bg-muted",
+				checked ? "font-medium text-fg hover:bg-hover" : "text-muted-fg hover:bg-hover",
 			)}
 		>
 			{icon}
@@ -482,7 +482,7 @@ export function MenuNavLink({
 			}}
 			className={cn(
 				"flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm",
-				current ? "bg-muted font-medium text-fg" : "text-fg hover:bg-muted",
+				current ? "bg-muted font-medium text-fg" : "text-fg hover:bg-hover",
 			)}
 		>
 			{icon}

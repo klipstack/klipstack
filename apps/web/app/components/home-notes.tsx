@@ -197,7 +197,7 @@ function NoteReminderItem({
 					<button
 						type="button"
 						onClick={onWrite}
-						className="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-sm text-fg hover:bg-muted"
+						className="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-sm text-fg hover:bg-hover"
 					>
 						<NotebookPen className="size-4" aria-hidden />
 						{t("home.notes.write")}
@@ -213,7 +213,7 @@ function NoteReminderItem({
 								{ method: "post", action: BULK_ACTION },
 							)
 						}}
-						className="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-sm text-muted-fg hover:bg-muted hover:text-fg"
+						className="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-sm text-muted-fg hover:bg-hover hover:text-fg"
 					>
 						<RotateCcw className="size-4" aria-hidden />
 						{t("home.notes.again")}
@@ -240,7 +240,7 @@ function NoteReminderItem({
 						<input type="hidden" name="id" value={item.id} />
 						<button
 							type="submit"
-							className="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-sm text-muted-fg hover:bg-muted hover:text-fg"
+							className="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-sm text-muted-fg hover:bg-hover hover:text-fg"
 						>
 							<X className="size-4" aria-hidden />
 							{t("home.notes.skip")}

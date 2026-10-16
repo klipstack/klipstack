@@ -169,7 +169,7 @@ function HighlightCard({ h, linkTargets }: { h: ResurfacedHighlight; linkTargets
 						<button
 							type="button"
 							onClick={() => setEditing(true)}
-							className="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-xs text-muted-fg hover:bg-muted hover:text-fg"
+							className="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-xs text-muted-fg hover:bg-hover hover:text-fg"
 						>
 							<StickyNote className="size-3.5" aria-hidden />
 							{t("home.highlights.addNote")}
@@ -194,7 +194,7 @@ function HighlightCard({ h, linkTargets }: { h: ResurfacedHighlight; linkTargets
 						<input type="hidden" name="id" value={h.id} />
 						<button
 							type="submit"
-							className="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-xs text-muted-fg hover:bg-muted hover:text-fg"
+							className="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-xs text-muted-fg hover:bg-hover hover:text-fg"
 						>
 							<EyeOff className="size-3.5" aria-hidden />
 							{t("home.highlights.dismiss")}

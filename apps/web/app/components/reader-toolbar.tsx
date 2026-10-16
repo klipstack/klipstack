@@ -79,7 +79,7 @@ export function ReaderToolbar({
 					type="button"
 					disabled={disabled}
 					onClick={onClose}
-					className="rounded-md p-1.5 text-muted-fg hover:bg-muted"
+					className="rounded-md p-1.5 text-muted-fg hover:bg-hover"
 					aria-label={t("highlights.toolbar.close")}
 				>
 					<X className="size-4" aria-hidden />
@@ -94,8 +94,8 @@ const DISABLED =
 	" disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-fg aria-disabled:cursor-not-allowed aria-disabled:opacity-40 aria-disabled:hover:bg-transparent aria-disabled:hover:text-muted-fg"
 
 /** A text button in a reader toolbar: an icon and a label. */
-export const TOOLBAR_LABEL_BUTTON = `flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium whitespace-nowrap text-muted-fg hover:bg-muted hover:text-fg${
+export const TOOLBAR_LABEL_BUTTON = `flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium whitespace-nowrap text-muted-fg hover:bg-hover hover:text-fg${
 	DISABLED
 }`
 /** An icon button in a reader toolbar. */
-export const TOOLBAR_ICON_BUTTON = `rounded-md p-1.5 text-muted-fg hover:bg-muted hover:text-fg${DISABLED}`
+export const TOOLBAR_ICON_BUTTON = `rounded-md p-1.5 text-muted-fg hover:bg-hover hover:text-fg${DISABLED}`

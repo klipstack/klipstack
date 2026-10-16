@@ -84,7 +84,7 @@ function Frame({ children }: { children: React.ReactNode }) {
 							prefetch="none"
 							className={({ isActive }) =>
 								cn(
-									"whitespace-nowrap rounded-md px-3 py-1.5 text-sm hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+									"whitespace-nowrap rounded-md px-3 py-1.5 text-sm hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
 									isActive ? "bg-muted font-medium text-fg" : "text-muted-fg",
 								)
 							}

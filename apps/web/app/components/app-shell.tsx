@@ -173,7 +173,7 @@ function SidebarContent({
 							type="button"
 							onClick={onClose}
 							aria-label={t("actions.close")}
-							className="rounded-md p-2 text-muted-fg hover:bg-muted"
+							className="rounded-md p-2 text-muted-fg hover:bg-hover"
 						>
 							<X className="size-5" aria-hidden />
 						</button>
@@ -512,7 +512,7 @@ export function AppShell({
 								type="button"
 								onClick={closeSearch}
 								aria-label={t("actions.back")}
-								className="rounded-md p-2.5 text-muted-fg hover:bg-muted hover:text-fg"
+								className="rounded-md p-2.5 text-muted-fg hover:bg-hover hover:text-fg"
 							>
 								<ArrowLeft className="size-5" aria-hidden />
 							</button>
@@ -542,7 +542,7 @@ export function AppShell({
 								aria-label={t("nav.menu")}
 								aria-expanded={open}
 								aria-controls="mobile-drawer"
-								className="rounded-md p-2.5 text-muted-fg hover:bg-muted hover:text-fg"
+								className="rounded-md p-2.5 text-muted-fg hover:bg-hover hover:text-fg"
 							>
 								<Menu className="size-5" aria-hidden />
 							</button>
@@ -554,7 +554,7 @@ export function AppShell({
 									to={bar.search.to}
 									state={{ from: location.pathname + location.search }}
 									aria-label={tk(bar.search.labelKey)}
-									className="rounded-md p-2.5 text-muted-fg hover:bg-muted hover:text-fg"
+									className="rounded-md p-2.5 text-muted-fg hover:bg-hover hover:text-fg"
 								>
 									<Search className="size-5" aria-hidden />
 								</Link>
@@ -563,7 +563,7 @@ export function AppShell({
 									type="button"
 									onClick={() => setSearchFor(routeKey)}
 									aria-label={tk(field.labelKey)}
-									className="rounded-md p-2.5 text-muted-fg hover:bg-muted hover:text-fg"
+									className="rounded-md p-2.5 text-muted-fg hover:bg-hover hover:text-fg"
 								>
 									<Search className="size-5" aria-hidden />
 								</button>

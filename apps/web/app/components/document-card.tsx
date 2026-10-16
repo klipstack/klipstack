@@ -366,7 +366,7 @@ export function DocumentCard({
 				"group/card -mx-3 relative isolate scroll-mb-24 md:scroll-mt-20 flex gap-4 rounded-lg px-3 py-4 transition-colors before:absolute before:inset-x-3 before:bottom-0 before:h-px before:bg-border last:before:hidden data-cursor:ring-2 data-cursor:ring-ring layout-grid:-m-2 layout-grid:flex-col layout-grid:gap-2 layout-grid:rounded-2xl layout-grid:p-2 layout-grid:before:hidden",
 				checked
 					? "bg-(--hl)/45 before:hidden hover:bg-(--hl)/60"
-					: "hover:bg-muted data-cursor:bg-muted",
+					: "hover:bg-hover data-cursor:bg-muted",
 				selecting && "cursor-pointer select-none",
 			)}
 		>
@@ -494,7 +494,7 @@ export function DocumentCard({
 							<input type="hidden" name="intent" value="retry" />
 							<button
 								type="submit"
-								className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-link hover:bg-muted"
+								className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-link hover:bg-hover"
 							>
 								<RotateCcw className="size-3.5" aria-hidden />
 								{t("status.retry")}
@@ -551,7 +551,7 @@ export function DocumentCard({
 							{...tooltip(armed ? t("card.deleteForeverConfirm") : t("card.deleteForever"))}
 							aria-label={armed ? t("card.deleteForeverConfirm") : t("card.deleteForever")}
 							className={cn(
-								"flex items-center gap-1 rounded-md p-1.5 text-muted-fg hover:bg-muted hover:text-fg",
+								"flex items-center gap-1 rounded-md p-1.5 text-muted-fg hover:bg-hover hover:text-fg",
 								armed && "bg-danger/10 text-danger hover:bg-danger/20 hover:text-danger",
 							)}
 						>
@@ -733,7 +733,7 @@ function IconButton({
 			type="submit"
 			{...tooltip(label, hint)}
 			aria-label={label}
-			className="rounded-md p-1.5 text-muted-fg hover:bg-muted hover:text-fg"
+			className="rounded-md p-1.5 text-muted-fg hover:bg-hover hover:text-fg"
 		>
 			{children}
 		</button>
