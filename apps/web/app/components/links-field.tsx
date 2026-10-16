@@ -1,4 +1,4 @@
-import { SAVE_LINKS_MAX } from "@klipstack/api-contract"
+import { SAVE_LINKS_MAX } from "@klipstack/api-contract/names"
 import { Check, CircleAlert } from "lucide-react"
 import { useId } from "react"
 import { useTranslation } from "react-i18next"
@@ -51,7 +51,10 @@ export function LinksField({
 				onKeyDown={(e) => {
 					if (!isSubmitShortcut(e.nativeEvent)) return
 					e.preventDefault()
-					e.currentTarget.form?.requestSubmit()
+					const form = e.currentTarget.form
+					// While saving, as the Save button: once is enough.
+					if (form?.querySelector<HTMLButtonElement>("button[type=submit]")?.disabled) return
+					form?.requestSubmit()
 				}}
 				className="max-h-[calc(8lh+1rem)] min-h-[calc(2lh+1rem)] w-full resize-none rounded-lg border border-border bg-card px-3 py-2 text-sm text-fg shadow-xs [field-sizing:content] placeholder:text-muted-fg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none aria-invalid:border-danger"
 			/>

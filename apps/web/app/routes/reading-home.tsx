@@ -114,7 +114,6 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 	}
 }
 
-/** A shelf's worth: the rest are on the Add page. */
 /** The starter texts Home offers when it has nothing to feature: nothing saved, or all of it read. */
 function homeStarter(userId: string, language: string, empty: string | undefined) {
 	if (empty !== "new" && empty !== "caughtUp") return null

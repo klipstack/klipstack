@@ -67,11 +67,12 @@ export type LinkResult =
 	| { url: string; ok: true; articleId: string; created: boolean }
 	| { url: string; ok: false; code: string; message: string; details?: Record<string, unknown> }
 
+/** Distinct links, at most `SAVE_LINKS_MAX`: a link sent twice counts once. */
 const Links = z
 	.array(z.string().trim().min(1))
 	.min(1)
-	.max(SAVE_LINKS_MAX, `Save at most ${SAVE_LINKS_MAX} links at once.`)
 	.transform((all) => [...new Set(all)])
+	.pipe(z.array(z.string()).max(SAVE_LINKS_MAX, `Save at most ${SAVE_LINKS_MAX} links at once.`))
 
 /**
  * Saves several links from the web, one by one, each as `saveArticle` saves it. Every link gets its

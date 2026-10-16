@@ -342,6 +342,13 @@ describe("saveLinks", () => {
 		expect(rows).toHaveLength(0)
 	})
 
+	it("counts a link sent twice once against the limit", async () => {
+		const userId = await newUser()
+		const links = Array.from({ length: 10 }, (_, i) => url(`links-ten-${i}`))
+		const results = await saveLinks(userId, [...links, links[0]!])
+		expect(results.map((result) => result.url)).toEqual(links)
+	})
+
 	it("refuses what is past the save limit", async () => {
 		const userId = await newUser()
 		spend(userId, 1)

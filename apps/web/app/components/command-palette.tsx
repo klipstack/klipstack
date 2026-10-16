@@ -147,8 +147,9 @@ export function CommandPalette() {
 	const saveFromClipboard = async () => {
 		const text = await navigator.clipboard?.readText().catch(() => "")
 		const url = text?.trim() ?? ""
-		if (URL_PATTERN.test(url)) void navigate(`/add?url=${encodeURIComponent(url)}`)
-		else showToast({ message: t("palette.clipboardEmpty") })
+		if (URL_PATTERN.test(url)) {
+			if (!openSaveLink(url)) go(saveLinkPath(url))
+		} else showToast({ message: t("palette.clipboardEmpty") })
 	}
 
 	const trimmed = query.trim()

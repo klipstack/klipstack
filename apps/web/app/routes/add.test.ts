@@ -1,17 +1,9 @@
 import { describe, expect, it, vi } from "vitest"
 import { loader, sharedUrl } from "./add"
 
-// Stands in for the save itself: the document row and the extraction job that fetches the URL
-// (commands/saving.server.test.ts covers those). These tests only need to see whether the route
-// got that far, and the session below names a user with no row for the real one to save under.
-const saved = vi.fn().mockResolvedValue({ document: { id: "document" }, created: true })
-vi.mock("~/services/documents.server", async (original) => ({
-	...(await original<typeof import("~/services/documents.server")>()),
-	saveDocument: (...args: unknown[]) => saved(...args),
-}))
 vi.mock("~/lib/session.server", () => ({ requireUser: () => ({ id: "add-quota-test" }) }))
 
-it("opens the Save link dialog with a shared link, without saving it", async () => {
+it("opens the Save link dialog with a shared link (saving takes its POST)", async () => {
 	const request = new Request(
 		"http://localhost/add?title=Post&text=Look%20at%20https://example.com/article%3Fid=1",
 		{ headers: { "sec-fetch-site": "cross-site" } },
@@ -26,7 +18,6 @@ it("opens the Save link dialog with a shared link, without saving it", async () 
 	expect(answer?.headers.get("location")).toBe(
 		"/library?save=https%3A%2F%2Fexample.com%2Farticle%3Fid%3D1",
 	)
-	expect(saved).not.toHaveBeenCalled()
 })
 
 describe("sharedUrl", () => {

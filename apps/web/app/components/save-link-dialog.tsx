@@ -55,22 +55,23 @@ export function SaveLinkButton({ className }: { className?: string }) {
 }
 
 /**
- * What is in the field and not saved yet, kept for the browser tab: closing the dialog, another
- * page or a reload keeps it; saving clears it.
+ * What is in the field and not saved yet, kept for the browser tab and the account (another account
+ * signed in on the tab never sees it): closing the dialog, another page or a reload keeps it;
+ * saving clears it.
  */
-const DRAFT_KEY = "klipstack:save-link-draft"
 const draft = {
-	get: () => {
+	key: (userId: string) => `klipstack:save-link-draft:${userId}`,
+	get: (key: string) => {
 		try {
-			return sessionStorage.getItem(DRAFT_KEY) ?? ""
+			return sessionStorage.getItem(key) ?? ""
 		} catch {
 			return ""
 		}
 	},
-	set: (value: string) => {
+	set: (key: string, value: string) => {
 		try {
-			if (value.trim()) sessionStorage.setItem(DRAFT_KEY, value)
-			else sessionStorage.removeItem(DRAFT_KEY)
+			if (value.trim()) sessionStorage.setItem(key, value)
+			else sessionStorage.removeItem(key)
 		} catch {
 			// Private modes without storage: the draft lasts as long as the page.
 		}
@@ -90,13 +91,25 @@ export function SaveLinkDialog() {
 	const layout = useRouteLoaderData<typeof layoutLoader>("routes/app-layout")
 	const dialogRef = useRef<HTMLDialogElement>(null)
 	const formRef = useRef<HTMLFormElement>(null)
+	const userId = layout?.user.id ?? ""
+	const draftKey = useRef(draft.key(userId))
+	useEffect(() => {
+		draftKey.current = draft.key(userId)
+	}, [userId])
 	const fetcher = useFetcher<
 		WebResult<{ saved: true } | { batch: LinkResult[] }> & { url?: string }
 	>()
 	const location = useLocation()
 	const navigate = useNavigate()
 	const saving = fetcher.state !== "idle"
-	const error = fetcher.data?.ok === false ? fetcher.data.error : null
+	// The last answer's refusal or outcomes, until the dialog opens again: then they are old news.
+	const [seen, setSeen] = useState<typeof fetcher.data>()
+	const latest = useRef(fetcher.data)
+	useEffect(() => {
+		latest.current = fetcher.data
+	}, [fetcher.data])
+	const answered = fetcher.data !== undefined && fetcher.data !== seen
+	const error = answered && fetcher.data?.ok === false ? fetcher.data.error : null
 	// Several links, some refused: the dialog stays, with each link's outcome.
 	const batch = fetcher.data?.ok && "batch" in fetcher.data ? fetcher.data.batch : null
 	const refused = batch?.filter((result) => !result.ok) ?? []
@@ -106,12 +119,15 @@ export function SaveLinkDialog() {
 	const open = useCallback((url: string) => {
 		const d = dialogRef.current
 		if (!d) return
-		if (!d.open) d.showModal()
+		if (!d.open) {
+			setSeen(latest.current)
+			d.showModal()
+		}
 		// Here and now, in the tap that opened it: a phone raises its keyboard only then.
 		const field = d.querySelector("textarea")
 		if (!field) return
-		field.value = withLink(field.value || draft.get(), url)
-		draft.set(field.value)
+		field.value = withLink(field.value || draft.get(draftKey.current), url)
+		draft.set(draftKey.current, field.value)
 		field.focus()
 	}, [])
 
@@ -155,11 +171,11 @@ export function SaveLinkDialog() {
 		// Several links, some refused: those are what is left to save.
 		const left = "batch" in answer ? answer.batch.filter((result) => !result.ok) : []
 		if (left.length) {
-			draft.set(left.map((result) => result.url).join("\n"))
+			draft.set(draftKey.current, left.map((result) => result.url).join("\n"))
 			return
 		}
 		close()
-		draft.set("")
+		draft.set(draftKey.current, "")
 		if (formRef.current) formRef.current.reset()
 		const field = dialogRef.current?.querySelector("textarea")
 		if (field) field.value = ""
@@ -192,7 +208,7 @@ export function SaveLinkDialog() {
 					action="/library"
 					onSubmit={() => prepareMotion()}
 					onInput={(e) => {
-						if (e.target instanceof HTMLTextAreaElement) draft.set(e.target.value)
+						if (e.target instanceof HTMLTextAreaElement) draft.set(draftKey.current, e.target.value)
 					}}
 					className="flex flex-col gap-4"
 				>
@@ -210,7 +226,7 @@ export function SaveLinkDialog() {
 							<X className="size-4" aria-hidden />
 						</button>
 					</div>
-					{batch && refused.length ? <LinkResults results={batch} /> : null}
+					{answered && batch && refused.length ? <LinkResults results={batch} /> : null}
 					<LinksField
 						// Again with only the links that were not saved, to fix or drop.
 						key={batch ? `batch:${refused.map((result) => result.url).join(" ")}` : "links"}
@@ -225,11 +241,14 @@ export function SaveLinkDialog() {
 						</Button>
 					</div>
 				</fetcher.Form>
-				<Anywhere
-					appUrl={layout?.appUrl ?? ""}
-					mcpUrl={layout?.mcpUrl ?? ""}
-					emailVerified={Boolean(layout?.user.emailVerified)}
-				/>
+				{/* Not on an error page whose layout failed to load: it would have no addresses. */}
+				{layout ? (
+					<Anywhere
+						appUrl={layout.appUrl}
+						mcpUrl={layout.mcpUrl}
+						emailVerified={Boolean(layout.user.emailVerified)}
+					/>
+				) : null}
 			</div>
 		</dialog>
 	)

@@ -48,6 +48,12 @@ test("the dialog saves several links at once, and keeps the ones it could not sa
 		"href",
 		"/settings/connected-apps",
 	)
+
+	// Opened again: what was typed is there, the old refusal is not.
+	await page.keyboard.press("Escape")
+	await page.getByRole("button", { name: "Save link" }).click()
+	await expect(dialog.getByLabel("Link", { exact: true })).toHaveValue(many.join("\n"))
+	await expect(dialog.getByText("Save up to 10 links at once.")).toBeHidden()
 })
 
 test("the Save link field grows, Enter starts a line and Ctrl+Enter saves", async ({ page }) => {
@@ -60,6 +66,8 @@ test("the Save link field grows, Enter starts a line and Ctrl+Enter saves", asyn
 	const one = `https://example.com/field-${stamp}/one`
 	const field = dialog.getByLabel("Link", { exact: true })
 	await expect(field).toBeFocused()
+	// The shortcut of this platform (the tests run on Linux).
+	await expect(dialog.getByText("One link per line, up to 10. Ctrl+Enter saves.")).toBeVisible()
 	const height = () => field.evaluate((el) => el.getBoundingClientRect().height)
 	// Two lines to start; it grows with what is typed, up to eight lines.
 	const empty = await height()

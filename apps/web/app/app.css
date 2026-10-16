@@ -116,7 +116,7 @@
 		--k-bg: oklch(0.2 0.011 65);
 		--k-fg: oklch(0.92 0.014 85);
 		--k-muted: oklch(0.26 0.013 65);
-		--k-hover: oklch(0.33 0.015 65);
+		--k-hover: oklch(0.3 0.014 65);
 		--k-muted-fg: oklch(0.72 0.018 75);
 		--k-border: oklch(0.33 0.015 65);
 		--k-card: oklch(0.24 0.012 65);
@@ -156,7 +156,7 @@
 	--k-bg: oklch(0.2 0.011 65);
 	--k-fg: oklch(0.92 0.014 85);
 	--k-muted: oklch(0.26 0.013 65);
-	--k-hover: oklch(0.33 0.015 65);
+	--k-hover: oklch(0.3 0.014 65);
 	--k-muted-fg: oklch(0.72 0.018 75);
 	--k-border: oklch(0.33 0.015 65);
 	--k-card: oklch(0.24 0.012 65);
