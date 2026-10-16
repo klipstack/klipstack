@@ -516,6 +516,109 @@ const json = (body: unknown) => ({
 })
 
 describe("writes", () => {
+	it(
+		"counts each filter of a list, and archives every read article with one undo per batch",
+		{ timeout: 30_000 },
+		async () => {
+			const { id, client } = await users.create("API Tidier")
+			const article = async (title: string, set: Partial<typeof documents.$inferInsert>) => {
+				const doc = await insertArticle(id, title, `<p>${title}</p>`)
+				await db.update(documents).set(set).where(eq(documents.id, doc))
+				return doc
+			}
+			const now = new Date()
+			const unread = await article("Unread", { readingMinutes: 5 })
+			const started = await article("Started", {
+				readingMinutes: 40,
+				firstOpenedAt: now,
+				readingProgress: 0.4,
+			})
+			const done = await article("Done", { firstOpenedAt: now, readAt: now, readingProgress: 1 })
+			// Scrolled to the end counts as read, without "finished".
+			const scrolled = await article("Scrolled", { firstOpenedAt: now, readingProgress: 0.97 })
+			await article("Archived done", { archivedAt: now, readAt: now, readingProgress: 1 })
+			await article("Archived starred", { archivedAt: now, starredAt: now })
+			const trashed = await article("Trashed done", { readAt: now, deletedAt: now })
+			// Another reader's read article stays where it is.
+			const stranger = await otherUser()
+			const theirs = await insertArticle(stranger, "Theirs", "<p>Theirs</p>")
+			await db.update(documents).set({ readAt: now }).where(eq(documents.id, theirs))
+
+			expect((await client.articles.counts()).counts).toEqual({
+				progress: 1,
+				unread: 1,
+				again: 0,
+				read: 2,
+				quick: 1,
+				long: 1,
+				x: 0,
+			})
+			expect((await client.articles.counts({ view: "archive" })).counts).toEqual({
+				unfinished: 1,
+				finished: 1,
+				quick: 0,
+				long: 0,
+				x: 0,
+			})
+			expect((await client.articles.counts({ view: "starred" })).counts).toMatchObject({
+				unfinished: 1,
+				finished: 0,
+			})
+			expect(await errorOf(client.articles.counts({ topic: MISSING }))).toMatchObject({
+				status: 404,
+				code: "not_found",
+			})
+
+			const archived = await client.articles.archiveRead()
+			expect(archived.archived.toSorted()).toEqual([done, scrolled].toSorted())
+			expect(archived.undo).toHaveLength(1)
+			expect((await client.articles.counts()).counts).toMatchObject({ read: 0, progress: 1 })
+			expect((await client.articles.list()).items.map((a) => a.id).toSorted()).toEqual(
+				[unread, started].toSorted(),
+			)
+			const [stillTrashed, stillTheirs] = await Promise.all(
+				[trashed, theirs].map((doc) =>
+					db
+						.select({ archivedAt: documents.archivedAt })
+						.from(documents)
+						.where(eq(documents.id, doc))
+						.then(([row]) => row?.archivedAt),
+				),
+			)
+			expect([stillTrashed, stillTheirs]).toEqual([null, null])
+			// Undo puts them back in the library, still read.
+			const undone = await client.articles.undo(archived.undo[0]!)
+			expect(undone.items.map((a) => [a.id, a.location, a.finished]).toSorted()).toEqual(
+				[
+					[done, "inbox", true],
+					[scrolled, "inbox", true],
+				].toSorted(),
+			)
+			expect((await client.articles.counts()).counts).toMatchObject({ read: 2 })
+			expect((await client.articles.archiveRead()).undo).toHaveLength(1)
+			expect(await client.articles.archiveRead()).toEqual({ archived: [], undo: [] })
+
+			// A token holds a batch's worth of articles: more take more tokens, and undo them all.
+			await db.insert(documents).values(
+				Array.from({ length: BATCH_MAX + 1 }, (_, i) => {
+					const url = `https://example.com/read-${i}-${newId()}`
+					return {
+						userId: id,
+						sourceUrl: url,
+						urlHash: urlHash(url),
+						status: "ready" as const,
+						readAt: now,
+					}
+				}),
+			)
+			const many = await client.articles.archiveRead()
+			expect(many.archived).toHaveLength(BATCH_MAX + 1)
+			expect(many.undo).toHaveLength(2)
+			for (const token of many.undo) await client.articles.undo(token)
+			expect((await client.articles.counts()).counts.read).toBe(BATCH_MAX + 1)
+		},
+	)
+
 	it("doesn't keep articles: reviewing old saves is the web's only, for now", async () => {
 		const { id, key } = await users.create("API Keeper")
 		const article = await insertArticle(id, "Kept", "<p>Kept</p>")

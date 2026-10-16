@@ -12,6 +12,7 @@ import * as writes from "./writes.server"
 export const handlers: HandlerTable<Endpoints> = {
 	"me.get": me,
 	"articles.list": articles.list,
+	"articles.counts": articles.counts,
 	"articles.search": articles.search,
 	"annotations.search": notebook.searchKept,
 	"articles.lookup": articles.lookup,
@@ -23,6 +24,7 @@ export const handlers: HandlerTable<Endpoints> = {
 	"articles.save": writes.save,
 	"articles.update": writes.update,
 	"articles.undo": writes.undo,
+	"articles.archiveRead": writes.archiveRead,
 	"articles.rename": writes.rename,
 	"articles.trash": writes.trash,
 	"articles.restore": writes.restore,

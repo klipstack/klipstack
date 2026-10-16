@@ -171,7 +171,7 @@ export async function action({ context, request }: Route.ActionArgs) {
 	const form = await readForm(request)
 	const intent = form.get("intent")
 	if (intent === "archive-read")
-		return { ok: true as const, archived: await archiveFinished(user.id) }
+		return { ok: true as const, archived: (await archiveFinished(user.id)).archived }
 	if (intent === "unarchive-many") {
 		const ids = String(form.get("ids") ?? "")
 			.split(",")
