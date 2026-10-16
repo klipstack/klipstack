@@ -106,11 +106,19 @@ async function countQuestion(tx: Tx, userId: string): Promise<AiAllowance> {
 	return { used, max, resetsAt: resetsAt.toISOString() }
 }
 
-/** The checks every question goes through, in order: the feature, the server, the pace. */
-async function mayAsk(userId: string) {
+/**
+ * Whether the account may use the AI at all: the feature, then the server. What reads an article's
+ * threads checks it too.
+ */
+export async function mayUseAi(userId: string) {
 	if (!(await hasFeature(userId, "ai")))
 		throw new AppError("forbidden", "AI answers are not turned on for this account.")
 	if (!ai.available) throw new AppError("unavailable", "AI answers are not set up on this server.")
+}
+
+/** The checks every question goes through, in order: the feature, the server, the pace. */
+async function mayAsk(userId: string) {
+	await mayUseAi(userId)
 	const limited = rateLimit(`ai:${userId}`, AI_RATE_LIMIT.limit, AI_RATE_LIMIT.windowMs)
 	if (!limited.ok) throw rateLimited(limited.retryAfterSeconds, "questions")
 	return limited
@@ -325,19 +333,25 @@ export async function briefArticle(
 		throw new AppError("not_ready", "The article text is not available yet. Try again later.")
 	const kept = await getBrief(userId, version.id)
 	if (kept) return kept
-	// One being written already (another tab): a second would be charged for the same brief.
+	// One being written already (another tab): a second would be charged for the same brief. Taken
+	// before anything is awaited, so two at once can't both pass.
 	if (writingBriefs.has(version.id))
 		throw new AppError("already_pending", "The brief is still being written.")
-	mayRead(version.text)
-	const limited = await mayAsk(userId)
+	writingBriefs.add(version.id)
 	let allowance: AiAllowance
 	try {
-		allowance = await db.transaction((tx) => countQuestion(tx, userId))
+		mayRead(version.text)
+		const limited = await mayAsk(userId)
+		try {
+			allowance = await db.transaction((tx) => countQuestion(tx, userId))
+		} catch (error) {
+			limited.refund()
+			throw error
+		}
 	} catch (error) {
-		limited.refund()
+		writingBriefs.delete(version.id)
 		throw error
 	}
-	writingBriefs.add(version.id)
 	// No `signal`: a reader who leaves doesn't stop it. It is paid for, and kept for the next visit.
 	const brief = ai.brief({
 		article: {

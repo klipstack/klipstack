@@ -16,6 +16,7 @@ import {
 	briefArticle,
 	deleteThread,
 	followUp,
+	mayUseAi,
 	restoreThread,
 	retryAnswer,
 } from "~/commands/ai.server"
@@ -23,7 +24,6 @@ import { NO_ARTICLE } from "~/commands/articles.server"
 import { answerEvents, briefEvents } from "~/lib/ai-events.server"
 import { briefView, messageView, threadView } from "~/lib/ai-threads"
 import { ai } from "~/lib/ai.server"
-import { AppError } from "~/lib/app-error"
 import { hasFeature } from "~/lib/features.server"
 import { aiAllowance } from "~/lib/limits.server"
 import { getBrief, getThread, listDocumentThreads } from "~/services/ai-threads.server"
@@ -50,9 +50,7 @@ export const status: Handler<typeof getAi> = async ({ userId }) => {
 }
 
 export const article: Handler<typeof articleAi> = async ({ userId, params }) => {
-	if (!(await hasFeature(userId, "ai")))
-		throw new AppError("forbidden", "AI answers are not turned on for this account.")
-	if (!ai.available) throw new AppError("unavailable", "AI answers are not set up on this server.")
+	await mayUseAi(userId)
 	const doc = await getDocument(userId, params.id)
 	if (!doc) throw notFound(NO_ARTICLE)
 	const versionId = doc.currentVersionId

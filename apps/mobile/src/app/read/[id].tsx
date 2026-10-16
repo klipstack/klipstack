@@ -1145,7 +1145,10 @@ export default function Reader() {
 					allowance={ai.allowance}
 					onCite={(citation) => {
 						// Its offsets are into the text the brief read: the page's, unless it changed since.
-						if (ai.brief.brief && ai.brief.brief.versionId !== versionId.current) return
+						if (ai.brief.brief && ai.brief.brief.versionId !== versionId.current)
+							return void showToast({
+								message: "That passage is from another version of the article.",
+							})
 						citeAfterSheet.current = citation
 						setBriefOpen(false)
 					}}

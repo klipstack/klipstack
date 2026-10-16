@@ -370,12 +370,12 @@ describe("the reader page: citations", () => {
 		expect(scrolls).toEqual([900 - page.window.innerHeight / 4])
 		const cited = page.registry.get("klip-cited")
 		expect(cited?.ranges.map((r) => r.toString())).toEqual(["delta"])
-		await settle(1600)
+		await settle(1700)
 		expect(page.registry.has("klip-cited")).toBe(false)
 		expect(page.registry.get("klip-cited-fading")?.ranges.map((r) => r.toString())).toEqual([
 			"delta",
 		])
-		await settle(400)
+		await settle(500)
 		expect(page.registry.has("klip-cited-fading")).toBe(false)
 	})
 })

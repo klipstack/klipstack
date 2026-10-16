@@ -108,7 +108,7 @@ export function BriefSheet({
 							) : null}
 						</View>
 					)}
-					{left && !writing && !brief && failure?.code !== "limit_reached" ? (
+					{left && !writing && failure?.code !== "limit_reached" ? (
 						<Text style={[styles.left, { color: colors.mutedFg }]}>{left}</Text>
 					) : null}
 				</ScrollView>

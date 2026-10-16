@@ -81,14 +81,18 @@ export function useReaderAi(client: KlipstackClient | null, articleId: string, r
 		setBriefFailure(null)
 		setStreamed(NOTHING_WRITTEN)
 		try {
+			let ended = false
 			for await (const event of await client.ai.brief(articleId)) {
 				if (!live.current) continue
 				if (event.type === "allowance") setAllowance(event.allowance)
 				else if (event.type === "brief") {
+					ended = true
 					if (event.brief) setBrief(event.brief)
 					else setBriefFailure({ code: "failed" })
 				} else setStreamed((so) => written(so, event))
 			}
+			// Cut off before the end: the server keeps a brief it finishes, for the next visit.
+			if (!ended && live.current) setBriefFailure({ code: "network" })
 		} catch (error) {
 			const failure = failureOf(error)
 			if (live.current) {

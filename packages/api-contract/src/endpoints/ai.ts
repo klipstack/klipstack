@@ -183,7 +183,7 @@ export const askAi = defineEndpoint({
 			start: z.number().int().nonnegative().optional(),
 			end: z.number().int().nonnegative().optional(),
 			/** Ask's question; Explain and Define may add one. */
-			question: z.string().max(QUESTION_MAX).optional(),
+			question: z.string().max(QUESTION_MAX).refine(withoutNul, NUL_REFUSED).optional(),
 			/** Asked from this highlight. */
 			highlightId: Id.optional(),
 			language: Language,
@@ -227,7 +227,7 @@ export const retryAi = defineEndpoint({
 	summary:
 		"Answers the thread's last question again, in place of its answer (failed or not). Server-sent events.",
 	params,
-	body: z.object({ language: Language }),
+	body: z.object({ language: Language }).default({}),
 	response: events(AiAnswerEvent),
 	errors: [...ASK_ERRORS, "not_found", "no_match", "already_pending"],
 })
@@ -263,7 +263,7 @@ export const briefAi = defineEndpoint({
 	summary:
 		"The article's brief: the one kept for its text, at no cost, or a new one, written as it streams and counted like a question. Server-sent events.",
 	params,
-	body: z.object({ language: Language }),
+	body: z.object({ language: Language }).default({}),
 	response: events(AiBriefEvent),
 	/** `already_pending`: one is being written for this text already. */
 	errors: [...ASK_ERRORS, "not_found", "not_ready", "already_pending"],

@@ -1,4 +1,4 @@
-import { AiAnswerEvent } from "@klipstack/api-contract"
+import { AiAnswerEvent, QUESTION_MAX } from "@klipstack/api-contract"
 import { db, documents, documentVersions, eq, userFeatures } from "@klipstack/db"
 import { stopBoss } from "@klipstack/queue"
 import type { KlipstackApiError } from "@klipstack/sdk"
@@ -126,6 +126,11 @@ describe("the reader's AI in the API", () => {
 		expect(after[3]!.id).not.toBe(lastAnswer)
 		expect((await me.client.ai.status()).allowance!.used).toBe(used + 1)
 
+		// No body at all: the language is optional, and so is the body it would be in.
+		const bare = await request(`/api/v1/ai/threads/${id}/retry`, { method: "POST", token: me.key })
+		expect(bare.status).toBe(200)
+		await bare.text()
+
 		await me.client.ai.delete(id)
 		expect(await thread()).toBeUndefined()
 		const { thread: back } = await me.client.ai.restore(id)
@@ -175,8 +180,13 @@ describe("the reader's AI in the API", () => {
 			const error = await errorOf(me.client.ai.ask(articleId, { action: "explain", ...passage }))
 			expect([error.status, error.code]).toEqual([403, "limit_reached"])
 			expect(error.details).toMatchObject({ limit: "ai", max: used + 1 })
-			const brief = await errorOf(me.client.ai.chat(articleId, "One more?"))
-			expect(brief.code).toBe("limit_reached")
+			expect((await errorOf(me.client.ai.chat(articleId, "One more?"))).code).toBe("limit_reached")
+			// A new brief counts as a question; the one kept already costs nothing and still comes.
+			const other = await captured(me.id, FIXTURES.joel)
+			expect((await errorOf(me.client.ai.brief(other))).code).toBe("limit_reached")
+			expect((await collect(await me.client.ai.brief(articleId))).map((e) => e.type)).toEqual([
+				"brief",
+			])
 		} finally {
 			env.LIMIT_AI_PER_MONTH = max
 		}
@@ -206,18 +216,45 @@ describe("the reader's AI in the API", () => {
 		expect(last).toBe("done")
 	})
 
-	it("refuses another account's article and threads", async () => {
+	it("refuses another account's article and threads, a trashed article, and input over a limit", async () => {
+		const [start] = await collect(
+			await me.client.ai.ask(articleId, { action: "define", ...passage }),
+		)
+		if (start?.type !== "start") throw new Error("no start event")
+		const mine = start.thread.id
 		const other = await users.create("Other")
 		await db.insert(userFeatures).values({ userId: other.id, feature: "ai" })
-		expect((await errorOf(other.client.ai.article(articleId))).code).toBe("not_found")
-		expect(
-			(await errorOf(other.client.ai.ask(articleId, { action: "explain", ...passage }))).code,
-		).toBe("not_found")
-		const { threads } = await me.client.ai.article(articleId)
-		expect((await errorOf(other.client.ai.followUp(threads[0]!.id, "Mine?"))).code).toBe(
+		const code = async (promise: Promise<unknown>) => (await errorOf(promise)).code
+		expect(await code(other.client.ai.article(articleId))).toBe("not_found")
+		expect(await code(other.client.ai.ask(articleId, { action: "explain", ...passage }))).toBe(
 			"not_found",
 		)
-		expect((await errorOf(other.client.ai.delete(threads[0]!.id))).code).toBe("not_found")
+		expect(await code(other.client.ai.chat(articleId, "Yours?"))).toBe("not_found")
+		expect(await code(other.client.ai.brief(articleId))).toBe("not_found")
+		expect(await code(other.client.ai.followUp(mine, "Mine?"))).toBe("not_found")
+		expect(await code(other.client.ai.retry(mine))).toBe("not_found")
+		expect(await code(other.client.ai.delete(mine))).toBe("not_found")
+		await me.client.ai.delete(mine)
+		expect(await code(other.client.ai.restore(mine))).toBe("not_found")
+		await me.client.ai.restore(mine)
+
+		// Over a limit: refused by the contract before anything is counted.
+		const used = (await me.client.ai.status()).allowance!.used
+		const long = "x".repeat(QUESTION_MAX + 1)
+		const tooLong = await request(`/api/v1/ai/threads/${mine}/follow-up`, {
+			method: "POST",
+			token: me.key,
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({ question: long }),
+		})
+		expect(tooLong.status).toBe(400)
+		expect((await me.client.ai.status()).allowance!.used).toBe(used)
+
+		// In the trash: as if it were gone.
+		const trashed = await captured(me.id, FIXTURES.joel)
+		await me.client.articles.trash([trashed])
+		expect(await code(me.client.ai.article(trashed))).toBe("not_found")
+		expect(await code(me.client.ai.brief(trashed))).toBe("not_found")
 	})
 
 	it("sends events as server-sent events the contract describes", async () => {
@@ -231,6 +268,9 @@ describe("the reader's AI in the API", () => {
 		expect(response.headers.get("content-type")).toContain("text/event-stream")
 		expect(response.headers.get("cache-control")).toContain("no-transform")
 		const lines = (await response.text()).split("\n\n").filter(Boolean)
+		const types = lines.map((line) => (JSON.parse(line.slice(6)) as { type: string }).type)
+		expect(types[0]).toBe("start")
+		expect(types.at(-1)).toBe("answer")
 		for (const line of lines) {
 			expect(line.startsWith("data: ")).toBe(true)
 			expect(AiAnswerEvent.safeParse(JSON.parse(line.slice(6))).success).toBe(true)
