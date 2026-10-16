@@ -1,6 +1,7 @@
 // The subpath is client-safe (constants only); the package root pulls in pg-boss.
 import { TRASH_RETENTION_DAYS } from "@klipstack/api-contract/names"
 import { addOperator } from "@klipstack/api-contract/search-query"
+import { fallbackLanguage, isLocale } from "@klipstack/i18n/languages"
 import {
 	Archive,
 	ArrowDownUp,
@@ -23,8 +24,9 @@ import { EmptyDrawing, type EmptyDrawingName } from "~/components/empty-drawing"
 import { LayoutToggle } from "~/components/layout-toggle"
 import { MenuButton, MenuNavLink, MoreMenu } from "~/components/more-menu"
 import { PinnedControls } from "~/components/pinned-controls"
-import { SaveLinkDialog } from "~/components/save-link-dialog"
+import { SaveLinkButton } from "~/components/save-link-dialog"
 import { SelectionBar } from "~/components/selection-bar"
+import { StarterTexts } from "~/components/starter-texts"
 import { tooltip } from "~/components/tooltip-host"
 import { useListCursor } from "~/hooks/use-list-cursor"
 import { AppError } from "~/lib/app-error"
@@ -63,6 +65,7 @@ import {
 	listDocuments,
 	type TopicScope,
 } from "~/services/documents.server"
+import { offeredStarterTexts } from "~/services/starter-texts.server"
 import { type ListTopics, listTopics, topicLabels, topicsInUse } from "~/services/topics.server"
 import type { Route } from "./+types/library"
 
@@ -128,6 +131,7 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 					items.map((d) => d.id),
 				)
 			: {}
+	const language = isLocale(user.locale) ? user.locale : fallbackLanguage
 	const zone = timeZoneFromCookie(request.headers.get("cookie"))
 	const now = new Date()
 	const since = (d: (typeof items)[number]) =>
@@ -153,6 +157,12 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 		// A topic asked for that is not one of the reader's now: it ended, or was never theirs.
 		topicGone: !!topics && !!asked && topic === null,
 		labels,
+		// Nothing to read: something to start with instead.
+		language,
+		starter:
+			view === "inbox" && !items.length && !cursor && !filter && !topic
+				? await offeredStarterTexts(user.id, language)
+				: null,
 	}
 }
 
@@ -262,7 +272,7 @@ export default function Library({ loaderData }: Route.ComponentProps) {
 					{/* First, where the search page's field ends: the other buttons stay where they are. */}
 					<SearchLink view={loaderData.view} label={t("search.label")} />
 					<LayoutToggle />
-					{loaderData.view === "trash" ? null : <SaveLinkDialog />}
+					{loaderData.view === "trash" ? null : <SaveLinkButton />}
 				</div>
 			</div>
 			{loaderData.view === "trash" ? (
@@ -329,13 +339,20 @@ export default function Library({ loaderData }: Route.ComponentProps) {
 					<p className="max-w-sm text-sm">
 						{t(`empty.${loaderData.view}.description`, { days: TRASH_RETENTION_DAYS })}
 					</p>
-					{loaderData.view === "inbox" ? (
-						<Link
-							to="/add?tab=read"
-							className="text-sm text-link underline-offset-4 hover:underline"
-						>
-							{t("starter.find")}
-						</Link>
+					{loaderData.starter?.length ? (
+						<div className="mt-8 w-full max-w-xl">
+							<StarterTexts
+								items={loaderData.starter}
+								language={loaderData.language}
+								title={t("starter.homeTitle")}
+							/>
+							<Link
+								to="/texts"
+								className="mt-4 inline-block text-sm text-link underline-offset-4 hover:underline"
+							>
+								{t("starter.more")}
+							</Link>
+						</div>
 					) : null}
 				</div>
 			) : (

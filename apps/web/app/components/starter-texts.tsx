@@ -16,6 +16,7 @@ export function StarterTexts({
 	language,
 	title,
 	wide = false,
+	heading = true,
 	className,
 }: {
 	items: StarterItem[]
@@ -24,6 +25,8 @@ export function StarterTexts({
 	title?: string
 	/** A page of its own: bigger books, each with a line about it. */
 	wide?: boolean
+	/** False where the page's own title, `#starter-title`, names the shelves. */
+	heading?: boolean
 	className?: string
 }) {
 	const { t } = useTranslation("library")
@@ -31,9 +34,11 @@ export function StarterTexts({
 	const languages = [...new Set(items.map((item) => item.language))]
 	return (
 		<section aria-labelledby="starter-title" className={cn("text-left", className)}>
-			<h2 id="starter-title" className="font-serif text-2xl">
-				{title ?? t("starter.title")}
-			</h2>
+			{heading ? (
+				<h2 id="starter-title" className="font-serif text-2xl">
+					{title ?? t("starter.title")}
+				</h2>
+			) : null}
 			<p className="mt-1 text-sm leading-relaxed text-muted-fg">{t("starter.description")}</p>
 			{languages.map((lang) => (
 				<Shelf
@@ -149,7 +154,7 @@ function StarterBook({
 					/>
 				</Link>
 			) : (
-				<Form method="post" action="/add" className="flex">
+				<Form method="post" action="/texts" className="flex">
 					<input type="hidden" name="starter" value={item.slug} />
 					<button
 						type="submit"

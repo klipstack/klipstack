@@ -48,5 +48,5 @@ async function homeEmptyState(userId: string) {
 	if (state?.failed) return { kind: "failed", to: "/library" } as const
 	if (state?.saved)
 		return { kind: "caughtUp", to: state.library ? "/library" : "/archive" } as const
-	return { kind: "new", to: "/add" } as const
+	return { kind: "new", to: "/home?save" } as const
 }

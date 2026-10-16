@@ -196,7 +196,6 @@ export default {
 			"Short texts to try highlights and notes on: a guide to Klipstack, and essays on reading and writing from the public domain. Choose a book to add it to your library.",
 		shelf: "Books to start with",
 		homeTitle: "Or start with one of these",
-		find: "Or find something to read",
 		more: "More to read",
 		language: { en: "In English", es: "In Spanish" },
 		minutes: "{{count}} min",
@@ -222,37 +221,19 @@ export default {
 			"Paste the address of an article. We fetch it, extract the text, and keep a clean copy for you.",
 		tabs: {
 			label: "Ways to add",
-			links: "Paste links",
-			read: "Something to read",
-			more: "More ways to add",
+			links: "Save links",
+			assistant: "Connect an assistant",
 		},
 		several: "One link per line, up to {{max}}. {{keys}} or Ctrl+Enter saves.",
 		results: "Links saved",
 		savedMany: "{{count}} links saved.",
 		savedMany_one: "{{count}} link saved.",
 		savedMany_other: "{{count}} links saved.",
-		more: "More ways to add",
-		soon: "Coming soon",
 		copied: "Copied",
 		anywhere: {
-			title: "Save from anywhere",
-			phone: {
-				title: "On your phone",
-				android:
-					"On Android, add Klipstack to your home screen from the browser's menu. It then shows up when you share a link.",
-				iphone: "An iPhone app that saves from the share sheet.",
-			},
-			bookmarklet: {
-				title: "Bookmarklet",
-				description:
-					"Drag this button to your browser's bookmarks bar. On any page, click it to save that page here.",
-				label: "Save to Klipstack",
-			},
-			extension: {
-				title: "Browser extension",
-				description:
-					"For Chrome and Firefox. It saves a page exactly as you see it, even behind a login.",
-			},
+			title: "From any page",
+			description: "Drag it to your bookmarks bar, then click it on any article to save it here.",
+			label: "Save to Klipstack",
 		},
 		assistant: {
 			title: "Your AI assistant",
@@ -273,14 +254,10 @@ export default {
 				prompt:
 					"Connect to Klipstack, my read-it-later app, as a remote MCP server at {{url}} (streamable HTTP). It signs in with OAuth: open the sign-in link it gives you and tell me to approve it. Then list a few articles from my library to check it works.",
 			},
+			manage: "Manage connected apps",
 		},
-		feeds: {
-			title: "Blogs you follow",
-			description:
-				"Follow the blogs you like in <feed>Feed</feed>, or bring your feeds over from another reader with an OPML file. New posts show up there, and you save the ones you want to read.",
-			importers:
-				"Coming from Pocket, Instapaper or Omnivore? An importer for their exports is on our list.",
-		},
+		feed: "Following a blog? Add it in <feed>Feed</feed>.",
+		settings: "More in <settings>Settings</settings>.",
 		errors: {
 			too_many: "Save up to {{max}} links at once.",
 			invalid_url: "That does not look like a valid link.",
@@ -631,7 +608,7 @@ export default {
 	empty: {
 		inbox: {
 			title: "Your library is empty",
-			description: "Save a link with the button above, or use the browser extension.",
+			description: "Save a link with the button above.",
 		},
 		archive: {
 			title: "Nothing archived yet",

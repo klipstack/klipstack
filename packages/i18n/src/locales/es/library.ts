@@ -196,7 +196,6 @@ export default {
 			"Textos breves para probar los subrayados y las notas: una guía de Klipstack y ensayos de dominio público sobre leer y escribir. Elige un libro para añadirlo a tu biblioteca.",
 		shelf: "Libros para empezar",
 		homeTitle: "O empieza con uno de estos",
-		find: "O encuentra algo para leer",
 		more: "Más para leer",
 		language: { en: "En inglés", es: "En español" },
 		minutes: "{{count}} min",
@@ -222,37 +221,20 @@ export default {
 			"Pega la dirección de un artículo. Lo descargamos, extraemos el texto y guardamos una copia limpia.",
 		tabs: {
 			label: "Formas de añadir",
-			links: "Pegar enlaces",
-			read: "Algo para leer",
-			more: "Más formas de añadir",
+			links: "Guardar enlaces",
+			assistant: "Conectar un asistente",
 		},
 		several: "Un enlace por línea, hasta {{max}}. {{keys}} o Ctrl+Intro guarda.",
 		results: "Enlaces guardados",
 		savedMany: "{{count}} enlaces guardados.",
 		savedMany_one: "{{count}} enlace guardado.",
 		savedMany_other: "{{count}} enlaces guardados.",
-		more: "Más formas de añadir",
-		soon: "Muy pronto",
 		copied: "Copiado",
 		anywhere: {
-			title: "Guarda desde cualquier sitio",
-			phone: {
-				title: "En el teléfono",
-				android:
-					"En Android, añade Klipstack a la pantalla de inicio desde el menú del navegador. Después aparece al compartir un enlace.",
-				iphone: "Una app para iPhone que guarda desde el menú de compartir.",
-			},
-			bookmarklet: {
-				title: "Bookmarklet",
-				description:
-					"Arrastra este botón a la barra de marcadores del navegador. En cualquier página, haz clic en él para guardarla aquí.",
-				label: "Guardar en Klipstack",
-			},
-			extension: {
-				title: "Extensión del navegador",
-				description:
-					"Para Chrome y Firefox. Guarda la página tal como la ves, aunque esté tras un inicio de sesión.",
-			},
+			title: "Desde cualquier página",
+			description:
+				"Arrástralo a la barra de marcadores y haz clic en él en cualquier artículo para guardarlo aquí.",
+			label: "Guardar en Klipstack",
 		},
 		assistant: {
 			title: "Tu asistente de IA",
@@ -273,14 +255,10 @@ export default {
 				prompt:
 					"Conéctate a Klipstack, mi app para leer más tarde, como servidor MCP remoto en {{url}} (HTTP en streaming). Inicia sesión con OAuth: abre el enlace de inicio de sesión que te dé y dime que lo apruebe. Después lista algunos artículos de mi biblioteca para comprobar que funciona.",
 			},
+			manage: "Gestionar las apps conectadas",
 		},
-		feeds: {
-			title: "Blogs que sigues",
-			description:
-				"Sigue los blogs que te gustan en <feed>Feeds</feed>, o trae tus feeds desde otro lector con un archivo OPML. Allí aparecen sus publicaciones nuevas, y guardas las que quieras leer.",
-			importers:
-				"¿Vienes de Pocket, Instapaper u Omnivore? Un importador para sus exportaciones está en nuestra lista.",
-		},
+		feed: "¿Sigues un blog? Añádelo en <feed>Feeds</feed>.",
+		settings: "Más en <settings>Ajustes</settings>.",
 		errors: {
 			too_many: "Guarda hasta {{max}} enlaces de una vez.",
 			invalid_url: "Eso no parece un enlace válido.",
@@ -636,7 +614,7 @@ export default {
 	empty: {
 		inbox: {
 			title: "Tu biblioteca está vacía",
-			description: "Guarda un enlace con el botón de arriba o usa la extensión del navegador.",
+			description: "Guarda un enlace con el botón de arriba.",
 		},
 		archive: {
 			title: "Aún no hay nada archivado",

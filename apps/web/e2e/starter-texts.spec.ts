@@ -1,11 +1,17 @@
 import { expect, test } from "@playwright/test"
 import { signupUser, waitForHydration } from "./helpers"
 
-test("a new reader adds the guide from Home, and finds it and the essays on the Add page", async ({
+test("a new reader adds the guide from Home, and finds it and the essays on their own page", async ({
 	page,
 }) => {
 	test.setTimeout(60_000)
 	await signupUser(page, "Starter Reader")
+	// The empty library offers them too, and leads to all of them.
+	await page.goto("/library")
+	const empty = page.getByRole("region", { name: "Or start with one of these" })
+	await expect(empty.getByText("How to use Klipstack")).toBeVisible()
+	await expect(page.getByRole("link", { name: "More to read" })).toHaveAttribute("href", "/texts")
+
 	await page.goto("/home")
 	await waitForHydration(page)
 
@@ -22,12 +28,14 @@ test("a new reader adds the guide from Home, and finds it and the essays on the 
 		timeout: 20_000,
 	})
 
-	// Something saved: Home has its sections, not the shelf.
+	// Something saved and unread: Home has its sections and the library its list, not the shelf.
 	await page.goto("/home")
 	await expect(page.getByRole("region", { name: "Or start with one of these" })).toHaveCount(0)
+	await page.goto("/library")
+	await expect(page.getByRole("region", { name: "Or start with one of these" })).toHaveCount(0)
 
-	// The Add page lists every text, the reader's language first, and knows which they have.
-	await page.goto("/add?tab=read")
+	// Their page lists every text, the reader's language first, and knows which they have.
+	await page.goto("/texts")
 	const list = page.getByRole("region", { name: "Something to read" })
 	await expect(list.getByText("In Spanish")).toBeVisible()
 	await expect(list.getByRole("link", { name: "Open How to use Klipstack" })).toHaveAttribute(
@@ -37,7 +45,7 @@ test("a new reader adds the guide from Home, and finds it and the essays on the 
 	await list.getByRole("button", { name: "Add Of Studies to your library" }).click()
 	await expect(page).toHaveURL(/\/read\/[\w-]+$/)
 	await expect(page.getByText("Some books are to be tasted")).toBeVisible({ timeout: 20_000 })
-	await page.goto("/add?tab=read")
+	await page.goto("/texts")
 	await expect(list.getByRole("link", { name: "Open Of Studies" })).toBeVisible()
 })
 

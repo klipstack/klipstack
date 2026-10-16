@@ -25,7 +25,7 @@ import { LayoutToggle } from "~/components/layout-toggle"
 import { MenuNavLink, MoreMenu } from "~/components/more-menu"
 import { PinnedControls } from "~/components/pinned-controls"
 import { PostIt } from "~/components/post-it"
-import { SaveLinkDialog } from "~/components/save-link-dialog"
+import { SaveLinkButton } from "~/components/save-link-dialog"
 import {
 	SavedSearchDialog,
 	type SavedSearchItem,
@@ -161,7 +161,7 @@ export default function SearchPage({ loaderData }: Route.ComponentProps) {
 					inputClassName="w-full focus:w-full sm:w-full sm:focus:w-full"
 				/>
 				<LayoutToggle />
-				<SaveLinkDialog />
+				<SaveLinkButton />
 			</div>
 			<PinnedControls title={t("search.title")}>
 				<div className="flex items-center gap-2">

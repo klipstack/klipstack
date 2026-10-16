@@ -2,6 +2,7 @@ import { Command, defaultFilter } from "cmdk"
 import {
 	Archive,
 	Bookmark,
+	BookOpen,
 	Check,
 	Clipboard,
 	FileText,
@@ -43,6 +44,7 @@ import { cn } from "~/lib/utils"
 import type { loader as rootLoader } from "~/root"
 import type { loader as layoutLoader } from "~/routes/app-layout"
 import { Kbd } from "./more-menu"
+import { openSaveLink, saveLinkPath } from "./save-link-dialog"
 import { tooltip } from "./tooltip-host"
 
 interface SearchItem {
@@ -187,7 +189,18 @@ export function CommandPalette() {
 		})),
 	]
 	const actions: PaletteCommand[] = [
-		{ id: "save-link", label: tl("add.title"), icon: Plus, run: () => go("/add") },
+		{
+			id: "save-link",
+			label: tl("add.title"),
+			icon: Plus,
+			run: () => openSaveLink() || go(saveLinkPath()),
+		},
+		{
+			id: "starter-texts",
+			label: tl("starter.title"),
+			icon: BookOpen,
+			run: () => go("/texts"),
+		},
 		{
 			id: "save-clipboard",
 			label: t("palette.saveClipboard"),
@@ -268,7 +281,7 @@ export function CommandPalette() {
 								id: "save-url",
 								label: `${tl("add.submit")}: ${trimmed}`,
 								icon: Plus,
-								run: () => go(`/add?url=${encodeURIComponent(trimmed)}`),
+								run: () => openSaveLink(trimmed) || go(saveLinkPath(trimmed)),
 							}}
 						/>
 					</Group>

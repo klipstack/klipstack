@@ -35,29 +35,29 @@ test("the dialog saves several links at once, and keeps the ones it could not sa
 	await expect(dialog.getByText("Save up to 10 links at once.")).toBeVisible()
 	await expect(dialog.getByLabel("Link", { exact: true })).toHaveValue(many.join("\n"))
 
-	// The dialog leads to the page with every other way in.
-	await dialog.getByRole("link", { name: "More ways to add" }).click()
-	await expect(page).toHaveURL(/\/add\?tab=more$/)
-	await expect(page.getByRole("link", { name: "More ways to add", exact: true })).toHaveAttribute(
-		"aria-current",
-		"page",
-	)
-	await expect(page.getByRole("heading", { name: "Save from anywhere" })).toBeVisible()
-	await expect(page.getByRole("link", { name: "Save to Klipstack" })).toHaveAttribute(
+	// Below the field, the bookmarklet; the other tab, an AI assistant.
+	await expect(dialog.getByRole("link", { name: "Save to Klipstack" })).toHaveAttribute(
 		"href",
-		/^javascript:/,
+		/^javascript:.*\/add\?url=/,
 	)
-	await expect(page.getByRole("heading", { name: "Your AI assistant" })).toBeVisible()
-	await expect(page.getByText(/\/mcp$/)).toBeVisible()
+	await dialog.getByRole("tab", { name: "Connect an assistant" }).click()
+	await expect(dialog.getByText(/\/mcp$/)).toBeVisible()
+	await expect(dialog.getByRole("link", { name: "Manage connected apps" })).toBeVisible()
+	// What was typed is still there on the way back.
+	await dialog.getByRole("tab", { name: "Save links" }).click()
+	await expect(dialog.getByLabel("Link", { exact: true })).toHaveValue(many.join("\n"))
 })
 
-test("the Add page saves several links and lists each one's outcome", async ({ page }) => {
-	await signupUser(page, "Add Page Links")
+test("the Save link field grows, Enter starts a line and Ctrl+Enter saves", async ({ page }) => {
+	await signupUser(page, "Field Links")
+	// `/add`, where the bookmarklet and the phone's share sheet go: the library, with the dialog open.
 	await page.goto("/add")
-	await waitForHydration(page)
+	await expect(page).toHaveURL(/\/library$/)
+	const dialog = page.getByRole("dialog", { name: "Save a link" })
 	const stamp = Date.now()
-	const one = `https://example.com/add-page-${stamp}/one`
-	const field = page.getByLabel("Link", { exact: true })
+	const one = `https://example.com/field-${stamp}/one`
+	const field = dialog.getByLabel("Link", { exact: true })
+	await expect(field).toBeFocused()
 	const height = () => field.evaluate((el) => el.getBoundingClientRect().height)
 	// Two lines to start; it grows with what is typed, up to eight lines.
 	const empty = await height()
@@ -74,31 +74,19 @@ test("the Add page saves several links and lists each one's outcome", async ({ p
 	await field.pressSequentially("https://www.youtube.com/watch?v=x")
 	await expect(field).toHaveValue(`${one}\nhttps://www.youtube.com/watch?v=x`)
 	await field.press("Control+Enter")
-	const results = page.getByRole("list", { name: "Links saved" })
+	const results = dialog.getByRole("list", { name: "Links saved" })
 	await expect(results.getByText(one)).toBeVisible()
 	await expect(results.getByText("YouTube videos are not supported yet.")).toBeVisible()
-	await expect(page.getByLabel("Link", { exact: true })).toHaveValue(
-		"https://www.youtube.com/watch?v=x",
-	)
+	await expect(field).toHaveValue("https://www.youtube.com/watch?v=x")
 })
 
-test("the Add page's tabs each have their own address", async ({ page }) => {
-	await signupUser(page, "Add Tabs")
-	await page.goto("/add")
-	const tabs = page.getByRole("navigation", { name: "Ways to add" })
-	await expect(tabs.getByRole("link", { name: "Paste links" })).toHaveAttribute(
-		"aria-current",
-		"page",
-	)
-	await expect(page.getByLabel("Link", { exact: true })).toBeVisible()
-	await expect(page.getByRole("heading", { name: "Something to read" })).toHaveCount(0)
-
-	await tabs.getByRole("link", { name: "Something to read" }).click()
-	await expect(page).toHaveURL(/\/add\?tab=read$/)
-	await expect(page.getByRole("heading", { name: "Something to read" })).toBeVisible()
-	await expect(page.getByLabel("Link", { exact: true })).toHaveCount(0)
-
-	// A shared link lands on the field, whatever the tab.
-	await page.goto("/add?tab=more&url=https://example.com/shared")
-	await expect(page.getByLabel("Link", { exact: true })).toHaveValue("https://example.com/shared")
+test("the command menu opens the Save link dialog where the reader is", async ({ page }) => {
+	await signupUser(page, "Palette Links")
+	await page.goto("/notebook")
+	await waitForHydration(page)
+	await page.keyboard.press("Control+k")
+	await page.getByRole("option", { name: "Save a link" }).click()
+	const dialog = page.getByRole("dialog", { name: "Save a link" })
+	await expect(dialog.getByLabel("Link", { exact: true })).toBeFocused()
+	await expect(page).toHaveURL(/\/notebook$/)
 })

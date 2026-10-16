@@ -4,7 +4,7 @@ import { Trans, useTranslation } from "react-i18next"
 import { Link } from "react-router"
 import type { EditionEar, PartOfDay } from "~/lib/home-masthead"
 import { HomeGreeting } from "./home-greeting"
-import { SaveLinkDialog } from "./save-link-dialog"
+import { SaveLinkButton } from "./save-link-dialog"
 
 /**
  * Home as the morning paper's front page: the date and the next edition in the ears, the greeting
@@ -45,7 +45,7 @@ export function HomeMasthead({
 						>
 							<Search className="size-5" aria-hidden />
 						</Link>
-						<SaveLinkDialog />
+						<SaveLinkButton />
 					</div>
 				</div>
 			</div>

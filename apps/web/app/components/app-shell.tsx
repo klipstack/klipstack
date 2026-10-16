@@ -34,7 +34,7 @@ import { LayoutToggle } from "./layout-toggle"
 import { MobileDrawer, useMobileDrawer } from "./mobile-drawer"
 import { MenuNavLink, MoreMenu, type MoreMenuHandle } from "./more-menu"
 import { PullToRefresh } from "./pull-to-refresh"
-import { SaveLinkDialog } from "./save-link-dialog"
+import { SaveLinkButton, SaveLinkDialog } from "./save-link-dialog"
 import {
 	SavedSearchDialog,
 	type SavedSearchItem,
@@ -570,7 +570,7 @@ export function AppShell({
 							) : null}
 							{bar?.select ? <SelectButton /> : null}
 							{bar?.layoutToggle ? <LayoutToggle /> : null}
-							{bar?.save ? <SaveLinkDialog /> : null}
+							{bar?.save ? <SaveLinkButton /> : null}
 						</>
 					)}
 				</header>
@@ -583,6 +583,9 @@ export function AppShell({
 					<PullToRefresh scrollRef={scrollRef}>{children}</PullToRefresh>
 				</div>
 			</div>
+
+			{/* The one Save link dialog: the page's buttons, the command menu and `?save` open it. */}
+			<SaveLinkDialog />
 
 			<MobileDrawer drawer={drawer}>
 				<SidebarContent

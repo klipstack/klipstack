@@ -1,6 +1,5 @@
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
-import { rateLimit, SAVE_LIMIT } from "~/lib/rate-limit.server"
-import { action, loader, sharedUrl } from "./add"
+import { describe, expect, it, vi } from "vitest"
+import { loader, sharedUrl } from "./add"
 
 // Stands in for the save itself: the document row and the extraction job that fetches the URL
 // (commands/saving.server.test.ts covers those). These tests only need to see whether the route
@@ -12,30 +11,22 @@ vi.mock("~/services/documents.server", async (original) => ({
 }))
 vi.mock("~/lib/session.server", () => ({ requireUser: () => ({ id: "add-quota-test" }) }))
 
-it("prefills a cross-site GET without saving or enqueueing work", async () => {
-	const request = new Request("http://localhost/add?url=https://example.com/article", {
-		headers: { "sec-fetch-site": "cross-site" },
-	})
-	expect(await loader({ request } as never)).toMatchObject({ url: "https://example.com/article" })
+it("opens the Save link dialog with a shared link, without saving it", async () => {
+	const request = new Request(
+		"http://localhost/add?title=Post&text=Look%20at%20https://example.com/article%3Fid=1",
+		{ headers: { "sec-fetch-site": "cross-site" } },
+	)
+	let answer: Response | null = null
+	try {
+		loader({ request } as never)
+	} catch (thrown) {
+		answer = thrown as Response
+	}
+	expect(answer?.status).toBe(302)
+	expect(answer?.headers.get("location")).toBe(
+		"/library?save=https%3A%2F%2Fexample.com%2Farticle%3Fid%3D1",
+	)
 	expect(saved).not.toHaveBeenCalled()
-})
-
-it("requires POST and shares the existing save bucket", async () => {
-	const request = () =>
-		new Request("http://localhost/add", {
-			method: "POST",
-			body: new URLSearchParams({ url: "https://example.com/article" }),
-		})
-	await expect(action({ request: request() } as never)).rejects.toMatchObject({ status: 302 })
-	expect(saved).toHaveBeenCalledTimes(1)
-	for (let i = 1; i < SAVE_LIMIT.limit; i++)
-		rateLimit("save:add-quota-test", SAVE_LIMIT.limit, SAVE_LIMIT.windowMs)
-	// Past the limit, the form says so, with the URL still in it.
-	expect(await action({ request: request() } as never)).toMatchObject({
-		data: { ok: false, error: { code: "rate_limited" }, url: "https://example.com/article" },
-		init: { status: 429 },
-	})
-	expect(saved).toHaveBeenCalledTimes(1)
 })
 
 describe("sharedUrl", () => {
@@ -49,46 +40,5 @@ describe("sharedUrl", () => {
 			sharedUrl(new URLSearchParams({ text: "Look at this https://a.com/post?id=1 amazing" })),
 		).toBe("https://a.com/post?id=1")
 		expect(sharedUrl(new URLSearchParams({ title: "Post", text: "no link here" }))).toBeNull()
-	})
-})
-
-describe("several links", () => {
-	// The test above used up this user's saves: an hour later, the limit has room again.
-	beforeAll(() => {
-		vi.useFakeTimers({ toFake: ["Date"], now: Date.now() + 2 * SAVE_LIMIT.windowMs })
-	})
-	afterAll(() => {
-		vi.useRealTimers()
-	})
-
-	const post = (url: string) =>
-		action({
-			request: new Request("http://localhost/add", {
-				method: "POST",
-				body: new URLSearchParams({ url }),
-			}),
-		} as never)
-
-	it("saves each one and stays on the page with their outcomes", async () => {
-		saved.mockClear()
-		const answer = await post("https://example.com/one\n  https://example.com/two \n\n")
-		expect(answer).toMatchObject({
-			ok: true,
-			batch: [
-				{ url: "https://example.com/one", ok: true },
-				{ url: "https://example.com/two", ok: true },
-			],
-		})
-		expect(saved).toHaveBeenCalledTimes(2)
-	})
-
-	it("refuses more than ten, keeping what was typed", async () => {
-		saved.mockClear()
-		const links = Array.from({ length: 11 }, (_, i) => `https://example.com/${i}`).join("\n")
-		expect(await post(links)).toMatchObject({
-			data: { ok: false, error: { code: "invalid_request" }, url: links },
-			init: { status: 400 },
-		})
-		expect(saved).not.toHaveBeenCalled()
 	})
 })
