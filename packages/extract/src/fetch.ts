@@ -36,6 +36,13 @@ const DEFAULT_UA =
 	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
 
 /**
+ * Klipstack's own name. Some bot walls (Cloudflare's) refuse a request that says it is Chrome but
+ * doesn't act like a browser, and let an honest client in: a page refused with a 403 under the
+ * default name is asked for once more under this one.
+ */
+const HONEST_UA = "Klipstack/1.0 (+https://klipstack.com)"
+
+/**
  * Address ranges a server-side fetcher must never talk to: private, loopback, link-local (cloud
  * metadata), shared, documentation, benchmarking, multicast and reserved ranges. In IPv6, also the
  * transition ranges that reach IPv4 hosts (compatible, NAT64, 6to4, Teredo); a mapped address
@@ -228,6 +235,18 @@ async function nextChunk(
 }
 
 export async function fetchPage(url: string, options: FetchPageOptions = {}): Promise<FetchedPage> {
+	try {
+		return await fetchPageAs(url, options)
+	} catch (error) {
+		// Only under the default name: a name the caller chose is theirs to keep.
+		const refused = error instanceof ExtractError && error.status === 403
+		if (!refused || options.userAgent) throw error
+		// From the start, through every check again.
+		return fetchPageAs(url, { ...options, userAgent: HONEST_UA })
+	}
+}
+
+async function fetchPageAs(url: string, options: FetchPageOptions): Promise<FetchedPage> {
 	const {
 		timeoutMs = 15_000,
 		maxBytes = 5 * 1024 * 1024,
