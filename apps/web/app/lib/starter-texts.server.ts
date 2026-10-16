@@ -47,7 +47,7 @@ const TEXTS: Record<StarterLanguage, Partial<Record<StarterTopic, readonly strin
 			"chekhov-rothschilds-fiddle",
 		],
 		living: ["marcus-aurelius-book-two", "stevenson-apology-for-idlers", "emerson-self-reliance"],
-		science: ["huxley-method-of-zadig", "faraday-candle-lecture-one", "thoreau-walking"],
+		science: ["faraday-candle-lecture-one", "thoreau-walking"],
 		society: [
 			"lincoln-second-inaugural",
 			"wollstonecraft-vindication-introduction",
@@ -69,18 +69,8 @@ const TEXTS: Record<StarterLanguage, Partial<Record<StarterTopic, readonly strin
 			"clarin-adios-cordera",
 		],
 		living: ["balmes-la-atencion", "unamuno-mi-religion", "gracian-oraculo-manual", "rodo-ariel"],
-		science: [
-			"sastre-la-avispa-solitaria",
-			"darwin-origen-de-las-especies",
-			"holmberg-excursion-rio-lujan",
-			"feijoo-astrologia-judiciaria",
-		],
-		society: [
-			"arenal-la-mujer-del-porvenir",
-			"bolivar-manifiesto-de-cartagena",
-			"larra-vuelva-usted-manana",
-			"marti-nuestra-america",
-		],
+		science: ["darwin-origen-de-las-especies"],
+		society: ["arenal-la-mujer-del-porvenir", "larra-vuelva-usted-manana", "marti-nuestra-america"],
 	},
 }
 

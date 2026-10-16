@@ -98,17 +98,6 @@ export const STARTER_LINKS: readonly StarterLink[] = [
 		minutes: 15,
 	},
 	{
-		slug: "ceglowski-website-obesity",
-		language: "en",
-		topic: "ideas",
-		url: "https://idlewords.com/talks/website_obesity.htm",
-		title: "The Website Obesity Crisis",
-		author: "Maciej Cegłowski",
-		description:
-			"Maciej Cegłowski's 2015 talk on why web pages have grown so heavy, and what that costs the people who read them.",
-		minutes: 33,
-	},
-	{
 		slug: "ceglowski-haunted-by-data",
 		language: "en",
 		topic: "ideas",
@@ -173,6 +162,72 @@ export const STARTER_LINKS: readonly StarterLink[] = [
 		description:
 			"Richard Feynman's 1974 Caltech commencement address on scientific integrity: not fooling yourself, the easiest person to fool.",
 		minutes: 17,
+	},
+	{
+		slug: "urban-why-procrastinators-procrastinate",
+		language: "en",
+		topic: "living",
+		url: "https://waitbutwhy.com/2013/10/why-procrastinators-procrastinate.html",
+		title: "Why Procrastinators Procrastinate",
+		author: "Tim Urban",
+		description:
+			"Tim Urban's 2013 illustrated post on the Instant Gratification Monkey, and why procrastinators put things off.",
+		minutes: 6,
+	},
+	{
+		slug: "graham-how-to-do-what-you-love",
+		language: "en",
+		topic: "living",
+		url: "https://paulgraham.com/love.html",
+		title: "How to Do What You Love",
+		author: "Paul Graham",
+		description:
+			"Paul Graham's 2006 essay on telling work you truly like from work you only think you should like.",
+		minutes: 18,
+	},
+	{
+		slug: "graham-keep-your-identity-small",
+		language: "en",
+		topic: "ideas",
+		url: "https://paulgraham.com/identity.html",
+		title: "Keep Your Identity Small",
+		author: "Paul Graham",
+		description:
+			"Paul Graham's 2009 note on why arguments about politics and religion go nowhere, and how fewer labels let you think more clearly.",
+		minutes: 4,
+	},
+	{
+		slug: "asimov-how-do-people-get-new-ideas",
+		language: "en",
+		topic: "science",
+		url: "https://www.technologyreview.com/2014/10/20/169899/isaac-asimov-asks-how-do-people-get-new-ideas/",
+		title: "How Do People Get New Ideas?",
+		author: "Isaac Asimov",
+		description:
+			"Isaac Asimov's 1959 memo, first published in 2014, on what creative people need: isolation, cross-connections and a relaxed room.",
+		minutes: 8,
+	},
+	{
+		slug: "didion-on-self-respect",
+		language: "en",
+		topic: "living",
+		url: "https://www.vogue.com/article/joan-didion-self-respect-essay-1961",
+		title: "On Self-Respect",
+		author: "Joan Didion",
+		description:
+			"Joan Didion's 1961 essay on self-respect as the willingness to accept responsibility for your own life.",
+		minutes: 9,
+	},
+	{
+		slug: "luu-95-percentile",
+		language: "en",
+		topic: "ideas",
+		url: "https://danluu.com/p95-skill/",
+		title: "95%-ile isn't that good",
+		author: "Dan Luu",
+		description:
+			"Dan Luu argues that reaching the top 5% at most skills takes mostly deliberate practice that few people bother with.",
+		minutes: 32,
 	},
 	{
 		slug: "vargas-llosa-civilizacion-del-espectaculo",
@@ -261,5 +316,59 @@ export const STARTER_LINKS: readonly StarterLink[] = [
 		description:
 			"Ensayo de 2015 que mezcla reflexión y experiencia propia para preguntarse qué le debe un escritor a la política, y que sitúa el compromiso del intelectual en la responsabilidad de cualquier ciudadano.",
 		minutes: 31,
+	},
+	{
+		slug: "fierro-mares-en-otros-mundos",
+		language: "es",
+		topic: "science",
+		url: "https://www.revistadelauniversidad.mx/articles/fe3a3031-bd9c-4df5-a783-c2cafe964c3d/los-mares-en-otros-mundos",
+		title: "Los mares en otros mundos",
+		author: "Julieta Fierro",
+		description:
+			"La astrónoma recorre los océanos ocultos bajo el hielo de Europa y Encélado, y lo raro que es un planeta con mares como la Tierra.",
+		minutes: 6,
+	},
+	{
+		slug: "chimal-la-huella-de-darwin",
+		language: "es",
+		topic: "science",
+		url: "https://letraslibres.com/ciencia-y-tecnologia/la-huella-de-darwin/",
+		title: "La huella de Darwin",
+		author: "Carlos Chimal",
+		description:
+			"Un viaje por los lugares de Inglaterra que formaron a Darwin, y por cómo su idea de la evolución dejó atrás el esencialismo.",
+		minutes: 7,
+	},
+	{
+		slug: "perez-gay-senderos-cerebro-semantico",
+		language: "es",
+		topic: "science",
+		url: "https://www.revistadelauniversidad.mx/articles/bc157dd8-29e2-4875-9f30-e0e96431e45f/los-senderos-del-cerebro-semantico",
+		title: "Los senderos del cerebro semántico",
+		author: "Fernanda Pérez-Gay Juárez",
+		description:
+			"Una neurocientífica explica cómo el cerebro guarda y conecta los significados de las palabras, y por qué ese mapa es distinto en cada persona.",
+		minutes: 12,
+	},
+	{
+		slug: "luiselli-pretoria",
+		language: "es",
+		topic: "living",
+		url: "https://letraslibres.com/revista-mexico/pretoria/",
+		title: "Pretoria",
+		author: "Valeria Luiselli",
+		description:
+			"Luiselli recuerda su adolescencia en la Sudáfrica del fin del apartheid, su primer novio afrikáner y las palabras que creía olvidadas.",
+		minutes: 11,
+	},
+	{
+		slug: "guerriero-metodo-spiegelman",
+		language: "es",
+		topic: "reading",
+		url: "https://letraslibres.com/revista-mexico/el-metodo-spiegelman/",
+		title: "El método Spiegelman",
+		author: "Leila Guerriero",
+		description: "Un retrato del autor de Maus y de por qué su obra sigue incomodando.",
+		minutes: 7,
 	},
 ]
