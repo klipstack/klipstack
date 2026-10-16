@@ -16,6 +16,7 @@ import { pageTitle } from "~/lib/page-title"
 import { readForm } from "~/lib/request-body.server"
 import { requireUser } from "~/lib/session.server"
 import { starterTextsFor } from "~/lib/starter-texts.server"
+import { cn } from "~/lib/utils"
 import { refused } from "~/lib/web-action.server"
 import { starterItems } from "~/services/starter-texts.server"
 import type { Route } from "./+types/add"
@@ -38,11 +39,21 @@ export function sharedUrl(params: URLSearchParams): string | null {
 /** A bookmarklet or PWA share pre-fills the form; saving needs an explicit POST. */
 export const handle: PageBarHandle = { pageBar: { titleKey: "library:add.title" } }
 
+/** The page's tabs, each its own address (`?tab=`): links first, and by default. */
+const TABS = ["links", "read", "more"] as const
+type Tab = (typeof TABS)[number]
+const isTab = (value: string | null): value is Tab =>
+	(TABS as readonly string[]).includes(value ?? "")
+
 export async function loader({ context, request }: Route.LoaderArgs) {
 	const user = requireUser(context, request)
-	const url = sharedUrl(new URL(request.url).searchParams)
+	const params = new URL(request.url).searchParams
+	const url = sharedUrl(params)
+	const tab = params.get("tab")
 	const language = isLocale(user.locale) ? user.locale : fallbackLanguage
 	return {
+		// A shared or bookmarked link always lands on the field.
+		tab: url || !isTab(tab) ? ("links" as const) : tab,
 		url: url ?? "",
 		language,
 		starter: await starterItems(user.id, starterTextsFor(language)),
@@ -83,6 +94,77 @@ export async function action({ context, request }: Route.ActionArgs) {
  */
 export default function Add({ loaderData, actionData }: Route.ComponentProps) {
 	const { t } = useTranslation("library")
+	const { tab } = loaderData
+	return (
+		<main
+			className={cn(
+				"mx-auto w-full flex-1 px-4 pt-4 pb-16 md:pt-4",
+				tab === "read" ? "max-w-5xl" : "max-w-2xl",
+			)}
+		>
+			<h1 className="hidden page-title md:block md:leading-10">{t("add.title")}</h1>
+			<nav
+				aria-label={t("add.tabs.label")}
+				className="mt-4 flex gap-1 overflow-x-auto border-b border-border [scrollbar-width:none]"
+			>
+				{TABS.map((name) => (
+					<Link
+						key={name}
+						to={name === "links" ? "/add" : `/add?tab=${name}`}
+						aria-current={name === tab ? "page" : undefined}
+						className={cn(
+							"-mb-px shrink-0 border-b-2 px-3 py-2 text-sm font-medium whitespace-nowrap",
+							name === tab
+								? "border-accent text-fg"
+								: "border-transparent text-muted-fg hover:text-fg",
+						)}
+					>
+						{t(`add.tabs.${name}`)}
+					</Link>
+				))}
+			</nav>
+			{tab === "links" ? <Links url={loaderData.url} actionData={actionData} /> : null}
+			{tab === "read" ? (
+				<StarterTexts
+					items={loaderData.starter}
+					language={loaderData.language}
+					wide
+					className="mt-6"
+				/>
+			) : null}
+			{tab === "more" ? (
+				<>
+					<Anywhere appUrl={loaderData.appUrl} />
+					<Assistant mcpUrl={loaderData.mcpUrl} emailVerified={loaderData.emailVerified} />
+					<section aria-labelledby="add-feeds" className="mt-12">
+						<h2 id="add-feeds" className="flex items-center gap-2 font-serif text-2xl">
+							<Rss className="size-5 text-muted-fg" aria-hidden />
+							{t("add.feeds.title")}
+						</h2>
+						<p className="mt-1 text-sm leading-relaxed text-muted-fg">
+							<Trans
+								t={t}
+								i18nKey="add.feeds.description"
+								components={{ feed: <Link to="/feed" className="text-link hover:underline" /> }}
+							/>
+						</p>
+						<p className="mt-3 text-sm leading-relaxed text-muted-fg">{t("add.feeds.importers")}</p>
+					</section>
+				</>
+			) : null}
+		</main>
+	)
+}
+
+/** The field, for one link or several, and each one's outcome. */
+function Links({
+	url,
+	actionData,
+}: {
+	url: string
+	actionData: Route.ComponentProps["actionData"]
+}) {
+	const { t } = useTranslation("library")
 	// A fetcher, not the page's action data: the library's live updates revalidate the page as the
 	// links are extracted, and that would clear the outcomes. Without JavaScript, the page's.
 	const fetcher = useFetcher<typeof action>()
@@ -91,14 +173,13 @@ export default function Add({ loaderData, actionData }: Route.ComponentProps) {
 	const batch = answer?.ok && "batch" in answer ? answer.batch : null
 	const refusedLinks = batch?.filter((result) => !result.ok).map((result) => result.url) ?? []
 	return (
-		<main className="mx-auto w-full max-w-2xl flex-1 px-4 pt-4 pb-16 md:pt-4">
-			<h1 className="hidden page-title md:block md:leading-10">{t("add.title")}</h1>
-			<p className="mt-2 text-sm text-muted-fg">{t("add.description")}</p>
-			<fetcher.Form method="post" className="mt-6 flex flex-col gap-4">
+		<>
+			<p className="mt-6 text-sm text-muted-fg">{t("add.description")}</p>
+			<fetcher.Form method="post" className="mt-4 flex flex-col gap-4">
 				<LinksField
 					// After several links, only those not saved stay in the field.
 					key={answer ? JSON.stringify(refusedLinks) : "links"}
-					defaultValue={batch ? refusedLinks.join("\n") : (answer?.url ?? loaderData.url)}
+					defaultValue={batch ? refusedLinks.join("\n") : (answer?.url ?? url)}
 					error={error}
 					autoFocus
 				/>
@@ -107,24 +188,7 @@ export default function Add({ loaderData, actionData }: Route.ComponentProps) {
 				</Button>
 			</fetcher.Form>
 			{batch ? <LinkResults results={batch} className="mt-4" /> : null}
-			<StarterTexts items={loaderData.starter} language={loaderData.language} className="mt-12" />
-			<Anywhere appUrl={loaderData.appUrl} />
-			<Assistant mcpUrl={loaderData.mcpUrl} emailVerified={loaderData.emailVerified} />
-			<section aria-labelledby="add-feeds" className="mt-12">
-				<h2 id="add-feeds" className="flex items-center gap-2 font-serif text-2xl">
-					<Rss className="size-5 text-muted-fg" aria-hidden />
-					{t("add.feeds.title")}
-				</h2>
-				<p className="mt-1 text-sm leading-relaxed text-muted-fg">
-					<Trans
-						t={t}
-						i18nKey="add.feeds.description"
-						components={{ feed: <Link to="/feed" className="text-link hover:underline" /> }}
-					/>
-				</p>
-				<p className="mt-3 text-sm leading-relaxed text-muted-fg">{t("add.feeds.importers")}</p>
-			</section>
-		</main>
+		</>
 	)
 }
 

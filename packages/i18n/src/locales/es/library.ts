@@ -197,7 +197,7 @@ export default {
 		shelf: "Libros para empezar",
 		homeTitle: "O empieza con uno de estos",
 		find: "O encuentra algo para leer",
-		more: "Más para leer en la página Guardar un enlace",
+		more: "Más para leer",
 		language: { en: "En inglés", es: "En español" },
 		minutes: "{{count}} min",
 		minutes_one: "{{count}} min",
@@ -220,6 +220,12 @@ export default {
 		title: "Guardar un enlace",
 		description:
 			"Pega la dirección de un artículo. Lo descargamos, extraemos el texto y guardamos una copia limpia.",
+		tabs: {
+			label: "Formas de añadir",
+			links: "Pegar enlaces",
+			read: "Algo para leer",
+			more: "Más formas de añadir",
+		},
 		several: "Un enlace por línea, hasta {{max}}. {{keys}} o Ctrl+Intro guarda.",
 		results: "Enlaces guardados",
 		savedMany: "{{count}} enlaces guardados.",

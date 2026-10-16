@@ -114,7 +114,7 @@ export function SaveLinkDialog() {
 					/>
 					<div className="flex items-center justify-end gap-2">
 						<Link
-							to="/add"
+							to="/add?tab=more"
 							className="mr-auto text-sm text-link underline-offset-4 hover:underline"
 						>
 							{t("add.more")}

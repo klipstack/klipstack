@@ -330,7 +330,10 @@ export default function Library({ loaderData }: Route.ComponentProps) {
 						{t(`empty.${loaderData.view}.description`, { days: TRASH_RETENTION_DAYS })}
 					</p>
 					{loaderData.view === "inbox" ? (
-						<Link to="/add" className="text-sm text-link underline-offset-4 hover:underline">
+						<Link
+							to="/add?tab=read"
+							className="text-sm text-link underline-offset-4 hover:underline"
+						>
 							{t("starter.find")}
 						</Link>
 					) : null}

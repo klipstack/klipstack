@@ -27,7 +27,7 @@ test("a new reader adds the guide from Home, and finds it and the essays on the 
 	await expect(page.getByRole("region", { name: "Or start with one of these" })).toHaveCount(0)
 
 	// The Add page lists every text, the reader's language first, and knows which they have.
-	await page.goto("/add")
+	await page.goto("/add?tab=read")
 	const list = page.getByRole("region", { name: "Something to read" })
 	await expect(list.getByText("In Spanish")).toBeVisible()
 	await expect(list.getByRole("link", { name: "Open How to use Klipstack" })).toHaveAttribute(
@@ -37,7 +37,7 @@ test("a new reader adds the guide from Home, and finds it and the essays on the 
 	await list.getByRole("button", { name: "Add Of Studies to your library" }).click()
 	await expect(page).toHaveURL(/\/read\/[\w-]+$/)
 	await expect(page.getByText("Some books are to be tasted")).toBeVisible({ timeout: 20_000 })
-	await page.goto("/add")
+	await page.goto("/add?tab=read")
 	await expect(list.getByRole("link", { name: "Open Of Studies" })).toBeVisible()
 })
 

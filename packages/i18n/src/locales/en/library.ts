@@ -197,7 +197,7 @@ export default {
 		shelf: "Books to start with",
 		homeTitle: "Or start with one of these",
 		find: "Or find something to read",
-		more: "More to read on the Save link page",
+		more: "More to read",
 		language: { en: "In English", es: "In Spanish" },
 		minutes: "{{count}} min",
 		minutes_one: "{{count}} min",
@@ -220,6 +220,12 @@ export default {
 		title: "Save a link",
 		description:
 			"Paste the address of an article. We fetch it, extract the text, and keep a clean copy for you.",
+		tabs: {
+			label: "Ways to add",
+			links: "Paste links",
+			read: "Something to read",
+			more: "More ways to add",
+		},
 		several: "One link per line, up to {{max}}. {{keys}} or Ctrl+Enter saves.",
 		results: "Links saved",
 		savedMany: "{{count}} links saved.",

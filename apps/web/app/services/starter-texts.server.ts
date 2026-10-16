@@ -22,17 +22,15 @@ export async function savedStarterTexts(
 }
 
 /** What a page shows of a starter text: no page, and the reader's copy when they have one. */
-export type StarterItem = Omit<StarterText, "html" | "article" | "url" | "description"> & {
+export type StarterItem = Omit<StarterText, "html" | "article" | "url"> & {
 	articleId: string | null
 }
 
 /** `texts`, as the reader's lists show them. */
 export async function starterItems(userId: string, texts: StarterText[]): Promise<StarterItem[]> {
 	const saved = await savedStarterTexts(userId, texts)
-	return texts.map(
-		({ html: _html, article: _article, url: _url, description: _description, ...text }) => ({
-			...text,
-			articleId: saved.get(text.slug) ?? null,
-		}),
-	)
+	return texts.map(({ html: _html, article: _article, url: _url, ...text }) => ({
+		...text,
+		articleId: saved.get(text.slug) ?? null,
+	}))
 }

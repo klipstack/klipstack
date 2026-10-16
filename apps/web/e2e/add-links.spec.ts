@@ -37,7 +37,11 @@ test("the dialog saves several links at once, and keeps the ones it could not sa
 
 	// The dialog leads to the page with every other way in.
 	await dialog.getByRole("link", { name: "More ways to add" }).click()
-	await expect(page).toHaveURL(/\/add$/)
+	await expect(page).toHaveURL(/\/add\?tab=more$/)
+	await expect(page.getByRole("link", { name: "More ways to add", exact: true })).toHaveAttribute(
+		"aria-current",
+		"page",
+	)
 	await expect(page.getByRole("heading", { name: "Save from anywhere" })).toBeVisible()
 	await expect(page.getByRole("link", { name: "Save to Klipstack" })).toHaveAttribute(
 		"href",
@@ -76,4 +80,25 @@ test("the Add page saves several links and lists each one's outcome", async ({ p
 	await expect(page.getByLabel("Link", { exact: true })).toHaveValue(
 		"https://www.youtube.com/watch?v=x",
 	)
+})
+
+test("the Add page's tabs each have their own address", async ({ page }) => {
+	await signupUser(page, "Add Tabs")
+	await page.goto("/add")
+	const tabs = page.getByRole("navigation", { name: "Ways to add" })
+	await expect(tabs.getByRole("link", { name: "Paste links" })).toHaveAttribute(
+		"aria-current",
+		"page",
+	)
+	await expect(page.getByLabel("Link", { exact: true })).toBeVisible()
+	await expect(page.getByRole("heading", { name: "Something to read" })).toHaveCount(0)
+
+	await tabs.getByRole("link", { name: "Something to read" }).click()
+	await expect(page).toHaveURL(/\/add\?tab=read$/)
+	await expect(page.getByRole("heading", { name: "Something to read" })).toBeVisible()
+	await expect(page.getByLabel("Link", { exact: true })).toHaveCount(0)
+
+	// A shared link lands on the field, whatever the tab.
+	await page.goto("/add?tab=more&url=https://example.com/shared")
+	await expect(page.getByLabel("Link", { exact: true })).toHaveValue("https://example.com/shared")
 })

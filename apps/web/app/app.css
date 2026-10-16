@@ -1172,3 +1172,43 @@ input[type="search"]::-webkit-search-decoration {
 		display: none;
 	}
 }
+
+/* A shelf that scrolls sideways fades out on the side that has more books, so the reader knows
+   to scroll: its scroll position drives the fades (scroll-driven animations). Where the browser has
+   none, or the shelf doesn't scroll, there is no fade. */
+@property --shelf-fade-start {
+	syntax: "<length>";
+	inherits: false;
+	initial-value: 0px;
+}
+@property --shelf-fade-end {
+	syntax: "<length>";
+	inherits: false;
+	initial-value: 0px;
+}
+@keyframes shelf-fade {
+	0% {
+		--shelf-fade-start: 0px;
+		--shelf-fade-end: 3rem;
+	}
+	8%,
+	92% {
+		--shelf-fade-start: 3rem;
+		--shelf-fade-end: 3rem;
+	}
+	100% {
+		--shelf-fade-start: 3rem;
+		--shelf-fade-end: 0px;
+	}
+}
+@utility shelf-fade {
+	mask-image: linear-gradient(
+		to right,
+		transparent,
+		#000 var(--shelf-fade-start),
+		#000 calc(100% - var(--shelf-fade-end)),
+		transparent
+	);
+	animation: shelf-fade linear both;
+	animation-timeline: scroll(self inline);
+}

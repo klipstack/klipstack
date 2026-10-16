@@ -393,7 +393,7 @@ export default function ReadingHome({
 							<div className="mt-10 w-full max-w-xl">
 								<StarterTexts items={starter} language={language} title={t("starter.homeTitle")} />
 								<Link
-									to="/add"
+									to="/add?tab=read"
 									className="mt-4 inline-block text-sm text-link underline-offset-4 hover:underline"
 								>
 									{t("starter.more")}
