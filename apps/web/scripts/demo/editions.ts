@@ -97,6 +97,10 @@ export async function seedEditions(state: State) {
 			if (!url) throw new Error(`No demo article for the edition: ${planned.url}`)
 			const item = await addItem(state.userId, edition.id, state.documents[url]!.id)
 			const quotes = (planned.quotes ?? []).map((q) => (typeof q === "number" ? { index: q } : q))
+			// The reading history decides how many highlights an article has: say when one is missing.
+			for (const quote of quotes)
+				if (quote.index >= item.highlights.length)
+					throw new Error(`The demo article has no highlight ${quote.index}: ${planned.url}`)
 			await updateItem(state.userId, edition.id, item.id, {
 				includeNote: planned.note !== undefined,
 				note: planned.note ?? null,
