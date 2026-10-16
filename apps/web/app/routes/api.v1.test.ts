@@ -791,6 +791,53 @@ describe("writes", () => {
 		},
 	)
 
+	it("retries a failed save, and deletes articles in the trash for good", async () => {
+		const { id: owner, client } = await users.create("API Retry")
+		const failedUrl = `https://example.com/failed-${newId()}`
+		const [failedRow] = await db
+			.insert(documents)
+			.values({
+				userId: owner,
+				sourceUrl: failedUrl,
+				urlHash: urlHash(failedUrl),
+				status: "failed",
+				failureReason: "fetch_failed",
+			})
+			.returning({ id: documents.id })
+		const failed = failedRow!.id
+		const ready = await insertArticle(owner, "Ready", "<p>Read me.</p>")
+
+		// Retry queues a failed save again, once; a save that hadn't failed stays as it is.
+		expect(await client.articles.retry(failed)).toEqual({ queued: true })
+		expect(await client.articles.get(failed)).toMatchObject({ status: "queued" })
+		expect(await client.articles.retry(failed)).toEqual({ queued: false })
+		expect(await client.articles.retry(ready)).toEqual({ queued: false })
+		expect(await client.articles.get(ready)).toMatchObject({ status: "ready" })
+
+		// Missing, another user's or in the trash: not found.
+		const theirs = await insertArticle(await otherUser(), "Theirs", "<p>Not yours.</p>")
+		await client.articles.trash([ready])
+		for (const id of [MISSING, theirs, ready])
+			expect(await errorOf(client.articles.retry(id))).toMatchObject({
+				status: 404,
+				code: "not_found",
+			})
+
+		// Purge takes only what is in the trash, and only the owner's.
+		expect(await client.articles.purge([ready, failed, theirs, MISSING])).toEqual({
+			purged: [ready],
+			notFound: [failed, theirs, MISSING],
+		})
+		expect((await client.articles.list({ view: "trash" })).items).toEqual([])
+		expect(await client.articles.restore([ready])).toMatchObject({
+			restored: [],
+			notFound: [ready],
+		})
+		expect(await client.articles.get(failed)).toMatchObject({ id: failed })
+		expect(await db.select().from(documents).where(eq(documents.id, theirs))).toHaveLength(1)
+		await expect(client.articles.purge([])).rejects.toBeInstanceOf(KlipstackInputError)
+	})
+
 	it("the mark says what it did to the draft in progress, and undo puts it back", async () => {
 		const { id: owner, client } = await users.create("API Draft")
 		const article = await insertArticle(owner, "Drafted", "<p>Worth sharing.</p>")
