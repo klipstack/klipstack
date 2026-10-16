@@ -25,13 +25,14 @@ export type StoredHtml = Awaited<ReturnType<KlipstackClient["articles"]["html"]>
 /** What the reader needs to open an article without the server. */
 export type OfflineArticle = { details: ArticleDetails; stored: StoredHtml; savedAt: number }
 
-/** The lists kept: Home's four, and the first page of Inbox and Starred. */
+/** The lists kept: Home's, and the first page of Inbox and Starred. */
 export type OfflineList =
 	| "home-reading"
 	| "home-unread"
 	| "home-quick"
 	| "home-long"
 	| "home-again"
+	| "home-rediscover"
 	| "inbox"
 	| "starred"
 
@@ -89,6 +90,28 @@ export function loadList(list: OfflineList): ArticleSummary[] | null {
 		if (!file.exists) return null
 		const items: unknown = JSON.parse(file.textSync())
 		return Array.isArray(items) ? (items as ArticleSummary[]) : null
+	} catch {
+		return null
+	}
+}
+
+/** When From a while ago starts (`HomeLists.recentSince`), kept with its list. */
+export function saveRecentSince(since: string | null): void {
+	try {
+		const file = new File(listsFolder(), "home-recent-since.json")
+		file.create({ overwrite: true })
+		file.write(JSON.stringify(since))
+	} catch {
+		// Offline, a time chosen keeps Recently saved to no date.
+	}
+}
+
+export function loadRecentSince(): string | null {
+	try {
+		const file = new File(listsFolder(), "home-recent-since.json")
+		if (!file.exists) return null
+		const since: unknown = JSON.parse(file.textSync())
+		return typeof since === "string" ? since : null
 	} catch {
 		return null
 	}

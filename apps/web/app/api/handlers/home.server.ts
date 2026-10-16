@@ -50,7 +50,7 @@ export const nextEdition: Handler<typeof getNextEdition> = async ({ userId }) =>
 	const nudge = await editionNudge(userId)
 	return {
 		marked: nudge.marked,
-		draft: nudge.draft ? { items: nudge.draft.items } : null,
+		draft: nudge.draft,
 		nudge: nudge.reason
 			? { reason: nudge.reason, daysSince: nudge.daysSince, readSince: nudge.readSince }
 			: null,

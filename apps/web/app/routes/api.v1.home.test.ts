@@ -1,7 +1,8 @@
-import { db, documents, eq, readingCompletions } from "@klipstack/db"
+import { db, documents, editions, eq, readingCompletions } from "@klipstack/db"
 import { stopBoss } from "@klipstack/queue"
 import type { KlipstackApiError } from "@klipstack/sdk"
 import { afterAll, describe, expect, it } from "vitest"
+import { startEdition } from "~/commands/editions.server"
 import { env } from "~/lib/env.server"
 import { apiUsers } from "~/test/api-harness"
 import { insertArticle } from "../../e2e/seed"
@@ -41,7 +42,12 @@ async function article(
 }
 
 let cycle = 0
-const finish = (userId: string, documentId: string, completedAt: Date, source = "progress") =>
+const finish = (
+	userId: string,
+	documentId: string,
+	completedAt: Date,
+	source: "progress" | "bulk" = "progress",
+) =>
 	db.insert(readingCompletions).values({ userId, documentId, completedAt, source, cycle: ++cycle })
 
 describe("what was finished lately in the API", () => {
@@ -85,7 +91,7 @@ describe("From a while ago in the API", () => {
 		await article(me.id, "Read", { createdAt: ago(20), readAt: ago(2) })
 		await article(me.id, "Archived", { createdAt: ago(20), archivedAt: ago(2) })
 		await article(me.id, "Trashed", { createdAt: ago(20), deletedAt: ago(2) })
-		await article(me.id, "Pending", { createdAt: ago(20), status: "pending" })
+		await article(me.id, "Queued", { createdAt: ago(20), status: "queued" })
 		await article(other.id, "Theirs", { createdAt: ago(20) })
 
 		const answer = await me.client.home.rediscover()
@@ -143,5 +149,23 @@ describe("the next edition in the API", () => {
 		expect(await me.client.editions.next()).toMatchObject({ marked: 3, nudge: null })
 		// Another reader's marks and snooze are their own.
 		expect(await other.client.editions.next()).toMatchObject({ marked: 0, nudge: null })
+	})
+
+	it("names the draft in progress, due a week after it was started", async () => {
+		const me = await users.create("Draft")
+		await article(me.id, "One", { shortlistedAt: new Date() })
+		const draft = await startEdition(me.id, { locale: "en", timeZone: "UTC" })
+		expect(await me.client.editions.next()).toMatchObject({
+			draft: { items: 1, days: 0 },
+			nudge: null,
+		})
+		await db
+			.update(editions)
+			.set({ createdAt: ago(8) })
+			.where(eq(editions.id, draft.id))
+		expect(await me.client.editions.next()).toMatchObject({
+			draft: { items: 1, days: 8 },
+			nudge: { reason: "draft" },
+		})
 	})
 })

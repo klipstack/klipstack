@@ -16,6 +16,13 @@ export type HomeLists = {
 	 * are few. Those started belong to Continue reading, not to Recently saved.
 	 */
 	long: ArticleSummary[]
+	/** Unread saves from a while ago, in the day's order (`GET /home/rediscover`). */
+	rediscover?: ArticleSummary[]
+	/**
+	 * When "a while ago" ends (the same answer's `savedBefore`): with a time chosen, Recently saved
+	 * keeps to saves after it, as on the web.
+	 */
+	recentSince?: string | null
 }
 
 export type HomeSections = {
@@ -27,6 +34,8 @@ export type HomeSections = {
 	/** Read again: finished before and put back. Never in Recently saved. */
 	again: ArticleSummary[]
 	quick: ArticleSummary[]
+	/** From a while ago: a few older saves, a different few each day. */
+	rediscover: ArticleSummary[]
 	/** With a time chosen, the big card is the article read last though it doesn't fit. */
 	pickUp: boolean
 	/** With a time chosen, nothing fits (the article read last, kept anyway, doesn't count). */
@@ -42,13 +51,22 @@ export const TIME_CHOICES = [5, 15, 30, 60] as const
  */
 export const TIME_CHOICE_MIN = 9
 
+/** From a while ago shows a few, as on the web (HOME_SHELF in apps/web/app/lib/home-shelves.ts). */
+export const REDISCOVER_SHELF = 3
+
 /**
  * Whether Home offers "How much time do you have?": the web counts the library's unfinished
  * articles with a reading time; the phone counts those in the lists it loaded, each once.
  */
 export function offersTimeChoice(lists: HomeLists): boolean {
 	const unfinished = new Set<string>()
-	for (const item of [...lists.reading, ...lists.unread, ...lists.quick, ...lists.long]) {
+	for (const item of [
+		...lists.reading,
+		...lists.unread,
+		...lists.quick,
+		...lists.long,
+		...(lists.rediscover ?? []),
+	]) {
 		if (item.status === "ready" && !item.finished && minutesLeft(item) !== null)
 			unfinished.add(item.id)
 	}
@@ -66,7 +84,10 @@ export function offersTimeChoice(lists: HomeLists): boolean {
  * each section keeps what can be finished in it, by time left. Continue reading still shows the
  * article read last when nothing in progress fits: finishing comes before starting more. The
  * unread sections show first what takes at least half the time, so more time brings longer
- * articles; Recently saved draws on the long reads not yet opened too.
+ * articles; Recently saved draws on the long reads not yet opened too, but keeps to saves after
+ * `recentSince`, so long ones from long ago come back under From a while ago, not as recent.
+ *
+ * From a while ago, after Read again, shows a few of the older saves not shown above it.
  */
 export function homeSections(
 	lists: HomeLists,
@@ -105,6 +126,7 @@ export function homeSections(
 	const again = take(fillingFirst(lists.again ?? []), perShelf)
 	// Those it has no room for stay out of the rest too, as on the web.
 	for (const item of lists.again ?? []) shown.add(item.id)
+	const since = lists.recentSince ? Date.parse(lists.recentSince) : null
 	const unread =
 		minutes === null
 			? lists.unread
@@ -115,9 +137,12 @@ export function homeSections(
 							item,
 						]),
 					).values(),
-				].sort((a, b) => b.savedAt.localeCompare(a.savedAt))
+				]
+					.filter((item) => since === null || Date.parse(item.savedAt) >= since)
+					.sort((a, b) => b.savedAt.localeCompare(a.savedAt))
 	const recent = take(fillingFirst(unread), reading.length ? perShelf : perShelf + 1)
 	const hero = reading[0] ?? recent[0] ?? null
+	const rediscover = take(fillingFirst(lists.rediscover ?? []), REDISCOVER_SHELF)
 	const quick = take(fillingFirst(lists.quick), perShelf)
 	return {
 		hero,
@@ -125,10 +150,18 @@ export function homeSections(
 		recent: reading.length ? recent : recent.slice(1),
 		again,
 		quick,
+		rediscover,
 		pickUp,
 		nothingFits:
 			minutes !== null &&
-			!(reading.length - (pickUp ? 1 : 0) + recent.length + again.length + quick.length),
+			!(
+				reading.length -
+				(pickUp ? 1 : 0) +
+				recent.length +
+				again.length +
+				rediscover.length +
+				quick.length
+			),
 	}
 }
 
@@ -139,8 +172,15 @@ export function homeSections(
 export function everyHomeArticle(lists: HomeLists): ArticleSummary[] {
 	const all = new Map<string, ArticleSummary>()
 	for (const minutes of [null, ...TIME_CHOICES]) {
-		const { hero, reading, recent, again, quick } = homeSections(lists, { minutes })
-		for (const item of [...(hero ? [hero] : []), ...reading, ...recent, ...again, ...quick])
+		const { hero, reading, recent, again, rediscover, quick } = homeSections(lists, { minutes })
+		for (const item of [
+			...(hero ? [hero] : []),
+			...reading,
+			...recent,
+			...again,
+			...rediscover,
+			...quick,
+		])
 			all.set(item.id, item)
 	}
 	return [...all.values()]
@@ -170,6 +210,8 @@ function eachList(lists: HomeLists, change: (items: ArticleSummary[]) => Article
 		again: lists.again && change(lists.again),
 		quick: change(lists.quick),
 		long: change(lists.long),
+		rediscover: lists.rediscover && change(lists.rediscover),
+		recentSince: lists.recentSince,
 	}
 }
 

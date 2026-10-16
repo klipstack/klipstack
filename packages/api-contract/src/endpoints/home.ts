@@ -7,6 +7,45 @@ import { ArticleSummary, Id, Time } from "../schemas"
  * back a few at a time, and the next edition in the masthead's corner.
  */
 
+/** What was finished in the past week. */
+export const FinishedLately = z
+	.object({
+		/** 0 after a week without a finish: Home says nothing then. */
+		count: z.number().int().nonnegative(),
+		title: z.string().nullable(),
+	})
+	.meta({ id: "FinishedLately" })
+export type FinishedLately = z.infer<typeof FinishedLately>
+
+/** The next edition, as Home's masthead names it. */
+export const NextEdition = z
+	.object({
+		/** Articles marked for the next edition, not in the trash. */
+		marked: z.number().int().nonnegative(),
+		/**
+		 * The draft in progress: the articles going out in it, and whole days since it was started.
+		 * Null without one.
+		 */
+		draft: z
+			.object({ items: z.number().int().nonnegative(), days: z.number().int().nonnegative() })
+			.nullable(),
+		/** Null when no edition is due, or "Not now" (POST /editions/next/snooze) still holds. */
+		nudge: z
+			.object({
+				/** `marked`: enough marked; `stale`: a while since the last; `draft`: the draft is due. */
+				reason: z.enum(["marked", "stale", "draft"]),
+				/** Whole days since the last edition was published; null before the first. */
+				daysSince: z.number().int().nonnegative().nullable(),
+				/** Articles finished since the last edition. */
+				readSince: z.number().int().nonnegative(),
+			})
+			.nullable(),
+		/** The web's Editions page, where the next edition is put together. */
+		url: z.string(),
+	})
+	.meta({ id: "NextEdition" })
+export type NextEdition = z.infer<typeof NextEdition>
+
 export const getFinishedLately = defineEndpoint({
 	id: "home.finished",
 	method: "GET",
@@ -18,13 +57,7 @@ export const getFinishedLately = defineEndpoint({
 		/** An IANA time zone name (`Europe/Madrid`): where the reader's days start. */
 		timeZone: z.string().min(1).max(64),
 	}),
-	response: json(
-		z.object({
-			/** 0 after a week without a finish: Home says nothing then. */
-			count: z.number().int().nonnegative(),
-			title: z.string().nullable(),
-		}),
-	),
+	response: json(FinishedLately),
 	/** `invalid_request`: `timeZone` is no time zone. */
 	errors: [],
 })
@@ -64,27 +97,7 @@ export const getNextEdition = defineEndpoint({
 	scope: "read",
 	summary:
 		"The user's next edition, as Home's masthead names it: the draft in progress and its articles, else the articles marked for it (PATCH /articles with `shortlisted`). `nudge` when an edition is due, as the web's sidebar and Editions page say: enough marked, or a while since the last one with something to share, or a draft a week old. Editions are put together and published on the web, at `url`.",
-	response: json(
-		z.object({
-			/** Articles marked for the next edition, not in the trash. */
-			marked: z.number().int().nonnegative(),
-			/** The draft in progress: the articles going out in it. Null without one. */
-			draft: z.object({ items: z.number().int().nonnegative() }).nullable(),
-			/** Null when no edition is due, or "Not now" (POST /editions/next/snooze) still holds. */
-			nudge: z
-				.object({
-					/** `marked`: enough marked; `stale`: a while since the last; `draft`: the draft is due. */
-					reason: z.enum(["marked", "stale", "draft"]),
-					/** Whole days since the last edition was published; null before the first. */
-					daysSince: z.number().int().nonnegative().nullable(),
-					/** Articles finished since the last edition. */
-					readSince: z.number().int().nonnegative(),
-				})
-				.nullable(),
-			/** The web's Editions page, where the next edition is put together. */
-			url: z.string(),
-		}),
-	),
+	response: json(NextEdition),
 	errors: [],
 })
 
