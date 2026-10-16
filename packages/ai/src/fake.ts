@@ -97,6 +97,7 @@ export function fakeBrief(input: BriefInput, thinkMs = 0) {
 				delta("\n\n## Parts\n\n- **Opening**: where it starts."),
 				delta(markers([1])),
 				delta("\n- **The rest**: what follows."),
+				delta(markers([2])),
 				{ type: "text-end" as const, id: "t" },
 				{
 					type: "finish" as const,

@@ -50,6 +50,13 @@ describe("prompt", () => {
 			"[1] Makers need long blocks of time.\\n[2] Managers work in one hour slots.\\n[3] Meetings",
 		)
 		expect(JSON.stringify(a[0])).toContain("The passage (in sentence 2)")
+		const across = { exact: "slots. Meetings", start: text.indexOf("slots."), end: 0 }
+		across.end = across.start + across.exact.length
+		const [both] = buildMessages({
+			...input([{ role: "user", text: "" }]),
+			thread: { action: "explain", passage: across, turns: [{ role: "user", text: "" }] },
+		})
+		expect(JSON.stringify(both)).toContain("The passage (in sentences 2 to 3)")
 		expect(systemPrompt("en")).toBe(systemPrompt("en"))
 		expect(systemPrompt("es")).toContain("Answer in Spanish")
 		expect(b).toHaveLength(3)
@@ -150,7 +157,10 @@ describe("brief", () => {
 		const events = await collect(brief.events)
 		const result = await brief.done
 		expect(result.text.match(/^## .+$/gm)).toEqual(["## Key claims", "## Keep in mind", "## Parts"])
-		expect(events.filter((e) => e.type === "citation")).toHaveLength(2)
+		// The last ends the answer, a marker last of all.
+		expect(events.filter((e) => e.type === "citation")).toHaveLength(3)
+		expect(result.citations.at(-1)).toMatchObject({ exact: "Managers work in one hour slots." })
+		expect(result.text.endsWith("- **The rest**: what follows.")).toBe(true)
 		expect(result.citations[0]).toMatchObject({
 			start: 0,
 			exact: "Makers need long blocks of time.",

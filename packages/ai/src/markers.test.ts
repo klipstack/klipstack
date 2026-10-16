@@ -64,14 +64,36 @@ describe("citationReader", () => {
 		])
 	})
 
-	it("drops a number the article doesn't have, and leaves other brackets as written", () => {
-		expect(read(["Slots [9][2], as [sic] and [a] say [1"])).toEqual({
-			answer: "Slots, as [sic] and [a] say [1",
+	it("drops numbers the article doesn't have, other brackets as written, and a cut marker", () => {
+		expect(read(["Slots [9][0][3-1][2], as [sic] and [a] say [1"])).toEqual({
+			answer: "Slots, as [sic] and [a] say",
 			citations: [{ ...sentence("Managers work in slots."), at: "Slots".length }],
 		})
 	})
 
 	it("cites a passage once where the answer repeats its marker in one place", () => {
 		expect(read(["Slots [2] [2]."]).citations).toHaveLength(1)
+	})
+
+	// The model's output is untrusted: a page it read may tell it what to write.
+	it("reads output that only looks like markers in linear time", () => {
+		const started = performance.now()
+		const looks = Array.from({ length: 2000 }, () => "[ ")
+		expect(read([...looks, "x"]).answer).toBe(`${looks.join("")}x`)
+		expect(read(["[1".repeat(20_000), "x"]).citations).toHaveLength(0)
+		expect(performance.now() - started).toBeLessThan(1000)
+	})
+
+	it("keeps a citation to ten sentences, and an answer to fifty citations", () => {
+		const long = Array.from({ length: 30 }, (_, i) => `Sentence ${i + 1} is here.`).join(" ")
+		const reader = citationReader(long)
+		const events = [
+			...reader.push("All [1-30]. "),
+			...reader.push("x[3][5]".repeat(40)),
+			...reader.end(),
+		]
+		const citations = events.flatMap((e) => (e.type === "citation" ? [e.citation] : []))
+		expect(citations[0]!.exact).toBe(long.slice(0, long.indexOf(" Sentence 11")))
+		expect(citations).toHaveLength(50)
 	})
 })

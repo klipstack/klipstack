@@ -6,8 +6,24 @@ export interface Sentence {
 }
 
 const segmenter = new Intl.Segmenter("en", { granularity: "sentence" })
-/** A paragraph: text up to a blank line. */
-const PARAGRAPH = /[^\n]*\S[\s\S]*?(?=\n[ \t]*\n|$)/g
+/** What ends a paragraph: a blank line. */
+const BLANK_LINE = /\n[ \t]*\n/g
+
+/** The text's paragraphs, with where each starts. In linear time: pages can hold long blanks. */
+function paragraphs(text: string) {
+	const out: { index: number; text: string }[] = []
+	let from = 0
+	const add = (to: number) => {
+		const paragraph = text.slice(from, to)
+		if (/\S/.test(paragraph)) out.push({ index: from, text: paragraph })
+	}
+	for (const blank of text.matchAll(BLANK_LINE)) {
+		add(blank.index)
+		from = blank.index + blank[0].length
+	}
+	add(text.length)
+	return out
+}
 
 let last: { text: string; list: Sentence[] } | undefined
 
@@ -20,12 +36,12 @@ export function sentences(text: string): Sentence[] {
 	// The prompt and the stream ask for the same text's sentences, one after the other.
 	if (last?.text === text) return last.list
 	const list: Sentence[] = []
-	for (const paragraph of text.matchAll(PARAGRAPH)) {
+	for (const paragraph of paragraphs(text)) {
 		// The segmenter ends a sentence at every line break, and pages break lines mid-sentence: it
 		// reads the paragraph with each run of spaces as one, mapped back to the text.
 		let flat = ""
 		const at: number[] = []
-		for (const run of paragraph[0].matchAll(/\s+|\S+/g)) {
+		for (const run of paragraph.text.matchAll(/\s+|\S+/g)) {
 			const space = /\s/.test(run[0])
 			for (let i = 0; i < (space ? 1 : run[0].length); i++) at.push(paragraph.index + run.index + i)
 			flat += space ? " " : run[0]
