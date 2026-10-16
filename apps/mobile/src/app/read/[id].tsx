@@ -34,6 +34,7 @@ import { AiCard } from "@/components/ai-card"
 import { AppearanceSheet } from "@/components/appearance-sheet"
 import { askTitle } from "@/components/article-actions"
 import { BriefSheet } from "@/components/brief-sheet"
+import { ChatSheet } from "@/components/chat-sheet"
 import { EditionNoteSheet } from "@/components/edition-note-sheet"
 import { HighlightCard } from "@/components/highlight-card"
 import { LinkCard, type TappedLink } from "@/components/link-card"
@@ -173,6 +174,8 @@ export default function Reader() {
 	const ai = useReaderAi(client, id, page !== null)
 	const aiCards = useAiCards(client, id, ai)
 	const openCard = aiCards.cards.find((c) => c.id === aiCards.openId) ?? null
+	const chatCard = aiCards.cards.find((c) => c.action === "chat")
+	const [chatOpen, setChatOpen] = useState(false)
 	const [briefOpen, setBriefOpen] = useState(false)
 	// A citation followed from a sheet shows once the sheet is gone.
 	const citeAfterSheet = useRef<AiCitation | null>(null)
@@ -780,19 +783,19 @@ export default function Reader() {
 	}
 
 	/** Gone at once; the toast's Undo brings it back, as a highlight's does. */
-	function deleteAnswer(threadId: string) {
+	function deleteAnswer(threadId: string, message = "Answer deleted") {
 		aiCards.remove(
 			threadId,
 			(restore) =>
 				showToast({
-					message: "Answer deleted",
+					message,
 					action: {
 						label: "Undo",
 						run: () =>
 							void restore().catch(() => showToast({ message: "Couldn't bring the answer back." })),
 					},
 				}),
-			() => showToast({ message: "Couldn't delete the answer." }),
+			() => showToast({ message: "Couldn't delete it. Try again." }),
 		)
 	}
 
@@ -961,6 +964,12 @@ export default function Reader() {
 						>
 							<Stack.Toolbar.MenuAction icon="list.bullet.rectangle.portrait" onPress={openBrief}>
 								Sum Up This Article
+							</Stack.Toolbar.MenuAction>
+							<Stack.Toolbar.MenuAction
+								icon="bubble.left.and.text.bubble.right"
+								onPress={() => setChatOpen(true)}
+							>
+								Chat About This Article
 							</Stack.Toolbar.MenuAction>
 						</Stack.Toolbar.Menu>
 					) : null}
@@ -1227,6 +1236,34 @@ export default function Reader() {
 						showToast({ message: "Brief copied" })
 					}}
 					onClose={() => setBriefOpen(false)}
+					onDismiss={() => {
+						const citation = citeAfterSheet.current
+						citeAfterSheet.current = null
+						if (citation) cite(citation)
+					}}
+					colors={colors}
+				/>
+			) : null}
+			{article && ai.enabled ? (
+				<ChatSheet
+					visible={chatOpen}
+					title={article.title || hostOf(article.url)}
+					chat={chatCard}
+					written={aiCards.written}
+					allowance={ai.allowance}
+					canCite={chatCard?.versionId === versionId.current}
+					onAsk={(question) => versionId.current && aiCards.chat(question, versionId.current)}
+					onRetry={() => chatCard && aiCards.retry(chatCard.id)}
+					onClear={() => chatCard && deleteAnswer(chatCard.id, "Chat cleared")}
+					onCopy={(answer) => {
+						void copyText(answer)
+						showToast({ message: "Answer copied" })
+					}}
+					onCite={(citation) => {
+						citeAfterSheet.current = citation
+						setChatOpen(false)
+					}}
+					onClose={() => setChatOpen(false)}
 					onDismiss={() => {
 						const citation = citeAfterSheet.current
 						citeAfterSheet.current = null

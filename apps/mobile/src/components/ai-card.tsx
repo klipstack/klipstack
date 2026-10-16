@@ -38,7 +38,7 @@ export const AI_ACTIONS: Record<
 const CARD_CHROME = 230
 
 /** How tall the keyboard is, 0 when it is down. */
-function useKeyboardHeight() {
+export function useKeyboardHeight() {
 	const [height, setHeight] = useState(0)
 	useEffect(() => {
 		const show = Keyboard.addListener("keyboardWillShow", (e) => setHeight(e.endCoordinates.height))
