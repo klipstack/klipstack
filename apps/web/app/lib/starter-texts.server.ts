@@ -47,12 +47,7 @@ const TEXTS: Record<StarterLanguage, Partial<Record<StarterTopic, readonly strin
 			"chekhov-rothschilds-fiddle",
 		],
 		living: ["marcus-aurelius-book-two", "stevenson-apology-for-idlers", "emerson-self-reliance"],
-		science: [
-			"darwin-earthworms",
-			"huxley-method-of-zadig",
-			"faraday-candle-lecture-one",
-			"thoreau-walking",
-		],
+		science: ["huxley-method-of-zadig", "faraday-candle-lecture-one", "thoreau-walking"],
 		society: [
 			"lincoln-second-inaugural",
 			"wollstonecraft-vindication-introduction",

@@ -63,7 +63,7 @@ it("offers the starter texts while nothing is left to read, without the ones the
 			"bacon-of-studies",
 			"chopin-story-of-an-hour",
 			"marcus-aurelius-book-two",
-			"darwin-earthworms",
+			"huxley-method-of-zadig",
 		],
 	})
 
@@ -77,7 +77,7 @@ it("offers the starter texts while nothing is left to read, without the ones the
 			"bacon-of-studies",
 			"ohenry-gift-of-the-magi",
 			"marcus-aurelius-book-two",
-			"darwin-earthworms",
+			"huxley-method-of-zadig",
 		],
 	})
 
@@ -140,7 +140,7 @@ it("leaves the guide out for a reader who has saved 10 articles", async () => {
 			"bacon-of-studies",
 			"chopin-story-of-an-hour",
 			"marcus-aurelius-book-two",
-			"darwin-earthworms",
+			"huxley-method-of-zadig",
 		],
 	})
 })

@@ -120,6 +120,61 @@ export const STARTER_LINKS: readonly StarterLink[] = [
 		minutes: 12,
 	},
 	{
+		slug: "graham-makers-schedule",
+		language: "en",
+		topic: "ideas",
+		url: "https://paulgraham.com/makersschedule.html",
+		title: "Maker's Schedule, Manager's Schedule",
+		author: "Paul Graham",
+		description:
+			"Paul Graham's 2009 essay on why a single meeting can wreck a programmer's or writer's afternoon, and how the two kinds of schedule can coexist.",
+		minutes: 5,
+	},
+	{
+		slug: "kelly-1000-true-fans",
+		language: "en",
+		topic: "ideas",
+		url: "https://kk.org/thetechnium/1000-true-fans/",
+		title: "1,000 True Fans",
+		author: "Kevin Kelly",
+		description:
+			"Kevin Kelly's 2008 essay arguing that a creator needs not millions of buyers, only a thousand people who will buy anything they make.",
+		minutes: 19,
+	},
+	{
+		slug: "altman-how-to-be-successful",
+		language: "en",
+		topic: "ideas",
+		url: "https://blog.samaltman.com/how-to-be-successful",
+		title: "How To Be Successful",
+		author: "Sam Altman",
+		description:
+			"Sam Altman's 2019 list of thirteen things he has seen the most successful founders do.",
+		minutes: 15,
+	},
+	{
+		slug: "housel-psychology-of-money",
+		language: "en",
+		topic: "living",
+		url: "https://collabfund.com/blog/the-psychology-of-money/",
+		title: "The Psychology of Money",
+		author: "Morgan Housel",
+		description:
+			"Morgan Housel's 2018 essay on twenty flaws, biases and causes of bad behavior people show with money.",
+		minutes: 34,
+	},
+	{
+		slug: "feynman-cargo-cult-science",
+		language: "en",
+		topic: "science",
+		url: "https://calteches.library.caltech.edu/51/2/CargoCult.htm",
+		title: "Cargo Cult Science",
+		author: "Richard Feynman",
+		description:
+			"Richard Feynman's 1974 Caltech commencement address on scientific integrity: not fooling yourself, the easiest person to fool.",
+		minutes: 17,
+	},
+	{
 		slug: "vargas-llosa-civilizacion-del-espectaculo",
 		language: "es",
 		topic: "ideas",
