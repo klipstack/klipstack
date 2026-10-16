@@ -116,7 +116,9 @@ export function StarterGuide({ item, className }: { item: StarterItem; className
 				Klipstack
 			</span>
 			<div className="min-w-0 flex-1">
-				<p className="text-xs font-medium text-muted-fg">{t("starter.guide.eyebrow")}</p>
+				<p className="text-xs font-medium text-muted-fg">
+					{t(item.articleId ? "starter.saved" : "starter.guide.eyebrow")}
+				</p>
 				<h3 className="font-serif text-lg leading-snug">{item.title}</h3>
 				<p className="text-sm leading-snug text-muted-fg">
 					{t("starter.guide.description", { count: item.minutes })}

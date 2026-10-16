@@ -200,6 +200,8 @@ export function CommandPalette() {
 			id: "starter-texts",
 			label: tl("starter.title"),
 			icon: Compass,
+			// The sidebar's name for it.
+			keywords: [t("nav.discover")],
 			run: () => go("/texts"),
 		},
 		{

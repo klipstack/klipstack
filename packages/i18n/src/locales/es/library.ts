@@ -193,10 +193,10 @@ export default {
 	starter: {
 		title: "Algo para leer",
 		description:
-			"Textos breves de dominio público para probar los subrayados y las notas: ensayos, cuentos y discursos. Elige un libro para añadirlo a tu biblioteca.",
+			"Textos de dominio público para probar los subrayados y las notas: ensayos, cuentos y discursos. Elige un libro para añadirlo a tu biblioteca.",
 		shelf: "Libros para empezar",
 		guide: {
-			eyebrow: "¿Nuevo en Klipstack?",
+			eyebrow: "¿Es tu primera vez en Klipstack?",
 			description: "Guardar, subrayar y anotar, en {{count}} min.",
 			description_one: "Guardar, subrayar y anotar, en {{count}} min.",
 			description_other: "Guardar, subrayar y anotar, en {{count}} min.",

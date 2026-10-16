@@ -193,7 +193,7 @@ export default {
 	starter: {
 		title: "Something to read",
 		description:
-			"Short texts from the public domain to try highlights and notes on: essays, stories and speeches. Choose a book to add it to your library.",
+			"Texts from the public domain to try highlights and notes on: essays, stories and speeches. Choose a book to add it to your library.",
 		shelf: "Books to start with",
 		guide: {
 			eyebrow: "New to Klipstack?",
