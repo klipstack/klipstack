@@ -35,6 +35,7 @@ import { createTakeaway } from "./takeaway"
  *   at its offsets, or found by its quote and the text around it when the offsets are from another
  *   version (`resolveSelector`, as the server re-anchors). One with a note gets a tab beside its
  *   first line; a tap on it opens the highlight.
+ * - `klipCite(start, end)` scrolls to a passage an AI answer cites and flashes it in yellow ink.
  * - `klipShow(id)` scrolls a highlight into view; `klipActive(id or null)` puts the one being edited
  *   in focus, as the web reader does: the text and the other highlights fade, and it stands out
  *   in its color with a line of that color around each of its strokes, and a handle at each end:
@@ -346,6 +347,36 @@ export function startReaderPage(): void {
 		if (!range) return
 		const rect = range.getBoundingClientRect()
 		window.scrollTo({ top: window.scrollY + rect.top - window.innerHeight / 4, behavior: "smooth" })
+	}
+
+	// ---- citations ----
+
+	let citedTimers: Array<ReturnType<typeof setTimeout>> = []
+	page.klipCite = (start, end) => {
+		const range = root ? rangeFromOffsets(root, start, end) : null
+		if (!range) return
+		const rect = range.getBoundingClientRect()
+		window.scrollTo({ top: window.scrollY + rect.top - window.innerHeight / 4, behavior: "smooth" })
+		if (!canPaint()) return
+		for (const timer of citedTimers) clearTimeout(timer)
+		CSS.highlights.delete("klip-cited-fading")
+		const mark = (name: string) => {
+			const cited = new Highlight(range)
+			cited.priority = 2
+			CSS.highlights.set(name, cited)
+		}
+		mark("klip-cited")
+		citedTimers = [
+			setTimeout(() => {
+				CSS.highlights.delete("klip-cited")
+				mark("klip-cited-fading")
+				repaint(range.commonAncestorContainer.parentElement ?? undefined)
+			}, 1500),
+			setTimeout(() => {
+				CSS.highlights.delete("klip-cited-fading")
+				repaint(range.commonAncestorContainer.parentElement ?? undefined)
+			}, 1900),
+		]
 	}
 
 	// ---- the selection ----

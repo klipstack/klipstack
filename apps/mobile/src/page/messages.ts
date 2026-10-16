@@ -121,6 +121,8 @@ export type PageApi = {
 	klipActive(id: string | null): void
 	klipReveal(id: string, covered: number): void
 	klipShow(id: string): void
+	/** Scrolls to a passage an answer cites (offsets into the article's text) and flashes it. */
+	klipCite(start: number, end: number): void
 	klipClearSelection(): void
 	klipType(fontSize: number, sans: boolean): void
 	klipSentences(lang: string): void

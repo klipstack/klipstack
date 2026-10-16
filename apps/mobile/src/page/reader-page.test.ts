@@ -356,6 +356,30 @@ describe("the reader page: highlights", () => {
 	})
 })
 
+describe("the reader page: citations", () => {
+	it("flashes the cited passage in yellow ink, then fades it out", async () => {
+		const html = "<p>Alpha beta.</p><p>Gamma delta epsilon.</p>"
+		const text = storedText(html)
+		const start = text.indexOf("delta")
+		const page = openPage(html)
+		const scrolls: number[] = []
+		Object.assign(page.window, { scrollTo: ({ top }: { top: number }) => scrolls.push(top) })
+		Object.assign(page.window.Range.prototype, { getBoundingClientRect: () => ({ top: 900 }) })
+		page.window.eval(`window.klipCite(${start}, ${start + 5})`)
+		// A quarter of the way down the screen.
+		expect(scrolls).toEqual([900 - page.window.innerHeight / 4])
+		const cited = page.registry.get("klip-cited")
+		expect(cited?.ranges.map((r) => r.toString())).toEqual(["delta"])
+		await settle(1600)
+		expect(page.registry.has("klip-cited")).toBe(false)
+		expect(page.registry.get("klip-cited-fading")?.ranges.map((r) => r.toString())).toEqual([
+			"delta",
+		])
+		await settle(400)
+		expect(page.registry.has("klip-cited-fading")).toBe(false)
+	})
+})
+
 describe("the reader page: reading and links", () => {
 	it("tells the app where the reader is after a scroll", async () => {
 		const { window, messages } = openPage("<p>Text.</p>")
