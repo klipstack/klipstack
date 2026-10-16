@@ -7,8 +7,11 @@ import { useColors } from "@/lib/theme"
 /** The tab bar's height above the home indicator: the toast sits over it. */
 const TAB_BAR = 49
 
-/** The app's toast (`showToast` in src/lib/article-changes.ts), over every screen. Mounted once. */
-export function ToastHost() {
+/**
+ * The app's toast (`showToast` in src/lib/article-changes.ts), over every screen; and over a sheet,
+ * which covers them, `above` its bottom controls (points from the screen's bottom).
+ */
+export function ToastHost({ above }: { above?: number }) {
 	const toast = useSyncExternalStore(onToast, currentToast)
 	const colors = useColors()
 	const insets = useSafeAreaInsets()
@@ -29,7 +32,7 @@ export function ToastHost() {
 			style={[
 				styles.wrap,
 				{
-					bottom: insets.bottom + TAB_BAR + 12,
+					bottom: above ?? insets.bottom + TAB_BAR + 12,
 					opacity: shown,
 					transform: [
 						{ translateY: shown.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) },
