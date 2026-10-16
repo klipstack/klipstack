@@ -115,12 +115,18 @@ describe("changing a highlight", () => {
 		expect(still!.deletedAt).toEqual(deleted!.deletedAt)
 		await restoreHighlight(userId, h.id)
 		await expect(restoreHighlight(userId, h.id)).rejects.toMatchObject({ code: "not_found" })
+		// Deleted, then its article trashed: it stays deleted.
+		const gone = await createHighlight(userId, id, { exact: "Foxtrot" })
+		await deleteHighlight(userId, gone.id)
 
 		await trashArticles(userId, [id])
 		await expect(updateHighlight(userId, h.id, { note: "x" })).rejects.toMatchObject({
 			code: "not_found",
 		})
 		await expect(deleteHighlight(userId, h.id)).rejects.toMatchObject({ code: "not_found" })
+		await expect(restoreHighlight(userId, gone.id)).rejects.toMatchObject({ code: "not_found" })
+		const [kept] = await db.select().from(highlights).where(eq(highlights.id, gone.id))
+		expect(kept!.deletedAt).not.toBeNull()
 	})
 })
 

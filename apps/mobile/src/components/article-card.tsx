@@ -337,7 +337,7 @@ export function Tappable({
 
 /**
  * The article's long-press menu: the web card's buttons and its ⋯ menu. On top, as in Books, what
- * is done most: Star, Archive and Share; then finishing, and Tags. A failed save has Try Again, and
+ * is done most: Star, Archive and Share; then finishing, Tags and Rename. A failed save has Try Again, and
  * what needs no text; an article in the trash can be restored, or deleted forever.
  */
 function articleMenu(item: ArticleSummary, menu: CardMenu) {
@@ -429,6 +429,9 @@ function articleMenu(item: ArticleSummary, menu: CardMenu) {
 					</Link.MenuAction>
 					<Link.MenuAction icon="tag" onPress={() => menu.tag(item)}>
 						Tags…
+					</Link.MenuAction>
+					<Link.MenuAction icon="pencil" onPress={() => menu.act(item, "rename")}>
+						Rename…
 					</Link.MenuAction>
 				</Link.Menu>
 			) : null}

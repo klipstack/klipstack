@@ -28,6 +28,7 @@ import {
 import { NotebookWall } from "@/components/notebook-mini"
 import { usePagedList } from "@/components/paged-list"
 import { useAuth } from "@/lib/auth"
+import { offerHighlightUndo } from "@/lib/highlight-undo"
 import {
 	filterLabel,
 	newSeed,
@@ -169,24 +170,17 @@ export default function Notebook() {
 	const linkTargets = meta?.linkTargets
 	const linking = useMemo(() => noteLinking(client, linkTargets), [client, linkTargets])
 
-	// Gone at once; back with a reload when the server refused. Its note goes with it: ask first.
+	// Gone at once, with its note; back with a reload when the server refused, or after Undo.
 	const remove = useCallback(
 		(highlight: QuoteHighlight) => {
 			if (!client) return
-			const go = async () => {
-				edit((shown) => withoutHighlight(shown, highlight.id))
-				try {
-					await client.highlights.delete(highlight.id)
-				} catch (e) {
-					Alert.alert("Not deleted", e instanceof Error ? e.message : String(e))
-					void load()
-				}
-			}
-			if (!highlight.note) return void go()
-			Alert.alert("Delete this highlight?", "Its note will be deleted too.", [
-				{ text: "Cancel", style: "cancel" },
-				{ text: "Delete", style: "destructive", onPress: () => void go() },
-			])
+			edit((shown) => withoutHighlight(shown, highlight.id))
+			const deleting = client.highlights.delete(highlight.id)
+			deleting.catch((e: unknown) => {
+				Alert.alert("Not deleted", e instanceof Error ? e.message : String(e))
+				void load()
+			})
+			offerHighlightUndo(client, highlight, deleting, () => void load())
 		},
 		[client, edit, load],
 	)

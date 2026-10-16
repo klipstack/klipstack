@@ -1094,10 +1094,35 @@ describe("writes", () => {
 		expect(
 			await errorOf(client.highlights.update(created.highlight.id, { color: "green" })),
 		).toMatchObject({ status: 404 })
+		// Undo brings a deleted highlight back as it was, once; never someone else's.
+		const stranger = await users.create("API Highlights stranger")
+		expect(await errorOf(stranger.client.highlights.restore(linked.highlight.id))).toMatchObject({
+			status: 404,
+		})
+		const restored = await client.highlights.restore(linked.highlight.id)
+		expect(restored.highlight).toEqual(
+			(await client.highlights.list({ article: joel })).items.find(
+				(h) => h.id === linked.highlight.id,
+			),
+		)
+		expect(restored.highlight).toMatchObject({
+			id: linked.highlight.id,
+			quote: linked.highlight.quote,
+			note: linked.highlight.note,
+			article: { id: joel },
+		})
+		expect((await client.highlights.list({ article: joel })).items).toHaveLength(2)
+		expect(await errorOf(client.highlights.restore(linked.highlight.id))).toMatchObject({
+			status: 404,
+		})
+		expect(await errorOf(client.highlights.restore(MISSING))).toMatchObject({ status: 404 })
 		// Highlights of an article in the trash are gone with it.
 		const remaining = (await client.highlights.list({ article: joel })).items[0]!.id
 		await client.articles.trash([joel])
 		expect(await errorOf(client.highlights.update(remaining, { color: "green" }))).toMatchObject({
+			status: 404,
+		})
+		expect(await errorOf(client.highlights.restore(created.highlight.id))).toMatchObject({
 			status: 404,
 		})
 	})

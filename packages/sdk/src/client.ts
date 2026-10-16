@@ -102,7 +102,10 @@ export function createClient(options: ClientOptions) {
 		/** Moves its ends, in the text of the version `articles.html` gave (`versionId`). */
 		resize: (id: string, body: BodyOf<"highlights.resize">) =>
 			call("highlights.resize", { params: { id }, body }),
+		/** Deletes it with its note; `restore` undoes it. */
 		delete: (id: string) => call("highlights.delete", { params: { id } }),
+		/** Brings a deleted highlight back, while its article is in the library. */
+		restore: (id: string) => call("highlights.restore", { params: { id } }),
 	}
 
 	const notebook = {
@@ -250,6 +253,7 @@ export const FACADE: Record<EndpointId, string> = {
 	"highlights.update": "highlights.update",
 	"highlights.resize": "highlights.resize",
 	"highlights.delete": "highlights.delete",
+	"highlights.restore": "highlights.restore",
 	"notebook.get": "notebook.get",
 	"dailyHighlights.list": "dailyHighlights.list",
 	"dailyHighlights.dismiss": "dailyHighlights.dismiss",

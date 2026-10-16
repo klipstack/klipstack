@@ -25,6 +25,7 @@ import type {
 	WebViewMessageEvent,
 } from "react-native-webview/lib/WebViewTypes"
 import { AppearanceSheet } from "@/components/appearance-sheet"
+import { askTitle } from "@/components/article-actions"
 import { EditionNoteSheet } from "@/components/edition-note-sheet"
 import { HighlightCard } from "@/components/highlight-card"
 import { LinkCard, type TappedLink } from "@/components/link-card"
@@ -41,6 +42,7 @@ import type { ColorSchemePref } from "@/lib/color-scheme"
 import { afterMarking, withUndone } from "@/lib/draft-undo"
 import { waitForExtraction } from "@/lib/extraction"
 import { finishOnLeave, showFinished } from "@/lib/finish-on-leave"
+import { offerHighlightUndo } from "@/lib/highlight-undo"
 import { minutesLeft } from "@/lib/home"
 import { inTime } from "@/lib/in-time"
 import { guardNoteSaves, type SavedNote } from "@/lib/note-guard"
@@ -554,6 +556,25 @@ export default function Reader() {
 		}
 	}
 
+	// The new title at once, in the page's heading too; the old one back when the server refuses.
+	async function rename(title: string) {
+		if (!client || !article) return
+		const before = article.title
+		const show = (shown: string | null) => {
+			setArticle((current) => current && { ...current, title: shown })
+			web.current?.injectJavaScript(
+				`(function(){var h=document.querySelector("body > header > h1");if(h)h.textContent=${JSON.stringify(shown ?? article.url)};})(); true;`,
+			)
+		}
+		show(title)
+		try {
+			await track(client.articles.rename(article.id, title))
+		} catch (e) {
+			show(before)
+			Alert.alert("Not renamed", e instanceof Error ? e.message : String(e))
+		}
+	}
+
 	function onMessage(event: WebViewMessageEvent) {
 		// The page is ours (src/page/reader-page.ts), and its messages are `PageMessage`s.
 		let message: PageMessage
@@ -772,23 +793,25 @@ export default function Reader() {
 		)
 	}
 
+	// Gone at once, with its note; the toast's Undo brings both back, as on the web.
 	function deleteHighlight(target: Highlight) {
 		if (!client) return
-		const remove = () => {
-			setEditing(null)
-			void changeHighlight(
-				target.id,
-				(list) => list.filter((h) => h.id !== target.id),
-				() => client.highlights.delete(target.id),
-				"Not deleted",
+		setEditing(null)
+		const deleting = client.highlights.delete(target.id)
+		void changeHighlight(
+			target.id,
+			(list) => list.filter((h) => h.id !== target.id),
+			() => deleting,
+			"Not deleted",
+		)
+		offerHighlightUndo(client, target, deleting, (back) => {
+			setArticle((current) =>
+				current && !current.highlights.some((h) => h.id === back.id)
+					? { ...current, highlights: [...current.highlights, back] }
+					: current,
 			)
-		}
-		// Its note goes with it: ask first.
-		if (!target.note) return remove()
-		Alert.alert("Delete this highlight?", "Its note will be deleted too.", [
-			{ text: "Cancel", style: "cancel" },
-			{ text: "Delete", style: "destructive", onPress: remove },
-		])
+			void reloadHighlights()
+		})
 	}
 
 	// The library's own reader links open here; other web links, their card. Going to another
@@ -896,6 +919,13 @@ export default function Reader() {
 							onPress={() => tags.open([article])}
 						>
 							Tags…
+						</Stack.Toolbar.MenuAction>
+						<Stack.Toolbar.MenuAction
+							icon="pencil"
+							hidden={article.status === "failed"}
+							onPress={() => askTitle(article, (title) => void rename(title))}
+						>
+							Rename…
 						</Stack.Toolbar.MenuAction>
 						<Stack.Toolbar.Menu inline>
 							{page ? (

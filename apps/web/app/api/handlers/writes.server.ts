@@ -18,6 +18,7 @@ import {
 	type renameSavedSearch as renameSavedSearchEndpoint,
 	type renameTag as renameTagEndpoint,
 	type resizeHighlight,
+	type restoreHighlight,
 	type restoreArticles,
 	type saveArticle,
 	type saveFeedItems,
@@ -35,6 +36,7 @@ import {
 	createHighlight as createHighlightCommand,
 	deleteHighlight as deleteHighlightCommand,
 	resizeHighlight as resizeHighlightCommand,
+	restoreHighlight as restoreHighlightCommand,
 	setArticleNote,
 	updateHighlight as updateHighlightCommand,
 } from "~/commands/annotations.server"
@@ -251,6 +253,21 @@ export const moveHighlight: Handler<typeof resizeHighlight> = async ({ userId, p
 
 export const removeOne: Handler<typeof deleteHighlight> = async ({ userId, params }) => {
 	await deleteHighlightCommand(userId, params.id)
+}
+
+/** Undo of a delete; answers the highlight, so the app can draw it again. */
+export const bringBackOne: Handler<typeof restoreHighlight> = async ({ userId, params }) => {
+	await restoreHighlightCommand(userId, params.id)
+	const current = await getHighlightWithArticle(userId, params.id)
+	if (!current) throw notFound(NO_HIGHLIGHT)
+	return {
+		highlight: highlightShape(current, {
+			id: current.documentId,
+			title: current.documentTitle,
+			site: current.siteName,
+			url: current.sourceUrl,
+		}),
+	}
 }
 
 // ---- tags ----
