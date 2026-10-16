@@ -15,17 +15,19 @@ vi.mock("~/lib/i18n.server", async () => {
 
 const userId = `test-reading-home-starter-${newId()}`
 const spanishId = `test-reading-home-starter-es-${newId()}`
+const veteranId = `test-reading-home-starter-veteran-${newId()}`
 beforeAll(async () => {
 	await db.insert(user).values([
 		{ id: userId, name: "Reader", email: `${userId}@example.com` },
 		{ id: spanishId, name: "Lectora", email: `${spanishId}@example.com`, locale: "es" },
+		{ id: veteranId, name: "Veteran", email: `${veteranId}@example.com` },
 	])
 })
 beforeEach(() => {
 	session.user = { id: userId, name: "Reader", locale: "en" }
 })
 afterAll(async () => {
-	await db.delete(user).where(inArray(user.id, [userId, spanishId]))
+	await db.delete(user).where(inArray(user.id, [userId, spanishId, veteranId]))
 })
 
 const home = () =>
@@ -99,6 +101,36 @@ it("offers a Spanish reader the Spanish texts", async () => {
 			"dario-el-rey-burgues",
 			"balmes-la-atencion",
 			"sastre-la-avispa-solitaria",
+		],
+	})
+})
+
+it("leaves the guide out for a reader who has saved 10 articles", async () => {
+	session.user = { id: veteranId, name: "Veteran", locale: "en" }
+	const read = (n: number, deletedAt: Date | null = null) =>
+		Array.from({ length: n }, (_, i) => ({
+			userId: veteranId,
+			sourceUrl: `https://example.com/read-${newId()}-${i}`,
+			urlHash: newId(),
+			status: "ready" as const,
+			title: "Read",
+			readAt: new Date(),
+			archivedAt: new Date(),
+			deletedAt,
+		}))
+	// Nine, and one in the trash: still new to it.
+	await db.insert(documents).values([...read(9), ...read(1, new Date())])
+	expect((await home()).emptyState?.kind).toBe("caughtUp")
+	expect((await offer())?.guide).toBe("guide-en")
+	// The tenth: the books, without the guide.
+	await db.insert(documents).values(read(1))
+	expect(await offer()).toEqual({
+		guide: null,
+		texts: [
+			"bacon-of-studies",
+			"chopin-story-of-an-hour",
+			"marcus-aurelius-book-two",
+			"darwin-earthworms",
 		],
 	})
 })

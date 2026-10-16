@@ -42,21 +42,39 @@ export async function starterItems(userId: string, texts: StarterText[]): Promis
 	}))
 }
 
+/** How many saved articles, the trash aside, make a reader no longer new to Klipstack. */
+const EXPERIENCED = 10
+
+/** Whether the reader has saved enough to know their way around: the guide is not for them first. */
+export async function experiencedReader(userId: string): Promise<boolean> {
+	const rows = await db
+		.select({ id: documents.id })
+		.from(documents)
+		.where(and(eq(documents.userId, userId), isNull(documents.deletedAt)))
+		.limit(EXPERIENCED)
+	return rows.length >= EXPERIENCED
+}
+
 /** How many books an empty page offers; the rest are on `/texts`. */
 const OFFERED = 4
 
 /**
  * What a page with nothing to read offers (Home, the empty library), in the reader's language: the
- * guide while they don't have it, and texts they don't have, one from each topic in turn.
+ * guide while they don't have it and are new, and texts they don't have, one from each topic in
+ * turn.
  */
 export async function offeredStarterTexts(userId: string, language: StarterLanguage) {
 	const guide = starterGuide(language)
-	const items = await starterItems(userId, [guide, ...starterTextsIn(language)])
+	const [items, experienced] = await Promise.all([
+		starterItems(userId, [guide, ...starterTextsIn(language)]),
+		experiencedReader(userId),
+	])
 	const unread = items.filter((item) => !item.articleId)
 	const byTopic = STARTER_TOPICS.map((topic) => unread.filter((item) => item.topic === topic))
 	const texts: StarterItem[] = []
 	for (let round = 0; texts.length < OFFERED && byTopic.some((list) => list[round]); round++) {
 		for (const list of byTopic) if (list[round] && texts.length < OFFERED) texts.push(list[round]!)
 	}
-	return { guide: unread.find((item) => item.kind === "guide") ?? null, texts }
+	const offered = experienced ? null : unread.find((item) => item.kind === "guide")
+	return { guide: offered ?? null, texts }
 }
