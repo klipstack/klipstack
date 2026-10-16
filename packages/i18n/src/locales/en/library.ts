@@ -219,17 +219,11 @@ export default {
 		title: "Save a link",
 		description:
 			"Paste the address of an article. We fetch it, extract the text, and keep a clean copy for you.",
-		tabs: {
-			label: "Ways to add",
-			links: "Save links",
-			assistant: "Connect an assistant",
-		},
 		several: "One link per line, up to {{max}}. {{keys}} or Ctrl+Enter saves.",
 		results: "Links saved",
 		savedMany: "{{count}} links saved.",
 		savedMany_one: "{{count}} link saved.",
 		savedMany_other: "{{count}} links saved.",
-		copied: "Copied",
 		anywhere: {
 			title: "From any page",
 			description: "Drag it to your bookmarks bar, then click it on any article to save it here.",
@@ -238,26 +232,16 @@ export default {
 		assistant: {
 			title: "Your AI assistant",
 			description:
-				"Connect ChatGPT, Claude, Grok or another assistant to your library. Ask it to save an article, find what you highlighted or sum up what you read this week.",
-			verify: "First verify your email address in <account>Account settings</account>.",
-			chat: {
-				title: "ChatGPT, Claude or Grok",
-				steps:
-					"In the app's settings, add a custom connector and paste this address. It asks you to sign in to Klipstack and to allow it.",
-				copy: "Copy address",
-			},
-			agent: {
-				title: "An agent on your computer",
-				description:
-					"Claude Code, Codex and other agents can set it up themselves: copy these instructions and paste them into the agent.",
-				copy: "Copy instructions",
-				prompt:
-					"Connect to Klipstack, my read-it-later app, as a remote MCP server at {{url}} (streamable HTTP). It signs in with OAuth: open the sign-in link it gives you and tell me to approve it. Then list a few articles from my library to check it works.",
-			},
-			manage: "Manage connected apps",
+				"Connect ChatGPT, Claude or another assistant, then ask it to save articles or find what you highlighted. Copy this prompt into it: it sets itself up, or tells you how.",
+			verify:
+				"To connect an AI assistant, first verify your email address in <account>Account settings</account>.",
+			copy: "Copy prompt",
+			copied: "Copied",
+			manage: "Connected apps",
+			prompt:
+				"Connect to Klipstack, my read-it-later app. It is a remote MCP server at {{url}} (streamable HTTP) that signs in with OAuth. If you can add MCP servers yourself, add it and give me the sign-in link to approve. If you can't, tell me step by step how to add it as a custom connector in this app's settings. Then list a few articles from my library to check it works.",
 		},
 		feed: "Following a blog? Add it in <feed>Feed</feed>.",
-		settings: "More in <settings>Settings</settings>.",
 		errors: {
 			too_many: "Save up to {{max}} links at once.",
 			invalid_url: "That does not look like a valid link.",

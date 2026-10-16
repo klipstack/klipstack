@@ -48,12 +48,17 @@ test("home adapts to the library, opens articles and returns after finishing", a
 		"href",
 		"/home?save",
 	)
-	// It opens the Save link dialog here, ready to paste into.
+	// It opens the Save link dialog here, ready to paste into, without loading anything.
 	await waitForHydration(page)
+	const loads: string[] = []
+	page.on("request", (request) => {
+		if (new URL(request.url()).pathname.endsWith(".data")) loads.push(request.url())
+	})
 	await page.getByRole("link", { name: "Save link", exact: true }).click()
 	const dialog = page.getByRole("dialog", { name: "Save a link" })
 	await expect(dialog.getByLabel("Link", { exact: true })).toBeFocused()
 	await expect(page).toHaveURL(/\/home$/)
+	expect(loads).toEqual([])
 	await page.keyboard.press("Escape")
 	await expect(dialog).toBeHidden()
 	await expect(page.getByTestId("home-article")).toHaveCount(0)

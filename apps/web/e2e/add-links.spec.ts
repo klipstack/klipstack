@@ -35,17 +35,16 @@ test("the dialog saves several links at once, and keeps the ones it could not sa
 	await expect(dialog.getByText("Save up to 10 links at once.")).toBeVisible()
 	await expect(dialog.getByLabel("Link", { exact: true })).toHaveValue(many.join("\n"))
 
-	// Below the field, the bookmarklet; the other tab, an AI assistant.
+	// Below the field, the bookmarklet and an AI assistant's prompt.
 	await expect(dialog.getByRole("link", { name: "Save to Klipstack" })).toHaveAttribute(
 		"href",
 		/^javascript:.*\/add\?url=/,
 	)
-	await dialog.getByRole("tab", { name: "Connect an assistant" }).click()
-	await expect(dialog.getByText(/\/mcp$/)).toBeVisible()
-	await expect(dialog.getByRole("link", { name: "Manage connected apps" })).toBeVisible()
-	// What was typed is still there on the way back.
-	await dialog.getByRole("tab", { name: "Save links" }).click()
-	await expect(dialog.getByLabel("Link", { exact: true })).toHaveValue(many.join("\n"))
+	await expect(dialog.getByRole("button", { name: "Copy prompt" })).toBeVisible()
+	await expect(dialog.getByRole("link", { name: "Connected apps" })).toHaveAttribute(
+		"href",
+		"/settings/connected-apps",
+	)
 })
 
 test("the Save link field grows, Enter starts a line and Ctrl+Enter saves", async ({ page }) => {

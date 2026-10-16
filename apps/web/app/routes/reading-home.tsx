@@ -19,6 +19,7 @@ import { HomeHighlights } from "~/components/home-highlights"
 import { HomeMasthead } from "~/components/home-masthead"
 import { HomeNotes } from "~/components/home-notes"
 import { MenuNavLink, MoreMenu } from "~/components/more-menu"
+import { openSaveLink } from "~/components/save-link-dialog"
 import { StarterTexts } from "~/components/starter-texts"
 import { Button, buttonVariants } from "~/components/ui/button"
 import { useFeedReader } from "~/hooks/use-feed-reader"
@@ -376,7 +377,14 @@ export default function ReadingHome({
 						<p className="max-w-sm text-sm leading-relaxed text-muted-fg">
 							{t(`home.empty.${emptyState.kind}.description`)}
 						</p>
-						<Link to={emptyState.to} className={buttonVariants()}>
+						<Link
+							to={emptyState.to}
+							// Nothing saved: it opens the Save link dialog where it is, as the + button does.
+							onClick={(e) => {
+								if (emptyState.kind === "new" && openSaveLink()) e.preventDefault()
+							}}
+							className={buttonVariants()}
+						>
 							{t(`home.empty.${emptyState.kind}.action`)}
 						</Link>
 						{starter?.length ? (

@@ -219,17 +219,11 @@ export default {
 		title: "Guardar un enlace",
 		description:
 			"Pega la dirección de un artículo. Lo descargamos, extraemos el texto y guardamos una copia limpia.",
-		tabs: {
-			label: "Formas de añadir",
-			links: "Guardar enlaces",
-			assistant: "Conectar un asistente",
-		},
 		several: "Un enlace por línea, hasta {{max}}. {{keys}} o Ctrl+Intro guarda.",
 		results: "Enlaces guardados",
 		savedMany: "{{count}} enlaces guardados.",
 		savedMany_one: "{{count}} enlace guardado.",
 		savedMany_other: "{{count}} enlaces guardados.",
-		copied: "Copiado",
 		anywhere: {
 			title: "Desde cualquier página",
 			description:
@@ -239,26 +233,16 @@ export default {
 		assistant: {
 			title: "Tu asistente de IA",
 			description:
-				"Conecta ChatGPT, Claude, Grok u otro asistente a tu biblioteca. Pídele que guarde un artículo, que encuentre lo que subrayaste o que resuma lo que leíste esta semana.",
-			verify: "Primero verifica tu correo en los <account>ajustes de la cuenta</account>.",
-			chat: {
-				title: "ChatGPT, Claude o Grok",
-				steps:
-					"En los ajustes de la app, añade un conector personalizado y pega esta dirección. Te pedirá que inicies sesión en Klipstack y que le des permiso.",
-				copy: "Copiar dirección",
-			},
-			agent: {
-				title: "Un agente en tu ordenador",
-				description:
-					"Claude Code, Codex y otros agentes pueden configurarlo solos: copia estas instrucciones y pégalas en el agente.",
-				copy: "Copiar instrucciones",
-				prompt:
-					"Conéctate a Klipstack, mi app para leer más tarde, como servidor MCP remoto en {{url}} (HTTP en streaming). Inicia sesión con OAuth: abre el enlace de inicio de sesión que te dé y dime que lo apruebe. Después lista algunos artículos de mi biblioteca para comprobar que funciona.",
-			},
-			manage: "Gestionar las apps conectadas",
+				"Conecta ChatGPT, Claude u otro asistente y pídele que guarde artículos o que encuentre lo que subrayaste. Copia esta instrucción en él: se configura solo, o te dice cómo.",
+			verify:
+				"Para conectar un asistente de IA, primero verifica tu correo en los <account>ajustes de la cuenta</account>.",
+			copy: "Copiar instrucción",
+			copied: "Copiada",
+			manage: "Apps conectadas",
+			prompt:
+				"Conéctate a Klipstack, mi app para leer más tarde. Es un servidor MCP remoto en {{url}} (HTTP en streaming) que inicia sesión con OAuth. Si puedes añadir servidores MCP tú mismo, añádelo y dame el enlace de inicio de sesión para que lo apruebe. Si no puedes, explícame paso a paso cómo añadirlo como conector personalizado en los ajustes de esta app. Después lista algunos artículos de mi biblioteca para comprobar que funciona.",
 		},
 		feed: "¿Sigues un blog? Añádelo en <feed>Feeds</feed>.",
-		settings: "Más en <settings>Ajustes</settings>.",
 		errors: {
 			too_many: "Guarda hasta {{max}} enlaces de una vez.",
 			invalid_url: "Eso no parece un enlace válido.",

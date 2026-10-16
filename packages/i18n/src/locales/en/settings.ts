@@ -104,6 +104,7 @@ export default {
 		description: "Apps you allowed to access your account, such as AI assistants.",
 		mcpHint:
 			"To connect an AI assistant, add Klipstack to it as a remote MCP server with this URL:",
+		promptHint: "Or copy a prompt into the assistant: it adds Klipstack itself, or tells you how.",
 		empty: "No connected apps.",
 		connectedOn: "Connected {{date}}",
 		disconnect: "Disconnect",
