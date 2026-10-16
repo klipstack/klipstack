@@ -332,6 +332,7 @@ export default {
 		editionDue: "Tu próxima edición te espera",
 		topics: "Temas",
 		topicsReady: "Tus primeros temas están listos",
+		discover: "Descubrir",
 		archive: "Archivo",
 		starred: "Destacados",
 		notebook: "Cuaderno",

@@ -1,5 +1,12 @@
 import { and, db, documents, eq, inArray, isNull } from "@klipstack/db"
-import { type StarterText, starterTexts, starterUrlHash } from "~/lib/starter-texts.server"
+import {
+	STARTER_TOPICS,
+	type StarterLanguage,
+	type StarterText,
+	starterGuide,
+	starterTextsIn,
+	starterUrlHash,
+} from "~/lib/starter-texts.server"
 
 /** Which of `texts` the reader has in their library (not in the trash): slug to article id. */
 export async function savedStarterTexts(
@@ -39,13 +46,17 @@ export async function starterItems(userId: string, texts: StarterText[]): Promis
 const OFFERED = 4
 
 /**
- * What a page with nothing to read offers (Home, the empty library): the texts in the reader's
- * language they don't have, the guide first.
+ * What a page with nothing to read offers (Home, the empty library), in the reader's language: the
+ * guide while they don't have it, and texts they don't have, one from each topic in turn.
  */
-export async function offeredStarterTexts(userId: string, language: string) {
-	const items = await starterItems(
-		userId,
-		starterTexts().filter((text) => text.language === language),
-	)
-	return items.filter((item) => !item.articleId).slice(0, OFFERED)
+export async function offeredStarterTexts(userId: string, language: StarterLanguage) {
+	const guide = starterGuide(language)
+	const items = await starterItems(userId, [guide, ...starterTextsIn(language)])
+	const unread = items.filter((item) => !item.articleId)
+	const byTopic = STARTER_TOPICS.map((topic) => unread.filter((item) => item.topic === topic))
+	const texts: StarterItem[] = []
+	for (let round = 0; texts.length < OFFERED && byTopic.some((list) => list[round]); round++) {
+		for (const list of byTopic) if (list[round] && texts.length < OFFERED) texts.push(list[round]!)
+	}
+	return { guide: unread.find((item) => item.kind === "guide") ?? null, texts }
 }

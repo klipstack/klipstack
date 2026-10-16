@@ -2,7 +2,7 @@ import { Command, defaultFilter } from "cmdk"
 import {
 	Archive,
 	Bookmark,
-	BookOpen,
+	Compass,
 	Check,
 	Clipboard,
 	FileText,
@@ -199,7 +199,9 @@ export function CommandPalette() {
 		{
 			id: "starter-texts",
 			label: tl("starter.title"),
-			icon: BookOpen,
+			icon: Compass,
+			// The sidebar's name for it.
+			keywords: [t("nav.discover")],
 			run: () => go("/texts"),
 		},
 		{

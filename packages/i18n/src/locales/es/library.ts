@@ -193,11 +193,37 @@ export default {
 	starter: {
 		title: "Algo para leer",
 		description:
-			"Textos breves para probar los subrayados y las notas: una guía de Klipstack y ensayos de dominio público sobre leer y escribir. Elige un libro para añadirlo a tu biblioteca.",
+			"Textos de dominio público para probar los subrayados y las notas: ensayos, cuentos y discursos. Elige un libro para añadirlo a tu biblioteca.",
 		shelf: "Libros para empezar",
+		guide: {
+			eyebrow: "¿Es tu primera vez en Klipstack?",
+			description: "Guardar, subrayar y anotar, en {{count}} min.",
+			description_one: "Guardar, subrayar y anotar, en {{count}} min.",
+			description_other: "Guardar, subrayar y anotar, en {{count}} min.",
+		},
+		read: "Leerla",
+		languageSwitch: "Idioma de los textos",
+		topics: {
+			reading: {
+				title: "Leer y escribir",
+				description: "Escritores sobre libros, estilo y lectores.",
+			},
+			stories: { title: "Cuentos", description: "Ficción breve para leer de una sentada." },
+			living: {
+				title: "Cómo vivir",
+				description: "Consejos antiguos sobre el tiempo, el trabajo y el carácter.",
+			},
+			science: {
+				title: "Ciencia y naturaleza",
+				description: "Científicos y naturalistas que explican el mundo.",
+			},
+			society: {
+				title: "Sociedad e historia",
+				description: "Discursos y ensayos que defendieron un cambio.",
+			},
+		},
 		homeTitle: "O empieza con uno de estos",
 		more: "Más para leer",
-		language: { en: "En inglés", es: "En español" },
 		minutes: "{{count}} min",
 		minutes_one: "{{count}} min",
 		minutes_other: "{{count}} min",

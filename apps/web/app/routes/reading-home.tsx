@@ -1,4 +1,4 @@
-import { fallbackLanguage, isLocale } from "@klipstack/i18n/languages"
+import { fallbackLanguage, isLocale, type Locale } from "@klipstack/i18n/languages"
 import { ChevronDown, CircleAlert, Clock3 } from "lucide-react"
 import { type ReactNode, useEffect, useMemo } from "react"
 import { useTranslation } from "react-i18next"
@@ -20,7 +20,7 @@ import { HomeMasthead } from "~/components/home-masthead"
 import { HomeNotes } from "~/components/home-notes"
 import { MenuNavLink, MoreMenu } from "~/components/more-menu"
 import { openSaveLink } from "~/components/save-link-dialog"
-import { StarterTexts } from "~/components/starter-texts"
+import { StarterOffer } from "~/components/starter-texts"
 import { Button, buttonVariants } from "~/components/ui/button"
 import { useFeedReader } from "~/hooks/use-feed-reader"
 import { topicModels } from "~/lib/ai.server"
@@ -115,7 +115,7 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 }
 
 /** The starter texts Home offers when it has nothing to feature: nothing saved, or all of it read. */
-function homeStarter(userId: string, language: string, empty: string | undefined) {
+function homeStarter(userId: string, language: Locale, empty: string | undefined) {
 	if (empty !== "new" && empty !== "caughtUp") return null
 	return offeredStarterTexts(userId, language)
 }
@@ -386,16 +386,8 @@ export default function ReadingHome({
 						>
 							{t(`home.empty.${emptyState.kind}.action`)}
 						</Link>
-						{starter?.length ? (
-							<div className="mt-10 w-full max-w-xl">
-								<StarterTexts items={starter} language={language} title={t("starter.homeTitle")} />
-								<Link
-									to="/texts"
-									className="mt-4 inline-block text-sm text-link underline-offset-4 hover:underline"
-								>
-									{t("starter.more")}
-								</Link>
-							</div>
+						{starter ? (
+							<StarterOffer offer={starter} language={language} className="mt-10 w-full max-w-xl" />
 						) : null}
 					</div>
 				) : null}

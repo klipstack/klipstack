@@ -193,11 +193,31 @@ export default {
 	starter: {
 		title: "Something to read",
 		description:
-			"Short texts to try highlights and notes on: a guide to Klipstack, and essays on reading and writing from the public domain. Choose a book to add it to your library.",
+			"Texts from the public domain to try highlights and notes on: essays, stories and speeches. Choose a book to add it to your library.",
 		shelf: "Books to start with",
+		guide: {
+			eyebrow: "New to Klipstack?",
+			description: "Saving, highlighting and notes, in {{count}} min.",
+			description_one: "Saving, highlighting and notes, in {{count}} min.",
+			description_other: "Saving, highlighting and notes, in {{count}} min.",
+		},
+		read: "Read it",
+		languageSwitch: "Language of the texts",
+		topics: {
+			reading: { title: "Reading & writing", description: "Writers on books, style and readers." },
+			stories: { title: "Stories", description: "Short fiction to read in one sitting." },
+			living: { title: "How to live", description: "Old advice on time, work and character." },
+			science: {
+				title: "Science & nature",
+				description: "Scientists and naturalists explaining the world.",
+			},
+			society: {
+				title: "Society & history",
+				description: "Speeches and essays that argued for change.",
+			},
+		},
 		homeTitle: "Or start with one of these",
 		more: "More to read",
-		language: { en: "In English", es: "In Spanish" },
 		minutes: "{{count}} min",
 		minutes_one: "{{count}} min",
 		minutes_other: "{{count}} min",

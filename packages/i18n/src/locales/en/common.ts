@@ -324,6 +324,7 @@ export default {
 		editionDue: "Your next edition is waiting",
 		topics: "Topics",
 		topicsReady: "Your first topics are ready",
+		discover: "Discover",
 		archive: "Archive",
 		starred: "Starred",
 		notebook: "Notebook",

@@ -1,17 +1,27 @@
 import { JSDOM } from "jsdom"
 import { describe, expect, it } from "vitest"
-import { starterTexts, starterTextsFor } from "./starter-texts.server"
+import {
+	STARTER_LANGUAGES,
+	STARTER_TOPICS,
+	starterGuide,
+	starterTexts,
+	starterTextsIn,
+} from "./starter-texts.server"
 
-describe("starterTextsFor", () => {
-	it("puts the reader's language first, guide first, and keeps the rest", () => {
-		const es = starterTextsFor("es")
-		expect(es.map((text) => text.language)).toEqual([
-			...Array.from({ length: 5 }, () => "es"),
-			...Array.from({ length: 7 }, () => "en"),
-		])
-		expect(es[0]!.slug).toBe("guide-es")
-		expect(es[5]!.slug).toBe("guide-en")
-		expect(starterTextsFor("en")[0]!.slug).toBe("guide-en")
+describe("the catalog", () => {
+	it.each(STARTER_LANGUAGES)("has a guide and a full shelf of each topic in %s", (language) => {
+		expect(starterGuide(language).kind).toBe("guide")
+		const texts = starterTextsIn(language)
+		expect(texts.every((text) => text.language === language && text.kind === "text")).toBe(true)
+		for (const topic of STARTER_TOPICS) {
+			expect(texts.filter((text) => text.topic === topic).length, topic).toBeGreaterThanOrEqual(3)
+		}
+	})
+
+	it("names each text once, at an address of its own", () => {
+		const texts = starterTexts()
+		expect(new Set(texts.map((text) => text.slug)).size).toBe(texts.length)
+		expect(new Set(texts.map((text) => text.url)).size).toBe(texts.length)
 	})
 })
 

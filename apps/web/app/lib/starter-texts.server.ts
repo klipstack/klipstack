@@ -1,37 +1,91 @@
 import { normalizeUrl, urlHash } from "@klipstack/extract"
 import { JSDOM } from "jsdom"
 import { env } from "./env.server"
+import {
+	STARTER_LANGUAGES,
+	STARTER_TOPICS,
+	type StarterLanguage,
+	type StarterTopic,
+} from "./starter-shelves"
+
+export {
+	isStarterLanguage,
+	STARTER_LANGUAGES,
+	STARTER_TOPICS,
+	type StarterLanguage,
+	type StarterTopic,
+} from "./starter-shelves"
 
 /**
  * Texts a reader can add to their library without finding one first: the guide to Klipstack, ours,
- * and short public-domain essays on reading and writing. Each ships with the app as a page
- * (`app/starter/`), saved as a capture, so adding one fetches nothing and works on any server.
+ * and short public-domain texts (essays, stories, speeches) in a few topics. Each ships with the app
+ * as a page (`app/starter/`), saved as a capture, so adding one fetches nothing and works on any
+ * server.
  *
- * An essay keeps the address of the Wikisource page it comes from (the page's canonical link). The
+ * A text keeps the address of the Wikisource page it comes from (the page's canonical link). The
  * guide's address is its public page on this server (`/guide/<language>`): a reader who has it
  * keeps their copy when the guide changes, and adding it again opens that copy.
  */
 
-export const STARTER_LANGUAGES = ["en", "es"] as const
-export type StarterLanguage = (typeof STARTER_LANGUAGES)[number]
-
-/** In the order they are offered: the guide, then the essays, shortest first. */
 const GUIDE = "guide"
-const ESSAYS: Record<StarterLanguage, readonly string[]> = {
-	en: [
-		"bacon-of-studies",
-		"seneca-on-reading",
-		"stevenson-books-influenced",
-		"hazlitt-familiar-style",
-		"thoreau-reading",
-		"twain-cooper",
-	],
-	es: [
-		"becquer-cartas-literarias",
-		"feijoo-prologo-al-lector",
-		"cervantes-prologo-quijote",
-		"larra-quien-es-el-publico",
-	],
+/** Per language and topic, in the order they are offered: shortest first. */
+const TEXTS: Record<StarterLanguage, Record<StarterTopic, readonly string[]>> = {
+	en: {
+		reading: [
+			"bacon-of-studies",
+			"seneca-on-reading",
+			"stevenson-books-influenced",
+			"hazlitt-familiar-style",
+			"thoreau-reading",
+			"twain-cooper",
+		],
+		stories: [
+			"chopin-story-of-an-hour",
+			"ohenry-gift-of-the-magi",
+			"poe-tell-tale-heart",
+			"chekhov-rothschilds-fiddle",
+		],
+		living: ["marcus-aurelius-book-two", "stevenson-apology-for-idlers", "emerson-self-reliance"],
+		science: [
+			"darwin-earthworms",
+			"huxley-method-of-zadig",
+			"faraday-candle-lecture-one",
+			"thoreau-walking",
+		],
+		society: [
+			"lincoln-second-inaugural",
+			"wollstonecraft-vindication-introduction",
+			"douglass-fourth-of-july",
+			"swift-modest-proposal",
+		],
+	},
+	es: {
+		reading: [
+			"becquer-cartas-literarias",
+			"feijoo-prologo-al-lector",
+			"cervantes-prologo-quijote",
+			"larra-quien-es-el-publico",
+		],
+		stories: [
+			"dario-el-rey-burgues",
+			"quiroga-la-gallina-degollada",
+			"pardo-bazan-el-indulto",
+			"clarin-adios-cordera",
+		],
+		living: ["balmes-la-atencion", "unamuno-mi-religion", "gracian-oraculo-manual", "rodo-ariel"],
+		science: [
+			"sastre-la-avispa-solitaria",
+			"darwin-origen-de-las-especies",
+			"holmberg-excursion-rio-lujan",
+			"feijoo-astrologia-judiciaria",
+		],
+		society: [
+			"arenal-la-mujer-del-porvenir",
+			"bolivar-manifiesto-de-cartagena",
+			"larra-vuelva-usted-manana",
+			"marti-nuestra-america",
+		],
+	},
 }
 
 const pages = import.meta.glob<string>("../starter/**/*.html", {
@@ -47,10 +101,12 @@ function page(path: string): string {
 }
 
 export type StarterText = {
-	/** `guide-en`, or the essay's file name. */
+	/** `guide-en`, or the text's file name. */
 	slug: string
-	kind: "guide" | "essay"
+	kind: "guide" | "text"
 	language: StarterLanguage
+	/** The shelf it is on; none for the guide. */
+	topic: StarterTopic | null
 	title: string
 	author: string | null
 	description: string | null
@@ -72,10 +128,11 @@ export function guidePath(language: StarterLanguage) {
 
 function starterText(
 	slug: string,
-	kind: StarterText["kind"],
 	language: StarterLanguage,
+	topic: StarterTopic | null,
 	html: string,
 ): StarterText {
+	const kind = topic ? "text" : "guide"
 	const doc = new JSDOM(html).window.document
 	const meta = (name: string) =>
 		doc.querySelector(`meta[name="${name}"]`)?.getAttribute("content")?.trim() || null
@@ -93,6 +150,7 @@ function starterText(
 		slug,
 		kind,
 		language,
+		topic,
 		title,
 		// The guide has no author of its own: the reader would show "Klipstack · Klipstack".
 		author: meta("author") ?? (kind === "guide" ? "Klipstack" : null),
@@ -106,11 +164,15 @@ function starterText(
 
 let catalog: StarterText[] | null = null
 
-/** Every starter text: per language, the guide and then the essays. */
+/** Every starter text: per language, the guide and then the texts, topic by topic. */
 export function starterTexts(): StarterText[] {
 	catalog ??= STARTER_LANGUAGES.flatMap((language) => [
-		starterText(`${GUIDE}-${language}`, "guide", language, page(`${GUIDE}/${language}`)),
-		...ESSAYS[language].map((slug) => starterText(slug, "essay", language, page(`texts/${slug}`))),
+		starterText(`${GUIDE}-${language}`, language, null, page(`${GUIDE}/${language}`)),
+		...STARTER_TOPICS.flatMap((topic) =>
+			TEXTS[language][topic].map((slug) =>
+				starterText(slug, language, topic, page(`texts/${slug}`)),
+			),
+		),
 	])
 	return catalog
 }
@@ -119,13 +181,14 @@ export function findStarterText(slug: string): StarterText | null {
 	return starterTexts().find((text) => text.slug === slug) ?? null
 }
 
-/** The texts in the reader's language first, then the rest. */
-export function starterTextsFor(language: string): StarterText[] {
-	const texts = starterTexts()
-	return [
-		...texts.filter((text) => text.language === language),
-		...texts.filter((text) => text.language !== language),
-	]
+/** The guide in `language`. */
+export function starterGuide(language: StarterLanguage): StarterText {
+	return findStarterText(`${GUIDE}-${language}`)!
+}
+
+/** The texts in `language`, without the guide, topic by topic. */
+export function starterTextsIn(language: StarterLanguage): StarterText[] {
+	return starterTexts().filter((text) => text.language === language && text.kind === "text")
 }
 
 /** The hash a library finds the text by (`documents.url_hash`). */
