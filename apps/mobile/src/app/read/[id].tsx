@@ -783,7 +783,10 @@ export default function Reader() {
 	}
 
 	/** Gone at once; the toast's Undo brings it back, as a highlight's does. */
-	function deleteAnswer(threadId: string, message = "Answer deleted") {
+	function deleteAnswer(
+		threadId: string,
+		{ message, lost } = { message: "Answer deleted", lost: "Couldn't bring the answer back." },
+	) {
 		aiCards.remove(
 			threadId,
 			(restore) =>
@@ -791,8 +794,7 @@ export default function Reader() {
 					message,
 					action: {
 						label: "Undo",
-						run: () =>
-							void restore().catch(() => showToast({ message: "Couldn't bring the answer back." })),
+						run: () => void restore().catch(() => showToast({ message: lost })),
 					},
 				}),
 			() => showToast({ message: "Couldn't delete it. Try again." }),
@@ -1254,7 +1256,13 @@ export default function Reader() {
 					canCite={chatCard?.versionId === versionId.current}
 					onAsk={(question) => versionId.current && aiCards.chat(question, versionId.current)}
 					onRetry={() => chatCard && aiCards.retry(chatCard.id)}
-					onClear={() => chatCard && deleteAnswer(chatCard.id, "Chat cleared")}
+					onClear={() =>
+						chatCard &&
+						deleteAnswer(chatCard.id, {
+							message: "Chat cleared",
+							lost: "Couldn't bring the chat back.",
+						})
+					}
 					onCopy={(answer) => {
 						void copyText(answer)
 						showToast({ message: "Answer copied" })

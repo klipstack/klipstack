@@ -1,6 +1,6 @@
 import type { AiAllowance, AiCitation } from "@klipstack/sdk"
 import { SymbolView, type SymbolViewProps } from "expo-symbols"
-import { useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
 import { AiAnswer } from "@/components/ai-answer"
 import { QuestionField, Turns, useKeyboardHeight } from "@/components/ai-card"
@@ -56,15 +56,25 @@ export function ChatSheet({
 	const { none } = questionsLeft(allowance)
 	const state = chat ? cardState(chat, none) : null
 	const busy = !!state?.busy
-	const last = chat?.messages.at(-1)
 	const left = allowanceMessage(allowance)
 	const cite = canCite ? onCite : undefined
 	const keyboard = useKeyboardHeight()
+	// The tools and the field under the turns: the toast shows above them.
+	const [bottomHeight, setBottomHeight] = useState(110)
 	const turns = useRef<ScrollView>(null)
-	// The newest turn in view; the reader scrolling up keeps their place.
+	// The newest turn in view; the reader scrolling up keeps their place, until they ask again.
 	const pinned = useRef(true)
+	const count = chat?.messages.length ?? 0
+	const shownCount = useRef(count)
+	useEffect(() => {
+		if (count > shownCount.current) {
+			pinned.current = true
+			turns.current?.scrollToEnd({ animated: true })
+		}
+		shownCount.current = count
+	}, [count])
 	// A question still waiting for its answer takes no new one; a refused one does.
-	const asking = !busy && !none && (last?.role !== "user" || !!chat?.failure)
+	const asking = state ? state.canFollowUp : !none
 	return (
 		<Modal
 			visible={visible}
@@ -128,6 +138,7 @@ export function ChatSheet({
 					</View>
 				</ScrollView>
 				<View
+					onLayout={(e) => setBottomHeight(e.nativeEvent.layout.height)}
 					style={[styles.bottom, { borderColor: colors.border, paddingBottom: keyboard ? 10 : 24 }]}
 				>
 					{chat && state && !busy ? (
@@ -165,7 +176,7 @@ export function ChatSheet({
 				</View>
 			</View>
 			{/* Over the sheet too: Clear Chat's Undo shows here. */}
-			<ToastHost />
+			<ToastHost above={keyboard + bottomHeight + 8} />
 		</Modal>
 	)
 }
