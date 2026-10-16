@@ -218,6 +218,14 @@ describe("GET /topics and GET /articles?topic=", () => {
 				topic: ids["reader:Science"],
 			})
 			expect(unfinished.items.map((a) => a.title)).toEqual(["Atoms"])
+			// Each filter counts the topic's articles only.
+			expect(
+				(await reader.client.articles.counts({ topic: ids["reader:Science"] })).counts,
+			).toMatchObject({ unread: 1, read: 0 })
+			expect(
+				(await reader.client.articles.counts({ view: "archive", topic: ids["reader:Science"] }))
+					.counts,
+			).toMatchObject({ finished: 1, unfinished: 0 })
 			const finished = await reader.client.articles.list({
 				view: "all",
 				filter: "finished",
@@ -247,6 +255,11 @@ describe("GET /topics and GET /articles?topic=", () => {
 			[without.client, "none"],
 		] as const) {
 			await expect(client.articles.list({ topic })).rejects.toMatchObject({
+				status: 404,
+				code: "not_found",
+			})
+			// The filters' counts too: another reader's topic counts nothing of theirs.
+			await expect(client.articles.counts({ view: "archive", topic })).rejects.toMatchObject({
 				status: 404,
 				code: "not_found",
 			})
