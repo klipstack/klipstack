@@ -459,6 +459,12 @@ html.hl-dragging, html.hl-dragging * { -webkit-user-select: none; user-select: n
 ::highlight(klip-speaking) { background-color: var(--speaking); }
 /* A followed citation's passage flashes in the citation's own ink, the highlighter's yellow, and
    fades out in steps (\`klipCite\`): a ::highlight can't be animated. */
+/* AI threads: a solid accent line under the passage; the open one's gets a faint accent wash. */
+::highlight(klip-ai) {
+	text-decoration: underline solid color-mix(in oklch, var(--accent) 70%, transparent);
+	text-decoration-thickness: 1.5px; text-underline-offset: 4px;
+}
+::highlight(klip-ai-focus) { background-color: color-mix(in oklch, var(--accent) 14%, transparent); }
 ::highlight(klip-cited) { background-color: color-mix(in oklch, var(--hl-0) 85%, transparent); }
 ::highlight(klip-cited-fading) { background-color: color-mix(in oklch, var(--hl-0) 40%, transparent); }
 `

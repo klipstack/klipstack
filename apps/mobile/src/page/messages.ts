@@ -30,6 +30,9 @@ export type PageSelection = {
 	suffix: string
 }
 
+/** An AI thread's passage, underlined: offsets into the article's text. */
+export type PageThread = { id: string; start: number; end: number }
+
 /** What the page opens with, in `<script type="application/json" id="klip-config">`. */
 export type PageConfig = {
 	/** Points at the top of the screen the app's controls cover. */
@@ -98,6 +101,8 @@ export type PageMessage =
 	/** A link in the post-it, tapped while not writing: open that article. */
 	| { type: "note-link"; id: string }
 	| { type: "highlight"; id: string }
+	/** A tap on an AI thread's underlined passage. */
+	| { type: "thread"; id: string }
 	/** A tap off the open highlight. */
 	| { type: "outside" }
 	/** The open highlight's new place, as its handles left it, and the place it had. */
@@ -123,6 +128,9 @@ export type PageApi = {
 	klipShow(id: string): void
 	/** Scrolls to a passage an answer cites (offsets into the article's text) and flashes it. */
 	klipCite(start: number, end: number): void
+	/** Underlines the AI threads' passages; `klipThreadFocus` marks the open one's. */
+	klipThreads(list: PageThread[]): void
+	klipThreadFocus(id: string | null): void
 	klipClearSelection(): void
 	klipType(fontSize: number, sans: boolean): void
 	klipSentences(lang: string): void

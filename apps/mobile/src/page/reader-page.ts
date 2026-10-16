@@ -18,6 +18,7 @@ import type {
 	PageHighlight,
 	PageMessage,
 	PageSelection,
+	PageThread,
 	Sentence,
 } from "./messages"
 import { type Endpoint, moveEnd, type Offsets, wordEdges } from "./resize"
@@ -35,6 +36,9 @@ import { createTakeaway } from "./takeaway"
  *   at its offsets, or found by its quote and the text around it when the offsets are from another
  *   version (`resolveSelector`, as the server re-anchors). One with a note gets a tab beside its
  *   first line; a tap on it opens the highlight.
+ * - `klipThreads(list)` underlines the AI threads' passages in the accent's ink (a tap on one says
+ *   which: `{ type: "thread", id }`, unless a smaller highlight is under the finger);
+ *   `klipThreadFocus(id or null)` washes the open one's.
  * - `klipCite(start, end)` scrolls to a passage an AI answer cites and flashes it in yellow ink.
  * - `klipShow(id)` scrolls a highlight into view; `klipActive(id or null)` puts the one being edited
  *   in focus, as the web reader does: the text and the other highlights fade, and it stands out
@@ -336,7 +340,7 @@ export function startReaderPage(): void {
 			document.body.appendChild(room)
 		}
 		room.style.height = `${covered}px`
-		const range = byId.get(id)
+		const range = byId.get(id) ?? threads.get(id)
 		if (!range) return
 		const rect = range.getBoundingClientRect()
 		if (rect.top >= TOP + 8 && rect.bottom <= window.innerHeight - covered - 8) return
@@ -347,6 +351,39 @@ export function startReaderPage(): void {
 		if (!range) return
 		const rect = range.getBoundingClientRect()
 		window.scrollTo({ top: window.scrollY + rect.top - window.innerHeight / 4, behavior: "smooth" })
+	}
+
+	// ---- AI threads ----
+
+	let threads = new Map<string, Range>()
+	page.klipThreads = (list: PageThread[]) => {
+		threads = new Map()
+		for (const t of list) {
+			const range = root ? rangeFromOffsets(root, t.start, t.end) : null
+			if (range) threads.set(t.id, range)
+		}
+		if (!canPaint()) return
+		if (threads.size) CSS.highlights.set("klip-ai", new Highlight(...threads.values()))
+		else CSS.highlights.delete("klip-ai")
+		repaint(root ?? undefined)
+	}
+	page.klipThreadFocus = (id) => {
+		if (!canPaint()) return
+		const range = id ? threads.get(id) : undefined
+		if (range) CSS.highlights.set("klip-ai-focus", new Highlight(range))
+		else CSS.highlights.delete("klip-ai-focus")
+		repaint(root ?? undefined)
+	}
+	/** The smallest thread passage at a point of the text, and its size. */
+	function threadAt(node: Node, offset: number): { id: string; size: number } | null {
+		let best: { id: string; size: number } | null = null
+		for (const [id, range] of threads) {
+			const atEnd = node === range.endContainer && offset === range.endOffset
+			if (atEnd || !range.isPointInRange(node, offset)) continue
+			const size = range.toString().length
+			if (!best || size < best.size) best = { id, size }
+		}
+		return best
 	}
 
 	// ---- citations ----
@@ -439,6 +476,10 @@ export function startReaderPage(): void {
 		if (!(window.getSelection()?.isCollapsed ?? true)) return
 		const caret = document.caretRangeFromPoint?.(event.clientX, event.clientY) ?? null
 		const id = caret ? highlightAt(caret.startContainer, caret.startOffset) : null
+		const thread = caret ? threadAt(caret.startContainer, caret.startOffset) : null
+		// The smaller of the two under the finger: a question about a few words of a highlight.
+		if (thread && (!id || thread.size < (byId.get(id)?.toString().length ?? Infinity)))
+			return post({ type: "thread", id: thread.id })
 		if (id) return post({ type: "highlight", id })
 		// A highlight is open: a tap elsewhere closes it, and does nothing else.
 		if (active) return post({ type: "outside" })

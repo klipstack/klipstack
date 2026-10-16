@@ -30,6 +30,7 @@ import type {
 	ShouldStartLoadRequest,
 	WebViewMessageEvent,
 } from "react-native-webview/lib/WebViewTypes"
+import { AiCard } from "@/components/ai-card"
 import { AppearanceSheet } from "@/components/appearance-sheet"
 import { askTitle } from "@/components/article-actions"
 import { BriefSheet } from "@/components/brief-sheet"
@@ -41,6 +42,7 @@ import type { NoteLinking } from "@/components/note-field"
 import { NotesSheet } from "@/components/notes-sheet"
 import { ReaderStatus } from "@/components/reader-status"
 import { useTagSheet } from "@/components/tag-sheet"
+import { type AiAction, useAiCards } from "@/lib/ai-cards"
 import { showToast, track } from "@/lib/article-changes"
 import { retagged } from "@/lib/article-tags"
 import { useAuth } from "@/lib/auth"
@@ -167,8 +169,10 @@ export default function Reader() {
 	const [scheme, setScheme] = useState(loadColorScheme)
 	// How far down the reader is, 0–1: the status line's, moved without rendering the screen.
 	const [line] = useState(() => new Animated.Value(0))
-	// The AI about this article, with the `ai` feature: its brief, for now.
+	// The AI about this article, with the `ai` feature: its brief, and questions about passages.
 	const ai = useReaderAi(client, id, page !== null)
+	const aiCards = useAiCards(client, id, ai)
+	const openCard = aiCards.cards.find((c) => c.id === aiCards.openId) ?? null
 	const [briefOpen, setBriefOpen] = useState(false)
 	// A citation followed from a sheet shows once the sheet is gone.
 	const citeAfterSheet = useRef<AiCitation | null>(null)
@@ -329,13 +333,31 @@ export default function Reader() {
 	}, [editing])
 	// The part of the screen the card covers: the highlight is kept above it.
 	const [covered, setCovered] = useState(0)
+	// The AI threads' passages are underlined: those about the text on the page.
+	const threadsJson = JSON.stringify(
+		aiCards.cards
+			.filter((c) => c.action !== "chat" && !c.orphaned && c.versionId === versionId.current)
+			.map(({ id: threadId, start, end }) => ({ id: threadId, start, end })),
+	)
 	useEffect(() => {
 		if (!loaded.current) return
-		const at = editing ? covered : 0
+		web.current?.injectJavaScript(`window.klipThreads && window.klipThreads(${threadsJson}); true;`)
+	}, [threadsJson])
+	useEffect(() => {
+		if (!loaded.current) return
 		web.current?.injectJavaScript(
-			`window.klipReveal && window.klipReveal(${JSON.stringify(editing)}, ${at}); true;`,
+			`window.klipThreadFocus && window.klipThreadFocus(${JSON.stringify(aiCards.openId)}); true;`,
 		)
-	}, [editing, covered])
+	}, [aiCards.openId])
+	// After the threads: the page knows a new card's passage by then.
+	const revealed = editing ?? aiCards.openId
+	useEffect(() => {
+		if (!loaded.current) return
+		const at = revealed ? covered : 0
+		web.current?.injectJavaScript(
+			`window.klipReveal && window.klipReveal(${JSON.stringify(revealed)}, ${at}); true;`,
+		)
+	}, [revealed, covered])
 
 	useEffect(() => {
 		if (!client || !id) return
@@ -634,7 +656,12 @@ export default function Reader() {
 				openLink({ href: `${apiUrl}/read/${message.id}`, text: "" })
 				break
 			case "highlight":
+				aiCards.close()
 				setEditing(message.id)
+				break
+			case "thread":
+				setEditing(null)
+				aiCards.open(message.id)
 				break
 			case "outside":
 				setEditing(null)
@@ -734,6 +761,38 @@ export default function Reader() {
 	function cite(citation: AiCitation) {
 		web.current?.injectJavaScript(
 			`window.klipCite && window.klipCite(${citation.start}, ${citation.end}); true;`,
+		)
+	}
+
+	/**
+	 * Explain, Define or Ask about the selected passage, by its place in the text on the page. Without
+	 * that place (the menu came before the page's report), nothing to ask about.
+	 */
+	function askAbout(action: AiAction) {
+		const picked = selection.current
+		const version = versionId.current
+		if (!picked || !version || !picked.exact.trim())
+			return void showToast({ message: "Select the passage again." })
+		web.current?.injectJavaScript("window.klipClearSelection && window.klipClearSelection(); true;")
+		setEditing(null)
+		aiCards.start({ ...picked, versionId: version }, action)
+		reading.current?.engage()
+	}
+
+	/** Gone at once; the toast's Undo brings it back, as a highlight's does. */
+	function deleteAnswer(threadId: string) {
+		aiCards.remove(
+			threadId,
+			(restore) =>
+				showToast({
+					message: "Answer deleted",
+					action: {
+						label: "Undo",
+						run: () =>
+							void restore().catch(() => showToast({ message: "Couldn't bring the answer back." })),
+					},
+				}),
+			() => showToast({ message: "Couldn't delete the answer." }),
 		)
 	}
 
@@ -1025,6 +1084,13 @@ export default function Reader() {
 									{ label: "Highlight", key: "highlight" },
 									{ label: "Copy", key: "copy" },
 									...(canLookUp ? [{ label: "Look Up", key: "lookup" }] : []),
+									...(ai.enabled
+										? [
+												{ label: "Explain", key: "explain" },
+												{ label: "Define", key: "define" },
+												{ label: "Ask", key: "ask" },
+											]
+										: []),
 									{ label: "Share", key: "share" },
 								]
 					}
@@ -1034,6 +1100,7 @@ export default function Reader() {
 						else if (key === "copy") void copyText(selectedText)
 						else if (key === "lookup") void lookUp(selectedText.trim())
 						else if (key === "share") void Share.share({ message: selectedText.trim() })
+						else if (key === "explain" || key === "define" || key === "ask") askAbout(key)
 					}}
 					onLoadEnd={() => {
 						loaded.current = true
@@ -1059,6 +1126,9 @@ export default function Reader() {
 							web.current?.injectJavaScript(
 								`window.klipHighlights && window.klipHighlights(${painted}); true;`,
 							)
+						web.current?.injectJavaScript(
+							`window.klipThreads && window.klipThreads(${threadsJson}); true;`,
+						)
 					}}
 					// iOS ends a web page's process when it needs the memory (reading aloud, in the
 					// background): the page would stay blank. Load it again.
@@ -1263,6 +1333,25 @@ export default function Reader() {
 				linking={linking}
 				colors={colors}
 			/>
+			{ai.enabled ? (
+				<AiCard
+					card={openCard}
+					written={aiCards.written}
+					allowance={ai.allowance}
+					canCite={openCard?.versionId === versionId.current}
+					onClose={aiCards.close}
+					onSend={(question) => openCard && aiCards.send(openCard.id, question)}
+					onRetry={() => openCard && aiCards.retry(openCard.id)}
+					onDelete={() => openCard && deleteAnswer(openCard.id)}
+					onCopy={(answer) => {
+						void copyText(answer)
+						showToast({ message: "Answer copied" })
+					}}
+					onCite={cite}
+					onCover={(points) => setCovered(Math.round(points))}
+					colors={colors}
+				/>
+			) : null}
 		</View>
 	)
 }
