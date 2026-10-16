@@ -2,6 +2,7 @@ import { TRASH_RETENTION_DAYS } from "@klipstack/api-contract/names"
 import type { ArticleSummary, KlipstackClient } from "@klipstack/sdk"
 import { useCallback, useInsertionEffect, useRef } from "react"
 import { Alert } from "react-native"
+import { track } from "@/lib/article-changes"
 import { newTitle } from "@/lib/article-title"
 import { actedOn, afterAction, BULK_CHANGES, type BulkAction } from "@/lib/bulk-actions"
 import { afterMarking } from "@/lib/draft-undo"
@@ -65,7 +66,8 @@ export function useArticleActions(options: {
 		if (!client) return
 		latest.current.apply(new Map([[article.id, { ...article, title }]]))
 		try {
-			const answer = await client.articles.rename(article.id, title)
+			// Other screens and the widget load again once it lands.
+			const answer = await track(client.articles.rename(article.id, title))
 			latest.current.apply(new Map([[article.id, answer.article]]))
 		} catch (e) {
 			latest.current.apply(new Map([[article.id, article]]))
