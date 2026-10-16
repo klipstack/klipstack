@@ -143,6 +143,20 @@ async function candidates(
 }
 
 /**
+ * The unread saves from a while ago, in the day's order, and when "a while ago" starts: Home's
+ * candidates for From a while ago (`homeCandidates`), for the API. `keep` per choice, as there.
+ */
+export async function rediscoverCandidates(
+	userId: string,
+	{ now = new Date(), keep, topicId }: { now?: Date; keep: number; topicId?: string },
+): Promise<{ items: HomeCard[]; savedBefore: Date }> {
+	const older = rediscover(now)
+	const topic = topicId ? inTopic(topicId) : undefined
+	const items = await candidates(userId, and(older.where, topic) as SQL, older.order, keep)
+	return { items, savedBefore: older.savedBefore }
+}
+
+/**
  * The articles in progress (read last first), the unread saves (newest first) and the unread
  * saves from a while ago (the day's pick) Home chooses from, and when "a while ago" starts: with a
  * time chosen, Recently saved keeps to the saves after it. With `topicId`, only the articles in
@@ -163,7 +177,6 @@ export async function homeCandidates(
 	rediscover: HomeCard[]
 	recentSince: Date
 }> {
-	const older = rediscover(now)
 	const topic = topicId ? inTopic(topicId) : undefined
 	const [reading, recent, readAgain, rediscovered] = await Promise.all([
 		candidates(
@@ -188,14 +201,14 @@ export async function homeCandidates(
 			{ key: sql`${documents.updatedAt}`, desc: true },
 			keep.again,
 		),
-		candidates(userId, and(older.where, topic) as SQL, older.order, keep.rediscover),
+		rediscoverCandidates(userId, { now, keep: keep.rediscover, topicId }),
 	])
 	return {
 		reading,
 		recent,
 		again: readAgain,
-		rediscover: rediscovered,
-		recentSince: older.savedBefore,
+		rediscover: rediscovered.items,
+		recentSince: rediscovered.savedBefore,
 	}
 }
 

@@ -49,6 +49,27 @@ describe("homeSections", () => {
 		expect(ids(home.quick)).toEqual(["q1"])
 	})
 
+	it("brings a few older saves back under From a while ago, not those shown above", () => {
+		const home = homeSections({
+			reading: [article("r1")],
+			unread: [article("u1"), article("old1")],
+			rediscover: [
+				article("old1"),
+				article("old2"),
+				article("p", "processing"),
+				article("old3"),
+				article("old4"),
+				article("old5"),
+			],
+			quick: [article("old2"), article("q1")],
+			long: [],
+		})
+		expect(ids(home.recent)).toEqual(["u1", "old1"])
+		expect(ids(home.rediscover)).toEqual(["old2", "old3", "old4"])
+		// Before the short reads: those it shows don't show again there.
+		expect(ids(home.quick)).toEqual(["q1"])
+	})
+
 	it("shows each article once and only ready ones", () => {
 		const home = homeSections({
 			reading: [article("a")],
@@ -72,6 +93,7 @@ describe("homeSections", () => {
 			recent: [],
 			again: [],
 			quick: [],
+			rediscover: [],
 			pickUp: false,
 			nothingFits: false,
 		})
@@ -147,6 +169,35 @@ describe("homeSections with a time chosen", () => {
 		expect(ids(home.recent)).toEqual(["l-50", "l-20", "u-5"])
 	})
 
+	it("keeps Recently saved to saves after a while ago, which come back under From a while ago", () => {
+		const since = "2026-10-02T00:00:00.000Z"
+		const old = timed("old-50", 50, { savedAt: "2026-09-01T10:00:00.000Z" })
+		const lists = {
+			...none,
+			unread: [timed("u-40", 40, { savedAt: "2026-10-12T10:00:00.000Z" })],
+			long: [old, timed("l-35", 35, { savedAt: "2026-10-05T10:00:00.000Z" })],
+			rediscover: [timed("old-90", 90, { savedAt: "2026-08-01T10:00:00.000Z" }), old],
+			recentSince: since,
+		}
+		const home = homeSections(lists, { minutes: 60 })
+		expect(home.hero?.id).toBe("u-40")
+		expect(ids(home.recent)).toEqual(["l-35"])
+		expect(ids(home.rediscover)).toEqual(["old-50"])
+		// Without a time, Recently saved is the newest saves, whenever they were saved.
+		expect(ids(homeSections({ ...lists, unread: [...lists.unread, old] }).recent)).toEqual([
+			"old-50",
+		])
+	})
+
+	it("counts From a while ago among what fits", () => {
+		const home = homeSections(
+			{ ...none, unread: [timed("u", 20)], rediscover: [timed("old", 4)] },
+			{ minutes: 5 },
+		)
+		expect(ids(home.rediscover)).toEqual(["old"])
+		expect(home.nothingFits).toBe(false)
+	})
+
 	it("counts exactly half the time as filling it", () => {
 		const home = homeSections(
 			{ ...none, unread: [timed("u-5", 5), timed("u-15", 15)] },
@@ -216,6 +267,11 @@ describe("everyHomeArticle", () => {
 		expect(all).toContain("l-50")
 		expect(all).toHaveLength(10)
 	})
+
+	it("keeps From a while ago too", () => {
+		const lists = { reading: [], unread: [], quick: [], long: [], rediscover: [article("old")] }
+		expect(ids(everyHomeArticle(lists))).toEqual(["old"])
+	})
 })
 
 describe("offersTimeChoice", () => {
@@ -228,6 +284,7 @@ describe("offersTimeChoice", () => {
 		const nine = { reading: many(3, "r"), unread: many(6, "u"), quick: [], long: [] }
 		expect(offersTimeChoice(nine)).toBe(false)
 		expect(offersTimeChoice({ ...nine, long: [left("l")] })).toBe(true)
+		expect(offersTimeChoice({ ...nine, rediscover: [left("old")] })).toBe(true)
 	})
 
 	it("counts each article once, and only those with a reading time to go", () => {

@@ -1,4 +1,11 @@
-import type { ArticleSummary, DailyHighlight, NoteReminder, Topic } from "@klipstack/sdk"
+import type {
+	ArticleSummary,
+	DailyHighlight,
+	FinishedLately,
+	NextEdition,
+	NoteReminder,
+	Topic,
+} from "@klipstack/sdk"
 import { router, useFocusEffect } from "expo-router"
 import { SymbolView } from "expo-symbols"
 import { useCallback, useMemo, useRef, useState } from "react"
@@ -28,6 +35,7 @@ import {
 } from "@/components/article-card"
 import { ClipboardOffer } from "@/components/clipboard-offer"
 import { HomeHighlights } from "@/components/home-highlights"
+import { HomeMasthead } from "@/components/home-masthead"
 import { NoteReminders } from "@/components/note-reminders"
 import { useTagSheet } from "@/components/tag-sheet"
 import { onChange, settled } from "@/lib/article-changes"
@@ -51,10 +59,17 @@ import {
 	topicHeading,
 } from "@/lib/home-topics"
 import { topicEnded } from "@/lib/library-topics"
-import { canUseOffline, loadList, OFFLINE_NOTE, saveList } from "@/lib/offline"
+import {
+	canUseOffline,
+	loadList,
+	loadRecentSince,
+	OFFLINE_NOTE,
+	saveList,
+	saveRecentSince,
+} from "@/lib/offline"
 import { downloadAhead, keepLibraryLists } from "@/lib/offline-download"
 import { type Colors, useColors } from "@/lib/theme"
-import { chooseTopic } from "@/lib/topic-choices"
+import { chooseFilter, chooseTopic } from "@/lib/topic-choices"
 
 /**
  * The home page, as the web's: a big card to continue reading (or, with nothing in progress, to
@@ -70,7 +85,12 @@ import { chooseTopic } from "@/lib/topic-choices"
  * on the web: a time narrows every section to what can be finished in it, from the lists already
  * loaded, without asking the server again. Articles finished lately without a note are asked
  * about, as on the web, when the server suggests it. A few past highlights come back each day
- * ("From your highlights"), as on the web, unless a topic or a time is chosen.
+ * ("From your highlights"), as on the web, unless a topic or a time is chosen; and a few older
+ * saves, a different few each day ("From a while ago"), in a topic and a time too.
+ *
+ * Above it all, as the web's masthead: what was finished this past week, and the next edition,
+ * which the web puts together. When one is due, why, with "Not now", unless a topic or a time is
+ * chosen.
  */
 export default function Home() {
 	const { state } = useAuth()
@@ -94,6 +114,12 @@ export default function Home() {
 	} | null>(null)
 	const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set())
 	const putOff = useRef(false)
+	// The line about what was finished this past week, and the next edition; "Not now" said here.
+	const [finished, setFinished] = useState<FinishedLately | null>(null)
+	const [edition, setEdition] = useState<NextEdition | null>(null)
+	const editionPutOff = useRef(false)
+	// "Saved more than 14 days ago": the server's count, once it answers.
+	const [afterDays, setAfterDays] = useState(14)
 	const [pick, setPick] = useState<TopicPick>(null)
 	const choice = homeTopicChoice(topics, pick)
 	const chosen = choice?.chosen ?? null
@@ -128,6 +154,24 @@ export default function Home() {
 					setReminders(answer.items.filter((r) => !skipped.current.has(r.article.id)))
 				})
 				.catch(() => {})
+			// Alongside too; a server before them answers 404: Home without the line or the ear.
+			// Offline, neither: what they said may be out of date.
+			const hideOffline = (hide: () => void) => (e: unknown) => {
+				if (mine === generation.current && canUseOffline(e)) hide()
+			}
+			void client.home
+				.finished(Intl.DateTimeFormat().resolvedOptions().timeZone)
+				.then((answer) => {
+					if (mine === generation.current) setFinished(answer)
+				})
+				.catch(hideOffline(() => setFinished(null)))
+			void client.editions
+				.next()
+				.then((answer) => {
+					if (mine !== generation.current) return
+					setEdition(editionPutOff.current ? { ...answer, nudge: null } : answer)
+				})
+				.catch(hideOffline(() => setEdition(null)))
 			// In a topic, Home is about its articles, as on the web. A server before them answers 404:
 			// Home without the section.
 			if (!topic)
@@ -138,7 +182,7 @@ export default function Home() {
 					})
 					.catch(() => {})
 			// More than a shelf shows: the sections drop what isn't ready or shows above.
-			const [reading, unread, quick, long, again] = await Promise.all([
+			const [reading, unread, quick, long, again, rediscover] = await Promise.all([
 				client.articles.list({ view: "inbox", filter: "progress", limit: 12, topic }),
 				client.articles.list({
 					view: "inbox",
@@ -156,6 +200,12 @@ export default function Home() {
 						if (canUseOffline(e)) throw e
 						return { items: [] }
 					}),
+				// A server before From a while ago answers 404: Home without the section. A topic that
+				// ended fails the lists above.
+				client.home.rediscover({ topic }).catch((e: unknown) => {
+					if (canUseOffline(e)) throw e
+					return { items: [], savedBefore: null, afterDays: null }
+				}),
 			])
 			if (mine !== generation.current) return
 			const loaded = {
@@ -164,7 +214,10 @@ export default function Home() {
 				quick: quick.items,
 				long: long.items,
 				again: again.items,
+				rediscover: rediscover.items,
+				recentSince: rediscover.savedBefore,
 			}
+			if (rediscover.afterDays) setAfterDays(rediscover.afterDays)
 			setLists(loaded)
 			setError(null)
 			// A topic's share is part of the library: enough in it is enough in all of it.
@@ -180,6 +233,8 @@ export default function Home() {
 			saveList("home-quick", quick.items)
 			saveList("home-long", long.items)
 			saveList("home-again", again.items)
+			saveList("home-rediscover", rediscover.items)
+			saveRecentSince(rediscover.savedBefore)
 			// Home as it opens first, then what each time would show.
 			void downloadAhead(client, "home", everyHomeArticle(loaded))
 			keepLibraryLists(client)
@@ -198,8 +253,17 @@ export default function Home() {
 				// Kept since the time choice came; none before.
 				const long = loadList("home-long") ?? []
 				const again = loadList("home-again") ?? []
+				const rediscover = loadList("home-rediscover") ?? []
 				if (reading && unread && quick) {
-					const kept = { reading, unread, quick, long, again }
+					const kept = {
+						reading,
+						unread,
+						quick,
+						long,
+						again,
+						rediscover,
+						recentSince: loadRecentSince(),
+					}
 					setLists((shown) => shown ?? kept)
 					setTimeChoice((offered) => offered || offersTimeChoice(kept))
 				}
@@ -270,7 +334,8 @@ export default function Home() {
 		setRefreshing(false)
 	}
 
-	const empty = home && !home.hero && !home.quick.length && !home.again.length
+	const empty =
+		home && !home.hero && !home.quick.length && !home.again.length && !home.rediscover.length
 	return (
 		<ScrollView
 			contentInsetAdjustmentBehavior="automatic"
@@ -278,6 +343,20 @@ export default function Home() {
 			contentContainerStyle={styles.page}
 			refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
 		>
+			{client ? (
+				<HomeMasthead
+					finished={finished}
+					edition={edition}
+					// In a topic, or with a time chosen, Home is about reading what's next.
+					nudging={!chosen && minutes === null}
+					onNotNow={() => {
+						editionPutOff.current = true
+						setEdition((shown) => shown && { ...shown, nudge: null })
+						void client.editions.snoozeNudge().catch(() => {})
+					}}
+					colors={colors}
+				/>
+			) : null}
 			<ClipboardOffer client={client} onSaved={() => void load()} colors={colors} />
 			{/* In a topic, or with a time chosen, Home is about reading what's next. */}
 			{client && !chosen && minutes === null ? (
@@ -410,6 +489,22 @@ export default function Home() {
 								colors={colors}
 								headers={headers}
 							/>
+						</Section>
+					) : null}
+					{home.rediscover.length ? (
+						<Section
+							title="From a while ago"
+							note={`Saved more than ${afterDays} ${afterDays === 1 ? "day" : "days"} ago. A different few each day.`}
+							onMore={() => {
+								// Inbox's unread saves, oldest first, in the same topic or all of them: as the
+								// web's link.
+								chooseFilter("inbox", "unread", "oldest")
+								chooseTopic("inbox", topic ?? null)
+								router.navigate("/library/inbox", { withAnchor: true })
+							}}
+							colors={colors}
+						>
+							<Shelf items={home.rediscover} colors={colors} headers={headers} menu={menu} />
 						</Section>
 					) : null}
 					{home.quick.length ? (

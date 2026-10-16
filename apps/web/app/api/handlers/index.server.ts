@@ -3,6 +3,7 @@ import type { HandlerTable } from "../handler.server"
 import { me } from "./account.server"
 import * as ai from "./ai.server"
 import * as articles from "./articles.server"
+import * as home from "./home.server"
 import * as library from "./library.server"
 import { openapi } from "./meta.server"
 import * as notebook from "./notebook.server"
@@ -51,6 +52,10 @@ export const handlers: HandlerTable<Endpoints> = {
 	"dailyHighlights.restore": notebook.restoreDaily,
 	"noteReminders.list": notebook.reminders,
 	"noteReminders.snooze": notebook.snoozeReminders,
+	"home.finished": home.finished,
+	"home.rediscover": home.rediscover,
+	"editions.next": home.nextEdition,
+	"editions.snoozeNudge": home.snoozeNudge,
 	"feed.get": library.feed,
 	"feed.saveItems": writes.saveItems,
 	"feed.dismissItems": writes.dismissItems,

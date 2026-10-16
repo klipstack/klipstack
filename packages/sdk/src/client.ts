@@ -135,6 +135,20 @@ export function createClient(options: ClientOptions) {
 		snooze: () => call("noteReminders.snooze"),
 	}
 
+	const home = {
+		/** What was finished in the past week; `timeZone` is the device's (an IANA name). */
+		finished: (timeZone: string) => call("home.finished", { query: { timeZone } }),
+		/** Unread saves from a while ago, in the day's order; with `topic`, that topic's. */
+		rediscover: (query: QueryOf<"home.rediscover"> = {}) => call("home.rediscover", { query }),
+	}
+
+	const editions = {
+		/** The next edition: the draft or the articles marked for it, and whether one is due. */
+		next: () => call("editions.next"),
+		/** "Not now" on the nudge for an edition: none for a week. */
+		snoozeNudge: () => call("editions.snoozeNudge"),
+	}
+
 	type Language = { language?: "en" | "es"; signal?: AbortSignal }
 	/**
 	 * The AI about an article. Each question, follow-up, retry and new brief counts against the
@@ -179,6 +193,8 @@ export function createClient(options: ClientOptions) {
 		notebook,
 		dailyHighlights,
 		noteReminders,
+		home,
+		editions,
 		annotations: {
 			/** Highlights and article notes with the words of `q`, grouped, with snippets. */
 			search: (q: string, query: Omit<QueryOf<"annotations.search">, "q"> = {}) =>
@@ -296,6 +312,10 @@ export const FACADE: Record<EndpointId, string> = {
 	"dailyHighlights.restore": "dailyHighlights.restore",
 	"noteReminders.list": "noteReminders.list",
 	"noteReminders.snooze": "noteReminders.snooze",
+	"home.finished": "home.finished",
+	"home.rediscover": "home.rediscover",
+	"editions.next": "editions.next",
+	"editions.snoozeNudge": "editions.snoozeNudge",
 	"feed.get": "feed.get",
 	"feed.saveItems": "feed.saveItems",
 	"feed.dismissItems": "feed.dismissItems",

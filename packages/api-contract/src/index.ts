@@ -4,6 +4,7 @@ export * from "./endpoint"
 export * from "./endpoints/account"
 export * from "./endpoints/ai"
 export * from "./endpoints/articles"
+export * from "./endpoints/home"
 export * from "./endpoints/library"
 export * from "./endpoints/meta"
 export * from "./endpoints/notebook"
@@ -36,6 +37,12 @@ import {
 	previewLink,
 	searchArticles,
 } from "./endpoints/articles"
+import {
+	getFinishedLately,
+	getNextEdition,
+	listRediscover,
+	snoozeNextEdition,
+} from "./endpoints/home"
 import {
 	exportLibrary,
 	getAsset,
@@ -135,6 +142,10 @@ export const endpoints = {
 	"dailyHighlights.restore": restoreDailyHighlight,
 	"noteReminders.list": listNoteReminders,
 	"noteReminders.snooze": snoozeNoteReminders,
+	"home.finished": getFinishedLately,
+	"home.rediscover": listRediscover,
+	"editions.next": getNextEdition,
+	"editions.snoozeNudge": snoozeNextEdition,
 	"feed.get": getFeed,
 	"feed.saveItems": saveFeedItems,
 	"feed.dismissItems": dismissFeedItems,
