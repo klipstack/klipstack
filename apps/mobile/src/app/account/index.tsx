@@ -147,7 +147,9 @@ export default function Account() {
 						}}
 					/>
 				) : (
-					usageRows(usage).map((row) => <Meter key={row.key} row={row} colors={colors} />)
+					usageRows(usage, { editions: me?.editions ?? true }).map((row) => (
+						<Meter key={row.key} row={row} colors={colors} />
+					))
 				)}
 			</Section>
 
@@ -189,6 +191,7 @@ export default function Account() {
 
 			<Section title="On the web" footnote="These settings stay on the web, in your browser.">
 				<Row label="Ways to sign in" web onPress={web("/settings/account")} />
+				<Row label="Features: AI answers, editions" web onPress={web("/settings/features")} />
 				<Row label="API keys" web onPress={web("/settings/api-keys")} />
 				<Row label="Connected apps" web onPress={web("/settings/connected-apps")} />
 				<Row label="Terms of service" web onPress={web("/terms")} />

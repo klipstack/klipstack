@@ -138,8 +138,8 @@ let edition: EditionRow
 
 beforeAll(async () => {
 	await db.insert(userTable).values([
-		{ id: userId, name: "Ada Reader", email: `${userId}@example.com` },
-		{ id: otherId, name: "Other", email: `${otherId}@example.com` },
+		{ id: userId, name: "Ada Reader", email: `${userId}@example.com`, prefs: { editions: "on" } },
+		{ id: otherId, name: "Other", email: `${otherId}@example.com`, prefs: { editions: "on" } },
 	])
 	target = await addDocument({ sourceUrl: "https://b.example/Mercury_(planet)", title: "Target" })
 	trashed = await addDocument({
@@ -1161,7 +1161,7 @@ describe("editionNeighbors", () => {
 			expect(await editionNeighbors(otherId, at, "en")).toEqual({ previous: null, next: null })
 			await db
 				.update(userTable)
-				.set({ prefs: { linkEditions: "on" } })
+				.set({ prefs: { editions: "on", linkEditions: "on" } })
 				.where(eq(userTable.id, otherId))
 			expect(await editionNeighbors(otherId, at, "en")).toEqual({
 				previous: { title: "First", path: `/e/${first.publicId}/first` },
@@ -1178,7 +1178,10 @@ describe("editionNeighbors", () => {
 				next: null,
 			})
 		} finally {
-			await db.update(userTable).set({ prefs: {} }).where(eq(userTable.id, otherId))
+			await db
+				.update(userTable)
+				.set({ prefs: { editions: "on" } })
+				.where(eq(userTable.id, otherId))
 			await db
 				.delete(editions)
 				.where(inArray(editions.id, [first.id, hidden.id, middle.id, removed.id, last.id]))

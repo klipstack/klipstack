@@ -53,6 +53,7 @@ import { useAuth } from "@/lib/auth"
 import { copyText } from "@/lib/clipboard"
 import type { ColorSchemePref } from "@/lib/color-scheme"
 import { afterMarking, withUndone } from "@/lib/draft-undo"
+import { useEditions } from "@/lib/editions"
 import { waitForExtraction } from "@/lib/extraction"
 import { finishOnLeave, showFinished } from "@/lib/finish-on-leave"
 import { offerHighlightUndo } from "@/lib/highlight-undo"
@@ -110,6 +111,7 @@ export default function Reader() {
 	const colors = useColors()
 	const insets = useSafeAreaInsets()
 	const client = state.status === "signed-in" ? state.client : null
+	const editions = useEditions(client)
 	const [article, setArticle] = useState<ArticleDetails | null>(null)
 	const tags = useTagSheet(client, (changed) => setArticle((a) => a && retagged(a, changed)))
 	const [page, setPage] = useState<{ uri: string; folder: string } | null>(null)
@@ -189,6 +191,9 @@ export default function Reader() {
 	const aiCards = useAiCards(client, id, ai)
 	const openCard = aiCards.cards.find((c) => c.id === aiCards.openId) ?? null
 	const chatCard = aiCards.cards.find((c) => c.action === "chat")
+	// With AI answers turned off, the brief and the chat the article has, to read; nothing to ask.
+	const briefShown = ai.asking || !!ai.brief.brief
+	const chatShown = ai.asking || !!chatCard
 	const [chatOpen, setChatOpen] = useState(false)
 	const [briefOpen, setBriefOpen] = useState(false)
 	// The sheet that asks before the first question goes to the AI, and what it was asked for.
@@ -271,6 +276,7 @@ export default function Reader() {
 					}),
 					archived: article.location === "archive",
 					starred: article.starred,
+					editions,
 					shortlisted: article.shortlisted,
 					editionNote: editionNote.trim() ? editionNote : null,
 				}
@@ -721,6 +727,7 @@ export default function Reader() {
 			case "star":
 				return void update({ starred: !article.starred })
 			case "shortlist":
+				if (!editions) return
 				return void update({ shortlisted: !article.shortlisted })
 			case "share":
 				return void Share.share({ url: article.url, title: article.title ?? undefined })
@@ -857,6 +864,8 @@ export default function Reader() {
 
 	/** The brief: the kept one, or, asked for here, written now. */
 	function openBrief() {
+		// Turned off: the brief kept, to read, with nothing sent anywhere.
+		if (!ai.asking) return setBriefOpen(true)
 		withConsent(() => {
 			setBriefOpen(true)
 			if (!ai.brief.brief && !ai.brief.writing) void ai.brief.make()
@@ -1014,21 +1023,27 @@ export default function Reader() {
 							onPress={() => (listen.status ? listen.close() : void listen.start())}
 						/>
 					) : null}
-					{page && ai.enabled ? (
+					{page && ai.enabled && (briefShown || chatShown) ? (
 						<Stack.Toolbar.Menu
 							icon="sparkles"
 							accessibilityLabel="Ask AI"
 							tintColor={colors.accent}
 						>
-							<Stack.Toolbar.MenuAction icon="list.bullet.rectangle.portrait" onPress={openBrief}>
-								Sum Up This Article
-							</Stack.Toolbar.MenuAction>
-							<Stack.Toolbar.MenuAction
-								icon="bubble.left.and.text.bubble.right"
-								onPress={() => withConsent(() => setChatOpen(true))}
-							>
-								Chat About This Article
-							</Stack.Toolbar.MenuAction>
+							{briefShown ? (
+								<Stack.Toolbar.MenuAction icon="list.bullet.rectangle.portrait" onPress={openBrief}>
+									Sum Up This Article
+								</Stack.Toolbar.MenuAction>
+							) : null}
+							{chatShown ? (
+								<Stack.Toolbar.MenuAction
+									icon="bubble.left.and.text.bubble.right"
+									onPress={() =>
+										ai.asking ? withConsent(() => setChatOpen(true)) : setChatOpen(true)
+									}
+								>
+									Chat About This Article
+								</Stack.Toolbar.MenuAction>
+							) : null}
 						</Stack.Toolbar.Menu>
 					) : null}
 					{article.status === "ready" ? (
@@ -1066,7 +1081,7 @@ export default function Reader() {
 						</Stack.Toolbar.MenuAction>
 						<Stack.Toolbar.MenuAction
 							icon="newspaper"
-							hidden={article.status === "failed"}
+							hidden={article.status === "failed" || !editions}
 							onPress={() => update({ shortlisted: !article.shortlisted })}
 						>
 							{article.shortlisted ? "Remove from Next Edition" : "Add to Next Edition"}
@@ -1161,7 +1176,7 @@ export default function Reader() {
 									{ label: "Highlight", key: "highlight" },
 									{ label: "Copy", key: "copy" },
 									...(canLookUp ? [{ label: "Look Up", key: "lookup" }] : []),
-									...(ai.enabled
+									...(ai.asking
 										? [
 												{ label: "Explain", key: "explain" },
 												{ label: "Define", key: "define" },
@@ -1320,8 +1335,12 @@ export default function Reader() {
 					written={aiCards.written}
 					allowance={ai.allowance}
 					canCite={chatCard?.versionId === versionId.current}
-					onAsk={(question) => versionId.current && aiCards.chat(question, versionId.current)}
-					onRetry={() => chatCard && aiCards.retry(chatCard.id)}
+					onAsk={
+						ai.asking
+							? (question) => versionId.current && aiCards.chat(question, versionId.current)
+							: undefined
+					}
+					onRetry={ai.asking ? () => chatCard && aiCards.retry(chatCard.id) : undefined}
 					onClear={() =>
 						chatCard &&
 						deleteAnswer(chatCard.id, {
@@ -1480,8 +1499,14 @@ export default function Reader() {
 					allowance={ai.allowance}
 					canCite={openCard?.versionId === versionId.current}
 					onClose={aiCards.close}
-					onSend={(question) => openCard && withConsent(() => aiCards.send(openCard.id, question))}
-					onRetry={() => openCard && withConsent(() => aiCards.retry(openCard.id))}
+					onSend={
+						ai.asking
+							? (question) => openCard && withConsent(() => aiCards.send(openCard.id, question))
+							: undefined
+					}
+					onRetry={
+						ai.asking ? () => openCard && withConsent(() => aiCards.retry(openCard.id)) : undefined
+					}
 					onDelete={() => openCard && deleteAnswer(openCard.id)}
 					onCopy={(answer) => {
 						void copyText(answer)

@@ -163,6 +163,8 @@ export async function loader({ context, request, params }: Route.LoaderArgs) {
 		highlights,
 		ai: {
 			enabled: aiEnabled,
+			// Asking more: not turned off in Settings → Features. Off, the answers kept still show.
+			asking: aiEnabled && resolvePrefs(user.prefs).ai !== "off",
 			threads,
 			brief,
 			allowance,
@@ -314,8 +316,12 @@ function Reader({ loaderData }: Route.ComponentProps) {
 		setSidebarTab("notes")
 		setSidebarOpen(true)
 	}, [location.hash, location.key])
-	// The same test as the reader's (`aiEnabled`): AI needs the browser's highlight painting.
-	const chatting = ready && loaderData.ai.enabled && highlightsPaint
+	// The same test as the reader's (`aiEnabled`): AI needs the browser's highlight painting. With
+	// asking turned off, the chat only to read the article's.
+	const aiShown = ready && loaderData.ai.enabled && highlightsPaint
+	const chatting =
+		aiShown && (loaderData.ai.asking || loaderData.ai.threads.some((t) => t.action === "chat"))
+	const editions = loaderData.prefs.editions === "on"
 
 	const deleteArticle = () => {
 		warnAboutBacklinks(doc.id, (count) => tl("toast.deletedLinked", { count }), tl("toast.undo"))
@@ -333,6 +339,7 @@ function Reader({ loaderData }: Route.ComponentProps) {
 				state.change(state.starred ? "unstar" : "star")
 				return true
 			case "shortlist":
+				if (!editions) return false
 				state.change(state.shortlisted ? "unshortlist" : "shortlist")
 				return true
 			case "archive":
@@ -379,13 +386,17 @@ function Reader({ loaderData }: Route.ComponentProps) {
 				shortcut: SHORTCUT_HINTS.star,
 				run: () => act("star"),
 			},
-			{
-				id: "article-shortlist",
-				label: state.shortlisted ? t("actions.unshortlist") : t("actions.shortlist"),
-				icon: Newspaper,
-				shortcut: SHORTCUT_HINTS.shortlist,
-				run: () => act("shortlist"),
-			},
+			...(editions
+				? [
+						{
+							id: "article-shortlist",
+							label: state.shortlisted ? t("actions.unshortlist") : t("actions.shortlist"),
+							icon: Newspaper,
+							shortcut: SHORTCUT_HINTS.shortlist,
+							run: () => act("shortlist"),
+						},
+					]
+				: []),
 			{
 				id: "article-archive",
 				label: state.archived ? t("actions.unarchive") : t("actions.archive"),
@@ -481,7 +492,7 @@ function Reader({ loaderData }: Route.ComponentProps) {
 				prefs={prefs}
 				onPrefs={setPrefs}
 				starred={state.starred}
-				shortlisted={state.shortlisted}
+				shortlisted={editions ? state.shortlisted : undefined}
 				archived={state.archived}
 				onChange={change}
 				onDelete={deleteArticle}
@@ -550,6 +561,7 @@ function Reader({ loaderData }: Route.ComponentProps) {
 								documentId={doc.id}
 								note={note}
 								linkTargets={loaderData.linkTargets}
+								editions={editions}
 								editionNote={doc.editionNote}
 								state={ending.state}
 								archived={state.archived}
@@ -596,7 +608,12 @@ function Reader({ loaderData }: Route.ComponentProps) {
 					onClose={() => setTagging(false)}
 				/>
 			) : null}
-			<ShortcutsDialog open={shortcutsOpen} ai={chatting} onClose={() => setShortcutsOpen(false)} />
+			<ShortcutsDialog
+				open={shortcutsOpen}
+				ai={aiShown && loaderData.ai.asking}
+				editions={editions}
+				onClose={() => setShortcutsOpen(false)}
+			/>
 		</div>
 	)
 }

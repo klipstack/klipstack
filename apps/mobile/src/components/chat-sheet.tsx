@@ -42,8 +42,9 @@ export function ChatSheet({
 	allowance: AiAllowance | null
 	/** Citations can be followed: the chat read the version on the page. */
 	canCite: boolean
-	onAsk: (question: string) => void
-	onRetry: () => void
+	/** Missing while AI answers are turned off: the chat is read, copied and cleared only. */
+	onAsk?: (question: string) => void
+	onRetry?: () => void
 	onClear: () => void
 	onCopy: (text: string) => void
 	onCite: (citation: AiCitation) => void
@@ -143,7 +144,7 @@ export function ChatSheet({
 				>
 					{chat && state && !busy ? (
 						<View style={styles.tools}>
-							{state.canRetry ? (
+							{state.canRetry && onRetry ? (
 								<Tool
 									label="Answer Again"
 									symbol="arrow.clockwise"
@@ -162,7 +163,11 @@ export function ChatSheet({
 							<Tool label="Clear Chat" symbol="trash" color={colors.danger} onPress={onClear} />
 						</View>
 					) : null}
-					{asking ? (
+					{!onAsk ? (
+						<Text style={[styles.left, { color: colors.mutedFg }]}>
+							AI answers are turned off in Settings → Features, on the web.
+						</Text>
+					) : asking ? (
 						<QuestionField
 							key={chat?.id ?? "new"}
 							placeholder="Ask about this article…"

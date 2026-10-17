@@ -48,8 +48,9 @@ interface Props {
 	hovered?: boolean
 	onOpen: () => void
 	onClose: () => void
-	onSend: (question: string) => void
-	onRetry: () => void
+	/** Missing while AI answers are turned off: the card is read, copied and deleted only. */
+	onSend?: (question: string) => void
+	onRetry?: () => void
 	onDelete: () => void
 	onCopy: (text: string) => void
 	onCite: (citation: AiCitation) => void
@@ -255,7 +256,7 @@ function OpenCard({
 				) : null}
 				{card.failure ? <Failure {...card.failure} /> : null}
 			</div>
-			{card.draft ? (
+			{card.draft && onSend ? (
 				<>
 					<QuestionField
 						initial={card.draft.question}
@@ -271,7 +272,7 @@ function OpenCard({
 					{busy ? null : (
 						<div className="mt-2 flex items-center gap-0.5">
 							{/* After an answer, or a question left without one (the answer was lost). */}
-							{(last || card.failure) && !none ? (
+							{onRetry && (last || card.failure) && !none ? (
 								<button
 									type="button"
 									onClick={onRetry}
@@ -305,7 +306,11 @@ function OpenCard({
 						</div>
 					)}
 					{/* A question still waiting for its answer takes no new one; a refused one does. */}
-					{card.orphaned || busy || (last?.role === "user" && !card.failure) || none ? null : (
+					{!onSend ||
+					card.orphaned ||
+					busy ||
+					(last?.role === "user" && !card.failure) ||
+					none ? null : (
 						<QuestionField
 							placeholder={t("ai.followUpPlaceholder")}
 							onSend={onSend}
@@ -313,7 +318,7 @@ function OpenCard({
 							autoFocus={false}
 						/>
 					)}
-					{card.orphaned || busy ? null : (
+					{!onSend || card.orphaned || busy ? null : (
 						<QuestionsLeft failed={card.failure?.code === "limit_reached"} />
 					)}
 				</>

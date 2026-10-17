@@ -15,7 +15,13 @@ import {
 	user,
 } from "@klipstack/db"
 import { expect, type Locator, test } from "@playwright/test"
-import { createInviteCode, signupUser, uniqueEmail, waitForHydration } from "./helpers"
+import {
+	createInviteCode,
+	signupUser,
+	turnOnEditions,
+	uniqueEmail,
+	waitForHydration,
+} from "./helpers"
 import { insertArticle } from "./seed"
 
 test("home adapts to the library, opens articles and returns after finishing", async ({ page }) => {
@@ -358,6 +364,7 @@ test("without reading in progress, the newest save is the lead, the next ones be
 	await page.getByLabel("Password").fill("password123")
 	await page.getByRole("button", { name: "Create account" }).click()
 	await expect(page).toHaveURL(/\/home$/)
+	await turnOnEditions(email)
 	const owner = (await db.query.user.findFirst({ where: eq(user.email, email) }))!
 	const saves = await db
 		.insert(documents)

@@ -195,7 +195,7 @@ test("the sidebar's edge resizes it, within limits, and the width is remembered"
 })
 
 test("every page's header row lines up with the sidebar's", async ({ page }) => {
-	await signupUser(page, "Aligned")
+	await signupUser(page, "Aligned", { editions: true })
 	await page.setViewportSize({ width: 1280, height: 800 })
 	const middle = (box: { y: number; height: number } | null) => box!.y + box!.height / 2
 	for (const path of [

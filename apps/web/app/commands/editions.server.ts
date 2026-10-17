@@ -3,6 +3,7 @@ import { supportedLanguages } from "@klipstack/i18n"
 import { z } from "zod"
 import { AppError, parseInput } from "~/lib/app-error"
 import { EDITION_COVERS } from "~/lib/editions"
+import { editionsOn } from "~/lib/features.server"
 import {
 	addItem,
 	addShortlist,
@@ -26,6 +27,12 @@ import {
  * The user's editions, for the web. The limits are in the services, which refuse with the field
  * that broke one (`details.field`).
  */
+
+/** Every command here: editions are turned on for the account (Settings → Features). */
+export async function mayUseEditions(userId: string) {
+	if (!(await editionsOn(userId)))
+		throw new AppError("forbidden", "Editions are turned off for this account.")
+}
 
 const id = z.string().max(64)
 const text = z.string().max(200_000)
@@ -75,6 +82,7 @@ export type EditionChange = z.infer<typeof EditionChange>
  * A draft in the reader's time zone and language, untitled, with the articles of the shortlist.
  */
 export async function createEdition(userId: string, input: { locale: string; timeZone: string }) {
+	await mayUseEditions(userId)
 	const edition = await insertEdition(userId, input)
 	await addShortlist(userId, edition.id)
 	return edition
@@ -85,6 +93,7 @@ export async function createEdition(userId: string, input: { locale: string; tim
  * time is what the page offers; a second only comes from asking for it.
  */
 export async function startEdition(userId: string, input: { locale: string; timeZone: string }) {
+	await mayUseEditions(userId)
 	// The user's row held while it looks, so two Starts at once make one draft.
 	const { draft, created } = await db.transaction(async (tx) => {
 		await tx
@@ -107,20 +116,23 @@ const EditionNote = z.object({ note: text.nullable() })
  * null clears it. The article's editions to come start with it included.
  */
 export async function setArticleEditionNote(userId: string, documentId: string, input: unknown) {
+	await mayUseEditions(userId)
 	const { note } = parseInput(EditionNote, input)
 	return { editionNote: await setEditionNote(userId, documentId, note) }
 }
 
 /** "Not now" on the nudge for a new edition: none for a week. */
-export function snoozeEditionNudge(userId: string) {
-	return snoozeNudge(userId)
+export async function snoozeEditionNudge(userId: string) {
+	await mayUseEditions(userId)
+	await snoozeNudge(userId)
 }
 
 /**
  * Undo of removing an item: what `changeEdition` answered for it (`removed`), which the caller kept
  * safe from changes (the web signs it).
  */
-export function restoreEditionItem(userId: string, editionId: string, removed: RemovedItem) {
+export async function restoreEditionItem(userId: string, editionId: string, removed: RemovedItem) {
+	await mayUseEditions(userId)
 	return restoreItem(userId, editionId, removed)
 }
 
@@ -135,6 +147,7 @@ export async function changeEdition(
 	input: unknown,
 ): Promise<{ deleted?: true; added?: number; removed?: RemovedItem }> {
 	const change = parseInput(EditionChange, input)
+	await mayUseEditions(userId)
 	switch (change.intent) {
 		case "update": {
 			const { intent: _, ...patch } = change

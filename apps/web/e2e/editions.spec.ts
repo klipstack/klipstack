@@ -77,7 +77,7 @@ test("editions: pick, publish, update, unpublish, and nobody else's", async ({ p
 		})
 	}
 	watch(page)
-	await signupUser(page, "Editor")
+	await signupUser(page, "Editor", { editions: true })
 	const documentId = await readLastWeek(page)
 
 	// The article waits for the next edition. One button makes a draft that starts with it.
@@ -280,7 +280,7 @@ test("editions: pick, publish, update, unpublish, and nobody else's", async ({ p
 
 	// Another user finds nothing: not the editor, not the preview, not the actions.
 	const stranger = await (await browser.newContext()).newPage()
-	await signupUser(stranger, "Stranger")
+	await signupUser(stranger, "Stranger", { editions: true })
 	// Requests with the stranger's session: statuses are the point, and a page load would prefetch.
 	expect((await stranger.request.get(`/editions/${editionId}`)).status()).toBe(404)
 	expect((await stranger.request.get(`/editions/${editionId}/preview`)).status()).toBe(404)
@@ -303,10 +303,27 @@ test("editions: pick, publish, update, unpublish, and nobody else's", async ({ p
 	await stranger.context().close()
 })
 
-test("every account has editions, with no feature to turn on", async ({ page }) => {
+test("editions are off until the reader turns them on in Settings, and off again hides them", async ({
+	page,
+}) => {
 	await signupUser(page, "Any Reader")
 	await page.goto("/home")
 	// Leaving Home before its sidebar prefetch ends reloads it, in Firefox and WebKit.
+	await waitForSidebarPrefetch(page)
+	await expect(page.getByRole("link", { name: /^Editions/ })).toHaveCount(0)
+	// Asked for, not opened: WebKit's 404 page can interrupt the next navigation.
+	expect((await page.request.get("/editions")).status()).toBe(404)
+
+	await page.goto("/settings/features")
+	await waitForHydration(page)
+	const editionsSwitch = page.getByRole("checkbox", { name: "Make editions" })
+	await expect(editionsSwitch).not.toBeChecked()
+	if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/features.png` })
+	await Promise.all([
+		page.waitForResponse((r) => r.url().includes("/prefs") && r.ok()),
+		editionsSwitch.check(),
+	])
+	await page.goto("/home")
 	await waitForSidebarPrefetch(page)
 	await expect(page.getByRole("link", { name: /^Editions/ })).toBeVisible()
 	expect((await page.goto("/editions"))?.status()).toBe(200)
@@ -321,11 +338,20 @@ test("every account has editions, with no feature to turn on", async ({ page }) 
 		await desk.screenshot({ path: `${process.env.SHOT_DIR}/editions-empty.png` })
 		await page.emulateMedia({ colorScheme: "dark" })
 		await desk.screenshot({ path: `${process.env.SHOT_DIR}/editions-empty-dark.png` })
+		await page.emulateMedia({ colorScheme: "light" })
 	}
+
+	await page.goto("/settings/features")
+	await waitForHydration(page)
+	await Promise.all([
+		page.waitForResponse((r) => r.url().includes("/prefs") && r.ok()),
+		page.getByRole("checkbox", { name: "Make editions" }).uncheck(),
+	])
+	await expect.poll(async () => (await page.request.get("/editions")).status()).toBe(404)
 })
 
 test("three marked articles nudge for a new edition, until Not now", async ({ page }) => {
-	const email = await signupUser(page, "Nudged")
+	const email = await signupUser(page, "Nudged", { editions: true })
 	const owner = await db.query.user.findFirst({ where: (u, { eq }) => eq(u.email, email) })
 	for (const title of ["One", "Two", "Three"]) {
 		const id = await insertArticle(owner!.id, title, `<p>${title}.</p>`)
@@ -355,7 +381,7 @@ test("three marked articles nudge for a new edition, until Not now", async ({ pa
 test("with a draft started, marking adds to it, and a week on the page asks to publish it", async ({
 	page,
 }) => {
-	const email = await signupUser(page, "Drafter")
+	const email = await signupUser(page, "Drafter", { editions: true })
 	const owner = await db.query.user.findFirst({ where: (u, { eq }) => eq(u.email, email) })
 	const [first, second] = [
 		await insertArticle(owner!.id, "First read", "<p>First.</p>"),
@@ -440,7 +466,7 @@ test("a note written at the end of an article goes into the next edition, in the
 	browser,
 }) => {
 	test.setTimeout(150_000)
-	await signupUser(page, "Ana Writer")
+	await signupUser(page, "Ana Writer", { editions: true })
 	const res = await page.request.post("/api/documents", {
 		data: { url: FIXTURE_URL, html: readFileSync(FIXTURE, "utf8") },
 	})
@@ -516,7 +542,7 @@ test("an article set aside stays in place, out of the page; its article reads be
 }) => {
 	test.setTimeout(90_000)
 	await page.setViewportSize({ width: 1440, height: 900 })
-	const email = await signupUser(page, "Recaller")
+	const email = await signupUser(page, "Recaller", { editions: true })
 	const owner = await db.query.user.findFirst({ where: (u, { eq }) => eq(u.email, email) })
 	// Long enough that the quote is far below the top.
 	const filler = Array.from({ length: 40 }, (_, i) => `<p>Paragraph ${i} of what came first.</p>`)

@@ -13,6 +13,7 @@ vi.hoisted(() => {
 
 const { env } = await import("~/lib/env.server")
 const { askAboutPassage } = await import("~/commands/ai.server")
+const { setPrefs } = await import("~/commands/account.server")
 const { apiUsers, captured, FIXTURES, oauthToken, request, sdk } =
 	await import("~/test/api-harness")
 
@@ -74,6 +75,7 @@ describe("the reader's AI in the API", () => {
 		const off = await appUser("No AI")
 		expect(await off.app.ai.status()).toEqual({
 			enabled: false,
+			turnedOff: false,
 			allowance: null,
 			consentedAt: null,
 		})
@@ -228,6 +230,51 @@ describe("the reader's AI in the API", () => {
 		expect(back).toMatchObject({ id, action: "ask" })
 		expect(back.messages).toHaveLength(4)
 		expect(await thread()).toBeDefined()
+	})
+
+	it("turned off in Settings: the answers kept are read and deleted, nothing new is asked", async () => {
+		const reader = await appUser("Turned off")
+		await db.insert(userFeatures).values({ userId: reader.id, feature: "ai" })
+		const article = await captured(reader.id, FIXTURES.makers)
+		const [start] = await collect(
+			await reader.app.ai.ask(article, { action: "define", ...passage }),
+		)
+		if (start?.type !== "start") throw new Error("no start event")
+		await collect(await reader.app.ai.brief(article))
+		const id = start.thread.id
+
+		await setPrefs(reader.id, { ai: "off" })
+		expect(await reader.app.ai.status()).toEqual({
+			enabled: false,
+			turnedOff: true,
+			allowance: null,
+			consentedAt: null,
+		})
+		const kept = await reader.app.ai.article(article)
+		expect(kept.threads.map((t) => [t.id, t.messages.length])).toEqual([[id, 2]])
+		expect(kept.brief).not.toBeNull()
+		const another = await captured(reader.id, FIXTURES.joel)
+		const refusals = [
+			// A new brief, for an article without one: the kept one above is free to read.
+			() => reader.app.ai.brief(another),
+			() => reader.app.ai.ask(article, { action: "explain", ...passage }),
+			() => reader.app.ai.chat(article, "What is it about?"),
+			() => reader.app.ai.followUp(id, "Why?"),
+			() => reader.app.ai.retry(id),
+		]
+		for (const refused of refusals) {
+			const error = await errorOf(refused())
+			expect([error.status, error.code, error.message]).toEqual([
+				403,
+				"forbidden",
+				"AI answers are turned off for this account.",
+			])
+		}
+		await reader.app.ai.delete(id)
+		expect((await reader.app.ai.article(article)).threads).toEqual([])
+
+		await setPrefs(reader.id, { ai: "on" })
+		expect((await reader.app.ai.status()).enabled).toBe(true)
 	})
 
 	it("keeps one chat per article", async () => {

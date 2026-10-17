@@ -30,7 +30,7 @@ export const Usage = z
 		feeds: Against,
 		/** Editions published for the first time this month. */
 		editions: Against,
-		/** Questions asked of the AI this month; null when the account has no AI. */
+		/** Questions asked of the AI this month; null when the account has no AI, or turned it off. */
 		ai: Against.nullable(),
 		/** Articles sorted into topics this month; null while the reader has no topics. */
 		topicSorts: Against.nullable(),

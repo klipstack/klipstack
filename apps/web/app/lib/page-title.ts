@@ -24,6 +24,7 @@ export const PAGE_TITLES = [
 	"settings:capture.title",
 	"settings:connectedApps.title",
 	"settings:data.title",
+	"settings:features.title",
 	"settings:shortcuts.title",
 	"settings:usage.title",
 	"auth:login.title",

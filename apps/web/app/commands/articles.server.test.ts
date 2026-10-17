@@ -83,8 +83,8 @@ const read = async (id: string) => {
 
 beforeAll(async () => {
 	await db.insert(userTable).values([
-		{ id: userId, name: "Bulk", email: `${userId}@example.com` },
-		{ id: otherId, name: "Other", email: `${otherId}@example.com` },
+		{ id: userId, name: "Bulk", email: `${userId}@example.com`, prefs: { editions: "on" } },
+		{ id: otherId, name: "Other", email: `${otherId}@example.com`, prefs: { editions: "on" } },
 	])
 	;[theirs] = (await insert(otherId, 1)) as [string]
 })

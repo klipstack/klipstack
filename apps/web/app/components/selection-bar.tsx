@@ -15,6 +15,7 @@ import {
 import { useEffect, useInsertionEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useFetcher } from "react-router"
+import { useEditions } from "~/hooks/use-editions"
 import type { ListSelection } from "~/hooks/use-list-cursor"
 import { BULK_ACTION, BULK_FETCHER, type BulkAction, bulkActions, MOVES } from "~/lib/bulk-actions"
 import { useCommands } from "~/lib/commands"
@@ -93,7 +94,7 @@ export function SelectionBar({
 	const [tagging, setTagging] = useState(false)
 	const cards = items.filter((d) => selection.checked.has(d.id))
 	const n = cards.length
-	const choice = bulkActions(cards)
+	const choice = bulkActions(cards, { editions: useEditions() })
 	const shown = selection.selecting
 	const allChecked = selection.scope.every((id) => selection.checked.has(id))
 

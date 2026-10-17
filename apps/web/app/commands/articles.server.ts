@@ -36,6 +36,7 @@ import {
 } from "~/services/documents.server"
 import { addToDraft, currentDraft, draftCopies, removeFromDraft } from "~/services/editions.server"
 import { changeTagsIn } from "~/services/tags.server"
+import { mayUseEditions } from "./editions.server"
 import { queueTopicsIfOn } from "./topics.server"
 
 /**
@@ -182,6 +183,7 @@ export async function updateArticles(
 	draft: { added: string[]; removed: string[] }
 }> {
 	const update = parseInput(ArticleUpdate, input)
+	if (update.shortlisted !== undefined) await mayUseEditions(userId)
 	const { ids } = update
 	// Marking with a draft in progress: the copies it takes, made first, as `addItem` makes them.
 	const ahead = update.shortlisted ? await currentDraft(db, userId) : null

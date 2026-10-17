@@ -7,24 +7,26 @@ type Group = (typeof SHORTCUT_GROUPS)[number]["id"]
 
 /**
  * The keyboard shortcuts, a table per group, from `SHORTCUT_GROUPS`: Settings shows them all, the
- * reader's `?` its own first. Rows that need AI only with `ai`. With single-key shortcuts `off`,
+ * reader's `?` its own first. Rows that need AI only with `ai`; those for editions as `editions` says. With single-key shortcuts `off`,
  * those keys stay listed, faded, and a row with no key left working says it is off.
  */
 export function ShortcutList({
 	groups = SHORTCUT_GROUPS.map((g) => g.id),
 	ai,
+	editions,
 	off,
 	compact = false,
 }: {
 	groups?: Group[]
 	ai: boolean
+	editions: boolean
 	off: boolean
 	compact?: boolean
 }) {
 	return (
 		<div className={cn("flex flex-col", compact ? "gap-4" : "gap-6")}>
 			{groups.map((id) => (
-				<ShortcutGroup key={id} id={id} ai={ai} off={off} />
+				<ShortcutGroup key={id} id={id} ai={ai} editions={editions} off={off} />
 			))}
 		</div>
 	)
@@ -40,12 +42,23 @@ function useModifierLabel(): (key: string) => string {
 	return (key) => (apple || !key.startsWith("⌘") ? key : `Ctrl ${key.slice(1)}`)
 }
 
-function ShortcutGroup({ id, ai, off }: { id: Group; ai: boolean; off: boolean }) {
+function ShortcutGroup({
+	id,
+	ai,
+	editions,
+	off,
+}: {
+	id: Group
+	ai: boolean
+	editions: boolean
+	off: boolean
+}) {
 	const { t } = useTranslation("common")
 	const label = useModifierLabel()
 	const headingId = useId()
 	const rows = SHORTCUT_GROUPS.find((g) => g.id === id)!.rows.filter(
-		(row) => ai || !("ai" in row && row.ai),
+		(row) =>
+			(ai || !("ai" in row && row.ai)) && (!("editions" in row) || row.editions === editions),
 	)
 	return (
 		<section aria-labelledby={headingId}>

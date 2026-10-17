@@ -156,8 +156,16 @@ export const getAi = defineEndpoint({
 		"Whether the account can ask the AI about its articles, and how many of this month's questions it has used.",
 	response: json(
 		z.object({
-			/** AI answers are turned on for the account, and the server has a provider. */
+			/**
+			 * The account can ask: AI answers are turned on for it, it has not turned them off in
+			 * Settings, and the server has a provider.
+			 */
 			enabled: z.boolean(),
+			/**
+			 * The account turned AI answers off in Settings (`enabled` is false): the answers it was
+			 * already given can still be read (GET /articles/:id/ai) and deleted, and nothing new asked.
+			 */
+			turnedOff: z.boolean(),
 			/** Null when not enabled. */
 			allowance: AiAllowance.nullable(),
 			/**
@@ -191,7 +199,7 @@ export const articleAi = defineEndpoint({
 	scope: "read",
 	clients: inAppAi,
 	summary:
-		"An article's questions and answers, in reading order (its chat among them), and its brief. Threads asked of an older version are moved to the current text.",
+		"An article's questions and answers, in reading order (its chat among them), and its brief. Threads asked of an older version are moved to the current text. Also while the account has AI answers turned off (`turnedOff` in GET /ai).",
 	params,
 	response: json(z.object({ threads: z.array(AiThreadWithMessages), brief: AiBrief.nullable() })),
 	errors: ["not_found", "forbidden", "unavailable"],

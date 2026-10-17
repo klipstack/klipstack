@@ -10,6 +10,7 @@ import {
 	Menu,
 	Palette,
 	Plug,
+	ToggleRight,
 	X,
 } from "lucide-react"
 import { useId } from "react"
@@ -30,6 +31,7 @@ const GROUPS = [
 			{ slug: "account", key: "account.title", icon: CircleUserRound },
 			{ slug: "appearance", key: "appearance.title", icon: Palette },
 			{ slug: "shortcuts", key: "shortcuts.title", icon: Keyboard },
+			{ slug: "features", key: "features.title", icon: ToggleRight },
 		],
 	},
 	{

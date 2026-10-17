@@ -1,8 +1,10 @@
-import { db, documents, eq, newId, readingCompletions, user } from "@klipstack/db"
+import { db, documents, eq, newId, readingCompletions, user, type UserPrefs } from "@klipstack/db"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { loader } from "./reading-home"
 
-const session = vi.hoisted(() => ({ user: { id: "", name: "Reader", locale: "en" } }))
+const session = vi.hoisted(() => ({
+	user: { id: "", name: "Reader", locale: "en", prefs: { editions: "on" } as UserPrefs },
+}))
 vi.mock("~/lib/session.server", () => ({ requireUser: () => session.user }))
 vi.mock("~/lib/i18n.server", async () => {
 	const { createInstance } = await import("i18next")
@@ -15,7 +17,12 @@ vi.mock("~/lib/i18n.server", async () => {
 const userId = `test-reading-home-${newId()}`
 beforeAll(async () => {
 	session.user.id = userId
-	await db.insert(user).values({ id: userId, name: "Reader", email: `${userId}@example.com` })
+	await db.insert(user).values({
+		id: userId,
+		name: "Reader",
+		email: `${userId}@example.com`,
+		prefs: { editions: "on" },
+	})
 	for (const [title, completedAt] of [
 		// Monday 5 October, 00:30 in Santiago: the first day of the week before Sunday the 11th.
 		["First day", "2026-10-05T03:30:00Z"],
@@ -85,7 +92,11 @@ describe("Home loader", () => {
 			.where(eq(documents.userId, userId))
 		try {
 			expect((await home()).masthead.edition).toEqual({ draft: false, count: 2 })
+			// Editions turned off: Home says nothing of them.
+			session.user.prefs = {}
+			expect((await home()).masthead.edition).toBeNull()
 		} finally {
+			session.user.prefs = { editions: "on" }
 			await db.update(documents).set({ shortlistedAt: null }).where(eq(documents.userId, userId))
 		}
 	})

@@ -213,6 +213,32 @@ test("topics: a Spanish reader sees descriptions in Spanish, without the boundar
 	await expect(page.locator("main")).not.toContainText("otros sitios")
 })
 
+test("topics: turned on and off in Settings → Features, off only on a second answer", async ({
+	page,
+}) => {
+	await signupUser(page, "Topics Switch", { features: ["topics"] })
+	await page.goto("/settings/features")
+	await waitForHydration(page)
+	const topicsSwitch = page.getByRole("checkbox", { name: "Sort my library into topics" })
+	await expect(topicsSwitch).not.toBeChecked()
+	// The switch follows the server's answer: clicked, not `check()`ed.
+	await topicsSwitch.click()
+	await expect(topicsSwitch).toBeChecked()
+	await expect(page.getByRole("link", { name: "Open Topics" })).toBeVisible()
+
+	// Turning them off deletes them: it asks first, and Keep them changes nothing.
+	await topicsSwitch.click()
+	await expect(topicsSwitch).toBeChecked()
+	await page.getByRole("button", { name: "Keep them" }).click()
+	await expect(page.getByRole("link", { name: "Open Topics" })).toBeVisible()
+	await topicsSwitch.click()
+	await page.getByRole("button", { name: "Turn off and delete" }).click()
+	await expect(topicsSwitch).not.toBeChecked()
+	expect((await page.goto("/topics"))?.status()).toBe(200)
+	// Off: the Topics page offers them again.
+	await expect(page.getByRole("button", { name: "Turn on topics" })).toBeVisible()
+})
+
 test("topics: an account without the feature has no page and no link", async ({ page }) => {
 	await signupUser(page, "No Topics")
 	const res = await page.goto("/topics")

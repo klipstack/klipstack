@@ -61,6 +61,12 @@ export const Me = z
 		via: z.enum(["api_key", "oauth"]),
 		/** The OAuth client, or null for an API key. */
 		client: z.object({ id: z.string(), name: z.string() }).nullable(),
+		/**
+		 * Editions are turned on for the account, in Settings → Features on the web. Off (the default),
+		 * marking articles for the next edition and writing edition notes are refused (`forbidden`),
+		 * and GET /editions/next has nothing.
+		 */
+		editions: z.boolean(),
 	})
 	.meta({ id: "Me" })
 export type Me = z.infer<typeof Me>

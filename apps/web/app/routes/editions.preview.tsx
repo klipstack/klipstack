@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next"
 import { data, Link } from "react-router"
 import { EditionPage } from "~/components/edition-page"
 import { AppError } from "~/lib/app-error"
+import { requireEditions } from "~/lib/features.server"
 import { getInstance } from "~/lib/i18n.server"
 import type { PageBarHandle } from "~/lib/page-bar"
 import { requireUser } from "~/lib/session.server"
@@ -21,6 +22,7 @@ export const handle: PageBarHandle = { pageBar: { titleKey: "common:nav.editions
  */
 export async function loader({ params, context, request }: Route.LoaderArgs) {
 	const user = requireUser(context, request)
+	await requireEditions(user.id)
 	const { edition, items } = await getEdition(user.id, params.id).catch((error: unknown) => {
 		if (error instanceof AppError && error.code === "not_found") throw data(null, { status: 404 })
 		throw error

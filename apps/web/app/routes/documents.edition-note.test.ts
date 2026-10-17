@@ -13,8 +13,8 @@ let documentId: string
 
 beforeAll(async () => {
 	await db.insert(userTable).values([
-		{ id: owner, name: "Owner", email: `${owner}@example.com` },
-		{ id: other, name: "Other", email: `${other}@example.com` },
+		{ id: owner, name: "Owner", email: `${owner}@example.com`, prefs: { editions: "on" } },
+		{ id: other, name: "Other", email: `${other}@example.com`, prefs: { editions: "on" } },
 	])
 	const [doc] = await db
 		.insert(documents)

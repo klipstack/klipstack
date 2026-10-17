@@ -12,10 +12,12 @@ import type { loader as rootLoader } from "~/root"
 export function ShortcutsDialog({
 	open,
 	ai,
+	editions,
 	onClose,
 }: {
 	open: boolean
 	ai: boolean
+	editions: boolean
 	onClose: () => void
 }) {
 	const { t } = useTranslation("common")
@@ -63,7 +65,13 @@ export function ShortcutsDialog({
 							</Link>
 						</p>
 					) : null}
-					<ShortcutList groups={["reader", "general"]} ai={ai} off={off} compact />
+					<ShortcutList
+						groups={["reader", "general"]}
+						ai={ai}
+						editions={editions}
+						off={off}
+						compact
+					/>
 					<Link to="/settings/shortcuts" className="text-sm text-accent underline">
 						{t("shortcuts.all")}
 					</Link>

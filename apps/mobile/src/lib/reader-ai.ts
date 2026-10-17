@@ -13,10 +13,13 @@ import {
 /**
  * The reader's AI for one article: whether the account may ask (the `ai` feature, on a server set
  * up for it), where it stands against its monthly cap, the article's threads and its brief. Nothing
- * is shown without the feature; offline, or on an older server, neither.
+ * is shown without the feature; offline, or on an older server, neither. `enabled`: the threads
+ * and the brief show; `asking`: more can be asked. Turned off in Settings on the web, the answers
+ * kept show, to read and delete, and nothing new is asked.
  */
 export function useReaderAi(client: KlipstackClient | null, articleId: string, ready: boolean) {
 	const [enabled, setEnabled] = useState(false)
+	const [asking, setAsking] = useState(false)
 	const [allowance, setAllowance] = useState<AiAllowance | null>(null)
 	const [threads, setThreads] = useState<AiThreadWithMessages[]>([])
 	const [brief, setBrief] = useState<AiBrief | null>(null)
@@ -36,7 +39,8 @@ export function useReaderAi(client: KlipstackClient | null, articleId: string, r
 		;(async () => {
 			try {
 				const status = await client.ai.status()
-				if (!current || !status.enabled) return
+				// `turnedOff` is missing from an older server: nothing to show then, as before.
+				if (!current || !(status.enabled || status.turnedOff)) return
 				const article = await client.ai.article(articleId)
 				if (!current) return
 				setAllowance(status.allowance)
@@ -44,6 +48,7 @@ export function useReaderAi(client: KlipstackClient | null, articleId: string, r
 				setThreads(article.threads)
 				setBrief(article.brief)
 				setEnabled(true)
+				setAsking(status.enabled)
 			} catch {
 				// No AI here: offline, an older server, or the feature off meanwhile.
 			}
@@ -117,6 +122,7 @@ export function useReaderAi(client: KlipstackClient | null, articleId: string, r
 
 	return {
 		enabled,
+		asking,
 		allowance,
 		consented: consentedAt !== null,
 		consent,

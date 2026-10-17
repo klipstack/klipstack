@@ -55,6 +55,8 @@ export type PageEnd = {
 	/** In the archive already: leaving only marks it finished. */
 	archived: boolean
 	starred: boolean
+	/** Editions are turned on for the account: the mark and the edition's note show. */
+	editions: boolean
 	shortlisted: boolean
 	/** What the user wrote for the next edition's readers, shown once marked; null for none. */
 	editionNote?: string | null

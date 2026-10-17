@@ -81,6 +81,7 @@ describe("the API's door", () => {
 			access: "write",
 			via: "api_key",
 			client: null,
+			editions: true,
 		})
 
 		// The document is public, and describes what the client just called.

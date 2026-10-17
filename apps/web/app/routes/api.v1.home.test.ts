@@ -12,6 +12,7 @@ import {
 import { stopBoss } from "@klipstack/queue"
 import type { KlipstackApiError } from "@klipstack/sdk"
 import { afterAll, describe, expect, it, vi } from "vitest"
+import { setPrefs } from "~/commands/account.server"
 import { startEdition } from "~/commands/editions.server"
 import { env } from "~/lib/env.server"
 import { apiUsers } from "~/test/api-harness"
@@ -212,5 +213,32 @@ describe("the next edition in the API", () => {
 			draft: { items: 1, days: 8 },
 			nudge: { reason: "draft" },
 		})
+	})
+
+	it("turned off, has nothing, and refuses marking and edition notes; turned on, it is all there", async () => {
+		const me = await users.create("Off", {})
+		expect((await me.client.me()).editions).toBe(false)
+		const marked = await article(me.id, "Marked before", { shortlistedAt: new Date() })
+		expect(await me.client.editions.next()).toEqual({
+			marked: 0,
+			draft: null,
+			nudge: null,
+			url: `${origin}/editions`,
+		})
+		const refusals = [
+			() => me.client.articles.update([marked], { shortlisted: false }),
+			() => me.client.articles.setEditionNote(marked, "Worth it."),
+			() => me.client.editions.snoozeNudge(),
+		]
+		for (const refused of refusals)
+			expect(await errorOf(refused())).toMatchObject({
+				status: 403,
+				code: "forbidden",
+				message: "Editions are turned off for this account.",
+			})
+		// Nothing was deleted: the mark is there when they are turned on.
+		await setPrefs(me.id, { editions: "on" })
+		expect((await me.client.me()).editions).toBe(true)
+		expect(await me.client.editions.next()).toMatchObject({ marked: 1 })
 	})
 })

@@ -26,12 +26,13 @@ import { cn } from "~/lib/utils"
  * and the star and the mark for the next edition, with their names. Marked, it says so, and offers
  * a rough note for the edition's readers while the article is fresh in mind, which can start from
  * the private one, and Done, to leave; marked with its button here, the page scrolls to them.
- * `onReached` once it comes into view. Give it a `key` per article: the edition note is read once.
+ * With editions off, only the star. `onReached` once it comes into view. Give it a `key` per article: the edition note is read once.
  */
 export function ReaderEnd({
 	documentId,
 	note,
 	linkTargets,
+	editions,
 	editionNote,
 	state,
 	archived,
@@ -47,6 +48,8 @@ export function ReaderEnd({
 	/** The reader's private note on the article, shared with the sidebar's editor. */
 	note: ArticleNote
 	linkTargets: LinkTargets
+	/** Editions are turned on for the account: the mark and the edition note show. */
+	editions: boolean
 	/** What the user wrote for the edition's readers so far. */
 	editionNote: string | null
 	state: EndState
@@ -215,30 +218,32 @@ export function ReaderEnd({
 					/>
 					{starred ? t("end.starred") : t("end.star")}
 				</button>
-				<button
-					type="button"
-					data-testid="reader-end-shortlist"
-					onClick={() => {
-						scrollToMarked.current = !shortlisted
-						onChange(shortlisted ? "unshortlist" : "shortlist")
-					}}
-					{...tooltip(
-						shortlisted ? t("actions.unshortlist") : t("actions.shortlist"),
-						SHORTCUT_HINTS.shortlist,
-					)}
-					aria-pressed={shortlisted}
-					className={cn(
-						"flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm",
-						shortlisted
-							? "bg-accent text-accent-fg"
-							: "bg-muted text-fg hover:bg-fg/10 [&>svg]:text-muted-fg",
-					)}
-				>
-					<Newspaper className="size-4" aria-hidden />
-					{shortlisted ? t("end.shortlisted") : t("end.shortlist")}
-				</button>
+				{editions ? (
+					<button
+						type="button"
+						data-testid="reader-end-shortlist"
+						onClick={() => {
+							scrollToMarked.current = !shortlisted
+							onChange(shortlisted ? "unshortlist" : "shortlist")
+						}}
+						{...tooltip(
+							shortlisted ? t("actions.unshortlist") : t("actions.shortlist"),
+							SHORTCUT_HINTS.shortlist,
+						)}
+						aria-pressed={shortlisted}
+						className={cn(
+							"flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm",
+							shortlisted
+								? "bg-accent text-accent-fg"
+								: "bg-muted text-fg hover:bg-fg/10 [&>svg]:text-muted-fg",
+						)}
+					>
+						<Newspaper className="size-4" aria-hidden />
+						{shortlisted ? t("end.shortlisted") : t("end.shortlist")}
+					</button>
+				) : null}
 			</div>
-			{shortlisted ? (
+			{editions && shortlisted ? (
 				<div
 					ref={marked}
 					data-testid="reader-end-edition-note"

@@ -451,6 +451,7 @@ export default {
 			sidebar: "Notes and highlights",
 			chat: "Chat about the article",
 			articleActions: "Star, next edition, archive, unread, tags, delete",
+			articleActionsWithoutEditions: "Star, archive, unread, tags, delete",
 			copyHighlight: "Copy the highlight in focus",
 			help: "This list",
 		},

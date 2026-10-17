@@ -177,7 +177,16 @@ export function CommandPalette() {
 			keywords: [t("palette.notes"), t("palette.highlights")],
 			run: () => go("/notebook"),
 		},
-		{ id: "go-editions", label: t("nav.editions"), icon: Newspaper, run: () => go("/editions") },
+		...(layout?.editions
+			? [
+					{
+						id: "go-editions",
+						label: t("nav.editions"),
+						icon: Newspaper,
+						run: () => go("/editions"),
+					},
+				]
+			: []),
 		{ id: "go-tags", label: t("nav.tags"), icon: Tag, run: () => go("/tags") },
 		{ id: "go-trash", label: t("nav.trash"), icon: Trash2, run: () => go("/trash") },
 		{ id: "go-settings", label: t("nav.settings"), icon: Settings, run: () => go(SETTINGS_HOME) },

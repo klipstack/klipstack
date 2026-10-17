@@ -256,6 +256,7 @@ export default {
 		noneLeft: "No AI questions left this month",
 		failed: "Couldn't answer. Try again.",
 		refused: "This question couldn't be answered.",
+		turnedOff: "AI answers are turned off in Settings → Features.",
 		citation: "Passage {{n}} of the article",
 		askPlaceholder: "Ask about this passage…",
 		suggestions: {

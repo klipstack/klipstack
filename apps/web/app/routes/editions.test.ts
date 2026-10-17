@@ -80,8 +80,14 @@ const preview = (id: string) =>
 
 beforeAll(async () => {
 	await db.insert(userTable).values([
-		{ id: ownerId, name: owner.name, email: `${ownerId}@x.test` },
-		{ id: otherId, name: other.name, email: `${otherId}@x.test`, locale: "es" },
+		{ id: ownerId, name: owner.name, email: `${ownerId}@x.test`, prefs: { editions: "on" } },
+		{
+			id: otherId,
+			name: other.name,
+			email: `${otherId}@x.test`,
+			locale: "es",
+			prefs: { editions: "on" },
+		},
 	])
 	const [doc] = await db
 		.insert(documents)
@@ -100,17 +106,43 @@ afterAll(async () => {
 	await db.delete(userTable).where(inArray(userTable.id, [ownerId, otherId]))
 })
 
-describe("every account", () => {
-	it("makes editions with no feature to turn on, and finds nobody else's", async () => {
-		const newId = `${ownerId}-new`
-		await db.insert(userTable).values({ id: newId, name: "New", email: `${newId}@x.test` })
+describe("editions turned off", () => {
+	it("refuse Start, hide the editor, refuse its actions; turned on, the same account makes one", async () => {
+		const offId = `${ownerId}-off`
+		await db.insert(userTable).values({ id: offId, name: "Off", email: `${offId}@x.test` })
 		try {
-			as({ id: newId, name: "New", locale: "en" })
-			const made = create()
-			expect((await thrown(made)).status).toBe(302)
-			expect((await thrown(load("any"))).status).toBe(404)
+			as(owner)
+			await thrown(create())
+			const [edition] = await listEditions(ownerId)
+			// The owner turns them off: nothing is deleted, and nothing of them answers.
+			await db.update(userTable).set({ prefs: {} }).where(eq(userTable.id, ownerId))
+			expect((await thrown(load(edition!.id))).status).toBe(404)
+			expect((await thrown(preview(edition!.id))).status).toBe(404)
+			const change = await post(edition!.id, { intent: "add-item", documentId })
+			expect([
+				change.init?.status,
+				(change.data as { error: { code: string } }).error.code,
+			]).toEqual([403, "forbidden"])
+			expect((await post(edition!.id, { intent: "delete" }, "save")).init?.status).toBe(403)
+			expect((await getEdition(ownerId, edition!.id)).edition.id).toBe(edition!.id)
+
+			// A new account starts with them off: Start is refused, then works once turned on.
+			as({ id: offId, name: "Off", locale: "en" })
+			const refused = (await create()) as { data: { ok: boolean; error: { code: string } } }
+			expect(refused.data).toMatchObject({ ok: false, error: { code: "forbidden" } })
+			expect(await listEditions(offId)).toEqual([])
+			await db
+				.update(userTable)
+				.set({ prefs: { editions: "on" } })
+				.where(eq(userTable.id, offId))
+			expect((await thrown(create())).status).toBe(302)
+			expect(await listEditions(offId)).toHaveLength(1)
 		} finally {
-			await db.delete(userTable).where(inArray(userTable.id, [newId]))
+			await db
+				.update(userTable)
+				.set({ prefs: { editions: "on" } })
+				.where(eq(userTable.id, ownerId))
+			await db.delete(userTable).where(inArray(userTable.id, [offId]))
 		}
 	})
 })
