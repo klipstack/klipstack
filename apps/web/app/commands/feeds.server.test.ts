@@ -108,18 +108,18 @@ describe("feeds turned off", () => {
 		try {
 			const id = randomUUID()
 			const refusals = [
-				followFeed(offId, feedUrl),
-				unfollowFeed(offId, id),
-				renameFeed(offId, id, "Mine"),
-				dismissFeedItem(offId, id),
-				restoreFeedItem(offId, id),
-				markFeedItemRead(offId, id),
-				markFeedViewed(offId, new Date().toISOString()),
-				importFeeds(offId, "<opml/>"),
-				saveFeedItem(offId, id),
+				() => followFeed(offId, feedUrl),
+				() => unfollowFeed(offId, id),
+				() => renameFeed(offId, id, "Mine"),
+				() => dismissFeedItem(offId, id),
+				() => restoreFeedItem(offId, id),
+				() => markFeedItemRead(offId, id),
+				() => markFeedViewed(offId, new Date().toISOString()),
+				() => importFeeds(offId, "<opml/>"),
+				() => saveFeedItem(offId, id),
 			]
 			for (const refused of refusals)
-				await expect(refused).rejects.toMatchObject({
+				await expect(refused()).rejects.toMatchObject({
 					code: "forbidden",
 					message: "Feeds are turned off for this account.",
 				})
