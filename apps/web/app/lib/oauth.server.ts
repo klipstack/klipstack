@@ -24,9 +24,24 @@ export function signedOAuthQuery(url: URL): string | null {
  * when the query comes back.
  */
 export async function verifySignedOAuthQuery(query: string): Promise<boolean> {
+	const exp = Number(new URLSearchParams(query).get("exp"))
+	return (await signatureHolds(query)) && exp * 1000 >= Date.now()
+}
+
+/**
+ * The app whose authorization request this page is part of (its `client_id`), from the signed query
+ * in its address, or null. An expired query still names its app: the page is still in that app's
+ * sign-in, though it can no longer resume it.
+ */
+export async function oauthClientOf(url: URL): Promise<string | null> {
+	const query = signedOAuthQuery(url)
+	if (!query || !(await signatureHolds(query))) return null
+	return new URLSearchParams(query).get("client_id")
+}
+
+async function signatureHolds(query: string): Promise<boolean> {
 	const params = new URLSearchParams(query)
 	const sigs = params.getAll("sig")
-	const exp = Number(params.get("exp"))
 	params.delete("sig")
 	const sorted = [...params].sort(([ka, va], [kb, vb]) =>
 		ka === kb ? (va < vb ? -1 : va > vb ? 1 : 0) : ka < kb ? -1 : 1,
@@ -35,7 +50,7 @@ export async function verifySignedOAuthQuery(query: string): Promise<boolean> {
 		new URLSearchParams(sorted).toString(),
 		env.BETTER_AUTH_SECRET,
 	)
-	return sigs.length === 1 && constantTimeEqual(sigs[0] ?? "", expected) && exp * 1000 >= Date.now()
+	return sigs.length === 1 && constantTimeEqual(sigs[0] ?? "", expected)
 }
 
 /**

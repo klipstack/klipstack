@@ -14,6 +14,7 @@ import { useIsNsKey, useKeyTranslation } from "~/lib/i18n-keys"
 import { localeCookie } from "~/lib/i18n.server"
 import {
 	oauthApiContext,
+	oauthClientOf,
 	oauthRedirectUrl,
 	signedOAuthQuery,
 	verifySignedOAuthQuery,
@@ -21,8 +22,8 @@ import {
 import { pageTitle } from "~/lib/page-title"
 import {
 	enabledProvider,
-	enabledProviders,
 	providerErrorKey,
+	providersFor,
 	startProviderSignIn,
 } from "~/lib/provider-sign-in.server"
 import { readForm } from "~/lib/request-body.server"
@@ -47,17 +48,21 @@ async function validOAuthQuery(query: string | null | undefined) {
 
 export async function loader({ context, request }: Route.LoaderArgs) {
 	// The OAuth provider sends apps' users here, signed in or not (an app may ask to log in again).
-	const signed = signedOAuthQuery(new URL(request.url))
+	const url = new URL(request.url)
+	const signed = signedOAuthQuery(url)
 	const oauthQuery = await validOAuthQuery(signed)
 	if (!oauthQuery) requireAnonymous(context)
-	const redirectTo = new URL(request.url).searchParams.get("redirectTo")
+	const app = await oauthClientOf(url)
+	const redirectTo = url.searchParams.get("redirectTo")
 	return {
 		// Arriving from a verification email (routes/verify-email.ts). Only a password login keeps the
 		// password: a login link would prove the mailbox alone, and remove it.
 		verifying: !!redirectTo?.startsWith("/verify-email?"),
 		emailLinks: emailEnabled,
 		// A provider's redirect would drop the app's authorization request, as an emailed link does.
-		providers: oauthQuery ? [] : enabledProviders,
+		providers: oauthQuery ? [] : providersFor(app),
+		// Still in the app's sign-in, expired or not: Sign up keeps it.
+		appQuery: app ? signed : null,
 		providerError: providerErrorKey(new URL(request.url).searchParams.get("error")),
 		oauthQuery,
 		oauthExpired: !!signed && !oauthQuery,
@@ -138,7 +143,7 @@ export default function Login({ actionData, loaderData }: Route.ComponentProps) 
 	const { redirectTo } = loaderData
 
 	return (
-		<AuthCard title={t("login.title")}>
+		<AuthCard title={t("login.title")} inApp={!!loaderData.appQuery}>
 			{loaderData.oauthQuery ? (
 				<p className="mb-4 text-sm text-muted-fg">{t("login.oauthNote")}</p>
 			) : null}
@@ -215,7 +220,10 @@ export default function Login({ actionData, loaderData }: Route.ComponentProps) 
 				) : null}
 				<p>
 					{t("login.noAccount")}{" "}
-					<Link to="/signup" className="text-link hover:underline">
+					<Link
+						to={loaderData.appQuery ? `/signup?${loaderData.appQuery}` : "/signup"}
+						className="text-link hover:underline"
+					>
 						{t("login.signup")}
 					</Link>
 				</p>

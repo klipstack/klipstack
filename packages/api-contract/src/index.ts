@@ -25,6 +25,7 @@ import {
 	deleteAiThread,
 	followUpAi,
 	getAi,
+	setAiConsent,
 	restoreAiThread,
 	retryAi,
 } from "./endpoints/ai"
@@ -192,6 +193,7 @@ export const endpoints = {
 	"savedSearches.delete": deleteSavedSearch,
 	"export.get": exportLibrary,
 	"ai.get": getAi,
+	"ai.consent": setAiConsent,
 	"ai.article": articleAi,
 	"ai.ask": askAi,
 	"ai.chat": chatAi,

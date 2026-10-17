@@ -20,6 +20,8 @@ export function useReaderAi(client: KlipstackClient | null, articleId: string, r
 	const [allowance, setAllowance] = useState<AiAllowance | null>(null)
 	const [threads, setThreads] = useState<AiThreadWithMessages[]>([])
 	const [brief, setBrief] = useState<AiBrief | null>(null)
+	// When the account agreed that questions go to the AI provider; null: ask first.
+	const [consentedAt, setConsentedAt] = useState<string | null>(null)
 	const live = useRef(true)
 	useEffect(() => {
 		live.current = true
@@ -38,6 +40,7 @@ export function useReaderAi(client: KlipstackClient | null, articleId: string, r
 				const article = await client.ai.article(articleId)
 				if (!current) return
 				setAllowance(status.allowance)
+				setConsentedAt(status.consentedAt ?? null)
 				setThreads(article.threads)
 				setBrief(article.brief)
 				setEnabled(true)
@@ -105,9 +108,18 @@ export function useReaderAi(client: KlipstackClient | null, articleId: string, r
 		}
 	}, [client, articleId, failed])
 
+	/** Records on the account that questions may go to the AI provider. Throws when it fails. */
+	const consent = useCallback(async () => {
+		if (!client) throw new Error("signed out")
+		const { consentedAt: at } = await client.ai.consent(true)
+		if (live.current) setConsentedAt(at)
+	}, [client])
+
 	return {
 		enabled,
 		allowance,
+		consented: consentedAt !== null,
+		consent,
 		threads,
 		setThreads,
 		failed,

@@ -1,3 +1,4 @@
+import { APPLE_PLATFORM_CLIENTS } from "@klipstack/api-contract/auth"
 import { eq, user } from "@klipstack/db"
 import { APIError } from "better-auth/api"
 import { redirect } from "react-router"
@@ -18,6 +19,23 @@ export type Provider = (typeof PROVIDERS)[number]
 
 /** The providers with credentials in the environment, in display order. */
 export const enabledProviders: Provider[] = PROVIDERS.filter((provider) => oauth[provider])
+
+/**
+ * The providers to offer on a page of this app's sign-in (`clientId`: the app's authorization
+ * request the page is part of; null on the web).
+ */
+export function providersFor(clientId: string | null): Provider[] {
+	return offeredIn(clientId, enabledProviders)
+}
+
+/**
+ * In the sign-in of one of our apps on Apple's platforms, App Review wants Sign in with Apple
+ * wherever another company's sign-in is offered (guideline 4.8): none without Apple among them.
+ */
+export function offeredIn<P extends string>(clientId: string | null, enabled: readonly P[]): P[] {
+	const apple = clientId !== null && APPLE_PLATFORM_CLIENTS.includes(clientId)
+	return apple && !enabled.some((p) => p === "apple") ? [] : [...enabled]
+}
 
 export function enabledProvider(value: unknown): Provider | null {
 	return enabledProviders.find((provider) => provider === value) ?? null

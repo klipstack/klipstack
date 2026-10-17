@@ -56,6 +56,12 @@ pnpm dlx expo-doctor         # Diagnose dependency and config problems
 - `targets/widget/`: the home screen's "Next up" widget, in Swift: Home's big card (and, in the
   large size, two more after it), loaded with the shared session. `src/lib/widget.ts` reloads
   it; a tap opens `klipstack://read/<id>`.
+- `plugins/with-extension-settings.js`: what `@bacons/apple-targets` has no option for: the
+  extensions run on the app's devices (iPhone only while `ios.supportsTablet` is false), and a
+  Release build drops the extensions' `NSAllowsLocalNetworking` (the dev server only).
+- `app.json` holds the privacy manifest (`ios.privacyManifests`): the required-reason APIs of the
+  app and its pods, and the data it collects. A new native dependency may need its reasons added:
+  check its `PrivacyInfo.xcprivacy`, and `ios/Klipstack/PrivacyInfo.xcprivacy` after a prebuild.
 - `ios/` and `android/` are generated (`expo prebuild`) and ignored. Never edit them. Change
   `app.json`, a config plugin, or `targets/` instead, then run `pnpm ios` again.
   After a release build (`pnpm ios:device`), a development build can fail to link
@@ -97,6 +103,10 @@ tokens the server issued to this app (`IN_APP_AI_CLIENTS` and `ACCOUNT_DELETION_
 `packages/api-contract/src/auth.ts`), not API keys: signed in with a key, the reader shows no AI.
 For those, sign the app in with an app token instead: `dev-account` issues one for a throwaway
 account (below).
+
+Before the account's first question, the reader asks whether its questions may go to Anthropic
+(`AiConsentSheet`). The answer is kept on the account (`PUT /ai/consent`, `consentedAt` in
+`GET /ai`) and changed in Account. A throwaway account starts without it.
 
 ```sh
 pnpm --filter @klipstack/web dev-account create --feature ai --app-token
@@ -149,6 +159,9 @@ database), not only the screenshot.
 
 - The app signs in with OAuth (authorization code + PKCE) as the first-party client
   `klipstack-mobile`, like the CLI does.
+- In its sign-in (`/login` and `/signup` carrying the app's signed authorization request), the web
+  offers no GitHub or Google button unless Sign in with Apple is offered too (App Review 4.8;
+  `APPLE_PLATFORM_CLIENTS` in `packages/api-contract/src/auth.ts`).
 - It keeps the session (API URL, tokens) as one JSON keychain item in the app group
   `group.com.klipstack.app`. The share extension and the widget read and refresh the same item;
   only the app and the share extension delete it.

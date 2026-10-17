@@ -1,4 +1,4 @@
-import { assets, db, eq, type Tx, user as userTable } from "@klipstack/db"
+import { assets, db, eq, sql, type Tx, user as userTable } from "@klipstack/db"
 import { getStorage } from "@klipstack/storage"
 
 /**
@@ -20,4 +20,13 @@ export async function deleteAccount(
 		await tx.delete(userTable).where(eq(userTable.id, userId))
 		await alongside?.(tx)
 	})
+}
+
+/** When the account agreed that its questions go to the AI provider; null when it has not. */
+export async function aiConsentedAt(userId: string): Promise<string | null> {
+	const [row] = await db
+		.select({ at: sql<string | null>`${userTable.prefs}->>'aiConsentAt'` })
+		.from(userTable)
+		.where(eq(userTable.id, userId))
+	return row?.at ?? null
 }

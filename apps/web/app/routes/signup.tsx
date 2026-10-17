@@ -17,13 +17,14 @@ import { useIsNsKey, useKeyTranslation } from "~/lib/i18n-keys"
 import { getLocale, localeCookie } from "~/lib/i18n.server"
 import { findUsableInvite, signupWithInvite } from "~/lib/invites.server"
 import { requestSignupLink } from "~/lib/magic-link.server"
+import { oauthClientOf, signedOAuthQuery } from "~/lib/oauth.server"
 import { pageTitle } from "~/lib/page-title"
 import {
 	enabledProvider,
-	enabledProviders,
 	InvalidInviteError,
 	type Provider,
 	providerErrorKey,
+	providersFor,
 	startProviderSignIn,
 } from "~/lib/provider-sign-in.server"
 import { readForm } from "~/lib/request-body.server"
@@ -48,13 +49,16 @@ export function meta({ matches }: Route.MetaArgs) {
 export async function loader({ context, request }: Route.LoaderArgs) {
 	requireAnonymous(context)
 	const url = new URL(request.url)
+	// Sign up from an app's sign-in (/login's link keeps its signed authorization request).
+	const app = await oauthClientOf(url)
 	return {
 		inviteRequired: invitesRequired,
 		waitlist: env.SIGNUP_MODE === "waitlist",
 		// The invite email links here with its code.
 		invite: url.searchParams.get("invite")?.slice(0, 32) ?? "",
 		linkSignup: emailEnabled,
-		providers: enabledProviders,
+		providers: providersFor(app),
+		appQuery: app ? signedOAuthQuery(url) : null,
 		providerError: providerErrorKey(url.searchParams.get("error")),
 	}
 }
@@ -228,7 +232,7 @@ export default function Signup({ loaderData, actionData }: Route.ComponentProps)
 	}
 
 	return (
-		<AuthCard title={t("signup.title")}>
+		<AuthCard title={t("signup.title")} inApp={!!loaderData.appQuery}>
 			{loaderData.providerError && !actionData ? (
 				<p className="mb-4 text-sm text-danger" role="alert">
 					{t(loaderData.providerError)}
@@ -308,7 +312,10 @@ export default function Signup({ loaderData, actionData }: Route.ComponentProps)
 			</Form>
 			<p className="mt-6 text-sm text-muted-fg">
 				{t("signup.haveAccount")}{" "}
-				<Link to="/login" className="text-link hover:underline">
+				<Link
+					to={loaderData.appQuery ? `/login?${loaderData.appQuery}` : "/login"}
+					className="text-link hover:underline"
+				>
 					{t("signup.login")}
 				</Link>
 			</p>

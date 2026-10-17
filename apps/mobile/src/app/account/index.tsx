@@ -4,6 +4,7 @@ import * as WebBrowser from "expo-web-browser"
 import { useCallback, useEffect, useState } from "react"
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from "react-native"
 import { Choices, listStyles, Row, Section } from "@/components/grouped-list"
+import { AI_CONSENT } from "@/lib/ai"
 import { useAuth } from "@/lib/auth"
 import { COLOR_SCHEMES, type ColorSchemePref } from "@/lib/color-scheme"
 import { APP_VERSION } from "@/lib/config"
@@ -33,10 +34,16 @@ export default function Account() {
 	const [scheme, setScheme] = useState(loadColorScheme)
 	const [type, setType] = useState(loadTypePrefs)
 	const [exporting, setExporting] = useState(false)
+	// With AI answers on: whether questions may go to the AI provider (null: not loaded).
+	const [ai, setAi] = useState<{ consentedAt: string | null } | null>(null)
 
 	const load = useCallback(() => {
 		if (!client) return
 		void client.me().then(setMe, () => {})
+		client.ai.status().then(
+			(status) => setAi(status.enabled ? { consentedAt: status.consentedAt ?? null } : null),
+			() => {},
+		)
 		client.usage().then(setUsage, () => setUsage("failed"))
 	}, [client])
 	useEffect(load, [load])
@@ -62,6 +69,32 @@ export default function Account() {
 		} finally {
 			setExporting(false)
 		}
+	}
+
+	async function setConsent(consented: boolean) {
+		if (!client) return
+		try {
+			setAi(await client.ai.consent(consented))
+		} catch {
+			Alert.alert("Couldn't change it", "Try again in a moment.")
+		}
+	}
+
+	function changeConsent() {
+		if (ai?.consentedAt)
+			Alert.alert(
+				"Stop sending questions to Anthropic?",
+				"Klipstack will ask before your next one.",
+				[
+					{ text: "Cancel", style: "cancel" },
+					{ text: "Stop", style: "destructive", onPress: () => void setConsent(false) },
+				],
+			)
+		else
+			Alert.alert(AI_CONSENT.title, AI_CONSENT.sent, [
+				{ text: "Not Now", style: "cancel" },
+				{ text: "Allow", onPress: () => void setConsent(true) },
+			])
 	}
 
 	function confirmSignOut() {
@@ -133,6 +166,19 @@ export default function Account() {
 				/>
 				{speech ? <Row label="Voices" push onPress={() => router.push("/account/voices")} /> : null}
 			</Section>
+
+			{ai ? (
+				<Section
+					title="AI answers"
+					footnote="When you ask about an article, Klipstack sends Anthropic its text, the passage and your question. Your choice holds in the app on all your devices."
+				>
+					<Row
+						label="Send questions to Anthropic"
+						value={ai.consentedAt ? "Allowed" : "Ask first"}
+						onPress={changeConsent}
+					/>
+				</Section>
+			) : null}
 
 			<Section
 				title="Your library"

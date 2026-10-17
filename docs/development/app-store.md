@@ -70,7 +70,7 @@ can't do any of them.
   older than 30 minutes. An account without a password (Google, GitHub or emailed links only)
   is sent to Settings on the web to delete it; Apple accepts a link that leads straight to the
   deletion, but it is a point a reviewer could raise. Hiding Google and GitHub in the app's
-  sign-in (planned, below) makes it rarer.
+  sign-in (below) makes it rarer.
 - **AI only through the app's own sign-in** ([#96](https://github.com/klipstack/klipstack/pull/96)):
   the API's AI endpoints answer only tokens issued to the iPhone app. *Why:* it keeps the AI's
   cost tied to Klipstack's own apps, and it means the AI a reviewer sees is the only way the app
@@ -85,24 +85,40 @@ can't do any of them.
   built from `APPLE_TEAM_ID` and `APPLE_BUNDLE_ID`, for the callback path
   `/app/oauth/callback` only. Unset, it answers 404, as klipstack.com does today. See "Universal
   links, the app side" above for turning it on.
+- **A consent sheet before the first AI request** (this branch): before the reader's first Explain,
+  Define, Ask, brief or chat, a sheet says that the article's text and what is asked go to
+  Anthropic, and that nothing is sent until the reader asks; Continue or Not Now. The choice is
+  kept on the account (`PUT /ai/consent`), so it holds in the app on every device, and Account →
+  AI answers shows and changes it. *Why:* guideline 5.1.2(i) asks for clear disclosure and
+  permission before personal data goes to a third-party AI. The web reader does not ask: it is
+  not reviewed by Apple, and it never did.
+- **iPad off** (this branch): `supportsTablet: false`; the share extension and the widget are iPhone-only
+  too. The app runs on iPads in iPhone mode. *Why:* an app that runs on iPad is reviewed on iPad
+  too, with iPad screenshots; the app is designed for the iPhone.
+- **The encryption key** (this branch): `ITSAppUsesNonExemptEncryption: false` in the app's
+  Info.plist. *Why:* the app only uses the encryption built into iOS (HTTPS); with the key, App
+  Store Connect doesn't ask the export question for every build.
+- **A privacy manifest** (this branch): `ios.privacyManifests` in `app.json` declares the
+  required-reason APIs of the app and its pods (file timestamps, `UserDefaults`, boot time, disk
+  space) and the data in the App Privacy table below. The share extension and the widget call none
+  of those APIs, so they need no manifest of their own. *Why:* Apple refuses uploads that use these
+  APIs without declaring why.
+- **No local networking in release builds** (this branch): the share extension and the widget reach the
+  local dev server only in development builds (`plugins/with-extension-settings.js`).
+- **Google and GitHub hidden in the app's sign-in** (this branch): `/login` and `/signup` reached from
+  the app's sign-in (they carry its signed authorization request) offer no provider button unless
+  Sign in with Apple is among them. The web's own sign-in is unchanged. People whose account has
+  only Google or GitHub can't sign in in the app until they set a password in Settings on the web.
+  *Why:* guideline 4.8, below.
 
-## Planned app-side fixes
+### Open points
 
-Another thread does these on the owner's Mac, after the enrollment:
-
-- **A consent sheet before the first AI request.** *Why:* guideline 5.1.2(i) asks for clear
-  disclosure and permission before personal data goes to a third-party AI. The sheet names
-  Anthropic and what is sent, the first time the reader uses an AI feature.
-- **iPad off** (`supportsTablet` is `true` in `app.json` today). *Why:* an app that runs on iPad
-  is reviewed on iPad too, with iPad screenshots; the app is designed for the iPhone.
-- **The encryption key** (`ITSAppUsesNonExemptEncryption: false` in the Info.plist). *Why:* the
-  app only uses the encryption built into iOS (HTTPS); with the key, App Store Connect doesn't
-  ask the export question for every build.
-- **A privacy manifest** (`PrivacyInfo.xcprivacy`) for the app, the share extension and the
-  widget. *Why:* Apple refuses uploads that use certain system APIs (file timestamps,
-  `UserDefaults`, disk space, …) without declaring why.
-- **Google and GitHub hidden in the app's sign-in** unless Sign in with Apple is offered there
-  too. *Why:* guideline 4.8, below.
+- **Account's "On the web" rows** (Ways to sign in, API keys, Connected apps) and "Use the web"
+  in Delete account open klipstack.com in an in-app browser. Without a web session there, they
+  land on a plain `/login`, which shows GitHub. A reviewer who taps one sees "Continue with
+  GitHub" inside the app.
+- **Signing up in the app's sign-in** ends on the web library in the sign-in sheet; it doesn't
+  return to the app, which has to sign in again.
 
 ## What the owner does in App Store Connect
 
@@ -162,11 +178,13 @@ App Review reads these before testing. Say:
   Claude, only when asked.
 - The share extension (Share → Klipstack in Safari) and the "Next up" widget.
 - Sign-in opens Klipstack's sign-in page in a system sheet; the account is created on the web.
+- The first AI request asks first: a sheet says what is sent to Anthropic. The choice can be
+  changed in Account → AI answers.
 
 ### Export compliance
 
 Answer that the app uses encryption, and that it is exempt: only the encryption in iOS itself, for
-HTTPS. With the Info.plist key (planned above) App Store Connect stops asking per build.
+HTTPS. With the Info.plist key (done above) App Store Connect stops asking per build.
 
 ## A review account on production
 
@@ -193,12 +211,8 @@ Guideline 4.8: an app whose sign-in offers a third-party or social login (Google
 offer an option with Apple's privacy guarantees, which in practice means Sign in with Apple. Email
 and password, or our own emailed links, don't count as third-party and need nothing extra.
 
-GitHub sign-in is on at klipstack.com today, and the app's sign-in opens the same login page, so
-the app breaks this rule as it is. Two ways to satisfy it:
-
-- Hide Google and GitHub in the app's sign-in until Sign in with Apple exists (the planned fix
-  above), or
-- Add Sign in with Apple (above) and offer it next to them.
-
-Whatever is turned on later, keep the two together: if Google or GitHub shows in the app, Sign in
-with Apple shows too.
+GitHub sign-in is on at klipstack.com, and the app's sign-in opens the same login page. The app's
+sign-in now hides Google and GitHub (done above). The rule in code is generic: in the sign-in of
+one of our apps on Apple's platforms (`APPLE_PLATFORM_CLIENTS`), providers show only when Apple is
+among them (`offeredIn` in `apps/web/app/lib/provider-sign-in.server.ts`). Once Sign in with Apple
+is added, all of them show there together.

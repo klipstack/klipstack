@@ -92,6 +92,7 @@ export const handlers: HandlerTable<Endpoints> = {
 	"account.delete": account.remove,
 	"openapi.get": openapi,
 	"ai.get": ai.status,
+	"ai.consent": ai.consent,
 	"ai.article": ai.article,
 	"ai.ask": ai.ask,
 	"ai.chat": ai.chat,
