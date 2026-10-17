@@ -226,11 +226,13 @@ interface ShortcutRow {
 	readonly id: string
 	readonly keys: readonly string[]
 	readonly ai?: boolean
+	/** Shown only when editions are on (true) or off (false); always when missing. */
+	readonly editions?: boolean
 }
 
 /**
  * Every shortcut, for the list in Settings and the reader's `?`. A row's label is
- * `common:shortcuts.rows.<id>`, a group's `common:shortcuts.groups.<id>`. `ai`: only with AI.
+ * `common:shortcuts.rows.<id>`, a group's `common:shortcuts.groups.<id>`. `ai`: only with AI. `editions`: only with editions on, or off.
  */
 export const SHORTCUT_GROUPS = [
 	{
@@ -248,7 +250,7 @@ export const SHORTCUT_GROUPS = [
 			{ id: "listArrows", keys: ["↑", "↓", "←", "→"] },
 			{ id: "listOpen", keys: [SHORTCUT_HINTS.open, "O"] },
 			{ id: "star", keys: [SHORTCUT_HINTS.star] },
-			{ id: "shortlist", keys: [SHORTCUT_HINTS.shortlist] },
+			{ id: "shortlist", keys: [SHORTCUT_HINTS.shortlist], editions: true },
 			{ id: "archive", keys: [SHORTCUT_HINTS.archive] },
 			{ id: "unread", keys: [SHORTCUT_HINTS.unread] },
 			{ id: "tags", keys: [SHORTCUT_HINTS.tags] },
@@ -280,6 +282,17 @@ export const SHORTCUT_GROUPS = [
 					),
 					"⌫",
 				],
+				editions: true,
+			},
+			{
+				id: "articleActionsWithoutEditions",
+				keys: [
+					...(["star", "archive", "unread", "tags", "delete"] as const).map(
+						(a) => SHORTCUT_HINTS[a],
+					),
+					"⌫",
+				],
+				editions: false,
 			},
 			{ id: "copyHighlight", keys: [COPY_HINT] },
 			{ id: "help", keys: [READER_HINTS.help] },

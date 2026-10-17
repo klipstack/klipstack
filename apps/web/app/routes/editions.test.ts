@@ -80,8 +80,14 @@ const preview = (id: string) =>
 
 beforeAll(async () => {
 	await db.insert(userTable).values([
-		{ id: ownerId, name: owner.name, email: `${ownerId}@x.test` },
-		{ id: otherId, name: other.name, email: `${otherId}@x.test`, locale: "es" },
+		{ id: ownerId, name: owner.name, email: `${ownerId}@x.test`, prefs: { editions: "on" } },
+		{
+			id: otherId,
+			name: other.name,
+			email: `${otherId}@x.test`,
+			locale: "es",
+			prefs: { editions: "on" },
+		},
 	])
 	const [doc] = await db
 		.insert(documents)
@@ -103,7 +109,9 @@ afterAll(async () => {
 describe("every account", () => {
 	it("makes editions with no feature to turn on, and finds nobody else's", async () => {
 		const newId = `${ownerId}-new`
-		await db.insert(userTable).values({ id: newId, name: "New", email: `${newId}@x.test` })
+		await db
+			.insert(userTable)
+			.values({ id: newId, name: "New", email: `${newId}@x.test`, prefs: { editions: "on" } })
 		try {
 			as({ id: newId, name: "New", locale: "en" })
 			const made = create()

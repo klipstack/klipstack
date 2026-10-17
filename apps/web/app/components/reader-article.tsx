@@ -156,10 +156,14 @@ export function ReaderArticle({
 	const highlights = useHighlightList(doc.id, data.highlights)
 	const { items } = highlights
 	const note = useNoteAutosave(doc.id, doc.note)
+	// The answers kept are read with the feature; asking more, unless turned off in Settings.
 	const aiEnabled = data.ai.enabled && supported
+	const asking = aiEnabled && data.ai.asking
 	const allowance = useAiAllowance(data.ai.allowance)
 	const ai = useAiThreads(doc.id, data.ai.threads, allowance)
 	const brief = useBrief(doc.id, doc.currentVersionId, data.ai.brief, allowance)
+	// The Chat tab: to ask in, or, with asking off, to read the chat the article has.
+	const chatShown = asking || (aiEnabled && ai.cards.some((c) => c.action === "chat"))
 	const threadRangesRef = useRef<Map<string, Range>>(new Map())
 	const [hoveredThread, setHoveredThread] = useState<string | null>(null)
 	// Where the reader left off, as the article opened (useReadingProgress resumes there).
@@ -197,14 +201,14 @@ export function ReaderArticle({
 	}, [])
 	useEffect(() => {
 		const onKey = (e: KeyboardEvent) => {
-			const tab = isHighlightsShortcut(e) ? "notes" : aiEnabled && isChatShortcut(e) ? "chat" : null
+			const tab = isHighlightsShortcut(e) ? "notes" : chatShown && isChatShortcut(e) ? "chat" : null
 			if (!tab) return
 			e.preventDefault()
 			latestShowTab.current(tab)
 		}
 		document.addEventListener("keydown", onKey)
 		return () => document.removeEventListener("keydown", onKey)
-	}, [aiEnabled])
+	}, [chatShown])
 
 	// ---- painting ----
 	useEffect(() => {
@@ -396,13 +400,13 @@ export function ReaderArticle({
 	const onSelect = useCallback(
 		(next: ArticleSelection) => {
 			// One word can only be asked about.
-			if (!aiEnabled && !isHighlightable(next.selector.exact)) return
+			if (!asking && !isHighlightable(next.selector.exact)) return
 			const rect = firstRect(next.range)
 			if (!rect) return
 			closePopover()
 			setSelection({ selection: next, rect, scrollY: window.scrollY })
 		},
-		[closePopover, aiEnabled],
+		[closePopover, asking],
 	)
 	const highlightSelection = (selected: ArticleSelection) => {
 		window.getSelection()?.removeAllRanges()
@@ -421,7 +425,7 @@ export function ReaderArticle({
 	const askAboutSelection = (selected: ArticleSelection, action: AiThreadAction, typed = "") =>
 		ask(selected.selector, action, typed)
 	// With a selection, typing starts an Ask with what was typed ("Or just start typing").
-	const typingSelection = aiEnabled ? selection?.selection : undefined
+	const typingSelection = asking ? selection?.selection : undefined
 	const latestAsk = useRef(askAboutSelection)
 	useInsertionEffect(() => {
 		latestAsk.current = askAboutSelection
@@ -487,8 +491,8 @@ export function ReaderArticle({
 				ai.open(card.id)
 			}}
 			onClose={ai.close}
-			onSend={(text) => ai.send(card.id, text)}
-			onRetry={() => ai.retry(card.id)}
+			onSend={asking ? (text) => ai.send(card.id, text) : undefined}
+			onRetry={asking ? () => ai.retry(card.id) : undefined}
 			onDelete={() => deleteThread(card.id)}
 			onCopy={(text) => copyText(text, t("highlights.popover.copied"))}
 			onCite={citeIn(card)}
@@ -710,7 +714,7 @@ export function ReaderArticle({
 				const root = contentRef.current
 				// The marked paragraph, while it is on screen: not one scrolled away from.
 				const paragraph = cursor.shown()
-				if (!aiEnabled || !paragraph || !root) return false
+				if (!asking || !paragraph || !root) return false
 				const passage = describeRange(paragraph, root)
 				if (!passage) return false
 				ask(passage, "ask")
@@ -721,7 +725,7 @@ export function ReaderArticle({
 			case "prevNote":
 				return goToStop(-1)
 			case "brief": {
-				if (!aiEnabled) return false
+				if (!asking && !(aiEnabled && brief.brief)) return false
 				// A brief made opens or closes; none yet, its button gets the focus: Enter makes one.
 				const opening = !brief.brief || brief.writing || !brief.open
 				if (brief.brief && !brief.writing) brief.setOpen(opening)
@@ -797,7 +801,7 @@ export function ReaderArticle({
 						</p>
 					) : null}
 					{/* Between the header and the text: it doesn't take the margin's top from the cards. */}
-					{aiEnabled ? briefCard : null}
+					{asking || (aiEnabled && brief.brief) ? briefCard : null}
 					{/* The text and its ink, which goes under it: isolated, so the ink stays above the page. */}
 					<div ref={inkRef} className="relative isolate">
 						<div
@@ -888,9 +892,7 @@ export function ReaderArticle({
 						disabled={updating || highlights.pending}
 						onHighlight={() => highlightSelection(selection.selection)}
 						canHighlight={isHighlightable(selection.selection.selector.exact)}
-						onAsk={
-							aiEnabled ? (action) => askAboutSelection(selection.selection, action) : undefined
-						}
+						onAsk={asking ? (action) => askAboutSelection(selection.selection, action) : undefined}
 						onCopy={() => copySelection(selection.selection)}
 						onClose={() => setSelection(null)}
 					/>
@@ -918,7 +920,7 @@ export function ReaderArticle({
 						onShare={() => shareHighlight(popoverItem.id)}
 						onDelete={() => removeHighlight(popoverItem.id)}
 						onAsk={
-							aiEnabled
+							asking
 								? (action) =>
 										ask(
 											{
@@ -971,14 +973,14 @@ export function ReaderArticle({
 						tab={sidebarTab}
 						onTab={(tab) => tab !== sidebarTab && showSidebarTab(tab)}
 						chat={
-							aiEnabled ? (
+							chatShown ? (
 								<ChatPanel
 									active={sidebarTab === "chat"}
 									chat={chatCard}
 									written={ai.written}
 									canCite={chatCard?.versionId === doc.currentVersionId}
-									onAsk={(text) => ai.chat(text, doc.currentVersionId ?? "")}
-									onRetry={() => chatCard && ai.retry(chatCard.id)}
+									onAsk={asking ? (text) => ai.chat(text, doc.currentVersionId ?? "") : undefined}
+									onRetry={asking ? () => chatCard && ai.retry(chatCard.id) : undefined}
 									onClear={() => chatCard && clearChat(chatCard.id)}
 									onCopy={(text) => copyText(text, t("highlights.popover.copied"))}
 									onCite={chatCard ? citeIn(chatCard) : () => {}}

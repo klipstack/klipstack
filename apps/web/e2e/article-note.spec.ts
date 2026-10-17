@@ -86,7 +86,7 @@ test("article note: write, autosave, reload, keys, clear, export", async ({ page
 test("the end of the article asks for the note, the sidebar's, and can start the edition's", async ({
 	page,
 }) => {
-	const email = await signupUser(page, "Noter", { verified: false })
+	const email = await signupUser(page, "Noter", { verified: false, editions: true })
 	const owner = await db.query.user.findFirst({ where: eq(user.email, email) })
 	// Only the end of the article matters: it need not be extracted.
 	const paragraphs = Array.from({ length: 12 }, (_, i) => `<p>Paragraph ${i} of the essay.</p>`)

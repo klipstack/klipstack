@@ -17,7 +17,7 @@ import {
 	briefArticle,
 	deleteThread,
 	followUp,
-	mayUseAi,
+	mayReadAi,
 	restoreThread,
 	retryAnswer,
 	setAiConsent,
@@ -26,7 +26,7 @@ import { NO_ARTICLE } from "~/commands/articles.server"
 import { answerEvents, briefEvents } from "~/lib/ai-events.server"
 import { briefView, messageView, threadView } from "~/lib/ai-threads"
 import { ai } from "~/lib/ai.server"
-import { hasFeature } from "~/lib/features.server"
+import { aiOn, hasFeature } from "~/lib/features.server"
 import { aiAllowance } from "~/lib/limits.server"
 import { aiConsentedAt } from "~/services/account.server"
 import { getBrief, getThread, listDocumentThreads } from "~/services/ai-threads.server"
@@ -45,19 +45,20 @@ import type { Handler } from "../handler.server"
  */
 const options = (language: "en" | "es" | undefined): AskOptions => ({ language: language ?? "en" })
 
-const enabled = async (userId: string) => ai.available && (await hasFeature(userId, "ai"))
-
 export const status: Handler<typeof getAi> = async ({ userId }) => {
 	const consentedAt = await aiConsentedAt(userId)
-	if (!(await enabled(userId))) return { enabled: false, allowance: null, consentedAt }
-	return { enabled: true, allowance: await aiAllowance(userId), consentedAt }
+	if (!ai.available || !(await hasFeature(userId, "ai")))
+		return { enabled: false, turnedOff: false, allowance: null, consentedAt }
+	if (!(await aiOn(userId)))
+		return { enabled: false, turnedOff: true, allowance: null, consentedAt }
+	return { enabled: true, turnedOff: false, allowance: await aiAllowance(userId), consentedAt }
 }
 
 export const consent: Handler<typeof setAiConsentEndpoint> = async ({ userId, body }) =>
 	setAiConsent(userId, body)
 
 export const article: Handler<typeof articleAi> = async ({ userId, params }) => {
-	await mayUseAi(userId)
+	await mayReadAi(userId)
 	const doc = await getDocument(userId, params.id)
 	if (!doc) throw notFound(NO_ARTICLE)
 	const versionId = doc.currentVersionId

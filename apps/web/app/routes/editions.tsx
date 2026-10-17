@@ -20,6 +20,7 @@ import {
 	publishProblems,
 } from "~/lib/editions"
 import { env } from "~/lib/env.server"
+import { requireEditions } from "~/lib/features.server"
 import type { PageBarHandle } from "~/lib/page-bar"
 import { pageTitle } from "~/lib/page-title"
 import { resolvePrefs } from "~/lib/prefs"
@@ -47,6 +48,7 @@ const DESK_ITEMS = 4
 
 export async function loader({ context, request }: Route.LoaderArgs) {
 	const user = requireUser(context, request)
+	await requireEditions(user.id)
 	const [editions, draft, nudge] = await Promise.all([
 		listEditions(user.id),
 		currentDraft(db, user.id),

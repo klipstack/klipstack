@@ -375,6 +375,62 @@ test("the chat: questions about the whole article in the sidebar, kept, and clea
 	await expect(chat).toContainText("Answer 2.")
 })
 
+test("turned off in Settings: answers kept are read and deleted, nothing new is asked", async ({
+	page,
+}) => {
+	test.setTimeout(120_000)
+	await page.setViewportSize({ width: 1440, height: 900 })
+	const id = await open(page)
+	await select(page, PASSAGE)
+	await selectionToolbar(page).getByRole("button", { name: "Explain" }).click()
+	const card = page.getByTestId("ai-card")
+	await expect(card.getByRole("button", { name: "Copy" })).toBeVisible()
+	await page.getByRole("button", { name: "Chat about this article" }).click()
+	const sidebar = page.getByRole("complementary", { name: "Notes and highlights" })
+	const chat = sidebar.getByTestId("chat")
+	await chat.getByRole("textbox", { name: "Ask about this article…" }).fill("What is it about?")
+	await chat.getByRole("textbox", { name: "Ask about this article…" }).press("Enter")
+	await expect(chat.getByRole("button", { name: "Copy answer" })).toBeVisible()
+
+	await page.goto("/settings/features")
+	await waitForHydration(page)
+	await Promise.all([
+		page.waitForResponse((r) => r.url().includes("/prefs") && r.ok()),
+		page.getByRole("checkbox", { name: "Ask AI while reading" }).uncheck(),
+	])
+	await page.goto(`/read/${id}`)
+	await waitForHydration(page)
+
+	// The passage's answer is there, to read and delete: no follow-up, no answering again.
+	const margin = page.getByRole("region", { name: "Highlight notes" })
+	await margin.getByRole("button", { name: /Explain/ }).click()
+	await expect(card).toContainText("A fixed answer for tests.")
+	await expect(card.getByRole("textbox")).toHaveCount(0)
+	await expect(card.getByRole("button", { name: "Answer again" })).toHaveCount(0)
+	await expect(card.getByRole("button", { name: "Delete" })).toBeVisible()
+	await shot(page, "off-1-card")
+	await page.mouse.click(1300, 450)
+	// Nothing new: the toolbar only highlights.
+	await select(page, PASSAGE)
+	await expect(selectionToolbar(page).getByRole("button", { name: "Highlight" })).toBeVisible()
+	await expect(selectionToolbar(page).getByRole("button", { name: "Explain" })).toHaveCount(0)
+	await page.keyboard.press("Escape")
+	// The chat the article has, to read and clear, without its field.
+	await page.getByRole("button", { name: "Chat about this article" }).click()
+	await expect(chat).toContainText("What is it about?")
+	await expect(chat).toContainText("AI answers are turned off in Settings → Features.")
+	await expect(chat.getByRole("textbox")).toHaveCount(0)
+	await shot(page, "off-2-chat")
+	await chat.getByRole("button", { name: "Clear chat" }).click()
+	await expect(sidebar.getByRole("tab", { name: "Ask" })).toHaveCount(0)
+
+	// Without a chat, there is none to open.
+	await page.reload()
+	await waitForHydration(page)
+	await expect(page.getByRole("button", { name: "Chat about this article" })).toHaveCount(0)
+	await expect(margin.getByRole("button", { name: /Explain/ })).toBeVisible()
+})
+
 test("without the feature, the toolbar has no AI", async ({ page }) => {
 	const email = await signupUser(page, "Reader", { features: [] })
 	const owner = await db.query.user.findFirst({ where: eq(user.email, email) })

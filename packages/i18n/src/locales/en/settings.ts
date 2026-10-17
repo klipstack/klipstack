@@ -20,6 +20,32 @@ export default {
 			"Single keys act on articles: S stars, E archives, # deletes, J and K move. Turn them off if you use speech input or a screen reader. Enter, the arrow keys and Escape keep working.",
 		singleKey: "Single-key shortcuts",
 	},
+	features: {
+		title: "Features",
+		description: "Turn parts of Klipstack on or off for your account.",
+		ai: {
+			title: "AI answers",
+			label: "Ask AI while reading",
+			description:
+				"Ask about a passage, chat with an article and get a summary, answered by AI. Turned off, the answers you already have stay, to read and delete.",
+		},
+		editions: {
+			title: "Editions",
+			label: "Make editions",
+			description:
+				"Gather what was worth reading into a public page you can share. Turned off, nothing is deleted, and the editions you published stay public.",
+		},
+		topics: {
+			title: "Topics",
+			label: "Sort my library into topics",
+			description:
+				"Topics proposed from your library and kept up to date. Article text goes to AI to sort it.",
+			confirm: "Turning topics off deletes them, and where each article was.",
+			turnOff: "Turn off and delete",
+			keep: "Keep them",
+			open: "Open Topics",
+		},
+	},
 	account: {
 		title: "Account",
 		signInTitle: "Email and login",

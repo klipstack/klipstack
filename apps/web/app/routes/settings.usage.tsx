@@ -1,11 +1,12 @@
 import { useTranslation } from "react-i18next"
 import { SettingsCard, SettingsPage } from "~/components/settings-page"
 import { formatDay } from "~/lib/date-groups"
-import { hasFeature } from "~/lib/features.server"
+import { aiOn } from "~/lib/features.server"
 import { getLocale } from "~/lib/i18n.server"
 import { type LimitName, usageOf } from "~/lib/limits.server"
 import type { PageBarHandle } from "~/lib/page-bar"
 import { pageTitle } from "~/lib/page-title"
+import { resolvePrefs } from "~/lib/prefs"
 import { requireUser } from "~/lib/session.server"
 import { cn } from "~/lib/utils"
 import type { Route } from "./+types/settings.usage"
@@ -18,7 +19,8 @@ export const handle: PageBarHandle = { pageBar: { titleKey: "settings:usage.titl
 
 export async function loader({ context, request }: Route.LoaderArgs) {
 	const user = requireUser(context, request)
-	const [usage, aiOn] = await Promise.all([usageOf(user.id), hasFeature(user.id, "ai")])
+	const [usage, asking] = await Promise.all([usageOf(user.id), aiOn(user.id)])
+	const editions = resolvePrefs(user.prefs).editions === "on"
 	const locale = getLocale(context)
 	// Numbers are formatted here, as dates are: the server's Intl and the browser's may differ.
 	const number = new Intl.NumberFormat(locale)
@@ -28,9 +30,10 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 		"saves",
 		"storage",
 		"feeds",
-		"editions",
+		// The features turned off in Settings → Features take nothing from their caps.
+		...(editions ? ["editions" as const] : []),
 		"shares",
-		...(aiOn ? ["ai" as const] : []),
+		...(asking ? ["ai" as const] : []),
 	]
 	return {
 		rows: limits.map((name) => ({

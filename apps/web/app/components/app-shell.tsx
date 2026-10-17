@@ -114,6 +114,7 @@ export function NavItemInk({
 function SidebarContent({
 	user,
 	feedNew,
+	editions,
 	editionDue,
 	topics,
 	savedSearches,
@@ -125,6 +126,7 @@ function SidebarContent({
 	/** Who is signed in: the account button shows the name. */
 	user: AccountUser
 	feedNew: number
+	editions: boolean
 	editionDue: boolean
 	topics: TopicsNav
 	savedSearches: SavedSearchItem[]
@@ -185,7 +187,7 @@ function SidebarContent({
 			</div>
 			<nav className="flex flex-1 flex-col gap-1">
 				{items
-					.filter(({ to }) => to !== "/topics" || topics)
+					.filter(({ to }) => (to !== "/topics" || topics) && (to !== "/editions" || editions))
 					.map(({ to, key, icon: Icon }) => {
 						// Dots, not counts: busy blogs would make a number meaningless, and why an edition is due
 						// is said on its page.
@@ -374,6 +376,7 @@ export function AppShell({
 	notice,
 	user,
 	feedNew,
+	editions,
 	editionDue,
 	topics = null,
 	savedSearches,
@@ -384,6 +387,8 @@ export function AppShell({
 	user: AccountUser
 	/** New posts in the user's feeds, from the layout loader. */
 	feedNew: number
+	/** Editions are turned on for the account, from the layout loader. */
+	editions: boolean
 	/** A new edition is due (`editionNudge`), from the layout loader. */
 	editionDue: boolean
 	/** Topics, for accounts that have them, from the layout loader. */
@@ -479,6 +484,7 @@ export function AppShell({
 				<SidebarContent
 					user={user}
 					feedNew={feedNew}
+					editions={editions}
 					editionDue={editionDue}
 					topics={topics}
 					savedSearches={savedSearches}
@@ -594,6 +600,7 @@ export function AppShell({
 				<SidebarContent
 					user={user}
 					feedNew={feedNew}
+					editions={editions}
 					editionDue={editionDue}
 					topics={topics}
 					savedSearches={savedSearches}

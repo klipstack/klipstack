@@ -17,6 +17,7 @@ import { useEffect, useInsertionEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link, useFetcher, useLocation, useNavigate } from "react-router"
 import { useDraftUndoToast } from "~/hooks/use-draft-undo-toast"
+import { useEditions } from "~/hooks/use-editions"
 import { useRestoreConflictToast } from "~/hooks/use-restore-conflict-toast"
 import { warnAboutBacklinks } from "~/lib/backlink-warning.client"
 import { useCommands } from "~/lib/commands"
@@ -100,6 +101,7 @@ export function DocumentCard({
 			: optimisticIntent === "unstar"
 				? false
 				: Boolean(doc.starredAt)
+	const editions = useEditions()
 	const shortlisted =
 		optimisticIntent === "shortlist"
 			? true
@@ -184,6 +186,7 @@ export function DocumentCard({
 				submit(starred ? "unstar" : "star")
 				return true
 			case "shortlist":
+				if (!editions) return false
 				submit(shortlisted ? "unshortlist" : "shortlist")
 				return true
 			case "archive":
@@ -251,13 +254,17 @@ export function DocumentCard({
 										shortcut: SHORTCUT_HINTS.star,
 										run: () => act("star"),
 									},
-									{
-										id: "card-shortlist",
-										label: shortlisted ? t("card.unshortlist") : t("card.shortlist"),
-										icon: Newspaper,
-										shortcut: SHORTCUT_HINTS.shortlist,
-										run: () => act("shortlist"),
-									},
+									...(editions
+										? [
+												{
+													id: "card-shortlist",
+													label: shortlisted ? t("card.unshortlist") : t("card.shortlist"),
+													icon: Newspaper,
+													shortcut: SHORTCUT_HINTS.shortlist,
+													run: () => act("shortlist"),
+												},
+											]
+										: []),
 									{
 										id: "card-archive",
 										label: archiving ? t("card.archive") : t("card.unarchive"),
@@ -440,7 +447,7 @@ export function DocumentCard({
 							{`· ${t("card.minutes", { count: doc.readingMinutes })}`}
 						</span>
 					) : null}
-					{shortlisted ? (
+					{shortlisted && editions ? (
 						<span
 							data-testid="card-shortlisted"
 							className="inline-flex shrink-0 items-center gap-1"
@@ -622,7 +629,7 @@ export function DocumentCard({
 								{t("tags.edit")}
 							</MenuButton>
 						)}
-						{failed ? null : (
+						{failed || !editions ? null : (
 							<MenuAction
 								fetcher={fetcher}
 								action={action}

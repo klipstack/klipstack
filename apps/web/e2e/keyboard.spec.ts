@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { expect, test } from "@playwright/test"
-import { createInviteCode, uniqueEmail, waitForHydration } from "./helpers"
+import { createInviteCode, turnOnEditions, uniqueEmail, waitForHydration } from "./helpers"
 
 const FIXTURE = join(
 	import.meta.dirname,
@@ -21,10 +21,12 @@ test("keyboard: j/k move the cursor, keys act on it, the reader answers the same
 	await page.goto("/signup")
 	await page.getByLabel("Invite code").fill(code)
 	await page.getByLabel("Name").fill("Keys")
-	await page.getByLabel("Email").fill(uniqueEmail("keys"))
+	const email = uniqueEmail("keys")
+	await page.getByLabel("Email").fill(email)
 	await page.getByLabel("Password").fill("password123")
 	await page.getByRole("button", { name: "Create account" }).click()
 	await expect(page).toHaveURL(/\/home$/)
+	await turnOnEditions(email)
 
 	// Two ready articles: the fixture, then the fixture again under another title and address.
 	const html = readFileSync(FIXTURE, "utf8")

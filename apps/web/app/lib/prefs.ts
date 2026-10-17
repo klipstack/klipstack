@@ -13,6 +13,8 @@ export const DEFAULT_PREFS: Required<UserPrefs> = {
 	aiConsentAt: null,
 	linkEditions: "off",
 	outline: "on",
+	editions: "off",
+	ai: "on",
 }
 
 export function resolvePrefs(prefs: UserPrefs | null | undefined): Required<UserPrefs> {

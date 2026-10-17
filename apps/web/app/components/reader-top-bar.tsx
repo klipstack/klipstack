@@ -70,8 +70,8 @@ export function ReaderTopBar({
 	prefs: ReturnType<typeof resolvePrefs>
 	onPrefs: (prefs: ReturnType<typeof resolvePrefs>) => void
 	starred: boolean
-	/** Marked for the next edition. */
-	shortlisted: boolean
+	/** Marked for the next edition; undefined with editions turned off, which hides the mark. */
+	shortlisted: boolean | undefined
 	archived: boolean
 	onChange: (intent: StateIntent) => void
 	onDelete: () => void
@@ -235,13 +235,15 @@ export function ReaderTopBar({
 								{tl("tags.edit")}
 							</MenuButton>
 						) : null}
-						<MenuButton
-							icon={<Newspaper className="size-4" aria-hidden />}
-							shortcut={SHORTCUT_HINTS.shortlist}
-							onClick={() => onChange(shortlisted ? "unshortlist" : "shortlist")}
-						>
-							{shortlisted ? t("actions.unshortlist") : t("actions.shortlist")}
-						</MenuButton>
+						{shortlisted === undefined ? null : (
+							<MenuButton
+								icon={<Newspaper className="size-4" aria-hidden />}
+								shortcut={SHORTCUT_HINTS.shortlist}
+								onClick={() => onChange(shortlisted ? "unshortlist" : "shortlist")}
+							>
+								{shortlisted ? t("actions.unshortlist") : t("actions.shortlist")}
+							</MenuButton>
+						)}
 						<MenuButton
 							icon={<EyeOff className="size-4" aria-hidden />}
 							shortcut={SHORTCUT_HINTS.unread}

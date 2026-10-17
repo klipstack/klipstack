@@ -17,7 +17,7 @@ import { z } from "zod"
 import type { AiAllowance } from "~/lib/ai-threads"
 import { AI_RATE_LIMIT, ai } from "~/lib/ai.server"
 import { AppError, notFound, parseInput, rateLimited } from "~/lib/app-error"
-import { hasFeature } from "~/lib/features.server"
+import { aiOn, hasFeature } from "~/lib/features.server"
 import { countMonthly, recordAiSpend } from "~/lib/limits.server"
 import { rateLimit } from "~/lib/rate-limit.server"
 import {
@@ -110,13 +110,20 @@ async function countQuestion(tx: Tx, userId: string): Promise<AiAllowance> {
 }
 
 /**
- * Whether the account may use the AI at all: the feature, then the server. What reads an article's
- * threads checks it too.
+ * Whether the account's AI answers can be read: the feature, then the server. Turned off in
+ * Settings, the answers already given stay, to read and delete.
  */
-export async function mayUseAi(userId: string) {
+export async function mayReadAi(userId: string) {
 	if (!(await hasFeature(userId, "ai")))
 		throw new AppError("forbidden", "AI answers are not turned on for this account.")
 	if (!ai.available) throw new AppError("unavailable", "AI answers are not set up on this server.")
+}
+
+/** Whether the account may ask the AI: `mayReadAi`, and not turned off in Settings → Features. */
+export async function mayUseAi(userId: string) {
+	await mayReadAi(userId)
+	if (!(await aiOn(userId)))
+		throw new AppError("forbidden", "AI answers are turned off for this account.")
 }
 
 /**

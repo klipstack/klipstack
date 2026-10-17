@@ -47,6 +47,7 @@ import { onChange, settled } from "@/lib/article-changes"
 import { articleMeta } from "@/lib/article-meta"
 import { useAuth } from "@/lib/auth"
 import { localDay } from "@/lib/daily-highlights"
+import { setEditions } from "@/lib/editions"
 import {
 	everyHomeArticle,
 	type HomeLists,
@@ -157,7 +158,10 @@ export default function Home() {
 		setNow(new Date())
 		client
 			.me()
-			.then((me) => setName(me.name))
+			.then((me) => {
+				setName(me.name)
+				setEditions(me.editions)
+			})
 			.catch(() => {})
 		const mine = ++generation.current
 		try {

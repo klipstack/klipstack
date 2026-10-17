@@ -40,6 +40,7 @@ export default [
 		route("account", "routes/settings.account.tsx"),
 		route("appearance", "routes/settings.appearance.tsx"),
 		route("shortcuts", "routes/settings.shortcuts.tsx"),
+		route("features", "routes/settings.features.tsx"),
 		route("capture", "routes/settings.capture.tsx"),
 		route("api-keys", "routes/settings.api-keys.tsx"),
 		route("connected-apps", "routes/settings.connected-apps.tsx"),

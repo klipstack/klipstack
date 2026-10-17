@@ -27,6 +27,7 @@ import { articleByline, articleMeta, shortDate, siteName } from "@/lib/article-m
 import { useAuth } from "@/lib/auth"
 import { copyText } from "@/lib/clipboard"
 import { inSections } from "@/lib/date-groups"
+import { useEditions } from "@/lib/editions"
 import { leadImageSource } from "@/lib/lead-image"
 import type { Act } from "@/lib/list-motion"
 import { type Colors, fonts, useColors } from "@/lib/theme"
@@ -239,7 +240,8 @@ export function Starred({
 	colors: Colors
 	children: ReactNode
 }) {
-	if (!item.starred && !item.shortlisted) return children
+	const marked = useEditions() && item.shortlisted
+	if (!item.starred && !marked) return children
 	return (
 		<View style={styles.starred}>
 			{item.starred ? (
@@ -250,7 +252,7 @@ export function Starred({
 					accessibilityLabel="Starred"
 				/>
 			) : null}
-			{item.shortlisted ? (
+			{marked ? (
 				<SymbolView
 					name="newspaper.fill"
 					tintColor={colors.accent}
@@ -321,6 +323,7 @@ export function Tappable({
 	style: (pressed: boolean) => StyleProp<ViewStyle>
 	children: ReactNode
 }) {
+	const editions = useEditions()
 	const [pressed, setPressed] = useState(false)
 	if (onCheck)
 		return (
@@ -357,7 +360,7 @@ export function Tappable({
 					{children}
 				</Pressable>
 			</Link.Trigger>
-			{articleMenu(item, menu)}
+			{articleMenu(item, menu, editions)}
 		</Link>
 	)
 }
@@ -367,7 +370,7 @@ export function Tappable({
  * is done most: Star, Archive and Share; then finishing, Tags and Rename. A failed save has Try Again, and
  * what needs no text; an article in the trash can be restored, or deleted forever.
  */
-function articleMenu(item: ArticleSummary, menu: CardMenu) {
+function articleMenu(item: ArticleSummary, menu: CardMenu, editions: boolean) {
 	const saved = item.status !== "failed"
 	const ready = item.status === "ready"
 	const archived = item.location === "archive"
@@ -448,12 +451,14 @@ function articleMenu(item: ArticleSummary, menu: CardMenu) {
 							Mark as Unread
 						</Link.MenuAction>
 					) : null}
-					<Link.MenuAction
-						icon="newspaper"
-						onPress={() => menu.act(item, item.shortlisted ? "unshortlist" : "shortlist")}
-					>
-						{item.shortlisted ? "Remove from Next Edition" : "Add to Next Edition"}
-					</Link.MenuAction>
+					{editions ? (
+						<Link.MenuAction
+							icon="newspaper"
+							onPress={() => menu.act(item, item.shortlisted ? "unshortlist" : "shortlist")}
+						>
+							{item.shortlisted ? "Remove from Next Edition" : "Add to Next Edition"}
+						</Link.MenuAction>
+					) : null}
 					<Link.MenuAction icon="tag" onPress={() => menu.tag(item)}>
 						Tags…
 					</Link.MenuAction>

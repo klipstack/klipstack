@@ -12,6 +12,7 @@ import {
 	session,
 	sql,
 	user,
+	type UserPrefs,
 } from "@klipstack/db"
 import { QUEUES } from "@klipstack/queue"
 import { createClient } from "@klipstack/sdk"
@@ -73,13 +74,16 @@ export async function mcpClient(token: string, { legacy = false } = {}) {
 	return client
 }
 
-/** Test accounts with an API key; `cleanup` deletes them and what they own. */
+/**
+ * Test accounts with an API key; `cleanup` deletes them and what they own. Editions are on for them
+ * unless `prefs` says otherwise.
+ */
 export function apiUsers(tag: string) {
 	const ids: string[] = []
-	async function create(name: string) {
+	async function create(name: string, prefs: UserPrefs = { editions: "on" }) {
 		const id = `test-${tag}-${randomUUID()}`
 		const email = `${id}@example.com`
-		await db.insert(user).values({ id, name, email, emailVerified: true })
+		await db.insert(user).values({ id, name, email, emailVerified: true, prefs })
 		ids.push(id)
 		const key = (await createApiKey(id, "tests")).raw
 		return { id, name, email, key, client: sdk(key) }

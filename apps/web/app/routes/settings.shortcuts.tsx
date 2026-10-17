@@ -4,9 +4,10 @@ import { useFetcher, useRouteLoaderData } from "react-router"
 import { SettingsCard, SettingsPage } from "~/components/settings-page"
 import { ShortcutList } from "~/components/shortcut-list"
 import { ai } from "~/lib/ai.server"
-import { hasFeature } from "~/lib/features.server"
+import { aiOn } from "~/lib/features.server"
 import type { PageBarHandle } from "~/lib/page-bar"
 import { pageTitle } from "~/lib/page-title"
+import { resolvePrefs } from "~/lib/prefs"
 import { requireUser } from "~/lib/session.server"
 import type { loader as rootLoader } from "~/root"
 import type { Route } from "./+types/settings.shortcuts"
@@ -19,8 +20,11 @@ export const handle: PageBarHandle = { pageBar: { titleKey: "settings:shortcuts.
 
 export async function loader({ context, request }: Route.LoaderArgs) {
 	const user = requireUser(context, request)
-	// The AI's keys are listed to those who have it.
-	return { ai: ai.available && (await hasFeature(user.id, "ai")) }
+	// The AI's keys are listed to those who have it on; the edition's, with editions on.
+	return {
+		ai: ai.available && (await aiOn(user.id)),
+		editions: resolvePrefs(user.prefs).editions === "on",
+	}
 }
 
 /**
@@ -56,7 +60,7 @@ export default function ShortcutsSettings({ loaderData }: Route.ComponentProps) 
 				</p>
 			</SettingsCard>
 			<SettingsCard>
-				<ShortcutList ai={loaderData.ai} off={!on} />
+				<ShortcutList ai={loaderData.ai} editions={loaderData.editions} off={!on} />
 			</SettingsCard>
 		</SettingsPage>
 	)

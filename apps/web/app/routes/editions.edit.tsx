@@ -30,6 +30,7 @@ import {
 	publishProblems,
 } from "~/lib/editions"
 import { env } from "~/lib/env.server"
+import { requireEditions } from "~/lib/features.server"
 import { getInstance } from "~/lib/i18n.server"
 import { fitsKeepalive } from "~/lib/keepalive"
 import type { PageBarHandle } from "~/lib/page-bar"
@@ -56,6 +57,7 @@ function notFound(error: unknown): never {
 
 export async function loader({ params, context, request }: Route.LoaderArgs) {
 	const user = requireUser(context, request)
+	await requireEditions(user.id)
 	const locale = isLocale(user.locale) ? user.locale : fallbackLanguage
 	const [working, picker] = await Promise.all([
 		getEdition(user.id, params.id),

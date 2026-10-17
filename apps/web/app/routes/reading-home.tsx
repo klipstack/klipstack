@@ -33,6 +33,7 @@ import { listSearch, parseTime, REDISCOVER_AFTER_DAYS, TIME_CHOICES } from "~/li
 import { extractLinkIds } from "~/lib/note-links"
 import { warmOffline } from "~/lib/offline.client"
 import type { PageBarHandle } from "~/lib/page-bar"
+import { resolvePrefs } from "~/lib/prefs"
 import { requireUser } from "~/lib/session.server"
 import { isSearchShortcut } from "~/lib/shortcuts"
 import { countTopicClick } from "~/lib/topic-use"
@@ -74,7 +75,7 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 			topicId ? null : homeHighlights(user.id, timeZone),
 			// In a topic, Home is about reading what's next.
 			topicId ? null : listNoteReminders(user.id),
-			editionNudge(user.id),
+			resolvePrefs(user.prefs).editions === "on" ? editionNudge(user.id) : null,
 		])
 	const now = new Date()
 	const locale = isLocale(user.locale) ? user.locale : fallbackLanguage
@@ -108,7 +109,7 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 			// Without the browser's zone, the date and a greeting by the hour could be the wrong ones.
 			date: knownZone ? mastheadDate(now, locale, knownZone) : null,
 			part: knownZone ? partOfDay(now, knownZone) : null,
-			edition: editionEar(nudge),
+			edition: nudge ? editionEar(nudge) : null,
 		},
 		title: `${t("home.title")} · Klipstack`,
 	}

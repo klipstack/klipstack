@@ -7,6 +7,7 @@ import type {
 import { snoozeEditionNudge } from "~/commands/editions.server"
 import { AppError } from "~/lib/app-error"
 import { isTimeZone } from "~/lib/date-groups"
+import { editionsOn } from "~/lib/features.server"
 import { REDISCOVER_AFTER_DAYS } from "~/lib/inbox-filters"
 import { appOrigin, articleSummary } from "~/services/article-summary.server"
 import { editionNudge } from "~/services/editions.server"
@@ -47,6 +48,9 @@ export const rediscover: Handler<typeof listRediscover> = async ({ userId, query
 }
 
 export const nextEdition: Handler<typeof getNextEdition> = async ({ userId }) => {
+	// Turned off: nothing marked, no draft, nothing due, so Home says nothing of editions.
+	if (!(await editionsOn(userId)))
+		return { marked: 0, draft: null, nudge: null, url: `${appOrigin}/editions` }
 	const nudge = await editionNudge(userId)
 	return {
 		marked: nudge.marked,

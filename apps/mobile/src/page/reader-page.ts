@@ -519,7 +519,7 @@ export function startReaderPage(): void {
 		const parts = endParts(end)
 		endHead.innerHTML = parts.head
 		endRest.innerHTML = parts.rest
-		if (!end.shortlisted) return
+		if (!end.editions || !end.shortlisted) return
 		const card = showEdition ? endBlock.querySelector(".end-edition") : null
 		showEdition = false
 		const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
@@ -832,12 +832,15 @@ export function endParts(end: PageEnd): { head: string; rest: string } {
 			: ""
 	const star = `<button type="button" class="end-choice${end.starred ? " starred" : ""}" data-end="star" aria-pressed="${end.starred}">${STAR}${end.starred ? "Starred" : "Star"}</button>`
 	const share = `<button type="button" class="end-choice" data-end="share">${SHARE}Share</button>`
-	const edition = `<button type="button" class="end-choice wide${end.shortlisted ? " on" : ""}" data-end="shortlist" aria-pressed="${end.shortlisted}">${EDITION}${end.shortlisted ? "In Next Edition" : "Share in Next Edition"}</button>`
+	const edition = !end.editions
+		? ""
+		: `<button type="button" class="end-choice wide${end.shortlisted ? " on" : ""}" data-end="shortlist" aria-pressed="${end.shortlisted}">${EDITION}${end.shortlisted ? "In Next Edition" : "Share in Next Edition"}</button>`
 	// Marked: it says so, and offers the note for the edition's readers, which the app edits.
 	const written = end.editionNote?.trim() ? linkText(end.editionNote) : null
-	const card = end.shortlisted
-		? `<div class="end-edition"><div class="end-edition-title"><span class="end-check">${CHECK}</span>Added to your next edition</div><div class="end-edition-label">For your edition's readers</div><button type="button" class="end-edition-note${written ? "" : " empty"}" data-end="edition-note">${escapeText(written ?? EDITION_NOTE_PLACEHOLDER)}</button></div>`
-		: ""
+	const card =
+		end.editions && end.shortlisted
+			? `<div class="end-edition"><div class="end-edition-title"><span class="end-check">${CHECK}</span>Added to your next edition</div><div class="end-edition-label">For your edition's readers</div><button type="button" class="end-edition-note${written ? "" : " empty"}" data-end="edition-note">${escapeText(written ?? EDITION_NOTE_PLACEHOLDER)}</button></div>`
+			: ""
 	return {
 		head: `<p class="end-status">${heading}${state}</p>${finish}`,
 		rest: `<div class="end-choices">${star}${share}${edition}</div>${card}`,

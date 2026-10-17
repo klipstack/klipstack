@@ -34,7 +34,9 @@ async function addMarked(n: number) {
 }
 
 beforeAll(async () => {
-	await db.insert(userTable).values({ id: userId, name: "Drafter", email: `${userId}@x.test` })
+	await db
+		.insert(userTable)
+		.values({ id: userId, name: "Drafter", email: `${userId}@x.test`, prefs: { editions: "on" } })
 })
 
 afterAll(async () => {
@@ -45,7 +47,10 @@ describe("the draft in progress", () => {
 	afterEach(async () => {
 		await db.delete(editions).where(eq(editions.userId, userId))
 		await db.delete(documents).where(eq(documents.userId, userId))
-		await db.update(userTable).set({ prefs: {} }).where(eq(userTable.id, userId))
+		await db
+			.update(userTable)
+			.set({ prefs: { editions: "on" } })
+			.where(eq(userTable.id, userId))
 	})
 
 	it("is started once, however many Starts arrive together", async () => {
@@ -80,7 +85,10 @@ describe("the draft in progress", () => {
 		await snoozeNudge(userId)
 		expect((await editionNudge(userId)).reason).toBeNull()
 		expect((await editionNudge(userId, new Date(Date.now() + 8 * DAY))).reason).toBe("marked")
-		await db.update(userTable).set({ prefs: {} }).where(eq(userTable.id, userId))
+		await db
+			.update(userTable)
+			.set({ prefs: { editions: "on" } })
+			.where(eq(userTable.id, userId))
 		const draft = await createEdition(userId, input)
 		expect(await editionNudge(userId)).toMatchObject({
 			reason: null,
@@ -103,7 +111,10 @@ describe("the draft in progress", () => {
 		await snoozeNudge(userId)
 		expect((await editionNudge(userId)).reason).toBeNull()
 		expect((await editionNudge(userId, week)).reason).toBe("draft")
-		await db.update(userTable).set({ prefs: {} }).where(eq(userTable.id, userId))
+		await db
+			.update(userTable)
+			.set({ prefs: { editions: "on" } })
+			.where(eq(userTable.id, userId))
 		// Published, it is no longer the draft: nothing is due.
 		expect((await publishEdition(userId, draft.id)).ok).toBe(true)
 		expect(await editionNudge(userId, week)).toMatchObject({ reason: null, draft: null })

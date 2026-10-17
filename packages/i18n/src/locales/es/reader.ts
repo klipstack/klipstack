@@ -254,6 +254,7 @@ export default {
 		noneLeft: "No te quedan preguntas a la IA este mes",
 		failed: "No se pudo responder. Inténtalo de nuevo.",
 		refused: "No se pudo responder esta pregunta.",
+		turnedOff: "Las respuestas de IA están desactivadas en Ajustes → Funciones.",
 		citation: "Pasaje {{n}} del artículo",
 		askPlaceholder: "Pregunta sobre este pasaje…",
 		suggestions: {

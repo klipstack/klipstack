@@ -37,7 +37,7 @@ async function openMenuAnd(page: Page, item: string) {
 }
 
 async function signup(page: Page) {
-	await signupUser(page, "Reader", { verified: false })
+	await signupUser(page, "Reader", { verified: false, editions: true })
 	// The scenarios here start from the library.
 	await page.goto("/library")
 }

@@ -55,7 +55,7 @@ test("a visitor reports a public edition, an admin removes it, and the owner can
 	page,
 	browser,
 }) => {
-	const ownerEmail = await signupUser(page, "Edition Owner")
+	const ownerEmail = await signupUser(page, "Edition Owner", { editions: true })
 	const edition = await publishedEdition(ownerEmail)
 
 	const visitorContext = await browser.newContext()

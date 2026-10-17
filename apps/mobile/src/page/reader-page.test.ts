@@ -493,7 +493,13 @@ describe("the reader page: reading and links", () => {
 		const { window, messages } = openPage("<p>Text.</p>")
 		sized(window)
 		const page = window as unknown as { klipEnd: (end: unknown) => void }
-		page.klipEnd({ state: "kept", archived: false, starred: false, shortlisted: false })
+		page.klipEnd({
+			state: "kept",
+			archived: false,
+			starred: false,
+			editions: true,
+			shortlisted: false,
+		})
 		const end = window.document.getElementById("klip-end")!
 		Object.defineProperty(end, "offsetHeight", { value: 500 })
 		Object.defineProperty(window, "scrollY", { value: 1000 })
@@ -569,7 +575,13 @@ describe("the reader page: reading and links", () => {
 		const page = window as unknown as { klipEnd: (end: unknown) => void }
 		const end = window.document.getElementById("klip-end")!
 		expect(end.textContent).toBe("")
-		page.klipEnd({ state: "finishing", archived: false, starred: false, shortlisted: true })
+		page.klipEnd({
+			state: "finishing",
+			archived: false,
+			starred: false,
+			editions: true,
+			shortlisted: true,
+		})
 		expect(end.textContent).toContain("It goes to your archive when you leave.")
 		expect(end.textContent).toContain("In Next Edition")
 		messages.length = 0
@@ -586,7 +598,13 @@ describe("the reader page: reading and links", () => {
 			{ type: "end", action: "star" },
 			{ type: "end", action: "share" },
 		])
-		page.klipEnd({ state: "early", archived: true, starred: true, shortlisted: false })
+		page.klipEnd({
+			state: "early",
+			archived: true,
+			starred: true,
+			editions: true,
+			shortlisted: false,
+		})
 		expect(end.querySelector('[data-end="finish"]')?.textContent).toBe("Mark as Finished")
 		expect(end.textContent).toContain("Starred")
 	})
@@ -595,7 +613,7 @@ describe("the reader page: reading and links", () => {
 		const { window, messages } = openPage("<p>Text.</p>")
 		const page = window as unknown as { klipEnd: (end: unknown) => void }
 		const end = window.document.getElementById("klip-end")!
-		const base = { state: "kept", archived: false, starred: false }
+		const base = { state: "kept", archived: false, starred: false, editions: true }
 		page.klipEnd({ ...base, shortlisted: false, editionNote: "Hidden." })
 		expect(end.querySelector(".end-edition")).toBeNull()
 
@@ -619,6 +637,12 @@ describe("the reader page: reading and links", () => {
 		messages.length = 0
 		written.dispatchEvent(new window.MouseEvent("click", { bubbles: true }))
 		expect(messages).toEqual([{ type: "end", action: "edition-note" }])
+
+		// Editions turned off: neither the mark nor the note, marked or not.
+		page.klipEnd({ ...base, editions: false, shortlisted: true, editionNote: "Why." })
+		expect(end.querySelector('[data-end="shortlist"]')).toBeNull()
+		expect(end.querySelector(".end-edition")).toBeNull()
+		expect(end.querySelector('[data-end="star"]')).not.toBeNull()
 	})
 
 	it("scrolls what marking opened into view, only when marked with its button", () => {
@@ -629,7 +653,7 @@ describe("the reader page: reading and links", () => {
 		window.Element.prototype.scrollIntoView = function (this: Element) {
 			scrolled.push(this)
 		}
-		const base = { state: "kept", archived: false, starred: false }
+		const base = { state: "kept", archived: false, starred: false, editions: true }
 		page.klipEnd({ ...base, shortlisted: false })
 		end
 			.querySelector('[data-end="shortlist"]')!
@@ -644,7 +668,13 @@ describe("the reader page: reading and links", () => {
 
 describe("the reader page: the note at the end", () => {
 	const LINKED = "0190a3c4-1111-7000-8000-000000000002"
-	const base = { state: "kept", archived: false, starred: false, shortlisted: false }
+	const base = {
+		state: "kept",
+		archived: false,
+		starred: false,
+		editions: true,
+		shortlisted: false,
+	}
 	const note = (text: string, more: object = {}) => ({
 		text,
 		status: "idle",

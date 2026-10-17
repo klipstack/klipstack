@@ -20,6 +20,32 @@ export default {
 			"Algunas teclas solas actúan sobre los artículos: S destaca, E archiva, # elimina, J y K mueven. Desactívalas si usas entrada por voz o un lector de pantalla. Intro, las flechas y Esc siguen funcionando.",
 		singleKey: "Atajos de una sola tecla",
 	},
+	features: {
+		title: "Funciones",
+		description: "Activa o desactiva partes de Klipstack en tu cuenta.",
+		ai: {
+			title: "Respuestas de IA",
+			label: "Preguntar a la IA mientras lees",
+			description:
+				"Pregunta por un pasaje, conversa sobre un artículo y obtén un resumen, respondidos por IA. Desactivadas, las respuestas que ya tienes se quedan, para leerlas y borrarlas.",
+		},
+		editions: {
+			title: "Ediciones",
+			label: "Hacer ediciones",
+			description:
+				"Reúne lo que mereció la pena leer en una página pública que puedes compartir. Desactivadas, no se borra nada, y las ediciones que publicaste siguen públicas.",
+		},
+		topics: {
+			title: "Temas",
+			label: "Ordenar mi biblioteca por temas",
+			description:
+				"Temas propuestos a partir de tu biblioteca y siempre al día. El texto de los artículos va a la IA para ordenarlo.",
+			confirm: "Desactivar los temas los borra, y dónde estaba cada artículo.",
+			turnOff: "Desactivar y borrar",
+			keep: "Conservarlos",
+			open: "Abrir Temas",
+		},
+	},
 	account: {
 		title: "Cuenta",
 		signInTitle: "Correo e inicio de sesión",

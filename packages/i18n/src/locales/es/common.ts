@@ -459,6 +459,7 @@ export default {
 			sidebar: "Notas y subrayados",
 			chat: "Chat sobre el artículo",
 			articleActions: "Destacar, próxima edición, archivar, no leído, etiquetas, eliminar",
+			articleActionsWithoutEditions: "Destacar, archivar, no leído, etiquetas, eliminar",
 			copyHighlight: "Copiar el subrayado activo",
 			help: "Esta lista",
 		},

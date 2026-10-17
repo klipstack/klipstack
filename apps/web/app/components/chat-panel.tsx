@@ -17,8 +17,9 @@ interface Props {
 	written: AnswerStore
 	/** Citations can be followed: the chat read the version on screen. */
 	canCite: boolean
-	onAsk: (question: string) => void
-	onRetry: () => void
+	/** Missing while AI answers are turned off: the chat is read, copied and cleared only. */
+	onAsk?: (question: string) => void
+	onRetry?: () => void
 	onClear: () => void
 	onCopy: (text: string) => void
 	onCite: (citation: AiCitation) => void
@@ -120,7 +121,9 @@ export function ChatPanel({
 			<div className="px-4 pt-1 pb-3">
 				{chat && !busy ? (
 					<div className="mb-1 flex items-center gap-0.5">
-						{(last?.role === "user" || chat.failure || last?.role === "assistant") && !none ? (
+						{onRetry &&
+						(last?.role === "user" || chat.failure || last?.role === "assistant") &&
+						!none ? (
 							<button
 								type="button"
 								onClick={onRetry}
@@ -154,7 +157,9 @@ export function ChatPanel({
 					</div>
 				) : null}
 				{/* A question still waiting for its answer takes no new one; a refused one does. */}
-				{busy || (last?.role === "user" && !chat?.failure) || none ? null : (
+				{!onAsk ? (
+					<p className="text-xs text-muted-fg">{t("ai.turnedOff")}</p>
+				) : busy || (last?.role === "user" && !chat?.failure) || none ? null : (
 					<QuestionField
 						key={chat?.id ?? "new"}
 						placeholder={t("ai.chat.placeholder")}
@@ -163,7 +168,7 @@ export function ChatPanel({
 						autoFocus={active}
 					/>
 				)}
-				{busy ? null : <QuestionsLeft failed={chat?.failure?.code === "limit_reached"} />}
+				{busy || !onAsk ? null : <QuestionsLeft failed={chat?.failure?.code === "limit_reached"} />}
 			</div>
 		</div>
 	)

@@ -71,6 +71,16 @@ export interface UserPrefs {
 	 * published as unlisted on its own.
 	 */
 	linkEditions?: "on" | "off"
+	/**
+	 * Editions: making them, marking articles for the next one, edition notes. Off by default; turning
+	 * them off hides them and deletes nothing, and published editions stay public.
+	 */
+	editions?: "on" | "off"
+	/**
+	 * For accounts with the `ai` feature: asking AI about an article while reading. On by default; off
+	 * keeps the answers already given, to read and delete.
+	 */
+	ai?: "on" | "off"
 	/** The article's contents docked left of the text when the window has room for them. */
 	outline?: "on" | "off"
 }

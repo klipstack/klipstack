@@ -81,8 +81,9 @@ export function AiCard({
 	/** Citations can be followed: the answer read the version on the page. */
 	canCite: boolean
 	onClose: () => void
-	onSend: (question: string) => void
-	onRetry: () => void
+	/** Missing while AI answers are turned off: the card is read, copied and deleted only. */
+	onSend?: (question: string) => void
+	onRetry?: () => void
 	onDelete: () => void
 	onCopy: (text: string) => void
 	onCite: (citation: AiCitation) => void
@@ -208,8 +209,9 @@ function CardBody({
 	allowance: AiAllowance | null
 	canCite: boolean
 	maxHeight: number
-	onSend: (question: string) => void
-	onRetry: () => void
+	/** Missing while AI answers are turned off: the card is read, copied and deleted only. */
+	onSend?: (question: string) => void
+	onRetry?: () => void
 	onDelete: () => void
 	onCopy: (text: string) => void
 	onCite: (citation: AiCitation) => void
@@ -263,7 +265,7 @@ function CardBody({
 					</View>
 				</ScrollView>
 			) : null}
-			{card.draft ? (
+			{card.draft && onSend ? (
 				<>
 					<QuestionField
 						placeholder="Ask about this passage…"
@@ -291,7 +293,7 @@ function CardBody({
 			) : busy ? null : (
 				<>
 					<View style={styles.tools}>
-						{canRetry ? (
+						{canRetry && onRetry ? (
 							<Tool
 								label="Answer Again"
 								symbol="arrow.clockwise"
@@ -309,7 +311,7 @@ function CardBody({
 						) : null}
 						<Tool label="Delete" symbol="trash" color={colors.danger} onPress={onDelete} />
 					</View>
-					{canFollowUp ? (
+					{canFollowUp && onSend ? (
 						<QuestionField placeholder="Ask a follow-up…" onSend={onSend} colors={colors} />
 					) : null}
 				</>

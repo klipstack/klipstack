@@ -96,7 +96,7 @@ export const getNextEdition = defineEndpoint({
 	path: "/editions/next",
 	scope: "read",
 	summary:
-		"The user's next edition, as Home's masthead names it: the draft in progress and its articles, else the articles marked for it (PATCH /articles with `shortlisted`). `nudge` when an edition is due, as the web's sidebar and Editions page say: enough marked, or a while since the last one with something to share, or a draft a week old. Editions are put together and published on the web, at `url`.",
+		"The user's next edition, as Home's masthead names it: the draft in progress and its articles, else the articles marked for it (PATCH /articles with `shortlisted`). `nudge` when an edition is due, as the web's sidebar and Editions page say: enough marked, or a while since the last one with something to share, or a draft a week old. Editions are put together and published on the web, at `url`. With editions turned off for the account (its Settings), nothing marked, no draft and no nudge.",
 	response: json(NextEdition),
 	errors: [],
 })

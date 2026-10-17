@@ -12,6 +12,7 @@ import {
 	oauthClient,
 	oauthClientResource,
 	pool,
+	sql,
 	user,
 	userFeatures,
 } from "@klipstack/db"
@@ -64,7 +65,7 @@ const SIDEBAR_ROUTES = [
 	"routes/archive",
 	"routes/starred",
 	"routes/notebook",
-	// Not "routes/editions": its link shows only with the feature, turned on after the page loaded.
+	// Not "routes/editions": its link shows only with editions turned on.
 	"routes/tags",
 	"routes/trash",
 ]
@@ -141,7 +142,11 @@ export const PASSWORD = "password123"
 export async function signupUser(
 	page: Page,
 	name: string,
-	{ verified = true, features = [] }: { verified?: boolean; features?: FeatureFlag[] } = {},
+	{
+		verified = true,
+		features = [],
+		editions = false,
+	}: { verified?: boolean; features?: FeatureFlag[]; editions?: boolean } = {},
 ) {
 	const code = await createInviteCode()
 	const email = uniqueEmail(name.toLowerCase().replace(/\W+/g, "-"))
@@ -153,6 +158,7 @@ export async function signupUser(
 	// Most scenarios need an established account; email-ownership tests opt out and use the
 	// actual verification flow. This is fixture setup, never an application verification API.
 	if (verified) await db.update(user).set({ emailVerified: true }).where(eq(user.email, email))
+	if (editions) await turnOnEditions(email)
 	// Features in testing, as an admin would turn them on.
 	if (features.length) {
 		const [account] = await db.select({ id: user.id }).from(user).where(eq(user.email, email))
@@ -161,6 +167,14 @@ export async function signupUser(
 			.values(features.map((feature) => ({ userId: account!.id, feature })))
 	}
 	return email
+}
+
+/** Editions for the account, as the reader turns them on in Settings → Features (off by default). */
+export async function turnOnEditions(email: string) {
+	await db
+		.update(user)
+		.set({ prefs: sql`${user.prefs} || '{"editions": "on"}'::jsonb` })
+		.where(eq(user.email, email))
 }
 
 export function authorizeUrl(
