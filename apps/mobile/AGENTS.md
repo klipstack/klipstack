@@ -111,6 +111,10 @@ rotates it at the first refresh, and the app keeps the new one across launches. 
 or to switch accounts, issue a new one. Run `pnpm dev` with `AI_FAKE=1` to answer with fixed text
 instead of calling the AI provider.
 
+- The token is for the dev server at `APP_URL`: not with `EXPO_PUBLIC_API_URL` set elsewhere.
+- Deleting the account needs a sign-in from the last 30 minutes. Later, the app asks for the
+  password again: the throwaway's is `local-throwaway-only`.
+
 ## Testing on a throwaway account
 
 Don't change the demo account (`reader@demo.klipstack.test`) to test: other agents and `pnpm

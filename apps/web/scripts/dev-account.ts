@@ -180,8 +180,8 @@ async function create() {
 	console.log(`images    ${newAssets.length} of ${assetIds.size}`)
 	if (features.length) console.log(`features  ${features.join(", ")}`)
 	console.log(`api key   ${key.raw}`)
-	if (values["app-token"]) await printAppToken(email)
 	console.log(`delete    pnpm --filter @klipstack/web dev-account delete ${email}`)
+	if (values["app-token"]) await printAppToken(email)
 }
 
 /**
