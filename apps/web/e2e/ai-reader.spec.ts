@@ -549,6 +549,8 @@ test("a first question refused before it began keeps its question, says why, and
 	await card.getByRole("textbox", { name: "Ask about this passage…" }).press("Enter")
 	await expect(card.getByRole("alert")).toHaveText(why)
 	await expect(card.getByText("Which one is mine?")).toHaveCount(1)
+	// Another question can be asked in its place.
+	await expect(card.getByRole("textbox", { name: "Ask a follow-up…" })).toBeVisible()
 	await shot(page, "refused-ask")
 	await card.getByRole("button", { name: "Answer again" }).click()
 	await expect(card).toContainText("Answer 1.")
