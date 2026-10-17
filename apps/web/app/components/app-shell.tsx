@@ -1,11 +1,11 @@
 import {
-	Archive,
 	ArrowLeft,
 	Bookmark,
 	CircleAlert,
 	Compass,
 	House,
-	Inbox,
+	type Inbox,
+	LibraryBig,
 	Menu,
 	Newspaper,
 	NotebookPen,
@@ -14,15 +14,14 @@ import {
 	Rss,
 	Search,
 	Shapes,
-	Star,
 	Tag,
-	Trash2,
 	X,
 } from "lucide-react"
 import { useCallback, useEffect, useId, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link, NavLink, useFetcher, useLocation, useNavigate } from "react-router"
 import { useKeyTranslation } from "~/lib/i18n-keys"
+import { isLibraryPath } from "~/lib/library-views"
 import { usePageBar } from "~/lib/page-bar"
 import { awaitsWords, searchOrigin, searchPath } from "~/lib/search-page"
 import { setSidebar, useSidebar } from "~/lib/sidebar"
@@ -48,10 +47,9 @@ import { tooltip } from "./tooltip-host"
 
 const items = [
 	{ to: "/home", key: "nav.home", icon: House },
-	{ to: "/library", key: "nav.inbox", icon: Inbox },
+	// One entry for the inbox, archive, starred and trash: the library page switches between them.
+	{ to: "/library", key: "nav.library", icon: LibraryBig },
 	{ to: "/feed", key: "nav.feed", icon: Rss },
-	{ to: "/archive", key: "nav.archive", icon: Archive },
-	{ to: "/starred", key: "nav.starred", icon: Star },
 	{ to: "/notebook", key: "nav.notebook", icon: NotebookPen },
 	{ to: "/editions", key: "nav.editions", icon: Newspaper },
 	// One link, not the tags themselves: a library can have hundreds. The command menu finds one.
@@ -59,7 +57,6 @@ const items = [
 	{ to: "/topics", key: "nav.topics", icon: Shapes },
 	// Texts to add with one click: the starter shelves, for everyone, not only an empty library.
 	{ to: "/texts", key: "nav.discover", icon: Compass },
-	{ to: "/trash", key: "nav.trash", icon: Trash2 },
 ] as const
 
 /** Topics in the sidebar: none for an account without them; a dot for a proposal not opened yet. */
@@ -141,6 +138,7 @@ function SidebarContent({
 	const { t } = useTranslation()
 	const headingId = useId()
 	const toggleLabel = collapsed ? t("nav.expand") : t("nav.collapse")
+	const library = isLibraryPath(useLocation().pathname)
 	return (
 		<>
 			{/* 40px tall, 16px from the top (the aside's padding): each page's header row matches it
@@ -200,20 +198,8 @@ function SidebarContent({
 										? { testId: "topics-nav-dot", label: t("nav.topicsReady") }
 										: null
 						const railLabel = dot ? `${t(key)}, ${dot.label}` : t(key)
-						return (
-							<NavLink
-								key={to}
-								to={to}
-								// An edition's editor and preview are still Editions.
-								end={to !== "/editions"}
-								prefetch="render"
-								onClick={onNavigate}
-								className={linkClass(collapsed)}
-								// A rail shows icons only: the name is still there for screen readers.
-								{...(collapsed
-									? { "aria-label": railLabel, ...tooltip(railLabel, undefined, "right") }
-									: {})}
-							>
+						const content = (
+							<>
 								{collapsed ? (
 									<NavIcon icon={Icon} />
 								) : (
@@ -230,6 +216,36 @@ function SidebarContent({
 										)}
 									/>
 								) : null}
+							</>
+						)
+						const shared = {
+							to,
+							prefetch: "render" as const,
+							onClick: onNavigate,
+							// A rail shows icons only: the name is still there for screen readers.
+							...(collapsed
+								? { "aria-label": railLabel, ...tooltip(railLabel, undefined, "right") }
+								: {}),
+						}
+						// The archive, starred and the trash are tabs of the library: its entry stays marked there.
+						return to === "/library" ? (
+							<Link
+								key={to}
+								{...shared}
+								aria-current={library ? "page" : undefined}
+								className={linkClass(collapsed)({ isActive: library })}
+							>
+								{content}
+							</Link>
+						) : (
+							<NavLink
+								key={to}
+								{...shared}
+								// An edition's editor and preview are still Editions.
+								end={to !== "/editions"}
+								className={linkClass(collapsed)}
+							>
+								{content}
 							</NavLink>
 						)
 					})}

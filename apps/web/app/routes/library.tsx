@@ -44,7 +44,13 @@ import {
 	parseFilter,
 	parseSort,
 } from "~/lib/inbox-filters"
-import { type LibraryView, viewFromPath, viewPath, viewSearchPath } from "~/lib/library-views"
+import {
+	LIBRARY_VIEWS,
+	type LibraryView,
+	viewFromPath,
+	viewPath,
+	viewSearchPath,
+} from "~/lib/library-views"
 import { splitLinks } from "~/lib/links"
 import { setListLayout } from "~/lib/list-layout"
 import { warmOffline } from "~/lib/offline.client"
@@ -82,7 +88,7 @@ export function meta({ matches, loaderData }: Route.MetaArgs) {
 
 export const handle: PageBarHandle = {
 	pageBar: ({ pathname }) => ({
-		titleKey: `common:nav.${viewFromPath(pathname)}`,
+		titleKey: "common:nav.library",
 		layoutToggle: true,
 		search: {
 			to: viewSearchPath(viewFromPath(pathname)),
@@ -202,6 +208,36 @@ export async function action({ context, request }: Route.ActionArgs) {
 	}
 }
 
+/** The library's views, one page: tabs where the sidebar used to list them. */
+function ViewTabs({ view }: { view: LibraryView }) {
+	const { t } = useTranslation("library")
+	return (
+		<nav
+			aria-label={t("tabs.label")}
+			className="-mx-4 flex gap-5 overflow-x-auto border-b border-border px-4 [scrollbar-width:none] md:mx-0 md:mt-2 md:px-0"
+		>
+			{LIBRARY_VIEWS.map((v) => (
+				<Link
+					key={v}
+					to={viewPath(v)}
+					prefetch="intent"
+					aria-current={v === view ? "page" : undefined}
+					className={cn(
+						"-mb-px shrink-0 border-b-2 py-2 text-sm",
+						// The trash, rarely opened, stands apart at the end.
+						v === "trash" && "ml-auto",
+						v === view
+							? "border-fg font-medium text-fg"
+							: "border-transparent text-muted-fg hover:text-fg",
+					)}
+				>
+					{t(`views.${v}`)}
+				</Link>
+			))}
+		</nav>
+	)
+}
+
 const VIEW_DRAWINGS = {
 	inbox: "bookcase",
 	archive: "box",
@@ -267,7 +303,7 @@ export default function Library({ loaderData }: Route.ComponentProps) {
 	return (
 		<main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-3 pb-6 md:px-8 md:pt-4 md:pb-8">
 			<div className="hidden min-h-10 flex-wrap items-center justify-between gap-3 md:flex">
-				<h1 className="page-title">{t(`views.${loaderData.view}`)}</h1>
+				<h1 className="page-title">{t("title")}</h1>
 				<div className="flex items-center gap-2">
 					{/* First, where the search page's field ends: the other buttons stay where they are. */}
 					<SearchLink view={loaderData.view} label={t("search.label")} />
@@ -275,6 +311,7 @@ export default function Library({ loaderData }: Route.ComponentProps) {
 					{loaderData.view === "trash" ? null : <SaveLinkButton />}
 				</div>
 			</div>
+			<ViewTabs view={loaderData.view} />
 			{loaderData.view === "trash" ? (
 				<p className="mt-2 text-sm text-muted-fg md:mt-4">
 					{t("trash.banner", { days: TRASH_RETENTION_DAYS })}

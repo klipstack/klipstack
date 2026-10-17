@@ -183,6 +183,9 @@ export default {
 		left_one: "{{count}} min left",
 		left_other: "{{count}} min left",
 	},
+	tabs: {
+		label: "Library views",
+	},
 	views: {
 		inbox: "Inbox",
 		archive: "Archive",

@@ -309,8 +309,8 @@ test("an open library sees saves from elsewhere and their extraction finishing (
 	const badge = page.getByRole("complementary").getByTestId("unread-badge")
 	await expect(badge).toHaveCount(0)
 	await expect(
-		page.getByRole("complementary").getByRole("link", { name: "Inbox", exact: true }),
-	).toHaveText("Inbox")
+		page.getByRole("complementary").getByRole("link", { name: "Library", exact: true }),
+	).toHaveText("Library")
 	await expect(page.getByTestId("unread-dot")).toHaveCount(1)
 	// opened and left right away, it is still new
 	const article = page.getByRole("link", { name: "Maker's Schedule, Manager's Schedule" })
