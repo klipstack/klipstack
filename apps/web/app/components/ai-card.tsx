@@ -304,7 +304,8 @@ function OpenCard({
 							</button>
 						</div>
 					)}
-					{card.orphaned || busy || last?.role === "user" || none ? null : (
+					{/* A question still waiting for its answer takes no new one; a refused one does. */}
+					{card.orphaned || busy || (last?.role === "user" && !card.failure) || none ? null : (
 						<QuestionField
 							placeholder={t("ai.followUpPlaceholder")}
 							onSend={onSend}

@@ -517,3 +517,64 @@ test("a question the server refuses at the cap turns the page to none left", asy
 		"true",
 	)
 })
+
+test("a first question refused before it began keeps its question, says why, and asks again", async ({
+	page,
+}) => {
+	test.setTimeout(120_000)
+	await page.setViewportSize({ width: 1440, height: 900 })
+	await open(page)
+	// The rate limit is in the server's memory, out of a test's reach: the first question of each
+	// kind is answered with the refusal the server gives, and the next one reaches the server.
+	const refuse = new Set(["ask", "chat", "brief"])
+	await page.route("**/documents/*/ai", async (route) => {
+		const intent = (route.request().postDataJSON() as { intent?: string }).intent ?? ""
+		if (!refuse.delete(intent)) return route.continue()
+		await route.fulfill({
+			status: 429,
+			headers: { "retry-after": "60" },
+			json: {
+				ok: false,
+				error: { code: "rate_limited", message: "Too many questions. Try again in 60 seconds." },
+			},
+		})
+	})
+	const why = "Too many questions at once. Wait a few minutes and try again."
+
+	// Ask: the question stays with the reason, and Answer again asks it.
+	await select(page, PASSAGE)
+	await selectionToolbar(page).getByRole("button", { name: "Ask" }).click()
+	const card = page.getByTestId("ai-card")
+	await card.getByRole("textbox", { name: "Ask about this passage…" }).fill("Which one is mine?")
+	await card.getByRole("textbox", { name: "Ask about this passage…" }).press("Enter")
+	await expect(card.getByRole("alert")).toHaveText(why)
+	await expect(card.getByText("Which one is mine?")).toHaveCount(1)
+	// Another question can be asked in its place.
+	await expect(card.getByRole("textbox", { name: "Ask a follow-up…" })).toBeVisible()
+	await shot(page, "refused-ask")
+	await card.getByRole("button", { name: "Answer again" }).click()
+	await expect(card).toContainText("Answer 1.")
+	await expect(card.getByText("Which one is mine?")).toHaveCount(1)
+	await expect(card.getByRole("alert")).toHaveCount(0)
+	await page.keyboard.press("Escape")
+
+	// The chat's first question: the same.
+	await page.getByRole("button", { name: "Chat about this article" }).click()
+	const chat = page.getByTestId("chat")
+	await chat.getByRole("textbox", { name: "Ask about this article…" }).fill("What is it about?")
+	await chat.getByRole("textbox", { name: "Ask about this article…" }).press("Enter")
+	await expect(chat.getByRole("alert")).toHaveText(why)
+	await expect(chat.getByText("What is it about?")).toHaveCount(1)
+	await chat.getByRole("button", { name: "Answer again" }).click()
+	await expect(chat).toContainText("Answer 1.")
+	await expect(chat.getByText("What is it about?")).toHaveCount(1)
+	await page.keyboard.press("Escape")
+
+	// The brief: the reason, and Answer again writes it.
+	await page.getByRole("button", { name: /Sum up this article/ }).click()
+	const brief = page.getByRole("region", { name: "Brief" })
+	await expect(brief.getByRole("alert")).toHaveText(why)
+	await brief.getByRole("button", { name: "Answer again" }).click()
+	await expect(brief).toContainText("The first claim of a fixed brief for tests.")
+	expect(refuse.size).toBe(0)
+})
