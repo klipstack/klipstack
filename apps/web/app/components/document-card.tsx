@@ -185,7 +185,8 @@ export function DocumentCard({
 
 	// Its toast outlives the card, which leaves the list as the list loads again.
 	const finish = async () => {
-		leave("archive")
+		// Only an Inbox article goes: one archived already stays, finished, as in the selection bar.
+		if (!doc.archivedAt) leave("archive")
 		setFinishing(true)
 		const body = new FormData()
 		body.set("intent", "finish")

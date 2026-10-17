@@ -120,12 +120,13 @@ export default {
 				title: "Tu próxima lectura está en camino",
 				description:
 					"Estamos preparando tus artículos guardados. Aparecerán aquí cuando estén listos.",
-				action: "Ver biblioteca",
+				action: "Ver la bandeja de entrada",
 			},
 			failed: {
 				title: "No se pudieron preparar algunos artículos",
-				description: "Abre tu biblioteca para reintentarlo o visitar los enlaces originales.",
-				action: "Ver biblioteca",
+				description:
+					"Abre tu bandeja de entrada para reintentarlo o visitar los enlaces originales.",
+				action: "Ver la bandeja de entrada",
 			},
 		},
 	},

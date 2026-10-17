@@ -84,6 +84,8 @@ export function deleteSavedSearch(
 	client: KlipstackClient,
 	saved: Pick<SavedSearch, "id" | "name" | "query">,
 	done: () => void,
+	/** After Undo saved it again; `done` unless said. */
+	restored: () => void = done,
 ) {
 	client.savedSearches
 		.delete(saved.id)
@@ -96,7 +98,7 @@ export function deleteSavedSearch(
 					run: () =>
 						void client.savedSearches
 							.create(saved.name, saved.query)
-							.then(done)
+							.then(restored)
 							.catch((e: unknown) => refused("Not saved", e)),
 				},
 			})

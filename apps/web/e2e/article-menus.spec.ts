@@ -1,14 +1,7 @@
-import { readFileSync } from "node:fs"
-import { join } from "node:path"
 import { db, documents, eq, inArray, user } from "@klipstack/db"
 import { expect, type Page, test } from "@playwright/test"
 import { signupUser, waitForHydration } from "./helpers"
-
-const FIXTURE = join(
-	import.meta.dirname,
-	"../../../packages/extract/test/fixtures/pages/paulgraham-makers.html",
-)
-const FIXTURE_URL = "https://paulgraham.com/makersschedule.html"
+import { insertArticle } from "./seed"
 
 const toast = (page: Page, text: string) => page.getByRole("status").filter({ hasText: text })
 const card = (page: Page, title: string) =>
@@ -114,19 +107,19 @@ test("trashed articles can be deleted forever together, after a second tap", asy
 		.toEqual([])
 })
 
-test("the reader's menu: archive with an undo, and Mark as finished", async ({ page }) => {
-	test.setTimeout(90_000)
-	await signupUser(page, "Reader menus")
-	const res = await page.request.post("/api/documents", {
-		data: { url: FIXTURE_URL, html: readFileSync(FIXTURE, "utf8") },
-	})
-	const { id } = ((await res.json()) as { article: { id: string } }).article
+test("the reader's menu: archive with an undo either way, and Mark as finished", async ({
+	page,
+}) => {
+	const email = await signupUser(page, "Reader menus")
+	const owner = await db.query.user.findFirst({ where: eq(user.email, email) })
+	if (!owner) throw new Error("Missing article-menus test user")
+	const title = "Read from its menu"
+	const id = await insertArticle(owner.id, title, "<p>Something to read, then finish.</p>")
 	const stored = () => db.query.documents.findFirst({ where: eq(documents.id, id) })
-	await expect.poll(async () => (await stored())?.status, { timeout: 60_000 }).toBe("ready")
 
 	await page.goto("/library")
 	await waitForHydration(page)
-	await page.getByRole("link", { name: "Maker's Schedule, Manager's Schedule" }).click()
+	await page.getByRole("link", { name: title }).click()
 	await expect(page).toHaveURL(new RegExp(`/read/${id}$`))
 	await waitForHydration(page)
 	const more = page.getByRole("banner").getByRole("button", { name: "More actions" })
@@ -149,11 +142,26 @@ test("the reader's menu: archive with an undo, and Mark as finished", async ({ p
 	await expect.poll(async () => Boolean((await stored())?.archivedAt)).toBe(true)
 	await toast(page, "Archived").getByRole("button", { name: "Undo" }).click()
 	await expect.poll(async () => (await stored())?.archivedAt ?? null).toBeNull()
+	await more.click()
+	await expect(menu.getByRole("menuitem", { name: "Archive" })).toBeVisible()
+
+	// Archived, then moved back: its undo archives it again, and the menu says so.
+	await menu.getByRole("menuitem", { name: "Archive" }).click()
+	await expect.poll(async () => Boolean((await stored())?.archivedAt)).toBe(true)
+	await more.click()
+	await menu.getByRole("menuitem", { name: "Move to Inbox" }).click()
+	await expect(toast(page, "Moved to Inbox")).toBeVisible()
+	await expect.poll(async () => (await stored())?.archivedAt ?? null).toBeNull()
+	await toast(page, "Moved to Inbox").getByRole("button", { name: "Undo" }).click()
+	await expect.poll(async () => Boolean((await stored())?.archivedAt)).toBe(true)
+	await more.click()
+	await expect(menu.getByRole("menuitem", { name: "Move to Inbox" })).toBeVisible()
+	await page.keyboard.press("Escape")
 
 	// Mark as finished: finished, and back to the list it came from.
 	await more.click()
 	await menu.getByRole("menuitem", { name: "Mark as finished" }).click()
 	await expect(page).toHaveURL(/\/library$/)
-	await expect(toast(page, "Finished and archived")).toBeVisible()
+	await expect(toast(page, "Marked as finished")).toBeVisible()
 	await expect.poll(async () => Boolean((await stored())?.readAt)).toBe(true)
 })

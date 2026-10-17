@@ -121,12 +121,12 @@ export default {
 			processing: {
 				title: "Your next read is on its way",
 				description: "We're preparing your saved articles. They'll appear here when they're ready.",
-				action: "View library",
+				action: "View Inbox",
 			},
 			failed: {
 				title: "Some articles couldn't be prepared",
-				description: "Open your library to retry them or visit the original links.",
-				action: "View library",
+				description: "Open your Inbox to retry them or visit the original links.",
+				action: "View Inbox",
 			},
 		},
 	},

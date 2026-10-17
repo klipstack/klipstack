@@ -44,7 +44,9 @@ export default function TagArticles() {
 							void withTags((tags) => {
 								const tag = tags.find((t) => t.id === id)
 								if (tag)
-									renameTag(client, tag, tags, (renamed) => router.setParams({ name: renamed }))
+									renameTag(client, tag, tags, (renamed, now) =>
+										router.setParams({ name: renamed, id: now }),
+									)
 							}),
 					},
 					{

@@ -88,7 +88,7 @@ test("home adapts to the library, opens articles and returns after finishing", a
 	await expect(page.getByRole("heading", { name: "Your next read is on its way" })).toBeVisible()
 	// A status, not an empty place: its icon, no drawing.
 	await expect(page.locator("[data-empty-drawing]")).toHaveCount(0)
-	await expect(page.getByRole("link", { name: "View library", exact: true })).toHaveAttribute(
+	await expect(page.getByRole("link", { name: "View Inbox", exact: true })).toHaveAttribute(
 		"href",
 		"/library",
 	)
@@ -120,7 +120,7 @@ test("home adapts to the library, opens articles and returns after finishing", a
 		await notifyDocumentEvent({ userId: owner.id, documentId: doc!.id, kind: "ready" })
 		await expect(page.getByTestId("home-article")).toHaveCount(1, { timeout: 2000 })
 	}).toPass({ timeout: 10_000 })
-	await expect(page.getByRole("link", { name: "View library", exact: true })).toHaveCount(0)
+	await expect(page.getByRole("link", { name: "View Inbox", exact: true })).toHaveCount(0)
 	await expect(page.getByRole("heading", { name: "Recently saved" })).toHaveCount(0)
 	await page.getByRole("link", { name: "View all: Continue reading", exact: true }).click()
 	await expect(page.getByRole("button", { name: "Sort: Recently read" })).toBeVisible()

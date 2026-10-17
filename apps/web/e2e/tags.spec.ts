@@ -186,6 +186,8 @@ test("tags: on a card, as a search, in the command menu, in the reader, on their
 	const warning = page.getByTestId("tags-list").getByRole("alert")
 	const warned = "A saved search uses this tag: Soon. Without the tag, it will find nothing."
 	await deleteLater.click()
+	// The confirm takes the menu's place, and the focus with it.
+	await expect(confirmDelete).toBeFocused()
 	await expect(warning).toHaveCount(0)
 	await confirmDelete.click()
 	await expect(warning).toHaveText(warned)

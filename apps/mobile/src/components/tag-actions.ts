@@ -11,7 +11,8 @@ export function renameTag(
 	client: KlipstackClient,
 	tag: Tag,
 	tags: Tag[],
-	done: (name: string) => void,
+	/** The name, and the tag's id: the other's, when it merged into it. */
+	done: (name: string, id: string) => void,
 ) {
 	Alert.prompt(
 		"Rename Tag",
@@ -29,7 +30,7 @@ export function renameTag(
 					const rename = () =>
 						client.tags
 							.rename(tag.id, name)
-							.then(() => done(name))
+							.then(() => done(name, other?.id ?? tag.id))
 							.catch((e: unknown) =>
 								Alert.alert("Not renamed", e instanceof Error ? e.message : String(e)),
 							)

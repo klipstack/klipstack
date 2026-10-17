@@ -38,7 +38,14 @@ export default function SavedSearchResults() {
 						label: "Delete",
 						icon: { type: "sfSymbol", name: "trash" },
 						destructive: true,
-						onPress: () => deleteSavedSearch(client, saved, () => router.back()),
+						// Back to the Library, which lists it again after Undo, when it loads.
+						onPress: () =>
+							deleteSavedSearch(
+								client,
+								saved,
+								() => router.back(),
+								() => undefined,
+							),
 					},
 				],
 			},

@@ -78,6 +78,13 @@ export default function Tags({ loaderData }: Route.ComponentProps) {
 	const { tags } = loaderData
 	// One tag at a time: opening another one drops what was typed in the first.
 	const [editingId, setEditingId] = useState<string | null>(null)
+	// The rename's answer, read here too: a merge takes its tag's row away, so the row may not live
+	// to say so. The row's fetcher has the same key.
+	const renamed = useFetcher<typeof action>({ key: `tag-${editingId}` }).data
+	useEffect(() => {
+		if (renamed?.ok && "merged" in renamed && renamed.merged)
+			showToast({ message: t("tags.page.merged", { name: renamed.name }) })
+	}, [renamed, t])
 	return (
 		<main className="mx-auto w-full max-w-2xl flex-1 px-4 pt-3 pb-8 md:pt-4 md:pb-8">
 			<h1 className="hidden page-title md:block md:leading-10">{tc("nav.tags")}</h1>
@@ -124,15 +131,25 @@ function TagRowItem({
 }) {
 	const { t } = useTranslation("library")
 	const location = useLocation()
-	const fetcher = useFetcher<typeof action>()
+	const fetcher = useFetcher<typeof action>({ key: `tag-${tag.id}` })
 	const { revalidate } = useRevalidator()
 	const menuRef = useRef<MoreMenuHandle>(null)
-	const [failed, setFailed] = useState(false)
 	// "Delete" asks for a second tap within a few seconds instead of a dialog. Saved searches that
 	// name the tag are said first, with time to read them; the second tap then forces the delete.
 	const usedBy = tag.savedSearches
 	const warningId = useId()
 	const [armed, setArmed] = useState(false)
+	// Disarmed while the confirm had the focus (time ran out): it goes back to the row's menu.
+	const wasArmed = useRef(false)
+	useEffect(() => {
+		if (armed) {
+			wasArmed.current = true
+			return
+		}
+		if (!wasArmed.current) return
+		wasArmed.current = false
+		menuRef.current?.focus()
+	}, [armed])
 	useEffect(() => {
 		if (!armed) return
 		const id = window.setTimeout(() => setArmed(false), usedBy.length > 0 ? 10_000 : 4000)
@@ -152,23 +169,26 @@ function TagRowItem({
 		onDone()
 	}
 
-	// Each answer counts once. A bad name keeps the field open and says why; anything else closes it.
-	// A delete refused for saved searches made since the page loaded arms again, and the page loads
-	// them (a 409 does not): the row then says which.
+	// A bad name keeps the field open and says why, until the name changes or the field closes: the
+	// answer is then set aside. Derived, not copied into state, so a render React starts over keeps it.
+	const [dismissed, setDismissed] = useState(fetcher.data)
+	const failed =
+		fetcher.data !== dismissed &&
+		fetcher.data?.ok === false &&
+		fetcher.data.error.code !== "tag_in_saved_searches"
+	const dismiss = () => setDismissed(fetcher.data)
+	// A delete refused for saved searches made since the page loaded arms again, once for each
+	// answer, and the page loads them (a 409 does not): the row then says which.
 	const [answered, setAnswered] = useState(fetcher.data)
 	if (fetcher.data !== answered) {
 		setAnswered(fetcher.data)
-		if (fetcher.data && !fetcher.data.ok) {
-			if (fetcher.data.error.code === "tag_in_saved_searches") setArmed(true)
-			else setFailed(true)
-		}
+		if (fetcher.data?.ok === false && fetcher.data.error.code === "tag_in_saved_searches")
+			setArmed(true)
 	}
+	// Anything else closes the field.
 	const onAnswer = useEffectEvent((result: typeof fetcher.data) => {
 		if (result && !result.ok && result.error.code === "tag_in_saved_searches") void revalidate()
-		if (!result?.ok) return
-		if ("merged" in result && result.merged)
-			showToast({ message: t("tags.page.merged", { name: result.name }) })
-		if (editing) close()
+		if (result?.ok && editing) close()
 	})
 	useEffect(() => onAnswer(fetcher.data), [fetcher.data])
 
@@ -183,9 +203,9 @@ function TagRowItem({
 					tag={tag}
 					fetcher={fetcher}
 					failed={failed}
-					onChange={() => setFailed(false)}
+					onChange={dismiss}
 					onCancel={() => {
-						setFailed(false)
+						dismiss()
 						close()
 					}}
 				/>
@@ -216,6 +236,9 @@ function TagRowItem({
 						type="submit"
 						variant="danger"
 						size="sm"
+						// Chosen from the menu, which this takes the place of: the focus moves here.
+						autoFocus
+						onBlur={() => (wasArmed.current = false)}
 						aria-describedby={warning ? warningId : undefined}
 					>
 						<Trash2 className="size-4" aria-hidden />
@@ -231,7 +254,7 @@ function TagRowItem({
 					<MenuButton
 						icon={<Pencil className="size-4" aria-hidden />}
 						onClick={() => {
-							setFailed(false)
+							dismiss()
 							onEdit()
 						}}
 					>
@@ -272,6 +295,10 @@ function TagNameForm({
 	const { t } = useTranslation("library")
 	const [name, setName] = useState(tag.name)
 	const changed = name.trim() !== "" && name.trim() !== tag.name
+	// Busy until the rename is answered. Not until the fetcher says idle: the answer can come a while
+	// before, and a disabled button would swallow the Enter of a name fixed meanwhile.
+	const [answerBefore, setAnswerBefore] = useState<unknown>(fetcher.data)
+	const busy = fetcher.state !== "idle" && fetcher.data === answerBefore
 	return (
 		<>
 			<fetcher.Form
@@ -279,7 +306,10 @@ function TagNameForm({
 				className="flex min-w-0 flex-1 gap-2"
 				onSubmit={(e) => {
 					// Enter on the name as it was: nothing to rename.
-					if (changed) return
+					if (changed) {
+						setAnswerBefore(fetcher.data)
+						return
+					}
 					e.preventDefault()
 					onCancel()
 				}}
@@ -305,7 +335,7 @@ function TagNameForm({
 					autoComplete="off"
 					className="min-w-0"
 				/>
-				<Button type="submit" disabled={!changed || fetcher.state !== "idle"}>
+				<Button type="submit" disabled={!changed || busy}>
 					{t("tags.page.rename")}
 				</Button>
 				<Button type="button" variant="secondary" onClick={onCancel}>

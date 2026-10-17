@@ -822,9 +822,9 @@ export function endParts(end: PageEnd): { head: string; rest: string } {
 	const heading = `<span class="end-heading">${done ? `<span class="end-check">${CHECK}</span>Finished` : "You reached the end"}</span>`
 	const state =
 		end.state === "finishing"
-			? ` ${end.archived ? "It's marked as finished when you leave." : "It goes to your archive when you leave."} <button type="button" class="end-link" data-end="keep">${end.archived ? "Keep unfinished" : "Keep in Library"}</button>`
+			? ` ${end.archived ? "It's marked as finished when you leave." : "It goes to your archive when you leave."} <button type="button" class="end-link" data-end="keep">${end.archived ? "Keep unfinished" : "Keep in Inbox"}</button>`
 			: end.state === "kept"
-				? ` ${end.archived ? "It stays unfinished." : "It stays in your Library."} <button type="button" class="end-link" data-end="unkeep">Finish when I leave</button>`
+				? ` ${end.archived ? "It stays unfinished." : "It stays in your Inbox."} <button type="button" class="end-link" data-end="unkeep">Finish when I leave</button>`
 				: ""
 	const finish =
 		end.state === "early"
