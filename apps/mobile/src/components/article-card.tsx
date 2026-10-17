@@ -19,6 +19,7 @@ import {
 } from "react-native"
 import type { ArticleAction } from "@/components/article-actions"
 import { useListLayout } from "@/components/list-layout"
+import { MotionCell } from "@/components/list-motion"
 import { Grain } from "@/components/paper"
 import { ReadStamp } from "@/components/read-stamp"
 import { SiteCover } from "@/components/site-cover"
@@ -27,6 +28,7 @@ import { useAuth } from "@/lib/auth"
 import { copyText } from "@/lib/clipboard"
 import { inSections } from "@/lib/date-groups"
 import { leadImageSource } from "@/lib/lead-image"
+import type { Act } from "@/lib/list-motion"
 import { type Colors, fonts, useColors } from "@/lib/theme"
 
 /**
@@ -634,12 +636,14 @@ export function ArticleList(
 		/** The long-press menu, when the list can act on its articles; none while selecting. */
 		menu?: CardMenu | null
 		groupAt?: (item: ArticleSummary) => string | null | undefined
+		/** How articles come and go (`useListMotion`): each plays in its cell. */
+		motions?: ReadonlyMap<string, Act>
 	},
 ) {
 	const colors = useColors()
 	const layout = useListLayout()
 	const { width } = useWindowDimensions()
-	const { headers, selection, menu, contentContainerStyle, groupAt, data, ...rest } = props
+	const { headers, selection, menu, contentContainerStyle, groupAt, data, motions, ...rest } = props
 	// Two columns with the gap between them and at both sides. A card's frame (its background, and
 	// the tint of a checked one) reaches past its content by `TINT`, on every side.
 	const cell = { width: (width - GAP * 3) / 2 + TINT * 2, margin: -TINT }
@@ -649,26 +653,30 @@ export function ArticleList(
 			: { menu }
 	const shared = {
 		...rest,
-		extraData: selection,
+		extraData: [selection, motions],
 		contentInsetAdjustmentBehavior: "automatic" as const,
 	}
 	const row = (item: ArticleSummary) => (
-		<ArticleRow item={item} colors={colors} headers={headers} {...check(item)} />
+		<MotionCell id={item.id} act={motions?.get(item.id)} colors={colors}>
+			<ArticleRow item={item} colors={colors} headers={headers} {...check(item)} />
+		</MotionCell>
 	)
 	const card = (item: ArticleSummary) => {
 		const { checked, onCheck, menu: cardMenu } = check(item)
 		return (
 			<View key={item.id} style={cell}>
-				<ArticleCard
-					item={item}
-					colors={colors}
-					headers={headers}
-					checked={checked}
-					onCheck={onCheck}
-					menu={cardMenu}
-					framed
-					width={cell.width - TINT * 2}
-				/>
+				<MotionCell id={item.id} act={motions?.get(item.id)} colors={colors}>
+					<ArticleCard
+						item={item}
+						colors={colors}
+						headers={headers}
+						checked={checked}
+						onCheck={onCheck}
+						menu={cardMenu}
+						framed
+						width={cell.width - TINT * 2}
+					/>
+				</MotionCell>
 			</View>
 		)
 	}
