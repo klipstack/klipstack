@@ -18,6 +18,7 @@ import {
 	View,
 } from "react-native"
 import { ClippingPaper, CLIP_TOP } from "@/components/clipping"
+import { hostOf } from "@/components/link-card"
 import { PostIt, postItText } from "@/components/post-it"
 import { copyRich, copyText } from "@/lib/clipboard"
 import { fromStored } from "@/lib/note-field"
@@ -41,7 +42,7 @@ type ShareArticle = Pick<Highlight["article"], "title" | "site" | "url">
 
 /**
  * The Share sheet for a screen's highlights: `open` shows it for one, `sheet` goes in the screen.
- * `onShared` hears whether the highlight has a live link now, for its "Shared" mark.
+ * `onShared` hears when the highlight starts or stops having a live link, for its "Shared" mark.
  */
 export function useShareSheet(
 	client: KlipstackClient | null,
@@ -272,11 +273,9 @@ function Preview({
 				<Text style={[styles.creditTitle, { color: colors.fg }]} numberOfLines={2}>
 					{h.article.title ?? h.article.url}
 				</Text>
-				{h.article.site ? (
-					<Text style={[styles.creditSite, { color: colors.mutedFg }]} numberOfLines={1}>
-						{h.article.site}
-					</Text>
-				) : null}
+				<Text style={[styles.creditSite, { color: colors.mutedFg }]} numberOfLines={1}>
+					{h.article.site ?? hostOf(h.article.url)}
+				</Text>
 			</View>
 		</View>
 	)
@@ -429,7 +428,7 @@ type ImageShape = "wide" | "tall"
 type Drawn =
 	| { status: "drawing" }
 	| { status: "drawn"; uri: string; version: number }
-	| { status: "failed"; message: string }
+	| { status: "failed"; message: string; retry: boolean }
 
 /** The highlight as a picture, wide or tall, drawn by the server as it is now. */
 function ImagePanel({
@@ -445,13 +444,15 @@ function ImagePanel({
 }) {
 	const [shape, setShape] = useState<ImageShape>("wide")
 	// What was drawn, for which shape and note choice: another choice is drawing until it comes.
-	const key = `${shape}:${withNote}`
+	// A new attempt draws again, after a failure.
+	const [attempt, setAttempt] = useState(0)
+	const key = `${shape}:${withNote}:${attempt}`
 	const [result, setResult] = useState<{ key: string; drawn: Drawn } | null>(null)
 	const drawn: Drawn = result?.key === key ? result.drawn : { status: "drawing" }
 	useEffect(() => {
 		if (!client) return
 		let live = true
-		const done = (next: Drawn) => setResult({ key: `${shape}:${withNote}`, drawn: next })
+		const done = (next: Drawn) => setResult({ key: `${shape}:${withNote}:${attempt}`, drawn: next })
 		client.highlights
 			.image(id, { shape, note: withNote })
 			.then((r) => r.arrayBuffer())
@@ -466,6 +467,7 @@ function ImagePanel({
 				const code = e instanceof KlipstackApiError ? e.code : null
 				done({
 					status: "failed",
+					retry: code !== "cannot_draw",
 					message:
 						code === "cannot_draw"
 							? "This highlight's script can't be drawn as an image yet."
@@ -477,7 +479,7 @@ function ImagePanel({
 		return () => {
 			live = false
 		}
-	}, [client, id, shape, withNote])
+	}, [client, id, shape, withNote, attempt])
 
 	return (
 		<View style={styles.panel}>
@@ -519,6 +521,14 @@ function ImagePanel({
 				)}
 			</View>
 			<View style={styles.actions}>
+				{drawn.status === "failed" && drawn.retry ? (
+					<Action
+						icon="arrow.clockwise"
+						label="Try Again"
+						onPress={() => setAttempt((n) => n + 1)}
+						colors={colors}
+					/>
+				) : null}
 				<Action
 					icon="square.and.arrow.up"
 					label="Share Image…"
@@ -609,13 +619,22 @@ function usePublicLink(
 			what === "stop"
 				? client.highlights.stopSharing(id).then(() => null)
 				: client.highlights.share(id, what.share).then((answer) => answer.share)
+		// Heard only when it starts or stops being shared: an update changes neither.
+		const wasLive = !!share && !share.removed
 		run
 			.then((next: HighlightShare) => {
 				setShare(next)
-				heard.current(next !== null && !next.removed)
+				const live = next !== null && !next.removed
+				if (live !== wasLive) heard.current(live)
 			})
 			.catch((e: unknown) => {
 				const code = e instanceof KlipstackApiError ? e.code : null
+				// Stopped elsewhere already (the web, another phone): it is not shared, as asked.
+				if (what === "stop" && code === "not_found") {
+					setShare(null)
+					if (wasLive) heard.current(false)
+					return
+				}
 				if (code === "share_removed") setShare({ removed: true })
 				setError(code ?? "failed")
 			})

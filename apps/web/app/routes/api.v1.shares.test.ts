@@ -149,6 +149,9 @@ describe("sharing a highlight in the API", () => {
 		expect(wide.headers.get("content-type")).toBe("image/png")
 		const widePng = Buffer.from(await wide.arrayBuffer())
 		expect(await sharp(widePng).metadata()).toMatchObject({ width: 1200, height: 630 })
+		// Without its note, another picture.
+		const bare = await me.client.highlights.image(h.id, { note: false })
+		expect(Buffer.from(await bare.arrayBuffer()).equals(widePng)).toBe(false)
 		const tall = await me.client.highlights.image(h.id, { shape: "tall", note: false })
 		expect(await sharp(Buffer.from(await tall.arrayBuffer())).metadata()).toMatchObject({
 			width: 1080,

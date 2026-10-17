@@ -5,8 +5,6 @@ import { getUser } from "~/lib/session.server"
 import { drawHighlightImage } from "~/services/highlight-image.server"
 import type { Route } from "./+types/highlights.image"
 
-export { IMAGE_LIMIT } from "~/services/highlight-image.server"
-
 /**
  * GET /highlights/:id/image.png?shape=wide|tall&note=1|0 — the reader's own highlight as a picture
  * to share by itself (`drawHighlightImage`). Refusals are bare statuses: 404, 422 for a quote the

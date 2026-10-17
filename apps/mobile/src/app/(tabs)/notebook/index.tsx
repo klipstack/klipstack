@@ -188,6 +188,13 @@ export default function Notebook() {
 
 	// Shared or not any more, as the Share sheet says: the card's mark, and the Shared filter's list.
 	const { open: share, sheet: shareSheet } = useShareSheet(client, (id, shared) => {
+		setMeta(
+			(shown) =>
+				shown && {
+					...shown,
+					counts: { ...shown.counts, shared: Math.max(0, shown.counts.shared + (shared ? 1 : -1)) },
+				},
+		)
 		edit((shown) =>
 			!shared && filter === "shared"
 				? withoutHighlight(shown, id)
