@@ -37,7 +37,9 @@ test("public home explains the app and links to the invite request, login, terms
 	await page.getByRole("link", { name: "Terms", exact: true }).click()
 	await expect(page).toHaveURL(/\/terms$/)
 	await expect(page.getByRole("heading", { level: 1 })).toHaveText("Terms of use")
-	await expect(page.getByRole("heading", { name: /Public editions$/ })).toBeVisible()
+	await expect(
+		page.getByRole("heading", { name: /Public editions and shared highlights$/ }),
+	).toBeVisible()
 	await page.getByRole("link", { name: "Privacy", exact: true }).click()
 	await expect(page).toHaveURL(/\/privacy$/)
 	await expect(page.getByRole("heading", { level: 1 })).toHaveText("Privacy policy")
