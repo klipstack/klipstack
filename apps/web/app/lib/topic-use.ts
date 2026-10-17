@@ -1,3 +1,4 @@
+import { TOPIC_USES } from "@klipstack/api-contract/enums"
 import { parseSearchQuery } from "@klipstack/api-contract/search-query"
 import type { TopicUseMetric } from "@klipstack/db/schema"
 
@@ -5,13 +6,7 @@ import type { TopicUseMetric } from "@klipstack/db/schema"
  * What the reader clicks in topics, as `countTopicUse` (`/topics/use`) counts it: the command
  * takes these names and no others.
  */
-export const TOPIC_CLICKS = [
-	"topic_filter_library",
-	"topic_filter_search",
-	"topic_opened",
-	"topic_next",
-	"topic_home",
-] as const satisfies readonly TopicUseMetric[]
+export const TOPIC_CLICKS = TOPIC_USES satisfies readonly TopicUseMetric[]
 export type TopicClick = (typeof TOPIC_CLICKS)[number]
 
 /**

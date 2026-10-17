@@ -76,3 +76,16 @@ export type SearchSort = (typeof SEARCH_SORTS)[number]
 /** How an article was saved. Mirrors the database's `captureSource`. */
 export const CAPTURE_SOURCES = ["web", "extension", "api", "feed"] as const
 export type CaptureSource = (typeof CAPTURE_SOURCES)[number]
+
+/**
+ * What the reader clicks in topics that the server counts for its administrators (POST
+ * /topics/use): the filters, opening a topic, the next article from a topic, Home's topic choice.
+ */
+export const TOPIC_USES = [
+	"topic_filter_library",
+	"topic_filter_search",
+	"topic_opened",
+	"topic_next",
+	"topic_home",
+] as const
+export type TopicUse = (typeof TOPIC_USES)[number]

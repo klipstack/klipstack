@@ -1,4 +1,5 @@
 import { Readable } from "node:stream"
+import { TOPIC_RULES } from "@klipstack/ai"
 import type {
 	exportLibrary,
 	getAsset,
@@ -20,7 +21,15 @@ import { listFeedPage, listFollowedFeeds } from "~/services/feeds.server"
 import { listUserHighlights } from "~/services/highlights.server"
 import { listSavedSearches } from "~/services/saved-searches.server"
 import { listTags } from "~/services/tags.server"
-import { latestInTopics, listTopics, topicsOffered, topicsState } from "~/services/topics.server"
+import {
+	firstTopicsNotice,
+	latestInTopics,
+	libraryCount,
+	listTopics,
+	topicsInvitation,
+	topicsOffered,
+	topicsState,
+} from "~/services/topics.server"
 import {
 	encodeFeedCursor,
 	encodeHighlightCursor,
@@ -166,11 +175,15 @@ export const topics: Handler<typeof listTopicsEndpoint> = async ({ userId, query
 	const answer = {
 		stage: state.stage,
 		items,
+		...(state.stage === "off" ? await offered(userId) : {}),
 		...(state.stage === "waiting" || state.stage === "proposing"
 			? { progress: { count: state.count, needed: state.needed } }
 			: {}),
 		...(state.stage === "proposed"
-			? { proposed: state.topics.map(({ id, name, description }) => ({ id, name, description })) }
+			? {
+					proposed: state.topics.map(({ id, name, description }) => ({ id, name, description })),
+					card: (await firstTopicsNotice(userId)).card,
+				}
 			: {}),
 		...(active
 			? {
@@ -178,6 +191,7 @@ export const topics: Handler<typeof listTopicsEndpoint> = async ({ userId, query
 					sortingPaused: state.sortsPaused && {
 						// A server that sorts none at all starts again in no month.
 						resumesAt: state.sortsPaused.max === 0 ? null : state.sortsPaused.resetsAt,
+						max: state.sortsPaused.max,
 					},
 				}
 			: {}),
@@ -192,6 +206,12 @@ export const topics: Handler<typeof listTopicsEndpoint> = async ({ userId, query
 		return topic ? [{ ...topic, inView: t.count }] : []
 	})
 	return { ...answer, items, none, sorting }
+}
+
+/** Topics off: the library's size against what the first topics need, and Home's invitation. */
+async function offered(userId: string) {
+	const [count, invitation] = await Promise.all([libraryCount(userId), topicsInvitation(userId)])
+	return { progress: { count, needed: TOPIC_RULES.bootstrapSize }, invitation: !!invitation }
 }
 
 export const savedSearches: Handler<typeof listSavedSearchesEndpoint> = async ({ userId }) => ({

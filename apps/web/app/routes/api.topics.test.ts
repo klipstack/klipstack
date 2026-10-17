@@ -296,7 +296,12 @@ describe("GET /topics: the stage, and each topic's latest articles", () => {
 			.returning({ id: topics.id })
 
 		expect(await without.client.topics.list()).toEqual({ stage: "unavailable", items: [] })
-		expect(await off.client.topics.list()).toEqual({ stage: "off", items: [] })
+		expect(await off.client.topics.list()).toEqual({
+			stage: "off",
+			items: [],
+			progress: { count: 0, needed: 25 },
+			invitation: false,
+		})
 		expect(await waiting.client.topics.list()).toEqual({
 			stage: "waiting",
 			items: [],
@@ -311,6 +316,7 @@ describe("GET /topics: the stage, and each topic's latest articles", () => {
 			stage: "proposed",
 			items: [],
 			proposed: [{ id: first!.id, name: "Cooking", description: "About Cooking." }],
+			card: true,
 		})
 		expect(await reader.client.topics.list()).toEqual({
 			stage: "active",
@@ -346,7 +352,7 @@ describe("GET /topics: the stage, and each topic's latest articles", () => {
 			vi.stubEnv("LIMIT_TOPIC_SORTS_PER_MONTH", "0")
 			expect(await reader.client.topics.list()).toMatchObject({
 				sorting: 1,
-				sortingPaused: { resumesAt: null },
+				sortingPaused: { resumesAt: null, max: 0 },
 			})
 		} finally {
 			vi.unstubAllEnvs()

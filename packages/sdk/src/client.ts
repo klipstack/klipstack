@@ -4,6 +4,7 @@ import {
 	endpoints,
 	type InputBody,
 	type InputQuery,
+	type TopicUse,
 } from "@klipstack/api-contract"
 import { type ClientOptions, createCaller } from "./call"
 import { batched, paginate } from "./helpers"
@@ -255,6 +256,29 @@ export function createClient(options: ClientOptions) {
 			 */
 			list: ({ view, latest }: { view?: "inbox" | "archive" | "starred"; latest?: number } = {}) =>
 				call("topics.list", { query: { view, latest } }),
+			/** Turns topics on: article text goes to the AI providers from now on. */
+			enable: () => call("topics.enable"),
+			/** Turns topics off and deletes them. There is no undo. */
+			disable: () => call("topics.disable"),
+			/** Confirms the first topics: those kept, each with a new name or none; the rest go. */
+			confirm: (keep: { id: string; name?: string }[]) =>
+				call("topics.confirm", { body: { keep } }),
+			/** The first topics were opened: Home's card about them goes. */
+			seen: () => call("topics.seen"),
+			/** "Not now" on Home's card about the first topics. */
+			dismissCard: () => call("topics.dismissCard"),
+			/** "No thanks" on Home's invitation to turn topics on, or the offer seen: it ends for good. */
+			endInvitation: () => call("topics.endInvitation"),
+			/** Fails with `name_taken` when another topic has the name, whatever its case. */
+			rename: (id: string, name: string) =>
+				call("topics.rename", { params: { id }, body: { name } }),
+			/** Its articles leave it, and it is never proposed again. There is no undo. */
+			remove: (id: string) => call("topics.remove", { params: { id } }),
+			/** Takes an article out of a topic for good: sorting never puts it back in it. */
+			takeOut: (id: string, articleId: string) =>
+				call("topics.takeOut", { params: { id, articleId } }),
+			/** One more use of a part of topics, for the server's administrators. */
+			countUse: (use: TopicUse) => call("topics.countUse", { body: { use } }),
 		},
 		savedSearches: {
 			/** The queries the user named, by name. `articles.search(query)` runs one. */
@@ -341,6 +365,16 @@ export const FACADE: Record<EndpointId, string> = {
 	"tags.rename": "tags.rename",
 	"tags.delete": "tags.delete",
 	"topics.list": "topics.list",
+	"topics.enable": "topics.enable",
+	"topics.disable": "topics.disable",
+	"topics.confirm": "topics.confirm",
+	"topics.seen": "topics.seen",
+	"topics.dismissCard": "topics.dismissCard",
+	"topics.endInvitation": "topics.endInvitation",
+	"topics.rename": "topics.rename",
+	"topics.remove": "topics.remove",
+	"topics.takeOut": "topics.takeOut",
+	"topics.countUse": "topics.countUse",
 	"savedSearches.list": "savedSearches.list",
 	"savedSearches.create": "savedSearches.create",
 	"savedSearches.rename": "savedSearches.rename",

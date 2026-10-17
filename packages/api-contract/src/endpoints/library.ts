@@ -101,17 +101,34 @@ export const listTopics = defineEndpoint({
 		z.object({
 			stage: z.enum(TOPICS_STAGES),
 			items: z.array(Topic),
-			/** While `waiting` or `proposing`: the library's articles, and how many the first topics need. */
+			/**
+			 * While `off`, `waiting` or `proposing`: the library's articles, and how many the first
+			 * topics need.
+			 */
 			progress: z.object({ count: z.number().int(), needed: z.number().int() }).optional(),
-			/** While `proposed`: the first topics, which the reader confirms in the web app. */
+			/**
+			 * While `off`: whether Home invites the reader to turn topics on, as the web's does: the
+			 * library is big enough and the invitation is not over (POST /topics/invitation/end).
+			 */
+			invitation: z.boolean().optional(),
+			/** While `proposed`: the first topics, to confirm with POST /topics/confirm. */
 			proposed: z.array(z.object({ id: Id, name: z.string(), description: z.string() })).optional(),
+			/**
+			 * While `proposed`: whether Home says the first topics are ready, as the web's does: until
+			 * they are opened (POST /topics/seen) or put off (POST /topics/card/dismiss).
+			 */
+			card: z.boolean().optional(),
 			/** While `active`: the library's articles not sorted yet; with `view`, that list's. */
 			sorting: z.number().int().optional(),
 			/**
 			 * While `active`: null, or the month's sorts are spent and articles wait. `resumesAt` is when
-			 * sorting starts again; null when this server sorts none at all.
+			 * sorting starts again; null when this server sorts none at all. `max`: the articles an
+			 * account may have sorted a month (servers before 2026-10-17 leave it out).
 			 */
-			sortingPaused: z.object({ resumesAt: Time.nullable() }).nullable().optional(),
+			sortingPaused: z
+				.object({ resumesAt: Time.nullable(), max: z.number().int().optional() })
+				.nullable()
+				.optional(),
 			/** With `view`, while topics are on: the list's articles sorted into no topic. */
 			none: z.number().int().optional(),
 		}),
