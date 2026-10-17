@@ -37,6 +37,7 @@ import { ClipboardOffer } from "@/components/clipboard-offer"
 import { HomeHighlights } from "@/components/home-highlights"
 import { HomeMasthead } from "@/components/home-masthead"
 import { NoteReminders } from "@/components/note-reminders"
+import { ReviewSuggestion } from "@/components/review-suggestion"
 import { useTagSheet } from "@/components/tag-sheet"
 import { onChange, settled } from "@/lib/article-changes"
 import { articleMeta } from "@/lib/article-meta"
@@ -90,7 +91,7 @@ import { chooseFilter, chooseTopic } from "@/lib/topic-choices"
  *
  * Above it all, as the web's masthead: what was finished this past week, and the next edition,
  * which the web puts together. When one is due, why, with "Not now", unless a topic or a time is
- * chosen.
+ * chosen. And, as on the web, a card suggesting the review of old saves when enough wait in it.
  */
 export default function Home() {
 	const { state } = useAuth()
@@ -118,6 +119,9 @@ export default function Home() {
 	const [finished, setFinished] = useState<FinishedLately | null>(null)
 	const [edition, setEdition] = useState<NextEdition | null>(null)
 	const editionPutOff = useRef(false)
+	// Whether to suggest the review of old saves; put off here ("Not now", or gone through).
+	const [review, setReview] = useState(false)
+	const reviewPutOff = useRef(false)
 	// "Saved more than 14 days ago": the server's count, once it answers.
 	const [afterDays, setAfterDays] = useState(14)
 	const [pick, setPick] = useState<TopicPick>(null)
@@ -172,6 +176,13 @@ export default function Home() {
 					setEdition(editionPutOff.current ? { ...answer, nudge: null } : answer)
 				})
 				.catch(hideOffline(() => setEdition(null)))
+			// A server before the review answers 404: Home without the card.
+			void client.review
+				.suggested()
+				.then((answer) => {
+					if (mine === generation.current && !reviewPutOff.current) setReview(answer.suggested)
+				})
+				.catch(hideOffline(() => setReview(false)))
 			// In a topic, Home is about its articles, as on the web. A server before them answers 404:
 			// Home without the section.
 			if (!topic)
@@ -327,6 +338,12 @@ export default function Home() {
 		[],
 	)
 	const highlights = daily?.items.filter((h) => !hidden.has(h.id)) ?? []
+
+	const putOffReview = () => {
+		reviewPutOff.current = true
+		setReview(false)
+		void client?.review.snooze().catch(() => {})
+	}
 
 	async function onRefresh() {
 		setRefreshing(true)
@@ -506,6 +523,17 @@ export default function Home() {
 						>
 							<Shelf items={home.rediscover} colors={colors} headers={headers} menu={menu} />
 						</Section>
+					) : null}
+					{/* In a topic, or with a time chosen, the reader came to read, not to tidy up. */}
+					{client && review && !chosen && minutes === null ? (
+						<ReviewSuggestion
+							onOpen={() => {
+								putOffReview()
+								router.push("/review")
+							}}
+							onLater={putOffReview}
+							colors={colors}
+						/>
 					) : null}
 					{home.quick.length ? (
 						// QUICK_MAX_MINUTES in apps/web/app/lib/inbox-filters.ts.

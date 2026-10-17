@@ -80,6 +80,17 @@ function Screens() {
 					name="read/[id]"
 					options={{ title: "", headerBackTitle: "Back", headerBackButtonDisplayMode: "minimal" }}
 				/>
+				{/* Over the tabs too, from Home's card and the Library: the reader opens over it. Its
+				    cards swipe sideways, so going back is from the edge only, not iOS 26's whole width. */}
+				<Stack.Screen
+					name="review"
+					options={{
+						title: "Old Saves",
+						headerBackTitle: "Back",
+						headerBackButtonDisplayMode: "minimal",
+						fullScreenGestureEnabled: false,
+					}}
+				/>
 				<Stack.Screen name="voices" options={{ title: "Voices", presentation: "modal" }} />
 				<Stack.Screen name="save" options={{ title: "Save a Link", presentation: "modal" }} />
 			</Stack.Protected>

@@ -11,7 +11,7 @@ import { useColors } from "@/lib/theme"
 /**
  * The Library tab's first screen: its places, each opening its list, as Mail lists its mailboxes:
  * the views, the tags and topics, the saved searches (as the web's sidebar lists them; a long press renames or
- * deletes one) and the trash. The tab opens on Inbox, with this screen behind it, as Mail opens on its inbox: "‹ Library" leads here,
+ * deletes one), the review of old saves and the trash. The tab opens on Inbox, with this screen behind it, as Mail opens on its inbox: "‹ Library" leads here,
  * and so does tapping the tab again.
  */
 export default function Places() {
@@ -111,6 +111,13 @@ export default function Places() {
 				))}
 			</PlaceGroup>
 			<PlaceGroup colors={colors}>
+				{/* Always here, as in the web's Library menu: Home's card is only an occasional reminder. */}
+				<PlaceRow
+					title="Review Old Saves"
+					icon="clock.arrow.circlepath"
+					href="/review"
+					colors={colors}
+				/>
 				<PlaceRow title="Trash" icon="trash" href="/library/trash" colors={colors} />
 			</PlaceGroup>
 		</ScrollView>
