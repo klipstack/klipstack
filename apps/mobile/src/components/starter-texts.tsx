@@ -2,7 +2,16 @@ import type { KlipstackClient, StarterText } from "@klipstack/sdk"
 import { router, useFocusEffect } from "expo-router"
 import { SymbolView } from "expo-symbols"
 import { useCallback, useRef, useState } from "react"
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
+import {
+	Alert,
+	Pressable,
+	ScrollView,
+	type StyleProp,
+	StyleSheet,
+	Text,
+	View,
+	type ViewStyle,
+} from "react-native"
 import { canUseOffline, keepStarter, keptStarter } from "@/lib/offline"
 import {
 	STARTER_DESCRIPTION,
@@ -53,11 +62,16 @@ export function StarterShelf({
 	items,
 	readerLanguage,
 	wide = false,
+	inset = 16,
+	style,
 	adding,
 	onOpen,
 	colors,
 }: {
 	items: StarterText[]
+	/** Room before the first book and after the last, as the page's margin: the shelf runs edge to edge. */
+	inset?: number
+	style?: StyleProp<ViewStyle>
 	/** A book in another language is read out in its own. */
 	readerLanguage: string
 	/** A screen of its own: bigger books, each with a line about it. */
@@ -68,11 +82,11 @@ export function StarterShelf({
 }) {
 	return (
 		// The books stand on the shelf's board; past the width, the shelf scrolls.
-		<View style={[styles.board, { borderBottomColor: colors.shelf.board }]}>
+		<View style={[styles.board, { borderBottomColor: colors.shelf.board }, style]}>
 			<ScrollView
 				horizontal
 				showsHorizontalScrollIndicator={false}
-				contentContainerStyle={styles.books}
+				contentContainerStyle={[styles.books, { paddingHorizontal: inset }]}
 			>
 				{items.map((item) => (
 					<StarterBook
@@ -208,7 +222,12 @@ export function StarterGuide({
 				importantForAccessibility="no-hide-descendants"
 				style={[styles.guideBook, { backgroundColor: colors.accent }]}
 			>
-				<Text allowFontScaling={false} style={[styles.guideBookText, { color: colors.accentFg }]}>
+				<Text
+					numberOfLines={1}
+					adjustsFontSizeToFit
+					allowFontScaling={false}
+					style={[styles.guideBookText, { color: colors.accentFg }]}
+				>
 					Klipstack
 				</Text>
 			</View>
@@ -255,9 +274,12 @@ export function StarterGuide({
  */
 export function StarterOffer({
 	client,
+	margin,
 	colors,
 }: {
 	client: KlipstackClient | null
+	/** The page's side margin, which the shelf runs past to the screen's edges. */
+	margin: number
 	colors: Colors
 }) {
 	const [offer, setOffer] = useState<Offer | null>(() => keptStarter<Offer>("starter-offer"))
@@ -291,6 +313,8 @@ export function StarterOffer({
 					<Text style={[styles.description, { color: colors.mutedFg }]}>{STARTER_DESCRIPTION}</Text>
 					<StarterShelf
 						items={offer.texts}
+						inset={margin}
+						style={{ marginHorizontal: -margin }}
 						readerLanguage={language}
 						adding={adding}
 						onOpen={open}
@@ -314,7 +338,7 @@ export function StarterOffer({
 
 const styles = StyleSheet.create({
 	board: { borderBottomWidth: 7 },
-	books: { alignItems: "flex-end", gap: 12, paddingHorizontal: 12, paddingTop: 12 },
+	books: { alignItems: "flex-end", gap: 12, paddingTop: 12 },
 	book: {
 		borderTopLeftRadius: 3,
 		borderBottomLeftRadius: 3,
@@ -369,8 +393,8 @@ const styles = StyleSheet.create({
 		paddingRight: 14,
 	},
 	guideBook: {
-		width: 44,
-		height: 60,
+		width: 46,
+		height: 62,
 		borderTopLeftRadius: 2,
 		borderBottomLeftRadius: 2,
 		borderTopRightRadius: 4,
@@ -378,7 +402,7 @@ const styles = StyleSheet.create({
 		justifyContent: "flex-end",
 		padding: 5,
 	},
-	guideBookText: { fontFamily: fonts.display, fontSize: 9, lineHeight: 10 },
+	guideBookText: { fontFamily: fonts.display, fontSize: 8, lineHeight: 10 },
 	guideText: { flex: 1, gap: 1 },
 	eyebrow: { fontSize: 12, fontWeight: "500" },
 	guideTitle: { fontFamily: fonts.display, fontSize: 18, lineHeight: 23 },

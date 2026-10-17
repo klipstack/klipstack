@@ -505,7 +505,7 @@ export default function Home() {
 						be here when you're ready to read.
 					</Text>
 					{/* Nothing saved, or all of it read: something to start with, as on the web. */}
-					<StarterOffer client={client} colors={colors} />
+					<StarterOffer client={client} margin={EMPTY_PAD} colors={colors} />
 				</View>
 			) : (
 				<>
@@ -983,6 +983,8 @@ function Shelf({
 }
 
 const PAD = 16
+/** The empty state's side margin, wider than the page's for its centered words. */
+const EMPTY_PAD = 32
 // A chip is just its words: a finger's worth to tap, above and below them.
 const CHIP_SLOP = { top: 6, bottom: 6 }
 
@@ -992,7 +994,7 @@ const styles = StyleSheet.create({
 	loading: { marginTop: 48 },
 	message: { fontSize: 16, lineHeight: 22, textAlign: "center" },
 	banner: { fontSize: 14 },
-	emptyState: { alignItems: "center", gap: 12, paddingHorizontal: 32, marginTop: 64 },
+	emptyState: { alignItems: "center", gap: 12, paddingHorizontal: EMPTY_PAD, marginTop: 64 },
 	emptyTitle: { fontFamily: fonts.display, fontSize: 26, lineHeight: 32, textAlign: "center" },
 	section: { gap: 12 },
 	heading: { flexDirection: "row", alignItems: "center", gap: 6 },
