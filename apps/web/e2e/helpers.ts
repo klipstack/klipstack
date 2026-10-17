@@ -62,12 +62,9 @@ const SIDEBAR_ROUTES = [
 	"routes/reading-home",
 	"routes/library",
 	"routes/feed",
-	"routes/archive",
-	"routes/starred",
 	"routes/notebook",
 	// Not "routes/editions": its link shows only with editions turned on.
 	"routes/tags",
-	"routes/trash",
 ]
 
 /**

@@ -94,8 +94,8 @@ test("phone: drawer navigation, save dialog, reader sidebar, standalone manifest
 	})
 	expect(Math.abs(geometry.brandY - geometry.closeY)).toBeLessThan(2)
 	for (const x of geometry.navX) expect(Math.abs(x - geometry.brandX)).toBeLessThan(1)
-	await drawer.getByRole("link", { name: "Archive" }).click()
-	await expect(page).toHaveURL(/\/archive$/)
+	await drawer.getByRole("link", { name: "Library" }).click()
+	await expect(page).toHaveURL(/\/library$/)
 	await expect(drawer).toBeHidden()
 
 	// no ⌘K on a phone: the drawer opens the command palette
@@ -130,10 +130,10 @@ test("phone: drawer navigation, save dialog, reader sidebar, standalone manifest
 	await page.goto("/library")
 	await waitForHydration(page)
 	const bar = page.locator("header").first()
-	await expect(bar.getByRole("heading", { level: 1 })).toHaveText("Inbox")
+	await expect(bar.getByRole("heading", { level: 1 })).toHaveText("Library")
 	// fields are at least 16px on phones so iOS does not zoom into them
 	await menu.click()
-	await expect(drawer.getByRole("link", { name: "Inbox", exact: true })).toHaveText("Inbox")
+	await expect(drawer.getByRole("link", { name: "Library", exact: true })).toHaveText("Library")
 	await expect(drawer.getByTestId("unread-badge")).toHaveCount(0)
 	await drawer.getByRole("button", { name: "Search" }).click()
 	const paletteInput = palette.locator("[cmdk-input]")
@@ -174,9 +174,13 @@ test("phone: drawer navigation, save dialog, reader sidebar, standalone manifest
 	await expect(bar.getByRole("link", { name: "Clear search" })).toBeVisible()
 	await bar.getByRole("button", { name: "Back" }).click()
 	await expect(page).toHaveURL(/\/starred$/)
-	await expect(bar.getByRole("heading", { level: 1 })).toHaveText("Starred")
-	await page.goto("/archive")
-	await expect(bar.getByRole("heading", { level: 1 })).toHaveText("Archive")
+	// the bar names the library; its tabs say which view this is, and switch to another
+	const tabs = page.getByRole("navigation", { name: "Library views" })
+	await expect(bar.getByRole("heading", { level: 1 })).toHaveText("Library")
+	await expect(tabs.getByRole("link", { name: "Starred" })).toHaveAttribute("aria-current", "page")
+	await tabs.getByRole("link", { name: "Archive" }).click()
+	await expect(page).toHaveURL(/\/archive$/)
+	await expect(tabs.getByRole("link", { name: "Archive" })).toHaveAttribute("aria-current", "page")
 
 	// no horizontal overflow on the library
 	await page.goto("/library")

@@ -178,7 +178,7 @@ test("inbox articles open offline after the service worker warmed them", async (
 	await page.getByRole("button", { name: /^Sort/ }).click()
 	await page.getByRole("menuitem", { name: "Oldest first" }).click()
 	await expect(page.getByRole("heading", { level: 1, name: "You are offline." })).toBeVisible()
-	await page.getByRole("complementary").getByRole("link", { name: "Inbox" }).click()
+	await page.getByRole("complementary").getByRole("link", { name: "Library" }).click()
 	await expect(page).toHaveURL(/\/library$/)
 	await expect(
 		page.getByRole("link", { name: "Maker's Schedule, Manager's Schedule" }),
@@ -285,8 +285,8 @@ test("offline with older cached strings: the UI keeps its words, not raw keys", 
 	})
 	await context.setOffline(true)
 	await page.reload()
-	await expect(page.getByRole("link", { name: "Inbox" })).toBeVisible()
-	await expect(page.locator("body")).not.toContainText("nav.inbox")
+	await expect(page.getByRole("link", { name: "Library", exact: true })).toBeVisible()
+	await expect(page.locator("body")).not.toContainText("nav.library")
 	await context.setOffline(false)
 })
 

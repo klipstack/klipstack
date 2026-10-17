@@ -183,6 +183,10 @@ export default {
 		left_one: "{{count}} min left",
 		left_other: "{{count}} min left",
 	},
+	heading: "Your library",
+	tabs: {
+		label: "Library views",
+	},
 	views: {
 		inbox: "Inbox",
 		archive: "Archive",

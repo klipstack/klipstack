@@ -8,10 +8,13 @@ import {
 	Check,
 	ChevronDown,
 	History,
+	Inbox,
 	ListFilter as FilterIcon,
 	LayoutGrid,
 	List,
 	Search,
+	Star,
+	Trash2,
 	X,
 } from "lucide-react"
 import { useEffect, useMemo, useRef } from "react"
@@ -44,7 +47,13 @@ import {
 	parseFilter,
 	parseSort,
 } from "~/lib/inbox-filters"
-import { type LibraryView, viewFromPath, viewPath, viewSearchPath } from "~/lib/library-views"
+import {
+	LIBRARY_VIEWS,
+	type LibraryView,
+	viewFromPath,
+	viewPath,
+	viewSearchPath,
+} from "~/lib/library-views"
 import { splitLinks } from "~/lib/links"
 import { setListLayout } from "~/lib/list-layout"
 import { warmOffline } from "~/lib/offline.client"
@@ -82,7 +91,7 @@ export function meta({ matches, loaderData }: Route.MetaArgs) {
 
 export const handle: PageBarHandle = {
 	pageBar: ({ pathname }) => ({
-		titleKey: `common:nav.${viewFromPath(pathname)}`,
+		titleKey: "common:nav.library",
 		layoutToggle: true,
 		search: {
 			to: viewSearchPath(viewFromPath(pathname)),
@@ -202,6 +211,56 @@ export async function action({ context, request }: Route.ActionArgs) {
 	}
 }
 
+const VIEW_ICONS = {
+	inbox: Inbox,
+	archive: Archive,
+	starred: Star,
+	trash: Trash2,
+} as const satisfies Record<LibraryView, typeof Inbox>
+
+/** The library's views, one page: tabs where the sidebar used to list them. */
+function ViewTabs({ view }: { view: LibraryView }) {
+	const { t } = useTranslation("library")
+	const tab = (v: LibraryView) => {
+		const Icon = VIEW_ICONS[v]
+		const name = t(`views.${v}`)
+		// The trash, rarely opened, is an icon: its name is for screen readers and the tooltip.
+		const trash = v === "trash"
+		return (
+			<Link
+				key={v}
+				to={viewPath(v)}
+				prefetch="intent"
+				aria-current={v === view ? "page" : undefined}
+				{...(trash ? { "aria-label": name, ...tooltip(name) } : {})}
+				className={cn(
+					"flex shrink-0 items-center gap-1.5 py-2 text-sm",
+					trash && "px-1",
+					// An inset shadow, not a border: it covers the row's line, which a scrolling box would clip.
+					v === view
+						? "font-medium text-fg shadow-[inset_0_-2px_0_currentColor]"
+						: "text-muted-fg hover:text-fg",
+				)}
+			>
+				<Icon className="size-4" aria-hidden />
+				{trash ? null : name}
+			</Link>
+		)
+	}
+	return (
+		<nav
+			aria-label={t("tabs.label")}
+			className="-mx-4 flex items-stretch gap-4 px-4 shadow-[inset_0_-1px_0_var(--color-border)] md:mx-0 md:mt-2 md:px-0"
+		>
+			{/* Long names (Spanish, on a phone) scroll here, fading out: the trash stays in view. */}
+			<div className="flex min-w-0 flex-1 gap-5 overflow-x-auto pr-6 [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] [scrollbar-width:none]">
+				{LIBRARY_VIEWS.filter((v) => v !== "trash").map(tab)}
+			</div>
+			{tab("trash")}
+		</nav>
+	)
+}
+
 const VIEW_DRAWINGS = {
 	inbox: "bookcase",
 	archive: "box",
@@ -267,7 +326,7 @@ export default function Library({ loaderData }: Route.ComponentProps) {
 	return (
 		<main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-3 pb-6 md:px-8 md:pt-4 md:pb-8">
 			<div className="hidden min-h-10 flex-wrap items-center justify-between gap-3 md:flex">
-				<h1 className="page-title">{t(`views.${loaderData.view}`)}</h1>
+				<h1 className="page-title">{t("heading")}</h1>
 				<div className="flex items-center gap-2">
 					{/* First, where the search page's field ends: the other buttons stay where they are. */}
 					<SearchLink view={loaderData.view} label={t("search.label")} />
@@ -275,6 +334,7 @@ export default function Library({ loaderData }: Route.ComponentProps) {
 					{loaderData.view === "trash" ? null : <SaveLinkButton />}
 				</div>
 			</div>
+			<ViewTabs view={loaderData.view} />
 			{loaderData.view === "trash" ? (
 				<p className="mt-2 text-sm text-muted-fg md:mt-4">
 					{t("trash.banner", { days: TRASH_RETENTION_DAYS })}

@@ -9,6 +9,19 @@ export function viewFromPath(pathname: string): LibraryView {
 	return "inbox"
 }
 
+export const LIBRARY_VIEWS = [
+	"inbox",
+	"archive",
+	"starred",
+	"trash",
+] as const satisfies LibraryView[]
+
+/** One of the library's views, the tabs of its page (not the review, which has a page of its own). */
+export function isLibraryPath(pathname: string): boolean {
+	const path = pathname.replace(/\/$/, "")
+	return LIBRARY_VIEWS.some((v) => viewPath(v) === path)
+}
+
 export function viewPath(view: LibraryView): string {
 	return view === "inbox" ? "/library" : `/${view}`
 }
