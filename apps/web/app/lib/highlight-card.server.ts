@@ -1,4 +1,3 @@
-import type { HighlightColor } from "@klipstack/api-contract/enums"
 import { parse as parseNote } from "@klipstack/api-contract/note-links"
 import sharp from "sharp"
 import {
@@ -10,42 +9,27 @@ import {
 	mark,
 	outline,
 	svg,
-	width,
 	wrap,
 } from "./edition-card.server"
-import { highlightColorName } from "./highlight-colors"
 import { safeHost, siteLabel } from "./site-label"
 
 /**
  * A shared highlight's picture for link previews (`og:image`): 1200×630, drawn as the page shows
- * it. The quote on a clipping, marked in its color; the note on a post-it stuck on it; under the
- * quote, the article it came from; the brand. Drawn from the snapshot when asked for, never stored,
- * with the editions' fonts and helpers (`edition-card.server.ts`).
+ * it. The quote on a clipping, unmarked, under an opening quote mark; the note on a yellow post-it
+ * stuck on it, whatever the highlight's color (a meaning of its owner's); under the quote, the
+ * article it came from; the brand. Drawn from the snapshot when asked for, never stored, with the
+ * editions' fonts and helpers (`edition-card.server.ts`).
  */
 export interface HighlightCard {
 	exact: string
 	/** Null leaves the post-it off and the clipping takes the room. */
 	note: string | null
-	color: number
 	site: string
 	title: string
 }
 
-/** The marker's ink and the post-it's paper and ink, by highlight color (app.css, in sRGB). */
-const MARKER: Record<HighlightColor, string> = {
-	yellow: "#FFE657",
-	green: "#9CF2B3",
-	blue: "#9EDEFF",
-	pink: "#FFBCD7",
-	orange: "#FFC487",
-}
-const NOTE: Record<HighlightColor, { paper: string; ink: string }> = {
-	yellow: { paper: "#FDF1BF", ink: "#2F2416" },
-	green: { paper: "#D0F9D9", ink: "#192F1F" },
-	blue: { paper: "#D4EEFE", ink: "#172B3B" },
-	pink: { paper: "#FFE0EB", ink: "#41232F" },
-	orange: { paper: "#FEE7CF", ink: "#412714" },
-}
+/** The post-it's paper and ink: the classic yellow (app.css, in sRGB). */
+const NOTE = { paper: "#FDF1BF", ink: "#2F2416" }
 const INK = { from: "#26344F", to: "#0D1322", text: "#FFFFFF" }
 const PAPER = { ground: "#FBF8F1", text: "#1A2132", muted: "#5B6476", accent: "#B8432F" }
 
@@ -71,7 +55,6 @@ function plainNote(note: string): string {
 
 export function highlightCardSvg(card: HighlightCard): string {
 	const { text, name, small } = loadFonts()
-	const color = highlightColorName(card.color)
 	const withNote = card.note !== null && drawable(text, plainNote(card.note)) !== ""
 	const parts: string[] = []
 
@@ -87,15 +70,12 @@ export function highlightCardSvg(card: HighlightCard): string {
 		`<rect x="${pad - 20}" y="-14" width="120" height="30" fill="#FFFFFF" opacity="0.6" transform="rotate(-4 ${pad + 40} 0)"/>`,
 	]
 	const quoteWidth = W - pad * 2 - (withNote ? 70 : 0)
-	const { lines, size, leading } = quoteLines(card.exact, quoteWidth, H - 170)
+	// The opening quote mark says what the text is: the marker is the app's, not the share's.
+	clip.push(outline(text, "\u201C", pad - 4, 112, 96, PAPER.muted))
+	const { lines, size, leading } = quoteLines(card.exact, quoteWidth, H - 214)
 	lines.forEach((line, i) => {
-		const baseline = 92 + i * leading
-		const w = width(text, line, size)
-		// The marker behind the line, as the page draws it: a band over the lower part of the letters.
-		clip.push(
-			`<rect x="${pad - 6}" y="${baseline - size * 0.62}" width="${w + 12}" height="${size * 0.78}" rx="${size * 0.2}" fill="${MARKER[color]}" opacity="0.85"/>`,
-			outline(text, line, pad, baseline, size, PAPER.text),
-		)
+		const baseline = 136 + i * leading
+		clip.push(outline(text, line, pad, baseline, size, PAPER.text))
 	})
 	// Where it came from, at the foot.
 	const site = wrap(small, drawable(small, card.site).toUpperCase(), 15, W - pad * 2, 1)[0] ?? ""
@@ -108,7 +88,7 @@ export function highlightCardSvg(card: HighlightCard): string {
 	)
 
 	if (withNote && card.note) {
-		const paper = NOTE[color]
+		const paper = NOTE
 		const NW = 360
 		const NH = 330
 		const noteLines = wrap(text, drawable(text, plainNote(card.note)), 27, NW - 64, 7)
@@ -147,14 +127,12 @@ export function canDrawHighlight(exact: string): boolean {
 export function highlightCardFor(snapshot: {
 	exact: string
 	note: string | null
-	color: number
 	article: { title: string | null; url: string; siteName: string | null }
 }): HighlightCard {
 	const host = safeHost(snapshot.article.url)
 	return {
 		exact: snapshot.exact,
 		note: snapshot.note,
-		color: snapshot.color,
 		site: siteLabel(snapshot.article.siteName, host),
 		title: snapshot.article.title ?? host,
 	}

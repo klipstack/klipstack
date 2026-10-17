@@ -222,7 +222,6 @@ export function QuoteCard({
 						id: h.id,
 						exact: h.exact,
 						note: note ?? null,
-						color: h.color,
 						article: { title: h.documentTitle, sourceUrl: h.sourceUrl, siteName: h.siteName },
 					}}
 					onClose={() => setSharing(false)}
