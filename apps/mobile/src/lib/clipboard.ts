@@ -12,6 +12,18 @@ export async function copyText(text: string): Promise<void> {
 	markClipboardSeen()
 }
 
+/**
+ * Copies rich text: the HTML for apps that paste it, the plain text for those that don't. Plain
+ * text alone without the module.
+ */
+export async function copyRich(html: string, plain: string): Promise<void> {
+	if (pasteboard) {
+		saveClipboardSeen(pasteboard.copyRich(html, plain))
+		return
+	}
+	await copyText(plain)
+}
+
 /** What the clipboard holds now was saved or copied here: it isn't offered. */
 export function markClipboardSeen(): void {
 	if (pasteboard) saveClipboardSeen(pasteboard.changeCount())

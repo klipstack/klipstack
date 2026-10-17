@@ -3,6 +3,7 @@ import { useMemo } from "react"
 import { StyleSheet, View } from "react-native"
 import { noteLinking } from "@/components/note-field"
 import { QuoteCard, type QuoteContext } from "@/components/notebook-cards"
+import { useShareSheet } from "@/components/share-sheet"
 import { showToast } from "@/lib/article-changes"
 import { offerHighlightUndo } from "@/lib/highlight-undo"
 import type { Colors } from "@/lib/theme"
@@ -34,6 +35,7 @@ export function HomeHighlights({
 	colors: Colors
 	headers: Record<string, string> | null
 }) {
+	const { open: share, sheet: shareSheet } = useShareSheet(client)
 	const ctx = useMemo<QuoteContext>(
 		() => ({
 			client,
@@ -51,8 +53,9 @@ export function HomeHighlights({
 				})
 				offerHighlightUndo(client, highlight, deleting, () => onShow(highlight.id))
 			},
+			onShare: share,
 		}),
-		[client, colors, headers, linkTargets, onNote, onHide, onShow],
+		[client, colors, headers, linkTargets, onNote, onHide, onShow, share],
 	)
 	const dismiss = (id: string) => {
 		onHide(id)
@@ -89,6 +92,7 @@ export function HomeHighlights({
 					ctx={ctx}
 				/>
 			))}
+			{shareSheet}
 		</View>
 	)
 }

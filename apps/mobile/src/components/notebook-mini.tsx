@@ -2,7 +2,7 @@ import type { NotebookItem } from "@klipstack/sdk"
 import { FlashList } from "@shopify/flash-list"
 import { Link } from "expo-router"
 import { type ReactElement, useState } from "react"
-import { Pressable, type RefreshControlProps, Share, StyleSheet, Text, View } from "react-native"
+import { Pressable, type RefreshControlProps, StyleSheet, Text, View } from "react-native"
 import { CLIP_TOP, ClippingPaper } from "@/components/clipping"
 import { MarkerText } from "@/components/marker-text"
 import { type CardContext, oneLine, Thumb, titleOf } from "@/components/notebook-cards"
@@ -267,12 +267,7 @@ function Tile({
 				<Link.MenuAction icon="doc.on.doc" onPress={() => void copyText(highlight.quote)}>
 					Copy
 				</Link.MenuAction>
-				<Link.MenuAction
-					icon="square.and.arrow.up"
-					onPress={() =>
-						void Share.share({ message: `“${quote}”\n\n${titleOf(article)}`, url: article.url })
-					}
-				>
+				<Link.MenuAction icon="square.and.arrow.up" onPress={() => ctx.onShare(highlight, article)}>
 					Share
 				</Link.MenuAction>
 				<Link.MenuAction icon="trash" destructive onPress={() => ctx.onDelete(highlight)}>

@@ -11,6 +11,8 @@ export const pasteboard = requireOptionalNativeModule<{
 	changeCount(): number
 	/** Whether the clipboard holds a link: a URL item, as "Copy Link" leaves (not text). */
 	hasLink(): boolean
+	/** Copies HTML with its plain text, for apps that paste either; answers the new `changeCount`. */
+	copyRich(html: string, plain: string): number
 }>("KlipPasteboard")
 
 export type PasteControlProps = ViewProps & {

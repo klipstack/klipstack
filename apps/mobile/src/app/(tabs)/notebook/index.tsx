@@ -27,6 +27,7 @@ import {
 } from "@/components/notebook-cards"
 import { NotebookWall } from "@/components/notebook-mini"
 import { usePagedList } from "@/components/paged-list"
+import { useShareSheet } from "@/components/share-sheet"
 import { useAuth } from "@/lib/auth"
 import { offerHighlightUndo } from "@/lib/highlight-undo"
 import {
@@ -185,6 +186,15 @@ export default function Notebook() {
 		[client, edit, load],
 	)
 
+	// Shared or not any more, as the Share sheet says: the card's mark, and the Shared filter's list.
+	const { open: share, sheet: shareSheet } = useShareSheet(client, (id, shared) => {
+		edit((shown) =>
+			!shared && filter === "shared"
+				? withoutHighlight(shown, id)
+				: withHighlight(shown, id, (h) => ({ ...h, shared })),
+		)
+	})
+
 	const ctx: CardContext | null = useMemo(
 		() =>
 			client && {
@@ -197,8 +207,9 @@ export default function Notebook() {
 				onHighlightNote: (id, note) =>
 					edit((shown) => withHighlight(shown, id, (h) => ({ ...h, note }))),
 				onDelete: remove,
+				onShare: share,
 			},
-		[client, colors, headers, linking, edit, remove],
+		[client, colors, headers, linking, edit, remove, share],
 	)
 
 	function choose(next: NotebookView) {
@@ -296,6 +307,12 @@ export default function Notebook() {
 
 	return (
 		<>
+			{/*
+			 * First: the header's search bar takes the list out of the screen's view, and a view after
+			 * it then sits at another index than React Native counts, which stops the app when the
+			 * sheet closes.
+			 */}
+			{shareSheet}
 			<Stack.Screen
 				options={{
 					headerSearchBarOptions: {
@@ -342,16 +359,19 @@ export default function Notebook() {
 						accessibilityLabel="Filter"
 						tintColor={colors.accent}
 					>
-						{([null, "notes", "highlights"] as const).map((f) => (
-							<Stack.Toolbar.MenuAction
-								key={f ?? "all"}
-								isOn={filter === f}
-								subtitle={counts ? String(counts[f ?? "all"]) : undefined}
-								onPress={() => setFilter(f)}
-							>
-								{filterLabel(f)}
-							</Stack.Toolbar.MenuAction>
-						))}
+						{([null, "notes", "highlights", "shared"] as const)
+							// Shared only once something is: as the web's chips.
+							.filter((f) => f !== "shared" || filter === f || (counts?.shared ?? 0) > 0)
+							.map((f) => (
+								<Stack.Toolbar.MenuAction
+									key={f ?? "all"}
+									isOn={filter === f}
+									subtitle={counts ? String(counts[f ?? "all"]) : undefined}
+									onPress={() => setFilter(f)}
+								>
+									{filterLabel(f)}
+								</Stack.Toolbar.MenuAction>
+							))}
 						<Stack.Toolbar.Menu inline>
 							{HIGHLIGHT_COLORS.filter((c) => filter === c || (counts?.[c] ?? 0) > 0).map((c) => (
 								<Stack.Toolbar.MenuAction
