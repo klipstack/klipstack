@@ -16,7 +16,7 @@ export * from "./errors"
 export * from "./names"
 export * from "./schemas"
 
-import { getMe } from "./endpoints/account"
+import { deleteAccount, getMe, getUsage } from "./endpoints/account"
 import {
 	articleAi,
 	askAi,
@@ -200,6 +200,8 @@ export const endpoints = {
 	"ai.delete": deleteAiThread,
 	"ai.restore": restoreAiThread,
 	"ai.brief": briefAi,
+	"usage.get": getUsage,
+	"account.delete": deleteAccount,
 	"openapi.get": getOpenApi,
 } as const
 

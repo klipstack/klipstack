@@ -160,11 +160,15 @@ export function buildOpenApiDocument({
 			...(endpoint.summary ? { summary: endpoint.summary } : {}),
 			...(endpoint.clients
 				? {
-						description: `Only for Klipstack's own apps with in-app AI: an OAuth access token issued to ${endpoint.clients.map((id) => `\`${id}\``).join(" or ")}. API keys, the CLI and other OAuth clients get \`403 forbidden\`, whatever their scopes. Whoever connects through the API brings their own AI.`,
+						description: [
+							`Only for ${endpoint.clients.audience}: an OAuth access token issued to ${endpoint.clients.ids.map((id) => `\`${id}\``).join(" or ")}.`,
+							"API keys, the CLI and other OAuth clients get `403 forbidden`, whatever their scopes.",
+							...(endpoint.clients.note ? [endpoint.clients.note] : []),
+						].join(" "),
 					}
 				: {}),
 			"x-scope": endpoint.scope,
-			...(endpoint.clients ? { "x-clients": endpoint.clients } : {}),
+			...(endpoint.clients ? { "x-clients": endpoint.clients.ids } : {}),
 			security: endpoint.scope === "none" ? [] : [{ bearerAuth: [] }],
 			...(parameters.length ? { parameters } : {}),
 			...(endpoint.body

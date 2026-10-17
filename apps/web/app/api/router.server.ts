@@ -180,15 +180,12 @@ export function createApiRouter<T extends Record<string, Endpoint>>({
 			signedIn()
 			if (endpoint.scope === "write" && principal.access !== "write")
 				throw insufficientScope(LIBRARY_WRITE_SCOPE)
-			// A product rule, not a scope (`IN_APP_AI_CLIENTS`): API keys name no client.
+			// A rule of ours, not a scope (`IN_APP_AI_CLIENTS`): API keys name no client.
 			if (
 				endpoint.clients &&
-				!(principal.clientId && endpoint.clients.includes(principal.clientId))
+				!(principal.clientId && endpoint.clients.ids.includes(principal.clientId))
 			)
-				throw ApiError.of(
-					"forbidden",
-					"Only Klipstack's own apps can use the account's AI. API keys, the CLI and other apps cannot.",
-				)
+				throw ApiError.of("forbidden", endpoint.clients.refusal)
 			// Limits come before the body is read, so refused uploads cost no memory.
 			for (const check of [rateLimit, limits[id]]) {
 				const limited = check?.(principal.userId) ?? { ok: true }

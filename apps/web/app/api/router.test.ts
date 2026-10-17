@@ -74,8 +74,20 @@ const endpoints = {
 } as const
 
 const ID = "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b"
-const reader: ApiPrincipal = { userId: "u1", access: "read", via: "oauth", clientId: "app" }
-const writer: ApiPrincipal = { userId: "u1", access: "write", via: "api_key", clientId: null }
+const reader: ApiPrincipal = {
+	userId: "u1",
+	access: "read",
+	via: "oauth",
+	clientId: "app",
+	sessionId: null,
+}
+const writer: ApiPrincipal = {
+	userId: "u1",
+	access: "write",
+	via: "api_key",
+	clientId: null,
+	sessionId: null,
+}
 
 function router({
 	principal = writer,

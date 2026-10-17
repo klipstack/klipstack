@@ -1,5 +1,5 @@
 import { LIBRARY_READ_SCOPE, LIBRARY_WRITE_SCOPE } from "@klipstack/api-contract/auth"
-import { db, eq, oauthClient } from "@klipstack/db"
+import { and, db, eq, gt, oauthClient, session } from "@klipstack/db"
 import { isAPIError } from "better-auth/api"
 import { requestToResourceInput, verifyAccessTokenRequest } from "better-auth/oauth2"
 import { trustedAuthAddress } from "~/lib/auth-limits.server"
@@ -22,6 +22,11 @@ export interface ApiPrincipal {
 	via: "api_key" | "oauth"
 	/** The OAuth client id; null for an API key. */
 	clientId: string | null
+	/**
+	 * The browser session the OAuth sign-in went through (the token's `sid`, which refreshes keep):
+	 * when it was created is when the user signed in. Null for an API key.
+	 */
+	sessionId: string | null
 }
 
 export async function authenticateApiRequest(request: Request): Promise<ApiPrincipal> {
@@ -44,7 +49,7 @@ async function principalFor(bearer: string, request: Request): Promise<ApiPrinci
 		const user = await userForApiKey(bearer)
 		if (!user) throw unauthorized("Invalid API key.", true)
 		// API keys can already do everything in the account.
-		return { userId: user.id, access: "write", via: "api_key", clientId: null }
+		return { userId: user.id, access: "write", via: "api_key", clientId: null, sessionId: null }
 	}
 
 	const invalid = () => unauthorized("Invalid or expired access token.", true)
@@ -72,7 +77,28 @@ async function principalFor(bearer: string, request: Request): Promise<ApiPrinci
 		access: scopes.has(LIBRARY_WRITE_SCOPE) ? "write" : "read",
 		via: "oauth",
 		clientId,
+		sessionId: typeof claims.sid === "string" ? claims.sid : null,
 	}
+}
+
+/**
+ * When the user signed in to get this token: its browser session's creation, the time the web's
+ * recent sign-in checks. Null when the token names no session, or one that is not the user's or
+ * has ended (signed out, expired).
+ */
+export async function signedInAt(principal: ApiPrincipal): Promise<Date | null> {
+	if (!principal.sessionId) return null
+	const [row] = await db
+		.select({ createdAt: session.createdAt })
+		.from(session)
+		.where(
+			and(
+				eq(session.id, principal.sessionId),
+				eq(session.userId, principal.userId),
+				gt(session.expiresAt, new Date()),
+			),
+		)
+	return row?.createdAt ?? null
 }
 
 /** The client's display name, for `GET /me`. */

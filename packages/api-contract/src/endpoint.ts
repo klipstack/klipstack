@@ -27,6 +27,17 @@ export const binary = () => ({ kind: "binary" }) as const
 export const events = <S extends z.ZodType>(schema: S) => ({ kind: "events" as const, schema })
 export const empty = () => ({ kind: "empty" }) as const
 
+/** The clients an endpoint is for, and why: the 403's message and the OpenAPI description say. */
+export interface OnlyClients {
+	ids: readonly string[]
+	/** The refusal's message, to anyone else. */
+	refusal: string
+	/** Who the endpoint is for, as "Only for …: an OAuth access token issued to …" continues. */
+	audience: string
+	/** After that, for API clients: what they do instead. */
+	note?: string
+}
+
 export interface EndpointShape {
 	/** `<group>.<action>`, the key in `endpoints` and the OpenAPI operationId. */
 	id: string
@@ -36,9 +47,10 @@ export interface EndpointShape {
 	scope: Scope
 	/**
 	 * Only OAuth tokens issued to one of these clients may call it; API keys and other clients get
-	 * `403 forbidden`. A product rule (who spends the account's AI), not a scope: no consent grants it.
+	 * `403 forbidden`. A rule of ours (who spends the account's AI, who deletes the account), not a
+	 * scope: no consent grants it.
 	 */
-	clients?: readonly string[]
+	clients?: OnlyClients
 	params?: z.ZodObject
 	query?: z.ZodObject
 	body?: z.ZodType

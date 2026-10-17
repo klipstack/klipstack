@@ -8,6 +8,7 @@ import {
 	type SQL,
 	sql,
 	subscriptions,
+	topicLimits,
 	type Tx,
 	type UsageMetric,
 	type UserRole,
@@ -223,6 +224,8 @@ export interface Usage {
 	feeds: { used: number; max: number }
 	editions: { used: number; max: number }
 	ai: { used: number; max: number }
+	/** Articles sorted into topics this month (`LIMIT_TOPIC_SORTS_PER_MONTH`). */
+	topicSorts: { used: number; max: number }
 	/** Refusals by any cap this month: admins see it, the account does not. */
 	refused: number
 	/** When the monthly counts start over. */
@@ -248,6 +251,7 @@ export async function usageOf(userId: string): Promise<Usage> {
 		feeds: { used: feeds, max: limits.feeds },
 		editions: { used: counted("editions"), max: limits.editions },
 		ai: { used: counted("ai"), max: limits.ai },
+		topicSorts: { used: counted("topic_sorts"), max: topicLimits().sorts },
 		refused: counted("refused"),
 		resetsAt,
 	}

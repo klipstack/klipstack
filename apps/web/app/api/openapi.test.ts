@@ -16,6 +16,7 @@ type Operation = {
 	responses: Record<string, { content?: Record<string, { schema: unknown }> }>
 	"x-scope": string
 	"x-clients"?: string[]
+	description?: string
 }
 
 function operations(): Operation[] {
@@ -49,6 +50,12 @@ describe("openapi document", () => {
 		}
 		// The account's standing against its cap is for every client.
 		expect(byId("ai.get")?.["x-clients"]).toBeUndefined()
+		expect(byId("usage.get")?.["x-clients"]).toBeUndefined()
+		// Deleting the account is for our own app, and says why others are refused.
+		const deletion = byId("account.delete")
+		expect(deletion?.["x-clients"]).toEqual(["klipstack-mobile"])
+		expect(JSON.stringify(deletion?.responses["403"])).toContain("reauthentication_required")
+		expect(deletion?.description).toContain("Delete an account in Settings on the web")
 	})
 
 	it("describes errors with the shared Error schema, and hoists registered schemas", () => {
