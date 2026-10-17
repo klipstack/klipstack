@@ -369,7 +369,7 @@ test("a new highlight is drawn in once; with reduced motion, it just appears", a
 			page.waitForResponse(
 				(r) => r.url().includes("/highlights") && r.request().method() === "POST",
 			),
-			toolbar.getByRole("button", { name: "Highlight" }).click(),
+			toolbar.getByRole("button", { name: "Highlight", exact: true }).click(),
 		])
 	}
 	await watchDrawIn()

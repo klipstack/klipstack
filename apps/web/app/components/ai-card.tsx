@@ -8,6 +8,7 @@ import {
 	MessageCircleQuestion,
 	MessagesSquare,
 	RotateCcw,
+	Sparkles,
 	Trash2,
 } from "lucide-react"
 import { useContext, useEffect, useLayoutEffect, useRef, useState } from "react"
@@ -32,6 +33,12 @@ export const AI_ACTION_ICONS = {
 	chat: MessagesSquare,
 } as const
 
+/** Asking AI about a passage, before choosing how: the reader toolbars' button and the draft's head. */
+export const ASK_AI_ICON = Sparkles
+
+/** What a draft offers above its question field, sent with one press. */
+const CHOICES = ["explain", "define"] as const
+
 const FLOATING_WIDTH = 360
 
 /** Questions offered under an empty field about a passage, for a reader without one in mind. */
@@ -50,6 +57,8 @@ interface Props {
 	onClose: () => void
 	/** Missing while AI answers are turned off: the card is read, copied and deleted only. */
 	onSend?: (question: string) => void
+	/** A draft becomes an Explain or a Define. */
+	onChoose?: (action: "explain" | "define") => void
 	onRetry?: () => void
 	onDelete: () => void
 	onCopy: (text: string) => void
@@ -117,6 +126,7 @@ function OpenCard({
 	canCite,
 	onClose,
 	onSend,
+	onChoose,
 	onRetry,
 	onDelete,
 	onCopy,
@@ -140,7 +150,9 @@ function OpenCard({
 		shownTurns.current = turns
 		if (pinned.current) el.scrollTop = el.scrollHeight
 	}, [turns, length])
-	const Icon = AI_ACTION_ICONS[card.action]
+	// Not sent yet: asking AI, how still to choose.
+	const Icon = card.draft ? ASK_AI_ICON : AI_ACTION_ICONS[card.action]
+	const title = card.draft ? t("ai.askAi") : t(`ai.actions.${card.action}`)
 	const busy = !!card.streaming
 	const last = card.messages.at(-1)
 	const lastAnswer = card.messages.findLast((m) => m.role === "assistant" && m.status === "done")
@@ -178,7 +190,7 @@ function OpenCard({
 		<div
 			ref={ref}
 			role="dialog"
-			aria-label={t(`ai.actions.${card.action}`)}
+			aria-label={title}
 			data-placement={placement.kind}
 			data-testid="ai-card"
 			style={style}
@@ -197,7 +209,7 @@ function OpenCard({
 		>
 			<div className="flex items-center gap-1.5">
 				<Icon className="size-3.5 text-accent" aria-hidden />
-				<span className="text-xs font-medium text-accent">{t(`ai.actions.${card.action}`)}</span>
+				<span className="text-xs font-medium text-accent">{title}</span>
 				<button
 					type="button"
 					onClick={onClose}
@@ -258,6 +270,22 @@ function OpenCard({
 			</div>
 			{card.draft && onSend ? (
 				<>
+					<div className="mt-2 flex gap-1.5">
+						{CHOICES.map((action) => {
+							const ChoiceIcon = AI_ACTION_ICONS[action]
+							return (
+								<button
+									key={action}
+									type="button"
+									onClick={() => onChoose?.(action)}
+									className="flex min-w-0 flex-1 items-center justify-center gap-1 rounded-lg border border-border px-2 py-1.5 font-medium text-fg transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+								>
+									<ChoiceIcon className="size-3.5 shrink-0 text-accent" aria-hidden />
+									{t(`ai.actions.${action}`)}
+								</button>
+							)
+						})}
+					</div>
 					<QuestionField
 						initial={card.draft.question}
 						placeholder={t("ai.askPlaceholder")}

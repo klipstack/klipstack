@@ -1,4 +1,3 @@
-import type { AiThreadAction } from "@klipstack/db"
 import { Copy, MessageSquarePlus, Share, SquarePen, Trash2 } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import {
@@ -11,7 +10,7 @@ import type { RenderableHighlight } from "~/lib/highlights.client"
 import { COPY_HINT } from "~/lib/shortcuts"
 import { cn } from "~/lib/utils"
 import { AiToolbarButtons } from "./ai-toolbar-buttons"
-import { ReaderToolbar, TOOLBAR_ICON_BUTTON, TOOLBAR_LABEL_BUTTON } from "./reader-toolbar"
+import { ReaderToolbar, TOOLBAR_ICON_BUTTON } from "./reader-toolbar"
 import { tooltip } from "./tooltip-host"
 
 interface Props {
@@ -31,8 +30,8 @@ interface Props {
 	onDelete: () => void
 	onClose: () => void
 	disabled?: boolean
-	/** With AI answers on: Explain, Define, Ask about the highlight. */
-	onAsk?: (action: AiThreadAction) => void
+	/** With AI answers on: ask AI about the highlight. */
+	onAsk?: () => void
 }
 
 /** The color picker's width: five swatches and the line after them. */
@@ -64,7 +63,7 @@ export function HighlightToolbar({
 			label={t("highlights.popover.label")}
 			rect={rect}
 			scrollY={scrollY}
-			width={(onAsk ? 530 : 240) + (onColor ? COLORS_WIDTH : 0) + (onShare ? SHARE_WIDTH : 0)}
+			width={(onAsk ? 220 : 110) + (onColor ? COLORS_WIDTH : 0) + (onShare ? SHARE_WIDTH : 0)}
 			onClose={onClose}
 			disabled={disabled}
 		>
@@ -72,13 +71,19 @@ export function HighlightToolbar({
 				<ColorPicker color={highlight.color} onColor={onColor} disabled={disabled} />
 			) : null}
 			{onNote ? (
-				<button type="button" disabled={disabled} onClick={onNote} className={TOOLBAR_LABEL_BUTTON}>
+				<button
+					type="button"
+					disabled={disabled}
+					onClick={onNote}
+					className={TOOLBAR_ICON_BUTTON}
+					aria-label={noteLabel}
+					{...tooltip(noteLabel)}
+				>
 					{highlight.note ? (
 						<SquarePen className="size-4" aria-hidden />
 					) : (
 						<MessageSquarePlus className="size-4" aria-hidden />
 					)}
-					{noteLabel}
 				</button>
 			) : null}
 			{onCopy ? (

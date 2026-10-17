@@ -17,8 +17,11 @@ export interface AiPassage {
 
 /** A thread on screen: what the server keeps, plus what is happening to it now. */
 export interface AiCard extends AiThreadWithMessages {
-	/** An Ask not sent yet: its question field. */
-	draft?: { question: string }
+	/**
+	 * Not sent yet: its question field, with Explain and Define offered above it. The text around
+	 * the passage goes with whichever is sent.
+	 */
+	draft?: { question: string; prefix: string; suffix: string }
 	/** An answer is being written: its words are in the `AnswerStore`, so they don't re-render the reader. */
 	streaming?: boolean
 	/** Why the last question was not answered (a refusal before it began, or the network). */
@@ -143,8 +146,8 @@ export function useAiThreads(
 	)
 
 	/**
-	 * Explain and Define are sent at once; Ask opens its question field first, or, with no questions
-	 * left, says so.
+	 * Explain and Define are sent at once; Ask opens the draft (a question, or Explain or Define with
+	 * `choose`) first, or, with no questions left, says so.
 	 */
 	const start = useCallback(
 		(passage: AiPassage, action: AiThreadAction, typed = "") => {
@@ -164,7 +167,7 @@ export function useAiThreads(
 				...(none
 					? { failure: none }
 					: action === "ask"
-						? { draft: { question: typed } }
+						? { draft: { question: typed, prefix: passage.prefix, suffix: passage.suffix } }
 						: { streaming: true }),
 			}
 			setCards((prev) => [...prev, card])
@@ -193,7 +196,12 @@ export function useAiThreads(
 						? { intent: "chat", question: text }
 						: {
 								...askBody(
-									{ ...card, prefix: "", suffix: "", highlightId: card.highlightId ?? undefined },
+									{
+										...card,
+										prefix: card.draft?.prefix ?? "",
+										suffix: card.draft?.suffix ?? "",
+										highlightId: card.highlightId ?? undefined,
+									},
 									card.action,
 								),
 								question: text,
@@ -208,6 +216,27 @@ export function useAiThreads(
 				streaming: true,
 			}))
 			void run(id, { intent: "follow-up", id, question: text })
+		},
+		[run, update],
+	)
+
+	/** A draft becomes an Explain or a Define of its passage, sent at once. */
+	const choose = useCallback(
+		(id: string, action: "explain" | "define") => {
+			const card = latest.current.find((c) => c.id === id)
+			if (!card?.draft) return
+			const { prefix, suffix } = card.draft
+			update(id, (c) => ({
+				...c,
+				action,
+				draft: undefined,
+				messages: [question("")],
+				streaming: true,
+			}))
+			void run(
+				id,
+				askBody({ ...card, prefix, suffix, highlightId: card.highlightId ?? undefined }, action),
+			)
 		},
 		[run, update],
 	)
@@ -304,7 +333,7 @@ export function useAiThreads(
 		setCards((prev) => prev.filter((c) => !c.draft || c.id === id))
 	}, [])
 
-	return { cards, openId, open, close, start, send, retry, remove, chat, written }
+	return { cards, openId, open, close, start, send, choose, retry, remove, chat, written }
 }
 
 function askBody(

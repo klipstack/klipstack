@@ -186,8 +186,8 @@ export function ReaderArticle({
 	// A hovered margin note marks its highlight in full (`klip-active`); hovered text does not.
 	const [hoveredNote, setHoveredNote] = useState<string | null>(null)
 	const [resizeFocus, setResizeFocus] = useState<string | null>(null)
-	// A just-created highlight opens its toolbar once the server has given it an id.
-	const pendingOpen = useRef<{ start: number; end: number } | null>(null)
+	// A just-created highlight opens its toolbar, or its note, once the server has given it an id.
+	const pendingOpen = useRef<{ start: number; end: number; note: boolean } | null>(null)
 
 	// The editor's chunk is fetched while the reader is idle, so the first `[[` never waits.
 	useEffect(() => {
@@ -274,23 +274,6 @@ export function ReaderArticle({
 		setActiveId(id)
 	}, [location.hash, items])
 
-	useEffect(() => {
-		const pending = pendingOpen.current
-		if (!pending) return
-		const match = items.find(
-			(h) => h.startOffset === pending.start && h.endOffset === pending.end && !isTemporary(h.id),
-		)
-		if (!match) return
-		const range = rangesRef.current.get(match.id)
-		const rect = range ? firstRect(range) : null
-		if (rect) {
-			setActiveId(match.id)
-			setActiveHighlight(range ?? null)
-			setPopover(popoverAt(match.id, rect))
-		}
-		pendingOpen.current = null
-	}, [items])
-
 	const resize = useHighlightResize({
 		documentId: doc.id,
 		versionId: doc.currentVersionId,
@@ -321,9 +304,9 @@ export function ReaderArticle({
 	useAlignForSheet(popover?.id ?? editingId, touch, rangesRef, headerRef)
 
 	// ---- changes ----
-	const createHighlight = (selector: TextSelector) => {
+	const createHighlight = (selector: TextSelector, { note = false } = {}) => {
 		engage()
-		pendingOpen.current = { start: selector.start, end: selector.end }
+		pendingOpen.current = { start: selector.start, end: selector.end, note }
 		highlights.change({ intent: "create", tempId: `tmp-${Date.now()}`, selector })
 	}
 	const openNote = (id: string) => {
@@ -337,6 +320,27 @@ export function ReaderArticle({
 		setActiveId(id)
 		setActiveHighlight(range ?? null)
 	}
+	const latestOpenNote = useRef(openNote)
+	useInsertionEffect(() => {
+		latestOpenNote.current = openNote
+	})
+	useEffect(() => {
+		const pending = pendingOpen.current
+		if (!pending) return
+		const match = items.find(
+			(h) => h.startOffset === pending.start && h.endOffset === pending.end && !isTemporary(h.id),
+		)
+		if (!match) return
+		pendingOpen.current = null
+		if (pending.note) return latestOpenNote.current(match.id)
+		const range = rangesRef.current.get(match.id)
+		const rect = range ? firstRect(range) : null
+		if (rect) {
+			setActiveId(match.id)
+			setActiveHighlight(range ?? null)
+			setPopover(popoverAt(match.id, rect))
+		}
+	}, [items])
 	const closeNote = useCallback(() => {
 		setEditingId(null)
 		setHoveredId(null)
@@ -407,10 +411,10 @@ export function ReaderArticle({
 		},
 		[closePopover, asking],
 	)
-	const highlightSelection = (selected: ArticleSelection) => {
+	const highlightSelection = (selected: ArticleSelection, options?: { note?: boolean }) => {
 		window.getSelection()?.removeAllRanges()
 		setSelection(null)
-		createHighlight(selected.selector)
+		createHighlight(selected.selector, options)
 	}
 	// ---- AI ----
 	const ask = (passage: Omit<AiPassage, "versionId">, action: AiThreadAction, typed = "") => {
@@ -491,6 +495,7 @@ export function ReaderArticle({
 			}}
 			onClose={ai.close}
 			onSend={asking ? (text) => ai.send(card.id, text) : undefined}
+			onChoose={asking ? (action) => ai.choose(card.id, action) : undefined}
 			onRetry={asking ? () => ai.retry(card.id) : undefined}
 			onDelete={() => deleteThread(card.id)}
 			onCopy={(text) => copyText(text, t("highlights.popover.copied"))}
@@ -890,8 +895,9 @@ export function ReaderArticle({
 						scrollY={selection.scrollY}
 						disabled={updating || highlights.pending}
 						onHighlight={() => highlightSelection(selection.selection)}
+						onHighlightWithNote={() => highlightSelection(selection.selection, { note: true })}
 						canHighlight={isHighlightable(selection.selection.selector.exact)}
-						onAsk={asking ? (action) => askAboutSelection(selection.selection, action) : undefined}
+						onAsk={asking ? () => askAboutSelection(selection.selection, "ask") : undefined}
 						onCopy={() => copySelection(selection.selection)}
 						onClose={() => setSelection(null)}
 					/>
@@ -920,7 +926,7 @@ export function ReaderArticle({
 						onDelete={() => removeHighlight(popoverItem.id)}
 						onAsk={
 							asking
-								? (action) =>
+								? () =>
 										ask(
 											{
 												exact: popoverItem.exact,
@@ -930,7 +936,7 @@ export function ReaderArticle({
 												end: popoverItem.endOffset,
 												highlightId: popoverItem.id,
 											},
-											action,
+											"ask",
 										)
 								: undefined
 						}
