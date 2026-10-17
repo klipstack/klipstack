@@ -151,6 +151,7 @@ describe("authenticateApiRequest", () => {
 			access: "write",
 			via: "oauth",
 			clientId,
+			sessionId: null,
 		})
 
 		// A token granted read alone stays read, whatever the consent holds.

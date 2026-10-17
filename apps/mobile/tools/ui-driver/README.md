@@ -35,6 +35,8 @@ finds nothing prints `MISSING <label>` and the run goes on.
 | `swipeup` | | One swipe up. |
 | `drag` | `x1,y1,x2,y2` | Drags from one point to another, fast: a scroll or a swipe on a row. |
 | `retype` | `label\|text` | Clears the field with this label and types the text. `alert` as the label means the alert's text field. |
+| `webtype` | `field\|text` | Like `retype`, in the sign-in sheet's web page (it runs in SafariViewService, outside the app): the field by label or placeholder. End with `\n` to submit. |
+| `webtap` | label | Taps a button or link in the sign-in sheet's web page. |
 | `wait` | seconds | Waits. |
 | `shot` | name | Saves a screenshot to `shots/<name>.png`. |
 

@@ -2,7 +2,17 @@ import { randomUUID } from "node:crypto"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { LIBRARY_READ_SCOPE, LIBRARY_WRITE_SCOPE } from "@klipstack/api-contract/auth"
-import { db, eq, newId, oauthClient, oauthConsent, oauthGrants, sql, user } from "@klipstack/db"
+import {
+	db,
+	eq,
+	newId,
+	oauthClient,
+	oauthConsent,
+	oauthGrants,
+	session,
+	sql,
+	user,
+} from "@klipstack/db"
 import { QUEUES } from "@klipstack/queue"
 import { createClient } from "@klipstack/sdk"
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client"
@@ -81,14 +91,30 @@ export function apiUsers(tag: string) {
 }
 
 /**
+ * A browser session of the user's, signed in at `createdAt` (and ended at `expiresAt`): the one an
+ * OAuth sign-in goes through, whose id its tokens carry as `sid`. Deleted with the user.
+ */
+export async function browserSession(
+	userId: string,
+	createdAt: Date,
+	expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+) {
+	const id = newId()
+	await db.insert(session).values({ id, userId, token: randomUUID(), createdAt, expiresAt })
+	return id
+}
+
+/**
  * An access token for the API as `clientId` gets one when the user signs in to it: their consent
  * and grant rows, and a token signed with our real key. A client that is not registered (not one
- * of ours) becomes an app the user registered, deleted with them.
+ * of ours) becomes an app the user registered, deleted with them. `sid`: the browser session the
+ * sign-in went through (`browserSession`).
  */
 export async function oauthToken(
 	userId: string,
 	clientId: string,
 	scopes: string[] = [LIBRARY_READ_SCOPE, LIBRARY_WRITE_SCOPE],
+	{ sid }: { sid?: string } = {},
 ) {
 	serveKeySet()
 	await db
@@ -116,6 +142,7 @@ export async function oauthToken(
 				azp: clientId,
 				scope: scopes.join(" "),
 				klip_grant: generation,
+				...(sid ? { sid } : {}),
 			},
 		},
 	})

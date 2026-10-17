@@ -29,6 +29,13 @@ export const MOBILE_CLIENT_ID = "klipstack-mobile"
  */
 export const IN_APP_AI_CLIENTS: readonly string[] = [MOBILE_CLIENT_ID]
 
+/**
+ * The first-party apps that may delete the account through the API (`POST /account/delete`), after
+ * a recent sign-in. Never an API key, the CLI or another app: deleting an account is the account
+ * owner's act in one of our own apps, as on the web.
+ */
+export const ACCOUNT_DELETION_CLIENTS: readonly string[] = [MOBILE_CLIENT_ID]
+
 /** The mobile app always asks for full access. */
 export const MOBILE_SCOPES = CLI_SCOPES
 

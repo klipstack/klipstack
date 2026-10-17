@@ -293,6 +293,16 @@ export function createClient(options: ClientOptions) {
 				call("savedSearches.rename", { params: { id }, body: { name } }),
 			delete: (id: string) => call("savedSearches.delete", { params: { id } }),
 		},
+		/** Where the account stands against each of its caps this month. */
+		usage: () => call("usage.get"),
+		account: {
+			/**
+			 * Deletes the account and everything in it, for good. `confirmEmail` must be its email.
+			 * Only Klipstack's own apps may; it fails with `reauthentication_required` unless the token
+			 * comes from a sign-in in the last 30 minutes.
+			 */
+			delete: (confirmEmail: string) => call("account.delete", { body: { confirmEmail } }),
+		},
 		/** The whole library as a streaming Response: a zip (default) or JSON. */
 		export: (format: "zip" | "json" = "zip") => call("export.get", { query: { format } }),
 		/** The OpenAPI document (no token needed). */
@@ -392,4 +402,6 @@ export const FACADE: Record<EndpointId, string> = {
 	"ai.delete": "ai.delete",
 	"ai.restore": "ai.restore",
 	"ai.brief": "ai.brief",
+	"usage.get": "usage",
+	"account.delete": "account.delete",
 }

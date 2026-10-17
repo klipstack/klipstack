@@ -38,6 +38,9 @@ pnpm dlx expo-doctor         # Diagnose dependency and config problems
     Trash, `tags/`, `topics/`, `saved/`); the tab opens on Inbox, pushed by `index.tsx` onto its own stack.
   - `read/[id].tsx`: the reader, on the root stack over the tabs.
   - `save.tsx`: the sheet to save a link, from the + button on Home and Inbox.
+  - `account/`: Account, a sheet with its own stack, from the header's account button: who is
+    signed in, usage (`GET /usage`), appearance, Voices, the library's export, links to the web,
+    signing out and deleting the account (`POST /account/delete`, which may ask to sign in again).
 - `src/components/`: pieces shared by screens (the article row, a library list, the tab stack).
 - `src/lib/`: auth, API client, storage, and the reader's pure code (tested with Vitest).
 - `src/page/`: the reader page's script, which runs in the WebView, not in React Native: DOM
@@ -117,8 +120,10 @@ that seeded the demo for both the script and `pnpm dev`: the server reads images
 
 Under Xcode 27, AXe's taps and swipes do nothing. `tools/ui-driver/run.sh` does them with
 XCUITest: tap by label or point, long-press, drag, type, and take screenshots, on the development
-build already running. See `tools/ui-driver/README.md`. Check the server's state after a step (the
-API or the database), not only the screenshot.
+build already running, and type into the sign-in sheet's web page (`webtype`, `webtap`). See
+`tools/ui-driver/README.md`. If that sheet or another in-app browser stays blank, `pkill -f
+SafariViewService` and try again. Check the server's state after a step (the API or the
+database), not only the screenshot.
 
 ## Sign-in and the share extension
 

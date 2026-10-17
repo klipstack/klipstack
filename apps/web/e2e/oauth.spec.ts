@@ -1,4 +1,4 @@
-import { db, eq, oauthRefreshToken, sql } from "@klipstack/db"
+import { db, desc, eq, oauthRefreshToken, session, sql, user } from "@klipstack/db"
 import { expect, type Page, test } from "@playwright/test"
 import {
 	authorizeUrl,
@@ -95,6 +95,49 @@ test("old API and MCP tokens stay revoked after reconnecting the same client", a
 		})
 		expect(refresh.status()).toBe(400)
 	}
+})
+
+test("an API token names the browser sign-in behind it, and a refresh keeps it", async ({
+	page,
+	request,
+	baseURL,
+}) => {
+	// Deleting the account through the API reads the sign-in's time from this `sid`
+	// (`signedInAt` in app/api/auth.server.ts): a refresh must never make it a new sign-in.
+	const email = await signup(page)
+	const [signedIn] = await db
+		.select({ id: session.id })
+		.from(session)
+		.innerJoin(user, eq(user.id, session.userId))
+		.where(eq(user.email, email))
+		.orderBy(desc(session.createdAt))
+		.limit(1)
+	const resource = `${baseURL}/api`
+	const client = await createOAuthClient("Sign-in App", { resources: [resource] })
+	const { challenge, verifier } = pkce()
+	const callback = catchCallback(page, client.redirectUri)
+	await page.goto(
+		authorizeUrl(client, { challenge, scope: "library:read offline_access", resource }),
+	)
+	await waitForHydration(page)
+	await page.getByRole("button", { name: "Allow", exact: true }).click()
+	const code = (await callback).searchParams.get("code") ?? ""
+	const token = (form: Record<string, string>) =>
+		request
+			.post("/api/auth/oauth2/token", { form: { client_id: client.clientId, resource, ...form } })
+			.then((res) => res.json())
+	const sidOf = (jwt: string) =>
+		JSON.parse(Buffer.from(jwt.split(".")[1] ?? "", "base64url").toString()).sid as unknown
+	const first = await token({
+		grant_type: "authorization_code",
+		code,
+		code_verifier: verifier,
+		redirect_uri: client.redirectUri,
+	})
+	expect(sidOf(first.access_token)).toBe(signedIn!.id)
+	const refreshed = await token({ grant_type: "refresh_token", refresh_token: first.refresh_token })
+	expect(refreshed.access_token).not.toBe(first.access_token)
+	expect(sidOf(refreshed.access_token)).toBe(signedIn!.id)
 })
 
 test("unverified users cannot issue API keys or bypass the OAuth consent screen", async ({

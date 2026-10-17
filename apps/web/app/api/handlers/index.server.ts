@@ -1,6 +1,6 @@
 import type { Endpoints } from "@klipstack/api-contract"
 import type { HandlerTable } from "../handler.server"
-import { me } from "./account.server"
+import * as account from "./account.server"
 import * as ai from "./ai.server"
 import * as articles from "./articles.server"
 import * as home from "./home.server"
@@ -13,7 +13,7 @@ import * as writes from "./writes.server"
 
 /** One handler per endpoint id; a missing one fails the typecheck. */
 export const handlers: HandlerTable<Endpoints> = {
-	"me.get": me,
+	"me.get": account.me,
 	"articles.list": articles.list,
 	"articles.counts": articles.counts,
 	"articles.search": articles.search,
@@ -88,6 +88,8 @@ export const handlers: HandlerTable<Endpoints> = {
 	"savedSearches.rename": writes.retitleSavedSearch,
 	"savedSearches.delete": writes.removeSavedSearch,
 	"export.get": library.exportAll,
+	"usage.get": account.usage,
+	"account.delete": account.remove,
 	"openapi.get": openapi,
 	"ai.get": ai.status,
 	"ai.article": ai.article,

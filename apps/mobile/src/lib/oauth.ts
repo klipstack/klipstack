@@ -26,16 +26,20 @@ const resourceOf = (apiUrl: string) => `${apiUrl}${API_RESOURCE_PATH}`
 
 /**
  * Opens the server's sign-in and consent pages in a browser sheet. Resolves with the session, or
- * null when the user closes the sheet.
+ * null when the user closes the sheet. `again`: the server asks for the password (or another way
+ * in) even when the browser is still signed in, for what needs a recent sign-in.
  */
-export async function authorize(apiUrl: string): Promise<Session | null> {
+export async function authorize(
+	apiUrl: string,
+	{ again = false }: { again?: boolean } = {},
+): Promise<Session | null> {
 	const request = new AuthRequest({
 		clientId: MOBILE_CLIENT_ID,
 		redirectUri: MOBILE_REDIRECT_URI,
 		scopes: [...MOBILE_SCOPES],
 		usePKCE: true,
 		// The server reuses an earlier consent silently otherwise: always show what is granted.
-		prompt: Prompt.Consent,
+		prompt: again ? [Prompt.Login, Prompt.Consent] : Prompt.Consent,
 		extraParams: { resource: resourceOf(apiUrl) },
 	})
 	const result = await request.promptAsync(endpoints(apiUrl))
