@@ -311,7 +311,8 @@ test("editions are off until the reader turns them on in Settings, and off again
 	// Leaving Home before its sidebar prefetch ends reloads it, in Firefox and WebKit.
 	await waitForSidebarPrefetch(page)
 	await expect(page.getByRole("link", { name: /^Editions/ })).toHaveCount(0)
-	expect((await page.goto("/editions"))?.status()).toBe(404)
+	// Asked for, not opened: WebKit's 404 page can interrupt the next navigation.
+	expect((await page.request.get("/editions")).status()).toBe(404)
 
 	await page.goto("/settings/features")
 	await waitForHydration(page)
@@ -346,7 +347,7 @@ test("editions are off until the reader turns them on in Settings, and off again
 		page.waitForResponse((r) => r.url().includes("/prefs") && r.ok()),
 		page.getByRole("checkbox", { name: "Make editions" }).uncheck(),
 	])
-	expect((await page.goto("/editions"))?.status()).toBe(404)
+	await expect.poll(async () => (await page.request.get("/editions")).status()).toBe(404)
 })
 
 test("three marked articles nudge for a new edition, until Not now", async ({ page }) => {
