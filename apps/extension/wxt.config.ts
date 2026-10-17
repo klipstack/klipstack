@@ -8,7 +8,8 @@ const appOrigin = new URL(appUrl)
 
 export default defineConfig({
 	srcDir: ".",
-	outDir: "dist",
+	// The e2e spec builds a copy of its own, for its server, beside the real build.
+	outDir: process.env.WXT_OUT_DIR || "dist",
 	vite: () => ({ define: { __APP_URL__: JSON.stringify(appUrl) } }),
 	manifest: {
 		name: "__MSG_name__",

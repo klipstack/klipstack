@@ -1,9 +1,9 @@
-import { existsSync, readFileSync } from "node:fs"
+import { execFileSync } from "node:child_process"
+import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { type BrowserContext, chromium, expect, type Page, test } from "@playwright/test"
 import { createInviteCode, uniqueEmail } from "./helpers"
 
-const EXTENSION_DIR = join(import.meta.dirname, "../../extension/dist/chrome-mv3")
 const FIXTURE = join(
 	import.meta.dirname,
 	"../../../packages/extract/test/fixtures/pages/paulgraham-makers.html",
@@ -11,19 +11,14 @@ const FIXTURE = join(
 const PAGE_URL = "https://fixture.test/makers.html"
 const APP_URL = process.env.E2E_BASE_URL ?? `http://localhost:${process.env.E2E_PORT ?? 5180}`
 
-const BUILD = `WXT_APP_URL=${APP_URL} pnpm --filter @klipstack/extension build`
-
-test.skip(!existsSync(EXTENSION_DIR), `extension not built (${BUILD})`)
+// A build saves to one server, fixed when it is built: this spec builds its own, for this server.
+const OUT_DIR = join(import.meta.dirname, "../../extension/dist/e2e")
+const EXTENSION_DIR = join(OUT_DIR, "chrome-mv3")
 
 test.beforeAll(() => {
-	// A build saves to one server, fixed when it is built: this one.
-	const manifest = JSON.parse(readFileSync(join(EXTENSION_DIR, "manifest.json"), "utf8")) as {
-		host_permissions: string[]
-	}
-	const { protocol, hostname } = new URL(APP_URL)
-	expect(manifest.host_permissions, `build it for this server: ${BUILD}`).toEqual([
-		`${protocol}//${hostname}/*`,
-	])
+	execFileSync("pnpm", ["--filter", "@klipstack/extension", "exec", "wxt", "build"], {
+		env: { ...process.env, WXT_APP_URL: APP_URL, WXT_OUT_DIR: OUT_DIR },
+	})
 })
 
 /** A browser with the extension, signed up to Klipstack. */
