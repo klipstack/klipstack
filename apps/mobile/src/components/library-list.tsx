@@ -18,6 +18,7 @@ import { ArticleList, type CardMenu, useImageHeaders } from "@/components/articl
 import { EmptyDrawing, type EmptyDrawingName } from "@/components/empty-drawing"
 import { LayoutButton } from "@/components/list-layout"
 import { listMenuItem, useFilterChoice, useTopicChoice } from "@/components/list-menu"
+import { useListMotion } from "@/components/list-motion"
 import { useMultiSelect } from "@/components/multi-select"
 import { usePagedList } from "@/components/paged-list"
 import { SELECTION_BAR_SPACE, SelectionBar } from "@/components/selection-bar"
@@ -44,6 +45,7 @@ import {
 	topicStillThere,
 	topicToAsk,
 } from "@/lib/library-topics"
+import { actionMotion } from "@/lib/list-motion"
 import { loadList, saveList } from "@/lib/offline"
 import { downloadAhead } from "@/lib/offline-download"
 import { useColors } from "@/lib/theme"
@@ -241,15 +243,25 @@ export function LibraryList({
 	const list = usePagedList(fetchPage, PAGE_SIZE, view ? undefined : SEARCH_LIMIT_MAX, offline)
 	const { items, error, edit, load } = list
 	const select = useMultiSelect(items)
+	const motion = useListMotion(items)
 
 	const act = useArticleActions({
 		client,
-		apply: (changed) =>
+		apply: (changed) => {
+			const list = view ? { view } : { query }
+			const kept = (before: ArticleSummary, now: ArticleSummary) =>
+				stillShown(list, before, now) && (!filterable || stillInFilter(filterable, filter, now))
+			// How each goes: stamped, lifted away, or stamped where it stays (`list-motion.ts`).
+			for (const [id, now] of changed) {
+				const before = items?.find((a) => a.id === id)
+				if (before) motion.acted(id, actionMotion(before, now, kept(before, now)))
+			}
 			edit((shown) =>
-				replaced(shown, changed, view ? { view } : { query }).filter(
+				replaced(shown, changed, list).filter(
 					(a) => !filterable || stillInFilter(filterable, filter, a),
 				),
-			),
+			)
+		},
 		done: (action, count, conflicts) => {
 			loadCounts()
 			if (select.selecting) select.say(bulkNotice(action, count, conflicts))
@@ -364,7 +376,8 @@ export function LibraryList({
 				contentContainerStyle={
 					select.selecting ? { paddingBottom: SELECTION_BAR_SPACE } : undefined
 				}
-				data={items ?? []}
+				data={motion.data ?? []}
+				motions={motion.motions}
 				groupAt={
 					view === "archive"
 						? (a) => a.archivedAt
