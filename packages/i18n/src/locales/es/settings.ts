@@ -119,6 +119,7 @@ export default {
 		storage: "Almacenamiento",
 		feeds: "Feeds que sigues",
 		editions: "Ediciones publicadas este mes",
+		shares: "Subrayados compartidos este mes",
 		ai: "Preguntas a la IA este mes",
 		count: "{{used}} de {{max}}",
 		megabytes: "{{used}} MB de {{max}} MB",

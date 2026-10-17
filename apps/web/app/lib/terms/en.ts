@@ -2,7 +2,7 @@ import { CONTROLLER, type Policy, SUPPORT_CONTACT } from "../privacy-policy/type
 
 export default {
 	title: "Terms of use",
-	updated: "Last updated October 5, 2026",
+	updated: "Last updated October 17, 2026",
 	summary:
 		"These are the rules for using Klipstack. In short: what you save is yours and stays private, what you publish must be legal and fair to others, every account has limits, and we can take down what breaks these rules.",
 	contentsLabel: "On this page",
@@ -12,7 +12,7 @@ export default {
 			id: "service",
 			title: "The service",
 			blocks: [
-				`Klipstack lets you save web pages, read them, highlight them and take notes, and publish editions: public pages of what you read. It is owned and operated by ${CONTROLLER} ("we"), a company in Chile.`,
+				`Klipstack lets you save web pages, read them, highlight them and take notes. You can also publish editions, public pages of what you read, and share highlights at public links. It is owned and operated by ${CONTROLLER} ("we"), a company in Chile.`,
 				// TODO: pricing is not decided. Add payment, renewal and refund terms before charging anyone.
 				"Klipstack is young. It is free for now, it may change, and it may have bugs. If we ever stop it, we will tell you at least 30 days before, so you can download your library.",
 				`Questions about these terms: ${SUPPORT_CONTACT}.`,
@@ -41,10 +41,10 @@ export default {
 		},
 		{
 			id: "editions",
-			title: "Public editions",
+			title: "Public editions and shared highlights",
 			blocks: [
-				"An edition you publish can be read by anyone with its link. You let us show it to them. It links to the articles and may quote short passages; it never republishes them.",
-				"An edition must not contain:",
+				"An edition you publish, or a highlight you share at a link, can be read by anyone with its link. You let us show it to them. It links to the articles and may quote short passages; it never republishes them.",
+				"An edition or a shared highlight must not contain:",
 				{
 					list: [
 						"Anything illegal, or links to it.",
@@ -61,7 +61,7 @@ export default {
 			id: "limits",
 			title: "Limits",
 			blocks: [
-				"Every account has limits: articles saved a month, storage, feeds followed and editions published a month. Settings shows yours and how much you use. There are also limits on how fast you can save or call the API.",
+				"Every account has limits: articles saved a month, storage, feeds followed, editions published and highlights shared a month. Settings shows yours and how much you use. There are also limits on how fast you can save or call the API.",
 				"We may change the limits. Don't get around them, for example with several accounts or scripts.",
 			],
 		},

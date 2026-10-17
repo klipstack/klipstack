@@ -1,6 +1,7 @@
 import { relations, sql } from "drizzle-orm"
 import {
 	boolean,
+	check,
 	date,
 	index,
 	integer,
@@ -273,6 +274,47 @@ export const highlights = pgTable(
 		index("highlights_version_idx").on(t.versionId),
 	],
 )
+
+/** Why someone reports a public page, and the ground an admin removes one on. */
+export const reportReasons = ["spam", "illegal", "copyright", "abuse", "other"] as const
+export type ReportReason = (typeof reportReasons)[number]
+
+/**
+ * A highlight shared at a public address (`/h/<publicId>`), one row per highlight. `published` is
+ * the snapshot the page shows and nothing else is: later changes to the highlight reach it only
+ * when its owner updates the link. Live while `published` is set and the highlight is not deleted.
+ * Stopping clears the snapshot; sharing again takes a new `publicId`, so the old address stays
+ * dead. Removed by an admin after a report: unpublished, and its owner cannot share it again until
+ * an admin restores it.
+ */
+export const highlightShares = pgTable(
+	"highlight_shares",
+	{
+		id: uuid("id").primaryKey().$defaultFn(newId),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		highlightId: uuid("highlight_id")
+			.notNull()
+			.references(() => highlights.id, { onDelete: "cascade" }),
+		publicId: text("public_id").notNull().$defaultFn(newPublicId),
+		/** Versioned (`v`): readers parse it instead of trusting this type. Null when not shared. */
+		published: jsonb("published"),
+		/** When this address was first shared, and when its snapshot was last taken. */
+		sharedAt: timestamp("shared_at", { withTimezone: true }).notNull().defaultNow(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+		removedAt: timestamp("removed_at", { withTimezone: true }),
+		removedGround: text("removed_ground", { enum: reportReasons }),
+		removedNote: text("removed_note"),
+	},
+	(t) => [
+		uniqueIndex("highlight_shares_highlight_unique").on(t.highlightId),
+		uniqueIndex("highlight_shares_public_id_unique").on(t.publicId),
+		index("highlight_shares_user_idx").on(t.userId),
+	],
+)
+
+export type HighlightShare = typeof highlightShares.$inferSelect
 
 /**
  * Highlights brought back to the reader (Home's "From your highlights"): the reader's day each was
@@ -636,10 +678,6 @@ export type Subscription = typeof subscriptions.$inferSelect
 export const editionCovers = ["stack", "shelf"] as const
 export type EditionCover = (typeof editionCovers)[number]
 
-/** Why someone reports a public edition, and the ground an admin removes one on. */
-export const reportReasons = ["spam", "illegal", "copyright", "abuse", "other"] as const
-export type ReportReason = (typeof reportReasons)[number]
-
 /**
  * A page of articles the user found worth sharing. This row and its items are the working copy;
  * `published` is the snapshot the public page renders, and nothing else is.
@@ -737,7 +775,7 @@ export type Edition = typeof editions.$inferSelect
 export type EditionItem = typeof editionItems.$inferSelect
 
 /**
- * A visitor's report on a public edition, until an admin decides: then it is deleted, and the
+ * A visitor's report on a public edition or shared highlight, until an admin decides: then it is deleted, and the
  * audit keeps the decision without the reporter's text or address. The address is optional and
  * never verified; it gets one email, with the decision.
  */
@@ -745,9 +783,9 @@ export const editionReports = pgTable(
 	"edition_reports",
 	{
 		id: uuid("id").primaryKey().$defaultFn(newId),
-		editionId: uuid("edition_id")
-			.notNull()
-			.references(() => editions.id, { onDelete: "cascade" }),
+		/** What is reported: an edition, or a shared highlight; one of them, never both. */
+		editionId: uuid("edition_id").references(() => editions.id, { onDelete: "cascade" }),
+		shareId: uuid("share_id").references(() => highlightShares.id, { onDelete: "cascade" }),
 		reason: text("reason", { enum: reportReasons }).notNull(),
 		details: text("details").notNull(),
 		email: text("email"),
@@ -757,7 +795,11 @@ export const editionReports = pgTable(
 		/** When the admins' digest counted it. */
 		notifiedAt: timestamp("notified_at", { withTimezone: true }),
 	},
-	(t) => [index("edition_reports_edition_idx").on(t.editionId, t.createdAt)],
+	(t) => [
+		index("edition_reports_edition_idx").on(t.editionId, t.createdAt),
+		index("edition_reports_share_idx").on(t.shareId, t.createdAt),
+		check("edition_reports_one_target", sql`num_nonnulls(${t.editionId}, ${t.shareId}) = 1`),
+	],
 )
 
 export type EditionReport = typeof editionReports.$inferSelect

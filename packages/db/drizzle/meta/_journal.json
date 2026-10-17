@@ -330,6 +330,13 @@
 			"when": 1792022847385,
 			"tag": "0046_fixed_raider",
 			"breakpoints": true
+		},
+		{
+			"idx": 47,
+			"version": "7",
+			"when": 1792250438603,
+			"tag": "0047_highlight_shares",
+			"breakpoints": true
 		}
 	]
 }

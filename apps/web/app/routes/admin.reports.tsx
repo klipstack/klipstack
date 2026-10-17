@@ -19,7 +19,9 @@ import {
 	type AdminRemovedEdition,
 	type AdminReportedEdition,
 	listRemovedEditions,
+	listRemovedShares,
 	listReportedEditions,
+	listReportedShares,
 } from "~/services/admin-reports.server"
 import type { Route } from "./+types/admin.reports"
 import type { AdminOutletContext } from "./admin-layout"
@@ -29,11 +31,22 @@ import type { action as restoreAction } from "./admin.reports.restore"
 
 export async function loader({ context, request }: Route.LoaderArgs) {
 	const ctx = await requireAdmin(context, request)
-	const [reported, removed] = await Promise.all([
+	const [editions, shares, removedEditions, removedShares] = await Promise.all([
 		listReportedEditions(ctx),
+		listReportedShares(ctx),
 		listRemovedEditions(ctx),
+		listRemovedShares(ctx),
 	])
-	return { reported, removed, max: REPORTS_OPEN_MAX, noteMax: REMOVAL_NOTE_MAX }
+	const latest = (r: AdminReportedEdition) => r.reports[0]?.createdAt ?? ""
+	return {
+		// Editions and shared highlights together, the most recently reported first.
+		reported: [...editions, ...shares].sort((a, b) => latest(b).localeCompare(latest(a))),
+		removed: [...removedEditions, ...removedShares].sort((a, b) =>
+			b.removedAt.localeCompare(a.removedAt),
+		),
+		max: REPORTS_OPEN_MAX,
+		noteMax: REMOVAL_NOTE_MAX,
+	}
 }
 
 /** One fetcher per decision kind, shared: the edition's card is gone once it succeeds. */
@@ -85,14 +98,13 @@ function ReportedEdition({
 	const likely = [...counts].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "other"
 	return (
 		<div className="mb-6" data-testid={`reported-${edition.publicId}`}>
-			<Card title={t("reports.edition", { count: edition.count })}>
+			<Card
+				title={t(edition.kind === "share" ? "reports.share" : "reports.edition", {
+					count: edition.count,
+				})}
+			>
 				<p className="mb-3 text-sm">
-					<a
-						href={`/e/${edition.publicId}`}
-						target="_blank"
-						rel="noreferrer"
-						className="font-medium text-link"
-					>
+					<a href={edition.href} target="_blank" rel="noreferrer" className="font-medium text-link">
 						{edition.title}
 					</a>{" "}
 					<span className="text-muted-fg">
@@ -122,6 +134,7 @@ function ReportedEdition({
 							action={`/admin/reports/${edition.id}/remove`}
 							className="flex flex-col gap-2"
 						>
+							<input type="hidden" name="kind" value={edition.kind} />
 							<div>
 								<Label htmlFor={groundId}>{t("reports.ground")}</Label>
 								<select
@@ -154,17 +167,26 @@ function ReportedEdition({
 							</div>
 							<div>
 								<ConfirmSubmit
-									label={t("reports.remove")}
-									question={t("reports.removeConfirm")}
+									label={t(edition.kind === "share" ? "reports.removeShare" : "reports.remove")}
+									question={t(
+										edition.kind === "share"
+											? "reports.removeShareConfirm"
+											: "reports.removeConfirm",
+									)}
 									busy={busy}
 									variant="danger"
 								/>
 							</div>
 						</remove.Form>
 						<dismiss.Form method="post" action={`/admin/reports/${edition.id}/dismiss`}>
+							<input type="hidden" name="kind" value={edition.kind} />
 							<ConfirmSubmit
 								label={t("reports.dismiss")}
-								question={t("reports.dismissConfirm")}
+								question={t(
+									edition.kind === "share"
+										? "reports.dismissShareConfirm"
+										: "reports.dismissConfirm",
+								)}
 								busy={busy}
 							/>
 						</dismiss.Form>
@@ -183,7 +205,12 @@ function RemovedRow({ edition, canWrite }: { edition: AdminRemovedEdition; canWr
 	const restore = useFetcher<typeof restoreAction>()
 	return (
 		<tr>
-			<td>{edition.title}</td>
+			<td>
+				{edition.title}
+				{edition.kind === "share" ? (
+					<span className="ml-1 text-xs text-muted-fg">({t("reports.shareKind")})</span>
+				) : null}
+			</td>
 			<td>
 				<Link to={`/admin/users/${edition.owner.id}`} prefetch="none" className="text-link">
 					{edition.owner.name || edition.owner.id}
@@ -195,9 +222,12 @@ function RemovedRow({ edition, canWrite }: { edition: AdminRemovedEdition; canWr
 			<td>
 				{canWrite ? (
 					<restore.Form method="post" action={`/admin/reports/${edition.id}/restore`}>
+						<input type="hidden" name="kind" value={edition.kind} />
 						<ConfirmSubmit
 							label={t("reports.restore")}
-							question={t("reports.restoreConfirm")}
+							question={t(
+								edition.kind === "share" ? "reports.restoreShareConfirm" : "reports.restoreConfirm",
+							)}
 							busy={restore.state !== "idle"}
 						/>
 					</restore.Form>

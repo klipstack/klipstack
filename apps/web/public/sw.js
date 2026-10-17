@@ -9,12 +9,13 @@ const SUBRESOURCES = new Set(["script", "style", "font", "worker"])
 // cache: not read, not written, not warmed, no offline copy.
 const ADMIN = /^\/admin(?:\/|\.data$|$)/
 function isAdmin(url) { return ADMIN.test(new URL(url, self.location.origin).pathname) }
-// Public editions (/e/*) are the same for everyone and change when their author updates them: the
-// network's alone, never cached, warmed or served offline, and never kept in a private partition.
-const EDITION = /^\/e\//
+// Public editions (/e/*) and shared highlights (/h/*) are the same for everyone, and change or go
+// down when their author or a moderator says so: the network's alone, never cached, warmed or
+// served offline, and never kept in a private partition.
+const PUBLIC_PAGE = /^\/[eh]\//
 function isNetworkOnly(url) {
 	const path = new URL(url, self.location.origin).pathname
-	return ADMIN.test(path) || EDITION.test(path)
+	return ADMIN.test(path) || PUBLIC_PAGE.test(path)
 }
 let identity = "none"
 let generation = 0
@@ -85,7 +86,7 @@ self.addEventListener("fetch", (event) => {
 		if (request.mode === "navigate") event.respondWith(fetch(request).catch(() => adminOffline()))
 		return
 	}
-	if (EDITION.test(path)) return
+	if (PUBLIC_PAGE.test(path)) return
 	if (request.method !== "GET") return
 	if (path.startsWith("/api/locales/")) return event.respondWith(publicAsset(request, true))
 	if (path.startsWith("/api/") || path.startsWith("/oauth/") || path.startsWith("/.well-known/")) return

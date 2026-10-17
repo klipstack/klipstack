@@ -2,12 +2,13 @@ import { data } from "react-router"
 import { z } from "zod"
 import { adminErrorResponse, adminRefusal, requireAdminAction } from "~/lib/admin.server"
 import { isReportReason, REMOVAL_NOTE_MAX } from "~/lib/edition-reports"
-import { removeEdition } from "~/services/admin-reports.server"
+import { removeEdition, removeShare } from "~/services/admin-reports.server"
 import type { Route } from "./+types/admin.reports.remove"
 
 /**
- * POST /admin/reports/:id/remove: takes the edition down, with a ground and a note the owner gets
- * by email. Its reports close; reporters who left an address are told.
+ * POST /admin/reports/:id/remove: takes the edition down (or the shared highlight, with
+ * `kind=share`), with a ground and a note the owner gets by email. Its reports close; reporters who
+ * left an address are told.
  */
 export async function action({ request, context, params }: Route.ActionArgs) {
 	const { ctx, form } = await requireAdminAction(context, request)
@@ -23,7 +24,8 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 	)
 		return adminRefusal("invalid_request", "Choose a ground and write why.")
 	try {
-		return { ok: true as const, ...(await removeEdition(ctx, id.data, { ground, note })) }
+		const remove = form.get("kind") === "share" ? removeShare : removeEdition
+		return { ok: true as const, ...(await remove(ctx, id.data, { ground, note })) }
 	} catch (error) {
 		const response = adminErrorResponse(error)
 		if (response) return response

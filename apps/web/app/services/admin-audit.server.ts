@@ -19,8 +19,18 @@ export type AuditAction =
 	| "job.retry.images"
 	| "role.grant"
 	| "role.revoke"
+	| "share.remove"
+	| "share.restore"
+	| "share_reports.dismiss"
 
-export type AuditTargetKind = "invite" | "invite_request" | "document" | "edition" | "job" | "user"
+export type AuditTargetKind =
+	| "invite"
+	| "invite_request"
+	| "document"
+	| "edition"
+	| "highlight_share"
+	| "job"
+	| "user"
 
 /**
  * The only metadata an event may carry: internal IDs, safe categories, role changes, feature flag

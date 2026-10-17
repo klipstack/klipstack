@@ -15,6 +15,7 @@ import {
 	or,
 	type SQL,
 	sql,
+	type Db,
 	type Tx,
 } from "@klipstack/db"
 import { alias } from "drizzle-orm/pg-core"
@@ -273,20 +274,21 @@ export async function linkTargetStatus(userId: string, ids: string[]): Promise<L
 export async function linkTargetDetails(
 	userId: string,
 	ids: string[],
+	tx: Db | Tx = db,
 ): Promise<Record<string, { status: "ok" | "trash"; url: string }>> {
-	const rows = await findTargets(userId, ids)
+	const rows = await findTargets(userId, ids, tx)
 	return Object.fromEntries(
 		rows.map((d) => [d.id, { status: d.deletedAt ? "trash" : "ok", url: d.url }] as const),
 	)
 }
 
-async function findTargets(userId: string, ids: string[]) {
+async function findTargets(userId: string, ids: string[], tx: Db | Tx = db) {
 	const unique = [...new Set(ids)]
 	const rows: Array<{ id: string; deletedAt: Date | null; url: string }> = []
 	for (let start = 0; start < unique.length; start += TARGET_LOOKUP_CHUNK) {
 		const chunk = unique.slice(start, start + TARGET_LOOKUP_CHUNK)
 		rows.push(
-			...(await db
+			...(await tx
 				.select({ id: documents.id, deletedAt: documents.deletedAt, url: documents.sourceUrl })
 				.from(documents)
 				.where(and(eq(documents.userId, userId), inArray(documents.id, chunk)))),

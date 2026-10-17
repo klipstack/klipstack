@@ -189,6 +189,7 @@ describe("the Notebook in the API", () => {
 			all: 4,
 			notes: 2,
 			highlights: 3,
+			shared: 0,
 			yellow: 2,
 			green: 1,
 			blue: 0,

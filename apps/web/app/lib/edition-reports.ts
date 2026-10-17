@@ -19,3 +19,6 @@ export function isReportReason(value: unknown): value is ReportReason {
 export const REPORT_DETAILS_MAX = 2000
 /** What an admin tells the owner of a removed edition. */
 export const REMOVAL_NOTE_MAX = 1000
+
+/** The report form's field only bots fill: people never see it. No name a browser's autofill would recognize. */
+export const REPORT_TRAP = "kp_extra"

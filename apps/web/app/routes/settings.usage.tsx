@@ -29,6 +29,7 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 		"storage",
 		"feeds",
 		"editions",
+		"shares",
 		...(aiOn ? ["ai" as const] : []),
 	]
 	return {

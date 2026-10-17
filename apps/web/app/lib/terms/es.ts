@@ -2,7 +2,7 @@ import { CONTROLLER, type Policy, SUPPORT_CONTACT } from "../privacy-policy/type
 
 export default {
 	title: "Términos de uso",
-	updated: "Última actualización: 5 de octubre de 2026",
+	updated: "Última actualización: 17 de octubre de 2026",
 	summary:
 		"Estas son las reglas para usar Klipstack. En resumen: lo que guardas es tuyo y es privado, lo que publicas debe ser legal y justo con los demás, cada cuenta tiene límites, y podemos retirar lo que no cumpla estas reglas.",
 	contentsLabel: "En esta página",
@@ -12,7 +12,7 @@ export default {
 			id: "service",
 			title: "El servicio",
 			blocks: [
-				`Klipstack te permite guardar páginas web, leerlas, subrayarlas y tomar notas, y publicar ediciones: páginas públicas de lo que lees. Es propiedad de ${CONTROLLER} ("nosotros"), una empresa chilena, que también lo opera.`,
+				`Klipstack te permite guardar páginas web, leerlas, subrayarlas y tomar notas. También puedes publicar ediciones, páginas públicas de lo que lees, y compartir subrayados en enlaces públicos. Es propiedad de ${CONTROLLER} ("nosotros"), una empresa chilena, que también lo opera.`,
 				// TODO: pricing is not decided. Add payment, renewal and refund terms before charging anyone.
 				"Klipstack es joven. Por ahora es gratis, puede cambiar y puede tener errores. Si alguna vez lo cerramos, te avisaremos al menos 30 días antes, para que puedas descargar tu biblioteca.",
 				`Preguntas sobre estos términos: ${SUPPORT_CONTACT}.`,
@@ -41,10 +41,10 @@ export default {
 		},
 		{
 			id: "editions",
-			title: "Ediciones públicas",
+			title: "Ediciones públicas y subrayados compartidos",
 			blocks: [
-				"Una edición que publicas la puede leer cualquiera que tenga su enlace. Nos permites mostrársela. Enlaza a los artículos y puede citar pasajes breves; nunca los republica.",
-				"Una edición no debe contener:",
+				"Una edición que publicas, o un subrayado que compartes en un enlace, lo puede leer cualquiera que tenga su enlace. Nos permites mostrárselo. Enlaza a los artículos y puede citar pasajes breves; nunca los republica.",
+				"Una edición o un subrayado compartido no debe contener:",
 				{
 					list: [
 						"Nada ilegal, ni enlaces a algo ilegal.",
@@ -61,7 +61,7 @@ export default {
 			id: "limits",
 			title: "Límites",
 			blocks: [
-				"Cada cuenta tiene límites: artículos guardados al mes, almacenamiento, feeds que sigues y ediciones publicadas al mes. En Ajustes ves los tuyos y cuánto usas. También hay límites a la rapidez con que puedes guardar o usar la API.",
+				"Cada cuenta tiene límites: artículos guardados al mes, almacenamiento, feeds que sigues, ediciones publicadas y subrayados compartidos al mes. En Ajustes ves los tuyos y cuánto usas. También hay límites a la rapidez con que puedes guardar o usar la API.",
 				"Podemos cambiar los límites. No los esquives, por ejemplo con varias cuentas o con scripts.",
 			],
 		},

@@ -394,11 +394,14 @@ function Controls({
 	const shown = NOTEBOOK_FILTERS.filter((f) => f === filter || counts[f] > 0)
 	const chip = (f: NotebookFilter | null) => {
 		const count = counts[f ?? "all"]
-		const color = f && f !== "notes" && f !== "highlights" ? HIGHLIGHT_COLOR_NAMES.indexOf(f) : null
+		const color =
+			f && f !== "notes" && f !== "highlights" && f !== "shared"
+				? HIGHLIGHT_COLOR_NAMES.indexOf(f)
+				: null
 		const label =
 			f === null
 				? t("notebook.filters.all")
-				: f === "notes" || f === "highlights"
+				: f === "notes" || f === "highlights" || f === "shared"
 					? t(`notebook.filters.${f}`)
 					: t(`highlights.colors.${f}`)
 		return (

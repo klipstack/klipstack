@@ -439,6 +439,7 @@ export async function countNotebook(
 			.select({
 				total: count(),
 				notes: count(filterWhere("notes")),
+				shared: count(filterWhere("shared")),
 				...Object.fromEntries(HIGHLIGHT_COLOR_NAMES.map((c) => [c, count(filterWhere(c))])),
 			})
 			.from(highlights)
@@ -455,6 +456,7 @@ export async function countNotebook(
 		all: of("total") + articleNotes,
 		notes: of("notes") + articleNotes,
 		highlights: of("total"),
+		shared: of("shared"),
 		...(Object.fromEntries(HIGHLIGHT_COLOR_NAMES.map((c) => [c, of(c)])) as Record<
 			(typeof HIGHLIGHT_COLOR_NAMES)[number],
 			number

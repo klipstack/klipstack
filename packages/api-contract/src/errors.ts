@@ -17,7 +17,7 @@ export const ERROR_STATUS = {
 	/** The session is too old for this: sign in again. */
 	reauthentication_required: 403,
 	/**
-	 * The account is at one of its caps (`details.limit`: saves, storage, feeds, editions, ai), with
+	 * The account is at one of its caps (`details.limit`: saves, storage, feeds, editions, shares, ai), with
 	 * `details.max` and, for the monthly ones, `details.resetsAt`. Waiting a moment does not help.
 	 */
 	limit_reached: 403,
@@ -31,6 +31,8 @@ export const ERROR_STATUS = {
 	not_published: 409,
 	/** An admin took the edition down after a report: it cannot be published again. */
 	edition_removed: 409,
+	/** An admin took the shared highlight down after a report: it cannot be shared again. */
+	share_removed: 409,
 	/** Admin: an invite that was used cannot be revoked. */
 	invite_used: 409,
 	/** Admin retries: why the work cannot be queued again. */

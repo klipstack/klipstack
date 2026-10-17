@@ -215,6 +215,16 @@ export default {
 			footer: "You get this email because you gave this address when you reported the page.",
 		},
 	},
+	shareRemoval: {
+		email: {
+			subject: "We removed a highlight you shared",
+			body: "We removed your shared highlight “{{title}}” from its public link after a report. Ground: {{ground}}.",
+			facts:
+				"A person decided this after reading the report; nothing was decided automatically. The highlight stays in your library, but it cannot be shared again.",
+			terms: "What public pages may not contain: {{url}}",
+			footer: "You get this email because you shared this highlight on Klipstack.",
+		},
+	},
 	removal: {
 		notice:
 			"An admin removed this edition on {{date}} after a report ({{ground}}). It cannot be published again.",
@@ -267,6 +277,15 @@ export default {
 		remove: "Remove link",
 	},
 	/** The public page. It uses the edition's language, whoever visits. */
+	shared: {
+		/** The window's and the link preview's title. */
+		title: "A highlight from “{{title}}”",
+		description: "A passage from “{{title}}”, shared with Klipstack.",
+		readArticle: "Read the article",
+		noteLabel: "The reader's note",
+		pictureAlt: "The highlighted passage, with the reader's note",
+		pictureAltQuote: "The highlighted passage",
+	},
 	public: {
 		updated: "Updated {{date}}",
 		minutes: "{{count}} min read",
