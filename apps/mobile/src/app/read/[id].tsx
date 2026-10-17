@@ -46,7 +46,7 @@ import { oneLine, titleOf } from "@/components/notebook-cards"
 import { NotesSheet } from "@/components/notes-sheet"
 import { ReaderStatus } from "@/components/reader-status"
 import { useTagSheet } from "@/components/tag-sheet"
-import { type AiAction, useAiCards } from "@/lib/ai-cards"
+import { useAiCards } from "@/lib/ai-cards"
 import { createConsentGate } from "@/lib/ai-consent"
 import { showToast, track } from "@/lib/article-changes"
 import { retagged } from "@/lib/article-tags"
@@ -859,10 +859,11 @@ export default function Reader() {
 	}
 
 	/**
-	 * Explain, Define or Ask about the selected passage, by its place in the text on the page. Without
-	 * that place (the menu came before the page's report), nothing to ask about.
+	 * Asks AI about the selected passage, by its place in the text on the page: the card where the
+	 * reader chooses Explain, Define or a question. Without that place (the menu came before the
+	 * page's report), nothing to ask about.
 	 */
-	function askAbout(action: AiAction) {
+	function askAbout() {
 		const picked = selection.current
 		const version = versionId.current
 		if (!picked || !version || !picked.exact.trim())
@@ -870,7 +871,7 @@ export default function Reader() {
 		web.current?.injectJavaScript("window.klipClearSelection && window.klipClearSelection(); true;")
 		setEditing(null)
 		withConsent(() => {
-			aiCards.start({ ...picked, versionId: version }, action)
+			aiCards.start({ ...picked, versionId: version })
 			reading.current?.engage()
 		})
 	}
@@ -1272,13 +1273,7 @@ export default function Reader() {
 									{ label: "Highlight", key: "highlight" },
 									{ label: "Copy", key: "copy" },
 									...(canLookUp ? [{ label: "Look Up", key: "lookup" }] : []),
-									...(ai.asking
-										? [
-												{ label: "Explain", key: "explain" },
-												{ label: "Define", key: "define" },
-												{ label: "Ask", key: "ask" },
-											]
-										: []),
+									...(ai.asking ? [{ label: "Ask", key: "ask" }] : []),
 									{ label: "Share", key: "share" },
 								]
 					}
@@ -1288,7 +1283,7 @@ export default function Reader() {
 						else if (key === "copy") void copyText(selectedText)
 						else if (key === "lookup") void lookUp(selectedText.trim())
 						else if (key === "share") void Share.share({ message: selectedText.trim() })
-						else if (key === "explain" || key === "define" || key === "ask") askAbout(key)
+						else if (key === "ask") askAbout()
 					}}
 					onLoadEnd={() => {
 						loaded.current = true
@@ -1606,6 +1601,11 @@ export default function Reader() {
 					onSend={
 						ai.asking
 							? (question) => openCard && withConsent(() => aiCards.send(openCard.id, question))
+							: undefined
+					}
+					onChoose={
+						ai.asking
+							? (action) => openCard && withConsent(() => aiCards.choose(openCard.id, action))
 							: undefined
 					}
 					onRetry={
