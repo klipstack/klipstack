@@ -17,12 +17,32 @@ export function toDecide<T extends { id: string }>(items: T[], decided: Readonly
 }
 
 /**
+ * Whether deciding on `ids` leaves nothing of the page while more wait after it: the next page then
+ * loads, once the decision lands.
+ */
+export function endsPage(left: { id: string }[], ids: string[], more: boolean): boolean {
+	return more && left.length > 0 && left.every((a) => ids.includes(a.id))
+}
+
+/**
  * Undone: back in the review. Those a reload left out since (it lists only what is still to
  * decide) come first, as they were.
  */
 export function putBack<T extends { id: string }>(items: T[], undone: T[]): T[] {
 	const shown = new Set(items.map((a) => a.id))
 	return [...undone.filter((a) => !shown.has(a.id)), ...items]
+}
+
+/**
+ * A reload's answer with what was done here while it was on its way, which it may not show yet:
+ * articles decided since stay out of the review, articles undone since come back.
+ */
+export function reloaded<T extends { id: string }>(
+	items: T[],
+	since: { decided: ReadonlySet<string>; undone: T[] },
+): { items: T[]; decided: Set<string> } {
+	const undone = since.undone.filter((a) => !since.decided.has(a.id))
+	return { items: putBack(items, undone), decided: new Set(since.decided) }
 }
 
 /** A swipe that ends a third of the card's width away, or flung that way, decides. */

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
+	endsPage,
+	reloaded,
 	leftText,
 	putBack,
 	reviewNotice,
@@ -22,6 +24,31 @@ describe("toDecide and putBack", () => {
 		expect(ids(putBack([a("3"), a("4")], [a("1"), a("2")]))).toEqual(["1", "2", "3", "4"])
 		// Still in the page: where it was, not twice.
 		expect(ids(putBack([a("1"), a("2"), a("3")], [a("2")]))).toEqual(["1", "2", "3"])
+	})
+})
+
+describe("reloaded", () => {
+	it("keeps what was decided and undone while the reload was on its way", () => {
+		// The answer was computed before "1" was archived and before "9" was undone.
+		const answer = [a("1"), a("2"), a("3")]
+		const out = reloaded(answer, { decided: new Set(["1"]), undone: [a("9")] })
+		expect(ids(toDecide(out.items, out.decided))).toEqual(["9", "2", "3"])
+	})
+
+	it("leaves out an article undone, then decided again", () => {
+		const out = reloaded([a("2")], { decided: new Set(["9"]), undone: [a("9")] })
+		expect(ids(toDecide(out.items, out.decided))).toEqual(["2"])
+	})
+})
+
+describe("endsPage", () => {
+	it("is the last of the page only when nothing is left of it and more wait", () => {
+		const left = [a("1"), a("2")]
+		expect(endsPage(left, ["1"], true)).toBe(false)
+		expect(endsPage(left, ["1", "2"], true)).toBe(true)
+		expect(endsPage([a("2")], ["2"], true)).toBe(true)
+		// Nothing waits after the page: the review is done instead.
+		expect(endsPage([a("2")], ["2"], false)).toBe(false)
 	})
 })
 

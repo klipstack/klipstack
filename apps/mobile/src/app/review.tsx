@@ -1,4 +1,4 @@
-import type { ArticleSummary } from "@klipstack/sdk"
+import { type ArticleSummary, KlipstackApiError } from "@klipstack/sdk"
 import { router, Stack, useFocusEffect } from "expo-router"
 import { SymbolView } from "expo-symbols"
 import { useCallback, useRef, useState } from "react"
@@ -9,8 +9,10 @@ import { ReviewDeck, type ReviewDeckHandle } from "@/components/review-deck"
 import { settled, showToast, track } from "@/lib/article-changes"
 import { useAuth } from "@/lib/auth"
 import {
+	endsPage,
 	leftText,
 	putBack,
+	reloaded,
 	REVIEW_CHANGES,
 	type ReviewAction,
 	reviewNotice,
@@ -41,18 +43,30 @@ export default function Review() {
 	// Decided here: out of the review at once, back if the server refuses or on undo.
 	const [decided, setDecided] = useState<ReadonlySet<string>>(new Set())
 	const [error, setError] = useState<string | null>(null)
+	// Decided and undone since the last reload asked: its answer may not show them yet.
+	const since = useRef({ decided: new Set<string>(), undone: new Map<string, ArticleSummary>() })
 
 	const load = useCallback(async () => {
 		if (!client) return
 		try {
 			// After the changes on their way: the server then leaves them out.
 			await settled()
+			since.current = { decided: new Set(), undone: new Map() }
 			const answer = await client.review.list()
-			setPage(answer)
-			setDecided(new Set())
+			const { decided: now, undone } = since.current
+			const shown = reloaded(answer.items, { decided: now, undone: [...undone.values()] })
+			setPage({ ...answer, items: shown.items })
+			setDecided(shown.decided)
 			setError(null)
 		} catch (e) {
-			setError(e instanceof Error ? e.message : String(e))
+			setError(
+				// A server before the review.
+				e instanceof KlipstackApiError && e.status === 404
+					? "Your Klipstack server doesn't have this yet."
+					: e instanceof Error
+						? e.message
+						: String(e),
+			)
 		}
 	}, [client])
 	useFocusEffect(
@@ -66,7 +80,11 @@ export default function Review() {
 	// The page is done and more are waiting: the next ones are on their way (`act`).
 	const exhausted = page !== null && left.length === 0 && page.more
 
-	const decide = (add: boolean, ids: string[]) =>
+	const decide = (add: boolean, ids: string[]) => {
+		for (const id of ids) {
+			if (add) since.current.decided.add(id)
+			else since.current.decided.delete(id)
+		}
 		setDecided((now) => {
 			const out = new Set(now)
 			for (const id of ids) {
@@ -75,10 +93,12 @@ export default function Review() {
 			}
 			return out
 		})
+	}
 
 	const undo = (articles: ArticleSummary[], run: () => Promise<{ conflicts: string[] }>) => {
 		const ids = articles.map((a) => a.id)
 		decide(false, ids)
+		for (const a of articles) since.current.undone.set(a.id, a)
 		setPage((shown) => shown && { ...shown, items: putBack(shown.items, articles) })
 		// Other lists load again once it lands.
 		track(run()).then(
@@ -101,7 +121,7 @@ export default function Review() {
 		if (!client || !articles.length) return
 		const ids = articles.map((a) => a.id)
 		// The last of the page: once it lands, the next ones.
-		const last = page?.more === true && left.every((a) => ids.includes(a.id))
+		const last = endsPage(left, ids, page?.more === true)
 		decide(true, ids)
 		try {
 			let count: number
