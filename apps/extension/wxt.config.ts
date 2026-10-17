@@ -1,11 +1,15 @@
 import { defineConfig } from "wxt"
 
-// The one Klipstack server this build saves to (`lib/app-url.ts`), with the browser's session.
-const appOrigin = new URL(process.env.WXT_APP_URL || "https://klipstack.com")
+// The one Klipstack server this build saves to, with the browser's session. Read here only, from
+// the command line, so the code and the host permission cannot disagree (`.env` files reach the
+// code but not this file).
+const appUrl = (process.env.WXT_APP_URL || "https://klipstack.com").replace(/\/+$/, "")
+const appOrigin = new URL(appUrl)
 
 export default defineConfig({
 	srcDir: ".",
 	outDir: "dist",
+	vite: () => ({ define: { __APP_URL__: JSON.stringify(appUrl) } }),
 	manifest: {
 		name: "__MSG_name__",
 		description: "__MSG_description__",

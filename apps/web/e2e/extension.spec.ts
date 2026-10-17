@@ -95,6 +95,11 @@ test("extension captures the rendered page and saves it with the browser session
 		await expect(article.getByText("There are two types of schedule")).toBeVisible()
 		await clickButton(context, extensionId, article)
 		await expect(article.getByText("Saved to Klipstack")).toBeVisible({ timeout: 30_000 })
+		// Its link opens the article the server saved.
+		await expect(article.getByRole("link", { name: "Open" })).toHaveAttribute(
+			"href",
+			new RegExp(`^${APP_URL}/read/[0-9a-f-]{36}$`),
+		)
 
 		// The server extracted from the captured DOM (nothing was fetched from fixture.test).
 		await page.goto(`${APP_URL}/library`)

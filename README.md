@@ -108,7 +108,7 @@ In development, emails print to the console unless `RESEND_API_KEY` is set. Prod
 
 ### Saving from outside the app
 
-- **Browser extension** (`apps/extension`, WXT): `pnpm --filter @klipstack/extension build`, then load `apps/extension/dist/chrome-mv3` as an unpacked extension (Firefox: `build:firefox` → `dist/firefox-mv2`). It targets https://klipstack.com by default; the options page can point it at a dev server (http://localhost:5180). It saves to the account you are signed in to in the same browser (no API key). One click captures the rendered DOM, so paywalled and logged-in pages work.
+- **Browser extension** (`apps/extension`, WXT): `pnpm --filter @klipstack/extension build`, then load `apps/extension/dist/chrome-mv3` as an unpacked extension (Firefox: `build:firefox` → `dist/firefox-mv2`). It saves to https://klipstack.com, the only site it may reach; to save to another server, such as a dev server, build it for that one: `WXT_APP_URL=http://localhost:5180 pnpm --filter @klipstack/extension build`. It saves to the account you are signed in to in the same browser (no API key). One click captures the rendered DOM, so paywalled and logged-in pages work.
 - **HTTP API** (alpha): `/api/v1`, with `Authorization: Bearer <api key>` (or an OAuth token for the `/api` resource). The OpenAPI document is at `/api/v1/openapi.json`; programs use the typed client in `packages/sdk`.
 - **Save from a script**: `POST /api/v1/articles` with `Authorization: Bearer <api key>` and JSON `{ "url": "…", "html": "<optional captured DOM>" }`. The browser's own `POST /api/documents` takes the session cookie only.
 - **Bookmarklet / iOS Shortcut**: recipes on the Settings page.
