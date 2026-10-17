@@ -331,6 +331,10 @@ body {
 		display: block !important;
 	}
 }
+/* Until the panel has drawn on its first opening, its empty frame stays hidden. */
+:root[data-support-loading] [data-suppyhq-host] {
+	visibility: hidden !important;
+}
 
 /* ---------- Highlights: marker ink ---------- */
 /* One ink and one solid line per stored color (HIGHLIGHT_COLORS). The ink is a highlighter's: in
