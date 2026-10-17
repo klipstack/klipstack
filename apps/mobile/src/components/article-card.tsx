@@ -388,7 +388,7 @@ function articleMenu(item: ArticleSummary, menu: CardMenu, editions: boolean) {
 				// Web pages open in the phone's browser, never inside the app.
 				onPress={() => void Linking.openURL(item.url)}
 			>
-				Open the Original
+				Open Original
 			</Link.MenuAction>
 			<Link.MenuAction icon="link" onPress={() => void copyText(item.url)}>
 				Copy Link
@@ -406,7 +406,7 @@ function articleMenu(item: ArticleSummary, menu: CardMenu, editions: boolean) {
 				<Link.MenuAction icon="arrow.uturn.backward" onPress={() => menu.act(item, "restore")}>
 					Restore
 				</Link.MenuAction>
-				{original(null)}
+				{original(share)}
 				<Link.Menu inline>
 					{select}
 					<Link.MenuAction icon="trash" destructive onPress={() => menu.act(item, "purge")}>

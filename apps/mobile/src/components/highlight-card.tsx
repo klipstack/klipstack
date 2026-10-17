@@ -26,7 +26,7 @@ import type { Colors } from "@/lib/theme"
 /**
  * One highlight's tools, as a card at the bottom that leaves the article in view: its color (marker
  * tips) and Done, its note (a post-it written on in place, saved as it's typed, like the article
- * note), Copy, Link and Delete. The web reader's toolbar.
+ * note), Copy, Share, Link and Delete: the web reader's toolbar, and the Notebook card's menu.
  * Not a modal: the article above it still takes touches, for the highlight's handles, another
  * highlight, or a tap elsewhere that closes it (the page says so). It slides in and out.
  */
@@ -36,6 +36,7 @@ export function HighlightCard({
 	onColor,
 	saveNote,
 	onCopy,
+	onShare,
 	onDelete,
 	onCover,
 	onDismissed,
@@ -47,6 +48,7 @@ export function HighlightCard({
 	onColor: (color: HighlightColor) => void
 	saveNote: (id: string, note: string | null) => Promise<void>
 	onCopy: () => void
+	onShare: () => void
 	onDelete: () => void
 	/** How much of the screen's bottom the card covers, keyboard included, as it changes. */
 	onCover: (points: number) => void
@@ -132,6 +134,12 @@ export function HighlightCard({
 					/>
 					<View style={styles.actions}>
 						<Tool label="Copy" symbol="doc.on.doc" color={colors.accent} onPress={onCopy} />
+						<Tool
+							label="Share"
+							symbol="square.and.arrow.up"
+							color={colors.accent}
+							onPress={onShare}
+						/>
 						<Tool
 							label="Link"
 							symbol="link"
@@ -227,7 +235,7 @@ function Tool({
 	onPress,
 }: {
 	label: string
-	symbol: "doc.on.doc" | "link" | "trash"
+	symbol: "doc.on.doc" | "square.and.arrow.up" | "link" | "trash"
 	color: string
 	onPress: () => void
 }) {

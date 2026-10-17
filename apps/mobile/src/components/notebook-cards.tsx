@@ -168,7 +168,7 @@ export function Card({
  * in its color, written on in place; and, outside its article's section, where it is from. A tap on
  * the quote opens the article at the highlight; a long press, its menu (Copy, Share, Add Note,
  * Delete). On Home (`onDismiss`), Add Note and "Not useful anymore" show below it too, as on the
- * web, and the menu has "Not useful anymore" instead of Delete.
+ * web, and the menu has "Not useful anymore" before Delete.
  */
 export function QuoteCard({
 	highlight,

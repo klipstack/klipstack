@@ -1,6 +1,7 @@
 import { defaultSavedSearchName } from "@klipstack/api-contract/search-query"
 import { type KlipstackClient, KlipstackApiError, type SavedSearch } from "@klipstack/sdk"
 import { ActionSheetIOS, Alert } from "react-native"
+import { showToast } from "@/lib/article-changes"
 
 /**
  * Saving a search, renaming and deleting one: the web's saved-search dialog and menu, as iOS's own
@@ -48,7 +49,11 @@ export function savedSearchSheet(client: KlipstackClient, saved: SavedSearch, do
 	)
 }
 
-export function renameSavedSearch(client: KlipstackClient, saved: SavedSearch, done: () => void) {
+export function renameSavedSearch(
+	client: KlipstackClient,
+	saved: Pick<SavedSearch, "id" | "name">,
+	done: (name: string) => void,
+) {
 	Alert.prompt(
 		"Rename Saved Search",
 		undefined,
@@ -61,7 +66,7 @@ export function renameSavedSearch(client: KlipstackClient, saved: SavedSearch, d
 					if (!name || name === saved.name) return
 					client.savedSearches
 						.rename(saved.id, name)
-						.then(done)
+						.then(() => done(name))
 						.catch((e: unknown) => refused("Not renamed", e))
 				},
 			},
@@ -71,20 +76,32 @@ export function renameSavedSearch(client: KlipstackClient, saved: SavedSearch, d
 	)
 }
 
-/** Asks first: there is no undo. The articles stay; only the name for the query goes. */
-export function deleteSavedSearch(client: KlipstackClient, saved: SavedSearch, done: () => void) {
-	Alert.alert(`Delete “${saved.name}”?`, "Its articles stay. There is no undo.", [
-		{ text: "Cancel", style: "cancel" },
-		{
-			text: "Delete",
-			style: "destructive",
-			onPress: () =>
-				void client.savedSearches
-					.delete(saved.id)
-					.then(done)
-					.catch((e: unknown) => refused("Not deleted", e)),
-		},
-	])
+/**
+ * At once, with the toast's Undo, as on the web: the undo saves the query again under its name.
+ * The articles stay; only the name for the query goes.
+ */
+export function deleteSavedSearch(
+	client: KlipstackClient,
+	saved: Pick<SavedSearch, "id" | "name" | "query">,
+	done: () => void,
+) {
+	client.savedSearches
+		.delete(saved.id)
+		.then(() => {
+			done()
+			showToast({
+				message: `Deleted “${saved.name}”`,
+				action: {
+					label: "Undo",
+					run: () =>
+						void client.savedSearches
+							.create(saved.name, saved.query)
+							.then(done)
+							.catch((e: unknown) => refused("Not saved", e)),
+				},
+			})
+		})
+		.catch((e: unknown) => refused("Not deleted", e))
 }
 
 function refused(title: string, e: unknown) {

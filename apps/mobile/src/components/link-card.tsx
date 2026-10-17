@@ -59,7 +59,7 @@ export function LinkCard({
 					<About key={`about:${link.href}`} link={link} client={client} colors={colors} />
 					<SaveRow key={link.href} link={link} client={client} onRead={onRead} colors={colors} />
 					<Row
-						label="Open in Browser"
+						label="Open Original"
 						symbol="safari"
 						colors={colors}
 						onPress={() => {
@@ -69,7 +69,7 @@ export function LinkCard({
 					/>
 					<Row
 						label="Copy Link"
-						symbol="doc.on.doc"
+						symbol="link"
 						colors={colors}
 						onPress={() => {
 							onClose()

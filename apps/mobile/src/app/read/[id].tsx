@@ -33,7 +33,7 @@ import type {
 import { AiCard } from "@/components/ai-card"
 import { AiConsentSheet } from "@/components/ai-consent-sheet"
 import { AppearanceSheet } from "@/components/appearance-sheet"
-import { askTitle } from "@/components/article-actions"
+import { askTitle, offerRestore } from "@/components/article-actions"
 import { BriefSheet } from "@/components/brief-sheet"
 import { ChatSheet } from "@/components/chat-sheet"
 import { ContentsSheet } from "@/components/contents-sheet"
@@ -42,6 +42,7 @@ import { HighlightCard } from "@/components/highlight-card"
 import { LinkCard, type TappedLink } from "@/components/link-card"
 import { ListenBar } from "@/components/listen-bar"
 import type { NoteLinking } from "@/components/note-field"
+import { oneLine, titleOf } from "@/components/notebook-cards"
 import { NotesSheet } from "@/components/notes-sheet"
 import { ReaderStatus } from "@/components/reader-status"
 import { useTagSheet } from "@/components/tag-sheet"
@@ -617,7 +618,8 @@ export default function Reader() {
 			// Out of the draft in progress: Undo puts it back, marked again.
 			afterMarking(client, changes, result, (items) => setArticle((a) => withUndone(a, items)))
 			// Out of the inbox (finishing archives too): back to the list, which no longer shows it.
-			if (changes.location === "archive" || changes.finished) router.back()
+			// Unread too, as on the web: reading on would open it again.
+			if (changes.location === "archive" || changes.finished !== undefined) router.back()
 		} catch (e) {
 			setArticle(before)
 			Alert.alert("Not saved", e instanceof Error ? e.message : String(e))
@@ -641,6 +643,56 @@ export default function Reader() {
 			show(before)
 			Alert.alert("Not renamed", e instanceof Error ? e.message : String(e))
 		}
+	}
+
+	/** To the trash, and back to the list, with the toast's Undo: the card menu's Delete. */
+	async function trash() {
+		if (!client || !article) return
+		armed.current = false
+		setKept(true)
+		try {
+			const { trashed } = await track(client.articles.trash([article.id]))
+			if (trashed.length) offerRestore(client, trashed, () => {})
+			router.back()
+		} catch (e) {
+			Alert.alert("Not deleted", e instanceof Error ? e.message : String(e))
+		}
+	}
+
+	/** Out of the trash, where it was before; one saved again since stays there. */
+	async function restore() {
+		if (!client || !article) return
+		try {
+			const { restored } = await track(client.articles.restore([article.id]))
+			if (restored.length) setArticle({ ...article, trashedAt: null })
+			else showToast({ message: "Saved again since, so it stays in the trash." })
+		} catch (e) {
+			Alert.alert("Not restored", e instanceof Error ? e.message : String(e))
+		}
+	}
+
+	/** Gone for good, highlights and notes too: it asks first, as in the Trash. */
+	function purge() {
+		if (!client || !article) return
+		const c = client
+		const gone = article.id
+		Alert.alert(
+			"Delete this article forever?",
+			"Its highlights and notes go too. This can't be undone.",
+			[
+				{ text: "Cancel", style: "cancel" },
+				{
+					text: "Delete Forever",
+					style: "destructive",
+					onPress: () =>
+						void track(c.articles.purge([gone])).then(
+							() => router.back(),
+							(e: unknown) =>
+								Alert.alert("Not deleted", e instanceof Error ? e.message : String(e)),
+						),
+				},
+			],
+		)
 	}
 
 	function onMessage(event: WebViewMessageEvent) {
@@ -1008,6 +1060,9 @@ export default function Reader() {
 		articleId: id,
 	}
 
+	const trashed = Boolean(article?.trashedAt)
+	const failed = article?.status === "failed"
+
 	return (
 		<View style={[styles.screen, { backgroundColor: colors.bg }]}>
 			<Stack.Screen options={{ title: "", headerTransparent: true, headerShown: showControls }} />
@@ -1073,48 +1128,76 @@ export default function Reader() {
 								</Stack.Toolbar.MenuAction>
 							</Stack.Toolbar.Menu>
 						) : null}
-						<Stack.Toolbar.MenuAction
-							icon={article.starred ? "star.slash" : "star"}
-							onPress={() => update({ starred: !article.starred })}
-						>
-							{article.starred ? "Unstar" : "Star"}
-						</Stack.Toolbar.MenuAction>
-						<Stack.Toolbar.MenuAction
-							icon="newspaper"
-							hidden={article.status === "failed" || !editions}
-							onPress={() => update({ shortlisted: !article.shortlisted })}
-						>
-							{article.shortlisted ? "Remove from Next Edition" : "Add to Next Edition"}
-						</Stack.Toolbar.MenuAction>
-						<Stack.Toolbar.MenuAction
-							icon={article.location === "archive" ? "tray.and.arrow.up" : "archivebox"}
-							onPress={() =>
-								update({ location: article.location === "archive" ? "inbox" : "archive" })
-							}
-						>
-							{article.location === "archive" ? "Move to Inbox" : "Archive"}
-						</Stack.Toolbar.MenuAction>
-						<Stack.Toolbar.MenuAction
-							icon="checkmark.circle"
-							hidden={article.finished}
-							onPress={() => update({ finished: true })}
-						>
-							Mark as Finished
-						</Stack.Toolbar.MenuAction>
-						<Stack.Toolbar.MenuAction
-							icon="tag"
-							hidden={article.status === "failed"}
-							onPress={() => tags.open([article])}
-						>
-							Tags…
-						</Stack.Toolbar.MenuAction>
-						<Stack.Toolbar.MenuAction
-							icon="pencil"
-							hidden={article.status === "failed"}
-							onPress={() => askTitle(article, (title) => void rename(title))}
-						>
-							Rename…
-						</Stack.Toolbar.MenuAction>
+						{/* What it is: as the card's menu, in the same order. In the trash, only Restore. */}
+						<Stack.Toolbar.Menu inline>
+							<Stack.Toolbar.MenuAction
+								icon="arrow.uturn.backward"
+								hidden={!trashed}
+								onPress={() => void restore()}
+							>
+								Restore
+							</Stack.Toolbar.MenuAction>
+							<Stack.Toolbar.MenuAction
+								icon="arrow.clockwise"
+								hidden={trashed || !failed}
+								onPress={() => void retry()}
+							>
+								Try Again
+							</Stack.Toolbar.MenuAction>
+							<Stack.Toolbar.MenuAction
+								icon={article.starred ? "star.slash" : "star"}
+								hidden={trashed || failed}
+								onPress={() => update({ starred: !article.starred })}
+							>
+								{article.starred ? "Unstar" : "Star"}
+							</Stack.Toolbar.MenuAction>
+							<Stack.Toolbar.MenuAction
+								icon={article.location === "archive" ? "tray.and.arrow.up" : "archivebox"}
+								hidden={trashed || failed}
+								onPress={() =>
+									update({ location: article.location === "archive" ? "inbox" : "archive" })
+								}
+							>
+								{article.location === "archive" ? "Move to Inbox" : "Archive"}
+							</Stack.Toolbar.MenuAction>
+							<Stack.Toolbar.MenuAction
+								icon="checkmark.circle"
+								hidden={trashed || article.status !== "ready" || article.finished}
+								onPress={() => update({ finished: true })}
+							>
+								Mark as Finished
+							</Stack.Toolbar.MenuAction>
+							<Stack.Toolbar.MenuAction
+								icon="eye.slash"
+								hidden={trashed || article.status !== "ready"}
+								onPress={() => update({ finished: false })}
+							>
+								Mark as Unread
+							</Stack.Toolbar.MenuAction>
+						</Stack.Toolbar.Menu>
+						<Stack.Toolbar.Menu inline>
+							<Stack.Toolbar.MenuAction
+								icon="newspaper"
+								hidden={trashed || failed || !editions}
+								onPress={() => update({ shortlisted: !article.shortlisted })}
+							>
+								{article.shortlisted ? "Remove from Next Edition" : "Add to Next Edition"}
+							</Stack.Toolbar.MenuAction>
+							<Stack.Toolbar.MenuAction
+								icon="tag"
+								hidden={trashed || failed}
+								onPress={() => tags.open([article])}
+							>
+								Tags…
+							</Stack.Toolbar.MenuAction>
+							<Stack.Toolbar.MenuAction
+								icon="pencil"
+								hidden={trashed || failed}
+								onPress={() => askTitle(article, (title) => void rename(title))}
+							>
+								Rename…
+							</Stack.Toolbar.MenuAction>
+						</Stack.Toolbar.Menu>
 						<Stack.Toolbar.Menu inline>
 							{page ? (
 								<Stack.Toolbar.MenuAction
@@ -1136,7 +1219,10 @@ export default function Reader() {
 								// Web pages open in the phone's browser, never inside the app.
 								onPress={() => void Linking.openURL(article.url)}
 							>
-								Open the Original
+								Open Original
+							</Stack.Toolbar.MenuAction>
+							<Stack.Toolbar.MenuAction icon="link" onPress={() => void copyText(article.url)}>
+								Copy Link
 							</Stack.Toolbar.MenuAction>
 							<Stack.Toolbar.MenuAction
 								icon="text.bubble"
@@ -1153,6 +1239,15 @@ export default function Reader() {
 								}
 							>
 								Share
+							</Stack.Toolbar.MenuAction>
+						</Stack.Toolbar.Menu>
+						<Stack.Toolbar.Menu inline>
+							<Stack.Toolbar.MenuAction
+								icon="trash"
+								destructive
+								onPress={() => (trashed ? purge() : void trash())}
+							>
+								{trashed ? "Delete Forever" : "Delete"}
 							</Stack.Toolbar.MenuAction>
 						</Stack.Toolbar.Menu>
 					</Stack.Toolbar.Menu>
@@ -1474,6 +1569,14 @@ export default function Reader() {
 				onCopy={() => {
 					if (editingHighlight) void copyText(editingHighlight.quote)
 					setEditing(null)
+				}}
+				onShare={() => {
+					// As the Notebook shares it: the quote, the article's title and its address.
+					if (editingHighlight && article)
+						void Share.share({
+							message: `“${oneLine(editingHighlight.quote)}”\n\n${titleOf(article)}`,
+							url: article.url,
+						})
 				}}
 				onDelete={() => editingHighlight && deleteHighlight(editingHighlight)}
 				onDismissed={openPending}

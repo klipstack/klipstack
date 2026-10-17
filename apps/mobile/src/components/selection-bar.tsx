@@ -16,6 +16,7 @@ const BUTTONS: Record<BulkAction, { icon: SymbolViewProps["name"]; label: string
 	tag: { icon: "tag", label: "Tags" },
 	delete: { icon: "trash", label: "Delete" },
 	restore: { icon: "arrow.uturn.backward", label: "Restore" },
+	purge: { icon: "trash", label: "Delete Forever" },
 }
 
 /** How much of the list's end the bar covers: the list leaves that much room below its last item. */
