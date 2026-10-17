@@ -1,11 +1,14 @@
 import type { ArticleSummary, Topic } from "@klipstack/sdk"
 import { KlipstackApiError } from "@klipstack/sdk"
 import { describe, expect, it } from "vitest"
+import { siteHue as webSiteHue } from "../../../web/app/lib/book-hue"
 import {
+	bookColor,
 	confirmation,
 	oklchHex,
 	PHONE_SHELF,
 	phoneShelf,
+	siteHue,
 	spine,
 	topicsBusy,
 	topicRefusal,
@@ -74,6 +77,15 @@ describe("spine", () => {
 		expect(short.height).toBe(long.height)
 		expect(spine(article("b"), "light", NOW).color).toBe(spine(article("c"), "light", NOW).color)
 		expect(spine(article("a"), "dark", NOW).color).not.toBe(spine(article("a"), "light", NOW).color)
+	})
+
+	it("paints a site's books as its covers, in the web's hue for the site", () => {
+		for (const site of ["Nautilus", "overreacted.io", "The American Scholar", "x.com"]) {
+			expect(siteHue(site)).toBe(webSiteHue(site))
+			expect(spine(article("a", { site }), "dark", NOW).color).toBe(
+				bookColor(siteHue(site), "dark"),
+			)
+		}
 	})
 
 	it("says the article was saved this week", () => {

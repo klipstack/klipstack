@@ -12,6 +12,7 @@ import {
 	Text,
 	View,
 } from "react-native"
+import { EmptyDrawing } from "@/components/empty-drawing"
 import { removeTopic, renameTopic } from "@/components/topic-actions"
 import { Proposal, TurnOff, TurnOn } from "@/components/topic-stages"
 import { useAuth } from "@/lib/auth"
@@ -100,6 +101,8 @@ export default function Topics() {
 				</Text>
 			) : (
 				<>
+					{/* No shelves yet: one, empty, waiting for them. */}
+					{answer.items.length === 0 && stage !== "proposed" ? <EmptyDrawing name="shelf" /> : null}
 					<Text style={[styles.noticeBody, { color: colors.mutedFg }]}>
 						Topics sort what you save into shelves on their own: proposed from your library, kept up
 						to date as you read.

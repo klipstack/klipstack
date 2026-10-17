@@ -36,6 +36,17 @@ function hash(text: string) {
 // The web's book colors (app.css): --k-book-l and --k-book-c, in light and dark.
 const BOOK = { light: { l: 0.8, c: 0.055 }, dark: { l: 0.46, c: 0.06 } }
 
+/** A site's hue, one of twelve: its books on the shelves and its articles' covers share it. */
+export function siteHue(site: string): number {
+	return (hash(site) % 12) * 30
+}
+
+/** A book's paint at this hue, light or dark: the shelves' spines, the covers and the drawings. */
+export function bookColor(hue: number, scheme: "light" | "dark"): string {
+	const { l, c } = BOOK[scheme]
+	return oklchHex(l, c, hue)
+}
+
 const WORDS_PER_MINUTE = 230
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000
 
@@ -61,7 +72,7 @@ export function spine(article: ArticleSummary, scheme: "light" | "dark", now: Da
 		label: article.title ?? article.site ?? "Untitled",
 		width: Math.round(14 + k * 6),
 		height: 92 + (hash(article.id) % 30),
-		color: oklchHex(l, c, (hash(article.site ?? article.id) % 12) * 30),
+		color: oklchHex(l, c, siteHue(article.site ?? article.id)),
 		recent: now.getTime() - new Date(article.savedAt).getTime() < WEEK_MS,
 	}
 }
