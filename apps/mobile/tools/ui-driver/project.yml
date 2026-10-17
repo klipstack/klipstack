@@ -1,0 +1,27 @@
+# XcodeGen spec for the driver: an empty host app and the UI test bundle that drives Klipstack.
+# run.sh generates the Xcode project from it (ignored by git).
+name: KlipUI
+options:
+  bundleIdPrefix: test.klipui
+  deploymentTarget:
+    iOS: "18.0"
+targets:
+  Host:
+    type: application
+    platform: iOS
+    sources: [Host]
+    info:
+      path: Host/Info.plist
+      properties:
+        UILaunchScreen: {}
+    settings:
+      CODE_SIGNING_ALLOWED: NO
+  UITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [UITests]
+    dependencies:
+      - target: Host
+    settings:
+      CODE_SIGNING_ALLOWED: NO
+      GENERATE_INFOPLIST_FILE: YES

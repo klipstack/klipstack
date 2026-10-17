@@ -43,7 +43,7 @@ changed code and `pnpm verify` has not passed on the result, they send you back 
 | Extraction | A fixture in `packages/extract/test/fixtures` (`manifest.ts`). Read every line of a snapshot update. |
 | A security boundary | The tests its row in `docs/security.md` names, and the row itself. |
 | The extension | `pnpm --filter @klipstack/web exec playwright test e2e/extension.spec.ts` |
-| The mobile app | `pnpm ci:local`: CI skips it. See `apps/mobile/AGENTS.md`. |
+| The mobile app | `pnpm ci:local`: CI skips it. Then use it in the simulator with real taps (`apps/mobile/tools/ui-driver`), on a throwaway account (`dev-account`), never the demo account. See `apps/mobile/AGENTS.md`. |
 | `Dockerfile`, `server.js`, dependencies | `pnpm ci:local --only build,image` |
 | Speed | Before and after numbers from the same machine, as the median of several runs, never an estimate. |
 

@@ -6,6 +6,7 @@ export default defineConfig({
 			"app/**/*.test.ts",
 			"app/**/*.test.tsx",
 			"scripts/demo/**/*.test.ts",
+			"scripts/dev-account/**/*.test.ts",
 			"scripts/topics/**/*.test.ts",
 		],
 		environment: "node",

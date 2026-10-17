@@ -85,6 +85,37 @@ pnpm --filter @klipstack/web api-key <email> mobile-simulator   # prints klip_â€
 The app stores it as the session (so the share extension has it too) and never refreshes it.
 Release builds ignore it. Agents need this to use the simulator: they can't type passwords.
 
+Restart Metro with `pnpm start --clear` after changing the key: without `--clear` the app can keep
+the old one. Setting `EXPO_PUBLIC_API_TOKEN` on the command line instead of in `.env.local` does
+not reach the app.
+
+## Testing on a throwaway account
+
+Don't change the demo account (`reader@demo.klipstack.test`) to test: other agents and `pnpm
+orb:app` rely on what it holds. Make a throwaway account on the local dev database instead:
+
+```sh
+pnpm --filter @klipstack/web dev-account create --articles 20 --feature topics
+# prints the address, the password (for the web), and an API key (klip_â€¦)
+pnpm --filter @klipstack/web dev-account list
+pnpm --filter @klipstack/web dev-account delete <email>   # or: delete --all
+```
+
+It copies the demo account's newest ready articles, unread and in the Inbox, with their own copies
+of the images, so deleting it never touches the demo's. It refuses any database but a local one,
+and `delete` only touches `@throwaway.klipstack.test` accounts it made. Put the key in `.env.local`
+as above, restart Metro with `--clear`, and put your own key back when done. Delete the account
+before you finish. Images are copied within `STORAGE_FS_ROOT`, one per checkout, so in a new worktree
+the articles come without them. To have them, set `STORAGE_FS_ROOT` to the storage of the checkout
+that seeded the demo for both the script and `pnpm dev`: the server reads images from its own root.
+
+## Tapping and swiping in the simulator
+
+Under Xcode 27, AXe's taps and swipes do nothing. `tools/ui-driver/run.sh` does them with
+XCUITest: tap by label or point, long-press, drag, type, and take screenshots, on the development
+build already running. See `tools/ui-driver/README.md`. Check the server's state after a step (the
+API or the database), not only the screenshot.
+
 ## Sign-in and the share extension
 
 - The app signs in with OAuth (authorization code + PKCE) as the first-party client
