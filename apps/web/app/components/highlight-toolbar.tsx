@@ -1,5 +1,5 @@
 import type { AiThreadAction } from "@klipstack/db"
-import { Copy, MessageSquarePlus, SquarePen, Trash2 } from "lucide-react"
+import { Copy, MessageSquarePlus, Share, SquarePen, Trash2 } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import {
 	HIGHLIGHT_COLOR_NAMES,
@@ -26,6 +26,8 @@ interface Props {
 	onNote?: () => void
 	/** Without it, no copy button. */
 	onCopy?: () => void
+	/** Without it, no share button. */
+	onShare?: () => void
 	onDelete: () => void
 	onClose: () => void
 	disabled?: boolean
@@ -35,8 +37,10 @@ interface Props {
 
 /** The color picker's width: five swatches and the line after them. */
 const COLORS_WIDTH = 160
+/** The share button's width. */
+const SHARE_WIDTH = 32
 
-/** A highlight's actions: pick its color, add or edit its note, copy its text, delete. */
+/** A highlight's actions: pick its color, add or edit its note, copy its text, share it, delete. */
 export function HighlightToolbar({
 	highlight,
 	rect,
@@ -44,6 +48,7 @@ export function HighlightToolbar({
 	onColor,
 	onNote,
 	onCopy,
+	onShare,
 	onDelete,
 	onClose,
 	disabled,
@@ -59,7 +64,7 @@ export function HighlightToolbar({
 			label={t("highlights.popover.label")}
 			rect={rect}
 			scrollY={scrollY}
-			width={(onAsk ? 530 : 240) + (onColor ? COLORS_WIDTH : 0)}
+			width={(onAsk ? 530 : 240) + (onColor ? COLORS_WIDTH : 0) + (onShare ? SHARE_WIDTH : 0)}
 			onClose={onClose}
 			disabled={disabled}
 		>
@@ -86,6 +91,18 @@ export function HighlightToolbar({
 					{...tooltip(t("highlights.popover.copy"), COPY_HINT)}
 				>
 					<Copy className="size-4" aria-hidden />
+				</button>
+			) : null}
+			{onShare ? (
+				<button
+					type="button"
+					disabled={disabled}
+					onClick={onShare}
+					className={TOOLBAR_ICON_BUTTON}
+					aria-label={t("highlights.share.open")}
+					{...tooltip(t("highlights.share.open"))}
+				>
+					<Share className="size-4" aria-hidden />
 				</button>
 			) : null}
 			<button

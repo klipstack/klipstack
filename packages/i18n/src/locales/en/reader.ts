@@ -155,6 +155,15 @@ export default {
 			delete: "Delete highlight",
 			color: "Highlight color",
 		},
+		share: {
+			title: "Share highlight",
+			open: "Share",
+			close: "Close",
+			includeNote: "Include my note",
+			copyText: "Copy text",
+			copied: "Copied with a link to the article",
+			copyFailed: "Couldn't copy: the browser didn't allow it",
+		},
 		colors: {
 			yellow: "Yellow",
 			green: "Green",

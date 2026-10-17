@@ -1,4 +1,4 @@
-import { StickyNote, Trash2 } from "lucide-react"
+import { Share, StickyNote, Trash2 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link, useFetcher } from "react-router"
@@ -12,6 +12,7 @@ import { ClippingPaper } from "./clipping"
 import { HighlightNoteEditor } from "./highlight-note-editor"
 import { NoteText } from "./note-text"
 import { PostIt, tiltFor } from "./post-it"
+import { ShareHighlightDialog } from "./share-highlight-dialog"
 import { tooltip } from "./tooltip-host"
 
 /** Short quotes read large; long ones step down so a card stays a card. */
@@ -51,6 +52,7 @@ export function QuoteCard({
 	const { t: tl } = useTranslation("library")
 	const fetcher = useFetcher<{ ok: boolean }>()
 	const [editing, setEditing] = useState(false)
+	const [sharing, setSharing] = useState(false)
 	const action = `/documents/${h.documentId}/highlights`
 	const intent = fetcher.formData?.get("intent")
 	const deleting = intent === "delete"
@@ -164,6 +166,15 @@ export function QuoteCard({
 						<StickyNote className="size-4" aria-hidden />
 					</button>
 				)}
+				<button
+					type="button"
+					onClick={() => setSharing(true)}
+					aria-label={t("highlights.share.open")}
+					{...tooltip(t("highlights.share.open"))}
+					className="rounded-md bg-card/80 p-1.5 text-muted-fg hover:bg-hover hover:text-fg"
+				>
+					<Share className="size-4" aria-hidden />
+				</button>
 				<fetcher.Form
 					method="post"
 					action={action}
@@ -193,6 +204,18 @@ export function QuoteCard({
 					</button>
 				</fetcher.Form>
 			</div>
+			{sharing ? (
+				<ShareHighlightDialog
+					highlight={{
+						id: h.id,
+						exact: h.exact,
+						note: note ?? null,
+						color: h.color,
+						article: { title: h.documentTitle, sourceUrl: h.sourceUrl, siteName: h.siteName },
+					}}
+					onClose={() => setSharing(false)}
+				/>
+			) : null}
 		</li>
 	)
 }

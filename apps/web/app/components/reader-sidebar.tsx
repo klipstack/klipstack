@@ -1,6 +1,6 @@
 import { NOTE_MAX } from "@klipstack/api-contract/names"
 import type { NoteSaveStatus } from "@klipstack/sdk/note-autosave"
-import { X } from "lucide-react"
+import { Share, X } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router"
@@ -15,6 +15,7 @@ import { NoteField } from "./note-field"
 import { ArticleNoteLabel, NoteStatus } from "./note-status"
 import { NoteText } from "./note-text"
 import { PostIt, tiltFor, useGrowingFit } from "./post-it"
+import { tooltip } from "./tooltip-host"
 
 interface Props {
 	note: {
@@ -38,6 +39,8 @@ interface Props {
 	/** The reader's font setting: the quotes and answers are set in it, as the article is. */
 	font: string
 	onSelect: (id: string) => void
+	/** Opens the highlight's share dialog. */
+	onShare?: (id: string) => void
 	onClose: () => void
 	/** The article's chat (AI accounts): a second tab beside notes and highlights. */
 	chat?: React.ReactNode
@@ -85,6 +88,7 @@ export function ReaderSidebar({
 	from,
 	font,
 	onSelect,
+	onShare,
 	onClose,
 	chat,
 	tab = "notes",
@@ -130,7 +134,8 @@ export function ReaderSidebar({
 		if (chatting) return
 		const all = buttons()
 		if (all.length === 0) return
-		const at = all.indexOf(document.activeElement as HTMLButtonElement)
+		// From a row's Share button, the row is where j/k start.
+		const at = all.findIndex((b) => b.closest("li")?.contains(document.activeElement))
 		let next: number | null = null
 		if (NEXT.has(e.key)) next = at < 0 ? 0 : Math.min(at + 1, all.length - 1)
 		else if (PREV.has(e.key)) next = at < 0 ? 0 : Math.max(at - 1, 0)
@@ -234,7 +239,7 @@ export function ReaderSidebar({
 				) : (
 					<ol ref={listRef} className="flex flex-col gap-2 pt-1 pr-4 pb-4 pl-3">
 						{items.map((h) => (
-							<li key={h.id}>
+							<li key={h.id} className="group relative">
 								{/* A clipping of the quote, in the reader's type and marked as in the article; its
 								    note a post-it stuck on it. The whole clipping goes to the highlight. The note's
 								    links are text here, so there is nothing else inside to click. */}
@@ -244,7 +249,11 @@ export function ReaderSidebar({
 									data-active={activeId === h.id ? "" : undefined}
 									{...highlightColor(h.color)}
 									onClick={() => onSelect(h.id)}
-									className="clipping clipping-sm block w-full px-4 pt-[calc(var(--clip-top)+0.625rem)] pb-3 text-left focus-visible:outline-none"
+									className={cn(
+										"clipping clipping-sm block w-full px-4 pt-[calc(var(--clip-top)+0.625rem)] pb-3 text-left focus-visible:outline-none",
+										// Room for the Share button beside the quote's first line.
+										onShare && "pr-10",
+									)}
 								>
 									<ClippingPaper id={h.id} />
 									<span className="reader-type line-clamp-6 text-[0.95rem] leading-normal text-fg">
@@ -270,6 +279,18 @@ export function ReaderSidebar({
 										</span>
 									) : null}
 								</button>
+								{/* Beside the clipping, not in it: a button inside a button is invalid. */}
+								{onShare ? (
+									<button
+										type="button"
+										onClick={() => onShare(h.id)}
+										aria-label={t("highlights.share.open")}
+										{...tooltip(t("highlights.share.open"))}
+										className="absolute top-4 right-1 rounded-md bg-card/80 p-1.5 text-muted-fg opacity-100 transition-opacity hover:bg-hover hover:text-fg focus-visible:opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
+									>
+										<Share className="size-4" aria-hidden />
+									</button>
+								) : null}
 							</li>
 						))}
 					</ol>

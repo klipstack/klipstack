@@ -25,6 +25,7 @@ import {
 	isHighlightable,
 	SelectionWatcher,
 } from "~/components/selection-watcher"
+import { type ShareHighlight, ShareHighlightDialog } from "~/components/share-highlight-dialog"
 import { AiAllowanceContext, AiResetsOnContext, useAiAllowance } from "~/hooks/use-ai-allowance"
 import { type AiCard as Card, type AiPassage, useAiThreads } from "~/hooks/use-ai-threads"
 import { useArticleLinks } from "~/hooks/use-article-links"
@@ -371,6 +372,23 @@ export function ReaderArticle({
 		setActiveHighlight(null)
 		setActiveId(null)
 	}, [])
+
+	// ---- sharing ----
+	const [sharing, setSharing] = useState<ShareHighlight | null>(null)
+	const shareHighlight = (id: string) => {
+		const h = items.find((x) => x.id === id)
+		if (!h) return
+		const range = rangesRef.current.get(id)
+		closePopover()
+		setSharing({
+			id: h.id,
+			// As copying takes it: with the article's line breaks.
+			exact: range ? rangeText(range) : h.exact,
+			note: h.note ?? null,
+			color: h.color ?? 0,
+			article: { title: doc.title, sourceUrl: doc.sourceUrl, siteName: doc.siteName },
+		})
+	}
 
 	// ---- selection ----
 	// Stable: the selection watcher starts over whenever it changes.
@@ -896,6 +914,7 @@ export function ReaderArticle({
 						onColor={(color) => setColor(popoverItem.id, color)}
 						onNote={() => openNote(popoverItem.id)}
 						onCopy={() => copyHighlight(popoverItem.id, popoverItem.exact)}
+						onShare={() => shareHighlight(popoverItem.id)}
 						onDelete={() => removeHighlight(popoverItem.id)}
 						onAsk={
 							aiEnabled
@@ -919,6 +938,9 @@ export function ReaderArticle({
 						}}
 					/>
 				) : null}
+				{sharing ? (
+					<ShareHighlightDialog highlight={sharing} onClose={() => setSharing(null)} />
+				) : null}
 				{openCard && !marginRoom ? aiCard(openCard, openCardPlacement()) : null}
 				{editingItem && !marginRoom
 					? noteEditor(editingItem, noteEditorPlacement(touch, editingRange))
@@ -940,6 +962,7 @@ export function ReaderArticle({
 						from={location.pathname}
 						font={prefs.font}
 						onSelect={selectFromSidebar}
+						onShare={shareHighlight}
 						onClose={() => {
 							note.flush()
 							setSidebarOpen(false)

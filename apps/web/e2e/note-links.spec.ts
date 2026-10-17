@@ -311,3 +311,41 @@ test("content links: articles that link to each other are connected, whichever c
 	await openSidebar(page)
 	await expect(page.getByTestId("content-links-to")).toHaveCount(0)
 })
+
+test("a shared note's links lead to the linked articles' originals", async ({ page }) => {
+	test.setTimeout(180_000)
+	await page.context().grantPermissions(["clipboard-read", "clipboard-write"])
+	await signup(page)
+	const makers = await save(page, MAKERS)
+	const joel = await save(page, JOEL)
+	await open(page, joel, JOEL.quote)
+	await open(page, makers, MAKERS.quote)
+	const hl = await page.request.post(`/documents/${makers}/highlights`, {
+		data: {
+			intent: "create",
+			exact: MAKERS.quote,
+			note: `Like [${JOEL.title}](/read/${joel}) says.`,
+		},
+	})
+	expect(hl.status()).toBe(201)
+
+	await page.goto("/notebook?view=stream")
+	await waitForHydration(page)
+	const card = page.getByTestId("quote-card").filter({ hasText: MAKERS.quote })
+	await card.hover()
+	await card.getByRole("button", { name: "Share" }).click()
+	const share = page.getByRole("dialog", { name: "Share highlight" })
+	await share.getByRole("button", { name: "Copy text" }).click()
+	await expect(share).toBeHidden()
+	// As saved: without its trailing slash.
+	const joelUrl = JOEL.url.replace(/\/$/, "")
+	await expect
+		.poll(() => page.evaluate(() => navigator.clipboard.readText()))
+		.toContain(`\n\nLike [${JOEL.title}](${joelUrl}) says.\n\n`)
+	const html = await page.evaluate(async () => {
+		const [item] = await navigator.clipboard.read()
+		return item ? (await item.getType("text/html")).text() : ""
+	})
+	expect(html).toContain(`<p>Like <a href="${joelUrl}">${JOEL.title}</a> says.</p>`)
+	expect(html).not.toContain("/read/")
+})

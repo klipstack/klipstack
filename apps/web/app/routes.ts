@@ -96,6 +96,7 @@ export default [
 	route("api/v1/*", "routes/api.v1.ts"),
 	route("api/documents", "routes/api.documents.ts"),
 	route("api/link-preview", "routes/api.link-preview.ts"),
+	route("api/note-links", "routes/api.note-links.ts"),
 	route("api/search", "routes/api.search.ts"),
 	route("api/search/values", "routes/api.search-values.ts"),
 	route("api/tags", "routes/api.tags.ts"),
