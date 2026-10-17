@@ -45,6 +45,14 @@ export const MOBILE_SCOPES = CLI_SCOPES
  */
 export const MOBILE_REDIRECT_URI = "com.klipstack.app:/oauth/callback"
 
+/**
+ * The mobile app's sign-in callback as a universal link, `<APP_URL>/app/oauth/callback`: the https
+ * redirect that will replace the custom scheme once the app has an Apple team. The server lists it
+ * in `/.well-known/apple-app-site-association` when the team is configured; it is not registered on
+ * `klipstack-mobile` until the app uses it. No web page answers at this path.
+ */
+export const MOBILE_CALLBACK_PATH = "/app/oauth/callback"
+
 /** The path of the CLI's one-shot login server. */
 export const CLI_CALLBACK_PATH = "/callback"
 

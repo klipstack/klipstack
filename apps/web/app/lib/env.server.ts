@@ -24,6 +24,10 @@ export const dashboardUrl = z
 	}, "Use an https dashboard URL without credentials or a query string")
 	.optional()
 
+/** An optional value that an empty line in `.env` (`NAME=`) leaves unset. */
+const optional = <T extends z.ZodType>(type: T) =>
+	z.preprocess((value) => (value === "" ? undefined : value), type.optional())
+
 const schema = z.object({
 	NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 	DATABASE_URL: z.string().min(1),
@@ -90,6 +94,14 @@ const schema = z.object({
 	 * longer answers citing the article, for the demo app (`pnpm orb:app`).
 	 */
 	AI_FAKE: z.enum(["0", "1", "demo"]).default("0"),
+	/**
+	 * The Apple team and bundle ID of the iPhone app that may open this server's links (universal
+	 * links, `/.well-known/apple-app-site-association`). Both, or the file is not found.
+	 */
+	APPLE_TEAM_ID: optional(z.string().regex(/^[A-Z0-9]{10}$/, "Use the 10-character Apple team ID")),
+	APPLE_BUNDLE_ID: optional(
+		z.string().regex(/^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/, "Use a bundle ID like com.example.app"),
+	),
 })
 
 const parsed = schema.safeParse(process.env)

@@ -26,3 +26,31 @@ it.each(["https://example.com/", "https://example.com//", "https://example.com"]
 		expect(env.APP_URL).toBe("https://example.com")
 	},
 )
+
+it("reads empty Apple app values as unset", async () => {
+	vi.stubEnv("APPLE_TEAM_ID", "")
+	vi.stubEnv("APPLE_BUNDLE_ID", "")
+	vi.resetModules()
+	const { env } = await import("./env.server")
+	expect([env.APPLE_TEAM_ID, env.APPLE_BUNDLE_ID]).toEqual([undefined, undefined])
+})
+
+it("reads a team ID and a bundle ID", async () => {
+	vi.stubEnv("APPLE_TEAM_ID", "AB12CD34EF")
+	vi.stubEnv("APPLE_BUNDLE_ID", "com.example.reader")
+	vi.resetModules()
+	const { env } = await import("./env.server")
+	expect([env.APPLE_TEAM_ID, env.APPLE_BUNDLE_ID]).toEqual(["AB12CD34EF", "com.example.reader"])
+})
+
+it.each([
+	["APPLE_TEAM_ID", "ab12cd34ef"],
+	["APPLE_TEAM_ID", "AB12CD34E"],
+	["APPLE_BUNDLE_ID", "comexample"],
+	["APPLE_BUNDLE_ID", "com.example.reader/"],
+])("refuses %s=%s", async (name, value) => {
+	vi.stubEnv(name, value)
+	vi.resetModules()
+	vi.spyOn(console, "error").mockImplementation(() => {})
+	await expect(import("./env.server")).rejects.toThrow("Invalid environment variables")
+})

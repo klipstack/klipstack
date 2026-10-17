@@ -113,6 +113,10 @@ export default [
 	),
 	route(".well-known/openid-configuration/*", "routes/well-known.openid-configuration.ts"),
 	route(".well-known/oauth-protected-resource/*", "routes/well-known.oauth-protected-resource.ts"),
+	route(
+		".well-known/apple-app-site-association",
+		"routes/well-known.apple-app-site-association.ts",
+	),
 	route("mcp", "routes/mcp.ts"),
 	route("api/locales/:lng/:ns", "routes/api.locales.ts"),
 	route("version", "routes/version.ts"),
