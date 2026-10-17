@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest"
-import { highlightCardFor, highlightCardSvg } from "./highlight-card.server"
+import {
+	highlightCardFor,
+	highlightCardSvg,
+	TALL_CONTENT_BOTTOM,
+	tallLayout,
+} from "./highlight-card.server"
 
 const snapshot = {
 	exact: "A single meeting can blow a whole afternoon.",
@@ -21,5 +26,18 @@ describe("highlightCardSvg", () => {
 		expect(blue).toBe(pink)
 		expect(blue).toContain('fill="#FDF1BF"')
 		for (const marker of ["#FFE657", "#9EDEFF", "#FFBCD7"]) expect(blue).not.toContain(marker)
+	})
+
+	it("keeps the tall picture above its brand, however long the quote, the title and the note", () => {
+		const long = (words: number) => Array.from({ length: words }, (_, i) => `word${i}`).join(" ")
+		const layout = tallLayout({
+			exact: long(400),
+			note: long(200),
+			site: "example.com",
+			title: long(40),
+		})
+		expect(layout.titleLines).toHaveLength(2)
+		expect(layout.noteLines.length).toBeGreaterThan(5)
+		expect(layout.bottom).toBeLessThanOrEqual(TALL_CONTENT_BOTTOM)
 	})
 })

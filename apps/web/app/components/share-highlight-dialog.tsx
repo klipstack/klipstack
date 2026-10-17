@@ -11,7 +11,7 @@ import type { ShareState } from "~/services/highlight-shares.server"
 import { ClippingPaper } from "./clipping"
 import { NoteText } from "./note-text"
 import { PostIt, tiltFor } from "./post-it"
-import { ShareHighlightImage } from "./share-highlight-image"
+import { ShareHighlightImage, useDrawnPictures } from "./share-highlight-image"
 import { Button } from "./ui/button"
 
 export interface ShareHighlight {
@@ -68,12 +68,17 @@ export function ShareHighlightDialog({
 		const dialog = dialogRef.current
 		if (dialog && !dialog.open) dialog.showModal()
 	}, [])
+	const pictures = useDrawnPictures()
 	const contentRef = useRef<HTMLDivElement>(null)
 	const contentHeight = useHeight(contentRef)
 	// Copy takes the keyboard once it can copy: at once, or when the note's links are looked up.
 	const ready = linkUrls !== null
+	// Only as the dialog opens: choosing a tab with the keyboard leaves focus on the tabs.
+	const focused = useRef(false)
 	useEffect(() => {
-		if (ready && tab === "text") copyRef.current?.focus()
+		if (!ready || focused.current) return
+		focused.current = true
+		if (tab === "text") copyRef.current?.focus()
 	}, [ready, tab])
 
 	const copy = () => {
@@ -138,7 +143,17 @@ export function ShareHighlightDialog({
 									id={`share-tab-${name}`}
 									aria-selected={tab === name}
 									aria-controls="share-panel"
+									tabIndex={tab === name ? 0 : -1}
 									onClick={() => choose(name)}
+									onKeyDown={(e) => {
+										// Arrows move between the tabs, as tab lists do.
+										const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0
+										if (!step) return
+										e.preventDefault()
+										const next = tabs[(tabs.indexOf(name) + step + tabs.length) % tabs.length]!
+										choose(next)
+										document.getElementById(`share-tab-${next}`)?.focus()
+									}}
 									className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm ${tab === name ? "bg-card font-medium text-fg shadow-sm" : "text-muted-fg hover:text-fg"}`}
 								>
 									{TAB_ICONS[name]}
@@ -167,7 +182,11 @@ export function ShareHighlightDialog({
 						className="flex flex-col gap-4"
 					>
 						{tab === "image" ? (
-							<ShareHighlightImage id={h.id} withNote={note !== null && withNote} />
+							<ShareHighlightImage
+								id={h.id}
+								withNote={note !== null && withNote}
+								pictures={pictures}
+							/>
 						) : (
 							<SharePreview highlight={h} note={shownNote} compact={tab === "link"} />
 						)}

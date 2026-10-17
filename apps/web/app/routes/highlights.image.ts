@@ -2,7 +2,7 @@ import { createHash } from "node:crypto"
 import { Id } from "@klipstack/api-contract"
 import { data } from "react-router"
 import {
-	cachedHighlightCard,
+	cachedHighlightImage,
 	canDrawHighlight,
 	HIGHLIGHT_SHAPES,
 	type HighlightShape,
@@ -46,7 +46,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
 	}
 	// Drawn again only when what it shows changed.
 	const version = createHash("sha256").update(JSON.stringify(snapshot)).digest("base64url")
-	const png = await cachedHighlightCard(
+	const png = await cachedHighlightImage(
 		`image:${user.id}:${shape}:${version}`,
 		() => highlightCardFor(snapshot),
 		shape,

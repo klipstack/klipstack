@@ -205,7 +205,15 @@ test("a highlight as an image, wide or tall, with or without its note, and no li
 	test.setTimeout(150_000)
 	await signupUser(page, "Ada Pictures")
 	await highlighted(page, "Makers need long blocks.")
-	const { dialog, link: image } = await openShare(page, "Image")
+	// The first time, it opens on text; the arrows move along the tabs.
+	const { dialog, link: image } = await openShare(page)
+	const textTab = dialog.getByRole("tab", { name: "Text" })
+	await expect(textTab).toHaveAttribute("aria-selected", "true")
+	await textTab.focus()
+	await page.keyboard.press("ArrowLeft")
+	const imageTab = dialog.getByRole("tab", { name: "Image" })
+	await expect(imageTab).toHaveAttribute("aria-selected", "true")
+	await expect(imageTab).toBeFocused()
 	const picture = image.getByRole("img", { name: "The highlight as an image" })
 	await expect(picture).toBeVisible()
 	const size = () =>

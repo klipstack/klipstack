@@ -169,7 +169,6 @@ export default {
 				image: "Imagen",
 			},
 			image: {
-				label: "Imagen",
 				shape: "Formato",
 				wide: "Horizontal",
 				tall: "Vertical",
@@ -186,7 +185,6 @@ export default {
 				copyFailed: "No se pudo copiar la imagen: el navegador no lo permitió",
 			},
 			link: {
-				label: "Enlace público",
 				loading: "Revisando el enlace…",
 				about:
 					"Quien tenga el enlace ve este subrayado y el artículo del que viene. Tu nombre no aparece.",

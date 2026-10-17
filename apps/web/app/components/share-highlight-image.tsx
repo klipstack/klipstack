@@ -7,35 +7,58 @@ import { Button, buttonVariants } from "./ui/button"
 type Shape = "wide" | "tall"
 
 /** The picture as drawn, or why it is not: still drawing, a script the fonts lack, a failure. */
-type Drawn =
+export type Drawn =
 	| { state: "drawing" }
 	| { state: "ready"; blob: Blob; url: string }
 	| { state: "undrawable" | "failed" }
 
-/** The highlight's picture in a shape, drawn by the server; the latest asked for wins. */
-function useDrawn(src: string): Drawn {
+/** Pictures drawn while the dialog is open, by address: switching back shows one again at once. */
+export type DrawnPictures = Map<string, Promise<Drawn>>
+
+/** The dialog's drawn pictures, their object URLs released when it closes. */
+export function useDrawnPictures(): DrawnPictures {
+	const [pictures] = useState<DrawnPictures>(() => new Map())
+	useEffect(
+		() => () => {
+			for (const drawn of pictures.values())
+				void drawn.then((d) => d.state === "ready" && URL.revokeObjectURL(d.url))
+			pictures.clear()
+		},
+		[pictures],
+	)
+	return pictures
+}
+
+function draw(src: string): Promise<Drawn> {
+	return fetch(src)
+		.then(async (r): Promise<Drawn> => {
+			if (r.status === 422) return { state: "undrawable" }
+			if (!r.ok) return { state: "failed" }
+			const blob = await r.blob()
+			return { state: "ready", blob, url: URL.createObjectURL(blob) }
+		})
+		.catch((): Drawn => ({ state: "failed" }))
+}
+
+/** The highlight's picture at `src`, drawn by the server once per dialog; the latest asked for wins. */
+function useDrawn(src: string, pictures: DrawnPictures): Drawn {
 	const [drawn, setDrawn] = useState<{ src: string; drawn: Drawn } | null>(null)
 	useEffect(() => {
 		let live = true
-		let url: string | null = null
-		fetch(src)
-			.then(async (r) => {
-				if (r.status === 422) return { state: "undrawable" } as const
-				if (!r.ok) return { state: "failed" } as const
-				const blob = await r.blob()
-				url = URL.createObjectURL(blob)
-				return { state: "ready", blob, url } as const
-			})
-			.catch(() => ({ state: "failed" }) as const)
-			.then((d) => {
-				if (live) setDrawn({ src, drawn: d })
-				else if (url) URL.revokeObjectURL(url)
-			})
+		let picture = pictures.get(src)
+		if (!picture) {
+			picture = draw(src)
+			pictures.set(src, picture)
+		}
+		void picture.then((d) => {
+			// A failure is not kept: asking again draws again.
+			if (d.state === "failed") pictures.delete(src)
+			if (live) setDrawn({ src, drawn: d })
+		})
 		return () => {
 			live = false
-			if (url) URL.revokeObjectURL(url)
 		}
-	}, [src])
+	}, [src, pictures])
 	return drawn?.src === src ? drawn.drawn : { state: "drawing" }
 }
 
@@ -44,11 +67,19 @@ function useDrawn(src: string): Drawn {
  * screen. On a phone it goes to the share sheet with the picture attached; on a computer it is
  * downloaded or copied. It needs no public link: it is the highlight as it is now.
  */
-export function ShareHighlightImage({ id, withNote }: { id: string; withNote: boolean }) {
+export function ShareHighlightImage({
+	id,
+	withNote,
+	pictures,
+}: {
+	id: string
+	withNote: boolean
+	pictures: DrawnPictures
+}) {
 	const { t } = useTranslation("reader")
 	const [shape, setShape] = useState<Shape>("wide")
 	const src = `/highlights/${id}/image.png?shape=${shape}&note=${withNote ? 1 : 0}`
-	const drawn = useDrawn(src)
+	const drawn = useDrawn(src, pictures)
 	const name = `klipstack-highlight-${shape}.png`
 	const file = drawn.state === "ready" ? new File([drawn.blob], name, { type: "image/png" }) : null
 	const canShareFile =

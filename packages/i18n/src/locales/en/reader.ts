@@ -173,7 +173,6 @@ export default {
 				image: "Image",
 			},
 			image: {
-				label: "Image",
 				shape: "Shape",
 				wide: "Wide",
 				tall: "Tall",
@@ -190,7 +189,6 @@ export default {
 				copyFailed: "Couldn't copy the image: the browser didn't allow it",
 			},
 			link: {
-				label: "Public link",
 				loading: "Checking the link…",
 				about:
 					"Anyone with the link sees this highlight and the article it's from. Your name isn't shown.",
