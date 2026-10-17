@@ -1361,7 +1361,7 @@ export default function Reader() {
 			) : null}
 			{page && article && !listen.status ? (
 				<ReaderStatus
-					title={article.title ?? hostOf(article.url)}
+					title={article.title || hostOf(article.url)}
 					section={contents[section]?.text ?? null}
 					minutesLeft={minutes}
 					line={line}

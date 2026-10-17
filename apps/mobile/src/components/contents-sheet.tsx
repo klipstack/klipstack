@@ -28,13 +28,26 @@ export function ContentsSheet({
 	colors: Colors
 }) {
 	const list = useRef<ScrollView>(null)
-	const height = useRef(0)
+	// A long outline opens at the section being read, a third of the way down: once both the list's
+	// height and the row's place are known, in whichever order they come.
+	const height = useRef<number | null>(null)
+	const row = useRef<number | null>(null)
+	const showCurrent = () => {
+		if (height.current === null || row.current === null) return
+		const y = row.current - height.current / 3
+		if (y > 0) list.current?.scrollTo({ y, animated: false })
+	}
 	return (
 		<Modal
 			visible={visible}
 			presentationStyle="pageSheet"
 			animationType="slide"
 			onRequestClose={onClose}
+			// Measured anew each time it opens: the section may have changed since.
+			onDismiss={() => {
+				height.current = null
+				row.current = null
+			}}
 		>
 			<View style={[styles.sheet, { backgroundColor: colors.bg }]}>
 				<View style={[styles.bar, { borderColor: colors.border }]}>
@@ -48,6 +61,7 @@ export function ContentsSheet({
 					contentContainerStyle={styles.content}
 					onLayout={(event) => {
 						height.current = event.nativeEvent.layout.height
+						showCurrent()
 					}}
 				>
 					<Text style={[styles.title, { color: colors.mutedFg }]} numberOfLines={2}>
@@ -62,12 +76,11 @@ export function ContentsSheet({
 								accessibilityState={{ selected: here }}
 								accessibilityHint={here ? "The section you're reading" : undefined}
 								onPress={() => onSelect(i)}
-								// A long outline opens at the section being read, a third of the way down.
 								onLayout={
 									here
 										? (event) => {
-												const y = event.nativeEvent.layout.y - height.current / 3
-												if (y > 0) list.current?.scrollTo({ y, animated: false })
+												row.current = event.nativeEvent.layout.y
+												showCurrent()
 											}
 										: undefined
 								}

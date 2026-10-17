@@ -862,6 +862,7 @@ describe("the reader page: contents", () => {
 
 	it("scrolls to a heading just below the app's controls, and reads aloud from it while reading", async () => {
 		const page = openPage(SECTIONED, [], { top: 100 })
+		Object.defineProperty(page.window.document.documentElement, "scrollHeight", { value: 5000 })
 		const tops: number[] = []
 		Object.assign(page.window, { scrollTo: (to: { top: number }) => tops.push(to.top) })
 		placeHeadings(page.window, 300)
@@ -893,7 +894,7 @@ describe("the reader page: contents", () => {
 })
 
 describe("the reader page: a section picked in the contents", () => {
-	it("stays the one being read until the reader touches the page", async () => {
+	it("stays the one being read near where the jump took the page, until the reader touches it", async () => {
 		const page = openPage(
 			"<h2>A</h2><p>One.</p><h2>B</h2><h3>B.1</h3><p>Two.</p><h2>C</h2><p>Three.</p>",
 		)
@@ -918,5 +919,34 @@ describe("the reader page: a section picked in the contents", () => {
 		window.document.dispatchEvent(new window.Event("touchstart"))
 		await scrolled(510)
 		expect(sections()).toEqual([0, 1, 2])
+	})
+
+	it("lets go once the page moves half a screen from where the jump landed, untouched", async () => {
+		const page = openPage(
+			"<h2>A</h2><p>One.</p><h2>B</h2><h3>B.1</h3><p>Two.</p><h2>C</h2><p>Three.</p>",
+		)
+		const { window } = page
+		const el = window.document.documentElement
+		Object.defineProperty(el, "scrollHeight", { value: 5000 })
+		Object.defineProperty(el, "clientHeight", { value: 768 })
+		const tops = [0, 600, 680, 1500]
+		Array.from(window.document.querySelectorAll<HTMLElement>("article h2,h3")).forEach((h, i) => {
+			h.getBoundingClientRect = () => ({ top: tops[i]! - window.scrollY }) as DOMRect
+		})
+		const scrolled = async (y: number) => {
+			Object.defineProperty(window, "scrollY", { value: y, configurable: true })
+			window.dispatchEvent(new window.Event("scroll"))
+			await settle(300)
+		}
+		await settle(50)
+		const sections = () => page.messages.flatMap((m) => (m.type === "section" ? [m.index] : []))
+		;(window as unknown as { klipSection: (i: number) => void }).klipSection(1)
+		// Landed at B, less 16 points; then a little further, as reading aloud would take it.
+		await scrolled(584)
+		await scrolled(700)
+		expect(sections()).toEqual([0, 1])
+		// Half a screen and more from there, with no touch: C is above the top third.
+		await scrolled(1400)
+		expect(sections()).toEqual([0, 1, 3])
 	})
 })

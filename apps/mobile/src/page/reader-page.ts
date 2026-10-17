@@ -561,11 +561,19 @@ export function startReaderPage(): void {
 	const found = root ? outlineOf(root) : []
 	const sections = found.length >= OUTLINE_MIN_ENTRIES ? found : []
 	let section = -1
-	// Picked in the contents, a section stays the one being read until the reader touches the page:
-	// a subheading just under it would otherwise take its place at once.
-	let picked = false
+	// Picked in the contents, a section stays the one being read while the page stays near where the
+	// jump took it (a subheading just under it would otherwise take its place at once): until the
+	// reader touches the page, or the page moves half a screen from there once the jump is over
+	// (reading aloud, a highlight shown, VoiceOver).
+	let picked: { y: number; at: number; landed: boolean } | null = null
 	function reportSection() {
-		if (!sections.length || picked) return
+		if (!sections.length) return
+		if (picked) {
+			const away = Math.abs(window.scrollY - picked.y)
+			picked.landed ||= away < 2 || Date.now() - picked.at > PICK_SCROLL_MS
+			if (!picked.landed || away < window.innerHeight / 2) return
+			picked = null
+		}
 		const now = currentSection(sections, window.innerHeight / 3)
 		if (now === section) return
 		section = now
@@ -574,14 +582,16 @@ export function startReaderPage(): void {
 	page.klipSection = (index) => {
 		const heading = sections[index]?.el
 		if (!heading) return
-		picked = true
 		if (section !== index) {
 			section = index
 			post({ type: "section", index })
 		}
+		const el = document.documentElement
 		const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
 		const y = window.scrollY + heading.getBoundingClientRect().top - TOP - 16
-		window.scrollTo({ top: Math.max(0, y), behavior: still ? "auto" : "smooth" })
+		const top = Math.max(0, Math.min(y, el.scrollHeight - el.clientHeight))
+		picked = { y: top, at: Date.now(), landed: false }
+		window.scrollTo({ top, behavior: still ? "auto" : "smooth" })
 		// VoiceOver goes on from the heading.
 		if (!heading.hasAttribute("tabindex")) heading.setAttribute("tabindex", "-1")
 		heading.focus({ preventScroll: true })
@@ -731,7 +741,7 @@ export function startReaderPage(): void {
 	}
 	const touch = () => {
 		touched = Date.now()
-		picked = false
+		picked = null
 	}
 	document.addEventListener("touchstart", touch, { passive: true })
 	document.addEventListener("touchmove", touch, { passive: true })
@@ -779,6 +789,9 @@ export function readingSpan(el: HTMLElement): number {
 	}
 	return el.scrollHeight - el.clientHeight - tail
 }
+
+/** How long a jump to a section in the contents may take to land. */
+const PICK_SCROLL_MS = 1000
 
 const NO_CONFIG: PageConfig = { top: 0, highlights: [], position: 0, highlight: null }
 
