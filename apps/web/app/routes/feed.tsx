@@ -1,7 +1,7 @@
-import { AlertTriangle, ChevronDown, ExternalLink, Pencil, UserMinus, X } from "lucide-react"
-import { useEffect, useId, useRef, useState } from "react"
-import { useTranslation } from "react-i18next"
-import { useFetcher, useFetchers } from "react-router"
+import { AlertTriangle, ExternalLink, Pencil, Rss, UserMinus, X } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
+import { Trans, useTranslation } from "react-i18next"
+import { Link, redirect, useFetcher, useFetchers } from "react-router"
 import {
 	dismissFeedItem,
 	followFeed,
@@ -17,12 +17,15 @@ import { EmptyDrawing } from "~/components/empty-drawing"
 import { FeedArticle } from "~/components/feed-article"
 import { FeedMenu, ImportOpmlButton } from "~/components/feed-opml"
 import { MenuButton, MenuLink, MoreMenu, type MoreMenuHandle } from "~/components/more-menu"
+import { SiteStamp } from "~/components/site-stamp"
 import { tooltip } from "~/components/tooltip-host"
 import { Button } from "~/components/ui/button"
 import { useFeedReader } from "~/hooks/use-feed-reader"
 import { AppError } from "~/lib/app-error"
+import { dateGroupLabel, timeZoneFromCookie } from "~/lib/date-groups"
 import { requireFeeds } from "~/lib/features.server"
-import { latestFeedItems } from "~/lib/feed-layout"
+import { groupRiver, type RiverPost, riverPosts } from "~/lib/feed-river"
+import { getLocale } from "~/lib/i18n.server"
 import type { PageBarHandle } from "~/lib/page-bar"
 import { pageTitle } from "~/lib/page-title"
 import { relativeTime } from "~/lib/relative-time"
@@ -31,11 +34,16 @@ import { requireUser } from "~/lib/session.server"
 import { showToast } from "~/lib/toast"
 import { cn } from "~/lib/utils"
 import { answer } from "~/lib/web-action.server"
-import { type FeedSection, type FeedSubscription, listFeedPage } from "~/services/feeds.server"
+import {
+	type FeedListItem,
+	type FeedSubscription,
+	listFeedPage,
+	listFollowedFeeds,
+} from "~/services/feeds.server"
 import type { Route } from "./+types/feed"
 
-/** Items a section shows before "Show more". */
-const SECTION_PREVIEW = 3
+/** Posts already seen shown at first, and added by each "Show more". */
+const SEEN_PAGE = 20
 
 export function meta({ matches }: Route.MetaArgs) {
 	return [{ title: pageTitle(matches, "common:nav.feed") }]
@@ -43,11 +51,28 @@ export function meta({ matches }: Route.MetaArgs) {
 
 export const handle: PageBarHandle = { pageBar: { titleKey: "common:nav.feed" } }
 
+/**
+ * GET /feed, or /feed?site=<subscription id> for one site's posts. The posts of every site come as
+ * one river by date (`riverPosts`), dated in the reader's time zone here, where the page is drawn
+ * first. A site the reader does not follow (any more: they just unfollowed it) is all of them.
+ */
 export async function loader({ context, request }: Route.LoaderArgs) {
 	const user = requireUser(context, request)
 	await requireFeeds(user.id)
-	const { sections, quiet } = await listFeedPage(user.id)
-	return { sections, quiet }
+	const asked = new URL(request.url).searchParams.get("site")
+	const followed = await listFollowedFeeds(user.id)
+	const site = asked ? followed.find((f) => f.id === asked) : undefined
+	if (asked && !site) throw redirect("/feed")
+	const { sections } = await listFeedPage(user.id, { subscriptionId: site?.id })
+	const now = new Date()
+	const timeZone = timeZoneFromCookie(request.headers.get("cookie"))
+	return {
+		posts: riverPosts(sections, now, timeZone),
+		followed,
+		site: site?.id ?? null,
+		// Formatted here, as other dates are: the server's Intl and the browser's may differ.
+		today: new Intl.DateTimeFormat(getLocale(context), { dateStyle: "full", timeZone }).format(now),
+	}
 }
 
 /**
@@ -95,59 +120,34 @@ export async function action({ context, request }: Route.ActionArgs) {
 	})
 }
 
+type Followed = Route.ComponentProps["loaderData"]["followed"][number]
+type Post = RiverPost<FeedListItem>
+
+/** New to the reader: neither opened, saved, nor acknowledged. */
+const isFresh = (post: Post) => post.item.isNew && !post.item.documentId
+
+/**
+ * The feed as a paper: today's date and what is new over a double rule, then the river of posts,
+ * new ones first, with the sites followed beside it (above it on a phone) to read one at a time.
+ */
 export default function FeedPage({ loaderData }: Route.ComponentProps) {
 	const { t } = useTranslation("feed")
-	const { sections, quiet } = loaderData
-	const empty = sections.length === 0 && quiet.length === 0
+	const { posts, followed, site, today } = loaderData
 	const [following, setFollowing] = useState(false)
 	const menuRef = useRef<MoreMenuHandle>(null)
-	// Keep these positions stable through Save and live updates; a new visit chooses fresh posts.
-	const [featuredIds, setFeaturedIds] = useState(() =>
-		latestFeedItems(sections).map(({ item }) => item.id),
+	// What was new on arrival stays with the new posts through Save and live updates, so a saved post
+	// keeps its place; a new visit sorts afresh. Posts that arrive meanwhile join them.
+	const [freshIds, setFreshIds] = useState(
+		() => new Set(posts.filter(isFresh).map((p) => p.item.id)),
 	)
-	// An imported or initially empty feed can receive its first posts without a new visit.
-	if (featuredIds.length === 0) {
-		const available = latestFeedItems(sections)
-		if (available.length) setFeaturedIds(available.map(({ item }) => item.id))
-	}
-	const featured = sections
-		.flatMap((source) =>
-			source.items
-				.filter((item) => featuredIds.includes(item.id))
-				.map((item) => ({ item, source })),
-		)
-		.sort((a, b) => featuredIds.indexOf(a.item.id) - featuredIds.indexOf(b.item.id))
-	const remaining = sections
-		.map((section) => ({
-			...section,
-			items: section.items.filter((item) => !featuredIds.includes(item.id)),
-		}))
-		.filter((section) => section.items.length > 0)
+	const arrived = posts.filter((p) => isFresh(p) && !freshIds.has(p.item.id))
+	if (arrived.length) setFreshIds(new Set([...freshIds, ...arrived.map((p) => p.item.id)]))
 	const { onRead, readingId } = useFeedReader("/feed")
 
-	return (
-		<main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-3 pb-6 md:px-8 md:pt-4 md:pb-8">
-			<div className="flex items-center justify-end gap-3 md:min-h-10 md:justify-between">
+	if (followed.length === 0)
+		return (
+			<main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-3 pb-6 md:px-8 md:pt-4 md:pb-8">
 				<h1 className="hidden page-title md:block">{t("title")}</h1>
-				{empty ? null : (
-					<div className="flex items-center gap-1">
-						<AddFeedDialog />
-						<FeedMenu ref={menuRef} onFollowing={() => setFollowing(true)} />
-					</div>
-				)}
-			</div>
-
-			{!empty ? <p className="mt-3 text-sm text-muted-fg">{t("description")}</p> : null}
-			{following ? (
-				<FollowingDialog
-					feeds={[...sections, ...quiet]}
-					onClose={() => {
-						setFollowing(false)
-						menuRef.current?.focus()
-					}}
-				/>
-			) : null}
-			{empty ? (
 				<div className="mt-12 flex flex-col items-center gap-3 text-center text-muted-fg md:mt-16">
 					<EmptyDrawing name="mailbox" className="mb-1 w-40" />
 					<h2 className="text-lg font-medium text-fg">{t("empty.title")}</h2>
@@ -155,60 +155,322 @@ export default function FeedPage({ loaderData }: Route.ComponentProps) {
 					<AddFeedDialog className="mt-2" />
 					<ImportOpmlButton />
 				</div>
+			</main>
+		)
+
+	const chosen = site ? followed.find((f) => f.id === site) : undefined
+	const fresh = posts.filter((p) => freshIds.has(p.item.id))
+	const seen = posts.filter((p) => !freshIds.has(p.item.id))
+	const newCount = posts.filter(isFresh).length
+	const newSites = new Set(posts.filter(isFresh).map((p) => p.source.id)).size
+
+	return (
+		<main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-3 pb-6 md:px-8 md:pt-4 md:pb-8">
+			<div className="flex items-center justify-end gap-3 md:min-h-10 md:justify-between">
+				<h1 className="hidden page-title md:block">{t("title")}</h1>
+				<div className="flex items-center gap-1">
+					<AddFeedDialog />
+					<FeedMenu ref={menuRef} onFollowing={() => setFollowing(true)} />
+				</div>
+			</div>
+			{/* The paper's dateline: the day, and what came since the reader last looked. */}
+			<div className="mt-2 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 border-t border-fg/80 border-b-[3px] border-b-fg/50 [border-bottom-style:double] py-2 text-sm text-muted-fg">
+				<span suppressHydrationWarning>{today}</span>
+				<span data-testid="feed-summary">
+					{newCount ? (
+						<Trans
+							t={t}
+							i18nKey={chosen || newSites === 1 ? "summary.newHere" : "summary.new"}
+							values={{ count: newCount, sites: newSites }}
+							components={{ mark: <span className="marked px-1 text-fg" /> }}
+						/>
+					) : (
+						t("summary.none")
+					)}
+				</span>
+			</div>
+			{following ? (
+				<FollowingDialog
+					feeds={followed}
+					onClose={() => {
+						setFollowing(false)
+						menuRef.current?.focus()
+					}}
+				/>
 			) : null}
 
-			{!empty && sections.length === 0 ? (
-				<p className="mt-10 text-center text-sm text-muted-fg">{t("caughtUp")}</p>
-			) : null}
+			<SiteChips followed={followed} site={site} />
+			<div className="mt-6 grid gap-x-12 lg:mt-8 lg:grid-cols-[minmax(0,1fr)_16rem]">
+				<div className="min-w-0">
+					{chosen ? <ChosenSite sub={chosen} /> : null}
+					{fresh.length ? (
+						<River
+							posts={fresh}
+							fresh
+							label={t("river.new")}
+							onRead={onRead}
+							readingId={readingId}
+						/>
+					) : null}
+					{posts.length === 0 ? (
+						<p className="py-10 text-center text-sm text-muted-fg">{t("caughtUp")}</p>
+					) : seen.length ? (
+						<SeenPosts
+							posts={seen}
+							after={fresh.length > 0}
+							onRead={onRead}
+							readingId={readingId}
+						/>
+					) : null}
+				</div>
+				<SiteList followed={followed} site={site} onManage={() => setFollowing(true)} />
+			</div>
+		</main>
+	)
+}
 
-			{featured.length > 0 ? (
-				<section className="mt-8" aria-labelledby="feed-latest" data-testid="feed-latest">
-					<h2 id="feed-latest" className="mb-4 text-lg font-medium">
-						{t("fromYourFeeds")}
+/** Posts by day: a small heading over each day's run, the posts as rows beneath. */
+function River({
+	posts,
+	fresh = false,
+	label,
+	onRead,
+	readingId,
+}: {
+	posts: Post[]
+	fresh?: boolean
+	label: string
+	onRead: (itemId: string) => void
+	readingId: FormDataEntryValue | null | undefined
+}) {
+	const { t, i18n } = useTranslation("feed")
+	const groups = groupRiver(posts, () => true)
+	const lead = fresh ? posts[0]?.item.id : undefined
+	return (
+		<section aria-label={label} data-testid={fresh ? "feed-new" : "feed-seen"}>
+			{groups.map(({ group, posts: day }) => (
+				<div key={group} className="mt-8 first:mt-0">
+					<h2 className="flex items-center gap-3 text-xs font-medium tracking-wide text-muted-fg uppercase after:h-px after:flex-1 after:bg-border">
+						{dateGroupLabel(group, i18n.language, (key) => t(`groups.${key}`))}
 					</h2>
-					<ul
-						className={`grid gap-4 ${featured.length === 1 ? "" : featured.length === 2 ? "sm:grid-cols-2" : "lg:grid-cols-3"}`}
-					>
-						{featured.map(({ item, source }) => (
+					<ul>
+						{day.map(({ item, source }) => (
 							<FeedArticle
 								key={item.id}
 								item={item}
-								source={source.title}
-								featured
+								stamp={source}
 								isNew={item.isNew}
+								fresh={fresh}
+								lead={item.id === lead}
 								onRead={onRead}
 								reading={readingId === item.id}
 							/>
 						))}
 					</ul>
-				</section>
-			) : null}
-			{remaining.length > 0 ? (
-				<section className="mt-10" aria-labelledby="feed-more">
-					<h2 id="feed-more" className="text-lg font-medium">
-						{t(featured.length ? "more" : "subscriptions")}
-					</h2>
-					<div className="mt-6 grid items-start gap-6 md:grid-cols-2">
-						{remaining.map((section) => (
-							<Section key={section.id} section={section} onRead={onRead} readingId={readingId} />
-						))}
-					</div>
-				</section>
-			) : null}
+				</div>
+			))}
+		</section>
+	)
+}
 
-			{quiet.length > 0 ? (
-				<section className="mt-12" aria-labelledby="feed-quiet">
-					<h2 id="feed-quiet" className="text-sm font-medium text-muted-fg">
-						{t("quiet.title")}
-					</h2>
-					<ul className="mt-2 divide-y divide-border border-t border-border">
-						{quiet.map((sub) => (
-							<QuietRow key={sub.id} sub={sub} />
-						))}
-					</ul>
-				</section>
+/** Below the new posts, the ones already seen: a few at first, more on asking. */
+function SeenPosts({
+	posts,
+	after,
+	onRead,
+	readingId,
+}: {
+	posts: Post[]
+	after: boolean
+	onRead: (itemId: string) => void
+	readingId: FormDataEntryValue | null | undefined
+}) {
+	const { t } = useTranslation("feed")
+	const [shown, setShown] = useState(SEEN_PAGE)
+	return (
+		<div className={after ? "mt-10" : undefined}>
+			{after ? (
+				<p
+					data-testid="feed-caught-up"
+					className="mb-8 border-t border-dashed border-border pt-4 text-center text-sm text-muted-fg"
+				>
+					{t("river.caughtUp")}
+				</p>
 			) : null}
-		</main>
+			<River
+				posts={posts.slice(0, shown)}
+				label={t("river.seen")}
+				onRead={onRead}
+				readingId={readingId}
+			/>
+			{posts.length > shown ? (
+				<div className="mt-4 flex justify-center">
+					<Button
+						type="button"
+						variant="secondary"
+						size="sm"
+						onClick={() => setShown(shown + SEEN_PAGE)}
+					>
+						{t("river.showMore")}
+					</Button>
+				</div>
+			) : null}
+		</div>
+	)
+}
+
+/** One site's posts: its name over them, its actions beside it, and the way back to every site. */
+function ChosenSite({ sub }: { sub: Followed }) {
+	const { t } = useTranslation("feed")
+	return (
+		<div className="mb-6 flex items-center gap-3">
+			<SiteStamp siteUrl={sub.siteUrl} title={sub.title} size={36} />
+			<div className="min-w-0 flex-1">
+				<SubscriptionHeader sub={sub} as="h2" />
+			</div>
+			<Link
+				to="/feed"
+				preventScrollReset
+				className="shrink-0 text-sm text-link hover:underline lg:hidden"
+			>
+				{t("rail.all")}
+			</Link>
+		</div>
+	)
+}
+
+/** The sites followed, beside the river on a wide screen: each with its stamp and what is new. */
+function SiteList({
+	followed,
+	site,
+	onManage,
+}: {
+	followed: Followed[]
+	site: string | null
+	onManage: () => void
+}) {
+	const { t } = useTranslation("feed")
+	const total = followed.reduce((sum, f) => sum + f.newCount, 0)
+	return (
+		<nav aria-label={t("rail.label")} className="hidden lg:block">
+			<div className="sticky top-6">
+				<div className="mb-2 flex items-baseline justify-between gap-2">
+					<h2 className="section-title text-xl">{t("rail.title")}</h2>
+					<button
+						type="button"
+						onClick={onManage}
+						className="rounded-sm text-sm text-muted-fg hover:text-fg focus-visible:outline-2 focus-visible:outline-accent"
+					>
+						{t("rail.manage")}
+					</button>
+				</div>
+				<ul data-testid="feed-sites" className="flex flex-col gap-0.5">
+					<li>
+						<SiteLink to="/feed" current={!site} count={total}>
+							<Rss className="size-[18px] shrink-0 p-0.5 text-muted-fg" aria-hidden />
+							<span className="truncate">{t("rail.all")}</span>
+						</SiteLink>
+					</li>
+					{followed.map((sub) => (
+						<li key={sub.id}>
+							<SiteLink
+								to={`/feed?site=${sub.id}`}
+								current={site === sub.id}
+								count={sub.newCount}
+								trouble={sub.trouble}
+							>
+								<SiteStamp siteUrl={sub.siteUrl} title={sub.title} size={18} />
+								<span className="truncate">{sub.title}</span>
+							</SiteLink>
+						</li>
+					))}
+				</ul>
+			</div>
+		</nav>
+	)
+}
+
+function SiteLink({
+	to,
+	current,
+	count,
+	trouble = false,
+	children,
+}: {
+	to: string
+	current: boolean
+	count: number
+	trouble?: boolean
+	children: React.ReactNode
+}) {
+	const { t } = useTranslation("feed")
+	return (
+		<Link
+			to={to}
+			preventScrollReset
+			aria-current={current ? "page" : undefined}
+			className={cn(
+				"flex min-h-9 items-center gap-2 rounded-lg px-2 py-1.5 text-sm focus-visible:outline-2 focus-visible:outline-accent",
+				current
+					? "font-medium [&_[data-nav-ink]]:marked-item"
+					: "hover:[&_[data-nav-ink]]:ink-hover-item",
+			)}
+		>
+			<span data-nav-ink className="flex min-w-0 items-center gap-2.5">
+				{children}
+			</span>
+			{trouble ? (
+				<AlertTriangle
+					className="ml-auto size-3.5 shrink-0 text-danger"
+					role="img"
+					aria-label={t("section.trouble")}
+				/>
+			) : count ? (
+				<span className="ml-auto text-xs text-link tabular-nums">
+					<span aria-hidden>{count}</span>
+					<span className="sr-only">{t("rail.newCount", { count })}</span>
+				</span>
+			) : null}
+		</Link>
+	)
+}
+
+/** The same sites on a narrow screen: a row of chips above the river, scrolled sideways. */
+function SiteChips({ followed, site }: { followed: Followed[]; site: string | null }) {
+	const { t } = useTranslation("feed")
+	const chip = (current: boolean) =>
+		cn("chip flex shrink-0 items-center gap-2 whitespace-nowrap", current && "marked text-fg")
+	return (
+		<nav aria-label={t("rail.label")} className="-mx-4 mt-3 overflow-x-auto px-4 lg:hidden">
+			<ul className="flex w-max gap-1 py-1">
+				<li>
+					<Link
+						to="/feed"
+						preventScrollReset
+						aria-current={!site ? "page" : undefined}
+						className={chip(!site)}
+					>
+						{t("rail.all")}
+					</Link>
+				</li>
+				{followed.map((sub) => (
+					<li key={sub.id}>
+						<Link
+							to={`/feed?site=${sub.id}`}
+							preventScrollReset
+							aria-current={site === sub.id ? "page" : undefined}
+							className={chip(site === sub.id)}
+						>
+							<SiteStamp siteUrl={sub.siteUrl} title={sub.title} size={16} />
+							{sub.title}
+							{sub.newCount ? (
+								<span className="text-xs text-link tabular-nums">{sub.newCount}</span>
+							) : null}
+						</Link>
+					</li>
+				))}
+			</ul>
+		</nav>
 	)
 }
 
@@ -272,56 +534,6 @@ function FollowingDialog({ feeds, onClose }: { feeds: FeedSubscription[]; onClos
 	)
 }
 
-function Section({
-	section,
-	onRead,
-	readingId,
-}: {
-	section: FeedSection
-	onRead: (itemId: string) => void
-	readingId: FormDataEntryValue | null | undefined
-}) {
-	const { t } = useTranslation("feed")
-	const listId = useId()
-	const [expanded, setExpanded] = useState(false)
-	const hidden = section.items.length - SECTION_PREVIEW
-	const items = expanded ? section.items : section.items.slice(0, SECTION_PREVIEW)
-	return (
-		<section
-			className="min-w-0 rounded-xl border border-border bg-card/40"
-			data-testid="feed-section"
-		>
-			<div className="px-5 pt-4 sm:px-6">
-				<SubscriptionHeader sub={section} as="h3" />
-				<ul id={listId} className="divide-y divide-border">
-					{items.map((item, i) => (
-						<FeedArticle
-							key={item.id}
-							item={item}
-							lead={i === 0}
-							isNew={item.isNew}
-							onRead={onRead}
-							reading={readingId === item.id}
-						/>
-					))}
-				</ul>
-			</div>
-			{hidden > 0 ? (
-				<button
-					type="button"
-					aria-expanded={expanded}
-					aria-controls={listId}
-					onClick={() => setExpanded((e) => !e)}
-					className="flex min-h-12 w-full items-center justify-between gap-3 rounded-b-xl border-t border-border bg-muted/30 px-5 py-3 text-left text-sm text-link hover:bg-muted/60 focus-visible:outline-2 focus-visible:outline-accent sm:px-6"
-				>
-					{expanded ? t("section.showLess") : t("section.showMore", { count: hidden })}
-					<ChevronDown className={`size-4 shrink-0 ${expanded ? "rotate-180" : ""}`} aria-hidden />
-				</button>
-			) : null}
-		</section>
-	)
-}
-
 function QuietRow({
 	sub,
 	inlineActions = false,
@@ -356,7 +568,7 @@ function SubscriptionHeader({
 	inlineActions = false,
 }: {
 	sub: FeedSubscription
-	as: "h3" | "p"
+	as: "h2" | "h3" | "p"
 	children?: React.ReactNode
 	inlineActions?: boolean
 }) {
@@ -377,12 +589,14 @@ function SubscriptionHeader({
 	if (pending === "unsubscribe") return null
 	const title =
 		pending === "rename" ? String(fetcher.formData?.get("title") || sub.title) : sub.title
-	const heading = Title === "h3"
+	const heading = Title !== "p"
 	const rowClass = inlineActions
 		? "group/subscription flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg px-3 py-3 hover:bg-muted/50 focus-within:bg-muted/50"
-		: heading
-			? "flex min-h-11 items-center gap-2 border-b border-border pb-2"
-			: "flex min-h-9 items-center gap-2"
+		: Title === "h2"
+			? "flex min-h-11 items-center gap-2"
+			: heading
+				? "flex min-h-11 items-center gap-2 border-b border-border pb-2"
+				: "flex min-h-9 items-center gap-2"
 	const troubleDetails = sub.trouble ? (
 		<div className="space-y-1 text-xs text-muted-fg">
 			{sub.lastError ? <p>{t("section.lastError", { error: sub.lastError })}</p> : null}
@@ -471,9 +685,11 @@ function SubscriptionHeader({
 					className={
 						inlineActions
 							? "w-full text-sm font-medium break-words"
-							: heading
-								? "min-w-0 text-sm font-semibold"
-								: "min-w-0 truncate text-sm font-medium"
+							: Title === "h2"
+								? "min-w-0 section-title break-words"
+								: heading
+									? "min-w-0 text-sm font-semibold"
+									: "min-w-0 truncate text-sm font-medium"
 					}
 				>
 					{title}

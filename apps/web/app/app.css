@@ -627,6 +627,39 @@ body {
 	}
 }
 
+/* ---------- Feed: a site's postage stamp ---------- */
+/* A followed site as a postage stamp (SiteStamp): a square of paper with a perforated edge, the
+   site's initial on its books' paint (`--k-book-*`, by `siteHue`). The holes are a mask on the
+   paper; the shadow is a filter on the box around it, so it follows the holes. */
+.site-stamp {
+	display: inline-block;
+	flex: none;
+	rotate: var(--tilt, -3deg);
+	filter: drop-shadow(0 0.5px 0.75px oklch(0.3 0.03 60 / 0.35));
+}
+.site-stamp > span {
+	display: grid;
+	box-sizing: border-box;
+	width: var(--s);
+	height: calc(var(--s) * 1.2);
+	padding: 3px;
+	background: var(--k-paper);
+	mask:
+		radial-gradient(circle, transparent 1.4px, #000 1.6px) -2px -2px / 4px 4px,
+		linear-gradient(#000 0 0) center / calc(100% - 4px) calc(100% - 4px) no-repeat;
+}
+.site-stamp > span > span {
+	display: grid;
+	place-items: center;
+	border-radius: 1px;
+	background: oklch(var(--k-book-l) var(--k-book-c) var(--hue));
+	color: var(--k-book-fg);
+	font-family: var(--font-display);
+	font-size: calc(var(--s) * 0.5);
+	font-weight: 500;
+	line-height: 1;
+}
+
 /* ---------- Notebook: clippings ---------- */
 /* A quote cut out of the article with scissors (ClippingPaper): square corners, each edge a few
    pixels off true, a thin edge where the cut shows, and the clear tape of the post-its at a corner.
