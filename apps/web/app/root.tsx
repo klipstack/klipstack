@@ -18,18 +18,20 @@ import { CommandPalette } from "./components/command-palette"
 import { ErrorContent } from "./components/error-content"
 import { NavigationProgress } from "./components/navigation-progress"
 import { PasteToSave } from "./components/paste-to-save"
+import { SupportWidget } from "./components/support-widget"
 import { ToastHost } from "./components/toast-host"
 import { TooltipHost } from "./components/tooltip-host"
 import { useLiveUpdates } from "./hooks/use-live-updates"
 import { useStandaloneTitle } from "./hooks/use-standalone-title"
 import { cacheIdentity } from "./lib/cache-identity.server"
-import { appVersion } from "./lib/env.server"
+import { appVersion, env } from "./lib/env.server"
 import { getInstance, getLocale, i18nextMiddleware, localeVersion } from "./lib/i18n.server"
 import { parseLayoutCookie } from "./lib/list-layout"
 import { PAGE_TITLES } from "./lib/page-title"
 import { getSession, getUser, sessionMiddleware } from "./lib/session.server"
 import { useRememberSettingsOrigin } from "./lib/settings-origin"
 import { parseSidebarCookie } from "./lib/sidebar"
+import type { SupportWidgetConfig, SupportWidgetHandle } from "./lib/support-widget"
 
 export const middleware: Route.MiddlewareFunction[] = [sessionMiddleware, i18nextMiddleware]
 
@@ -56,6 +58,15 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 		sidebar: parseSidebarCookie(request.headers.get("cookie")),
 		theme: theme === "light" || theme === "dark" ? theme : null,
 		loggedIn: Boolean(user),
+		// The support button, for a signed-in user on a server with a SuppyHQ account.
+		supportWidget:
+			user && env.SUPPYHQ_TENANT
+				? ({
+						tenant: env.SUPPYHQ_TENANT,
+						email: user.email,
+						name: user.name,
+					} satisfies SupportWidgetConfig)
+				: null,
 		cacheIdentity: cacheIdentity(getSession(context)?.session.id),
 		titles: Object.fromEntries(PAGE_TITLES.map((key) => [key, i18n.t(key)])),
 	}
@@ -83,13 +94,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
 	const { i18n } = useTranslation()
 	const root = useRouteLoaderData<typeof loader>("root")
 	const { search } = useLocation()
+	const matches = useMatches()
 	const lang =
-		useMatches()
+		matches
 			.map((match) => (match.handle as Partial<PageLanguage> | undefined)?.lang?.(match.loaderData))
 			.findLast(Boolean) ?? i18n.language
 	// Local previews can override appearance without changing the account or device preference.
 	const previewTheme = import.meta.env.DEV ? new URLSearchParams(search).get("theme") : null
 	const theme = previewTheme === "light" || previewTheme === "dark" ? previewTheme : root?.theme
+	const supportWidget =
+		Boolean(root?.supportWidget) &&
+		matches.some(
+			(match) => (match.handle as Partial<SupportWidgetHandle> | undefined)?.supportWidget,
+		)
 	return (
 		<html
 			lang={lang}
@@ -97,6 +114,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
 			data-theme={theme ?? undefined}
 			// Read by ~/lib/shortcuts, which runs outside React.
 			data-shortcuts={root?.shortcutsOff ? "off" : undefined}
+			// Shows the support button on this page (app.css).
+			data-support-widget={supportWidget ? "" : undefined}
 		>
 			<head>
 				<meta charSet="utf-8" />
@@ -125,7 +144,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
 	)
 }
 
-export default function App({ loaderData: { locale, loggedIn } }: Route.ComponentProps) {
+export default function App({
+	loaderData: { locale, loggedIn, supportWidget },
+}: Route.ComponentProps) {
 	const { i18n } = useTranslation()
 	useEffect(() => {
 		if (i18n.language !== locale) void i18n.changeLanguage(locale)
@@ -145,6 +166,7 @@ export default function App({ loaderData: { locale, loggedIn } }: Route.Componen
 			{loggedIn ? <PasteToSave /> : null}
 			<ToastHost />
 			<TooltipHost />
+			{supportWidget ? <SupportWidget {...supportWidget} /> : null}
 		</>
 	)
 }

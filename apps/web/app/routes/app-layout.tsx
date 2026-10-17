@@ -10,11 +10,14 @@ import { env } from "~/lib/env.server"
 import { listFeatures } from "~/lib/features.server"
 import { resolvePrefs } from "~/lib/prefs"
 import { requireUser } from "~/lib/session.server"
+import type { SupportWidgetHandle } from "~/lib/support-widget"
 import { editionNudge } from "~/services/editions.server"
 import { countNewFeedItems } from "~/services/feeds.server"
 import { listSavedSearches } from "~/services/saved-searches.server"
 import { firstTopicsNotice, hasTopics, missingTopics } from "~/services/topics.server"
 import type { Route } from "./+types/app-layout"
+
+export const handle: SupportWidgetHandle = { supportWidget: true }
 
 export async function loader({ context, request }: Route.LoaderArgs) {
 	const user = requireUser(context, request)
