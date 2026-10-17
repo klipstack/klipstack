@@ -21,7 +21,7 @@ const RAISED = -5
 
 /**
  * The five highlight colors as marker tips, slanted like a chisel highlighter: the current one
- * stands raised over a line. The web's `HighlighterNibs` (apps/web/app/components/highlighter-nibs.tsx).
+ * stands raised over a line. The web has its own, drawn alike (apps/web/app/components/highlighter-nibs.tsx).
  */
 export function HighlighterNibs({
 	value,
