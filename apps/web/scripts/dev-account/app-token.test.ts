@@ -2,11 +2,16 @@ import { randomUUID } from "node:crypto"
 import { MOBILE_CLIENT_ID } from "@klipstack/api-contract/auth"
 import { account, db, eq, user, userFeatures } from "@klipstack/db"
 import { hashPassword } from "better-auth/crypto"
-import { afterAll, beforeAll, describe, expect, it } from "vitest"
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { auth } from "~/lib/auth.server"
 import { env } from "~/lib/env.server"
 import { request, serveKeySet } from "~/test/api-harness"
 import { appToken } from "./app-token"
+
+// The fake model, as on a server with a provider set up: without one, the AI answers 503.
+vi.hoisted(() => {
+	process.env.AI_FAKE = "1"
+})
 
 const id = `test-app-token-${randomUUID()}`
 const email = `${id}@example.com`
