@@ -20,7 +20,14 @@ type Auth = {
 	state: AuthState
 	apiUrl: string
 	signIn: () => Promise<void>
+	/**
+	 * Signs in again, password and all, for what needs a recent sign-in (deleting the account).
+	 * False when the user closed the sheet: the session stays as it was.
+	 */
+	signInAgain: () => Promise<boolean>
 	signOut: () => Promise<void>
+	/** The account was deleted: forget it here, with nothing to revoke. */
+	accountDeleted: () => Promise<void>
 	/**
 	 * Headers for loading the server's stored images (`downloadUrl`s) outside the SDK: the current
 	 * access token and the client version. Never send them to any other host.
@@ -139,11 +146,22 @@ function createAuth(setState: (state: AuthState) => void) {
 			signedIn(session)
 			reloadNextUp()
 		},
+		async signInAgain() {
+			const before = await readSession()
+			const session = await authorize(DEFAULT_API_URL, { again: true })
+			if (!session) return false
+			await writeSession(session)
+			signedIn(session)
+			// The sign-in before is replaced, not kept alongside.
+			if (before?.refreshToken) await revoke(before)
+			return true
+		},
 		async signOut() {
 			const session = await readSession()
 			await forget()
 			if (session) await revoke(session)
 		},
+		accountDeleted: forget,
 	}
 }
 
@@ -161,7 +179,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 			state,
 			apiUrl: DEFAULT_API_URL,
 			signIn: actions.signIn,
+			signInAgain: actions.signInAgain,
 			signOut: actions.signOut,
+			accountDeleted: actions.accountDeleted,
 			imageHeaders: actions.imageHeaders,
 		}),
 		[state, actions],

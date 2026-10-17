@@ -93,6 +93,8 @@ function Screens() {
 					}}
 				/>
 				<Stack.Screen name="voices" options={{ title: "Voices", presentation: "modal" }} />
+				{/* A sheet with its own stack (`account/_layout.tsx`), from the header's account button. */}
+				<Stack.Screen name="account" options={{ headerShown: false, presentation: "modal" }} />
 				<Stack.Screen name="save" options={{ title: "Save a Link", presentation: "modal" }} />
 			</Stack.Protected>
 			<Stack.Protected guard={state.status === "signed-out"}>
