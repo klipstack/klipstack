@@ -18,6 +18,7 @@ import {
 	type InviteRequestOutcome,
 	requestInvite,
 } from "~/lib/invite-requests.server"
+import { appSignInQuery } from "~/lib/oauth.server"
 import { readForm } from "~/lib/request-body.server"
 import { requireAnonymous } from "~/lib/session.server"
 import { cn } from "~/lib/utils"
@@ -38,10 +39,12 @@ function requireWaitlist() {
 	if (env.SIGNUP_MODE !== "waitlist") throw data(null, { status: 404 })
 }
 
-export async function loader({ context }: Route.LoaderArgs) {
+export async function loader({ context, request }: Route.LoaderArgs) {
 	requireAnonymous(context)
 	requireWaitlist()
 	return {
+		// Opened from an app's sign-up: its links lead back into that sign-in.
+		appQuery: await appSignInQuery(new URL(request.url)),
 		title: getInstance(context).t("auth:requestInvite.title"),
 		token: formToken(),
 		noteMax: INVITE_REQUEST_NOTE_MAX,
@@ -99,12 +102,17 @@ export default function RequestInvite({ loaderData, actionData }: Route.Componen
 	const isNsKey = useIsNsKey()
 	const busy = useNavigation().state !== "idle"
 	const noteId = useId()
+	const { appQuery } = loaderData
+	const q = appQuery ? `?${appQuery}` : ""
 
 	if (actionData && "received" in actionData) {
 		return (
-			<AuthCard title={t("requestInvite.receivedTitle")}>
+			<AuthCard title={t("requestInvite.receivedTitle")} appQuery={appQuery}>
 				<p className="text-sm text-muted-fg">{t("requestInvite.received")}</p>
-				<Link to="/" className="mt-6 inline-block text-sm text-link hover:underline">
+				<Link
+					to={appQuery ? `/login${q}` : "/"}
+					className="mt-6 inline-block text-sm text-link hover:underline"
+				>
 					{t("requestInvite.backHome")}
 				</Link>
 			</AuthCard>
@@ -113,7 +121,7 @@ export default function RequestInvite({ loaderData, actionData }: Route.Componen
 
 	const noteError = actionData?.fieldErrors?.note
 	return (
-		<AuthCard title={t("requestInvite.title")}>
+		<AuthCard title={t("requestInvite.title")} appQuery={appQuery}>
 			<p className="mb-4 text-sm text-muted-fg">{t("requestInvite.description")}</p>
 			<Form method="post" className="flex flex-col gap-4">
 				<input type="hidden" name="started" value={actionData?.token ?? loaderData.token} />
@@ -168,7 +176,7 @@ export default function RequestInvite({ loaderData, actionData }: Route.Componen
 			</Form>
 			<p className="mt-6 text-sm text-muted-fg">
 				{t("requestInvite.haveCode")}{" "}
-				<Link to="/signup" className="text-link hover:underline">
+				<Link to={`/signup${q}`} className="text-link hover:underline">
 					{t("requestInvite.signup")}
 				</Link>
 			</p>

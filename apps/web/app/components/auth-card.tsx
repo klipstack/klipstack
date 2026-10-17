@@ -4,19 +4,22 @@ import { copyrightYear, LEGAL_NAME } from "~/lib/company"
 import { BrandMark } from "./brand-mark"
 
 /**
- * `inApp`: the page is part of an app's sign-in. The brand is not a link there: the web's home page
- * would leave the sign-in, and offer what the app's sign-in leaves out.
+ * `appQuery`: the signed request of the app's sign-in the page is part of. The brand is not a link
+ * there: the web's home page would leave the sign-in, and offer what the app's sign-in leaves out.
+ * The policy links carry the request, so their pages lead back into the sign-in.
  */
 export function AuthCard({
 	title,
-	inApp = false,
+	appQuery = null,
 	children,
 }: {
 	title: string
-	inApp?: boolean
+	appQuery?: string | null
 	children: React.ReactNode
 }) {
 	const { t } = useTranslation()
+	const inApp = appQuery !== null
+	const q = inApp ? `?${appQuery}` : ""
 	const brand = (
 		<>
 			<BrandMark className="h-9 w-auto text-accent md:h-11" />
@@ -42,13 +45,13 @@ export function AuthCard({
 			<footer className="mt-6 flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs text-muted-fg">
 				<span>{t("home.footer.copyright", { year: copyrightYear(), company: LEGAL_NAME })}</span>
 				<nav aria-label={t("home.footer.label")} className="flex gap-4">
-					<Link to="/terms" className="hover:text-fg">
+					<Link to={`/terms${q}`} className="hover:text-fg">
 						{t("home.footer.terms")}
 					</Link>
-					<Link to="/privacy" className="hover:text-fg">
+					<Link to={`/privacy${q}`} className="hover:text-fg">
 						{t("home.footer.privacy")}
 					</Link>
-					<Link to="/support" className="hover:text-fg">
+					<Link to={`/support${q}`} className="hover:text-fg">
 						{t("home.footer.support")}
 					</Link>
 				</nav>

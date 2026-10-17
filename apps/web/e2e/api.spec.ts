@@ -203,6 +203,41 @@ test("the CLI signs in through OAuth with forced consent; tokens are bound to /a
 	expect(reverse.status()).toBe(401)
 })
 
+test("the iPhone app's sign-in keeps its request on the policy pages it links to", async ({
+	page,
+	baseURL,
+}) => {
+	// App Review taps around the sign-in sheet: no page it reaches may lead to the web's own login,
+	// which offers GitHub without Sign in with Apple (guideline 4.8).
+	const client = { clientId: MOBILE_CLIENT_ID, redirectUri: MOBILE_REDIRECT_URI }
+	const scope = MOBILE_SCOPES.join(" ")
+	const resource = `${baseURL}/api`
+	await page.goto(authorizeUrl(client, { challenge: pkce().challenge, scope, resource }))
+	await expect(page).toHaveURL(/\/login\?.*sig=/)
+	const note = page.getByText("Log in to continue connecting an app to your Klipstack account.")
+	await expect(note).toBeVisible()
+	await waitForHydration(page)
+
+	for (const [from, to] of [
+		["Terms", /\/terms\?.*sig=/],
+		["Privacy", /\/privacy\?.*sig=/],
+		["Support", /\/support\?.*sig=/],
+	] as const) {
+		await page.getByRole("link", { name: from, exact: true }).click()
+		await expect(page).toHaveURL(to)
+		// The brand would lead to the landing page and its sign-in.
+		await expect(page.getByRole("link", { name: "Klipstack", exact: true })).toHaveCount(0)
+		await page.getByRole("link", { name: "Log in", exact: true }).click()
+		await expect(page).toHaveURL(/\/login\?.*sig=/)
+		await expect(note).toBeVisible()
+	}
+
+	await page.getByRole("link", { name: "Sign up" }).click()
+	await expect(page).toHaveURL(/\/signup\?.*sig=/)
+	await page.getByRole("link", { name: "terms of use" }).click()
+	await expect(page).toHaveURL(/\/terms\?.*sig=/)
+})
+
 test("the mobile app signs in with its own client, gets write access, and names its version", async ({
 	page,
 	request,

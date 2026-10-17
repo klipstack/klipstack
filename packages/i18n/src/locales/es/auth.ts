@@ -171,6 +171,15 @@ export default {
 			"Iniciaste sesión hace más de 30 minutos. Vuelve a iniciar sesión para conectar una app nueva: una sesión abierta en otro sitio no puede conectarla.",
 		signInAgainButton: "Volver a iniciar sesión",
 		optionalHint: "Desmarca la casilla para permitir solo lectura.",
+		verify: {
+			title: "Verifica tu correo para continuar",
+			description:
+				"Una app solo puede conectarse a una cuenta con el correo verificado, y {{email}} aún no lo está.",
+			instructions:
+				"Abre el enlace de verificación de tu correo, vuelve aquí y elige Continuar. Tu sesión sigue iniciada.",
+			pending: "Tu correo aún no está verificado. Abre el enlace del correo y elige Continuar.",
+			continue: "Continuar",
+		},
 		identity: {
 			name: "Confirmar que eres tú y ver tu nombre",
 			email: "Confirmar que eres tú y ver tu correo electrónico",

@@ -1,5 +1,4 @@
 import { SymbolView } from "expo-symbols"
-import * as WebBrowser from "expo-web-browser"
 import {
 	ActivityIndicator,
 	Modal,
@@ -11,6 +10,7 @@ import {
 } from "react-native"
 import { AI_CONSENT } from "@/lib/ai"
 import { type Colors, fonts } from "@/lib/theme"
+import { openOnTheWeb } from "@/lib/web-pages"
 
 /**
  * Before the account's first question to the AI (Explain, Define, Ask, the brief, the chat): what
@@ -59,11 +59,7 @@ export function AiConsentSheet({
 				</Text>
 				<Text style={[styles.body, { color: colors.fg }]}>{AI_CONSENT.sent}</Text>
 				<Text style={[styles.body, { color: colors.mutedFg }]}>{AI_CONSENT.when}</Text>
-				<Pressable
-					accessibilityRole="link"
-					onPress={() => void WebBrowser.openBrowserAsync(privacyUrl)}
-					hitSlop={8}
-				>
+				<Pressable accessibilityRole="link" onPress={() => openOnTheWeb(privacyUrl)} hitSlop={8}>
 					<Text style={[styles.link, { color: colors.accent }]}>Privacy Policy</Text>
 				</Pressable>
 				<View style={styles.actions}>

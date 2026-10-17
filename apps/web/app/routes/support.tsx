@@ -4,14 +4,16 @@ import { PublicPage } from "~/components/public-page"
 import { LEGAL_NAME, PRIVACY_CONTACT, SUPPORT_CONTACT } from "~/lib/company"
 import { env } from "~/lib/env.server"
 import { getInstance } from "~/lib/i18n.server"
+import { appSignInQuery } from "~/lib/oauth.server"
 import { getSession } from "~/lib/session.server"
 import type { Route } from "./+types/support"
 
 /** GET /support — public, like the policies: the App Store's support link points here. */
-export async function loader({ context }: Route.LoaderArgs) {
+export async function loader({ context, request }: Route.LoaderArgs) {
 	const t = getInstance(context).getFixedT(null, "common")
 	return {
 		loggedIn: Boolean(getSession(context)),
+		appQuery: await appSignInQuery(new URL(request.url)),
 		title: t("support.title"),
 		description: t("support.description"),
 		url: `${env.APP_URL}/support`,
@@ -32,7 +34,7 @@ const link = "text-link underline underline-offset-2"
 export default function Support({ loaderData }: Route.ComponentProps) {
 	const { t } = useTranslation()
 	return (
-		<PublicPage loggedIn={loaderData.loggedIn}>
+		<PublicPage loggedIn={loaderData.loggedIn} appQuery={loaderData.appQuery}>
 			<main className="mx-auto w-full max-w-2xl pt-6 pb-20 sm:pt-10">
 				<h1 className="font-serif text-4xl tracking-tight sm:text-5xl">{t("support.title")}</h1>
 				<p className="mt-8 text-lg leading-relaxed">{t("support.description")}</p>
@@ -57,7 +59,10 @@ export default function Support({ loaderData }: Route.ComponentProps) {
 						<li>{t("support.account.export")}</li>
 						<li>{t("support.account.delete")}</li>
 						<li>
-							<Link to="/privacy" className={link}>
+							<Link
+								to={loaderData.appQuery ? `/privacy?${loaderData.appQuery}` : "/privacy"}
+								className={link}
+							>
 								{t("support.account.privacy")}
 							</Link>{" "}
 							{t("support.account.privacyRequest")}{" "}

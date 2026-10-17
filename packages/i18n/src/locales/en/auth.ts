@@ -170,6 +170,15 @@ export default {
 			"You signed in more than 30 minutes ago. Log in again to connect a new app: a session left open elsewhere cannot connect one.",
 		signInAgainButton: "Log in again",
 		optionalHint: "Clear the checkbox to allow reading only.",
+		verify: {
+			title: "Verify your email to continue",
+			description:
+				"An app can connect only to an account with a verified email, and {{email}} is not verified yet.",
+			instructions:
+				"Open the verification link from your email, then come back here and choose Continue. You stay signed in.",
+			pending: "Your email is not verified yet. Open the link in the email, then choose Continue.",
+			continue: "Continue",
+		},
 		identity: {
 			name: "Confirm it is you and see your name",
 			email: "Confirm it is you and see your email address",
