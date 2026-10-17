@@ -316,12 +316,17 @@ body {
 	padding-bottom: calc(max(env(safe-area-inset-bottom), 1rem) + 4.25rem);
 }
 
-/* SuppyHQ's support button (components/support-widget.tsx) stays on <body> once loaded: it shows
-   only on pages that ask for it, and from tablet width, clear of the phone's bottom sheets. */
+/* The support button and SuppyHQ's panel (components/support-widget.tsx) stay on <body> once
+   loaded: they show only on pages that ask for them, and from tablet width, clear of the phone's
+   bottom sheets. */
+.support-launcher,
 [data-suppyhq-host] {
 	display: none !important;
 }
 @media (min-width: 48rem) {
+	:root[data-support-widget] .support-launcher {
+		display: flex !important;
+	}
 	:root[data-support-widget] [data-suppyhq-host] {
 		display: block !important;
 	}
