@@ -15,6 +15,7 @@ type Operation = {
 	parameters?: { name: string; in: string; required: boolean; schema: Record<string, unknown> }[]
 	responses: Record<string, { content?: Record<string, { schema: unknown }> }>
 	"x-scope": string
+	"x-clients"?: string[]
 }
 
 function operations(): Operation[] {
@@ -38,6 +39,16 @@ describe("openapi document", () => {
 			expect(op["x-scope"]).toBe(endpoint.scope)
 			expect(op.security).toEqual(endpoint.scope === "none" ? [] : [{ bearerAuth: [] }])
 		}
+	})
+
+	it("says which operations only the iPhone app may call, and how others are refused", () => {
+		const byId = (id: string) => operations().find((o) => o.operationId === id)
+		for (const id of ["ai.ask", "ai.brief", "ai.delete"]) {
+			expect(byId(id)?.["x-clients"]).toEqual(["klipstack-mobile"])
+			expect(JSON.stringify(byId(id)?.responses["403"])).toContain("forbidden")
+		}
+		// The account's standing against its cap is for every client.
+		expect(byId("ai.get")?.["x-clients"]).toBeUndefined()
 	})
 
 	it("describes errors with the shared Error schema, and hoists registered schemas", () => {

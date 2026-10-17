@@ -1,11 +1,13 @@
 import { randomUUID } from "node:crypto"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { db, eq, sql, user } from "@klipstack/db"
+import { LIBRARY_READ_SCOPE, LIBRARY_WRITE_SCOPE } from "@klipstack/api-contract/auth"
+import { db, eq, newId, oauthClient, oauthConsent, oauthGrants, sql, user } from "@klipstack/db"
 import { QUEUES } from "@klipstack/queue"
 import { createClient } from "@klipstack/sdk"
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client"
-import { env } from "~/lib/env.server"
+import { API_RESOURCE, auth } from "~/lib/auth.server"
+import { env, selfUrl } from "~/lib/env.server"
 import { action as apiAction, loader as apiLoader } from "~/routes/api.v1"
 import { action as mcpAction, loader as mcpLoader } from "~/routes/mcp"
 import { createApiKey } from "~/services/api-keys.server"
@@ -76,6 +78,65 @@ export function apiUsers(tag: string) {
 		for (const id of ids) await db.delete(user).where(eq(user.id, id))
 	}
 	return { create, cleanup }
+}
+
+/**
+ * An access token for the API as `clientId` gets one when the user signs in to it: their consent
+ * and grant rows, and a token signed with our real key. A client that is not registered (not one
+ * of ours) becomes an app the user registered, deleted with them.
+ */
+export async function oauthToken(
+	userId: string,
+	clientId: string,
+	scopes: string[] = [LIBRARY_READ_SCOPE, LIBRARY_WRITE_SCOPE],
+) {
+	serveKeySet()
+	await db
+		.insert(oauthClient)
+		.values({
+			id: newId(),
+			clientId,
+			userId,
+			name: "Someone's app",
+			redirectUris: ["https://app.example.com/callback"],
+		})
+		.onConflictDoNothing({ target: oauthClient.clientId })
+	await db.insert(oauthConsent).values({ id: newId(), clientId, userId, scopes })
+	const generation = newId()
+	await db
+		.insert(oauthGrants)
+		.values({ userId, clientId, generation })
+		.onConflictDoUpdate({ target: [oauthGrants.userId, oauthGrants.clientId], set: { generation } })
+	const { token } = await auth.api.signJWT({
+		body: {
+			payload: {
+				sub: userId,
+				iss: `${env.APP_URL}/api/auth`,
+				aud: API_RESOURCE,
+				azp: clientId,
+				scope: scopes.join(" "),
+				klip_grant: generation,
+			},
+		},
+	})
+	return token
+}
+
+/**
+ * The token verifier fetches our key set from the app's own address, where no server listens in a
+ * test: this answers that one URL from the auth handler in-process, so tokens are checked against
+ * the real keys. Every other fetch goes out as before.
+ */
+let keySetServed = false
+function serveKeySet() {
+	if (keySetServed) return
+	keySetServed = true
+	const jwksUrl = `${selfUrl}/api/auth/jwks`
+	const original = globalThis.fetch
+	globalThis.fetch = (input, init) => {
+		const url = input instanceof Request ? input.url : String(input)
+		return url === jwksUrl ? auth.handler(new Request(url, init)) : original(input, init)
+	}
 }
 
 const PAGES = join(import.meta.dirname, "../../../../packages/extract/test/fixtures/pages")

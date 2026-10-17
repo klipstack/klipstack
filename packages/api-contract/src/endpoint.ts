@@ -34,6 +34,11 @@ export interface EndpointShape {
 	/** Relative to /api/v1; path params as `:name`. */
 	path: `/${string}`
 	scope: Scope
+	/**
+	 * Only OAuth tokens issued to one of these clients may call it; API keys and other clients get
+	 * `403 forbidden`. A product rule (who spends the account's AI), not a scope: no consent grants it.
+	 */
+	clients?: readonly string[]
 	params?: z.ZodObject
 	query?: z.ZodObject
 	body?: z.ZodType

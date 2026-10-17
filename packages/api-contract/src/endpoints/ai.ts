@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { IN_APP_AI_CLIENTS } from "../auth"
 import { defineEndpoint, empty, events, json } from "../endpoint"
 import { NUL_REFUSED, QUESTION_MAX, QUOTE_MAX, withoutNul } from "../names"
 import { Id, Time } from "../schemas"
@@ -7,7 +8,9 @@ import { Id, Time } from "../schemas"
  * Questions about an article and its passages, answered by an AI model, and the article's brief.
  * Only for accounts with AI answers turned on, on a server with a provider set up (`GET /ai`).
  * Every question, follow-up, retry and new brief counts against the account's monthly cap,
- * whatever client sends it; answers stream as server-sent events.
+ * whatever client sends it; answers stream as server-sent events. All but `GET /ai` are for our
+ * own apps with in-app AI only (`IN_APP_AI_CLIENTS`): API keys, the CLI and other apps get
+ * `403 forbidden`.
  */
 
 const params = z.object({ id: Id })
@@ -158,6 +161,7 @@ export const articleAi = defineEndpoint({
 	method: "GET",
 	path: "/articles/:id/ai",
 	scope: "read",
+	clients: IN_APP_AI_CLIENTS,
 	summary:
 		"An article's questions and answers, in reading order (its chat among them), and its brief. Threads asked of an older version are moved to the current text.",
 	params,
@@ -170,6 +174,7 @@ export const askAi = defineEndpoint({
 	method: "POST",
 	path: "/articles/:id/ai/threads",
 	scope: "write",
+	clients: IN_APP_AI_CLIENTS,
 	summary:
 		"Explains, defines or answers a question about a passage, found by its place (`start`, `end`) or its text and context. Answers as server-sent events.",
 	params,
@@ -198,6 +203,7 @@ export const chatAi = defineEndpoint({
 	method: "POST",
 	path: "/articles/:id/ai/chat",
 	scope: "write",
+	clients: IN_APP_AI_CLIENTS,
 	summary:
 		"Asks about the whole article, in its one chat: the first question starts it, later ones continue it. Answers as server-sent events.",
 	params,
@@ -211,6 +217,7 @@ export const followUpAi = defineEndpoint({
 	method: "POST",
 	path: "/ai/threads/:id/follow-up",
 	scope: "write",
+	clients: IN_APP_AI_CLIENTS,
 	summary: "Asks more in a thread; the answer reads the whole thread. Server-sent events.",
 	params,
 	body: z.object({ question: Question, language: Language }),
@@ -224,6 +231,7 @@ export const retryAi = defineEndpoint({
 	method: "POST",
 	path: "/ai/threads/:id/retry",
 	scope: "write",
+	clients: IN_APP_AI_CLIENTS,
 	summary:
 		"Answers the thread's last question again, in place of its answer (failed or not). Server-sent events.",
 	params,
@@ -237,6 +245,7 @@ export const deleteAiThread = defineEndpoint({
 	method: "DELETE",
 	path: "/ai/threads/:id",
 	scope: "write",
+	clients: IN_APP_AI_CLIENTS,
 	summary: "Deletes a thread and its answers. POST /ai/threads/{id}/restore undoes it.",
 	params,
 	response: empty(),
@@ -248,6 +257,7 @@ export const restoreAiThread = defineEndpoint({
 	method: "POST",
 	path: "/ai/threads/:id/restore",
 	scope: "write",
+	clients: IN_APP_AI_CLIENTS,
 	summary:
 		"Undoes DELETE /ai/threads/{id} while its article is in the library; a chat, only while the article has no newer one.",
 	params,
@@ -260,6 +270,7 @@ export const briefAi = defineEndpoint({
 	method: "POST",
 	path: "/articles/:id/ai/brief",
 	scope: "write",
+	clients: IN_APP_AI_CLIENTS,
 	summary:
 		"The article's brief: the one kept for its text, at no cost, or a new one, written as it streams and counted like a question. Server-sent events.",
 	params,

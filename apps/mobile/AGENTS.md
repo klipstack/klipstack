@@ -89,6 +89,10 @@ Restart Metro with `pnpm start --clear` after changing the key: without `--clear
 the old one. Setting `EXPO_PUBLIC_API_TOKEN` on the command line instead of in `.env.local` does
 not reach the app.
 
+The reader's AI (the brief, Explain, Define, Ask, the chat) answers only tokens the server issued
+to this app (`IN_APP_AI_CLIENTS` in `packages/api-contract/src/auth.ts`), not API keys: signed in
+with a key, the reader shows no AI. To try it, sign in with OAuth.
+
 ## Testing on a throwaway account
 
 Don't change the demo account (`reader@demo.klipstack.test`) to test: other agents and `pnpm
