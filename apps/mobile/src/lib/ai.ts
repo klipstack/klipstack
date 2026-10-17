@@ -97,3 +97,13 @@ export function written(
 		? { text: so.text + event.text, citations: so.citations }
 		: { text: so.text, citations: [...so.citations, event.citation] }
 }
+
+/**
+ * What the app says before the first question, and in Account: what is sent, to whom, and when.
+ * As the privacy policy's "Questions about what you read".
+ */
+export const AI_CONSENT = {
+	title: "Ask Anthropic's AI?",
+	sent: "To answer, Klipstack sends Anthropic the article's text, the passage you chose and your question. Anthropic uses them only to answer, and doesn't train its models on them.",
+	when: "Nothing is sent until you ask. Your choice holds on all your devices, and you can change it in Account.",
+} as const

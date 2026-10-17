@@ -7,7 +7,10 @@ import {
 	type AiThread,
 	type AiThreadAction,
 	db,
+	eq,
+	sql,
 	type Tx,
+	user as userTable,
 } from "@klipstack/db"
 import { safeFields } from "@klipstack/log"
 import { z } from "zod"
@@ -114,6 +117,28 @@ export async function mayUseAi(userId: string) {
 	if (!(await hasFeature(userId, "ai")))
 		throw new AppError("forbidden", "AI answers are not turned on for this account.")
 	if (!ai.available) throw new AppError("unavailable", "AI answers are not set up on this server.")
+}
+
+/**
+ * Records whether the account agrees that its questions and the article's text are sent to the AI
+ * provider, as our apps ask before the first one. Agreeing again keeps the first time; taking it
+ * back clears it, and the apps ask again.
+ */
+export async function setAiConsent(
+	userId: string,
+	input: { consented: boolean },
+): Promise<{ consentedAt: string | null }> {
+	const { consented } = parseInput(z.object({ consented: z.boolean() }), input)
+	const prefs = consented
+		? sql`${userTable.prefs} || jsonb_build_object('aiConsentAt', coalesce(${userTable.prefs}->>'aiConsentAt', ${new Date().toISOString()}::text))`
+		: sql`${userTable.prefs} - 'aiConsentAt'`
+	const [row] = await db
+		.update(userTable)
+		.set({ prefs })
+		.where(eq(userTable.id, userId))
+		.returning({ at: sql<string | null>`${userTable.prefs}->>'aiConsentAt'` })
+	if (!row) throw notFound("No such account.")
+	return { consentedAt: row.at ?? null }
 }
 
 /** The checks every question goes through, in order: the feature, the server, the pace. */

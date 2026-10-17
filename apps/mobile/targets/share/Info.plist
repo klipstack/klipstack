@@ -4,7 +4,8 @@
 <dict>
 	<key>NSAppTransportSecurity</key>
 	<dict>
-		<!-- The local dev server (http://localhost:5180) from the simulator. -->
+		<!-- The local dev server (http://localhost:5180) from the simulator. Development builds only:
+		     plugins/with-extension-settings.js removes it from Release builds. -->
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>

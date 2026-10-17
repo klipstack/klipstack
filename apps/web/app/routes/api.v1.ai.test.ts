@@ -72,7 +72,11 @@ beforeAll(async () => {
 describe("the reader's AI in the API", () => {
 	it("says whether the account can ask, and where it stands against its cap", async () => {
 		const off = await appUser("No AI")
-		expect(await off.app.ai.status()).toEqual({ enabled: false, allowance: null })
+		expect(await off.app.ai.status()).toEqual({
+			enabled: false,
+			allowance: null,
+			consentedAt: null,
+		})
 		const theirs = await captured(off.id, FIXTURES.joel)
 		const error = await errorOf(
 			off.app.ai.ask(theirs, { action: "explain", exact: "Joel", start: 0, end: 4 }),
@@ -129,6 +133,37 @@ describe("the reader's AI in the API", () => {
 		// Nothing was deleted either.
 		const { threads } = await me.app.ai.article(articleId)
 		expect(threads.map((t) => t.id)).toContain(threadId)
+	})
+
+	it("keeps the consent to send questions on the account until taken back", async () => {
+		const asker = await appUser("Consents")
+		const phone = asker.app
+		expect((await phone.ai.status()).consentedAt).toBeNull()
+
+		const { consentedAt } = await phone.ai.consent(true)
+		expect(Date.now() - Date.parse(consentedAt!)).toBeLessThan(60_000)
+		expect((await phone.ai.status()).consentedAt).toBe(consentedAt)
+		// Agreeing again keeps the first time.
+		await new Promise((resolve) => setTimeout(resolve, 5))
+		expect((await phone.ai.consent(true)).consentedAt).toBe(consentedAt)
+
+		// Only our apps record it; anyone may read it.
+		for (const token of [asker.key, await oauthToken(asker.id, CLI_CLIENT_ID)]) {
+			const response = await request("/api/v1/ai/consent", {
+				method: "PUT",
+				token,
+				body: JSON.stringify({ consented: false }),
+				headers: { "content-type": "application/json" },
+			})
+			expect(response.status).toBe(403)
+		}
+		expect((await phone.ai.status()).consentedAt).toBe(consentedAt)
+
+		expect(await phone.ai.consent(false)).toEqual({ consentedAt: null })
+		expect((await phone.ai.status()).consentedAt).toBeNull()
+		// Taken back and given again: a new time.
+		const again = (await phone.ai.consent(true)).consentedAt
+		expect(Date.parse(again!)).toBeGreaterThan(Date.parse(consentedAt!))
 	})
 
 	it("streams a cited answer about a passage, keeps it, and counts it", async () => {

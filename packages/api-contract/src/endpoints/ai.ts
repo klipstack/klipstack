@@ -160,8 +160,27 @@ export const getAi = defineEndpoint({
 			enabled: z.boolean(),
 			/** Null when not enabled. */
 			allowance: AiAllowance.nullable(),
+			/**
+			 * When the account agreed, in one of our apps, that its questions and the article's text go
+			 * to the AI provider (PUT /ai/consent); null when it has not, or took it back. The app asks
+			 * before the first question while it is null.
+			 */
+			consentedAt: Time.nullable(),
 		}),
 	),
+	errors: [],
+})
+
+export const setAiConsent = defineEndpoint({
+	id: "ai.consent",
+	method: "PUT",
+	path: "/ai/consent",
+	scope: "write",
+	clients: inAppAi,
+	summary:
+		"Records whether the account agrees that its questions and the article's text are sent to the AI provider (Anthropic) to answer them, for every device. Agreeing again keeps the first time.",
+	body: z.object({ consented: z.boolean() }),
+	response: json(z.object({ consentedAt: Time.nullable() })),
 	errors: [],
 })
 

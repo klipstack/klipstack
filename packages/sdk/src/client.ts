@@ -169,6 +169,11 @@ export function createClient(options: ClientOptions) {
 	const ai = {
 		/** Whether the account can ask, and this month's questions used against its cap. */
 		status: () => call("ai.get"),
+		/**
+		 * Whether the account agrees that its questions and the article's text go to the AI provider,
+		 * for every device (`consentedAt` in `status`).
+		 */
+		consent: (consented: boolean) => call("ai.consent", { body: { consented } }),
 		/** The article's threads with their turns (its chat among them), and its brief. */
 		article: (articleId: string) => call("ai.article", { params: { id: articleId } }),
 		/** Explain, Define or Ask about a passage; `start` and `end` from `articles.html`'s text. */
@@ -394,6 +399,7 @@ export const FACADE: Record<EndpointId, string> = {
 	"export.get": "export",
 	"openapi.get": "openapi",
 	"ai.get": "ai.status",
+	"ai.consent": "ai.consent",
 	"ai.article": "ai.article",
 	"ai.ask": "ai.ask",
 	"ai.chat": "ai.chat",

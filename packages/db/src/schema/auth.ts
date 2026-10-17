@@ -62,6 +62,11 @@ export interface UserPrefs {
 	 */
 	topicsInvitationEndedAt?: string | null
 	/**
+	 * When the account agreed, in one of our apps, that its questions and the article's text go to
+	 * the AI provider (ISO); null or missing: not, or taken back. Only the server writes it.
+	 */
+	aiConsentAt?: string | null
+	/**
 	 * Public editions link to the author's previous and next ones. Off by default: each edition was
 	 * published as unlisted on its own.
 	 */

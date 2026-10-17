@@ -31,6 +31,7 @@ import type {
 	WebViewMessageEvent,
 } from "react-native-webview/lib/WebViewTypes"
 import { AiCard } from "@/components/ai-card"
+import { AiConsentSheet } from "@/components/ai-consent-sheet"
 import { AppearanceSheet } from "@/components/appearance-sheet"
 import { askTitle } from "@/components/article-actions"
 import { BriefSheet } from "@/components/brief-sheet"
@@ -189,6 +190,12 @@ export default function Reader() {
 	const chatCard = aiCards.cards.find((c) => c.action === "chat")
 	const [chatOpen, setChatOpen] = useState(false)
 	const [briefOpen, setBriefOpen] = useState(false)
+	// The sheet that asks before the first question goes to the AI, and what it was asked for.
+	const [consentOpen, setConsentOpen] = useState(false)
+	const [consenting, setConsenting] = useState(false)
+	const [consentFailed, setConsentFailed] = useState(false)
+	const afterConsent = useRef<(() => void) | null>(null)
+	const consentGiven = useRef(false)
 	// A citation followed from a sheet shows once the sheet is gone.
 	const citeAfterSheet = useRef<AiCitation | null>(null)
 	// Reading aloud: its language is guessed from the text when the article has none.
@@ -797,8 +804,34 @@ export default function Reader() {
 			return void showToast({ message: "Select the passage again." })
 		web.current?.injectJavaScript("window.klipClearSelection && window.klipClearSelection(); true;")
 		setEditing(null)
-		aiCards.start({ ...picked, versionId: version }, action)
-		reading.current?.engage()
+		withConsent(() => {
+			aiCards.start({ ...picked, versionId: version }, action)
+			reading.current?.engage()
+		})
+	}
+
+	/**
+	 * Runs what sends a question to the AI once the account agreed to it: at once if it has, after
+	 * the consent sheet's Continue if not (once the sheet is gone, so a sheet can follow it).
+	 */
+	function withConsent(run: () => void) {
+		if (ai.consented) return run()
+		afterConsent.current = run
+		setConsentFailed(false)
+		setConsentOpen(true)
+	}
+
+	async function giveConsent() {
+		setConsenting(true)
+		try {
+			await ai.consent()
+			consentGiven.current = true
+			setConsentOpen(false)
+		} catch {
+			setConsentFailed(true)
+		} finally {
+			setConsenting(false)
+		}
 	}
 
 	/** Gone at once; the toast's Undo brings it back, as a highlight's does. */
@@ -822,8 +855,10 @@ export default function Reader() {
 
 	/** The brief: the kept one, or, asked for here, written now. */
 	function openBrief() {
-		setBriefOpen(true)
-		if (!ai.brief.brief && !ai.brief.writing) void ai.brief.make()
+		withConsent(() => {
+			setBriefOpen(true)
+			if (!ai.brief.brief && !ai.brief.writing) void ai.brief.make()
+		})
 	}
 
 	/** Applies a change to one highlight now, and undoes it if the API refuses it. */
@@ -988,7 +1023,7 @@ export default function Reader() {
 							</Stack.Toolbar.MenuAction>
 							<Stack.Toolbar.MenuAction
 								icon="bubble.left.and.text.bubble.right"
-								onPress={() => setChatOpen(true)}
+								onPress={() => withConsent(() => setChatOpen(true))}
 							>
 								Chat About This Article
 							</Stack.Toolbar.MenuAction>
@@ -1425,14 +1460,31 @@ export default function Reader() {
 				colors={colors}
 			/>
 			{ai.enabled ? (
+				<AiConsentSheet
+					visible={consentOpen}
+					busy={consenting}
+					failed={consentFailed}
+					privacyUrl={`${apiUrl}/privacy`}
+					onContinue={() => void giveConsent()}
+					onClose={() => setConsentOpen(false)}
+					onDismiss={() => {
+						const run = afterConsent.current
+						afterConsent.current = null
+						if (consentGiven.current && run) run()
+						consentGiven.current = false
+					}}
+					colors={colors}
+				/>
+			) : null}
+			{ai.enabled ? (
 				<AiCard
 					card={openCard}
 					written={aiCards.written}
 					allowance={ai.allowance}
 					canCite={openCard?.versionId === versionId.current}
 					onClose={aiCards.close}
-					onSend={(question) => openCard && aiCards.send(openCard.id, question)}
-					onRetry={() => openCard && aiCards.retry(openCard.id)}
+					onSend={(question) => openCard && withConsent(() => aiCards.send(openCard.id, question))}
+					onRetry={() => openCard && withConsent(() => aiCards.retry(openCard.id))}
 					onDelete={() => openCard && deleteAnswer(openCard.id)}
 					onCopy={(answer) => {
 						void copyText(answer)

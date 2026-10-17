@@ -8,6 +8,7 @@ import type {
 	getAi,
 	restoreAiThread,
 	retryAi,
+	setAiConsent as setAiConsentEndpoint,
 } from "@klipstack/api-contract"
 import {
 	type AskOptions,
@@ -19,6 +20,7 @@ import {
 	mayUseAi,
 	restoreThread,
 	retryAnswer,
+	setAiConsent,
 } from "~/commands/ai.server"
 import { NO_ARTICLE } from "~/commands/articles.server"
 import { answerEvents, briefEvents } from "~/lib/ai-events.server"
@@ -26,6 +28,7 @@ import { briefView, messageView, threadView } from "~/lib/ai-threads"
 import { ai } from "~/lib/ai.server"
 import { hasFeature } from "~/lib/features.server"
 import { aiAllowance } from "~/lib/limits.server"
+import { aiConsentedAt } from "~/services/account.server"
 import { getBrief, getThread, listDocumentThreads } from "~/services/ai-threads.server"
 import { getDocument } from "~/services/documents.server"
 import { notFound } from "../errors.server"
@@ -45,9 +48,13 @@ const options = (language: "en" | "es" | undefined): AskOptions => ({ language: 
 const enabled = async (userId: string) => ai.available && (await hasFeature(userId, "ai"))
 
 export const status: Handler<typeof getAi> = async ({ userId }) => {
-	if (!(await enabled(userId))) return { enabled: false, allowance: null }
-	return { enabled: true, allowance: await aiAllowance(userId) }
+	const consentedAt = await aiConsentedAt(userId)
+	if (!(await enabled(userId))) return { enabled: false, allowance: null, consentedAt }
+	return { enabled: true, allowance: await aiAllowance(userId), consentedAt }
 }
+
+export const consent: Handler<typeof setAiConsentEndpoint> = async ({ userId, body }) =>
+	setAiConsent(userId, body)
 
 export const article: Handler<typeof articleAi> = async ({ userId, params }) => {
 	await mayUseAi(userId)
