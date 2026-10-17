@@ -105,9 +105,9 @@ It copies the demo account's newest ready articles, unread and in the Inbox, wit
 of the images, so deleting it never touches the demo's. It refuses any database but a local one,
 and `delete` only touches `@throwaway.klipstack.test` accounts it made. Put the key in `.env.local`
 as above, restart Metro with `--clear`, and put your own key back when done. Delete the account
-before you finish. Images are copied from `STORAGE_FS_ROOT`, one per checkout, so a new worktree
-has none: the articles come without them unless you point it at the checkout that seeded the
-demo.
+before you finish. Images are copied within `STORAGE_FS_ROOT`, one per checkout, so in a new worktree
+the articles come without them. To have them, set `STORAGE_FS_ROOT` to the storage of the checkout
+that seeded the demo for both the script and `pnpm dev`: the server reads images from its own root.
 
 ## Tapping and swiping in the simulator
 

@@ -13,7 +13,7 @@ describe("throwaway accounts", () => {
 		)
 	})
 	it("refuses a name that would change the address", () => {
-		expect(() => newAccount("me@example.com")).toThrow()
-		expect(() => newAccount("Phone")).toThrow()
+		expect(() => newAccount("me@example.com")).toThrow(/--name/)
+		expect(() => newAccount("Phone")).toThrow(/--name/)
 	})
 })

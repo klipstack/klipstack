@@ -52,7 +52,7 @@ const { deleteAccount } = await import("../app/services/account.server")
 async function create() {
 	const count = Number(values.articles)
 	if (!Number.isInteger(count) || count < 0) throw new Error("--articles takes a whole number")
-	const features = values.feature.map((feature) => {
+	const features = [...new Set(values.feature)].map((feature) => {
 		if (!isFeatureFlag(feature)) throw new Error(`Unknown feature "${feature}"`)
 		return feature
 	})
@@ -102,66 +102,72 @@ async function create() {
 	}
 
 	const password = await hashPassword(PASSWORD)
-	await db.transaction(async (tx) => {
-		await tx.insert(user).values({ id, email, name: "Throwaway", emailVerified: true })
-		await tx.insert(account).values({
-			id: randomUUID(),
-			accountId: id,
-			userId: id,
-			providerId: "credential",
-			password,
-		})
-		if (features.length)
-			await tx.insert(userFeatures).values(features.map((feature) => ({ userId: id, feature })))
-		if (newAssets.length) await tx.insert(assets).values(newAssets)
-		for (const { doc, version } of sources) {
-			const documentId = randomUUID()
-			const versionId = randomUUID()
-			const lead = doc.leadImageAssetId ? assetMap.get(doc.leadImageAssetId) : undefined
-			// Unread, in the inbox, without notes: a fresh library with the demo's articles.
-			await tx.insert(documents).values({
-				id: documentId,
+	// Without the account row, `delete` can't find the copied files: remove them if this fails.
+	await db
+		.transaction(async (tx) => {
+			await tx.insert(user).values({ id, email, name: "Throwaway", emailVerified: true })
+			await tx.insert(account).values({
+				id: randomUUID(),
+				accountId: id,
 				userId: id,
-				type: doc.type,
-				sourceUrl: doc.sourceUrl,
-				fetchUrl: doc.fetchUrl,
-				canonicalUrl: doc.canonicalUrl,
-				urlHash: doc.urlHash,
-				title: doc.title,
-				author: doc.author,
-				siteName: doc.siteName,
-				description: doc.description,
-				language: doc.language,
-				wordCount: doc.wordCount,
-				readingMinutes: doc.readingMinutes,
-				publishedAt: doc.publishedAt,
-				leadImageAssetId: lead ?? null,
-				leadImageUrl: lead ? null : doc.leadImageUrl,
-				status: "ready",
-				captureSource: doc.captureSource,
-				search: doc.search,
-				createdAt: doc.createdAt,
+				providerId: "credential",
+				password,
 			})
-			await tx.insert(documentVersions).values({
-				id: versionId,
-				documentId,
-				version: 1,
-				html: version.html.replace(
-					ASSET_IN_HTML,
-					(match, assetId: string) => `/assets/${assetMap.get(assetId) ?? assetId}`,
-				),
-				text: version.text,
-				textHash: version.textHash,
-				extractor: version.extractor,
-				extractorVersion: version.extractorVersion,
-				imagesDone: true,
-			})
-			await tx
-				.update(documents)
-				.set({ currentVersionId: versionId })
-				.where(eq(documents.id, documentId))
-		}
-	})
+			if (features.length)
+				await tx.insert(userFeatures).values(features.map((feature) => ({ userId: id, feature })))
+			if (newAssets.length) await tx.insert(assets).values(newAssets)
+			for (const { doc, version } of sources) {
+				const documentId = randomUUID()
+				const versionId = randomUUID()
+				const lead = doc.leadImageAssetId ? assetMap.get(doc.leadImageAssetId) : undefined
+				// Unread, in the inbox, without notes: a fresh library with the demo's articles.
+				await tx.insert(documents).values({
+					id: documentId,
+					userId: id,
+					type: doc.type,
+					sourceUrl: doc.sourceUrl,
+					fetchUrl: doc.fetchUrl,
+					canonicalUrl: doc.canonicalUrl,
+					urlHash: doc.urlHash,
+					title: doc.title,
+					author: doc.author,
+					siteName: doc.siteName,
+					description: doc.description,
+					language: doc.language,
+					wordCount: doc.wordCount,
+					readingMinutes: doc.readingMinutes,
+					publishedAt: doc.publishedAt,
+					leadImageAssetId: lead ?? null,
+					leadImageUrl: lead ? null : doc.leadImageUrl,
+					status: "ready",
+					captureSource: doc.captureSource,
+					search: doc.search,
+					createdAt: doc.createdAt,
+				})
+				await tx.insert(documentVersions).values({
+					id: versionId,
+					documentId,
+					version: 1,
+					html: version.html.replace(
+						ASSET_IN_HTML,
+						(match, assetId: string) => `/assets/${assetMap.get(assetId) ?? assetId}`,
+					),
+					text: version.text,
+					textHash: version.textHash,
+					extractor: version.extractor,
+					extractorVersion: version.extractorVersion,
+					imagesDone: true,
+				})
+				await tx
+					.update(documents)
+					.set({ currentVersionId: versionId })
+					.where(eq(documents.id, documentId))
+			}
+		})
+		.catch(async (error: unknown) => {
+			await Promise.allSettled(newAssets.map((asset) => storage.delete(asset.storageKey)))
+			throw error
+		})
 	const key = await createApiKey(id, "dev-account")
 	console.log(`email     ${email}`)
 	console.log(`password  ${PASSWORD}`)
