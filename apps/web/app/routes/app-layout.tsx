@@ -55,8 +55,9 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 		isAdmin: looksLikeAdmin(user),
 		// Feeds turned on in Settings → Features: their link, and the dot for new posts.
 		feeds,
-		// Contact support, on a server with a SuppyHQ account. Not for admins: they run the support.
-		support: env.SUPPYHQ_TENANT && !looksLikeAdmin(user) ? { tenant: env.SUPPYHQ_TENANT } : null,
+		// Contact support, on a server with a SuppyHQ account. Not for admins, verified or not: they run
+		// the support.
+		support: env.SUPPYHQ_TENANT && user.role !== "admin" ? { tenant: env.SUPPYHQ_TENANT } : null,
 		feedNew,
 		// Editions turned on in Settings → Features: their link, and the reader's ways to them.
 		editions,
@@ -128,6 +129,7 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
 			editionDue={data?.editionDue ?? false}
 			topics={data?.topics ?? null}
 			savedSearches={data?.savedSearches ?? []}
+			support={data?.support ?? null}
 		>
 			<ErrorContent error={error} />
 		</AppShell>
