@@ -10,6 +10,7 @@ export * from "./endpoints/meta"
 export * from "./endpoints/notebook"
 export * from "./endpoints/review"
 export * from "./endpoints/shares"
+export * from "./endpoints/starter"
 export * from "./endpoints/topics"
 export * from "./endpoints/writes"
 export * from "./enums"
@@ -70,6 +71,7 @@ import {
 	unskipNote,
 } from "./endpoints/notebook"
 import { getReviewSuggestion, listReview, snoozeReview } from "./endpoints/review"
+import { getStarterOffer, listStarterTexts, saveStarterText } from "./endpoints/starter"
 import {
 	getHighlightShare,
 	highlightImage,
@@ -178,6 +180,9 @@ export const endpoints = {
 	"review.list": listReview,
 	"review.suggested": getReviewSuggestion,
 	"review.snooze": snoozeReview,
+	"starterTexts.list": listStarterTexts,
+	"starterTexts.offer": getStarterOffer,
+	"starterTexts.save": saveStarterText,
 	"feed.get": getFeed,
 	"feed.saveItems": saveFeedItems,
 	"feed.dismissItems": dismissFeedItems,

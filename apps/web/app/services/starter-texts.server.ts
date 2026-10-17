@@ -1,5 +1,6 @@
-import { and, db, documents, eq, inArray, isNull, notInArray } from "@klipstack/db"
+import { and, db, documents, eq, inArray, isNull, notInArray, user } from "@klipstack/db"
 import {
+	isStarterLanguage,
 	STARTER_TOPICS,
 	type StarterLanguage,
 	type StarterText,
@@ -89,4 +90,39 @@ export async function offeredStarterTexts(userId: string, language: StarterLangu
 	}
 	const offered = experienced ? null : unread.find((item) => item.kind === "guide")
 	return { guide: offered ?? null, texts }
+}
+
+/** The reader's language among the starter texts': their account's, else English. */
+export async function readerStarterLanguage(userId: string): Promise<StarterLanguage> {
+	const [row] = await db
+		.select({ locale: user.locale })
+		.from(user)
+		.where(eq(user.id, userId))
+		.limit(1)
+	return isStarterLanguage(row?.locale) ? row.locale : "en"
+}
+
+/**
+ * Every starter text, as the Discover page shows them: the guide in the reader's `language` (it is
+ * about the app, whichever texts are shown), and a shelf per topic of the texts in `shown`. The
+ * guide comes first for a reader new to Klipstack, last once they have it or know their way
+ * around.
+ */
+export async function starterShelves(
+	userId: string,
+	language: StarterLanguage,
+	shown: StarterLanguage,
+) {
+	const [[guide, ...texts], experienced] = await Promise.all([
+		starterItems(userId, [starterGuide(language), ...starterTextsIn(shown)]),
+		experiencedReader(userId),
+	])
+	return {
+		guide: guide!,
+		guideFirst: !guide!.articleId && !experienced,
+		shelves: STARTER_TOPICS.map((topic) => ({
+			topic,
+			items: texts.filter((text) => text.topic === topic),
+		})).filter((shelf) => shelf.items.length),
+	}
 }
