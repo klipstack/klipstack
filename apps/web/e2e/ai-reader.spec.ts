@@ -76,7 +76,17 @@ test("Explain answers in the margin with a citation; follow-ups, reload and dele
 	const draft = page.getByRole("dialog", { name: "Ask AI" })
 	await expect(draft.getByRole("button", { name: "Define" })).toBeVisible()
 	await expect(draft.getByRole("textbox", { name: "Ask about this passage…" })).toBeFocused()
-	await draft.getByRole("button", { name: "Explain" }).click()
+	// Explain goes with the text around the passage, as it did from the toolbar.
+	const [asked] = await Promise.all([
+		page.waitForRequest((r) => r.url().includes("/ai") && r.method() === "POST"),
+		draft.getByRole("button", { name: "Explain" }).click(),
+	])
+	expect(asked.postDataJSON()).toMatchObject({
+		intent: "ask",
+		action: "explain",
+		exact: PASSAGE,
+		suffix: expect.stringMatching(/^, which I'll call/),
+	})
 
 	const card = page.getByTestId("ai-card")
 	await expect(card).toHaveAttribute("data-placement", "margin")
@@ -158,6 +168,9 @@ test("one word can be defined, not highlighted; typing with a selection asks", a
 	await expect(highlight).toBeDisabled()
 	// It looks it: dimmed, not just inert.
 	await expect(highlight).toHaveCSS("opacity", "0.4")
+	await expect(
+		selectionToolbar(page).getByRole("button", { name: "Highlight and add a note" }),
+	).toBeDisabled()
 	await askAi(page, "Define")
 	const card = page.getByTestId("ai-card")
 	await expect(card).toContainText("Answer 1.")
@@ -536,7 +549,7 @@ test("at the cap Ask AI is dimmed, and pressing it says why without asking", asy
 	await shot(page, "dimmed-toolbar")
 	// The reason, not a field for a question, nor an Explain or a Define, that would be refused.
 	await askButton.click()
-	const card = page.getByTestId("ai-card")
+	const card = page.getByRole("dialog", { name: "Ask AI" })
 	await expect(card).toContainText(`It starts over on ${nextMonth()}.`)
 	await expect(card.getByRole("textbox")).toHaveCount(0)
 	await expect(card.getByRole("button", { name: "Explain" })).toHaveCount(0)

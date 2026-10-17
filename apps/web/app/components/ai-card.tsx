@@ -150,9 +150,10 @@ function OpenCard({
 		shownTurns.current = turns
 		if (pinned.current) el.scrollTop = el.scrollHeight
 	}, [turns, length])
-	// Not sent yet: asking AI, how still to choose.
-	const Icon = card.draft ? ASK_AI_ICON : AI_ACTION_ICONS[card.action]
-	const title = card.draft ? t("ai.askAi") : t(`ai.actions.${card.action}`)
+	// Nothing asked yet (a draft, or none left this month): asking AI, how still to choose.
+	const unasked = !!card.draft || (card.action === "ask" && card.messages.length === 0)
+	const Icon = unasked ? ASK_AI_ICON : AI_ACTION_ICONS[card.action]
+	const title = unasked ? t("ai.askAi") : t(`ai.actions.${card.action}`)
 	const busy = !!card.streaming
 	const last = card.messages.at(-1)
 	const lastAnswer = card.messages.findLast((m) => m.role === "assistant" && m.status === "done")
