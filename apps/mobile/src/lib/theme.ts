@@ -19,6 +19,10 @@ const light = {
 	danger: "#c92324",
 	// A starred article's star: the web's favorite color.
 	favorite: "#a17003",
+	// A library's date-stamp ink, on what the reader finished (the web's --k-stamp).
+	stamp: "#6a499b",
+	// A sheet of plain paper in the drawings, whiter than the page (the web's --k-paper).
+	paper: "#fefdfb",
 	// A checked article while selecting: washed in the highlighter's yellow (the web's --hl at 45%
 	// over the page), not a blue tint. Opaque: the row's own grain is the only grain under it.
 	selected: "#fdf1af",
@@ -76,6 +80,8 @@ const dark: typeof light = {
 	accentFg: "#1c140c",
 	danger: "#fa695e",
 	favorite: "#e0ae57",
+	stamp: "#b49ce1",
+	paper: "#c8c4bc",
 	selected: "#43380d",
 	inkLine: "#ffc744",
 	// In dark mode, a raised gray rather than an inverted, near-white bar: the player stays on screen

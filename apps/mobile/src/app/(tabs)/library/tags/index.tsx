@@ -1,7 +1,8 @@
 import { errorDetails, type KlipstackClient, type Tag } from "@klipstack/sdk"
 import { Link, useFocusEffect } from "expo-router"
 import { useCallback, useState } from "react"
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text } from "react-native"
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from "react-native"
+import { EmptyDrawing } from "@/components/empty-drawing"
 import { PlaceGroup, PlaceRow } from "@/components/place-list"
 import { useAuth } from "@/lib/auth"
 import { useColors } from "@/lib/theme"
@@ -35,9 +36,12 @@ export default function Tags() {
 			) : !tags ? (
 				<ActivityIndicator style={styles.loading} color={colors.mutedFg} />
 			) : tags.length === 0 ? (
-				<Text style={[styles.message, { color: colors.mutedFg }]}>
-					No tags yet. Long-press an article and choose Tags to add one.
-				</Text>
+				<View style={styles.empty}>
+					<EmptyDrawing name="tags" />
+					<Text style={[styles.message, { color: colors.mutedFg }]}>
+						No tags yet. Long-press an article and choose Tags to add one.
+					</Text>
+				</View>
 			) : (
 				<PlaceGroup colors={colors}>
 					{tags.map((tag) => (
@@ -157,5 +161,6 @@ function deleteTag(client: KlipstackClient, tag: Tag, done: () => void) {
 const styles = StyleSheet.create({
 	page: { padding: 16 },
 	message: { padding: 16, textAlign: "center", fontSize: 16, lineHeight: 22 },
+	empty: { marginTop: 48, gap: 4 },
 	loading: { paddingVertical: 32 },
 })

@@ -15,6 +15,7 @@ import {
 } from "react-native"
 import { useArticleActions } from "@/components/article-actions"
 import { ArticleList, type CardMenu, useImageHeaders } from "@/components/article-card"
+import { EmptyDrawing, type EmptyDrawingName } from "@/components/empty-drawing"
 import { LayoutButton } from "@/components/list-layout"
 import { listMenuItem, useFilterChoice, useTopicChoice } from "@/components/list-menu"
 import { useMultiSelect } from "@/components/multi-select"
@@ -71,6 +72,14 @@ const PAGE_SIZE = 30
  * A topic's own list (`topic`, from the Topics screen) has no menu: it is that topic's, across the
  * whole library (`view: "all"`).
  */
+/** Each place's drawing when it is empty, as the web's library. */
+const VIEW_DRAWINGS: Partial<Record<LibraryView, EmptyDrawingName>> = {
+	inbox: "bookcase",
+	archive: "box",
+	starred: "stickers",
+	trash: "basket",
+}
+
 export function LibraryList({
 	view,
 	query,
@@ -431,20 +440,26 @@ export function LibraryList({
 					list.loadingMore ? <ActivityIndicator style={styles.more} color={colors.mutedFg} /> : null
 				}
 				ListEmptyComponent={
-					<Text style={[styles.empty, { color: colors.mutedFg }]}>
-						{error ??
-							(items
-								? fixedTopic
-									? empty
-									: filter
-										? "Nothing here right now."
-										: asked === "none"
-											? "No articles without a topic here."
-											: asked
-												? "No articles in this topic here."
-												: empty
-								: "Loading…")}
-					</Text>
+					<View style={styles.emptyPage}>
+						{/* The place itself, empty, or for Starred the stars still unused, as the web's. */}
+						{items && !error && !filter && !asked && !fixedTopic && view && VIEW_DRAWINGS[view] ? (
+							<EmptyDrawing name={VIEW_DRAWINGS[view]} />
+						) : null}
+						<Text style={[styles.empty, { color: colors.mutedFg }]}>
+							{error ??
+								(items
+									? fixedTopic
+										? empty
+										: filter
+											? "Nothing here right now."
+											: asked === "none"
+												? "No articles without a topic here."
+												: asked
+													? "No articles in this topic here."
+													: empty
+									: "Loading…")}
+						</Text>
+					</View>
 				}
 			/>
 			{select.selecting ? (
@@ -518,6 +533,7 @@ function replaced(
 }
 
 const styles = StyleSheet.create({
+	emptyPage: { marginTop: 32 },
 	empty: { padding: 32, textAlign: "center", fontSize: 16 },
 	// In line with the articles: the list has their margin already.
 	banner: { paddingVertical: 10, fontSize: 14 },

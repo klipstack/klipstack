@@ -20,6 +20,8 @@ import {
 import type { ArticleAction } from "@/components/article-actions"
 import { useListLayout } from "@/components/list-layout"
 import { Grain } from "@/components/paper"
+import { ReadStamp } from "@/components/read-stamp"
+import { SiteCover } from "@/components/site-cover"
 import { articleByline, articleMeta, shortDate, siteName } from "@/lib/article-meta"
 import { useAuth } from "@/lib/auth"
 import { copyText } from "@/lib/clipboard"
@@ -90,6 +92,11 @@ export function ArticleCard({
 			{framed ? <Grain /> : null}
 			<View>
 				<CardPicture item={item} colors={colors} headers={headers} />
+				{item.finished ? (
+					<View style={styles.pictureStamp}>
+						<ReadStamp id={item.id} onPicture colors={colors} />
+					</View>
+				) : null}
 				{onCheck ? (
 					<CheckCircle checked={checked} colors={colors} onPicture style={styles.pictureCheck} />
 				) : null}
@@ -150,11 +157,14 @@ export function ArticleRow({
 			<Grain />
 			{onCheck ? <CheckCircle checked={checked} colors={colors} /> : null}
 			<View style={styles.rowBody}>
-				<Starred item={item} colors={colors}>
-					<Text style={[styles.site, styles.shrink, { color: colors.mutedFg }]} numberOfLines={1}>
-						{siteName(item)}
-					</Text>
-				</Starred>
+				<View style={styles.rowTop}>
+					<Starred item={item} colors={colors}>
+						<Text style={[styles.site, styles.shrink, { color: colors.mutedFg }]} numberOfLines={1}>
+							{siteName(item)}
+						</Text>
+					</Starred>
+					{item.finished ? <ReadStamp id={item.id} colors={colors} /> : null}
+				</View>
 				<Text style={[styles.rowTitle, { color: colors.fg }]} numberOfLines={3}>
 					{item.title ?? item.url}
 				</Text>
@@ -477,16 +487,17 @@ function metaLine(item: ArticleSummary): string {
 	return withStatus(articleMeta(item), item)
 }
 
-/** The line with how the save went, when it isn't simply ready, or that it is in the trash. */
+/**
+ * The line with how the save went, when it isn't simply ready, or that it is in the trash. A
+ * finished article says so with its stamp (`ReadStamp`).
+ */
 function withStatus(line: string, item: ArticleSummary): string {
 	const status = item.trashedAt
 		? "In the trash"
 		: item.status === "failed"
 			? "Couldn't save"
 			: item.status === "ready"
-				? item.finished
-					? "Finished"
-					: null
+				? null
 				: "Saving…"
 	return status ? [line, status].filter(Boolean).join(" · ") : line
 }
@@ -495,7 +506,10 @@ function reading(item: ArticleSummary): boolean {
 	return item.status === "ready" && item.progress > 0 && item.progress < 1
 }
 
-/** The article's lead image, 16:10 with rounded corners, or a placeholder without one. */
+/**
+ * The article's lead image, 16:10 with rounded corners, or, without one, a book's cover in its
+ * site's paint (`SiteCover`).
+ */
 export function CardPicture({
 	item,
 	colors,
@@ -522,11 +536,11 @@ export function CardPicture({
 					onError={setFailed}
 				/>
 			) : (
-				<SymbolView
-					name="newspaper"
-					tintColor={colors.border}
-					size={28}
-					accessibilityElementsHidden
+				<SiteCover
+					site={siteName(item)}
+					title={item.title ?? item.url}
+					shelf={siteName(item)}
+					colors={colors}
 				/>
 			)}
 		</View>
@@ -775,6 +789,9 @@ const styles = StyleSheet.create({
 	},
 	checkOnPicture: { borderColor: "#fff", backgroundColor: "#0000004d" },
 	pictureCheck: { position: "absolute", top: 8, left: 8 },
+	// The stamp's place on every card: the picture's top right corner, as the web's grid.
+	pictureStamp: { position: "absolute", top: 8, right: 8 },
+	rowTop: { flexDirection: "row", alignItems: "center", gap: 8, justifyContent: "space-between" },
 	starred: { flexDirection: "row", alignItems: "center", gap: 4 },
 	shrink: { flexShrink: 1 },
 	track: { height: 3, borderRadius: 2, overflow: "hidden" },

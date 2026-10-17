@@ -34,6 +34,7 @@ import {
 	useImageHeaders,
 } from "@/components/article-card"
 import { ClipboardOffer } from "@/components/clipboard-offer"
+import { EmptyDrawing } from "@/components/empty-drawing"
 import { HomeHighlights } from "@/components/home-highlights"
 import { HomeMasthead } from "@/components/home-masthead"
 import { NoteReminders } from "@/components/note-reminders"
@@ -477,12 +478,8 @@ export default function Home() {
 				</Text>
 			) : empty ? (
 				<View style={styles.emptyState}>
-					<SymbolView
-						name="square.and.arrow.up"
-						tintColor={colors.mutedFg}
-						size={36}
-						accessibilityElementsHidden
-					/>
+					{/* Nothing to read yet: the reading chair, waiting. */}
+					<EmptyDrawing name="chair" width={176} />
 					<Text style={[styles.emptyTitle, { color: colors.fg }]}>Your next read starts here</Text>
 					<Text style={[styles.message, { color: colors.mutedFg }]}>
 						Share an article to Klipstack from Safari or any app, or tap + to paste a link. It will
@@ -969,7 +966,7 @@ const styles = StyleSheet.create({
 	message: { fontSize: 16, lineHeight: 22, textAlign: "center" },
 	banner: { fontSize: 14 },
 	emptyState: { alignItems: "center", gap: 12, paddingHorizontal: 32, marginTop: 64 },
-	emptyTitle: { fontSize: 20, fontWeight: "600", textAlign: "center" },
+	emptyTitle: { fontFamily: fonts.display, fontSize: 26, lineHeight: 32, textAlign: "center" },
 	section: { gap: 12 },
 	heading: { flexDirection: "row", alignItems: "center", gap: 6 },
 	// The web's section-title: the logo's serif.
