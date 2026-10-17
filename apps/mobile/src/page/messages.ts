@@ -89,6 +89,12 @@ export type PageNote = {
 	rev: number
 }
 
+/**
+ * A heading in the article's contents (`outlineOf` in `@klipstack/anchor`, as the web reader's):
+ * `key` is unique within them, `depth` 0 for a section and 1 for one under it.
+ */
+export type ContentsEntry = { key: string; text: string; depth: 0 | 1 }
+
 export type PageMessage =
 	| { type: "selection"; selection: PageSelection | null }
 	/** `ended`: the end of the article (the end block's top) is on screen. */
@@ -119,6 +125,10 @@ export type PageMessage =
 	| { type: "controls"; shown: boolean }
 	| { type: "sentences"; list: Sentence[]; start: number }
 	| { type: "sentence"; index: number }
+	/** The article's contents, once open: none when it has too few headings to make them. */
+	| { type: "contents"; entries: ContentsEntry[] }
+	/** The section being read changed: its index in the contents, -1 before the first heading. */
+	| { type: "section"; index: number }
 
 /** The page's functions, for the app. */
 export type PageApi = {
@@ -138,4 +148,6 @@ export type PageApi = {
 	klipAsset(id: string, name: string): void
 	klipEnd(end: PageEnd): void
 	klipNote(note: PageNote): void
+	/** Scrolls to a heading in the contents (its index), and reads aloud from it while reading. */
+	klipSection(index: number): void
 }

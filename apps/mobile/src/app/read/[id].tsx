@@ -35,6 +35,7 @@ import { AppearanceSheet } from "@/components/appearance-sheet"
 import { askTitle } from "@/components/article-actions"
 import { BriefSheet } from "@/components/brief-sheet"
 import { ChatSheet } from "@/components/chat-sheet"
+import { ContentsSheet } from "@/components/contents-sheet"
 import { EditionNoteSheet } from "@/components/edition-note-sheet"
 import { HighlightCard } from "@/components/highlight-card"
 import { LinkCard, type TappedLink } from "@/components/link-card"
@@ -79,7 +80,14 @@ import { clampScale, highlightsJson, localImages, readerHtml, sampleText } from 
 import { textScale, type TypePrefs } from "@/lib/reader-type"
 import { createReadingSync } from "@/lib/reading-sync"
 import { applyColorScheme, useColors } from "@/lib/theme"
-import type { EndAction, PageEnd, PageMessage, PageNote, PageSelection } from "@/page/messages"
+import type {
+	ContentsEntry,
+	EndAction,
+	PageEnd,
+	PageMessage,
+	PageNote,
+	PageSelection,
+} from "@/page/messages"
 import { dictation } from "../../../modules/klip-dictation"
 import { canLookUp, lookUp } from "../../../modules/klip-lookup"
 
@@ -168,6 +176,10 @@ export default function Reader() {
 	const [appearanceOpen, setAppearanceOpen] = useState(false)
 	// Light or dark mode, for the whole app; the page follows it (prefers-color-scheme).
 	const [scheme, setScheme] = useState(loadColorScheme)
+	// The article's headings, as the page found them (none with too few), and the section being read.
+	const [contents, setContents] = useState<ContentsEntry[]>([])
+	const [section, setSection] = useState(-1)
+	const [contentsOpen, setContentsOpen] = useState(false)
 	// How far down the reader is, 0–1: the status line's, moved without rendering the screen.
 	const [line] = useState(() => new Animated.Value(0))
 	// The AI about this article, with the `ai` feature: its brief, and questions about passages.
@@ -681,6 +693,13 @@ export default function Reader() {
 			case "selection":
 				selection.current = message.selection
 				break
+			case "contents":
+				setContents(message.entries)
+				setSection(-1)
+				break
+			case "section":
+				setSection(message.index)
+				break
 		}
 	}
 
@@ -992,6 +1011,16 @@ export default function Reader() {
 						accessibilityLabel="More"
 						tintColor={colors.accent}
 					>
+						{page && contents.length ? (
+							<Stack.Toolbar.Menu inline>
+								<Stack.Toolbar.MenuAction
+									icon="list.bullet.indent"
+									onPress={() => setContentsOpen(true)}
+								>
+									Contents
+								</Stack.Toolbar.MenuAction>
+							</Stack.Toolbar.Menu>
+						) : null}
 						<Stack.Toolbar.MenuAction
 							icon={article.starred ? "star.slash" : "star"}
 							onPress={() => update({ starred: !article.starred })}
@@ -1281,6 +1310,22 @@ export default function Reader() {
 				/>
 			) : null}
 			{article ? (
+				<ContentsSheet
+					visible={contentsOpen}
+					title={article.title || hostOf(article.url)}
+					entries={contents}
+					current={section}
+					onSelect={(index) => {
+						setContentsOpen(false)
+						web.current?.injectJavaScript(
+							`window.klipSection && window.klipSection(${index}); true;`,
+						)
+					}}
+					onClose={() => setContentsOpen(false)}
+					colors={colors}
+				/>
+			) : null}
+			{article ? (
 				<EditionNoteSheet
 					visible={editionOpen}
 					onClose={() => {
@@ -1316,7 +1361,8 @@ export default function Reader() {
 			) : null}
 			{page && article && !listen.status ? (
 				<ReaderStatus
-					title={article.title ?? hostOf(article.url)}
+					title={article.title || hostOf(article.url)}
+					section={contents[section]?.text ?? null}
 					minutesLeft={minutes}
 					line={line}
 					colors={colors}

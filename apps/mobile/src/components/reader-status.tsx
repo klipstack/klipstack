@@ -3,17 +3,20 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 import type { Colors } from "@/lib/theme"
 
 /**
- * The reader's status line, at the bottom, always in view: how far along (a thin line), the
- * article's title and the minutes left. It stays while the controls at the top hide, so the
- * article is named wherever the reader is in it.
+ * The reader's status line, at the bottom, always in view: how far along (a thin line), where
+ * (the section being read, in an article with contents; otherwise, and before its first heading,
+ * the article's title) and the minutes left. It stays while the controls at the top hide.
  */
 export function ReaderStatus({
 	title,
+	section,
 	minutesLeft,
 	line,
 	colors,
 }: {
 	title: string
+	/** The section being read, from the article's contents; null for none. */
+	section: string | null
 	minutesLeft: number | null
 	/** How far along, 0–1. */
 	line: Animated.Value
@@ -25,7 +28,7 @@ export function ReaderStatus({
 		<View
 			pointerEvents="none"
 			accessible
-			accessibilityLabel={left ? `${title}, ${left}` : title}
+			accessibilityLabel={[title, section, left].filter(Boolean).join(", ")}
 			style={[styles.wrap, { height: statusHeight(insets.bottom) }]}
 		>
 			{/* The page fades into the line's background, which text scrolls under. */}
@@ -50,7 +53,7 @@ export function ReaderStatus({
 				</View>
 				<View style={styles.row}>
 					<Text style={[styles.text, styles.title, { color: colors.mutedFg }]} numberOfLines={1}>
-						{title}
+						{section ?? title}
 					</Text>
 					{left ? <Text style={[styles.text, { color: colors.mutedFg }]}>{left}</Text> : null}
 				</View>

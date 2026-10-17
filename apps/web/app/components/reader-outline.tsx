@@ -1,47 +1,22 @@
+import {
+	currentSection,
+	OUTLINE_MIN_ENTRIES,
+	type OutlineEntry,
+	outlineOf,
+} from "@klipstack/anchor"
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useMediaQuery } from "~/hooks/use-media-query"
 import { cn } from "~/lib/utils"
 
-interface Entry {
-	/** Its text, numbered when an earlier heading has the same. */
-	key: string
-	el: HTMLElement
-	text: string
-	depth: number
-}
-
-/** Headings inside these are part of a list, a quote or a card, not the article's structure. */
-const NESTED = "li,td,th,blockquote,aside,figure,details"
 /** The sticky top bar's height, plus some air: where a heading lands when picked. */
 const OFFSET = 80
-/** Fewer headings than this make no outline. */
-const MIN_ENTRIES = 3
 /** Room left of the article for the docked outline: 13rem, 1.5rem from the window's edge, a gap. */
 const ROOM = 24 + 208 + 16
 /** How long the pointer rests at the window's left edge before the outline slides in. */
 const PEEK_DELAY_MS = 150
 /** How long the pointer may stray off the slid-in outline before it goes. */
 const HIDE_DELAY_MS = 350
-
-/** The article's own headings, in two levels: its highest heading level, and every lower one under it. */
-function outline(root: HTMLElement): Entry[] {
-	const found = Array.from(root.querySelectorAll<HTMLElement>("h2,h3,h4,h5,h6"))
-		.filter((h) => !h.closest(NESTED))
-		.map((el) => ({
-			el,
-			level: Number(el.tagName[1]),
-			text: (el.textContent ?? "").replace(/\s+/g, " ").trim(),
-		}))
-		.filter((h) => h.text)
-	const top = Math.min(...found.map((h) => h.level))
-	const seen = new Map<string, number>()
-	return found.map((h) => {
-		const n = seen.get(h.text) ?? 0
-		seen.set(h.text, n + 1)
-		return { key: `${h.text}#${n}`, el: h.el, text: h.text, depth: h.level === top ? 0 : 1 }
-	})
-}
 
 /**
  * What the reader page knows of the outline, for the top bar's button: whether the article has
@@ -87,19 +62,19 @@ export function ReaderOutline({
 	const { t } = useTranslation("reader")
 	const { room, setRoom, peek, setPeek, setAvailable } = state
 	const mouse = useMediaQuery("(hover: hover) and (pointer: fine)")
-	const [entries, setEntries] = useState<Entry[]>([])
+	const [entries, setEntries] = useState<OutlineEntry[]>([])
 	const [active, setActive] = useState(-1)
 	const [top, setTop] = useState(0)
 	const navRef = useRef<HTMLElement>(null)
 	const timer = useRef<number | undefined>(undefined)
-	const shown = entries.length >= MIN_ENTRIES
+	const shown = entries.length >= OUTLINE_MIN_ENTRIES
 	const docked = shown && room && pinned
 	const floating = shown && !docked
 	const visible = docked || (floating && peek)
 
 	useEffect(() => {
 		const root = contentRef.current
-		setEntries(root && html ? outline(root) : [])
+		setEntries(root && html ? outlineOf(root) : [])
 	}, [contentRef, html])
 	useEffect(() => setAvailable(shown), [shown, setAvailable])
 
@@ -189,13 +164,7 @@ export function ReaderOutline({
 		let frame = 0
 		const measure = () => {
 			frame = 0
-			const line = window.innerHeight / 3
-			let current = -1
-			for (const [i, entry] of entries.entries()) {
-				if (entry.el.getBoundingClientRect().top <= line) current = i
-				else break
-			}
-			setActive(current)
+			setActive(currentSection(entries, window.innerHeight / 3))
 		}
 		const onScroll = () => {
 			if (!frame) frame = requestAnimationFrame(measure)

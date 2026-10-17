@@ -1,6 +1,9 @@
 import {
 	canonicalText,
+	currentSection,
 	describeRange,
+	OUTLINE_MIN_ENTRIES,
+	outlineOf,
 	rangeFromOffsets,
 	resolveSelector,
 	selectorFor,
@@ -67,6 +70,11 @@ import { createTakeaway } from "./takeaway"
  *   or null)` marks the one being read and keeps it on screen, unless the reader touched the page
  *   in the last few seconds. While reading, a tap on the text (not on a link or a highlight) says
  *   which sentence (`{ type: "sentence", index }`).
+ * - The article's contents: its own headings, as the web reader's Contents takes them (`outlineOf`),
+ *   none when too few (`{ type: "contents", entries }`, once open), and the section being read as
+ *   it changes (`{ type: "section", index }`): the last heading above the top third of the screen.
+ *   `klipSection(index)` scrolls to one, just below the app's controls; while reading aloud, it
+ *   reads from there.
  * - The app's controls hide as the reader scrolls down and come back as they scroll up
  *   (`controlsStep`); other taps show or hide them (`{ type: "controls", shown }`). `top` is what
  *   they cover: highlights and the first sentence to read are kept below it.
@@ -545,6 +553,51 @@ export function startReaderPage(): void {
 			ended: endBlock ? endBlock.getBoundingClientRect().top < window.innerHeight : false,
 			moved: Math.abs(window.scrollY - startY) >= el.clientHeight,
 		})
+		reportSection()
+	}
+
+	// ---- contents ----
+
+	const found = root ? outlineOf(root) : []
+	const sections = found.length >= OUTLINE_MIN_ENTRIES ? found : []
+	let section = -1
+	// Picked in the contents, a section stays the one being read while the page stays near where the
+	// jump took it (a subheading just under it would otherwise take its place at once): until the
+	// reader touches the page, or the page moves half a screen from there once the jump is over
+	// (reading aloud, a highlight shown, VoiceOver).
+	let picked: { y: number; at: number; landed: boolean } | null = null
+	function reportSection() {
+		if (!sections.length) return
+		if (picked) {
+			const away = Math.abs(window.scrollY - picked.y)
+			picked.landed ||= away < 2 || Date.now() - picked.at > PICK_SCROLL_MS
+			if (!picked.landed || away < window.innerHeight / 2) return
+			picked = null
+		}
+		const now = currentSection(sections, window.innerHeight / 3)
+		if (now === section) return
+		section = now
+		post({ type: "section", index: section })
+	}
+	page.klipSection = (index) => {
+		const heading = sections[index]?.el
+		if (!heading) return
+		if (section !== index) {
+			section = index
+			post({ type: "section", index })
+		}
+		const el = document.documentElement
+		const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+		const y = window.scrollY + heading.getBoundingClientRect().top - TOP - 16
+		const top = Math.max(0, Math.min(y, el.scrollHeight - el.clientHeight))
+		picked = { y: top, at: Date.now(), landed: false }
+		window.scrollTo({ top, behavior: still ? "auto" : "smooth" })
+		// VoiceOver goes on from the heading.
+		if (!heading.hasAttribute("tabindex")) heading.setAttribute("tabindex", "-1")
+		heading.focus({ preventScroll: true })
+		if (!speaking) return
+		const sentence = spokenBlocks.indexOf(heading)
+		if (sentence !== -1) post({ type: "sentence", index: sentence })
 	}
 	window.addEventListener(
 		"scroll",
@@ -688,6 +741,7 @@ export function startReaderPage(): void {
 	}
 	const touch = () => {
 		touched = Date.now()
+		picked = null
 	}
 	document.addEventListener("touchstart", touch, { passive: true })
 	document.addEventListener("touchmove", touch, { passive: true })
@@ -695,6 +749,10 @@ export function startReaderPage(): void {
 	// ---- opening ----
 
 	page.klipHighlights(config.highlights)
+	post({
+		type: "contents",
+		entries: sections.map(({ key, text, depth }) => ({ key, text, depth })),
+	})
 	// At the saved position (the inverse of the one reported); 0 stays at the top. Or at a
 	// highlight, a quarter of the way down, when it was found. After the first layout; and measured
 	// a frame later, once the scroll has landed, so the first report is where the page opened.
@@ -731,6 +789,9 @@ export function readingSpan(el: HTMLElement): number {
 	}
 	return el.scrollHeight - el.clientHeight - tail
 }
+
+/** How long a jump to a section in the contents may take to land. */
+const PICK_SCROLL_MS = 1000
 
 const NO_CONFIG: PageConfig = { top: 0, highlights: [], position: 0, highlight: null }
 

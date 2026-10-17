@@ -794,3 +794,161 @@ describe("the reader page: the note at the end", () => {
 		expect(field.textContent).toBe("Kept.")
 	})
 })
+
+describe("the reader page: contents", () => {
+	const SECTIONED = [
+		"<h3>Beginnings</h3><p>One.</p>",
+		"<h4>Small steps</h4><p>Two.</p>",
+		"<ul><li><h3>Listed book</h3></li></ul>",
+		"<h3>Notes</h3><p>Three.</p>",
+		"<h5>A deep one</h5><p>Four.</p>",
+		"<h3>Notes</h3><p>Five.</p>",
+	].join("")
+
+	/** Puts each heading `gap` points below the one before it, the first at `first`, scrolled by. */
+	function placeHeadings(window: ReturnType<typeof openPage>["window"], first: number, gap = 600) {
+		const headings = Array.from(window.document.querySelectorAll<HTMLElement>("article h3,h4,h5"))
+		headings.forEach((h, i) => {
+			h.getBoundingClientRect = () => ({ top: first + gap * i - window.scrollY }) as DOMRect
+		})
+	}
+	const scrollTo = async (page: ReturnType<typeof openPage>, y: number) => {
+		Object.defineProperty(page.window, "scrollY", { value: y, configurable: true })
+		page.window.dispatchEvent(new page.window.Event("scroll"))
+		await settle(300)
+	}
+
+	it("tells the app the article's own headings, in two levels, as the web's Contents takes them", () => {
+		const { messages } = openPage(SECTIONED)
+		expect(messages.find((m) => m.type === "contents")).toEqual({
+			type: "contents",
+			entries: [
+				{ key: "Beginnings#0", text: "Beginnings", depth: 0 },
+				{ key: "Small steps#0", text: "Small steps", depth: 1 },
+				{ key: "Notes#0", text: "Notes", depth: 0 },
+				{ key: "A deep one#0", text: "A deep one", depth: 1 },
+				{ key: "Notes#1", text: "Notes", depth: 0 },
+			],
+		})
+	})
+
+	it("has no contents with fewer than three headings, and then says no section", async () => {
+		const page = openPage("<h2>One</h2><p>Text.</p><h2>Two</h2><p>Text.</p>")
+		expect(page.messages.find((m) => m.type === "contents")).toEqual({
+			type: "contents",
+			entries: [],
+		})
+		await scrollTo(page, 2000)
+		expect(page.messages.some((m) => m.type === "section")).toBe(false)
+	})
+
+	it("says which section is being read as it changes: the last heading above the top third", async () => {
+		const page = openPage(SECTIONED)
+		// jsdom's screen is 768 points tall: the line is at 256. Headings at 300, 900, 1500 and on;
+		// the one in the list is not a section, but takes its place.
+		placeHeadings(page.window, 300)
+		await settle(50)
+		const sections = () => page.messages.flatMap((m) => (m.type === "section" ? [m.index] : []))
+		// At the top, before the first heading: no section, as the app starts.
+		expect(sections()).toEqual([])
+		await scrollTo(page, 100)
+		await scrollTo(page, 700)
+		// The list's heading is at 1,500, Notes at 2,100.
+		await scrollTo(page, 1300)
+		await scrollTo(page, 1900)
+		await scrollTo(page, 1950)
+		expect(sections()).toEqual([0, 1, 2])
+	})
+
+	it("scrolls to a heading just below the app's controls, and reads aloud from it while reading", async () => {
+		const page = openPage(SECTIONED, [], { top: 100 })
+		Object.defineProperty(page.window.document.documentElement, "scrollHeight", { value: 5000 })
+		const tops: number[] = []
+		Object.assign(page.window, { scrollTo: (to: { top: number }) => tops.push(to.top) })
+		placeHeadings(page.window, 300)
+		const api = page.window as unknown as {
+			klipSection: (index: number) => void
+			klipSentences: (lang: string) => void
+			klipSpeaking: (index: number | null) => void
+		}
+		// The sentence being read is on screen: reading aloud doesn't scroll.
+		Object.assign(page.window.Range.prototype, {
+			getBoundingClientRect: () => ({ top: 200, bottom: 220 }),
+		})
+		await settle(50)
+		// The sentences are known, but nothing is being read.
+		api.klipSentences("en")
+		api.klipSpeaking(null)
+		// Notes, the second time: the sixth heading, at 300 + 5 × 600.
+		api.klipSection(4)
+		expect(tops).toEqual([3300 - 100 - 16])
+		expect(page.window.document.activeElement?.textContent).toBe("Notes")
+		expect(page.messages.some((m) => m.type === "sentence")).toBe(false)
+
+		const list = page.messages.find((m) => m.type === "sentences")
+		api.klipSpeaking(0)
+		api.klipSection(1)
+		const sentence = page.messages.findLast((m) => m.type === "sentence")
+		expect(list?.type === "sentences" && sentence?.type === "sentence").toBe(true)
+		if (list?.type !== "sentences" || sentence?.type !== "sentence") return
+		expect(list.list[sentence.index]?.text).toBe("Small steps")
+	})
+})
+
+describe("the reader page: a section picked in the contents", () => {
+	it("stays the one being read near where the jump took the page, until the reader touches it", async () => {
+		const page = openPage(
+			"<h2>A</h2><p>One.</p><h2>B</h2><h3>B.1</h3><p>Two.</p><h2>C</h2><p>Three.</p>",
+		)
+		const { window } = page
+		// B and B.1 close together, both above the top third (256) once B is picked.
+		const tops = [0, 600, 680, 1500]
+		Array.from(window.document.querySelectorAll<HTMLElement>("article h2,h3")).forEach((h, i) => {
+			h.getBoundingClientRect = () => ({ top: tops[i]! - window.scrollY }) as DOMRect
+		})
+		const scrolled = async (y: number) => {
+			Object.defineProperty(window, "scrollY", { value: y, configurable: true })
+			window.dispatchEvent(new window.Event("scroll"))
+			await settle(300)
+		}
+		await settle(50)
+		const sections = () => page.messages.flatMap((m) => (m.type === "section" ? [m.index] : []))
+		;(window as unknown as { klipSection: (i: number) => void }).klipSection(1)
+		// A is at the top when the page opens.
+		expect(sections()).toEqual([0, 1])
+		await scrolled(500)
+		expect(sections()).toEqual([0, 1])
+		window.document.dispatchEvent(new window.Event("touchstart"))
+		await scrolled(510)
+		expect(sections()).toEqual([0, 1, 2])
+	})
+
+	it("lets go once the page moves half a screen from where the jump landed, untouched", async () => {
+		const page = openPage(
+			"<h2>A</h2><p>One.</p><h2>B</h2><h3>B.1</h3><p>Two.</p><h2>C</h2><p>Three.</p>",
+		)
+		const { window } = page
+		const el = window.document.documentElement
+		Object.defineProperty(el, "scrollHeight", { value: 5000 })
+		Object.defineProperty(el, "clientHeight", { value: 768 })
+		const tops = [0, 600, 680, 1500]
+		Array.from(window.document.querySelectorAll<HTMLElement>("article h2,h3")).forEach((h, i) => {
+			h.getBoundingClientRect = () => ({ top: tops[i]! - window.scrollY }) as DOMRect
+		})
+		const scrolled = async (y: number) => {
+			Object.defineProperty(window, "scrollY", { value: y, configurable: true })
+			window.dispatchEvent(new window.Event("scroll"))
+			await settle(300)
+		}
+		await settle(50)
+		const sections = () => page.messages.flatMap((m) => (m.type === "section" ? [m.index] : []))
+		;(window as unknown as { klipSection: (i: number) => void }).klipSection(1)
+		// Landed at B, less 16 points; then a little further, as reading aloud would take it.
+		await scrolled(584)
+		await scrolled(700)
+		expect(sections()).toEqual([0, 1])
+		// Half a screen and more from there, with no touch: C is above the top third.
+		await scrolled(1400)
+		expect(sections()).toEqual([0, 1, 3])
+	})
+})
