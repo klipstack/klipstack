@@ -41,6 +41,7 @@ import { InkMark } from "@/components/ink-mark"
 import { NoteReminders } from "@/components/note-reminders"
 import { Grain } from "@/components/paper"
 import { ReviewSuggestion } from "@/components/review-suggestion"
+import { StarterOffer } from "@/components/starter-texts"
 import { useTagSheet } from "@/components/tag-sheet"
 import { TopicsHomeCard } from "@/components/topics-home-card"
 import { onChange, settled } from "@/lib/article-changes"
@@ -503,6 +504,8 @@ export default function Home() {
 						Share an article to Klipstack from Safari or any app, or tap + to paste a link. It will
 						be here when you're ready to read.
 					</Text>
+					{/* Nothing saved, or all of it read: something to start with, as on the web. */}
+					<StarterOffer client={client} colors={colors} />
 				</View>
 			) : (
 				<>

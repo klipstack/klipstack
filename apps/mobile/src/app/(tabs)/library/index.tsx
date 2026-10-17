@@ -107,6 +107,8 @@ export default function Places() {
 				))}
 			</PlaceGroup>
 			<PlaceGroup colors={colors}>
+				{/* The guide and texts to start with, as the web's sidebar's Discover. */}
+				<PlaceRow title="Discover" icon="safari" href="/discover" colors={colors} />
 				{/* Always here, as in the web's Library menu: Home's card is only an occasional reminder. */}
 				<PlaceRow
 					title="Review Old Saves"
