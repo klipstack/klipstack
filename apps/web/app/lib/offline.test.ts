@@ -328,12 +328,15 @@ describe("private offline partitions", () => {
 		})
 	})
 
-	describe("public editions", () => {
+	describe("public editions and shared highlights", () => {
 		const paths = [
 			"/e/Abc123def456",
 			"/e/Abc123def456/week-38-2026",
 			"/e/Abc123def456/week-38-2026.data",
+			"/h/Abc123def456",
+			"/h/Abc123def456.data",
 		]
+		const isPublic = (url: string) => url.includes("/e/") || url.includes("/h/")
 		const cached = (w: ReturnType<typeof worker>) =>
 			[...w.stores.values()].flatMap((store) => [...store.keys()])
 
@@ -352,7 +355,7 @@ describe("private offline partitions", () => {
 			expect(navigation).toBeUndefined()
 			w.state.online = false
 			for (const path of paths) expect(await w.read(path)).toBeUndefined()
-			expect(cached(w).filter((url) => url.includes("/e/"))).toEqual([])
+			expect(cached(w).filter(isPublic)).toEqual([])
 		})
 
 		it("does not warm them, and keeps the app's own editions pages private", async () => {
@@ -363,7 +366,7 @@ describe("private offline partitions", () => {
 				data: { type: "warm", identity: w.state.owner, pages: paths, lists: paths },
 				source: { id: "test" },
 			})
-			expect(cached(w).filter((url) => url.includes("/e/"))).toEqual([])
+			expect(cached(w).filter(isPublic)).toEqual([])
 		})
 	})
 })

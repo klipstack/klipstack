@@ -44,12 +44,12 @@ export const sharePath = (publicId: string) => `/h/${publicId}`
 
 const PUBLIC_ID = /^[0-9A-Za-z]{12}$/
 
-/** Whether the highlight's note or quote moved on from what the page shows. */
+/** Whether the highlight's quote, color or note moved on from what the page shows. */
 export function shareChanged(
 	snapshot: ShareSnapshot,
-	current: { exact: string; note: string | null },
+	current: { exact: string; note: string | null; color: number },
 ): boolean {
-	if (snapshot.exact !== current.exact) return true
+	if (snapshot.exact !== current.exact || snapshot.color !== current.color) return true
 	return snapshot.includeNote && (snapshot.note ?? "") !== (current.note?.trim() || "")
 }
 
@@ -79,6 +79,7 @@ export async function getShareState(
 			removedAt: highlightShares.removedAt,
 			exact: highlights.exact,
 			note: highlights.note,
+			color: highlights.color,
 		})
 		.from(highlightShares)
 		.innerJoin(highlights, eq(highlights.id, highlightShares.highlightId))

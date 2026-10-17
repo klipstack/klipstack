@@ -284,6 +284,7 @@ export default {
 		readArticle: "Read the article",
 		noteLabel: "The reader's note",
 		pictureAlt: "The highlighted passage, with the reader's note",
+		pictureAltQuote: "The highlighted passage",
 	},
 	public: {
 		updated: "Updated {{date}}",

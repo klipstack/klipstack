@@ -1,5 +1,5 @@
 import { data, redirect } from "react-router"
-import { SharedHighlightPage } from "~/components/shared-highlight-page"
+import { SharedHighlightPage, sharedHighlightView } from "~/components/shared-highlight-page"
 import { CARD_HEIGHT, CARD_WIDTH } from "~/lib/edition-card.server"
 import { env } from "~/lib/env.server"
 import { canDrawHighlight } from "~/lib/highlight-card.server"
@@ -24,7 +24,7 @@ export async function loader({ params, request, context }: Route.LoaderArgs) {
 	const title = snapshot.article.title ?? safeHost(snapshot.article.url)
 	return {
 		id: params.publicId,
-		snapshot,
+		view: sharedHighlightView(snapshot),
 		labels: {
 			readArticle: t("shared.readArticle"),
 			noteLabel: t("shared.noteLabel"),
@@ -37,7 +37,7 @@ export async function loader({ params, request, context }: Route.LoaderArgs) {
 		url: `${env.APP_URL}${path}`,
 		title: t("shared.title", { title }),
 		description: t("shared.description", { title }),
-		imageAlt: t("shared.pictureAlt"),
+		imageAlt: t(snapshot.note ? "shared.pictureAlt" : "shared.pictureAltQuote"),
 		// Its own picture, at an address that changes with each update. A quote in a script the font
 		// lacks gets the Klipstack card.
 		image: canDrawHighlight(snapshot.exact)
@@ -61,8 +61,7 @@ export function headers() {
 
 /** The page speaks the sharer's language, whoever visits. */
 export const handle: PageLanguage = {
-	lang: (loaderData) =>
-		(loaderData as Route.ComponentProps["loaderData"] | undefined)?.snapshot.locale,
+	lang: (loaderData) => (loaderData as Route.ComponentProps["loaderData"] | undefined)?.view.locale,
 }
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -90,7 +89,7 @@ export default function SharedHighlight({ loaderData }: Route.ComponentProps) {
 	return (
 		<SharedHighlightPage
 			id={loaderData.id}
-			snapshot={loaderData.snapshot}
+			view={loaderData.view}
 			labels={loaderData.labels}
 			reportHref={loaderData.reportHref}
 		/>

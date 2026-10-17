@@ -132,9 +132,9 @@ export default {
 		dismiss: "Descartar denuncias",
 		dismissShareConfirm: "¿Dejar el subrayado compartido, y avisar a quienes dejaron un email?",
 		dismissConfirm: "¿Dejar la edición publicada, y avisar a quienes dejaron un email?",
-		removed: "Retirada. Se escribió a quien la publicó. Personas avisadas: {{count}}.",
+		removed: "Página retirada. Se escribió a quien la creó. Personas avisadas: {{count}}.",
 		removedNotEmailed:
-			"Retirada, pero falló el email a quien la publicó: avísale de otra forma. Personas avisadas: {{count}}.",
+			"Página retirada, pero falló el email a quien la creó: avísale de otra forma. Personas avisadas: {{count}}.",
 		dismissed: "Denuncias descartadas. Personas avisadas: {{count}}.",
 		empty: "No hay denuncias abiertas.",
 		removedTitle: "Páginas retiradas",

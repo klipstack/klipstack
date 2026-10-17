@@ -11,6 +11,47 @@ import { quoteSize } from "./quote-card"
 /** Links out of a public page: no endorsement for search engines, no handle on this window. */
 const OUTBOUND = "nofollow ugc noopener"
 
+/** A run of a note's line: text, or a link to the original of an article the note links to. */
+export interface NoteRun {
+	text: string
+	href: string | null
+}
+
+/**
+ * What the page shows of a snapshot, and only that: the note as runs of text and links to
+ * originals, with no trace of the sharer's library (its article ids, the links' raw markup).
+ */
+export interface SharedHighlightView {
+	exact: string
+	color: number
+	locale: string
+	article: ShareSnapshot["article"]
+	note: NoteRun[][] | null
+}
+
+export function sharedHighlightView(snapshot: ShareSnapshot): SharedHighlightView {
+	return {
+		exact: snapshot.exact,
+		color: snapshot.color,
+		locale: snapshot.locale,
+		article: snapshot.article,
+		note: snapshot.note ? noteRuns(snapshot.note, snapshot.linkUrls) : null,
+	}
+}
+
+/** A link goes to its article's original when that is a web address; else it reads as its title. */
+function noteRuns(note: string, urls: Record<string, string>): NoteRun[][] {
+	return parse(note).map((line) =>
+		line.map((segment) => {
+			if (segment.kind === "text") return { text: segment.text, href: null }
+			const url = urls[segment.id]
+			return url && /^https?:\/\//i.test(url)
+				? { text: segment.title || safeHost(url), href: url }
+				: { text: segment.title, href: null }
+		}),
+	)
+}
+
 /** The page's words, in the sharer's language. */
 export interface SharedHighlightLabels {
 	readArticle: string
@@ -28,24 +69,24 @@ export interface SharedHighlightLabels {
  */
 export function SharedHighlightPage({
 	id,
-	snapshot,
+	view,
 	labels,
 	reportHref,
 }: {
 	/** Chooses the clipping's cut and the note's lean. */
 	id: string
-	snapshot: ShareSnapshot
+	view: SharedHighlightView
 	labels: SharedHighlightLabels
 	reportHref: string
 }) {
-	const { article } = snapshot
+	const { article, note } = view
 	const host = safeHost(article.url)
 	const web = /^https?:\/\//i.test(article.url)
 	return (
-		<div lang={snapshot.locale} className="min-h-dvh bg-bg text-fg">
+		<div lang={view.locale} className="min-h-dvh bg-bg text-fg">
 			<main className="mx-auto flex max-w-xl flex-col px-5 pt-[calc(env(safe-area-inset-top)+3rem)] pb-12 sm:pt-[calc(env(safe-area-inset-top)+5rem)]">
 				<figure
-					{...highlightColor(snapshot.color)}
+					{...highlightColor(view.color)}
 					data-testid="shared-highlight"
 					className="clipping px-6 pt-[calc(var(--clip-top)+1.25rem)] pb-5"
 				>
@@ -57,20 +98,20 @@ export function SharedHighlightPage({
 						“
 					</span>
 					<blockquote
-						className={`font-serif text-fg ${quoteSize(snapshot.exact).replace("line-clamp-[14] ", "")}`}
+						className={`font-serif text-fg ${quoteSize(view.exact).replace("line-clamp-[14] ", "")}`}
 					>
-						<span className="marker">{snapshot.exact}</span>
+						<span className="marker">{view.exact}</span>
 					</blockquote>
-					{snapshot.note ? (
+					{note ? (
 						<PostIt
 							as="div"
-							fit={snapshot.note}
-							color={highlightColorName(snapshot.color)}
+							fit={note.map((line) => line.map((run) => run.text).join("")).join("\n")}
+							color={highlightColorName(view.color)}
 							tilt={tiltFor(id)}
 							aria-label={labels.noteLabel}
 							className="mt-6 -mr-3 ml-auto text-lg leading-snug"
 						>
-							<NoteWithLinks note={snapshot.note} urls={snapshot.linkUrls} />
+							<NoteWithLinks note={note} />
 						</PostIt>
 					) : null}
 					<figcaption className="mt-6 border-t border-border pt-3">
@@ -124,34 +165,30 @@ export function SharedHighlightPage({
 	)
 }
 
-/** The note as written: a link to an article goes to its original, or reads as its title. */
-function NoteWithLinks({ note, urls }: { note: string; urls: Record<string, string> }) {
+/** The note, its links going to the linked articles' originals. */
+function NoteWithLinks({ note }: { note: NoteRun[][] }) {
 	return (
 		<span className="whitespace-pre-wrap break-words">
-			{parse(note).map((line, i) => (
+			{note.map((line, i) => (
 				// oxlint-disable-next-line react/no-array-index-key -- lines have no identity of their own
 				<Fragment key={i}>
 					{i > 0 ? "\n" : null}
-					{line.map((segment, j) => {
-						if (segment.kind === "text")
-							// oxlint-disable-next-line react/no-array-index-key -- segments have no identity of their own
-							return <Fragment key={j}>{segment.text}</Fragment>
-						const url = urls[segment.id]
-						return url && /^https?:\/\//i.test(url) ? (
+					{line.map((run, j) =>
+						run.href ? (
 							<a
-								// oxlint-disable-next-line react/no-array-index-key -- the same id can appear twice
+								// oxlint-disable-next-line react/no-array-index-key -- the same link can appear twice
 								key={j}
-								href={url}
+								href={run.href}
 								rel={OUTBOUND}
 								className="underline decoration-1 underline-offset-2"
 							>
-								{segment.title || safeHost(url)}
+								{run.text}
 							</a>
 						) : (
-							// oxlint-disable-next-line react/no-array-index-key -- the same id can appear twice
-							<Fragment key={j}>{segment.title}</Fragment>
-						)
-					})}
+							// oxlint-disable-next-line react/no-array-index-key -- runs have no identity of their own
+							<Fragment key={j}>{run.text}</Fragment>
+						),
+					)}
 				</Fragment>
 			))}
 		</span>

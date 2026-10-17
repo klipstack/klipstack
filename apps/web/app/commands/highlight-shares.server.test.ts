@@ -135,6 +135,23 @@ describe("shareHighlight", () => {
 		expect(await sharesThisMonth()).toBe(before)
 	})
 
+	it("tells the owner the page is behind after a recolor, or a note added since", async () => {
+		const h = await highlight(userId)
+		await shareHighlight(userId, h.id, { includeNote: true, locale: "en" })
+		await db.update(highlights).set({ color: 4 }).where(eq(highlights.id, h.id))
+		expect(await getShareState(userId, h.id)).toMatchObject({ changed: true })
+		await shareHighlight(userId, h.id, { includeNote: true, locale: "en" })
+		await setNote(h.id, "Added later.")
+		expect(await getShareState(userId, h.id)).toMatchObject({ changed: true })
+	})
+
+	it("stays up while its article is in the trash", async () => {
+		const h = await highlight(userId)
+		const { publicId } = await shareHighlight(userId, h.id, { includeNote: true, locale: "en" })
+		await db.update(documents).set({ deletedAt: new Date() }).where(eq(documents.id, h.documentId))
+		expect(await live(publicId)).not.toBeNull()
+	})
+
 	it("stops: the address goes dark, and sharing again makes a new one", async () => {
 		const h = await highlight(userId)
 		const first = await shareHighlight(userId, h.id, { includeNote: true, locale: "en" })
@@ -210,6 +227,12 @@ async function sharesThisMonth() {
 	const [row] = await db
 		.select({ count: usageCounts.count })
 		.from(usageCounts)
-		.where(and(eq(usageCounts.userId, userId), eq(usageCounts.metric, "shares")))
+		.where(
+			and(
+				eq(usageCounts.userId, userId),
+				eq(usageCounts.metric, "shares"),
+				eq(usageCounts.month, monthOf().month),
+			),
+		)
 	return row?.count ?? 0
 }

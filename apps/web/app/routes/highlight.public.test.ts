@@ -8,6 +8,7 @@ import {
 	highlightShares,
 	user as userTable,
 } from "@klipstack/db"
+import sharp from "sharp"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { shareHighlight, stopSharingHighlight } from "~/commands/highlight-shares.server"
 import { env } from "~/lib/env.server"
@@ -96,8 +97,8 @@ describe("a shared highlight's page", () => {
 		const id = await highlight("Long blocks of time.")
 		const { publicId } = await shareHighlight(userId, id, { includeNote: true, locale: "es" })
 		const data = await load(publicId)
-		expect(data.snapshot).toMatchObject({ exact: "There are two types of schedule.", locale: "es" })
-		expect(data.snapshot.note).toBe("Long blocks of time.")
+		expect(data.view).toMatchObject({ exact: "There are two types of schedule.", locale: "es" })
+		expect(data.view.note).toEqual([[{ text: "Long blocks of time.", href: null }]])
 		expect(data.labels.readArticle).toBe("Leer el artículo")
 		expect(data.title).toBe("Un subrayado de «Maker's Schedule»")
 		expect(data.url).toBe(`${env.APP_URL}/h/${publicId}`)
@@ -136,5 +137,31 @@ describe("a shared highlight's page", () => {
 
 		expect(await status(load("AAAAAAAAAAAA"))).toMatchObject({ status: 404 })
 		expect(await status(load("../etc"))).toMatchObject({ status: 404 })
+	})
+
+	it("draws a new picture after an update, so link previews do not keep the old one", async () => {
+		const id = await highlight("Before.")
+		const { publicId } = await shareHighlight(userId, id, { includeNote: true, locale: "en" })
+		const picture = async () => {
+			const data = await load(publicId)
+			const card = (await cardLoader({ params: { publicId } } as never)) as Response
+			return { url: data.image, png: Buffer.from(await card.arrayBuffer()) }
+		}
+		const before = await picture()
+		expect(await sharp(before.png).metadata()).toMatchObject({ width: 1200, height: 630 })
+		await db.update(highlights).set({ note: "After, and longer." }).where(eq(highlights.id, id))
+		await shareHighlight(userId, id, { includeNote: true, locale: "en" })
+		const after = await picture()
+		expect(after.url).not.toBe(before.url)
+		expect(after.png.equals(before.png)).toBe(false)
+	})
+
+	it("points a quote the font cannot draw at the Klipstack card", async () => {
+		const id = await highlight(null)
+		await db.update(highlights).set({ exact: "日本語の引用です。" }).where(eq(highlights.id, id))
+		const { publicId } = await shareHighlight(userId, id, { includeNote: true, locale: "en" })
+		const data = await load(publicId)
+		expect(data.image).not.toContain("/og.png")
+		expect(await status(cardLoader({ params: { publicId } } as never))).toBe(302)
 	})
 })

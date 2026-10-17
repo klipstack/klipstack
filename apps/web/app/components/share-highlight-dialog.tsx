@@ -150,7 +150,9 @@ export function ShareHighlightDialog({
 					</label>
 				) : null}
 
-				{h.canLink === false ? null : <PublicLink link={link} withNote={note ? withNote : false} />}
+				{h.canLink === false ? null : (
+					<PublicLink link={link} withNote={withNote} hasNote={note !== null} />
+				)}
 
 				<div className="flex flex-wrap justify-end gap-2">
 					<Button ref={copyRef} onClick={copy} disabled={!linkUrls} variant="secondary">
@@ -200,8 +202,9 @@ function usePublicLink(id: string, enabled: boolean) {
 		if (enabled) void loader.load(href)
 		// oxlint-disable-next-line react-hooks/exhaustive-deps -- once per highlight
 	}, [enabled, href])
-	// The latest answer wins: a change's, else the first look's.
-	const answer = changer.data ?? loader.data
+	// A change's answer, else the look's, which runs again after each change: a change that failed
+	// leaves the link as it was.
+	const answer = changer.data?.ok ? changer.data : loader.data
 	const share = answer?.ok ? answer.share : null
 	const loading = enabled && loader.data === undefined
 	const busy = changer.state !== "idle"
@@ -219,9 +222,15 @@ function usePublicLink(id: string, enabled: boolean) {
 function PublicLink({
 	link,
 	withNote,
+	hasNote,
 }: {
 	link: ReturnType<typeof usePublicLink>
+	/**
+	 * The note goes with the link, now or once there is one: a page shared before the highlight had
+	 * a note offers an update when one is written.
+	 */
 	withNote: boolean
+	hasNote: boolean
 }) {
 	const { t } = useTranslation("reader")
 	const { share, loading, busy, change, error } = link
@@ -294,7 +303,11 @@ function PublicLink({
 			) : (
 				<>
 					<p className="text-sm text-muted-fg">
-						{t(withNote ? "highlights.share.link.aboutWithNote" : "highlights.share.link.about")}
+						{t(
+							withNote && hasNote
+								? "highlights.share.link.aboutWithNote"
+								: "highlights.share.link.about",
+						)}
 					</p>
 					<div>
 						<Button
