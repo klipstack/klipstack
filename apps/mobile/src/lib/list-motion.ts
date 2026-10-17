@@ -101,7 +101,9 @@ export function advance(
 	acts: ReadonlyMap<string, Act>,
 ): MotionState {
 	const before = state.data
-	if (!items || !before) return { ...state, items, data: items }
+	// Loading anew (another filter, another sort): what left before is no longer coming back.
+	if (!items) return motionState(null)
+	if (!before) return { ...state, items, data: items }
 	const ids = new Set(items.map((a) => a.id))
 	const leaving = new Map(state.leaving)
 	const playing = new Map(state.playing)

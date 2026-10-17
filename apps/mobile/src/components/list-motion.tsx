@@ -31,6 +31,9 @@ export function useReduceMotion(): boolean {
 /** How long an arrival, a return or a stamp where the article stays plays, in ms. */
 const SHOW_MS = 1600
 
+/** How long a stamp where the article stays waits for the context menu to close, in ms. */
+const STAMP_DELAY = 400
+
 const STAMP_DATE = new Intl.DateTimeFormat("en-US", {
 	day: "numeric",
 	month: "short",
@@ -60,11 +63,14 @@ export function useListMotion(items: ArticleSummary[] | null): {
 	}
 
 	// Each motion ends on its own: a leaving article goes, and the rest slide up into the gap.
-	const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
+	const timers = useRef(new Map<string, { act: Act; timer: ReturnType<typeof setTimeout> }>())
 	useEffect(() => {
 		const scheduled = timers.current
 		for (const [id, act] of state.playing) {
-			if (scheduled.has(id)) continue
+			const was = scheduled.get(id)
+			// The same motion is on its way; another one (archived just after it came) starts over.
+			if (was?.act === act) continue
+			if (was) clearTimeout(was.timer)
 			const leaves = act.motion === "archive" || act.motion === "lift"
 			const ms =
 				act.motion === "archive"
@@ -72,19 +78,17 @@ export function useListMotion(items: ArticleSummary[] | null): {
 					: act.motion === "lift"
 						? LEAVE_MS.lift
 						: SHOW_MS
-			scheduled.set(
-				id,
-				setTimeout(() => {
-					scheduled.delete(id)
-					if (leaves) LayoutAnimation.configureNext(SETTLE)
-					setState((was) => settle(was, id))
-				}, ms),
-			)
+			const timer = setTimeout(() => {
+				scheduled.delete(id)
+				if (leaves) LayoutAnimation.configureNext(SETTLE)
+				setState((now) => settle(now, id))
+			}, ms)
+			scheduled.set(id, { act, timer })
 		}
 	}, [state.playing])
 	useEffect(() => {
 		const scheduled = timers.current
-		return () => scheduled.forEach(clearTimeout)
+		return () => scheduled.forEach(({ timer }) => clearTimeout(timer))
 	}, [])
 
 	const acted = useCallback(
@@ -124,9 +128,9 @@ export function MotionCell({
 	colors: Colors
 	children: ReactNode
 }) {
-	if (!act) return children
+	// Always the same wrapper: a row must not mount again as its motion starts and ends.
 	return (
-		<Played key={act.motion} id={id} motion={act.motion} date={act.date} colors={colors}>
+		<Played id={id} motion={act?.motion ?? null} date={act?.date ?? ""} colors={colors}>
 			{children}
 		</Played>
 	)
@@ -140,7 +144,7 @@ function Played({
 	children,
 }: {
 	id: string
-	motion: Motion
+	motion: Motion | null
 	date: string
 	colors: Colors
 	children: ReactNode
@@ -149,6 +153,8 @@ function Played({
 	const [stamp] = useState(() => new Animated.Value(0))
 	const [clip] = useState(() => new Animated.Value(0))
 	useEffect(() => {
+		if (!motion) return
+		for (const value of [t, stamp, clip]) value.setValue(0)
 		const ease = Easing.bezier(0.3, 0.7, 0.2, 1)
 		const timing = (value: Animated.Value, duration: number, easing = ease) =>
 			Animated.timing(value, { toValue: 1, duration, easing, useNativeDriver: true })
@@ -157,7 +163,11 @@ function Played({
 			motion === "archive"
 				? Animated.parallel([timing(t, LEAVE_MS.archive), thump])
 				: motion === "stamp"
-					? Animated.parallel([thump, timing(t, 900, Easing.in(Easing.ease))])
+					? Animated.sequence([
+							// After the context menu has let the row go: it hides it while it closes.
+							Animated.delay(STAMP_DELAY),
+							Animated.parallel([thump, timing(t, 1100, Easing.in(Easing.ease))]),
+						])
 					: motion === "lift"
 						? timing(t, LEAVE_MS.lift, Easing.out(Easing.ease))
 						: motion === "arrive"
@@ -204,10 +214,21 @@ function Played({
 									{ scale: t.interpolate({ inputRange: [0, 1], outputRange: [0.97, 1] }) },
 								],
 							}
-						: null
+						: motion === "stamp"
+							? // A transform, as the archive's: without one the stamp never shows.
+								{ transform: [{ scale: 1 }] }
+							: null
 	const tilt = TILTS[hashOf(id) % TILTS.length]!
+	const leaving = motion === "archive" || motion === "lift"
 	return (
-		<Animated.View style={cell}>
+		<Animated.View
+			style={cell}
+			collapsable={false}
+			// Leaving, it is no longer there to tap, nor for VoiceOver to read.
+			pointerEvents={leaving ? "none" : "auto"}
+			accessibilityElementsHidden={leaving}
+			importantForAccessibility={leaving ? "no-hide-descendants" : "auto"}
+		>
 			{children}
 			{motion === "archive" || motion === "stamp" ? (
 				<View pointerEvents="none" style={styles.center}>
@@ -220,10 +241,11 @@ function Played({
 								borderColor: colors.stamp,
 								opacity:
 									motion === "stamp"
-										? Animated.multiply(
-												stamp.interpolate({ inputRange: [0, 0.7, 1], outputRange: [0, 0.9, 0.9] }),
-												t.interpolate({ inputRange: [0, 0.7, 1], outputRange: [1, 1, 0] }),
-											)
+										? // In with the thump (220 of 900 ms), then off the card.
+											t.interpolate({
+												inputRange: [0, 0.17, 0.7, 1],
+												outputRange: [0, 0.9, 0.9, 0],
+											})
 										: stamp.interpolate({ inputRange: [0, 0.7, 1], outputRange: [0, 0.9, 0.9] }),
 								transform: [
 									{ rotate: `${tilt}deg` },
@@ -312,7 +334,7 @@ function PaperClip({ color }: { color: string }) {
 }
 
 const styles = StyleSheet.create({
-	center: { ...StyleSheet.absoluteFill, alignItems: "center", justifyContent: "center" },
+	center: { ...StyleSheet.absoluteFill, alignItems: "center", justifyContent: "center", zIndex: 1 },
 	stamp: {
 		alignItems: "center",
 		borderWidth: 2,
