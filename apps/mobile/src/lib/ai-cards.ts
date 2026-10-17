@@ -6,8 +6,10 @@ import {
 	type AnswerStore,
 	afterRefusal,
 	createAnswerStore,
+	followingUp,
 	isTempThread,
 	refusedNew,
+	retryOf,
 	tempId,
 	tempQuestion,
 	withQuestion,
@@ -187,7 +189,7 @@ export function useAiCards(client: KlipstackClient | null, articleId: string, ai
 			update(id, (c) => ({
 				...c,
 				failure: undefined,
-				messages: [...c.messages, tempQuestion(text)],
+				messages: followingUp(c.messages, text),
 				streaming: true,
 			}))
 			void run(id, () => client.ai.followUp(id, text))
@@ -199,17 +201,17 @@ export function useAiCards(client: KlipstackClient | null, articleId: string, ai
 		(id: string) => {
 			const card = latest.current.find((c) => c.id === id)
 			if (!card || !client) return
-			if (isTempThread(id)) {
-				// Refused before it began: ask again from the start.
-				const text = card.messages[0]?.text ?? ""
-				if (card.action === "ask" || card.action === "chat") return send(id, text)
+			const again = retryOf(card)
+			// Refused before it began: a new thread asks again from the start, a follow-up is sent again.
+			if (again.kind === "first" || again.kind === "follow-up") return send(id, again.question)
+			if (again.kind === "passage") {
 				update(id, (c) => ({
 					...c,
 					failure: undefined,
 					messages: [tempQuestion("")],
 					streaming: true,
 				}))
-				void askPassage(id, passageOf(card), card.action)
+				void askPassage(id, passageOf(card), card.action as AiAction)
 				return
 			}
 			// The old answer stays until the server takes the retry (`start`): a refusal keeps it.
