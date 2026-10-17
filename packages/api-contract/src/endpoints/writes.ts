@@ -62,7 +62,7 @@ export const updateArticles = defineEndpoint({
 	method: "PATCH",
 	path: "/articles",
 	scope: "write",
-	summary: `Moves, stars, marks for the next edition, finishes or tags up to ${BATCH_MAX} articles, in one transaction. shortlisted: true marks them for the user's next edition, and adds those with a web address to the draft edition in progress, if there is one; false takes them out of it. Publishing an edition with them clears the mark. finished: true also archives; finished: false marks them unread. addTags makes the tags that do not exist yet; names match whatever their case.`,
+	summary: `Moves, stars, marks for the next edition, finishes, keeps or tags up to ${BATCH_MAX} articles, in one transaction. shortlisted: true marks them for the user's next edition, and adds those with a web address to the draft edition in progress, if there is one; false takes them out of it. Publishing an edition with them clears the mark. finished: true also archives; finished: false marks them unread. kept: true keeps them out of the review of old saves (GET /review) for a while; keeping again starts that while again. addTags makes the tags that do not exist yet; names match whatever their case.`,
 	body: z
 		.object({
 			ids: Ids,
@@ -73,6 +73,8 @@ export const updateArticles = defineEndpoint({
 			addTags: TagNames.optional(),
 			/** A tag an article does not have is left alone. */
 			removeTags: TagNames.optional(),
+			/** Kept when reviewing old saves (GET /review). Servers before 2026-10-16 refuse it alone. */
+			kept: z.boolean().optional(),
 		})
 		.refine(
 			(v) =>
@@ -81,10 +83,11 @@ export const updateArticles = defineEndpoint({
 				v.shortlisted !== undefined ||
 				v.finished !== undefined ||
 				v.addTags !== undefined ||
-				v.removeTags !== undefined,
+				v.removeTags !== undefined ||
+				v.kept !== undefined,
 			{
 				message:
-					"Pass at least one of location, starred, shortlisted, finished, addTags and removeTags.",
+					"Pass at least one of location, starred, shortlisted, finished, addTags, removeTags and kept.",
 			},
 		)
 		.refine((v) => !(v.finished === true && v.location === "inbox"), {

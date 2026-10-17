@@ -76,13 +76,13 @@ const ArticleUpdate = z
 		/** Only with a single article. */
 		title: ArticleTitle.optional(),
 		/**
-		 * Kept when reviewing old saves: not suggested for letting go for a while. Web only, for now.
-		 * Keeping again starts that while again.
+		 * Kept when reviewing old saves: not suggested for letting go for a while. The web and the API;
+		 * not MCP, for now. Keeping again starts that while again.
 		 */
 		kept: z.boolean().optional(),
 	})
 	.refine((v) => CHANGES.some((key) => v[key] !== undefined), {
-		// Without `kept`: only the web keeps, and MCP callers get this message.
+		// Without `kept`: MCP doesn't keep, and its callers get this message.
 		message: `Pass at least one change: ${CHANGES.filter((key) => key !== "kept").join(", ")}.`,
 	})
 	.refine((v) => !(v.finished === true && v.location === "inbox"), {

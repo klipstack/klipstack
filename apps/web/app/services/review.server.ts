@@ -14,7 +14,13 @@ import {
 	user as userTable,
 } from "@klipstack/db"
 import { REVIEW } from "~/lib/review"
-import { finished, INBOX_FILTER_WHERE, readBefore } from "./documents.server"
+import {
+	finished,
+	INBOX_FILTER_WHERE,
+	type LibraryCard,
+	libraryCardColumns,
+	readBefore,
+} from "./documents.server"
 
 const DAY_MS = 86_400_000
 
@@ -51,17 +57,8 @@ export function reviewWhere(userId: string, now: Date): SQL {
 	) as SQL
 }
 
-export interface ReviewItem {
-	id: string
-	title: string | null
-	siteName: string | null
-	author: string | null
-	sourceUrl: string
-	description: string | null
-	readingMinutes: number | null
-	type: "article" | "post"
-	createdAt: Date
-}
+/** A save to review: a library card, with whether it is an article or a post. */
+export type ReviewItem = LibraryCard & { type: "article" | "post" }
 
 /** The oldest `REVIEW.pageSize` saves to review, and whether there are more after them. */
 export async function listReview(
@@ -69,17 +66,7 @@ export async function listReview(
 	{ now = new Date(), limit = REVIEW.pageSize }: { now?: Date; limit?: number } = {},
 ): Promise<{ items: ReviewItem[]; more: boolean }> {
 	const rows = await db
-		.select({
-			id: documents.id,
-			title: documents.title,
-			siteName: documents.siteName,
-			author: documents.author,
-			sourceUrl: documents.sourceUrl,
-			description: documents.description,
-			readingMinutes: documents.readingMinutes,
-			type: documents.type,
-			createdAt: documents.createdAt,
-		})
+		.select({ ...libraryCardColumns, type: documents.type })
 		.from(documents)
 		.where(reviewWhere(userId, now))
 		.orderBy(documents.createdAt, documents.id)

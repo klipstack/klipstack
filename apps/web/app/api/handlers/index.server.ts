@@ -7,6 +7,7 @@ import * as home from "./home.server"
 import * as library from "./library.server"
 import { openapi } from "./meta.server"
 import * as notebook from "./notebook.server"
+import * as review from "./review.server"
 import * as writes from "./writes.server"
 
 /** One handler per endpoint id; a missing one fails the typecheck. */
@@ -56,6 +57,9 @@ export const handlers: HandlerTable<Endpoints> = {
 	"home.rediscover": home.rediscover,
 	"editions.next": home.nextEdition,
 	"editions.snoozeNudge": home.snoozeNudge,
+	"review.list": review.list,
+	"review.suggested": review.suggested,
+	"review.snooze": review.snooze,
 	"feed.get": library.feed,
 	"feed.saveItems": writes.saveItems,
 	"feed.dismissItems": writes.dismissItems,

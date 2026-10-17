@@ -209,7 +209,7 @@ describe("keep", () => {
 		expect((await read(b)).keptAt).toBeNull()
 	})
 
-	it("is left out of the message for a request without changes: the API and MCP can't keep", async () => {
+	it("is left out of the message for a request without changes: MCP can't keep", async () => {
 		const [a] = ids as [string]
 		const refusal = updateArticles(userId, { ids: [a] })
 		await expect(refusal).rejects.toMatchObject({ code: "invalid_request" })
