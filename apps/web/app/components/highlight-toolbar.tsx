@@ -1,15 +1,10 @@
 import { Copy, MessageSquarePlus, Share, SquarePen, Trash2 } from "lucide-react"
 import { useTranslation } from "react-i18next"
-import {
-	HIGHLIGHT_COLOR_NAMES,
-	HIGHLIGHT_SWATCH,
-	highlightColor,
-	highlightColorName,
-} from "~/lib/highlight-colors"
+import { HIGHLIGHT_COLOR_NAMES, highlightColorName } from "~/lib/highlight-colors"
 import type { RenderableHighlight } from "~/lib/highlights.client"
 import { COPY_HINT } from "~/lib/shortcuts"
-import { cn } from "~/lib/utils"
 import { AiToolbarButtons } from "./ai-toolbar-buttons"
+import { HighlighterNibs } from "./highlighter-nibs"
 import { ReaderToolbar, TOOLBAR_ICON_BUTTON } from "./reader-toolbar"
 import { tooltip } from "./tooltip-host"
 
@@ -34,8 +29,8 @@ interface Props {
 	onAsk?: () => void
 }
 
-/** The color picker's width: five swatches and the line after them. */
-const COLORS_WIDTH = 160
+/** The color picker's width: five marker tips and the line after them. */
+const COLORS_WIDTH = 140
 /** The share button's width. */
 const SHARE_WIDTH = 32
 
@@ -125,7 +120,10 @@ export function HighlightToolbar({
 	)
 }
 
-/** The five colors, the highlight's own pressed. */
+/**
+ * The five colors as marker tips, the highlight's own raised; a line after them. In the touch
+ * sheet they have the first row to themselves, and the other buttons share the second.
+ */
 function ColorPicker({
 	color,
 	onColor,
@@ -135,42 +133,16 @@ function ColorPicker({
 	onColor: (color: number) => void
 	disabled?: boolean
 }) {
-	const { t } = useTranslation("reader")
-	const current = highlightColorName(color)
 	return (
 		<>
-			<div role="group" aria-label={t("highlights.popover.color")} className="flex items-center">
-				{HIGHLIGHT_COLOR_NAMES.map((name, index) => {
-					const label = t(`highlights.colors.${name}`)
-					const pressed = name === current
-					return (
-						<button
-							key={name}
-							type="button"
-							disabled={disabled}
-							aria-pressed={pressed}
-							aria-label={label}
-							{...tooltip(label)}
-							onClick={() => !pressed && onColor(index)}
-							// Bigger to the finger, in the touch sheet.
-							className="group/swatch rounded-full p-1.5 pointer-coarse:p-2.5 disabled:cursor-not-allowed disabled:opacity-40"
-						>
-							<span
-								aria-hidden
-								{...highlightColor(index)}
-								className={cn(
-									"block size-4 rounded-full pointer-coarse:size-5 ring-offset-2 ring-offset-card transition-shadow",
-									HIGHLIGHT_SWATCH,
-									pressed
-										? "ring-2 ring-fg/70"
-										: "group-hover/swatch:ring-2 group-hover/swatch:ring-border",
-								)}
-							/>
-						</button>
-					)
-				})}
+			<div className="flex pointer-coarse:basis-full">
+				<HighlighterNibs
+					value={HIGHLIGHT_COLOR_NAMES.indexOf(highlightColorName(color))}
+					onChange={onColor}
+					disabled={disabled}
+				/>
 			</div>
-			<span aria-hidden className="mx-0.5 h-5 w-px bg-border" />
+			<span aria-hidden className="mx-0.5 h-5 w-px bg-border pointer-coarse:hidden" />
 		</>
 	)
 }
