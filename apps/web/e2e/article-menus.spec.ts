@@ -13,7 +13,7 @@ async function library(
 	titles: string[],
 	extra: Partial<typeof documents.$inferInsert> = {},
 ) {
-	const email = await signupUser(page, "Menus")
+	const email = await signupUser(page, "Menus", { editions: true })
 	const owner = await db.query.user.findFirst({ where: eq(user.email, email) })
 	if (!owner) throw new Error("Missing article-menus test user")
 	const rows = await db
@@ -110,7 +110,7 @@ test("trashed articles can be deleted forever together, after a second tap", asy
 test("the reader's menu: archive with an undo either way, and Mark as finished", async ({
 	page,
 }) => {
-	const email = await signupUser(page, "Reader menus")
+	const email = await signupUser(page, "Reader menus", { editions: true })
 	const owner = await db.query.user.findFirst({ where: eq(user.email, email) })
 	if (!owner) throw new Error("Missing article-menus test user")
 	const title = "Read from its menu"
