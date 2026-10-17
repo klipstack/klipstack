@@ -135,9 +135,12 @@ export function buildOpenApiDocument({
 			responses[204] = { description: "Done; no content." }
 		}
 		const byStatus = new Map<number, ErrorCode[]>()
-		const own: ErrorCode[] = endpoint.body
-			? ["too_large", "request_timeout", ...endpoint.errors]
-			: [...endpoint.errors]
+		const own: ErrorCode[] = [
+			...(endpoint.body ? (["too_large", "request_timeout"] as const) : []),
+			// The client is not one the endpoint is for.
+			...(endpoint.clients ? (["forbidden"] as const) : []),
+			...endpoint.errors,
+		]
 		// An endpoint may list one of these too, for a reason of its own (`too_large`).
 		for (const code of new Set([...COMMON_ERRORS, ...own])) {
 			if (endpoint.scope === "none" && AUTH_ERRORS.has(code)) continue
@@ -155,7 +158,13 @@ export function buildOpenApiDocument({
 			operationId: endpoint.id,
 			tags: [tag],
 			...(endpoint.summary ? { summary: endpoint.summary } : {}),
+			...(endpoint.clients
+				? {
+						description: `Only for Klipstack's own apps with in-app AI: an OAuth access token issued to ${endpoint.clients.map((id) => `\`${id}\``).join(" or ")}. API keys, the CLI and other OAuth clients get \`403 forbidden\`, whatever their scopes. Whoever connects through the API brings their own AI.`,
+					}
+				: {}),
 			"x-scope": endpoint.scope,
+			...(endpoint.clients ? { "x-clients": endpoint.clients } : {}),
 			security: endpoint.scope === "none" ? [] : [{ bearerAuth: [] }],
 			...(parameters.length ? { parameters } : {}),
 			...(endpoint.body
@@ -178,7 +187,7 @@ export function buildOpenApiDocument({
 			title: "Klipstack API",
 			version,
 			description:
-				"Klipstack's HTTP API for programs: the CLI, the browser extension and scripts. Alpha: endpoints, fields and error codes may change without notice. Authenticate with `Authorization: Bearer <token>`: an API key from Settings, or an OAuth access token for the `/api` resource with the `library:read` scope (`library:write` for changes; `x-scope` says which each operation needs).",
+				"Klipstack's HTTP API for programs: the CLI, the browser extension and scripts. Alpha: endpoints, fields and error codes may change without notice. Authenticate with `Authorization: Bearer <token>`: an API key from Settings, or an OAuth access token for the `/api` resource with the `library:read` scope (`library:write` for changes; `x-scope` says which each operation needs). Operations with `x-clients` answer only tokens issued to those OAuth clients: the reader's AI is for Klipstack's own apps.",
 		},
 		servers: [{ url: serverUrl }],
 		tags: [...tags].map((name) => ({ name })),
