@@ -2,7 +2,7 @@ import { CONTROLLER, type Policy, PRIVACY_CONTACT } from "./types"
 
 export default {
 	title: "Política de privacidad",
-	updated: "Última actualización: 12 de octubre de 2026",
+	updated: "Última actualización: 17 de octubre de 2026",
 	summary:
 		"Klipstack guarda lo que guardas para que puedas leerlo. No vende tus datos, no muestra anuncios y no te rastrea. Esta página explica qué recopilamos, para qué, quién nos ayuda a operar el servicio y qué puedes hacer al respecto.",
 	contentsLabel: "En esta página",
@@ -30,7 +30,7 @@ export default {
 						"Si inicias sesión con Google o GitHub: el nombre, el correo y la foto de perfil que nos envían. No guardamos sus tokens de acceso.",
 						"Lo que guardas: cada enlace, el texto y las imágenes de la página, una copia de la página tal como se guardó y la hora en que la guardaste.",
 						"Lo que añades: subrayados, notas, etiquetas, búsquedas guardadas, los feeds que sigues, tu avance de lectura y lo que terminaste.",
-						"Si preguntas sobre lo que lees (Explicar, Definir, Preguntar): el pasaje, tus preguntas y las respuestas.",
+						"Si preguntas sobre lo que lees (Explicar, Definir, Preguntar, Chat, Resumen): el pasaje, tus preguntas, las respuestas y el resumen.",
 						"Inicios de sesión: para cada dispositivo con sesión abierta, su dirección IP y la descripción que el navegador da de sí mismo (user agent). Los guardamos con la sesión, para proteger tu cuenta. Una sesión termina 30 días después de su último uso.",
 						"Si pides una invitación: tu correo, la nota que escribas y tu idioma. Solo los ven quienes operan Klipstack.",
 						"Si denuncias una página pública: el motivo, lo que escribas, tu correo si lo das y tu idioma. Solo los ven quienes operan Klipstack. Quien publicó la página nunca ve tu denuncia ni tu correo.",
@@ -53,7 +53,7 @@ export default {
 						"Para responder a una solicitud de invitación. Solo te escribimos si te enviamos una.",
 						"Para decidir sobre una denuncia de una página pública, y escribirte la decisión si diste un correo. Si retiramos una página, le decimos a quien la publicó por qué, sin decir quién la denunció.",
 						"Para mantener el servicio seguro y frenar el abuso.",
-						"Para responder preguntas sobre lo que lees, cuando las haces. Mira «Preguntas sobre lo que lees» más abajo.",
+						"Para responder preguntas sobre lo que lees y escribir el resumen de un artículo, cuando lo pides. Mira «Preguntas sobre lo que lees» más abajo.",
 						"Para resolver problemas.",
 					],
 				},
@@ -89,7 +89,7 @@ export default {
 						"Better Stack comprueba desde fuera que Klipstack funciona. No ve datos de cuentas.",
 						"Google o GitHub, solo si eliges iniciar sesión con ellos.",
 						"FxTwitter, solo cuando guardas una publicación de X.",
-						"Anthropic responde preguntas sobre lo que lees, solo cuando haces una, y pone nombre a tus temas, solo si activas los temas.",
+						"Anthropic responde preguntas sobre lo que lees y escribe resúmenes, solo cuando los pides, y pone nombre a tus temas, solo si activas los temas.",
 						"TypeSafe ordena tus artículos en temas, solo si activas los temas.",
 					],
 				},
@@ -100,9 +100,9 @@ export default {
 			id: "ai",
 			title: "Preguntas sobre lo que lees",
 			blocks: [
-				"En el lector puedes preguntar sobre un pasaje: que te lo explique, que defina una palabra o hacer una pregunta. Solo entonces nuestro servidor le envía a Anthropic el texto del artículo, el pasaje y tu pregunta, y te muestra su respuesta. Aparte de los temas, más abajo, no se envía nada si no preguntas.",
+				"En el lector, en la web o en la app para iPhone, puedes preguntar sobre un pasaje (que te lo explique, que defina una palabra o hacer una pregunta), chatear sobre todo el artículo o pedir su resumen: un relato breve de lo que dice y de cómo está construido. Solo entonces nuestro servidor le envía a Anthropic el texto del artículo y lo que pediste: el pasaje, tu pregunta y, cuando sigues preguntando, las preguntas y respuestas anteriores. Luego te muestra la respuesta. Aparte de los temas, más abajo, no se envía nada si no preguntas.",
 				"Anthropic los usa solo para responder, según las condiciones comerciales de Anthropic, y no entrena sus modelos con ellos.",
-				"Guardamos tus preguntas y las respuestas con el artículo, para que puedas volver a leerlas, hasta que las borres o borres el artículo. Los registros del servidor anotan que se respondió una pregunta y su tamaño, nunca lo que decía.",
+				"Guardamos tus preguntas, las respuestas y el resumen con el artículo, para que puedas volver a leerlos, hasta que los borres o borres el artículo. Los registros del servidor anotan que se respondió una pregunta y su tamaño, nunca lo que decía.",
 			],
 		},
 		{
@@ -137,7 +137,10 @@ export default {
 				{
 					list: [
 						"La extensión del navegador actúa solo cuando haces clic en ella o usas su menú. Quita los scripts y los campos ocultos de formularios antes de enviar una página. Pide acceso a todos los sitios para poder guardar la página que elijas.",
-						"La app para iPhone, en pruebas, guarda tu sesión en el llavero (Keychain) del iPhone y copias de los artículos para abrirlos sin conexión. Lee en voz alta en el propio teléfono: el texto nunca sale de él. Sus archivos de voz se descargan una vez, desde Hugging Face y GitHub. Lee el portapapeles solo cuando tocas Pegar. No tiene analítica ni reportes de fallos.",
+						"La app para iPhone, en pruebas, guarda tu sesión en el llavero (Keychain) del iPhone, compartida con su extensión para compartir y su widget, y copias de los artículos para abrirlos sin conexión. Lee en voz alta en el propio teléfono: el texto nunca sale de él. Sus archivos de voz se descargan una vez, desde Hugging Face y GitHub. Cuando dictas una nota, el iPhone reconoce tu voz en el propio dispositivo, con el reconocimiento de voz de Apple: lo que dices nunca sale del teléfono, y a Klipstack solo llega el texto de la nota. Look Up abre el diccionario del propio iPhone. Lee el portapapeles solo cuando tocas Pegar. No tiene analítica ni reportes de fallos.",
+						"En la app para iPhone, la IA del lector funciona como en la web y envía lo mismo: mira «Preguntas sobre lo que lees».",
+						"La extensión para compartir (Klipstack en el menú Compartir del iPhone) lee solo el enlace que compartes, o el primer enlace web de un texto compartido, y envía ese enlace a Klipstack, que lo guarda como cualquier otro.",
+						"El widget «Next up» le pide a Klipstack los próximos artículos de tu bandeja de entrada (Inbox): título, sitio, tiempo de lectura, cuánto leíste y la imagen. Guarda los últimos en el teléfono para mostrarlos sin conexión. Una imagen que Klipstack no guardó se carga desde el sitio web del artículo.",
 						"Puedes conectar otras apps y asistentes de IA a tu biblioteca (claves de API, MCP). Solo acceden a lo que permites, y puedes quitarlos en Ajustes cuando quieras. Lo que hagan con los datos depende de ellos y de sus propias políticas de privacidad.",
 					],
 				},
@@ -169,7 +172,7 @@ export default {
 					list: [
 						"Obtener una copia: exporta toda tu biblioteca, con subrayados y notas, en Markdown y JSON desde Ajustes. Tus feeds se exportan en OPML.",
 						`Corregir: cambia tu nombre en Ajustes. Para cambiar tu correo, escribe a ${PRIVACY_CONTACT}.`,
-						"Eliminar: elimina tu cuenta en Ajustes.",
+						"Eliminar: elimina tu cuenta en Ajustes, o en la pantalla Account de la app para iPhone.",
 						`Cualquier otra cosa, como saber qué datos tenemos sobre ti u oponerte a un uso: escribe a ${PRIVACY_CONTACT}. Respondemos en un plazo de 30 días.`,
 					],
 				},

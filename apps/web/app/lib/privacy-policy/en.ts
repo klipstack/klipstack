@@ -2,7 +2,7 @@ import { CONTROLLER, type Policy, PRIVACY_CONTACT } from "./types"
 
 export default {
 	title: "Privacy policy",
-	updated: "Last updated October 12, 2026",
+	updated: "Last updated October 17, 2026",
 	summary:
 		"Klipstack keeps what you save so you can read it. It doesn't sell your data, show ads or track you. This page explains what we collect, why, who helps us run the service, and what you can do about it.",
 	contentsLabel: "On this page",
@@ -30,7 +30,7 @@ export default {
 						"If you sign in with Google or GitHub: the name, email address and profile picture they send us. We don't keep their access tokens.",
 						"What you save: each link, the page's text and images, a copy of the page as it was saved, and the time you saved it.",
 						"What you add: highlights, notes, tags, saved searches, the feeds you follow, your reading progress and what you finished.",
-						"If you ask about what you read (Explain, Define, Ask): the passage, your questions and the answers.",
+						"If you ask about what you read (Explain, Define, Ask, Chat, Brief): the passage, your questions, the answers and the brief.",
 						"Sign-ins: for each device you're signed in on, its IP address and the browser's description of itself (user agent). We keep them with the sign-in, to protect your account. A sign-in ends 30 days after you last use it.",
 						"If you ask for an invite: your email address, the note you write, and your language. Only the people who run Klipstack see them.",
 						"If you report a public page: the reason, what you write, your email address if you give one, and your language. Only the people who run Klipstack see them. The page's author never sees your report or your address.",
@@ -53,7 +53,7 @@ export default {
 						"To answer a request for an invite. We email you only if we send you one.",
 						"To decide on a report about a public page, and to email you the decision if you gave an address. If we take a page down, we tell its author why, without saying who reported it.",
 						"To keep the service secure and stop abuse.",
-						"To answer questions about what you read, when you ask. See “Questions about what you read” below.",
+						"To answer questions about what you read and write an article's brief, when you ask. See “Questions about what you read” below.",
 						"To fix problems.",
 					],
 				},
@@ -89,7 +89,7 @@ export default {
 						"Better Stack checks from outside that Klipstack is up. It sees no account data.",
 						"Google or GitHub, only if you choose to sign in with them.",
 						"FxTwitter, only when you save a post from X.",
-						"Anthropic answers questions about what you read, only when you ask one, and names your topics, only if you turn topics on.",
+						"Anthropic answers questions about what you read and writes briefs, only when you ask, and names your topics, only if you turn topics on.",
 						"TypeSafe sorts your articles into topics, only if you turn topics on.",
 					],
 				},
@@ -100,9 +100,9 @@ export default {
 			id: "ai",
 			title: "Questions about what you read",
 			blocks: [
-				"In the reader you can ask about a passage: explain it, define a word, or ask a question. Only then, our server sends Anthropic the article's text, the passage and your question, and shows you its answer. Apart from topics, below, nothing is sent unless you ask.",
+				"In the reader, on the web or in the iPhone app, you can ask about a passage (explain it, define a word, or ask a question), chat about the whole article, or ask for its brief: a short account of what it says and how it is built. Only then, our server sends Anthropic the article's text and what you asked: the passage, your question and, when you ask more, the earlier questions and answers. Then it shows you the answer. Apart from topics, below, nothing is sent unless you ask.",
 				"Anthropic uses them only to answer, under Anthropic's commercial terms, and doesn't train its models on them.",
-				"We keep your questions and the answers with the article, so you can read them again, until you delete them or the article. Our server logs record that a question was answered and its size, never what it said.",
+				"We keep your questions, the answers and the brief with the article, so you can read them again, until you delete them or the article. Our server logs record that a question was answered and its size, never what it said.",
 			],
 		},
 		{
@@ -137,7 +137,10 @@ export default {
 				{
 					list: [
 						"The browser extension acts only when you click it or use its menu. It removes scripts and hidden form fields before it sends a page. It asks to reach every site so it can save whichever page you choose.",
-						"The iPhone app, in testing, keeps your sign-in in the iPhone's Keychain and keeps copies of articles so they open offline. It reads aloud on the phone itself: the text never leaves it. Its voice files download once, from Hugging Face and GitHub. It reads the clipboard only when you tap Paste. It has no analytics and no crash reports.",
+						"The iPhone app, in testing, keeps your sign-in in the iPhone's Keychain, shared with its share extension and widget, and keeps copies of articles so they open offline. It reads aloud on the phone itself: the text never leaves it. Its voice files download once, from Hugging Face and GitHub. When you dictate a note, the iPhone recognizes your speech on the device, with Apple's speech recognition: what you say never leaves the phone, and only the note's text reaches Klipstack. Look Up opens the iPhone's own dictionary. It reads the clipboard only when you tap Paste. It has no analytics and no crash reports.",
+						"In the iPhone app, the AI in the reader works as on the web, and sends the same things: see “Questions about what you read”.",
+						"The share extension (Klipstack in the iPhone's share sheet) reads only the link you share, or the first web link in shared text, and sends that link to Klipstack, which saves it as any other link.",
+						"The Next up widget asks Klipstack for the next articles in your Inbox: title, site, reading time, how far you read and the picture. It keeps the latest on the phone to show offline. A picture Klipstack didn't store loads from the article's website.",
 						"You can connect other apps and AI assistants to your library (API keys, MCP). They can reach only what you allow, and you can remove them in Settings at any time. What they do with the data is up to them and their own privacy policies.",
 					],
 				},
@@ -169,7 +172,7 @@ export default {
 					list: [
 						"Get a copy: export your whole library, with highlights and notes, as Markdown and JSON from Settings. Your feeds export as OPML.",
 						`Correct it: change your name in Settings. To change your email address, write to ${PRIVACY_CONTACT}.`,
-						"Delete it: delete your account in Settings.",
+						"Delete it: delete your account in Settings, or in Account in the iPhone app.",
 						`Anything else, such as asking what we hold about you or objecting to a use: write to ${PRIVACY_CONTACT}. We answer within 30 days.`,
 					],
 				},
