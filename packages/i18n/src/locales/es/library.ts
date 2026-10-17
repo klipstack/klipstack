@@ -184,6 +184,7 @@ export default {
 		left_one: "{{count}} min restante",
 		left_other: "{{count}} min restantes",
 	},
+	heading: "Tu biblioteca",
 	tabs: {
 		label: "Vistas de la biblioteca",
 	},
