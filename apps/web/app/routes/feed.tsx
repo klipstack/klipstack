@@ -54,7 +54,7 @@ export const handle: PageBarHandle = { pageBar: { titleKey: "common:nav.feed" } 
 /**
  * GET /feed, or /feed?site=<subscription id> for one site's posts. The posts of every site come as
  * one river by date (`riverPosts`), dated in the reader's time zone here, where the page is drawn
- * first. A site the reader does not follow (any more: they just unfollowed it) is all of them.
+ * first. A site the reader does not follow (any more: they just unfollowed it) goes back to /feed.
  */
 export async function loader({ context, request }: Route.LoaderArgs) {
 	const user = requireUser(context, request)
@@ -223,7 +223,12 @@ export default function FeedPage({ loaderData }: Route.ComponentProps) {
 						/>
 					) : null}
 				</div>
-				<SiteList followed={followed} site={site} onManage={() => setFollowing(true)} />
+				<SiteList
+					followed={followed}
+					site={site}
+					newCount={site ? null : newCount}
+					onManage={() => setFollowing(true)}
+				/>
 			</div>
 		</main>
 	)
@@ -343,14 +348,17 @@ function ChosenSite({ sub }: { sub: Followed }) {
 function SiteList({
 	followed,
 	site,
+	newCount,
 	onManage,
 }: {
 	followed: Followed[]
 	site: string | null
+	/** New posts across every site, as the dateline counts them (a post two feeds carry once). */
+	newCount: number | null
 	onManage: () => void
 }) {
 	const { t } = useTranslation("feed")
-	const total = followed.reduce((sum, f) => sum + f.newCount, 0)
+	const total = newCount ?? followed.reduce((sum, f) => sum + f.newCount, 0)
 	return (
 		<nav aria-label={t("rail.label")} className="hidden lg:block">
 			<div className="sticky top-6">
@@ -464,7 +472,10 @@ function SiteChips({ followed, site }: { followed: Followed[]; site: string | nu
 							<SiteStamp siteUrl={sub.siteUrl} title={sub.title} size={16} />
 							{sub.title}
 							{sub.newCount ? (
-								<span className="text-xs text-link tabular-nums">{sub.newCount}</span>
+								<span className="text-xs text-link tabular-nums">
+									<span aria-hidden>{sub.newCount}</span>
+									<span className="sr-only">{t("rail.newCount", { count: sub.newCount })}</span>
+								</span>
 							) : null}
 						</Link>
 					</li>

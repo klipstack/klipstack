@@ -151,6 +151,10 @@ test("feed page: new posts by date, the sites followed, save, dismiss, rename, u
 		})
 		.toBe("My busy blog")
 
+	// A site that is not one of the reader's is every site.
+	await page.goto(`/feed?site=${crypto.randomUUID()}`)
+	await expect(page).toHaveURL(/\/feed$/)
+
 	// Unsubscribe from the quiet one: back to every site, without it.
 	await sites.getByRole("link", { name: /Quiet blog/ }).click()
 	await expect(page.getByRole("heading", { level: 2, name: "Quiet blog" })).toBeVisible()

@@ -10,7 +10,7 @@ export default {
 	groups: {
 		today: "Today",
 		yesterday: "Yesterday",
-		week: "Earlier this week",
+		week: "Last 7 days",
 		month: "Earlier this month",
 	},
 	river: {

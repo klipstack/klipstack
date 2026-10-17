@@ -10,8 +10,8 @@ export default {
 	groups: {
 		today: "Hoy",
 		yesterday: "Ayer",
-		week: "Antes esta semana",
-		month: "Antes este mes",
+		week: "Últimos 7 días",
+		month: "Este mes",
 	},
 	river: {
 		new: "Publicaciones nuevas",
