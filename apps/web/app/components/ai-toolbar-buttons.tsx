@@ -6,7 +6,7 @@ import { TOOLBAR_LABEL_BUTTON } from "./reader-toolbar"
 import { tooltip } from "./tooltip-host"
 
 /**
- * Ask AI, in a reader toolbar: it opens a draft about the passage, where the reader chooses
+ * Ask, in a reader toolbar: it opens an "Ask AI" draft about the passage, where the reader chooses
  * Explain, Define or a question of their own. With no questions left this month it stays, dimmed:
  * pressing it opens the card that says why.
  */
@@ -25,7 +25,7 @@ export function AiToolbarButtons({ onAsk, disabled }: { onAsk: () => void; disab
 				className={cn(TOOLBAR_LABEL_BUTTON, none && "opacity-50")}
 			>
 				<ASK_AI_ICON className="size-4" aria-hidden />
-				{t("ai.askAi")}
+				{t("ai.actions.ask")}
 			</button>
 		</>
 	)

@@ -57,7 +57,7 @@ const marginSlot = (card: Locator) => card.locator("xpath=ancestor::*[@data-note
 const selectionToolbar = (page: Page) => page.getByRole("dialog", { name: "Selected text" })
 /** Ask AI about the selection; then, if given, Explain or Define in the card that opens. */
 async function askAi(page: Page, choice?: "Explain" | "Define") {
-	await selectionToolbar(page).getByRole("button", { name: "Ask AI" }).click()
+	await selectionToolbar(page).getByRole("button", { name: "Ask", exact: true }).click()
 	if (choice) await page.getByTestId("ai-card").getByRole("button", { name: choice }).click()
 }
 const shot = (page: Page, name: string) =>
@@ -452,7 +452,9 @@ test("without the feature, the toolbar has no AI", async ({ page }) => {
 	await expect(
 		selectionToolbar(page).getByRole("button", { name: "Highlight", exact: true }),
 	).toBeVisible()
-	await expect(selectionToolbar(page).getByRole("button", { name: "Ask AI" })).toHaveCount(0)
+	await expect(
+		selectionToolbar(page).getByRole("button", { name: "Ask", exact: true }),
+	).toHaveCount(0)
 	await expect(page.getByTestId("brief")).toHaveCount(0)
 	await expect(page.getByRole("button", { name: "Chat about this article" })).toHaveCount(0)
 	await page.keyboard.press("h")
@@ -529,7 +531,7 @@ test("at the cap Ask AI is dimmed, and pressing it says why without asking", asy
 	const brief = page.getByTestId("brief")
 	await expect(brief).toHaveClass(/opacity-50/)
 	await select(page, PASSAGE)
-	const askButton = selectionToolbar(page).getByRole("button", { name: "Ask AI" })
+	const askButton = selectionToolbar(page).getByRole("button", { name: "Ask", exact: true })
 	await expect(askButton).toHaveAttribute("data-none-left", "true")
 	await shot(page, "dimmed-toolbar")
 	// The reason, not a field for a question, nor an Explain or a Define, that would be refused.
@@ -574,10 +576,9 @@ test("a question the server refuses at the cap turns the page to none left", asy
 	await expect(page.getByTestId("brief")).toHaveClass(/opacity-50/)
 	await page.keyboard.press("Escape")
 	await select(page, "they understand the cost")
-	await expect(selectionToolbar(page).getByRole("button", { name: "Ask AI" })).toHaveAttribute(
-		"data-none-left",
-		"true",
-	)
+	await expect(
+		selectionToolbar(page).getByRole("button", { name: "Ask", exact: true }),
+	).toHaveAttribute("data-none-left", "true")
 })
 
 test("a first question refused before it began keeps its question, says why, and asks again", async ({
