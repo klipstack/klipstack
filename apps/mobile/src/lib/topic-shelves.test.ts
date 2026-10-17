@@ -1,13 +1,17 @@
 import type { ArticleSummary, Topic } from "@klipstack/sdk"
+import { KlipstackApiError } from "@klipstack/sdk"
 import { describe, expect, it } from "vitest"
 import {
+	confirmation,
 	oklchHex,
 	PHONE_SHELF,
 	phoneShelf,
 	spine,
 	topicsBusy,
+	topicRefusal,
 	topicsNotice,
 	type TopicsAnswer,
+	turnOffQuestion,
 } from "./topic-shelves"
 
 const NOW = new Date("2026-10-12T12:00:00Z")
@@ -91,16 +95,13 @@ describe("topicsNotice", () => {
 		...extra,
 	})
 
-	it("sends a reader with topics off, or not confirmed, to the web", () => {
-		expect(topicsNotice(answer({ stage: "off" }))).toMatchObject({
-			title: "Set up topics on the web",
-			web: true,
-		})
+	it("leaves the stages the screen shows in full to it: off and the proposal", () => {
+		expect(topicsNotice(answer({ stage: "off" }))).toBeNull()
 		expect(
 			topicsNotice(
 				answer({ stage: "proposed", proposed: [{ id: "1", name: "Cooking", description: "" }] }),
 			),
-		).toMatchObject({ title: "Your first topics are ready", web: true })
+		).toBeNull()
 	})
 
 	it("says how far the first topics are", () => {
@@ -108,7 +109,6 @@ describe("topicsNotice", () => {
 			topicsNotice(answer({ stage: "waiting", progress: { count: 7, needed: 25 } })),
 		).toMatchObject({
 			body: "Your first topics come when you have saved 25 articles: 7 of 25 so far.",
-			web: false,
 		})
 		expect(topicsNotice(answer({ stage: "proposing" }))?.title).toBe("Proposing your first topics…")
 	})
@@ -124,6 +124,18 @@ describe("topicsNotice", () => {
 			)?.body,
 		).toBe(
 			"Sorting stopped for this month: 3 articles are waiting, and sorting starts again on November 1. Nothing is lost.",
+		)
+		// With the month's cap, as servers since 2026-10-17 send it.
+		expect(
+			topicsNotice(
+				answer({
+					sorting: 1,
+					sortingPaused: { resumesAt: "2026-11-01T00:00:00Z", max: 2000 },
+				}),
+				"en-US",
+			)?.body,
+		).toBe(
+			"Sorting stopped for this month: 2,000 articles were sorted, the most an account can. 1 article is waiting, and sorting starts again on November 1. Nothing is lost.",
 		)
 		expect(topicsNotice(answer({ sorting: 3, sortingPaused: { resumesAt: null } }))?.body).toBe(
 			"This server sorts no articles into topics: 3 articles are waiting.",
@@ -161,5 +173,54 @@ describe("topicsBusy", () => {
 		expect(topicsBusy(answer({ sorting: 0, sortingPaused: null }))).toBe(false)
 		for (const stage of ["unavailable", "off", "waiting", "proposed"] as const)
 			expect(topicsBusy(answer({ stage }))).toBe(false)
+	})
+})
+
+describe("confirmation", () => {
+	const proposed = [{ id: "a" }, { id: "b" }, { id: "c" }]
+
+	it("sends every proposed topic, under its own name, when the reader changes nothing", () => {
+		expect(confirmation(proposed, {})).toEqual([{ id: "a" }, { id: "b" }, { id: "c" }])
+	})
+
+	it("leaves out the unchecked ones, and sends the names typed, an empty one as none", () => {
+		expect(
+			confirmation(proposed, {
+				a: { kept: false, name: "Kept?" },
+				b: { kept: true, name: "  Trips " },
+				c: { kept: true, name: "   " },
+			}),
+		).toEqual([{ id: "b", name: "Trips" }, { id: "c" }])
+	})
+})
+
+describe("turnOffQuestion", () => {
+	it("says the topics go, and names the saved searches that would find nothing", () => {
+		const base = "This deletes your topics and where each article was. It can't be undone."
+		expect(turnOffQuestion([{ name: "Tagged", query: "tag:x" }])).toBe(base)
+		expect(
+			turnOffQuestion([
+				{ name: "Tagged", query: "tag:x" },
+				{ name: "Science", query: 'topic:"Physics" unread' },
+			]),
+		).toBe(`${base} 1 saved search names topics and will find nothing in them: “Science”.`)
+		expect(
+			turnOffQuestion([
+				{ name: "A", query: "topic:a" },
+				{ name: "B", query: "topic:b unread" },
+				{ name: "Any topic", query: "has:topic" },
+				{ name: "C", query: "-topic:c" },
+			]),
+		).toMatch(/3 saved searches name topics and will find nothing in them: “A”, “B”, “C”\.$/)
+	})
+})
+
+describe("topicRefusal", () => {
+	it("says the server's refusals in the reader's words, and anything else as it is", () => {
+		const refused = (code: string) => new KlipstackApiError(409, code as never, "server words")
+		expect(topicRefusal(refused("name_taken"))).toBe("Another topic has that name.")
+		expect(topicRefusal(refused("not_found"))).toBe("That topic is gone.")
+		expect(topicRefusal(refused("forbidden"))).toBe("Topics are not turned on for your account.")
+		expect(topicRefusal(new Error("Network request failed"))).toBe("Network request failed")
 	})
 })

@@ -1,6 +1,6 @@
 import type { Topic } from "@klipstack/sdk"
 import { describe, expect, it } from "vitest"
-import { HOME_CHIPS, homeTopicChoice, topicHeading } from "./home-topics"
+import { HOME_CHIPS, homeTopicChoice, topicHeading, homeTopicsCard } from "./home-topics"
 
 function topic(id: string, toRead: number, lastReadAt: string | null = null): Topic {
 	return {
@@ -99,5 +99,26 @@ describe("topicHeading", () => {
 		expect(topicHeading({ topic: topic("History", 1), different: true }).line).toBe(
 			"Something different: a topic you haven't read from yet.",
 		)
+	})
+})
+
+describe("homeTopicsCard", () => {
+	it("invites a reader with topics off and the invitation open, saying how many articles", () => {
+		expect(homeTopicsCard({ stage: "off", invitation: true, progress: { count: 40 } })).toEqual({
+			kind: "invitation",
+			count: 40,
+		})
+		expect(homeTopicsCard({ stage: "off", invitation: false, progress: { count: 40 } })).toBeNull()
+	})
+
+	it("says the first topics are ready until opened or put off", () => {
+		expect(homeTopicsCard({ stage: "proposed", card: true })).toMatchObject({ kind: "ready" })
+		expect(homeTopicsCard({ stage: "proposed", card: false })).toBeNull()
+	})
+
+	it("says nothing in the other stages, nor from a server that doesn't say", () => {
+		expect(homeTopicsCard({ stage: "active", card: true, invitation: true })).toBeNull()
+		expect(homeTopicsCard({ stage: "unavailable" })).toBeNull()
+		expect(homeTopicsCard({ stage: "off" })).toBeNull()
 	})
 })

@@ -1,4 +1,10 @@
-import type { ArticleSummary, KlipstackClient, Topic } from "@klipstack/sdk"
+import { topicsNamedIn } from "@klipstack/api-contract/search-query"
+import {
+	type ArticleSummary,
+	type KlipstackClient,
+	KlipstackApiError,
+	type Topic,
+} from "@klipstack/sdk"
 
 /**
  * The Topics screen's pure parts, as the web's Topics page draws them (apps/web/app/routes/
@@ -88,74 +94,110 @@ export function articles(n: number): string {
 }
 
 /**
- * What the screen says above the shelves, or in their place: where the reader's topics are, and,
- * for what only the web does (turning topics on, confirming the first ones), that it is there.
- * Null when there is nothing to say.
+ * What the screen says while the reader waits for topics, or above the shelves: how far the first
+ * topics are, and whether the library is being sorted. Null when there is nothing to say, and for
+ * the stages the screen shows in full (off, proposed).
  */
 export function topicsNotice(
 	answer: TopicsAnswer,
 	locale?: string,
-): { title?: string; body: string; web: boolean } | null {
+): { title?: string; body: string } | null {
 	switch (answer.stage) {
 		case "unavailable":
-			return null
 		case "off":
-			return {
-				title: "Set up topics on the web",
-				body: "Topics sort what you save into shelves on their own, like a bookstore's sections. Turn them on in Klipstack on the web; they show here once they are set up.",
-				web: true,
-			}
+		case "proposed":
+			return null
 		case "waiting": {
 			const { count, needed } = answer.progress ?? { count: 0, needed: 0 }
 			return {
 				title: "Keep reading",
 				body: `Your first topics come when you have saved ${needed} articles: ${count} of ${needed} so far.`,
-				web: false,
 			}
 		}
 		case "proposing":
 			return {
 				title: "Proposing your first topics…",
-				body: "This takes a minute or so.",
-				web: false,
+				body: "This takes a minute or so. The screen updates on its own.",
 			}
-		case "proposed": {
-			const names = (answer.proposed ?? []).map((t) => t.name)
-			return {
-				title: "Your first topics are ready",
-				body: `${names.length ? `${names.join(", ")}. ` : ""}Look them over and confirm them in Klipstack on the web; they show here after that.`,
-				web: true,
-			}
-		}
 		case "active": {
 			const sorting = answer.sorting ?? 0
 			const waiting = sorting === 1 ? "1 article is waiting" : `${sorting} articles are waiting`
 			if (answer.sortingPaused && sorting > 0) {
-				const resumesAt = answer.sortingPaused.resumesAt
-				if (!resumesAt)
-					return { body: `This server sorts no articles into topics: ${waiting}.`, web: false }
+				const { resumesAt, max } = answer.sortingPaused
+				if (!resumesAt) return { body: `This server sorts no articles into topics: ${waiting}.` }
 				const date = new Intl.DateTimeFormat(locale, {
 					month: "long",
 					day: "numeric",
 					timeZone: "UTC",
 				}).format(new Date(resumesAt))
+				const sorted =
+					max === undefined
+						? ""
+						: ` ${new Intl.NumberFormat(locale).format(max)} articles were sorted, the most an account can.`
 				return {
-					body: `Sorting stopped for this month: ${waiting}, and sorting starts again on ${date}. Nothing is lost.`,
-					web: false,
+					body: `Sorting stopped for this month:${sorted} ${waiting}, and sorting starts again on ${date}. Nothing is lost.`,
 				}
 			}
 			if (sorting > 0)
 				return {
 					body: `Sorting your library into its topics: ${sorting === 1 ? "1 article" : `${sorting} articles`} to go.`,
-					web: false,
 				}
 			if (answer.items.length === 0)
-				return {
-					body: "No topics right now. New ones appear as you save more articles.",
-					web: false,
-				}
+				return { body: "No topics right now. New ones appear as you save more articles." }
 			return null
 		}
+	}
+}
+
+/** The first topics as the reader leaves them: kept or not, and the name in each one's field. */
+export type ProposalEdits = Record<string, { kept: boolean; name: string }>
+
+/**
+ * What confirming sends, as the web's form does: the kept topics only, each with the name in its
+ * field; an empty field keeps the proposed name.
+ */
+export function confirmation(
+	proposed: { id: string }[],
+	edits: ProposalEdits,
+): { id: string; name?: string }[] {
+	return proposed.flatMap(({ id }) => {
+		const edit = edits[id]
+		if (edit && !edit.kept) return []
+		const name = edit?.name.trim()
+		return [name ? { id, name } : { id }]
+	})
+}
+
+/**
+ * Turning topics off deletes them, so the app asks first, as the web asks for a second tap; and
+ * says which saved searches name topics, which would find nothing in them.
+ */
+export function turnOffQuestion(savedSearches: { name: string; query: string }[]): string {
+	const naming = savedSearches.filter((s) => topicsNamedIn(s.query).length > 0).map((s) => s.name)
+	const base = "This deletes your topics and where each article was. It can't be undone."
+	if (!naming.length) return base
+	const names = naming.map((n) => `“${n}”`).join(", ")
+	return `${base} ${naming.length === 1 ? "1 saved search names topics" : `${naming.length} saved searches name topics`} and will find nothing in them: ${names}.`
+}
+
+/** A refused topic change in the reader's words, as the web's toasts say them. */
+export function topicRefusal(e: unknown): string {
+	const code = e instanceof KlipstackApiError ? e.code : null
+	switch (code) {
+		case "name_taken":
+			return "Another topic has that name."
+		case "invalid_request":
+			return "A topic name has 1 to 60 characters."
+		case "not_found":
+			return "That topic is gone."
+		case "already_done":
+			return "Your topics are confirmed already."
+		case "forbidden":
+			return "Topics are not turned on for your account."
+		case "unavailable":
+			return "Topics are not set up on this server."
+		default:
+			return e instanceof Error ? e.message : String(e)
 	}
 }
 

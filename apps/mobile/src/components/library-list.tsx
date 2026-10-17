@@ -2,6 +2,7 @@ import { TRASH_RETENTION_DAYS } from "@klipstack/api-contract/names"
 import { SEARCH_LIMIT_MAX } from "@klipstack/api-contract/search-query"
 import type { ArticleSummary } from "@klipstack/sdk"
 import { Stack, useFocusEffect } from "expo-router"
+import type { NativeStackHeaderItem } from "expo-router/native-stack"
 import { useCallback, useMemo, useRef, useState } from "react"
 import {
 	ActivityIndicator,
@@ -77,6 +78,8 @@ export function LibraryList({
 	intro,
 	empty,
 	canSave = false,
+	takeOut,
+	headerMenu,
 }: (
 	| { view: LibraryView; query?: never; topic?: string }
 	| { query: string; view?: never; topic?: never }
@@ -85,6 +88,13 @@ export function LibraryList({
 	/** A line above the list: a topic's description. */
 	intro?: string
 	canSave?: boolean
+	/**
+	 * A topic's own list: each article's menu takes it out of the topic. It leaves the list at once;
+	 * a refusal brings it back.
+	 */
+	takeOut?: (item: ArticleSummary) => Promise<unknown>
+	/** A native menu first in the header: a topic's Rename and Remove. */
+	headerMenu?: NativeStackHeaderItem
 }) {
 	const { state } = useAuth()
 	const colors = useColors()
@@ -97,10 +107,13 @@ export function LibraryList({
 	const [gone, setGone] = useState(false)
 	const choose = useCallback(
 		(next: string | null) => {
+			// A topic, or No topic, chosen: counted for admins, as the web's topic choice is.
+			if (next && next !== topic)
+				void client?.topics.countUse("topic_filter_library").catch(() => {})
 			setGone(false)
 			setTopic(next)
 		},
-		[setTopic],
+		[setTopic, topic, client],
 	)
 	const ended = useCallback(() => {
 		setGone(true)
@@ -244,8 +257,14 @@ export function LibraryList({
 			act: (item, action) => act(action, [item]),
 			tag: (item) => openTags([item]),
 			select: start,
+			takeOut: takeOut
+				? (item) => {
+						edit((shown) => shown.filter((a) => a.id !== item.id))
+						takeOut(item).catch(() => void load())
+					}
+				: undefined,
 		}),
-		[act, openTags, start],
+		[act, openTags, start, takeOut, edit, load],
 	)
 
 	// Inbox's Read: every read article to the archive, every topic's, with an undo.
@@ -304,23 +323,28 @@ export function LibraryList({
 								headerLeft: undefined,
 								headerRight: () => buttons,
 								// The Show menu first: a native menu, which only these items can hold.
-								unstable_headerRightItems: filterable
+								unstable_headerRightItems: headerMenu
 									? () => [
-											listMenuItem({
-												view: filterable,
-												counts: shownCounts,
-												filter,
-												sort,
-												topics: loaded?.items.length ? loaded : null,
-												topic: asked ?? null,
-												chooseFilter: setFilter,
-												chooseSort: setSort,
-												chooseTopic: choose,
-												tint: colors.accent,
-											}),
+											headerMenu,
 											{ type: "custom", element: buttons, hidesSharedBackground: true },
 										]
-									: undefined,
+									: filterable
+										? () => [
+												listMenuItem({
+													view: filterable,
+													counts: shownCounts,
+													filter,
+													sort,
+													topics: loaded?.items.length ? loaded : null,
+													topic: asked ?? null,
+													chooseFilter: setFilter,
+													chooseSort: setSort,
+													chooseTopic: choose,
+													tint: colors.accent,
+												}),
+												{ type: "custom", element: buttons, hidesSharedBackground: true },
+											]
+										: undefined,
 							}
 				}
 			/>

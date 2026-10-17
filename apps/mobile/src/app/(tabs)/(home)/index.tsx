@@ -39,6 +39,7 @@ import { HomeMasthead } from "@/components/home-masthead"
 import { NoteReminders } from "@/components/note-reminders"
 import { ReviewSuggestion } from "@/components/review-suggestion"
 import { useTagSheet } from "@/components/tag-sheet"
+import { TopicsHomeCard } from "@/components/topics-home-card"
 import { onChange, settled } from "@/lib/article-changes"
 import { articleMeta } from "@/lib/article-meta"
 import { useAuth } from "@/lib/auth"
@@ -56,6 +57,7 @@ import {
 import {
 	type HomeTopicChoice,
 	homeTopicChoice,
+	homeTopicsCard,
 	type TopicPick,
 	topicHeading,
 } from "@/lib/home-topics"
@@ -104,6 +106,13 @@ export default function Home() {
 	const generation = useRef(0)
 	// The reader's topics (none while off or not loaded), and the one Home narrows to.
 	const [topics, setTopics] = useState<Topic[]>([])
+	// Home's word about topics, as the web's: the invitation to turn them on, or the first ones
+	// ready; answered here ("No thanks", "Not now", or opened), it stays away.
+	const [topicsCard, setTopicsCard] = useState<{
+		kind: "invitation" | "ready"
+		count: number
+	} | null>(null)
+	const topicsCardDone = useRef(false)
 	// Finished without a note, when Home asks about them now.
 	const [reminders, setReminders] = useState<NoteReminder[]>([])
 	// Answered here while a load was on its way: that load's list mustn't bring them back.
@@ -149,6 +158,7 @@ export default function Home() {
 					if (mine !== generation.current) return
 					setTopics(answer.items)
 					setPick((now) => homeTopicChoice(answer.items, now)?.pick ?? null)
+					if (!topicsCardDone.current) setTopicsCard(homeTopicsCard(answer))
 				})
 				.catch(() => {})
 			void client.noteReminders
@@ -339,6 +349,12 @@ export default function Home() {
 	)
 	const highlights = daily?.items.filter((h) => !hidden.has(h.id)) ?? []
 
+	const closeTopicsCard = (answered?: Promise<unknown>) => {
+		topicsCardDone.current = true
+		setTopicsCard(null)
+		void answered?.catch(() => {})
+	}
+
 	const putOffReview = () => {
 		reviewPutOff.current = true
 		setReview(false)
@@ -406,6 +422,8 @@ export default function Home() {
 						<AboutWhat
 							choice={choice}
 							onPick={(next) => {
+								// Counted for admins, as the web's chips are.
+								if (next) void client?.topics.countUse("topic_home").catch(() => {})
 								// Another topic's sections, not the last one's under its heading: loading, then them.
 								setLists(null)
 								setError(null)
@@ -417,6 +435,26 @@ export default function Home() {
 				</View>
 			) : null}
 			{chosen ? <TopicHeading chosen={chosen} minutes={minutes} colors={colors} /> : null}
+			{/* With a time chosen, the reader came to read: no invitation then, as on the web. */}
+			{client && topicsCard && (topicsCard.kind === "ready" || minutes === null) ? (
+				<TopicsHomeCard
+					kind={topicsCard.kind}
+					count={topicsCard.count}
+					onOpen={() => {
+						// The Topics screen ends the invitation, or marks the topics seen, once it shows them.
+						closeTopicsCard()
+						router.navigate("/library/topics", { withAnchor: true })
+					}}
+					onLater={() =>
+						closeTopicsCard(
+							topicsCard.kind === "invitation"
+								? client.topics.endInvitation()
+								: client.topics.dismissCard(),
+						)
+					}
+					colors={colors}
+				/>
+			) : null}
 			{home && error ? (
 				<Text style={[styles.inset, styles.banner, { color: colors.mutedFg }]}>{error}</Text>
 			) : null}

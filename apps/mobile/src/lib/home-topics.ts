@@ -63,3 +63,20 @@ export function topicHeading({ topic, different }: { topic: Topic; different: bo
 		all: `Everything in ${topic.name}`,
 	}
 }
+
+/**
+ * Home's word about topics, from `GET /topics`, as the web's Home has it: the invitation to turn
+ * them on (topics off, the library big enough, not declined), or the first topics ready (not
+ * opened nor put off). Null otherwise, and from a server before these (2026-10-17).
+ */
+export function homeTopicsCard(answer: {
+	stage: string
+	invitation?: boolean
+	card?: boolean
+	progress?: { count: number }
+}): { kind: "invitation" | "ready"; count: number } | null {
+	if (answer.stage === "off" && answer.invitation)
+		return { kind: "invitation", count: answer.progress?.count ?? 0 }
+	if (answer.stage === "proposed" && answer.card) return { kind: "ready", count: 0 }
+	return null
+}
