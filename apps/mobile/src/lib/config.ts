@@ -19,6 +19,16 @@ export const DEFAULT_API_URL =
  */
 export const DEV_API_TOKEN = __DEV__ ? process.env.EXPO_PUBLIC_API_TOKEN || null : null
 
+/**
+ * Development builds only: a refresh token the dev server issued to this app
+ * (`EXPO_PUBLIC_APP_REFRESH_TOKEN`, from `pnpm --filter @klipstack/web dev-account create
+ * --app-token`), for what an API key can't do: the reader's AI and deleting the account. The app
+ * signs in with it once; the server rotates it at the first refresh.
+ */
+export const DEV_APP_REFRESH_TOKEN = __DEV__
+	? process.env.EXPO_PUBLIC_APP_REFRESH_TOKEN || null
+	: null
+
 export const APP_VERSION = Constants.expoConfig?.version ?? "0.0.0"
 
 const platform: ClientPlatform = Platform.OS === "android" ? "android" : "ios"

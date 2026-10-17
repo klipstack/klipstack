@@ -2,10 +2,17 @@ import { CLIENT_HEADER } from "@klipstack/api-contract/client"
 import { createClient, type KlipstackClient } from "@klipstack/sdk"
 import { Image } from "expo-image"
 import { createContext, type ReactNode, use, useEffect, useMemo, useState } from "react"
-import { CLIENT, DEFAULT_API_URL, DEV_API_TOKEN, USER_AGENT } from "./config"
+import { CLIENT, DEFAULT_API_URL, DEV_API_TOKEN, DEV_APP_REFRESH_TOKEN, USER_AGENT } from "./config"
 import { authorize, refresh, revoke, SignedOutError } from "./oauth"
 import { forgetOffline } from "./offline-download"
-import { clearSession, readSession, type Session, writeSession } from "./session-store"
+import {
+	clearSession,
+	markSeeded,
+	readSession,
+	type Session,
+	seededFrom,
+	writeSession,
+} from "./session-store"
 import { forgetListChoices } from "./topic-choices"
 import { forgetNextUp, reloadNextUp } from "./widget"
 
@@ -104,8 +111,20 @@ function createAuth(setState: (state: AuthState) => void) {
 
 	return {
 		async load() {
+			// The development app token, once: an expired session that the first request refreshes.
+			if (DEV_APP_REFRESH_TOKEN) {
+				if (!(await seededFrom(DEV_APP_REFRESH_TOKEN))) {
+					await writeSession({
+						apiUrl: DEFAULT_API_URL,
+						accessToken: "",
+						refreshToken: DEV_APP_REFRESH_TOKEN,
+						expiresAt: 0,
+					})
+					await markSeeded(DEV_APP_REFRESH_TOKEN)
+				}
+			}
 			// The development key, as a session that never expires, so the share extension has it too.
-			if (DEV_API_TOKEN)
+			else if (DEV_API_TOKEN)
 				await writeSession({
 					apiUrl: DEFAULT_API_URL,
 					accessToken: DEV_API_TOKEN,

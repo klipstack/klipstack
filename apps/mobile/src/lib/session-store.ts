@@ -39,3 +39,18 @@ export async function writeSession(session: Session): Promise<void> {
 export async function clearSession(): Promise<void> {
 	await SecureStore.deleteItemAsync(KEY, OPTIONS)
 }
+
+const DEV_SEED_KEY = "dev-app-refresh-token"
+
+/**
+ * Development builds: whether the session was already started from this refresh token
+ * (`DEV_APP_REFRESH_TOKEN`). The server rotates it at the first refresh, so starting from it again
+ * at the next launch would sign the app out.
+ */
+export async function seededFrom(refreshToken: string): Promise<boolean> {
+	return (await SecureStore.getItemAsync(DEV_SEED_KEY)) === refreshToken
+}
+
+export async function markSeeded(refreshToken: string): Promise<void> {
+	await SecureStore.setItemAsync(DEV_SEED_KEY, refreshToken)
+}
