@@ -31,7 +31,7 @@ export function TopicsHomeCard({
 			</Text>
 			<Text style={[styles.description, { color: colors.mutedFg }]}>
 				{invitation
-					? `You've saved ${count} articles: enough for topics to sort them into shelves, like a bookstore's sections, and keep them sorted as you save more.`
+					? `You've saved ${new Intl.NumberFormat().format(count)} articles: enough for topics to sort them into shelves, like a bookstore's sections, and keep them sorted as you save more.`
 					: "Klipstack found topics in your library. Look them over and confirm them."}
 			</Text>
 			{invitation ? (

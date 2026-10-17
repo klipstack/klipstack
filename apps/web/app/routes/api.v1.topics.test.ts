@@ -219,6 +219,7 @@ describe("turning topics on and off in the API", () => {
 		expect(library).toBeUndefined()
 
 		await db.insert(userFeatures).values({ userId: me.id, feature: "topics" })
+		// A server without the models' keys: the test server has them (AI_FAKE), so only a spy gets here.
 		const available = vi.spyOn(topicModels, "available", "get").mockReturnValue(false)
 		try {
 			expect(await errorOf(me.client.topics.enable())).toMatchObject({
@@ -345,6 +346,8 @@ describe("correcting topics in the API", () => {
 		await db.update(documents).set({ deletedAt: new Date() }).where(eq(documents.id, trashed))
 		for (const call of [
 			() => me.client.topics.rename(theirs, "Mine now"),
+			// One of my own topics' names: still their topic, so still not found.
+			() => me.client.topics.rename(theirs, "Mine"),
 			() => me.client.topics.remove(theirs),
 			() => me.client.topics.takeOut(theirs, theirArticle),
 			() => me.client.topics.takeOut(mine, theirArticle),
@@ -359,6 +362,9 @@ describe("correcting topics in the API", () => {
 			() => other.client.topics.rename(theirs, "Renamed"),
 			() => other.client.topics.remove(theirs),
 			() => other.client.topics.seen(),
+			() => other.client.topics.dismissCard(),
+			() => other.client.topics.endInvitation(),
+			() => other.client.topics.confirm([]),
 			() => other.client.topics.countUse("topic_opened"),
 		])
 			expect(await errorOf(call())).toMatchObject({ status: 403, code: "forbidden" })

@@ -175,7 +175,8 @@ export const topics: Handler<typeof listTopicsEndpoint> = async ({ userId, query
 	const answer = {
 		stage: state.stage,
 		items,
-		...(state.stage === "off" ? await offered(userId) : {}),
+		// What Home and the Topics screen say while topics are off; a list's topic choice needs none of it.
+		...(state.stage === "off" && !query.view ? await offered(userId) : {}),
 		...(state.stage === "waiting" || state.stage === "proposing"
 			? { progress: { count: state.count, needed: state.needed } }
 			: {}),
