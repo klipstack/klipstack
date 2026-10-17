@@ -316,26 +316,6 @@ body {
 	padding-bottom: calc(max(env(safe-area-inset-bottom), 1rem) + 4.25rem);
 }
 
-/* The support button and SuppyHQ's panel (components/support-widget.tsx) stay on <body> once
-   loaded: they show only on pages that ask for them, and from tablet width, clear of the phone's
-   bottom sheets. */
-.support-launcher,
-[data-suppyhq-host] {
-	display: none !important;
-}
-@media (min-width: 48rem) {
-	:root[data-support-widget] .support-launcher {
-		display: flex !important;
-	}
-	:root[data-support-widget] [data-suppyhq-host] {
-		display: block !important;
-	}
-}
-/* Until the panel has drawn on its first opening, its empty frame stays hidden. */
-:root[data-support-loading] [data-suppyhq-host] {
-	visibility: hidden !important;
-}
-
 /* ---------- Highlights: marker ink ---------- */
 /* One ink and one solid line per stored color (HIGHLIGHT_COLORS). The ink is a highlighter's: in
    light mode a bright color under dark text; in dark mode a deep one under light text. The lines

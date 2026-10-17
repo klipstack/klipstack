@@ -293,7 +293,9 @@ export default {
 		},
 	},
 	supportWidget: {
-		open: "Escríbeme",
+		open: "Contactar con soporte",
+		loading: "Cargando el formulario de ayuda",
+		unavailable: "El formulario de ayuda no cargó. Escribe a",
 		label: "Ayuda",
 		greeting:
 			"Preguntas, problemas o ideas: leo cada mensaje. Si es sobre un artículo, pega su enlace.",
