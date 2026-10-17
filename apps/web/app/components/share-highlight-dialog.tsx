@@ -1,7 +1,7 @@
 import { highlightShareText } from "@klipstack/api-contract/highlight-share"
 import { extractLinkIds } from "@klipstack/api-contract/note-links"
-import { Copy, Link2, Share, X } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
+import { Copy, Image as ImageIcon, Link2, Share, Type, X } from "lucide-react"
+import { type ReactNode, type RefObject, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { Trans, useTranslation } from "react-i18next"
 import { Link, useFetcher } from "react-router"
 import { copyRich, copyText } from "~/lib/copy-link"
@@ -11,6 +11,7 @@ import type { ShareState } from "~/services/highlight-shares.server"
 import { ClippingPaper } from "./clipping"
 import { NoteText } from "./note-text"
 import { PostIt, tiltFor } from "./post-it"
+import { ShareHighlightImage, useDrawnPictures } from "./share-highlight-image"
 import { Button } from "./ui/button"
 
 export interface ShareHighlight {
@@ -51,15 +52,34 @@ export function ShareHighlightDialog({
 
 	const linkUrls = useLinkUrls(note)
 
+	// Which way out: a highlight with a link opens on it; else the way chosen last; else text.
+	const tabs: ShareTab[] = h.canLink === false ? ["text"] : ["text", "link", "image"]
+	const [tab, setTab] = useState<ShareTab>(() => (h.canLink === false ? "text" : lastTab()))
+	const [chosen, setChosen] = useState(false)
+	const live = link.share !== null && !link.share.removed
+	if (live && !chosen && tab !== "link") setTab("link")
+	const choose = (name: ShareTab) => {
+		setChosen(true)
+		setTab(name)
+		rememberTab(name)
+	}
+
 	useEffect(() => {
 		const dialog = dialogRef.current
 		if (dialog && !dialog.open) dialog.showModal()
 	}, [])
+	const pictures = useDrawnPictures()
+	const contentRef = useRef<HTMLDivElement>(null)
+	const contentHeight = useHeight(contentRef)
 	// Copy takes the keyboard once it can copy: at once, or when the note's links are looked up.
 	const ready = linkUrls !== null
+	// Only as the dialog opens: choosing a tab with the keyboard leaves focus on the tabs.
+	const focused = useRef(false)
 	useEffect(() => {
-		if (ready) copyRef.current?.focus()
-	}, [ready])
+		if (!ready || focused.current) return
+		focused.current = true
+		if (tab === "text") copyRef.current?.focus()
+	}, [ready, tab])
 
 	const copy = () => {
 		const { markdown, html } = highlightShareText(
@@ -80,7 +100,7 @@ export function ShareHighlightDialog({
 			ref={dialogRef}
 			aria-label={t("highlights.share.title")}
 			data-testid="share-highlight-dialog"
-			className="m-auto w-[min(30rem,92vw)] rounded-2xl border border-border bg-card p-0 text-fg shadow-2xl backdrop:bg-black/40"
+			className="m-auto max-h-[92dvh] w-[min(30rem,92vw)] overflow-y-auto rounded-2xl border border-border bg-card p-0 text-fg shadow-2xl backdrop:bg-black/40"
 			onClose={onClose}
 			onClick={(e) => {
 				if (e.target === dialogRef.current) dialogRef.current?.close()
@@ -91,84 +111,195 @@ export function ShareHighlightDialog({
 				if (e.key === "Escape") dialogRef.current?.close()
 			}}
 		>
-			<div className="flex flex-col gap-5 p-6">
-				<div className="flex items-start justify-between gap-4">
-					<h2 className="text-lg font-semibold">{t("highlights.share.title")}</h2>
-					<button
-						type="button"
-						onClick={() => dialogRef.current?.close()}
-						className="rounded-md p-1.5 text-muted-fg hover:bg-hover"
-						aria-label={t("highlights.share.close")}
-					>
-						<X className="size-4" aria-hidden />
-					</button>
-				</div>
-
-				{/* What goes out, as its page shows it: no marker, the note on yellow whatever its color. */}
-				<figure
-					data-testid="share-preview"
-					className="clipping px-5 pt-[calc(var(--clip-top)+1rem)] pb-4"
-				>
-					<ClippingPaper id={h.id} />
-					<span
-						aria-hidden
-						className="-mb-2 block h-7 font-serif text-5xl leading-none text-muted-fg"
-					>
-						“
-					</span>
-					<blockquote className="line-clamp-[10] font-serif text-lg leading-normal text-fg">
-						<span className="whitespace-pre-line">{h.exact.trim()}</span>
-					</blockquote>
-					{shownNote ? (
-						<PostIt
-							as="span"
-							fit={shownNote}
-							tilt={tiltFor(h.id)}
-							className="mt-5 -mr-2 ml-auto text-base leading-snug"
+			{/* Switching tabs changes the dialog's height: it eases there instead of jumping. */}
+			<div
+				style={{ height: contentHeight ?? "auto" }}
+				className="overflow-hidden transition-[height] duration-200 ease-out motion-reduce:transition-none"
+			>
+				<div ref={contentRef} className="flex flex-col gap-4 p-6">
+					<div className="flex items-start justify-between gap-4">
+						<h2 className="text-lg font-semibold">{t("highlights.share.title")}</h2>
+						<button
+							type="button"
+							onClick={() => dialogRef.current?.close()}
+							className="rounded-md p-1.5 text-muted-fg hover:bg-hover"
+							aria-label={t("highlights.share.close")}
 						>
-							<span className="line-clamp-[8]">
-								<NoteText text={shownNote} plainLinks />
-							</span>
-						</PostIt>
+							<X className="size-4" aria-hidden />
+						</button>
+					</div>
+
+					{tabs.length > 1 ? (
+						<div
+							role="tablist"
+							aria-label={t("highlights.share.tabs.label")}
+							className="flex gap-1 rounded-lg bg-muted p-1"
+						>
+							{tabs.map((name) => (
+								<button
+									key={name}
+									type="button"
+									role="tab"
+									id={`share-tab-${name}`}
+									aria-selected={tab === name}
+									aria-controls="share-panel"
+									tabIndex={tab === name ? 0 : -1}
+									onClick={() => choose(name)}
+									onKeyDown={(e) => {
+										// Arrows move between the tabs, as tab lists do.
+										const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0
+										if (!step) return
+										e.preventDefault()
+										const next = tabs[(tabs.indexOf(name) + step + tabs.length) % tabs.length]!
+										choose(next)
+										document.getElementById(`share-tab-${next}`)?.focus()
+									}}
+									className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm ${tab === name ? "bg-card font-medium text-fg shadow-sm" : "text-muted-fg hover:text-fg"}`}
+								>
+									{TAB_ICONS[name]}
+									{t(`highlights.share.tabs.${name}`)}
+								</button>
+							))}
+						</div>
 					) : null}
-					<figcaption className="mt-5 border-t border-border pt-3 text-sm">
-						<span className="line-clamp-2 font-medium">
-							{h.article.title ?? h.article.sourceUrl}
-						</span>
-						<span className="block truncate text-xs text-muted-fg">
-							{siteLabel(h.article.siteName, safeHost(h.article.sourceUrl))}
-						</span>
-					</figcaption>
-				</figure>
 
-				{note ? (
-					<label className="flex items-center gap-2 text-sm">
-						<input
-							type="checkbox"
-							checked={withNote}
-							onChange={(e) => setWithNote(e.target.checked)}
-						/>
-						{t("highlights.share.includeNote")}
-					</label>
-				) : null}
+					{note ? (
+						<label className="flex items-center gap-2 text-sm">
+							<input
+								type="checkbox"
+								checked={withNote}
+								onChange={(e) => setWithNote(e.target.checked)}
+							/>
+							{t("highlights.share.includeNote")}
+						</label>
+					) : null}
 
-				{h.canLink === false ? null : (
-					<PublicLink
-						link={link}
-						withNote={withNote}
-						hasNote={note !== null}
-						onLeave={() => dialogRef.current?.close()}
-					/>
-				)}
-
-				<div className="flex flex-wrap justify-end gap-2">
-					<Button ref={copyRef} onClick={copy} disabled={!linkUrls} variant="secondary">
-						<Copy className="size-4" aria-hidden />
-						{t("highlights.share.copyText")}
-					</Button>
+					<div
+						id="share-panel"
+						role="tabpanel"
+						aria-labelledby={tabs.length > 1 ? `share-tab-${tab}` : undefined}
+						aria-label={tabs.length > 1 ? undefined : t("highlights.share.tabs.text")}
+						className="flex flex-col gap-4"
+					>
+						{tab === "image" ? (
+							<ShareHighlightImage
+								id={h.id}
+								withNote={note !== null && withNote}
+								pictures={pictures}
+							/>
+						) : (
+							<SharePreview highlight={h} note={shownNote} compact={tab === "link"} />
+						)}
+						{tab === "link" ? (
+							<PublicLink
+								link={link}
+								withNote={withNote}
+								hasNote={note !== null}
+								onLeave={() => dialogRef.current?.close()}
+							/>
+						) : tab === "text" ? (
+							<div className="flex justify-end">
+								<Button ref={copyRef} onClick={copy} disabled={!linkUrls}>
+									<Copy className="size-4" aria-hidden />
+									{t("highlights.share.copyText")}
+								</Button>
+							</div>
+						) : null}
+					</div>
 				</div>
 			</div>
 		</dialog>
+	)
+}
+
+/** An element's height as it changes, for a parent to follow it (with a transition). */
+function useHeight(ref: RefObject<HTMLElement | null>): number | null {
+	const [height, setHeight] = useState<number | null>(null)
+	useLayoutEffect(() => {
+		const element = ref.current
+		if (!element) return
+		setHeight(element.offsetHeight)
+		const observer = new ResizeObserver(() => setHeight(element.offsetHeight))
+		observer.observe(element)
+		return () => observer.disconnect()
+	}, [ref])
+	return height
+}
+
+type ShareTab = "text" | "link" | "image"
+
+const TAB_ICONS: Record<ShareTab, ReactNode> = {
+	text: <Type className="size-4" aria-hidden />,
+	link: <Link2 className="size-4" aria-hidden />,
+	image: <ImageIcon className="size-4" aria-hidden />,
+}
+
+const TAB_KEY = "klipstack:share-tab"
+
+/** The way out chosen last on this device; text the first time. */
+function lastTab(): ShareTab {
+	try {
+		const saved = localStorage.getItem(TAB_KEY)
+		return saved === "link" || saved === "image" ? saved : "text"
+	} catch {
+		return "text"
+	}
+}
+
+function rememberTab(tab: ShareTab) {
+	try {
+		localStorage.setItem(TAB_KEY, tab)
+	} catch {
+		// Private browsing without storage: the next dialog opens on text.
+	}
+}
+
+/**
+ * What goes out, as its page shows it: no marker, the note on yellow whatever its color. Compact
+ * beside the link's controls, where the page shows it whole.
+ */
+function SharePreview({
+	highlight: h,
+	note,
+	compact,
+}: {
+	highlight: ShareHighlight
+	note: string | null
+	compact: boolean
+}) {
+	return (
+		<figure
+			data-testid="share-preview"
+			className="clipping px-5 pt-[calc(var(--clip-top)+1rem)] pb-4"
+		>
+			<ClippingPaper id={h.id} />
+			<span aria-hidden className="-mb-2 block h-7 font-serif text-5xl leading-none text-muted-fg">
+				“
+			</span>
+			<blockquote
+				className={`font-serif leading-normal text-fg ${compact ? "line-clamp-5 text-base" : "line-clamp-[10] text-lg"}`}
+			>
+				<span className="whitespace-pre-line">{h.exact.trim()}</span>
+			</blockquote>
+			{note ? (
+				<PostIt
+					as="span"
+					fit={note}
+					tilt={tiltFor(h.id)}
+					className={`-mr-2 ml-auto leading-snug ${compact ? "mt-3 text-sm" : "mt-5 text-base"}`}
+				>
+					<span className={compact ? "line-clamp-6" : "line-clamp-[8]"}>
+						<NoteText text={note} plainLinks />
+					</span>
+				</PostIt>
+			) : null}
+			<figcaption className={`border-t border-border pt-3 text-sm ${compact ? "mt-3" : "mt-5"}`}>
+				<span className="line-clamp-2 font-medium">{h.article.title ?? h.article.sourceUrl}</span>
+				<span className="block truncate text-xs text-muted-fg">
+					{siteLabel(h.article.siteName, safeHost(h.article.sourceUrl))}
+				</span>
+			</figcaption>
+		</figure>
 	)
 }
 
@@ -249,15 +380,7 @@ function PublicLink({
 	const canShareSheet = typeof navigator !== "undefined" && typeof navigator.share === "function"
 
 	return (
-		<section
-			aria-label={t("highlights.share.link.label")}
-			data-testid="share-link"
-			className="flex flex-col gap-3 rounded-xl border border-border p-4"
-		>
-			<h3 className="flex items-center gap-2 text-sm font-medium">
-				<Link2 className="size-4" aria-hidden />
-				{t("highlights.share.link.label")}
-			</h3>
+		<div data-testid="share-link" className="flex flex-col gap-3">
 			{loading ? (
 				<p className="text-sm text-muted-fg">{t("highlights.share.link.loading")}</p>
 			) : share?.removed ? (
@@ -356,6 +479,6 @@ function PublicLink({
 					)}
 				</p>
 			) : null}
-		</section>
+		</div>
 	)
 }

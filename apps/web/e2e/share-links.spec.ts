@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { expect, type Page, test } from "@playwright/test"
+import sharp from "sharp"
 import {
 	lastEmailTo,
 	resetLocalIpLimit,
@@ -39,14 +40,16 @@ async function highlighted(page: Page, note: string) {
 	return id
 }
 
-async function openShare(page: Page) {
+/** The Share dialog of the article's highlight; on `tab` when given, else where it opens. */
+async function openShare(page: Page, tab?: "Text" | "Link" | "Image") {
 	await page.goto("/notebook?view=stream")
 	await waitForHydration(page)
 	const card = page.getByTestId("quote-card").filter({ hasText: MAKERS.quote })
 	await card.hover()
 	await card.getByRole("button", { name: "Share", exact: true }).click()
 	const dialog = page.getByRole("dialog", { name: "Share highlight" })
-	return { card, dialog, link: dialog.getByRole("region", { name: "Public link" }) }
+	if (tab) await dialog.getByRole("tab", { name: tab }).click()
+	return { card, dialog, link: dialog.getByRole("tabpanel") }
 }
 
 test("a highlight shared at a link: its page, updates, the Notebook's filter, and stopping", async ({
@@ -57,7 +60,7 @@ test("a highlight shared at a link: its page, updates, the Notebook's filter, an
 	await signupUser(page, "Ada Sharer")
 	await highlighted(page, "Makers need long blocks.")
 
-	const { dialog, link } = await openShare(page)
+	const { dialog, link } = await openShare(page, "Link")
 	await expect(link).toContainText("your note")
 	await link.getByRole("button", { name: "Create link" }).click()
 	const address = link.getByRole("textbox", { name: "Link address" })
@@ -105,7 +108,13 @@ test("a highlight shared at a link: its page, updates, the Notebook's filter, an
 	})
 	await visitor.reload()
 	await expect(shared).toContainText("Makers need long blocks.")
+	// Shared, it opens on its link, whichever way out was chosen last.
+	await page.evaluate(() => localStorage.setItem("klipstack:share-tab", "image"))
 	const again = await openShare(page)
+	await expect(again.dialog.getByRole("tab", { name: "Link" })).toHaveAttribute(
+		"aria-selected",
+		"true",
+	)
 	await expect(again.link).toContainText("Update the link")
 	await again.link.getByRole("button", { name: "Update link" }).click()
 	await expect(again.link.getByRole("button", { name: "Update link" })).toHaveCount(0)
@@ -142,7 +151,7 @@ test("a visitor reports a shared highlight, an admin removes it, and it cannot b
 	test.setTimeout(150_000)
 	const ownerEmail = await signupUser(page, "Share Owner")
 	await highlighted(page, "A note.")
-	const { dialog, link } = await openShare(page)
+	const { dialog, link } = await openShare(page, "Link")
 	await link.getByRole("button", { name: "Create link" }).click()
 	const url = await link.getByRole("textbox", { name: "Link address" }).inputValue()
 	await dialog.getByRole("button", { name: "Close" }).click()
@@ -188,4 +197,55 @@ test("a visitor reports a shared highlight, an admin removes it, and it cannot b
 	const after = await openShare(page)
 	await expect(after.link).toContainText("taken down after a report")
 	await expect(after.link.getByRole("button", { name: "Create link" })).toHaveCount(0)
+})
+
+test("a highlight as an image, wide or tall, with or without its note, and no link made", async ({
+	page,
+}) => {
+	test.setTimeout(150_000)
+	await signupUser(page, "Ada Pictures")
+	await highlighted(page, "Makers need long blocks.")
+	// The first time, it opens on text; the arrows move along the tabs.
+	const { dialog, link: image } = await openShare(page)
+	const textTab = dialog.getByRole("tab", { name: "Text" })
+	await expect(textTab).toHaveAttribute("aria-selected", "true")
+	await textTab.focus()
+	await page.keyboard.press("ArrowLeft")
+	const imageTab = dialog.getByRole("tab", { name: "Image" })
+	await expect(imageTab).toHaveAttribute("aria-selected", "true")
+	await expect(imageTab).toBeFocused()
+	const picture = image.getByRole("img", { name: "The highlight as an image" })
+	await expect(picture).toBeVisible()
+	const size = () =>
+		picture.evaluate((img: HTMLImageElement) => [img.naturalWidth, img.naturalHeight])
+	expect(await size()).toEqual([1200, 630])
+
+	await image.getByRole("radio", { name: "Tall" }).click()
+	await expect.poll(size).toEqual([1080, 1920])
+	const withNote = await picture.getAttribute("src")
+	await dialog.getByRole("checkbox", { name: "Include my note" }).uncheck()
+	await expect.poll(() => picture.getAttribute("src")).not.toBe(withNote)
+
+	const [download] = await Promise.all([
+		page.waitForEvent("download"),
+		image.getByRole("link", { name: "Download" }).click(),
+	])
+	expect(download.suggestedFilename()).toBe("klipstack-highlight-tall.png")
+	const file = await download.path()
+	expect(await sharp(file).metadata()).toMatchObject({ width: 1080, height: 1920 })
+
+	// Only a picture: the highlight has no public link.
+	await dialog.getByRole("tab", { name: "Link" }).click()
+	await expect(
+		dialog.getByRole("tabpanel").getByRole("button", { name: "Create link" }),
+	).toBeVisible()
+
+	// The next dialog opens where this one was left: on the way out chosen last.
+	await dialog.getByRole("tab", { name: "Image" }).click()
+	await dialog.getByRole("button", { name: "Close" }).click()
+	const next = await openShare(page)
+	await expect(next.dialog.getByRole("tab", { name: "Image" })).toHaveAttribute(
+		"aria-selected",
+		"true",
+	)
 })
