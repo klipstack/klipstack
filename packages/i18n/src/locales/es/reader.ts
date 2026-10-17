@@ -134,6 +134,7 @@ export default {
 		selection: {
 			label: "Texto seleccionado",
 			highlight: "Subrayar",
+			highlightWithNote: "Subrayar y añadir una nota",
 			copy: "Copiar texto",
 			oneWord: "Selecciona dos palabras o más para subrayar",
 		},
@@ -229,6 +230,7 @@ export default {
 	},
 	ai: {
 		actions: { explain: "Explicar", define: "Definir", ask: "Preguntar", chat: "Chat" },
+		askAi: "Preguntar a la IA",
 		chat: {
 			tab: "Preguntar",
 			open: "Chatear sobre este artículo",

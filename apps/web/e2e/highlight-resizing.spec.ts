@@ -365,7 +365,7 @@ test("native mouse selection creates a highlight with working resize controls", 
 	)
 	await page
 		.getByRole("dialog", { name: "Selected text" })
-		.getByRole("button", { name: "Highlight" })
+		.getByRole("button", { name: "Highlight", exact: true })
 		.click()
 	await createdResponse
 	await expect(toolbar(page)).toBeVisible()

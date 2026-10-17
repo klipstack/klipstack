@@ -138,6 +138,7 @@ export default {
 		selection: {
 			label: "Selected text",
 			highlight: "Highlight",
+			highlightWithNote: "Highlight and add a note",
 			copy: "Copy text",
 			oneWord: "Select two words or more to highlight",
 		},
@@ -235,6 +236,7 @@ export default {
 	},
 	ai: {
 		actions: { explain: "Explain", define: "Define", ask: "Ask", chat: "Chat" },
+		askAi: "Ask AI",
 		chat: {
 			tab: "Ask",
 			open: "Chat about this article",

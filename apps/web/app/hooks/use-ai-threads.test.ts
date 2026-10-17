@@ -35,7 +35,10 @@ describe("reloaded", () => {
 	})
 
 	it("keeps cards not sent yet", () => {
-		const draft: AiCard = { ...thread("tmp-ai-t-1", 0), draft: { question: "" } }
+		const draft: AiCard = {
+			...thread("tmp-ai-t-1", 0),
+			draft: { question: "", prefix: "", suffix: "" },
+		}
 		expect(ids(reloaded([draft], [thread("a")], none, none))).toEqual(["a", "tmp-ai-t-1"])
 	})
 

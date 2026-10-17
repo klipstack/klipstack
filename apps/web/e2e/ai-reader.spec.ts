@@ -55,6 +55,11 @@ async function select(page: Page, text: string) {
 /** The card's place in the margin: invisible until it is laid out. */
 const marginSlot = (card: Locator) => card.locator("xpath=ancestor::*[@data-note-id][1]")
 const selectionToolbar = (page: Page) => page.getByRole("dialog", { name: "Selected text" })
+/** Ask AI about the selection; then, if given, Explain or Define in the card that opens. */
+async function askAi(page: Page, choice?: "Explain" | "Define") {
+	await selectionToolbar(page).getByRole("button", { name: "Ask", exact: true }).click()
+	if (choice) await page.getByTestId("ai-card").getByRole("button", { name: choice }).click()
+}
 const shot = (page: Page, name: string) =>
 	SHOTS ? page.screenshot({ path: `${SHOTS}/${name}.png` }) : Promise.resolve()
 
@@ -66,7 +71,22 @@ test("Explain answers in the margin with a citation; follow-ups, reload and dele
 	await open(page)
 	await select(page, PASSAGE)
 	await shot(page, "1-toolbar")
-	await selectionToolbar(page).getByRole("button", { name: "Explain" }).click()
+	// Ask AI asks nothing yet: it offers Explain, Define and a question of the reader's own.
+	await askAi(page)
+	const draft = page.getByRole("dialog", { name: "Ask AI" })
+	await expect(draft.getByRole("button", { name: "Define" })).toBeVisible()
+	await expect(draft.getByRole("textbox", { name: "Ask about this passage…" })).toBeFocused()
+	// Explain goes with the text around the passage, as it did from the toolbar.
+	const [asked] = await Promise.all([
+		page.waitForRequest((r) => r.url().includes("/ai") && r.method() === "POST"),
+		draft.getByRole("button", { name: "Explain" }).click(),
+	])
+	expect(asked.postDataJSON()).toMatchObject({
+		intent: "ask",
+		action: "explain",
+		exact: PASSAGE,
+		suffix: expect.stringMatching(/^, which I'll call/),
+	})
 
 	const card = page.getByTestId("ai-card")
 	await expect(card).toHaveAttribute("data-placement", "margin")
@@ -124,7 +144,7 @@ test("a follow-up's answer stays in view in a card too short for the thread", as
 	await page.setViewportSize({ width: 1440, height: 420 })
 	await open(page)
 	await select(page, PASSAGE)
-	await selectionToolbar(page).getByRole("button", { name: "Explain" }).click()
+	await askAi(page, "Explain")
 	const card = page.getByTestId("ai-card")
 	await expect(card.getByRole("button", { name: "Copy" })).toBeVisible()
 	for (const question of ["And managers?", "And writers?", "And painters?", "And editors?"]) {
@@ -144,11 +164,14 @@ test("one word can be defined, not highlighted; typing with a selection asks", a
 	await page.setViewportSize({ width: 1440, height: 900 })
 	await open(page)
 	await select(page, "schedule")
-	const highlight = selectionToolbar(page).getByRole("button", { name: "Highlight" })
+	const highlight = selectionToolbar(page).getByRole("button", { name: "Highlight", exact: true })
 	await expect(highlight).toBeDisabled()
 	// It looks it: dimmed, not just inert.
 	await expect(highlight).toHaveCSS("opacity", "0.4")
-	await selectionToolbar(page).getByRole("button", { name: "Define" }).click()
+	await expect(
+		selectionToolbar(page).getByRole("button", { name: "Highlight and add a note" }),
+	).toBeDisabled()
+	await askAi(page, "Define")
 	const card = page.getByTestId("ai-card")
 	await expect(card).toContainText("Answer 1.")
 	await card.getByRole("button", { name: "Collapse" }).click()
@@ -199,7 +222,7 @@ test("Ask far down the article opens its field where the reader is", async ({ pa
 	expect(scrolled).toBeGreaterThan(1000)
 	await select(page, "they understand the cost")
 	await page.mouse.up()
-	await selectionToolbar(page).getByRole("button", { name: "Ask" }).click()
+	await askAi(page)
 	const question = page
 		.getByTestId("ai-card")
 		.getByRole("textbox", { name: "Ask about this passage…" })
@@ -228,7 +251,7 @@ test("without a margin the card floats under the passage; without the feature, n
 	await page.setViewportSize({ width: 900, height: 800 })
 	await open(page)
 	await select(page, PASSAGE)
-	await selectionToolbar(page).getByRole("button", { name: "Explain" }).click()
+	await askAi(page, "Explain")
 	const card = page.getByTestId("ai-card")
 	await expect(card).toHaveAttribute("data-placement", "floating")
 	await expect(card).toContainText("Answer 1.")
@@ -382,7 +405,7 @@ test("turned off in Settings: answers kept are read and deleted, nothing new is 
 	await page.setViewportSize({ width: 1440, height: 900 })
 	const id = await open(page)
 	await select(page, PASSAGE)
-	await selectionToolbar(page).getByRole("button", { name: "Explain" }).click()
+	await askAi(page, "Explain")
 	const card = page.getByTestId("ai-card")
 	await expect(card.getByRole("button", { name: "Copy" })).toBeVisible()
 	await page.getByRole("button", { name: "Chat about this article" }).click()
@@ -412,8 +435,12 @@ test("turned off in Settings: answers kept are read and deleted, nothing new is 
 	await page.mouse.click(1300, 450)
 	// Nothing new: the toolbar only highlights.
 	await select(page, PASSAGE)
-	await expect(selectionToolbar(page).getByRole("button", { name: "Highlight" })).toBeVisible()
-	await expect(selectionToolbar(page).getByRole("button", { name: "Explain" })).toHaveCount(0)
+	await expect(
+		selectionToolbar(page).getByRole("button", { name: "Highlight", exact: true }),
+	).toBeVisible()
+	await expect(
+		selectionToolbar(page).getByRole("button", { name: "Ask", exact: true }),
+	).toHaveCount(0)
 	await page.keyboard.press("Escape")
 	// The chat the article has, to read and clear, without its field.
 	await page.getByRole("button", { name: "Chat about this article" }).click()
@@ -439,8 +466,12 @@ test("without the feature, the toolbar has no AI", async ({ page }) => {
 	await page.goto(`/read/${id}`)
 	await waitForHydration(page)
 	await select(page, PASSAGE)
-	await expect(selectionToolbar(page).getByRole("button", { name: "Highlight" })).toBeVisible()
-	await expect(selectionToolbar(page).getByRole("button", { name: "Explain" })).toHaveCount(0)
+	await expect(
+		selectionToolbar(page).getByRole("button", { name: "Highlight", exact: true }),
+	).toBeVisible()
+	await expect(
+		selectionToolbar(page).getByRole("button", { name: "Ask", exact: true }),
+	).toHaveCount(0)
 	await expect(page.getByTestId("brief")).toHaveCount(0)
 	await expect(page.getByRole("button", { name: "Chat about this article" })).toHaveCount(0)
 	await page.keyboard.press("h")
@@ -483,12 +514,12 @@ test("with few questions left the card counts them down, and the last one says w
 	await page.reload()
 	// Ask says it before anything is asked: the page loads where the account stands.
 	await select(page, PASSAGE)
-	await selectionToolbar(page).getByRole("button", { name: "Ask" }).click()
+	await askAi(page)
 	await expect(page.getByTestId("questions-left")).toHaveText("2 questions left this month")
 	await page.keyboard.press("Escape")
 	await expect(page.getByTestId("ai-card")).toHaveCount(0)
 	await select(page, PASSAGE)
-	await selectionToolbar(page).getByRole("button", { name: "Explain" }).click()
+	await askAi(page, "Explain")
 	const card = page.getByTestId("ai-card")
 	await expect(card).toContainText("Answer 1.")
 	await expect(card.getByTestId("questions-left")).toHaveText("1 question left this month")
@@ -506,9 +537,7 @@ test("with few questions left the card counts them down, and the last one says w
 	await shot(page, "none-left")
 })
 
-test("at the cap the AI buttons are dimmed, and pressing one says why without asking", async ({
-	page,
-}) => {
+test("at the cap Ask AI is dimmed, and pressing it says why without asking", async ({ page }) => {
 	test.setTimeout(120_000)
 	await page.setViewportSize({ width: 1440, height: 900 })
 	const id = await open(page)
@@ -519,19 +548,15 @@ test("at the cap the AI buttons are dimmed, and pressing one says why without as
 	const brief = page.getByTestId("brief")
 	await expect(brief).toHaveClass(/opacity-50/)
 	await select(page, PASSAGE)
-	const explain = selectionToolbar(page).getByRole("button", { name: "Explain" })
-	await expect(explain).toHaveAttribute("data-none-left", "true")
+	const askButton = selectionToolbar(page).getByRole("button", { name: "Ask", exact: true })
+	await expect(askButton).toHaveAttribute("data-none-left", "true")
 	await shot(page, "dimmed-toolbar")
-	await explain.click()
-	const card = page.getByTestId("ai-card")
+	// The reason, not a field for a question, nor an Explain or a Define, that would be refused.
+	await askButton.click()
+	const card = page.getByRole("dialog", { name: "Ask AI" })
 	await expect(card).toContainText(`It starts over on ${nextMonth()}.`)
 	await expect(card.getByRole("textbox")).toHaveCount(0)
-
-	// Ask opens to the same reason, not a field for a question that would be refused.
-	await select(page, "they understand the cost")
-	await selectionToolbar(page).getByRole("button", { name: "Ask" }).click()
-	await expect(page.getByTestId("ai-card").filter({ hasText: "starts over" })).toBeVisible()
-	await expect(page.getByTestId("ai-card").getByRole("textbox")).toHaveCount(0)
+	await expect(card.getByRole("button", { name: "Explain" })).toHaveCount(0)
 
 	await brief.click()
 	await expect(brief).toContainText(`It starts over on ${nextMonth()}.`)
@@ -561,17 +586,16 @@ test("a question the server refuses at the cap turns the page to none left", asy
 	// Another tab used the last one: this page still thinks there are some.
 	await askedThisMonth(id, 100)
 	await select(page, PASSAGE)
-	await selectionToolbar(page).getByRole("button", { name: "Explain" }).click()
+	await askAi(page, "Explain")
 	const card = page.getByTestId("ai-card")
 	await expect(card).toContainText(`It starts over on ${nextMonth()}.`)
 	await expect(card.getByRole("button", { name: "Answer again" })).toHaveCount(0)
 	await expect(page.getByTestId("brief")).toHaveClass(/opacity-50/)
 	await page.keyboard.press("Escape")
 	await select(page, "they understand the cost")
-	await expect(selectionToolbar(page).getByRole("button", { name: "Explain" })).toHaveAttribute(
-		"data-none-left",
-		"true",
-	)
+	await expect(
+		selectionToolbar(page).getByRole("button", { name: "Ask", exact: true }),
+	).toHaveAttribute("data-none-left", "true")
 })
 
 test("a first question refused before it began keeps its question, says why, and asks again", async ({
@@ -599,7 +623,7 @@ test("a first question refused before it began keeps its question, says why, and
 
 	// Ask: the question stays with the reason, and Answer again asks it.
 	await select(page, PASSAGE)
-	await selectionToolbar(page).getByRole("button", { name: "Ask" }).click()
+	await askAi(page)
 	const card = page.getByTestId("ai-card")
 	await card.getByRole("textbox", { name: "Ask about this passage…" }).fill("Which one is mine?")
 	await card.getByRole("textbox", { name: "Ask about this passage…" }).press("Enter")
@@ -661,7 +685,7 @@ test("a follow-up refused before it began keeps its question, says why, and asks
 
 	// A saved answer card: its follow-up stays with the reason, and Answer again asks it.
 	await select(page, PASSAGE)
-	await selectionToolbar(page).getByRole("button", { name: "Explain" }).click()
+	await askAi(page, "Explain")
 	const card = page.getByTestId("ai-card")
 	await expect(card.getByRole("button", { name: "Copy" })).toBeVisible()
 	refuse = 1

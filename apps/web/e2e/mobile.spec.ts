@@ -311,7 +311,7 @@ test("phone: the selection's and a new highlight's toolbars are sheets at the bo
 	await expect(selected).toHaveAttribute("data-placement", "bottom")
 	await Promise.all([
 		page.waitForResponse((r) => r.url().includes("/highlights") && r.request().method() === "POST"),
-		selected.getByRole("button", { name: "Highlight" }).tap(),
+		selected.getByRole("button", { name: "Highlight", exact: true }).tap(),
 	])
 	const editor = page.getByRole("dialog", { name: "Edit highlight" })
 	await expect(editor).toBeVisible()

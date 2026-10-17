@@ -162,7 +162,7 @@ test("highlight map: a tick in each highlight's colour where it sits, and a clic
 	)
 	await page
 		.getByRole("dialog", { name: "Selected text" })
-		.getByRole("button", { name: "Highlight" })
+		.getByRole("button", { name: "Highlight", exact: true })
 		.click()
 	await saved
 	await expect(marks).toHaveCount(4)

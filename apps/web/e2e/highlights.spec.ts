@@ -153,7 +153,7 @@ async function highlight(page: Page, select: () => Promise<void>) {
 	const toolbar = page.getByRole("dialog", { name: "Selected text" })
 	await Promise.all([
 		highlightSaved(page),
-		toolbar.getByRole("button", { name: "Highlight" }).click(),
+		toolbar.getByRole("button", { name: "Highlight", exact: true }).click(),
 	])
 }
 
@@ -345,6 +345,26 @@ test("highlight → persists → note → sidebar → highlights page → delete
 	])
 	await expect(page.getByText("Makers need long blocks.")).toHaveCount(0)
 	await expect(page.getByText(QUOTE)).toHaveCount(0)
+})
+
+test("Highlight and add a note: one press, and the note is being written", async ({ page }) => {
+	test.setTimeout(90_000)
+	await signupAndSave(page)
+	await selectText(page, QUOTE)
+	const selected = page.getByRole("dialog", { name: "Selected text" })
+	await Promise.all([
+		highlightSaved(page),
+		selected.getByRole("button", { name: "Highlight and add a note" }).click(),
+	])
+	await expect.poll(() => highlightCount(page)).toBe(1)
+	// The note's editor, not the highlight's toolbar.
+	const editor = page.getByRole("dialog", { name: "Highlight note" })
+	await expect(editor.getByRole("textbox")).toBeFocused()
+	await expect(page.getByRole("dialog", { name: "Edit highlight" })).toHaveCount(0)
+	await page.keyboard.type("Two kinds of day.")
+	await Promise.all([highlightSaved(page), editor.getByRole("button", { name: "Save" }).click()])
+	const margin = page.getByRole("region", { name: "Highlight notes" })
+	await expect(margin.getByRole("button", { name: "Two kinds of day." })).toBeVisible()
 })
 
 test("a highlight's color: picked in its toolbar, shown on the text, its note and in lists", async ({
