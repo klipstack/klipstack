@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { expect, type Page, test } from "@playwright/test"
+import sharp from "sharp"
 import {
 	lastEmailTo,
 	resetLocalIpLimit,
@@ -188,4 +189,40 @@ test("a visitor reports a shared highlight, an admin removes it, and it cannot b
 	const after = await openShare(page)
 	await expect(after.link).toContainText("taken down after a report")
 	await expect(after.link.getByRole("button", { name: "Create link" })).toHaveCount(0)
+})
+
+test("a highlight as an image, wide or tall, with or without its note, and no link made", async ({
+	page,
+}) => {
+	test.setTimeout(150_000)
+	await signupUser(page, "Ada Pictures")
+	await highlighted(page, "Makers need long blocks.")
+	const { dialog } = await openShare(page)
+	const image = dialog.getByRole("region", { name: "Image" })
+	const picture = image.getByRole("img", { name: "The highlight as an image" })
+	await expect(picture).toBeVisible()
+	const size = () =>
+		picture.evaluate((img: HTMLImageElement) => [img.naturalWidth, img.naturalHeight])
+	expect(await size()).toEqual([1200, 630])
+
+	await image.getByRole("radio", { name: "Tall" }).click()
+	await expect.poll(size).toEqual([1080, 1920])
+	const withNote = await picture.getAttribute("src")
+	await dialog.getByRole("checkbox", { name: "Include my note" }).uncheck()
+	await expect.poll(() => picture.getAttribute("src")).not.toBe(withNote)
+
+	const [download] = await Promise.all([
+		page.waitForEvent("download"),
+		image.getByRole("link", { name: "Download" }).click(),
+	])
+	expect(download.suggestedFilename()).toBe("klipstack-highlight-tall.png")
+	const file = await download.path()
+	expect(await sharp(file).metadata()).toMatchObject({ width: 1080, height: 1920 })
+
+	// Only a picture: the highlight has no public link.
+	await expect(
+		dialog
+			.getByRole("region", { name: "Public link" })
+			.getByRole("button", { name: "Create link" }),
+	).toBeVisible()
 })

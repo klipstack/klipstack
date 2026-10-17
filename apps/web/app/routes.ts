@@ -93,6 +93,7 @@ export default [
 	route("documents/:id/tags", "routes/documents.tags.ts"),
 	route("documents/:id/backlinks", "routes/documents.backlinks.ts"),
 	route("highlights/:id/share", "routes/highlights.share.ts"),
+	route("highlights/:id/image.png", "routes/highlights.image.ts"),
 	route("feed/opml", "routes/feed.opml.ts"),
 	route("saved-searches", "routes/saved-searches.ts"),
 	route("topics/use", "routes/topics.use.ts"),

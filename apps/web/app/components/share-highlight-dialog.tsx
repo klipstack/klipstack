@@ -11,6 +11,7 @@ import type { ShareState } from "~/services/highlight-shares.server"
 import { ClippingPaper } from "./clipping"
 import { NoteText } from "./note-text"
 import { PostIt, tiltFor } from "./post-it"
+import { ShareHighlightImage } from "./share-highlight-image"
 import { Button } from "./ui/button"
 
 export interface ShareHighlight {
@@ -80,7 +81,7 @@ export function ShareHighlightDialog({
 			ref={dialogRef}
 			aria-label={t("highlights.share.title")}
 			data-testid="share-highlight-dialog"
-			className="m-auto w-[min(30rem,92vw)] rounded-2xl border border-border bg-card p-0 text-fg shadow-2xl backdrop:bg-black/40"
+			className="m-auto max-h-[92dvh] w-[min(30rem,92vw)] overflow-y-auto rounded-2xl border border-border bg-card p-0 text-fg shadow-2xl backdrop:bg-black/40"
 			onClose={onClose}
 			onClick={(e) => {
 				if (e.target === dialogRef.current) dialogRef.current?.close()
@@ -159,6 +160,10 @@ export function ShareHighlightDialog({
 						hasNote={note !== null}
 						onLeave={() => dialogRef.current?.close()}
 					/>
+				)}
+
+				{h.canLink === false ? null : (
+					<ShareHighlightImage id={h.id} withNote={note !== null && withNote} />
 				)}
 
 				<div className="flex flex-wrap justify-end gap-2">
