@@ -34,6 +34,8 @@ export interface Limits {
 	feeds: number
 	/** Editions published for the first time, a calendar month (UTC). */
 	editions: number
+	/** Highlights shared at a new public address, a calendar month (UTC). */
+	shares: number
 	/** Questions sent to the AI (answers, follow-ups, retries), a calendar month (UTC). */
 	ai: number
 }
@@ -58,6 +60,7 @@ export function defaultLimits(): Limits {
 		storage: env.LIMIT_STORAGE_MB * 1024 * 1024,
 		feeds: env.LIMIT_FEEDS,
 		editions: env.LIMIT_EDITIONS_PER_MONTH,
+		shares: env.LIMIT_SHARES_PER_MONTH,
 		ai: env.LIMIT_AI_PER_MONTH,
 	}
 }
@@ -76,6 +79,8 @@ const MESSAGES: Record<LimitName, (max: number, resetsAt?: Date) => string> = {
 		`This account follows ${max} feeds, the most it can. Unfollow one to follow another.`,
 	editions: (max, resetsAt) =>
 		`This account published ${max} new editions this month, the most it can. Publishing works again on ${day(resetsAt!)}.`,
+	shares: (max, resetsAt) =>
+		`This account shared ${max} highlights this month, the most it can. Sharing works again on ${day(resetsAt!)}.`,
 	ai: (max, resetsAt) =>
 		`This account asked the AI ${max} times this month, the most it can. Asking works again on ${day(resetsAt!)}.`,
 }
@@ -133,7 +138,7 @@ async function refuse(userId: string, limit: LimitName, max: number, resetsAt?: 
 export async function countMonthly(
 	tx: Tx,
 	userId: string,
-	metric: "saves" | "editions" | "ai",
+	metric: "saves" | "editions" | "shares" | "ai",
 ): Promise<{ used: number; max: number; resetsAt: Date }> {
 	const max = (await limitsFor(userId))[metric]
 	// One month for the count and the date it starts over, even at midnight on the 1st.
@@ -223,6 +228,7 @@ export interface Usage {
 	storage: { used: number; max: number }
 	feeds: { used: number; max: number }
 	editions: { used: number; max: number }
+	shares: { used: number; max: number }
 	ai: { used: number; max: number }
 	/** Articles sorted into topics this month (`LIMIT_TOPIC_SORTS_PER_MONTH`). */
 	topicSorts: { used: number; max: number }
@@ -250,6 +256,7 @@ export async function usageOf(userId: string): Promise<Usage> {
 		storage: { used: storage, max: limits.storage },
 		feeds: { used: feeds, max: limits.feeds },
 		editions: { used: counted("editions"), max: limits.editions },
+		shares: { used: counted("shares"), max: limits.shares },
 		ai: { used: counted("ai"), max: limits.ai },
 		topicSorts: { used: counted("topic_sorts"), max: topicLimits().sorts },
 		refused: counted("refused"),

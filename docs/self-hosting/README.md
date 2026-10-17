@@ -147,6 +147,7 @@ work. Keep the bucket private: the app serves images itself, after checking who 
 | `LIMIT_STORAGE_MB` | `250` | Image storage per account. |
 | `LIMIT_FEEDS` | `100` | Feeds per account. |
 | `LIMIT_EDITIONS_PER_MONTH` | `4` | Editions per account per month. |
+| `LIMIT_SHARES_PER_MONTH` | `100` | Highlights shared at a new public link, per account per month. |
 | `LIMIT_AI_PER_MONTH` | `100` | AI questions per account per month. |
 | `LIMIT_AI_PER_MONTH_ADMIN` | `500` | AI questions per admin account per month. |
 | `APPLE_TEAM_ID`, `APPLE_BUNDLE_ID` | unset | Only with your own build of the iPhone app, signed by your Apple team: its team ID (10 characters) and bundle ID. With both set, `/.well-known/apple-app-site-association` lets that app open its sign-in callback (`/app/oauth/callback`) as a universal link; unset, it answers 404. Klipstack's own app works only with klipstack.com. |
