@@ -72,6 +72,15 @@ describe("afterRefusal", () => {
 		expect(after.failure).toEqual({ code: "limit_reached" })
 	})
 
+	it("drops a follow-up cut off by the network: the server may have it", () => {
+		const after = afterRefusal(
+			card({ streaming: true, messages: [message("q1", "user"), tempQuestion("more?")] }),
+			{ code: "network" },
+		)
+		expect(after.messages.map((m) => m.id)).toEqual(["q1"])
+		expect(retryOf(after)).toEqual({ kind: "retry" })
+	})
+
 	it("keeps a new thread's first question: Try Again sends it", () => {
 		for (const action of ["chat", "ask"] as const) {
 			const question = tempQuestion("What is it about?")

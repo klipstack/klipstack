@@ -125,10 +125,19 @@ export function useAiThreads(
 			written.clear(current)
 			if (!result.ok) quota.current?.refused(result.error)
 			if (!result.ok)
-				// A question the server never took stays where it was asked, with the reason: a new
-				// thread's first question or a follow-up. Answer again asks it; another follow-up takes
-				// its place.
-				update(current, (c) => ({ ...c, streaming: undefined, failure: result.error }))
+				// A question the server refused stays where it was asked, with the reason: a new thread's
+				// first question or a follow-up. Answer again asks it; another follow-up takes its place.
+				// A follow-up cut off by the network may have reached the server, which keeps it: Answer
+				// again then has the server answer it, rather than send it twice.
+				update(current, (c) => ({
+					...c,
+					streaming: undefined,
+					failure: result.error,
+					messages:
+						result.error.code === "network" && !isTempThread(c.id)
+							? c.messages.filter((m) => !isTempThread(m.id))
+							: c.messages,
+				}))
 		},
 		[documentId, update, written],
 	)

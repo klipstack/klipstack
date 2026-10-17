@@ -43,12 +43,19 @@ export function withQuestion(messages: readonly AiMessage[], saved: AiMessage): 
 }
 
 /**
- * A question refused before the server took it stays where it was asked, with the reason: a new
- * thread's first question or a follow-up. Answer Again asks it (`retryOf`); another follow-up
- * takes its place (`followingUp`).
+ * A question the server refused stays where it was asked, with the reason: a new thread's first
+ * question or a follow-up. Answer Again asks it (`retryOf`); another follow-up takes its place
+ * (`followingUp`). A follow-up cut off by the network may have reached the server, which keeps it:
+ * it is not kept here, so Answer Again has the server answer it rather than send it twice.
  */
 export function afterRefusal(card: AiCard, failure: AiFailure): AiCard {
-	return { ...card, streaming: undefined, failure }
+	const unsure = failure.code === "network" && !isTempThread(card.id)
+	return {
+		...card,
+		streaming: undefined,
+		failure,
+		messages: unsure ? card.messages.filter((m) => !isTempThread(m.id)) : card.messages,
+	}
 }
 
 /** What Answer Again asks. */
