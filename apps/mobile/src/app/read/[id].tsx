@@ -1295,11 +1295,12 @@ export default function Reader() {
 						noteFocused
 							? undefined
 							: [
+									// The first page shows three: Highlight, Copy, Ask (none with AI off).
 									{ label: "Highlight", key: "highlight" },
-									{ label: "Add Note", key: "note" },
 									{ label: "Copy", key: "copy" },
-									...(canLookUp ? [{ label: "Look Up", key: "lookup" }] : []),
 									...(ai.asking ? [{ label: "Ask", key: "ask" }] : []),
+									{ label: "Add Note", key: "note" },
+									...(canLookUp ? [{ label: "Look Up", key: "lookup" }] : []),
 									{ label: "Share", key: "share" },
 								]
 					}
