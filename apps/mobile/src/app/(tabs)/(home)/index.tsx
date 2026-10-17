@@ -939,6 +939,7 @@ function Shelf({
 	menu: CardMenu
 }) {
 	const { width } = useWindowDimensions()
+	const card = Math.min(260, width * 0.62)
 	if (!items.length) return null
 	return (
 		<FlatList
@@ -949,8 +950,16 @@ function Shelf({
 			style={styles.shelfFrame}
 			contentContainerStyle={styles.shelf}
 			renderItem={({ item }) => (
-				<View style={[styles.shelfCard, { width: Math.min(260, width * 0.62) + CARD_FRAME * 2 }]}>
-					<ArticleCard item={item} colors={colors} headers={headers} menu={menu} framed display />
+				<View style={[styles.shelfCard, { width: card + CARD_FRAME * 2 }]}>
+					<ArticleCard
+						item={item}
+						colors={colors}
+						headers={headers}
+						menu={menu}
+						framed
+						display
+						width={card}
+					/>
 				</View>
 			)}
 		/>

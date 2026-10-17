@@ -67,6 +67,7 @@ export function ArticleCard({
 	menu,
 	framed = false,
 	display = false,
+	width,
 }: {
 	item: ArticleSummary
 	colors: Colors
@@ -76,6 +77,8 @@ export function ArticleCard({
 	menu?: CardMenu | null
 	framed?: boolean
 	display?: boolean
+	/** The picture's width, when the list knows it: a cover then draws its words at once. */
+	width?: number
 }) {
 	return (
 		<Tappable
@@ -91,7 +94,7 @@ export function ArticleCard({
 		>
 			{framed ? <Grain /> : null}
 			<View>
-				<CardPicture item={item} colors={colors} headers={headers} />
+				<CardPicture item={item} colors={colors} headers={headers} width={width} />
 				{item.finished ? (
 					<View style={styles.pictureStamp}>
 						<ReadStamp id={item.id} onPicture colors={colors} />
@@ -515,11 +518,13 @@ export function CardPicture({
 	colors,
 	headers,
 	radius = 12,
+	width,
 }: {
 	item: ArticleSummary
 	colors: Colors
 	headers: Record<string, string> | null
 	radius?: number
+	width?: number
 }) {
 	const { apiUrl } = useAuth()
 	const [failed, setFailed] = usePictureFailure(headers)
@@ -541,6 +546,7 @@ export function CardPicture({
 					title={item.title ?? item.url}
 					shelf={siteName(item)}
 					colors={colors}
+					width={width}
 				/>
 			)}
 		</View>
@@ -661,6 +667,7 @@ export function ArticleList(
 					onCheck={onCheck}
 					menu={cardMenu}
 					framed
+					width={cell.width - TINT * 2}
 				/>
 			</View>
 		)

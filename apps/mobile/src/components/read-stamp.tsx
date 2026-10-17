@@ -31,8 +31,8 @@ export function ReadStamp({
 		>
 			<View style={[styles.ink, { borderColor: colors.stamp }]}>
 				<Text
-					// The stamp is a mark, not type: it keeps its size.
-					allowFontScaling={false}
+					// A mark more than type: it grows with the text, but not so far it crowds the card.
+					maxFontSizeMultiplier={1.5}
 					style={[styles.word, { color: colors.stamp }]}
 				>
 					READ

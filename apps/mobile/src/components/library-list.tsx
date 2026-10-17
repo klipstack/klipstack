@@ -51,6 +51,14 @@ import { topicOf } from "@/lib/topic-choices"
 
 const PAGE_SIZE = 30
 
+/** Each place's drawing when it is empty, as the web's library. */
+const VIEW_DRAWINGS: Partial<Record<LibraryView, EmptyDrawingName>> = {
+	inbox: "bookcase",
+	archive: "box",
+	starred: "stickers",
+	trash: "basket",
+}
+
 /**
  * A place in the Library tab: a view of the library (`view`), newest saves first, 30 at a time,
  * or a search (`query`: a tag, a saved search) in the order the server gives, the next page
@@ -72,14 +80,6 @@ const PAGE_SIZE = 30
  * A topic's own list (`topic`, from the Topics screen) has no menu: it is that topic's, across the
  * whole library (`view: "all"`).
  */
-/** Each place's drawing when it is empty, as the web's library. */
-const VIEW_DRAWINGS: Partial<Record<LibraryView, EmptyDrawingName>> = {
-	inbox: "bookcase",
-	archive: "box",
-	starred: "stickers",
-	trash: "basket",
-}
-
 export function LibraryList({
 	view,
 	query,

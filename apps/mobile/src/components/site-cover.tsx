@@ -16,22 +16,29 @@ export function SiteCover({
 	title,
 	shelf,
 	colors,
+	width: known,
 }: {
 	site: string
 	title: string
 	/** What its color is told apart by: the site's host, as the shelves'. */
 	shelf: string
 	colors: Colors
+	/**
+	 * Its width in points, when the list knows it: drawn in one go. Without it the cover measures
+	 * itself, and its words come a frame later.
+	 */
+	width?: number
 }) {
 	const scheme = useScheme()
-	const [width, setWidth] = useState(0)
+	const [measured, setMeasured] = useState(0)
+	const width = known ?? measured
 	const ink = { color: colors.shelf.bookFg }
 	const pad = width * 0.07
 	return (
 		<View
 			accessibilityElementsHidden
 			importantForAccessibility="no-hide-descendants"
-			onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
+			onLayout={known ? undefined : (e) => setMeasured(e.nativeEvent.layout.width)}
 			style={[
 				StyleSheet.absoluteFill,
 				styles.cover,
