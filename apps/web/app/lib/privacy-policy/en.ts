@@ -100,7 +100,7 @@ export default {
 			id: "ai",
 			title: "Questions about what you read",
 			blocks: [
-				"In the reader, on the web or in the iPhone app, you can ask about a passage (explain it, define a word, or ask a question), chat about the whole article, or ask for its brief: a short account of what it says and how it is built. Only then, our server sends Anthropic the article's text and what you asked: the passage, your question and, when you ask more, the earlier questions and answers. Then it shows you the answer. Apart from topics, below, nothing is sent unless you ask.",
+				"In the reader, on the web or in the iPhone app, you can ask about a passage (explain it, define a word, or ask a question), chat about the whole article, or ask for its brief (Sum Up in the iPhone app): a short account of what it says and how it is built. Only then, our server sends Anthropic the article's text and what you asked: the passage, your question and, when you ask more, the earlier questions and answers. Then it shows you the answer. Apart from topics, below, nothing is sent unless you ask.",
 				"Anthropic uses them only to answer, under Anthropic's commercial terms, and doesn't train its models on them.",
 				"We keep your questions, the answers and the brief with the article, so you can read them again, until you delete them or the article. Our server logs record that a question was answered and its size, never what it said.",
 			],

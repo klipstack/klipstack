@@ -89,7 +89,7 @@ export default {
 						"Better Stack comprueba desde fuera que Klipstack funciona. No ve datos de cuentas.",
 						"Google o GitHub, solo si eliges iniciar sesión con ellos.",
 						"FxTwitter, solo cuando guardas una publicación de X.",
-						"Anthropic responde preguntas sobre lo que lees y escribe resúmenes, solo cuando los pides, y pone nombre a tus temas, solo si activas los temas.",
+						"Anthropic responde preguntas sobre lo que lees y escribe resúmenes, solo cuando lo pides, y pone nombre a tus temas, solo si activas los temas.",
 						"TypeSafe ordena tus artículos en temas, solo si activas los temas.",
 					],
 				},
@@ -100,7 +100,7 @@ export default {
 			id: "ai",
 			title: "Preguntas sobre lo que lees",
 			blocks: [
-				"En el lector, en la web o en la app para iPhone, puedes preguntar sobre un pasaje (que te lo explique, que defina una palabra o hacer una pregunta), chatear sobre todo el artículo o pedir su resumen: un relato breve de lo que dice y de cómo está construido. Solo entonces nuestro servidor le envía a Anthropic el texto del artículo y lo que pediste: el pasaje, tu pregunta y, cuando sigues preguntando, las preguntas y respuestas anteriores. Luego te muestra la respuesta. Aparte de los temas, más abajo, no se envía nada si no preguntas.",
+				"En el lector, en la web o en la app para iPhone, puedes preguntar sobre un pasaje (que te lo explique, que defina una palabra o hacer una pregunta), chatear sobre todo el artículo o pedir su resumen (Sum Up en la app para iPhone): una explicación breve de lo que dice y de cómo está organizado. Solo entonces nuestro servidor le envía a Anthropic el texto del artículo y lo que pediste: el pasaje, tu pregunta y, cuando sigues preguntando, las preguntas y respuestas anteriores. Luego te muestra la respuesta. Aparte de los temas, más abajo, no se envía nada si no preguntas.",
 				"Anthropic los usa solo para responder, según las condiciones comerciales de Anthropic, y no entrena sus modelos con ellos.",
 				"Guardamos tus preguntas, las respuestas y el resumen con el artículo, para que puedas volver a leerlos, hasta que los borres o borres el artículo. Los registros del servidor anotan que se respondió una pregunta y su tamaño, nunca lo que decía.",
 			],
@@ -137,9 +137,9 @@ export default {
 				{
 					list: [
 						"La extensión del navegador actúa solo cuando haces clic en ella o usas su menú. Quita los scripts y los campos ocultos de formularios antes de enviar una página. Pide acceso a todos los sitios para poder guardar la página que elijas.",
-						"La app para iPhone, en pruebas, guarda tu sesión en el llavero (Keychain) del iPhone, compartida con su extensión para compartir y su widget, y copias de los artículos para abrirlos sin conexión. Lee en voz alta en el propio teléfono: el texto nunca sale de él. Sus archivos de voz se descargan una vez, desde Hugging Face y GitHub. Cuando dictas una nota, el iPhone reconoce tu voz en el propio dispositivo, con el reconocimiento de voz de Apple: lo que dices nunca sale del teléfono, y a Klipstack solo llega el texto de la nota. Look Up abre el diccionario del propio iPhone. Lee el portapapeles solo cuando tocas Pegar. No tiene analítica ni reportes de fallos.",
+						"La app para iPhone, en pruebas, guarda tu sesión en el llavero (Keychain) del iPhone, que comparte con su extensión de compartir y su widget, y guarda copias de los artículos para abrirlos sin conexión. Lee en voz alta en el propio teléfono: el texto nunca sale de él. Sus archivos de voz se descargan una vez, desde Hugging Face y GitHub. Cuando dictas una nota, el iPhone reconoce tu voz en el propio dispositivo, con el reconocimiento de voz de Apple: lo que dices nunca sale del teléfono, y a Klipstack solo llega el texto de la nota. Consultar (Look Up) abre el diccionario del propio iPhone. Lee el portapapeles solo cuando tocas Pegar. No tiene analítica ni reportes de fallos.",
 						"En la app para iPhone, la IA del lector funciona como en la web y envía lo mismo: mira «Preguntas sobre lo que lees».",
-						"La extensión para compartir (Klipstack en el menú Compartir del iPhone) lee solo el enlace que compartes, o el primer enlace web de un texto compartido, y envía ese enlace a Klipstack, que lo guarda como cualquier otro.",
+						"La extensión de compartir (Klipstack en el menú Compartir del iPhone) lee solo el enlace que compartes, o el primer enlace web de un texto, y envía ese enlace a Klipstack, que lo guarda como cualquier otro.",
 						"El widget «Next up» le pide a Klipstack los próximos artículos de tu bandeja de entrada (Inbox): título, sitio, tiempo de lectura, cuánto leíste y la imagen. Guarda los últimos en el teléfono para mostrarlos sin conexión. Una imagen que Klipstack no guardó se carga desde el sitio web del artículo.",
 						"Puedes conectar otras apps y asistentes de IA a tu biblioteca (claves de API, MCP). Solo acceden a lo que permites, y puedes quitarlos en Ajustes cuando quieras. Lo que hagan con los datos depende de ellos y de sus propias políticas de privacidad.",
 					],
