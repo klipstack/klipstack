@@ -1,10 +1,10 @@
 import { data } from "react-router"
 import { reportShare } from "~/lib/edition-reports.server"
 import { getInstance, getLocale } from "~/lib/i18n.server"
+import { reportAction, reportLoader } from "~/lib/report-form.server"
 import { safeHost } from "~/lib/site-label"
 import { getPublicShare, sharePath } from "~/services/highlight-shares.server"
 import type { Route } from "./+types/highlight.report"
-import { reportAction, reportLoader } from "./edition.report"
 
 export { default, meta } from "./edition.report"
 

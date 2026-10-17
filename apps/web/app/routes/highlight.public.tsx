@@ -43,6 +43,8 @@ export async function loader({ params, request, context }: Route.LoaderArgs) {
 		image: canDrawHighlight(snapshot.exact)
 			? `${env.APP_URL}${path}/og.png?v=${share.updatedAt.getTime().toString(36)}`
 			: shareCard(snapshot.locale).url,
+		// Both pictures, the highlight's and the Klipstack card, are this size.
+		imageSize: { width: CARD_WIDTH, height: CARD_HEIGHT },
 	}
 }
 
@@ -66,7 +68,7 @@ export const handle: PageLanguage = {
 export function meta({ loaderData }: Route.MetaArgs) {
 	const noindex = { name: "robots", content: "noindex" }
 	if (!loaderData) return [{ title: "Klipstack" }, noindex]
-	const { title, description, url, image, imageAlt } = loaderData
+	const { title, description, url, image, imageAlt, imageSize } = loaderData
 	return [
 		{ title },
 		noindex,
@@ -77,8 +79,8 @@ export function meta({ loaderData }: Route.MetaArgs) {
 		{ property: "og:description", content: description },
 		{ property: "og:url", content: url },
 		{ property: "og:image", content: image },
-		{ property: "og:image:width", content: String(CARD_WIDTH) },
-		{ property: "og:image:height", content: String(CARD_HEIGHT) },
+		{ property: "og:image:width", content: String(imageSize.width) },
+		{ property: "og:image:height", content: String(imageSize.height) },
 		{ property: "og:image:alt", content: imageAlt },
 		{ name: "twitter:card", content: "summary_large_image" },
 	]

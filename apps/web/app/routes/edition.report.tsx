@@ -1,36 +1,19 @@
 import { useId } from "react"
 import { useTranslation } from "react-i18next"
 import { data, Form, useNavigation } from "react-router"
-import { z } from "zod"
 import { AuthCard } from "~/components/auth-card"
 import { Button } from "~/components/ui/button"
 import { Field } from "~/components/ui/field"
 import { Label } from "~/components/ui/label"
-import { authLimitResponse } from "~/lib/auth-limits.server"
-import { REPORT_DETAILS_MAX, REPORT_REASONS } from "~/lib/edition-reports"
-import { type ReportOutcome, reportEdition } from "~/lib/edition-reports.server"
+import { REPORT_REASONS, REPORT_TRAP } from "~/lib/edition-reports"
+import { reportEdition } from "~/lib/edition-reports.server"
 import { editionSlug, editionTitle } from "~/lib/editions"
-import { type FieldErrors, parseForm } from "~/lib/forms"
 import { useIsNsKey, useKeyTranslation } from "~/lib/i18n-keys"
 import { getInstance, getLocale } from "~/lib/i18n.server"
-import { formToken } from "~/lib/invite-requests.server"
-import { readForm } from "~/lib/request-body.server"
+import { reportAction, reportLoader } from "~/lib/report-form.server"
 import { cn } from "~/lib/utils"
 import { getPublicEdition, parseSnapshot } from "~/services/editions.server"
 import type { Route } from "./+types/edition.report"
-
-/** The field only bots fill: people never see it. No name a browser's autofill would recognize. */
-const TRAP = "kp_extra"
-
-const schema = z.object({
-	reason: z.enum(REPORT_REASONS, "editions:report.errors.reason"),
-	details: z
-		.string()
-		.trim()
-		.min(1, "editions:report.errors.details")
-		.max(REPORT_DETAILS_MAX, "editions:report.errors.detailsTooLong"),
-	email: z.union([z.literal(""), z.email("auth:validation.emailInvalid").max(254)]).optional(),
-})
 
 export function meta({ loaderData }: Route.MetaArgs) {
 	return [
@@ -64,72 +47,9 @@ export async function loader({ params, context }: Route.LoaderArgs) {
 	)
 }
 
-/** The form's page, about the public page `edition` (its title and address). */
-export function reportLoader(pageTitle: string, edition: { title: string; path: string }) {
-	return {
-		pageTitle,
-		edition,
-		token: formToken(Date.now(), "edition-report"),
-		detailsMax: REPORT_DETAILS_MAX,
-	}
-}
-
 export function action({ request, context, params }: Route.ActionArgs) {
 	return reportAction(request, getLocale(context), (input) =>
 		reportEdition({ ...input, publicId: params.publicId }, request.headers),
-	)
-}
-
-/**
- * A report form's answer, for an edition's and a shared highlight's alike: `report` stores it, or
- * not (see `ReportOutcome`).
- */
-export async function reportAction(
-	request: Request,
-	locale: string,
-	report: (input: Omit<Parameters<typeof reportEdition>[0], "publicId">) => Promise<ReportOutcome>,
-) {
-	const form = await readForm(request)
-	const started = form.get("started")
-	const parsed = parseForm(form, schema)
-	// The time the form was first shown travels back with an error, so fixing one is not "too fast".
-	const token = typeof started === "string" ? started : formToken(Date.now(), "edition-report")
-	if (!parsed.ok)
-		return data(
-			{ fieldErrors: parsed.fieldErrors, formError: null, values: parsed.values, token },
-			{ status: 400 },
-		)
-	let outcome: ReportOutcome
-	try {
-		outcome = await report({
-			reason: parsed.data.reason,
-			details: parsed.data.details,
-			email: parsed.data.email || null,
-			locale,
-			token: started,
-			trap: form.get(TRAP),
-		})
-	} catch (error) {
-		const limited = authLimitResponse(error)
-		if (limited) throw limited
-		throw error
-	}
-	if (outcome === "received") return { received: true as const }
-	return data(
-		{
-			fieldErrors: {} as FieldErrors,
-			formError:
-				outcome === "expired"
-					? ("editions:report.expired" as const)
-					: ("editions:report.full" as const),
-			values: {
-				reason: parsed.data.reason,
-				details: parsed.data.details,
-				email: parsed.data.email ?? "",
-			},
-			token: outcome === "expired" ? formToken(Date.now(), "edition-report") : token,
-		},
-		{ status: outcome === "full" ? 503 : 400 },
 	)
 }
 
@@ -225,7 +145,13 @@ export default function ReportEdition({ loaderData, actionData }: Route.Componen
 				<div aria-hidden="true" className="absolute -left-[10000px] size-px overflow-hidden">
 					<label>
 						{t("report.trap")}
-						<input type="text" name={TRAP} tabIndex={-1} autoComplete="off" defaultValue="" />
+						<input
+							type="text"
+							name={REPORT_TRAP}
+							tabIndex={-1}
+							autoComplete="off"
+							defaultValue=""
+						/>
 					</label>
 				</div>
 				{actionData?.formError ? (
