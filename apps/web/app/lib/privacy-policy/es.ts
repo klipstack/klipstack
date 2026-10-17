@@ -102,7 +102,7 @@ export default {
 			blocks: [
 				"En el lector, en la web o en la app para iPhone, puedes preguntar sobre un pasaje (que te lo explique, que defina una palabra o hacer una pregunta), chatear sobre todo el artículo o pedir su resumen (Sum Up en la app para iPhone): una explicación breve de lo que dice y de cómo está organizado. Solo entonces nuestro servidor le envía a Anthropic el texto del artículo y lo que pediste: el pasaje, tu pregunta y, cuando sigues preguntando, las preguntas y respuestas anteriores. Luego te muestra la respuesta. Aparte de los temas, más abajo, no se envía nada si no preguntas.",
 				"Anthropic los usa solo para responder, según las condiciones comerciales de Anthropic, y no entrena sus modelos con ellos.",
-				"Guardamos tus preguntas, las respuestas y el resumen con el artículo, para que puedas volver a leerlos, hasta que los borres o borres el artículo. Los registros del servidor anotan que se respondió una pregunta y su tamaño, nunca lo que decía.",
+				"Guardamos tus preguntas y las respuestas con el artículo, para que puedas volver a leerlas, hasta que las borres o borres el artículo, y su resumen hasta que borres el artículo. Los registros del servidor anotan que se respondió una pregunta y su tamaño, nunca lo que decía.",
 			],
 		},
 		{

@@ -14,7 +14,7 @@ can't do any of them.
 
 - **Switch the team.** Device builds are signed by the team in `APPLE_TEAM_ID`, in
   `apps/mobile/.env.local` (never in the repo; `app.config.ts` reads it). Put the new team's ID
-  there. *Why:* only a paid team can upload builds, and the team ID is part of every ID below.
+  there. The server's `APPLE_TEAM_ID` (below) is a separate setting with the same value. *Why:* only a paid team can upload builds, and the team ID is part of every ID below.
 - **App IDs and the app group.** In the developer portal (Certificates, Identifiers & Profiles),
   register `com.klipstack.app`, `com.klipstack.app.share` (the share extension) and
   `com.klipstack.app.widget` (the widget), and the app group `group.com.klipstack.app` on all
@@ -31,7 +31,9 @@ can't do any of them.
   2. The app thread adds `applinks:klipstack.com` and `webcredentials:klipstack.com` to the
      app's Associated Domains and signs in with the https callback
      `https://klipstack.com/app/oauth/callback` (`MOBILE_CALLBACK_PATH` in
-     `packages/api-contract/src/auth.ts`).
+     `packages/api-contract/src/auth.ts`). `expo-web-browser` hands an https callback back to the
+     app only with `preferUniversalLinks: true` and on iOS 17.4 or later; the app sets no minimum
+     iOS version today, so either raise it to 17.4 or keep the custom scheme on older versions.
   3. Register that redirect on the `klipstack-mobile` client (`apps/web/app/lib/auth.server.ts`),
      next to the custom scheme, which older builds keep using until they are below the minimum
      version.
@@ -118,6 +120,7 @@ handles, by Apple's categories:
 | User Content → Other User Content | Saved links and their pages, highlights, notes, tags, saved searches, feeds, AI questions, answers and briefs | Yes | App Functionality |
 | Usage Data → Product Interaction | The monthly counts per account (saves, questions, topic use, limits hit) | Yes | App Functionality, Analytics |
 | Browsing History | Arguably the saved links, which are web pages; declaring it is the cautious answer | Yes | App Functionality |
+| Search History | Arguably the saved searches; declaring it is the cautious answer | Yes | App Functionality |
 
 Not collected: audio (dictation is recognized on the phone and only the note's text is sent),
 location (the sign-in keeps an IP address with the session to protect the account, but nothing
@@ -128,9 +131,10 @@ our own collection, not as tracking. Keep the labels and `/privacy` saying the s
 ### Age rating
 
 The questionnaire asks, among others, about unrestricted web access. The reader shows any page a
-person saved, so answer "Yes": that sets a high age rating (it has been 17+, 18+ in the current
-system), which suits the policy's "not meant for anyone under 16". Answering "No" to look
-friendlier is a rejection waiting to happen.
+person saved, so "Yes" is the cautious answer: it sets the highest age rating (it has been 17+,
+18+ in the current system), which suits the policy's "not meant for anyone under 16". "No" is
+arguable, since the reader is not a browser, but a reviewer who opens any page in it could
+reject the app for a wrong rating.
 
 ### Screenshots
 
