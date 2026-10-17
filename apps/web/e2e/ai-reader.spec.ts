@@ -405,7 +405,7 @@ test("turned off in Settings: answers kept are read and deleted, nothing new is 
 	await page.setViewportSize({ width: 1440, height: 900 })
 	const id = await open(page)
 	await select(page, PASSAGE)
-	await selectionToolbar(page).getByRole("button", { name: "Explain" }).click()
+	await askAi(page, "Explain")
 	const card = page.getByTestId("ai-card")
 	await expect(card.getByRole("button", { name: "Copy" })).toBeVisible()
 	await page.getByRole("button", { name: "Chat about this article" }).click()
@@ -435,8 +435,12 @@ test("turned off in Settings: answers kept are read and deleted, nothing new is 
 	await page.mouse.click(1300, 450)
 	// Nothing new: the toolbar only highlights.
 	await select(page, PASSAGE)
-	await expect(selectionToolbar(page).getByRole("button", { name: "Highlight" })).toBeVisible()
-	await expect(selectionToolbar(page).getByRole("button", { name: "Explain" })).toHaveCount(0)
+	await expect(
+		selectionToolbar(page).getByRole("button", { name: "Highlight", exact: true }),
+	).toBeVisible()
+	await expect(
+		selectionToolbar(page).getByRole("button", { name: "Ask", exact: true }),
+	).toHaveCount(0)
 	await page.keyboard.press("Escape")
 	// The chat the article has, to read and clear, without its field.
 	await page.getByRole("button", { name: "Chat about this article" }).click()
