@@ -55,6 +55,11 @@ final class Driver: XCTestCase {
 					field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 60) + parts[1])
 					log += "retyped \(parts[0])\n"
 				} else { log += "MISSING \(parts[0])\n" }
+			case "type":
+				// Types into the field that has the keyboard (focus it with `tapxy`): for fields whose
+				// label XCUITest does not see, such as a multiline React Native TextInput.
+				app.typeText(arg)
+				log += "typed\n"
 			case "webtype":
 				// "field|text": the sign-in sheet's web page (ASWebAuthenticationSession runs in
 				// SafariViewService, outside the app): the text field whose label or placeholder is

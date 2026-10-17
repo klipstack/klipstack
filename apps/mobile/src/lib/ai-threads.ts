@@ -43,18 +43,46 @@ export function withQuestion(messages: readonly AiMessage[], saved: AiMessage): 
 }
 
 /**
- * A failed question is not kept, except a new thread's first: it is all the card holds, and Try
- * Again sends it.
+ * A question the server refused stays where it was asked, with the reason: a new thread's first
+ * question or a follow-up. Answer Again asks it (`retryOf`); another follow-up takes its place
+ * (`followingUp`). A follow-up cut off by the network may have reached the server, which keeps it:
+ * it is not kept here, so Answer Again has the server answer it rather than send it twice.
  */
 export function afterRefusal(card: AiCard, failure: AiFailure): AiCard {
+	const unsure = failure.code === "network" && !isTempThread(card.id)
 	return {
 		...card,
 		streaming: undefined,
 		failure,
-		messages: isTempThread(card.id)
-			? card.messages
-			: card.messages.filter((m) => !isTempThread(m.id)),
+		messages: unsure ? card.messages.filter((m) => !isTempThread(m.id)) : card.messages,
 	}
+}
+
+/** What Answer Again asks. */
+export type Retry =
+	/** A new thread refused before it began, with its question (an Ask's or the chat's). */
+	| { kind: "first"; question: string }
+	/** A new Explain or Define refused before it began. */
+	| { kind: "passage" }
+	/** A follow-up the server never took. */
+	| { kind: "follow-up"; question: string }
+	/** The server answers the thread's last question again. */
+	| { kind: "retry" }
+
+export function retryOf(card: AiCard): Retry {
+	if (isTempThread(card.id))
+		return card.action === "ask" || card.action === "chat"
+			? { kind: "first", question: card.messages[0]?.text ?? "" }
+			: { kind: "passage" }
+	const last = card.messages.at(-1)
+	if (last?.role === "user" && isTempThread(last.id))
+		return { kind: "follow-up", question: last.text }
+	return { kind: "retry" }
+}
+
+/** A thread's turns with a follow-up asked: in place of one refused before it. */
+export function followingUp(messages: readonly AiMessage[], text: string): AiMessage[] {
+	return [...messages.filter((m) => !isTempThread(m.id)), tempQuestion(text)]
 }
 
 /** What the card offers now. */

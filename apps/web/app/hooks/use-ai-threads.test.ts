@@ -53,6 +53,22 @@ describe("reloaded", () => {
 		})
 	})
 
+	it("keeps a refused follow-up and its refusal while nothing newer comes", () => {
+		const question = { ...thread("a").messages[0]!, id: "tmp-ai-q-9", role: "user" as const }
+		const refused: AiCard = {
+			...thread("a"),
+			messages: [...thread("a").messages, question],
+			failure: { code: "rate_limited" },
+		}
+		const [card] = reloaded([refused], [thread("a")], none, none)
+		expect(card?.messages.map((m) => m.id)).toEqual(["a-m0", "tmp-ai-q-9"])
+		expect(card?.failure).toEqual({ code: "rate_limited" })
+		// The load brings an answer given since (on another device): the refusal is old news.
+		const [later] = reloaded([refused], [thread("a", 2)], none, none)
+		expect(later?.messages.map((m) => m.id)).toEqual(["a-m0", "a-m1"])
+		expect(later?.failure).toBeUndefined()
+	})
+
 	it("keeps a card whose answer is being written over the loaded copy", () => {
 		const streaming: AiCard = { ...thread("a", 0), streaming: true }
 		const [card] = reloaded([streaming], [thread("a", 0)], none, none)

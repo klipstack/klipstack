@@ -578,3 +578,74 @@ test("a first question refused before it began keeps its question, says why, and
 	await expect(brief).toContainText("The first claim of a fixed brief for tests.")
 	expect(refuse.size).toBe(0)
 })
+
+test("a follow-up refused before it began keeps its question, says why, and asks it again", async ({
+	page,
+}) => {
+	test.setTimeout(120_000)
+	await page.setViewportSize({ width: 1440, height: 900 })
+	await open(page)
+	// The rate limit is in the server's memory, out of a test's reach: the first follow-up is
+	// answered with the refusal the server gives, and the next one reaches the server.
+	let refuse = 0
+	await page.route("**/documents/*/ai", async (route) => {
+		const intent = (route.request().postDataJSON() as { intent?: string }).intent ?? ""
+		if (intent !== "follow-up" || refuse === 0) return route.continue()
+		refuse--
+		await route.fulfill({
+			status: 429,
+			headers: { "retry-after": "60" },
+			json: {
+				ok: false,
+				error: { code: "rate_limited", message: "Too many questions. Try again in 60 seconds." },
+			},
+		})
+	})
+	const why = "Too many questions at once. Wait a few minutes and try again."
+
+	// A saved answer card: its follow-up stays with the reason, and Answer again asks it.
+	await select(page, PASSAGE)
+	await selectionToolbar(page).getByRole("button", { name: "Explain" }).click()
+	const card = page.getByTestId("ai-card")
+	await expect(card.getByRole("button", { name: "Copy" })).toBeVisible()
+	refuse = 1
+	await card.getByRole("textbox", { name: "Ask a follow-up…" }).fill("And managers?")
+	await card.getByRole("textbox", { name: "Ask a follow-up…" }).press("Enter")
+	await expect(card.getByRole("alert")).toHaveText(why)
+	await expect(card.getByText("And managers?")).toHaveCount(1)
+	await shot(page, "refused-follow-up")
+	await card.getByRole("button", { name: "Answer again" }).click()
+	await expect(card).toContainText("Answer 2.")
+	await expect(card.getByText("And managers?")).toHaveCount(1)
+	await expect(card.getByRole("alert")).toHaveCount(0)
+
+	// Another follow-up asked in place of a refused one replaces it.
+	refuse = 1
+	await card.getByRole("textbox", { name: "Ask a follow-up…" }).fill("And writers?")
+	await card.getByRole("textbox", { name: "Ask a follow-up…" }).press("Enter")
+	await expect(card.getByRole("alert")).toHaveText(why)
+	await card.getByRole("textbox", { name: "Ask a follow-up…" }).fill("And painters?")
+	await card.getByRole("textbox", { name: "Ask a follow-up…" }).press("Enter")
+	await expect(card).toContainText("Answer 3.")
+	await expect(card.getByText("And writers?")).toHaveCount(0)
+	await expect(card.getByText("And painters?")).toHaveCount(1)
+	await page.keyboard.press("Escape")
+
+	// The chat: the same.
+	await page.getByRole("button", { name: "Chat about this article" }).click()
+	const chat = page.getByTestId("chat")
+	await chat.getByRole("textbox", { name: "Ask about this article…" }).fill("What is it about?")
+	await chat.getByRole("textbox", { name: "Ask about this article…" }).press("Enter")
+	await expect(chat).toContainText("Answer 1.")
+	refuse = 1
+	await chat.getByRole("textbox", { name: /Ask/ }).fill("Who wrote it?")
+	await chat.getByRole("textbox", { name: /Ask/ }).press("Enter")
+	await expect(chat.getByRole("alert")).toHaveText(why)
+	await expect(chat.getByText("Who wrote it?")).toHaveCount(1)
+	await chat.getByRole("button", { name: "Answer again" }).click()
+	await expect(chat).toContainText("Answer 2.")
+	await expect(chat.getByText("Who wrote it?")).toHaveCount(1)
+	await expect(chat.getByText("What is it about?")).toHaveCount(1)
+	await expect(chat.getByRole("alert")).toHaveCount(0)
+	expect(refuse).toBe(0)
+})

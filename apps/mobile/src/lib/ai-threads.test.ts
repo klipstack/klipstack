@@ -5,6 +5,8 @@ import {
 	afterRefusal,
 	cardState,
 	createAnswerStore,
+	followingUp,
+	retryOf,
 	tempId,
 	tempQuestion,
 	withQuestion,
@@ -54,14 +56,29 @@ describe("withQuestion", () => {
 })
 
 describe("afterRefusal", () => {
-	it("drops the question not taken, keeping the turns before it", () => {
+	it("keeps a follow-up refused before it began, after the turns before it", () => {
+		const more = tempQuestion("more?")
 		const after = afterRefusal(
-			card({ id: "t1", streaming: true, messages: [message("q1", "user"), tempQuestion("more?")] }),
+			card({
+				id: "t1",
+				streaming: true,
+				messages: [message("q1", "user"), message("a1", "assistant"), more],
+			}),
 			{ code: "limit_reached" },
 		)
-		expect(after.messages.map((m) => m.id)).toEqual(["q1"])
+		expect(after.messages.map((m) => m.id)).toEqual(["q1", "a1", more.id])
+		expect(after.messages.at(-1)?.text).toBe("more?")
 		expect(after.streaming).toBeUndefined()
 		expect(after.failure).toEqual({ code: "limit_reached" })
+	})
+
+	it("drops a follow-up cut off by the network: the server may have it", () => {
+		const after = afterRefusal(
+			card({ streaming: true, messages: [message("q1", "user"), tempQuestion("more?")] }),
+			{ code: "network" },
+		)
+		expect(after.messages.map((m) => m.id)).toEqual(["q1"])
+		expect(retryOf(after)).toEqual({ kind: "retry" })
 	})
 
 	it("keeps a new thread's first question: Try Again sends it", () => {
@@ -72,6 +89,43 @@ describe("afterRefusal", () => {
 			})
 			expect(after.messages).toEqual([question])
 		}
+	})
+})
+
+describe("retryOf", () => {
+	const saved = [message("q1", "user", "Why?"), message("a1", "assistant")]
+
+	it("a refused follow-up is asked again, not the question before it", () => {
+		const refused = afterRefusal(
+			card({ streaming: true, messages: [...saved, tempQuestion("And then?")] }),
+			{ code: "rate_limited" },
+		)
+		expect(retryOf(refused)).toEqual({ kind: "follow-up", question: "And then?" })
+	})
+
+	it("a saved thread's last question is answered again by the server", () => {
+		expect(retryOf(card({ messages: saved }))).toEqual({ kind: "retry" })
+		expect(
+			retryOf(card({ messages: [message("q1", "user")], failure: { code: "network" } })),
+		).toEqual({ kind: "retry" })
+	})
+
+	it("a new thread refused before it began starts again", () => {
+		const id = tempId("t")
+		const chat = card({ id, action: "chat", messages: [tempQuestion("What is it?")] })
+		expect(retryOf(chat)).toEqual({ kind: "first", question: "What is it?" })
+		expect(retryOf(card({ id, action: "explain", messages: [tempQuestion("")] }))).toEqual({
+			kind: "passage",
+		})
+	})
+})
+
+describe("followingUp", () => {
+	it("a follow-up takes the place of one refused before it", () => {
+		const refused = tempQuestion("And then?")
+		const next = followingUp([message("q1", "user"), message("a1", "assistant"), refused], "So?")
+		expect(next.map((m) => m.text)).toEqual(["q1", "a1", "So?"])
+		expect(next.at(-1)?.id).not.toBe(refused.id)
 	})
 })
 
