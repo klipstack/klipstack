@@ -155,7 +155,7 @@ export async function oauthToken(
  * the real keys. Every other fetch goes out as before.
  */
 let keySetServed = false
-function serveKeySet() {
+export function serveKeySet() {
 	if (keySetServed) return
 	keySetServed = true
 	const jwksUrl = `${selfUrl}/api/auth/jwks`

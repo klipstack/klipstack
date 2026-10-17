@@ -13,9 +13,11 @@ config({ path: resolve(root, ".env"), quiet: true })
 const usage = `Usage: pnpm --filter @klipstack/web dev-account <command> [options]
   create            A throwaway account on the local database, with copies of demo articles.
                     Prints its address, password and an API key (klip_…).
+    --app-token     Also sign the iPhone app in: print a refresh token for apps/mobile/.env.local
     --articles N    How many of the demo account's newest articles to copy (default 20)
     --feature NAME  Turn on a feature in testing (repeatable): ai, topics
     --name LABEL    The address's local part (default dev-<timestamp>)
+  app-token EMAIL   Sign the iPhone app in to a throwaway account: a new refresh token.
   list              The throwaway accounts on the local database.
   delete EMAIL      Delete one throwaway account and everything it owns.
   delete --all      Delete every throwaway account.
@@ -31,6 +33,7 @@ const { values, positionals } = parseArgs({
 		feature: { type: "string", multiple: true, default: [] },
 		name: { type: "string" },
 		all: { type: "boolean" },
+		"app-token": { type: "boolean" },
 		help: { type: "boolean", short: "h" },
 	},
 })
@@ -48,6 +51,7 @@ const { assetKey, getStorage } = await import("@klipstack/storage")
 const { hashPassword } = await import("better-auth/crypto")
 const { createApiKey } = await import("../app/services/api-keys.server")
 const { deleteAccount } = await import("../app/services/account.server")
+const { appToken } = await import("./dev-account/app-token")
 
 async function create() {
 	const count = Number(values.articles)
@@ -177,6 +181,25 @@ async function create() {
 	if (features.length) console.log(`features  ${features.join(", ")}`)
 	console.log(`api key   ${key.raw}`)
 	console.log(`delete    pnpm --filter @klipstack/web dev-account delete ${email}`)
+	if (values["app-token"]) await printAppToken(email)
+}
+
+/**
+ * The iPhone app's AI and account deletion answer only the app's own OAuth tokens, never an API
+ * key. A development build signs in with this refresh token instead of the sign-in sheet.
+ */
+async function printAppToken(email: string) {
+	const { refreshToken } = await appToken(email, PASSWORD)
+	console.log(`app token EXPO_PUBLIC_APP_REFRESH_TOKEN=${refreshToken}`)
+	console.log("          (apps/mobile/.env.local, then pnpm start --clear; good for one sign-in)")
+}
+
+async function issueAppToken() {
+	const email = positionals[1]?.toLowerCase()
+	if (!email || positionals.length !== 2) throw new Error("app-token takes one EMAIL")
+	if (!(await throwaways()).some((row) => row.email === email))
+		throw new Error(`No throwaway account ${email}`)
+	await printAppToken(email)
 }
 
 async function throwaways() {
@@ -209,10 +232,11 @@ const command = positionals[0]
 try {
 	if (command === "create" && positionals.length === 1) await create()
 	else if (command === "list" && positionals.length === 1) await list()
+	else if (command === "app-token") await issueAppToken()
 	else if (command === "delete") await remove()
 	else throw new Error(usage)
 } catch (error) {
-	console.error(error instanceof Error ? error.message : error)
+	console.error(error instanceof Error && error.message ? error.message : error)
 	process.exitCode = 1
 } finally {
 	await pool.end()
