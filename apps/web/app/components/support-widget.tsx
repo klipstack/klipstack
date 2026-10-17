@@ -1,5 +1,5 @@
-import { Mail } from "lucide-react"
-import { useEffect } from "react"
+import { LoaderCircle, Mail } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { SUPPYHQ_ORIGIN, type SupportWidgetConfig } from "~/lib/support-widget"
 import { tooltip } from "./tooltip-host"
@@ -24,6 +24,10 @@ export function SupportWidget({ tenant, email, name }: SupportWidgetConfig) {
 	const headline = t("supportWidget.greeting")
 	const successTitle = t("supportWidget.acknowledgment")
 	const successMessage = t("supportWidget.expectation")
+	// The panel loads on its first opening. Until it has drawn, it stays hidden and the button spins:
+	// an empty panel frame over the button would show instead.
+	const panelReady = useRef(false)
+	const [loading, setLoading] = useState(false)
 
 	useEffect(() => {
 		const script = document.createElement("script")
@@ -54,14 +58,37 @@ export function SupportWidget({ tenant, email, name }: SupportWidgetConfig) {
 			attributeFilter: ["data-theme"],
 		})
 
+		// The panel sends its height once it has drawn.
+		const onMessage = (event: MessageEvent) => {
+			if (event.origin !== SUPPYHQ_ORIGIN || event.data?.type !== "suppyhq:resize") return
+			panelReady.current = true
+			setLoading(false)
+		}
+		window.addEventListener("message", onMessage)
+
 		// Signing out, another account, or a new language: the next widget starts fresh.
 		return () => {
 			scheme.removeEventListener("change", syncTheme)
+			window.removeEventListener("message", onMessage)
+			panelReady.current = false
+			setLoading(false)
 			observer.disconnect()
 			script.remove()
 			document.querySelector("[data-suppyhq-host]")?.remove()
 		}
 	}, [tenant, email, name, label, headline, successTitle, successMessage])
+
+	useEffect(() => {
+		if (!loading) return
+		const root = document.documentElement
+		root.dataset.supportLoading = ""
+		// A panel that never says it is ready still shows, empty or not.
+		const timeout = setTimeout(() => setLoading(false), 8000)
+		return () => {
+			clearTimeout(timeout)
+			delete root.dataset.supportLoading
+		}
+	}, [loading])
 
 	const open = t("supportWidget.open")
 	return (
@@ -69,10 +96,22 @@ export function SupportWidget({ tenant, email, name }: SupportWidgetConfig) {
 			type="button"
 			aria-label={open}
 			{...tooltip(open)}
-			onClick={() => window.dispatchEvent(new Event("suppyhq:open"))}
+			aria-busy={loading || undefined}
+			onClick={() => {
+				if (!panelReady.current) {
+					// Before the script opens the panel, so its empty frame never paints.
+					document.documentElement.dataset.supportLoading = ""
+					setLoading(true)
+				}
+				window.dispatchEvent(new Event("suppyhq:open"))
+			}}
 			className="support-launcher fixed right-6 bottom-6 z-30 size-12 items-center justify-center rounded-full border border-border bg-card text-muted-fg shadow-lg hover:bg-hover hover:text-fg"
 		>
-			<Mail className="size-5" aria-hidden />
+			{loading ? (
+				<LoaderCircle className="size-5 animate-spin" aria-hidden />
+			) : (
+				<Mail className="size-5" aria-hidden />
+			)}
 		</button>
 	)
 }
