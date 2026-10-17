@@ -10,6 +10,7 @@
 		"./auth": "./src/auth.ts",
 		"./client": "./src/client.ts",
 		"./names": "./src/names.ts",
+		"./highlight-share": "./src/highlight-share.ts",
 		"./note-links": "./src/note-links.ts",
 		"./search-query": "./src/search-query.ts",
 		"./search-suggest": "./src/search-suggest.ts",

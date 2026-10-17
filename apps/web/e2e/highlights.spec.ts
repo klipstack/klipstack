@@ -671,3 +671,69 @@ test("a note being written scrolls under the top bar, in the margin and floating
 	await expect(editor).toHaveAttribute("data-placement", "floating")
 	expect(await barCovers(page, editor)).toBe(true)
 })
+
+test("sharing a highlight copies its quote, its note and the article, linked", async ({ page }) => {
+	test.setTimeout(120_000)
+	await page.context().grantPermissions(["clipboard-read", "clipboard-write"])
+	await signupAndSave(page)
+	await highlight(page, () => selectText(page, QUOTE))
+	const popover = page.getByRole("dialog", { name: "Edit highlight" })
+	await popover.getByRole("button", { name: "Add note" }).click()
+	const editor = page.getByRole("dialog", { name: "Highlight note" })
+	await expect(editor.getByRole("textbox")).toBeFocused()
+	await page.keyboard.type("Makers need long blocks.")
+	await Promise.all([highlightSaved(page), editor.getByRole("button", { name: "Save" }).click()])
+	await expect(editor).toBeHidden()
+
+	const clipboard = () => page.evaluate(() => navigator.clipboard.readText())
+	const clipboardHtml = () =>
+		page.evaluate(async () => {
+			for (const item of await navigator.clipboard.read())
+				if (item.types.includes("text/html")) return (await item.getType("text/html")).text()
+			return null
+		})
+	const credit = "](https://paulgraham.com/makersschedule.html)"
+
+	// From the highlight's toolbar: the dialog shows what goes out, the note included.
+	const point = await pointInText(page, QUOTE)
+	await page.mouse.click(point.x, point.y)
+	await popover.getByRole("button", { name: "Share" }).click()
+	await expect(popover).toBeHidden()
+	const share = page.getByRole("dialog", { name: "Share highlight" })
+	await expect(share.getByTestId("share-preview")).toContainText(QUOTE)
+	await expect(share.getByTestId("share-preview")).toContainText("Makers need long blocks.")
+	await expect(share.getByRole("checkbox", { name: "Include my note" })).toBeChecked()
+	await share.getByRole("button", { name: "Copy text" }).click()
+	await expect(share).toBeHidden()
+	await expect(page.getByRole("status").filter({ hasText: "Copied with a link" })).toBeVisible()
+	await expect
+		.poll(clipboard)
+		.toMatch(/^> There are two types of schedule\n\nMakers need long blocks\.\n\n— \[/)
+	expect(await clipboard()).toContain(credit)
+	// Apps that paste rich text get a quote and a real link.
+	const html = await clipboardHtml()
+	expect(html).toContain(`<blockquote><p>${QUOTE}</p></blockquote><p>Makers need long blocks.</p>`)
+	expect(html).toContain('<a href="https://paulgraham.com/makersschedule.html">')
+
+	// From the sidebar, without the note.
+	await page.getByTestId("toggle-sidebar").click()
+	const sidebar = page.getByRole("complementary", { name: "Notes and highlights" })
+	await sidebar.getByRole("listitem").filter({ hasText: QUOTE }).hover()
+	await sidebar.getByRole("button", { name: "Share" }).click()
+	await share.getByRole("checkbox", { name: "Include my note" }).uncheck()
+	await expect(share.getByTestId("share-preview")).not.toContainText("Makers need long blocks.")
+	await share.getByRole("button", { name: "Copy text" }).click()
+	await expect.poll(clipboard).toMatch(/^> There are two types of schedule\n\n— \[/)
+	expect(await clipboard()).not.toContain("Makers need")
+
+	// From the Notebook's card; the note is in again, as each share starts.
+	await page.goto("/notebook")
+	await waitForHydration(page)
+	const card = page.getByTestId("quote-card").filter({ hasText: QUOTE })
+	await card.hover()
+	await card.getByRole("button", { name: "Share" }).click()
+	await expect(share.getByRole("checkbox", { name: "Include my note" })).toBeChecked()
+	await share.getByRole("button", { name: "Copy text" }).click()
+	await expect.poll(clipboard).toContain("\n\nMakers need long blocks.\n\n— [")
+	expect(await clipboard()).toContain(credit)
+})

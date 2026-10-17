@@ -1,6 +1,6 @@
 import { NOTE_MAX } from "@klipstack/api-contract/names"
 import type { NoteSaveStatus } from "@klipstack/sdk/note-autosave"
-import { X } from "lucide-react"
+import { Share, X } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router"
@@ -15,6 +15,7 @@ import { NoteField } from "./note-field"
 import { ArticleNoteLabel, NoteStatus } from "./note-status"
 import { NoteText } from "./note-text"
 import { PostIt, tiltFor, useGrowingFit } from "./post-it"
+import { tooltip } from "./tooltip-host"
 
 interface Props {
 	note: {
@@ -38,6 +39,8 @@ interface Props {
 	/** The reader's font setting: the quotes and answers are set in it, as the article is. */
 	font: string
 	onSelect: (id: string) => void
+	/** Opens the highlight's share dialog. */
+	onShare?: (id: string) => void
 	onClose: () => void
 	/** The article's chat (AI accounts): a second tab beside notes and highlights. */
 	chat?: React.ReactNode
@@ -85,6 +88,7 @@ export function ReaderSidebar({
 	from,
 	font,
 	onSelect,
+	onShare,
 	onClose,
 	chat,
 	tab = "notes",
@@ -234,7 +238,7 @@ export function ReaderSidebar({
 				) : (
 					<ol ref={listRef} className="flex flex-col gap-2 pt-1 pr-4 pb-4 pl-3">
 						{items.map((h) => (
-							<li key={h.id}>
+							<li key={h.id} className="group relative">
 								{/* A clipping of the quote, in the reader's type and marked as in the article; its
 								    note a post-it stuck on it. The whole clipping goes to the highlight. The note's
 								    links are text here, so there is nothing else inside to click. */}
@@ -270,6 +274,18 @@ export function ReaderSidebar({
 										</span>
 									) : null}
 								</button>
+								{/* Beside the clipping, not in it: a button inside a button is invalid. */}
+								{onShare ? (
+									<button
+										type="button"
+										onClick={() => onShare(h.id)}
+										aria-label={t("highlights.share.open")}
+										{...tooltip(t("highlights.share.open"))}
+										className="absolute top-4 right-1 rounded-md bg-card/80 p-1.5 text-muted-fg opacity-100 transition-opacity hover:bg-hover hover:text-fg focus-visible:opacity-100 md:opacity-0 md:group-hover:opacity-100"
+									>
+										<Share className="size-4" aria-hidden />
+									</button>
+								) : null}
 							</li>
 						))}
 					</ol>

@@ -151,6 +151,14 @@ export default {
 			delete: "Eliminar subrayado",
 			color: "Color del subrayado",
 		},
+		share: {
+			title: "Compartir subrayado",
+			open: "Compartir",
+			close: "Cerrar",
+			includeNote: "Incluir mi nota",
+			copyText: "Copiar texto",
+			copied: "Copiado con un enlace al artículo",
+		},
 		colors: {
 			yellow: "Amarillo",
 			green: "Verde",
