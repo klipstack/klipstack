@@ -24,6 +24,26 @@ describe("highlightShareText", () => {
 		)
 	})
 
+	it("writes plain text for apps that take no formatting: quotes, then the address on its own line", () => {
+		const B = "0193a5f1-2c3d-7e4f-8a9b-0c1d2e3f4a5c"
+		const { plain } = highlightShareText({
+			exact: "First  paragraph.\n\nSecond one.",
+			note: `See [Other piece](/read/${A}) and [Gone](/read/${B}).`,
+			article,
+			linkUrls: { [A]: "https://other.example/piece" },
+		})
+		expect(plain).toBe(
+			"“First paragraph.\nSecond one.”\n\nSee Other piece (https://other.example/piece) and Gone.\n\n— The Long Read, Example Magazine\nhttps://example.com/essays/long-read",
+		)
+		// No web address: nothing under the credit.
+		expect(
+			highlightShareText(
+				{ exact: "Q.", note: "N.", article: { ...article, url: "file:///x" } },
+				false,
+			).plain,
+		).toBe("“Q.”\n\n— The Long Read, Example Magazine")
+	})
+
 	it("leaves the note out when asked, and when there is none", () => {
 		const without = highlightShareText({ exact: "Quote.", note: "Private.", article }, false)
 		expect(without.markdown).not.toContain("Private")

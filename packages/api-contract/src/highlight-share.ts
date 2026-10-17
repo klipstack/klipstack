@@ -1,6 +1,7 @@
 /**
  * A highlight as text to share: the quote, the reader's note under it and the article it came from,
- * linked. Markdown for the plain-text clipboard, HTML for apps that paste rich text. Framework-free,
+ * linked. Markdown for the plain-text clipboard, HTML for apps that paste rich text, and plain text
+ * for a phone's share sheet, where Markdown shows as typed. Framework-free,
  * so the web app and the mobile app write the same thing.
  */
 import { parse, type Segment } from "./note-links"
@@ -20,9 +21,11 @@ export interface ShareableHighlight {
 export interface ShareText {
 	markdown: string
 	html: string
+	/** No markup: the quote in quotation marks, a link's address after its words, in brackets. */
+	plain: string
 }
 
-/** The highlight as Markdown and HTML; `withNote` false leaves the note out. */
+/** The highlight as Markdown, HTML and plain text; `withNote` false leaves the note out. */
 export function highlightShareText(h: ShareableHighlight, withNote = true): ShareText {
 	const quote = paragraphs(h.exact)
 	const note = withNote && h.note ? noteParagraphs(h.note, h.linkUrls ?? {}) : []
@@ -43,7 +46,13 @@ export function highlightShareText(h: ShareableHighlight, withNote = true): Shar
 		`<p>— ${href ? htmlLink(name, href) : escapeHtml(name)}${site ? `, ${escapeHtml(site)}` : ""}</p>`,
 	].join("")
 
-	return { markdown, html }
+	const plain = [
+		`“${quote.join("\n")}”`,
+		...note.map((p) => p.map((s) => (s.href ? `${s.text} (${s.href})` : s.text)).join("")),
+		`— ${name}${site ? `, ${site}` : ""}${href ? `\n${href}` : ""}`,
+	].join("\n\n")
+
+	return { markdown, html, plain }
 }
 
 /** Text as its paragraphs: one per line, spaces tidied, blank lines dropped. */
