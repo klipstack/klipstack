@@ -38,7 +38,7 @@ export default function DeleteAccount() {
 	useEffect(() => {
 		void client?.me().then(
 			(me) => setEmail(me.email),
-			() => {},
+			() => setError({ message: "Couldn't load your account. Go back and try again." }),
 		)
 	}, [client])
 
@@ -65,14 +65,26 @@ export default function DeleteAccount() {
 	function askToSignInAgain() {
 		Alert.alert(
 			"Sign in again",
-			"To delete the account, sign in again first: it needs a sign-in from the last 30 minutes.",
+			"To delete the account, sign in again with your password first: it needs a sign-in from the last 30 minutes. Without a password, delete it on the web.",
 			[
 				{ text: "Cancel", style: "cancel" },
+				// An account without a password (Google, GitHub, emailed links) can't sign in again here.
+				{
+					text: "Use the web",
+					onPress: () => void WebBrowser.openBrowserAsync(`${apiUrl}/settings/account`),
+				},
 				{
 					text: "Sign in",
 					onPress: async () => {
 						try {
-							if (await signInAgain()) await remove(true)
+							if (!(await signInAgain())) return
+							// The sheet lets anyone sign in: deleting goes on only for the same account.
+							const now = await client?.me()
+							if (now && now.email.toLowerCase() !== email?.toLowerCase())
+								return setError({
+									message: `You signed in as ${now.email}, so nothing was deleted. The app now uses that account.`,
+								})
+							await remove(true)
 						} catch (e) {
 							setError({ message: e instanceof Error ? e.message : String(e) })
 						}

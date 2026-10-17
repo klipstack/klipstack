@@ -21,6 +21,7 @@ vi.hoisted(() => {
 })
 
 const { env } = await import("~/lib/env.server")
+const { topicLimits } = await import("@klipstack/db")
 const { apiUsers, browserSession, captured, FIXTURES, oauthToken, request, sdk } =
 	await import("~/test/api-harness")
 
@@ -76,6 +77,10 @@ describe("GET /usage", () => {
 		expect([plain.ai, plain.topicSorts]).toEqual([null, null])
 		expect(plain.resetsAt).toBe(monthOf().resetsAt.toISOString())
 
+		// Topics turned on, but no longer offered to the account: no sorting.
+		await db.insert(topicLibraries).values({ userId: me.id })
+		expect((await me.client.usage()).topicSorts).toBeNull()
+		await db.delete(topicLibraries).where(eq(topicLibraries.userId, me.id))
 		await db.insert(userFeatures).values([
 			{ userId: me.id, feature: "ai" },
 			{ userId: me.id, feature: "topics" },
@@ -85,7 +90,7 @@ describe("GET /usage", () => {
 		await db.insert(topicLibraries).values({ userId: me.id })
 		const full = await me.client.usage()
 		expect(full.ai).toEqual({ used: 7, max: env.LIMIT_AI_PER_MONTH })
-		expect(full.topicSorts?.used).toBe(42)
+		expect(full.topicSorts).toEqual({ used: 42, max: topicLimits().sorts })
 	})
 })
 
@@ -124,9 +129,14 @@ describe("POST /account/delete", () => {
 		expect([old.status, old.code]).toEqual([403, "reauthentication_required"])
 		expect(await exists(stale.id)).toBe(true)
 
-		// A token that names no sign-in, or someone else's.
+		// A token that names no sign-in, someone else's, or a recent one that has ended.
 		const other = await appUser("Other")
-		for (const sid of [undefined, other.sid]) {
+		const ended = await browserSession(
+			stale.id,
+			new Date(Date.now() - MINUTE),
+			new Date(Date.now() - 1000),
+		)
+		for (const sid of [undefined, other.sid, ended]) {
 			const token = await oauthToken(stale.id, MOBILE_CLIENT_ID, undefined, { sid })
 			const error = await errorOf(sdk(token).account.delete(stale.email))
 			expect([error.status, error.code]).toEqual([403, "reauthentication_required"])

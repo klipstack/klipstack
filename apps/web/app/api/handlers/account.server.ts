@@ -30,7 +30,7 @@ export const me: Handler<typeof getMe> = async ({ principal }) => {
 	}
 }
 
-/** Settings' Usage: the caps the account has, AI's and topics' only when it uses them. */
+/** The caps the account has, as Settings' Usage lists them, plus topic sorting. AI and topics only when the account can use them (AI as `GET /ai` says). */
 export const usage: Handler<typeof getUsage> = async ({ userId }) => {
 	const [counts, aiOn, offered, topicsOn] = await Promise.all([
 		usageOf(userId),

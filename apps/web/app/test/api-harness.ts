@@ -91,18 +91,16 @@ export function apiUsers(tag: string) {
 }
 
 /**
- * A browser session of the user's, signed in at `createdAt`: the one an OAuth sign-in goes through,
- * whose id its tokens carry as `sid`. Deleted with the user.
+ * A browser session of the user's, signed in at `createdAt` (and ended at `expiresAt`): the one an
+ * OAuth sign-in goes through, whose id its tokens carry as `sid`. Deleted with the user.
  */
-export async function browserSession(userId: string, createdAt: Date) {
+export async function browserSession(
+	userId: string,
+	createdAt: Date,
+	expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+) {
 	const id = newId()
-	await db.insert(session).values({
-		id,
-		userId,
-		token: randomUUID(),
-		createdAt,
-		expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-	})
+	await db.insert(session).values({ id, userId, token: randomUUID(), createdAt, expiresAt })
 	return id
 }
 

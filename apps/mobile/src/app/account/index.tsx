@@ -58,7 +58,7 @@ export default function Account() {
 		try {
 			await exportLibrary(apiUrl, await imageHeaders())
 		} catch {
-			Alert.alert("Couldn't export the library", "Check the connection and try again.")
+			Alert.alert("Couldn't export the library", "Try again in a moment.")
 		} finally {
 			setExporting(false)
 		}

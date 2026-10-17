@@ -77,6 +77,11 @@ describe("usageRows", () => {
 		expect(storage(12.4 * MB)).toBe("12 of 250 MB")
 	})
 
+	it("warns from 80% of a cap", () => {
+		const level = (used: number) => usageRows({ ...usage, saves: { used, max: 100 } })[0]?.level
+		expect([level(79), level(80), level(99), level(100)]).toEqual(["ok", "near", "near", "full"])
+	})
+
 	it("says nothing is left past the cap", () => {
 		expect(usageRows({ ...usage, ai: { used: 60, max: 50 } })[1]?.left).toBe("0 left")
 	})
@@ -84,7 +89,9 @@ describe("usageRows", () => {
 
 describe("resetsOn", () => {
 	it("is the day in UTC, whatever the phone's zone", () => {
+		// Midnight UTC is the day before west of it, and late evening UTC the day after east of it:
+		// in any zone but UTC, one of these reads the phone's day instead.
 		expect(resetsOn("2026-11-01T00:00:00.000Z")).toBe("November 1")
-		expect(resetsOn("2027-01-01T00:00:00.000Z")).toBe("January 1")
+		expect(resetsOn("2026-12-31T23:30:00.000Z")).toBe("December 31")
 	})
 })
