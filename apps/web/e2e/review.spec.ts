@@ -160,11 +160,10 @@ test("all at once acts on the saves shown, and the next ones come up after them"
 		.returning({ id: documents.id, title: documents.title })
 	const last = rows.find((r) => r.title === "Old save 26")!.id
 
-	// Always reachable from the Library, card or not.
+	// Always reachable from the Inbox, card or not.
 	await page.goto("/library")
 	await waitForHydration(page)
-	await page.getByRole("button", { name: "Library options" }).click()
-	await page.getByRole("menuitem", { name: "Review old saves" }).click()
+	await page.getByRole("link", { name: "Review old saves" }).click()
 	await expect(page).toHaveURL(/\/library\/review$/)
 	await waitForHydration(page)
 	const items = page.getByTestId("review-item")

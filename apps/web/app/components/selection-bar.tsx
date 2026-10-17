@@ -41,6 +41,7 @@ const ICONS: Record<BulkAction, LucideIcon> = {
 	tag: Tag,
 	delete: Trash2,
 	restore: Undo2,
+	purge: Trash2,
 }
 
 /** The key that does the same while there is a selection. Finishing has none: `u` is unread. */
@@ -63,6 +64,7 @@ const LEAVES: Partial<Record<BulkAction, Leave>> = {
 	unarchive: "lift",
 	delete: "lift",
 	restore: "lift",
+	purge: "lift",
 }
 
 /** The refusals a tag change can meet, and what the toast says for each. */
@@ -118,9 +120,18 @@ export function SelectionBar({
 				action === "finish" ? cards.filter((c) => !c.archivedAt).map((c) => c.id) : ids,
 			)
 	}
+	// "Delete forever" asks for a second tap within a few seconds, as on a trashed card.
+	const [armed, setArmed] = useState(false)
+	useEffect(() => {
+		if (!armed) return
+		const id = window.setTimeout(() => setArmed(false), 4000)
+		return () => window.clearTimeout(id)
+	}, [armed])
 	const act = (action: BulkAction) => {
-		if (action === "tag") setTagging(true)
-		else run(action)
+		if (action === "tag") return setTagging(true)
+		if (action === "purge" && !armed) return setArmed(true)
+		setArmed(false)
+		run(action)
 	}
 
 	// The answer: a toast with its undo.
@@ -206,14 +217,17 @@ export function SelectionBar({
 			? {
 					heading: t("select.count", { count: n }),
 					commands: [
-						...choice.actions.map((action) => ({
-							id: `bulk-${action}`,
-							label: t(`select.actions.${action}`),
-							icon: ICONS[action],
-							shortcut: KEYS[action],
-							danger: action === "delete",
-							run: () => act(action),
-						})),
+						// Not "Delete forever": the palette closes on a pick, and it takes a second tap on the bar.
+						...choice.actions
+							.filter((action) => action !== "purge")
+							.map((action) => ({
+								id: `bulk-${action}`,
+								label: t(`select.actions.${action}`),
+								icon: ICONS[action],
+								shortcut: KEYS[action],
+								danger: action === "delete",
+								run: () => act(action),
+							})),
 						...(allChecked
 							? []
 							: [
@@ -308,7 +322,10 @@ export function SelectionBar({
 								<span aria-hidden className="flex-1 sm:hidden" />
 								{choice.actions.map((action) => {
 									const Icon = ICONS[action]
-									const label = t(`select.actions.${action}`)
+									const confirming = action === "purge" && armed
+									const label = confirming
+										? t("select.actions.purgeConfirm")
+										: t(`select.actions.${action}`)
 									return (
 										<button
 											key={action}
@@ -316,7 +333,10 @@ export function SelectionBar({
 											onClick={() => act(action)}
 											aria-label={label}
 											{...tooltip(label, KEYS[action])}
-											className="flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 whitespace-nowrap hover:bg-bg/10 focus-visible:outline-link-inverse max-sm:p-2.5"
+											className={cn(
+												"flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 whitespace-nowrap hover:bg-bg/10 focus-visible:outline-link-inverse max-sm:p-2.5",
+												confirming && "bg-danger text-danger-fg hover:bg-danger",
+											)}
 										>
 											<Icon
 												className={cn(

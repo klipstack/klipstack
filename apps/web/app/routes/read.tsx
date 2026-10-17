@@ -278,6 +278,16 @@ function Reader({ loaderData }: Route.ComponentProps) {
 	// Moved back to the library, marked unread or deleted here: leaving keeps it that way.
 	const change = (intent: StateIntent) => {
 		if (intent === "unarchive" || intent === "unread" || intent === "delete") ending.keep(true)
+		// The reader stays: the toast says where the article went, with its undo, as on a card.
+		if (intent === "archive" || intent === "unarchive")
+			showToast({
+				message: tl(intent === "archive" ? "toast.archived" : "toast.unarchived"),
+				undo: {
+					action: `/documents/${doc.id}/state`,
+					intent: intent === "archive" ? "undo-archive" : "archive",
+					label: tl("toast.undo"),
+				},
+			})
 		state.change(intent)
 	}
 	const { titleRef, headerRef, titleAway, barHidden } = useReaderBar(ready)
@@ -494,7 +504,9 @@ function Reader({ loaderData }: Route.ComponentProps) {
 				starred={state.starred}
 				shortlisted={editions ? state.shortlisted : undefined}
 				archived={state.archived}
+				finished={state.finished}
 				onChange={change}
+				onFinish={ending.finish}
 				onDelete={deleteArticle}
 				sidebarOpen={sidebarOpen}
 				sidebarTab={sidebarTab}

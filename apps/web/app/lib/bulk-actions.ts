@@ -11,6 +11,7 @@ export type BulkAction =
 	| "tag"
 	| "delete"
 	| "restore"
+	| "purge"
 
 /** The card fields the choice depends on. */
 export interface BulkCard {
@@ -29,13 +30,13 @@ export type BulkChoice =
 /**
  * From the articles, not the view: starred holds library and archive articles alike. A toggle
  * applies its state when any article lacks it, and takes it away when all have it. Trashed and live
- * articles together get nothing. Failed saves take part in Delete only, as on their cards. Marking
- * for the next edition only with editions on.
+ * articles together get nothing; trashed ones can go back or go for good. Failed saves take part in
+ * Delete only, as on their cards. Marking for the next edition only with editions on.
  */
 export function bulkActions(cards: BulkCard[], { editions = true } = {}): BulkChoice {
 	if (cards.length === 0) return { kind: "none", actions: [] }
 	const trashed = cards.filter((c) => c.deletedAt)
-	if (trashed.length === cards.length) return { kind: "trash", actions: ["restore"] }
+	if (trashed.length === cards.length) return { kind: "trash", actions: ["restore", "purge"] }
 	if (trashed.length > 0) return { kind: "mixed", actions: [] }
 	const captured = cards.filter((c) => c.status !== "failed")
 	if (captured.length === 0) return { kind: "live", actions: ["delete"] }
@@ -65,6 +66,7 @@ export const MOVES: ReadonlySet<BulkAction> = new Set([
 	"finish",
 	"delete",
 	"restore",
+	"purge",
 ])
 
 /** Where the selection bar posts; the fetcher key lets the list read what is on its way. */

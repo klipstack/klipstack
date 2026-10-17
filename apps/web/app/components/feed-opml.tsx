@@ -2,7 +2,13 @@ import { Download, Rss, Upload } from "lucide-react"
 import { useEffect, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import { useFetcher } from "react-router"
-import { MenuButton, MenuLink, MoreMenu, type MoreMenuHandle } from "~/components/more-menu"
+import {
+	MenuButton,
+	MenuLink,
+	MenuSeparator,
+	MoreMenu,
+	type MoreMenuHandle,
+} from "~/components/more-menu"
 import { Button } from "~/components/ui/button"
 import { showToast } from "~/lib/toast"
 import type { WebResult } from "~/lib/web-result"
@@ -91,7 +97,7 @@ export function FeedMenu({
 				<MenuButton icon={<Rss className="size-4" aria-hidden />} onClick={onFollowing}>
 					{t("following.title")}
 				</MenuButton>
-				<div aria-hidden className="my-1 border-t border-border" />
+				<MenuSeparator />
 				<MenuButton icon={<Upload className="size-4" aria-hidden />} onClick={pick}>
 					{t("opml.import")}
 				</MenuButton>

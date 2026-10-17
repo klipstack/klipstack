@@ -484,7 +484,7 @@ test("a note written at the end of an article goes into the next edition, in the
 	await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
 	const field = end.getByTestId("reader-end-edition-note")
 	await expect(field).toHaveCount(0)
-	await end.getByRole("button", { name: "Share in next edition" }).click()
+	await end.getByRole("button", { name: "Add to next edition" }).click()
 	// What marking opened below the window scrolls into view, and says there is nothing to submit.
 	await expect(field).toBeInViewport({ ratio: 1 })
 	await expect(field).toContainText("Added to your next edition")

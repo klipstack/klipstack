@@ -2,6 +2,7 @@ import {
 	Archive,
 	ArchiveRestore,
 	ArrowLeft,
+	CheckCircle2,
 	ExternalLink,
 	EyeOff,
 	Keyboard,
@@ -17,7 +18,7 @@ import {
 } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router"
-import { MenuButton, MenuLink, MoreMenu } from "~/components/more-menu"
+import { MenuButton, MenuLink, MenuSeparator, MoreMenu } from "~/components/more-menu"
 import { OUTLINE_ID, OUTLINE_TOGGLE } from "~/components/reader-outline"
 import { ReaderPrefs } from "~/components/reader-prefs"
 import type { SidebarTab } from "~/components/reader-sidebar"
@@ -49,7 +50,9 @@ export function ReaderTopBar({
 	starred,
 	shortlisted,
 	archived,
+	finished,
 	onChange,
+	onFinish,
 	onDelete,
 	sidebarOpen,
 	sidebarTab,
@@ -73,7 +76,10 @@ export function ReaderTopBar({
 	/** Marked for the next edition; undefined with editions turned off, which hides the mark. */
 	shortlisted: boolean | undefined
 	archived: boolean
+	finished: boolean
 	onChange: (intent: StateIntent) => void
+	/** "Mark as finished": now, then back where the reader came from. */
+	onFinish: () => void
 	onDelete: () => void
 	sidebarOpen: boolean
 	/** Which tab the open sidebar shows: its button looks pressed. */
@@ -217,40 +223,6 @@ export function ReaderTopBar({
 						</button>
 					) : null}
 					<MoreMenu label={t("actions.more")} className="p-2">
-						<MenuLink href={sourceUrl} icon={<ExternalLink className="size-4" aria-hidden />}>
-							{t("original")}
-						</MenuLink>
-						<MenuButton
-							icon={<Link2 className="size-4" aria-hidden />}
-							onClick={() => copyLink(sourceUrl, tc("palette.copied"))}
-						>
-							{tc("palette.copyLink")}
-						</MenuButton>
-						{ready ? (
-							<MenuButton
-								icon={<Tag className="size-4" aria-hidden />}
-								shortcut={SHORTCUT_HINTS.tags}
-								onClick={onTags}
-							>
-								{tl("tags.edit")}
-							</MenuButton>
-						) : null}
-						{shortlisted === undefined ? null : (
-							<MenuButton
-								icon={<Newspaper className="size-4" aria-hidden />}
-								shortcut={SHORTCUT_HINTS.shortlist}
-								onClick={() => onChange(shortlisted ? "unshortlist" : "shortlist")}
-							>
-								{shortlisted ? t("actions.unshortlist") : t("actions.shortlist")}
-							</MenuButton>
-						)}
-						<MenuButton
-							icon={<EyeOff className="size-4" aria-hidden />}
-							shortcut={SHORTCUT_HINTS.unread}
-							onClick={() => onChange("unread")}
-						>
-							{tl("card.markUnread")}
-						</MenuButton>
 						<MenuButton
 							icon={
 								archived ? (
@@ -264,6 +236,50 @@ export function ReaderTopBar({
 						>
 							{archiveLabel}
 						</MenuButton>
+						{ready && !finished ? (
+							<MenuButton icon={<CheckCircle2 className="size-4" aria-hidden />} onClick={onFinish}>
+								{t("end.finish")}
+							</MenuButton>
+						) : null}
+						{ready ? (
+							<MenuButton
+								icon={<EyeOff className="size-4" aria-hidden />}
+								shortcut={SHORTCUT_HINTS.unread}
+								onClick={() => onChange("unread")}
+							>
+								{tl("card.markUnread")}
+							</MenuButton>
+						) : null}
+						{ready || shortlisted !== undefined ? <MenuSeparator /> : null}
+						{shortlisted === undefined ? null : (
+							<MenuButton
+								icon={<Newspaper className="size-4" aria-hidden />}
+								shortcut={SHORTCUT_HINTS.shortlist}
+								onClick={() => onChange(shortlisted ? "unshortlist" : "shortlist")}
+							>
+								{shortlisted ? t("actions.unshortlist") : t("actions.shortlist")}
+							</MenuButton>
+						)}
+						{ready ? (
+							<MenuButton
+								icon={<Tag className="size-4" aria-hidden />}
+								shortcut={SHORTCUT_HINTS.tags}
+								onClick={onTags}
+							>
+								{tl("tags.edit")}
+							</MenuButton>
+						) : null}
+						<MenuSeparator />
+						<MenuLink href={sourceUrl} icon={<ExternalLink className="size-4" aria-hidden />}>
+							{t("original")}
+						</MenuLink>
+						<MenuButton
+							icon={<Link2 className="size-4" aria-hidden />}
+							onClick={() => copyLink(sourceUrl, tc("palette.copied"))}
+						>
+							{tc("palette.copyLink")}
+						</MenuButton>
+						<MenuSeparator />
 						<MenuButton
 							danger
 							icon={<Trash2 className="size-4" aria-hidden />}

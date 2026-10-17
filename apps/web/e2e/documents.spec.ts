@@ -197,7 +197,7 @@ test("save via API with captured html → extracted → readable → archive", a
 	await page.getByRole("button", { name: "More actions" }).click()
 	await Promise.all([
 		stateSaved(page, "unarchive"),
-		page.getByRole("menuitem", { name: "Move to library" }).click(),
+		page.getByRole("menuitem", { name: "Move to Inbox" }).click(),
 	])
 	expect(await completionHistory()).toEqual(finishedHistory)
 	await page.goto("/library")
@@ -309,8 +309,8 @@ test("an open library sees saves from elsewhere and their extraction finishing (
 	const badge = page.getByRole("complementary").getByTestId("unread-badge")
 	await expect(badge).toHaveCount(0)
 	await expect(
-		page.getByRole("complementary").getByRole("link", { name: "Library", exact: true }),
-	).toHaveText("Library")
+		page.getByRole("complementary").getByRole("link", { name: "Inbox", exact: true }),
+	).toHaveText("Inbox")
 	await expect(page.getByTestId("unread-dot")).toHaveCount(1)
 	// opened and left right away, it is still new
 	const article = page.getByRole("link", { name: "Maker's Schedule, Manager's Schedule" })
@@ -346,7 +346,7 @@ test("an open library sees saves from elsewhere and their extraction finishing (
 	const box = await article.boundingBox()
 	await article.click({ button: "right", position: { x: 10, y: 5 } })
 	const menu = page.getByRole("menu")
-	await expect(menu.getByRole("menuitem", { name: "Copy original link" })).toBeVisible()
+	await expect(menu.getByRole("menuitem", { name: "Copy link" })).toBeVisible()
 	const menuBox = await menu.boundingBox()
 	expect(Math.abs((menuBox?.x ?? 0) - ((box?.x ?? 0) + 10))).toBeLessThan(2)
 	await page.keyboard.press("Escape")
@@ -589,7 +589,7 @@ test("leaving at the end of an article finishes it, with an undo", async ({ page
 	const status = end.getByTestId("reader-end-status")
 	// The heading is stamped "Read", as the card will be; screen readers hear "Finished" once.
 	await expect(status).toHaveText(
-		"FinishedRead It goes to your archive when you leave. Keep in Library",
+		"FinishedRead It goes to your archive when you leave. Keep in Inbox",
 	)
 	const endStamp = status.getByTestId("read-stamp")
 	await expect(endStamp).toBeVisible()
@@ -600,7 +600,7 @@ test("leaving at the end of an article finishes it, with an undo", async ({ page
 	// Star it and mark it for the next edition, by their names.
 	await end.getByRole("button", { name: "Star", exact: true }).click()
 	await expect(end.getByRole("button", { name: "Starred" })).toHaveAttribute("aria-pressed", "true")
-	await end.getByRole("button", { name: "Share in next edition" }).click()
+	await end.getByRole("button", { name: "Add to next edition" }).click()
 	await expect(end.getByRole("button", { name: "In next edition" })).toHaveAttribute(
 		"aria-pressed",
 		"true",
@@ -632,15 +632,15 @@ test("leaving at the end of an article finishes it, with an undo", async ({ page
 			.getByTestId("read-stamp"),
 	).toHaveCount(0)
 
-	// The browser's back button leaves too, and "Keep in Library" keeps it there.
+	// The browser's back button leaves too, and "Keep in Inbox" keeps it there.
 	await readSoFar(id, 1)
 	await page.getByRole("link", { name: title }).click()
 	await waitForHydration(page)
 	const again = await toTheEnd(page)
 	await expect(again).toHaveAttribute("data-state", "finishing")
-	await again.getByRole("button", { name: "Keep in Library" }).click()
+	await again.getByRole("button", { name: "Keep in Inbox" }).click()
 	await expect(again).toHaveAttribute("data-state", "kept")
-	await expect(again).toContainText("It stays in your Library.")
+	await expect(again).toContainText("It stays in your Inbox.")
 	await page.goBack()
 	await expect(page).toHaveURL(/\/library$/)
 	await page.waitForTimeout(500)
@@ -696,7 +696,7 @@ test("an end reached too fast finishes only by hand, and fits a small phone", as
 	await page.goto(`/read/${id}`)
 	await waitForHydration(page)
 	const small = await toTheEnd(page)
-	await expect(small.getByRole("button", { name: "Compartir en la próxima edición" })).toBeVisible()
+	await expect(small.getByRole("button", { name: "Añadir a la próxima edición" })).toBeVisible()
 	const { left, right } = await small.evaluate((el) => el.getBoundingClientRect())
 	expect(left).toBeGreaterThanOrEqual(0)
 	expect(right).toBeLessThanOrEqual(320)
@@ -879,12 +879,12 @@ test.describe(() => {
 			await page.keyboard.press("e")
 			const toast = page.getByRole("status").filter({ hasText: "Archived" })
 			await expect(toast).toBeVisible()
-			await expect(card.getByRole("button", { name: "Move to library" })).toBeVisible()
+			await expect(card.getByRole("button", { name: "Move to Inbox" })).toBeVisible()
 			await expect(card).toHaveAttribute("data-cursor")
 			await release()
 			await archived
 			await expect.poll(async () => await archivedAt(id)).not.toBeNull()
-			await expect(card.getByRole("button", { name: "Move to library" })).toBeVisible()
+			await expect(card.getByRole("button", { name: "Move to Inbox" })).toBeVisible()
 
 			// The toast's undo puts it back; the card stays through that too.
 			const undone = stateSaved(page, "undo-archive")
@@ -896,7 +896,7 @@ test.describe(() => {
 			const bystander = page
 				.locator("li")
 				.filter({ has: page.getByRole("link", { name: "Kept bystander" }) })
-			await expect(bystander.getByRole("button", { name: "Move to library" })).toBeVisible()
+			await expect(bystander.getByRole("button", { name: "Move to Inbox" })).toBeVisible()
 			await release()
 			await undone
 			await expect.poll(async () => await archivedAt(id)).toBeNull()
@@ -905,15 +905,15 @@ test.describe(() => {
 			// The card's own button: the same, while the change is on its way.
 			const again = stateSaved(page, "archive")
 			await card.getByRole("button", { name: "Archive", exact: true }).click()
-			await expect(card.getByRole("button", { name: "Move to library" })).toBeVisible()
+			await expect(card.getByRole("button", { name: "Move to Inbox" })).toBeVisible()
 			await release()
 			await again
-			await expect(card.getByRole("button", { name: "Move to library" })).toBeVisible()
+			await expect(card.getByRole("button", { name: "Move to Inbox" })).toBeVisible()
 			await expect(card).toHaveAttribute("data-cursor")
 
 			// And back to the library from here: still in place.
 			const back = stateSaved(page, "unarchive")
-			await card.getByRole("button", { name: "Move to library" }).click()
+			await card.getByRole("button", { name: "Move to Inbox" }).click()
 			await expect(card.getByRole("button", { name: "Archive", exact: true })).toBeVisible()
 			await release()
 			await back

@@ -3,10 +3,13 @@ import {
 	ArchiveRestore,
 	BookOpen,
 	Check,
+	CheckCircle2,
+	ExternalLink,
 	EyeOff,
 	Link2,
 	Loader2,
 	Newspaper,
+	Pencil,
 	RotateCcw,
 	Star,
 	Tag,
@@ -15,11 +18,12 @@ import {
 } from "lucide-react"
 import { useEffect, useInsertionEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { Link, useFetcher, useLocation, useNavigate } from "react-router"
+import { Link, useFetcher, useLocation, useNavigate, useRevalidator } from "react-router"
 import { useDraftUndoToast } from "~/hooks/use-draft-undo-toast"
 import { useEditions } from "~/hooks/use-editions"
 import { useRestoreConflictToast } from "~/hooks/use-restore-conflict-toast"
 import { warnAboutBacklinks } from "~/lib/backlink-warning.client"
+import { BULK_ACTION } from "~/lib/bulk-actions"
 import { useCommands } from "~/lib/commands"
 import { copyLink } from "~/lib/copy-link"
 import { type Entering, type Leave, playLeave } from "~/lib/motion"
@@ -27,12 +31,21 @@ import { type ArticleShortcut, articleShortcut, SELECT_HINT, SHORTCUT_HINTS } fr
 import { safeHost, siteLabel } from "~/lib/site-label"
 import { showToast, UNDO_FETCHER } from "~/lib/toast"
 import { cn } from "~/lib/utils"
+import type { BulkDone } from "~/routes/documents.bulk"
 import type { LibraryCard } from "~/services/documents.server"
 import { ArticleImage } from "./article-image"
 import { BrandMarkSmall } from "./brand-mark"
-import { MenuAction, MenuButton, MoreMenu, type MoreMenuHandle } from "./more-menu"
+import {
+	MenuAction,
+	MenuButton,
+	MenuLink,
+	MenuSeparator,
+	MoreMenu,
+	type MoreMenuHandle,
+} from "./more-menu"
 import { tiltFor } from "./post-it"
 import { ReadStamp } from "./read-stamp"
+import { RenameArticleDialog } from "./rename-article-dialog"
 import { TagChips, TagDialog } from "./tag-dialog"
 import { tooltip } from "./tooltip-host"
 
@@ -79,7 +92,11 @@ export function DocumentCard({
 }) {
 	const { t, i18n } = useTranslation("library")
 	const { t: tc } = useTranslation()
+	const { t: tr } = useTranslation("reader")
 	const fetcher = useFetcher()
+	const { revalidate } = useRevalidator()
+	// "Mark as finished" on its way: the bulk action answers with the undo of what it did.
+	const [finishing, setFinishing] = useState(false)
 	const location = useLocation()
 	const navigate = useNavigate()
 	const action = `/documents/${doc.id}/state`
@@ -92,6 +109,7 @@ export function DocumentCard({
 	const undoIntent = undo.formAction?.split("?")[0] === action ? undo.formData?.get("intent") : null
 	const optimisticIntent =
 		(fetcher.state === "submitting" ? fetcher.formData?.get("intent") : null) ??
+		(finishing ? "finish" : null) ??
 		(undoIntent === "undo-archive" || undoIntent === "archive" ? undoIntent : null) ??
 		fetcher.formData?.get("intent") ??
 		pendingIntent
@@ -127,6 +145,7 @@ export function DocumentCard({
 	// "Delete forever" asks for a second tap within a few seconds instead of a dialog.
 	const [armed, setArmed] = useState(false)
 	const [tagging, setTagging] = useState(false)
+	const [renaming, setRenaming] = useState(false)
 	useEffect(() => {
 		if (!armed) return
 		const id = window.setTimeout(() => setArmed(false), 4000)
@@ -144,6 +163,7 @@ export function DocumentCard({
 	const archiving = !archived
 	const canUnread =
 		Boolean(doc.firstOpenedAt) && doc.status === "ready" && optimisticIntent !== "unread"
+	const canFinish = doc.status === "ready" && !doc.readAt && optimisticIntent !== "finish"
 	// The card leaves the list: its animation, from where it is now (`~/lib/motion`).
 	const leave = (kind: Leave) =>
 		playLeave([doc.id], kind, { label: t("card.archiveStamp"), locale: i18n.language })
@@ -161,6 +181,34 @@ export function DocumentCard({
 				label: t("toast.undo"),
 			},
 		})
+	}
+
+	// Its toast outlives the card, which leaves the list as the list loads again.
+	const finish = async () => {
+		leave("archive")
+		setFinishing(true)
+		const body = new FormData()
+		body.set("intent", "finish")
+		body.set("ids", doc.id)
+		const done = await fetch(BULK_ACTION, { method: "POST", body })
+			.then((res) => res.json() as Promise<BulkDone & { ok: boolean }>)
+			.catch(() => null)
+		if (done?.ok && done.changed.length > 0)
+			showToast({
+				message: doc.archivedAt ? tr("end.toastFinished") : tr("end.toastArchived"),
+				undo: done.undo
+					? {
+							action: BULK_ACTION,
+							intent: done.undo.intent,
+							fields: done.undo.fields,
+							label: t("toast.undo"),
+						}
+					: undefined,
+			})
+		else if (!done?.ok) showToast({ message: t("bulk.failed"), warn: true })
+		// Finished stays shown until the list has it.
+		await revalidate()
+		setFinishing(false)
 	}
 
 	// ---- keyboard cursor ----
@@ -609,6 +657,14 @@ export function DocumentCard({
 						</IconButton>
 					</fetcher.Form>
 					<MoreMenu ref={menuRef} label={t("card.more")} className={reveal}>
+						{canFinish ? (
+							<MenuButton
+								icon={<CheckCircle2 className="size-4" aria-hidden />}
+								onClick={() => void finish()}
+							>
+								{t("card.finish")}
+							</MenuButton>
+						) : null}
 						{canUnread ? (
 							<MenuAction
 								fetcher={fetcher}
@@ -621,32 +677,47 @@ export function DocumentCard({
 							</MenuAction>
 						) : null}
 						{failed ? null : (
-							<MenuButton
-								icon={<Tag className="size-4" aria-hidden />}
-								shortcut={SHORTCUT_HINTS.tags}
-								onClick={() => setTagging(true)}
-							>
-								{t("tags.edit")}
-							</MenuButton>
+							<>
+								{canFinish || canUnread ? <MenuSeparator /> : null}
+								{editions ? (
+									<MenuAction
+										fetcher={fetcher}
+										action={action}
+										intent={shortlisted ? "unshortlist" : "shortlist"}
+										icon={<Newspaper className="size-4" aria-hidden />}
+										shortcut={SHORTCUT_HINTS.shortlist}
+									>
+										{shortlisted ? t("card.unshortlist") : t("card.shortlist")}
+									</MenuAction>
+								) : null}
+								<MenuButton
+									icon={<Tag className="size-4" aria-hidden />}
+									shortcut={SHORTCUT_HINTS.tags}
+									onClick={() => setTagging(true)}
+								>
+									{t("tags.edit")}
+								</MenuButton>
+								<MenuButton
+									icon={<Pencil className="size-4" aria-hidden />}
+									onClick={() => setRenaming(true)}
+								>
+									{t("card.rename")}
+								</MenuButton>
+								{menuItems}
+								<MenuSeparator />
+							</>
 						)}
-						{failed || !editions ? null : (
-							<MenuAction
-								fetcher={fetcher}
-								action={action}
-								intent={shortlisted ? "unshortlist" : "shortlist"}
-								icon={<Newspaper className="size-4" aria-hidden />}
-								shortcut={SHORTCUT_HINTS.shortlist}
-							>
-								{shortlisted ? t("card.unshortlist") : t("card.shortlist")}
-							</MenuAction>
-						)}
+						<MenuLink href={doc.sourceUrl} icon={<ExternalLink className="size-4" aria-hidden />}>
+							{t("card.original")}
+						</MenuLink>
 						<MenuButton
 							icon={<Link2 className="size-4" aria-hidden />}
 							onClick={() => copyLink(doc.sourceUrl, tc("palette.copied"))}
 						>
 							{tc("palette.copyLink")}
 						</MenuButton>
-						{menuItems}
+						{failed ? menuItems : null}
+						<MenuSeparator />
 						<MenuAction
 							fetcher={fetcher}
 							action={action}
@@ -661,6 +732,13 @@ export function DocumentCard({
 					</MoreMenu>
 				</div>
 			)}
+			{renaming ? (
+				<RenameArticleDialog
+					documentId={doc.id}
+					title={doc.title ?? ""}
+					onClose={() => setRenaming(false)}
+				/>
+			) : null}
 			{tagging ? (
 				<TagDialog
 					documentId={doc.id}

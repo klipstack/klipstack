@@ -97,9 +97,9 @@ for (const mobile of [false, true]) {
 				"href",
 				TARGET,
 			)
-			await card.getByRole("button", { name: "Copy original URL" }).click()
+			await card.getByRole("button", { name: "Copy link" }).click()
 			await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(TARGET)
-			await expect(page.getByRole("status").filter({ hasText: "URL copied" })).toBeVisible()
+			await expect(page.getByRole("status").filter({ hasText: "Link copied" })).toBeVisible()
 			release()
 			await expect(card.getByRole("heading", { name: preview.title })).toBeVisible()
 			await expect(card.getByText(preview.description)).toBeVisible()
@@ -129,7 +129,7 @@ for (const mobile of [false, true]) {
 			await page.locator(".reader-content a", { hasText: "an unavailable page" }).click()
 			await expect(card.getByText("Loading preview…")).toHaveCount(0)
 			await expect(card.getByRole("heading", { name: "an unavailable page" })).toBeVisible()
-			await expect(card.getByRole("button", { name: "Copy original URL" })).toBeEnabled()
+			await expect(card.getByRole("button", { name: "Copy link" })).toBeEnabled()
 			await expect(card.getByRole("button", { name: "Save to Klipstack" })).toBeEnabled()
 			await expect(card.locator("img")).toHaveCount(0)
 			await page.evaluate(() => {
@@ -137,9 +137,9 @@ for (const mobile of [false, true]) {
 					throw new Error("Clipboard denied")
 				}
 			})
-			await card.getByRole("button", { name: "Copy original URL" }).click()
+			await card.getByRole("button", { name: "Copy link" }).click()
 			await expect(
-				page.getByRole("status").filter({ hasText: "Could not copy the URL" }),
+				page.getByRole("status").filter({ hasText: "Could not copy the link" }),
 			).toBeVisible()
 			await card.getByRole("button", { name: "Close" }).click()
 
@@ -148,7 +148,7 @@ for (const mobile of [false, true]) {
 			await expect(card.locator("img")).toHaveCount(0)
 			await page.setViewportSize({ width: 320, height: 360 })
 			await expectWithinViewport(page)
-			await expect(card.getByRole("button", { name: "Copy original URL" })).toBeInViewport()
+			await expect(card.getByRole("button", { name: "Copy link" })).toBeInViewport()
 			await page.screenshot({ path: testInfo.outputPath("small-link-card.png") })
 			await card.getByRole("button", { name: "Close" }).click()
 		})
@@ -243,7 +243,7 @@ test("hover starts one shared request and the card clearly shows metadata and im
 	await expect(card.getByRole("heading", { name: preview.title })).toBeVisible()
 	await expect(card.getByText("Loading preview…")).toHaveCount(0)
 	await expect(card.getByRole("status").filter({ hasText: "Loading image…" })).toBeVisible()
-	await expect(card.getByRole("button", { name: "Copy original URL" })).toBeEnabled()
+	await expect(card.getByRole("button", { name: "Copy link" })).toBeEnabled()
 	releaseImage()
 	await expect(card.locator("img")).toBeVisible()
 	await expect(card.getByText("Loading image…")).toHaveCount(0)

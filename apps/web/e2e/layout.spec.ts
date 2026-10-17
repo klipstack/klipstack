@@ -100,12 +100,12 @@ test("the sidebar collapses to a rail, and stays that way", async ({ page }) => 
 	const sidebar = page.getByRole("complementary").first()
 	const full = (await sidebar.boundingBox())?.width ?? 0
 	expect(full).toBeGreaterThan(200)
-	await expect(sidebar.getByRole("link", { name: "Library" })).toHaveText(/Library/)
+	await expect(sidebar.getByRole("link", { name: "Inbox" })).toHaveText(/Inbox/)
 
 	await page.getByRole("button", { name: "Collapse sidebar" }).click()
 	await expect.poll(async () => (await sidebar.boundingBox())?.width).toBe(64)
 	// icons only, but every entry keeps its name
-	await expect(sidebar.getByRole("link", { name: "Library" })).toHaveText("")
+	await expect(sidebar.getByRole("link", { name: "Inbox" })).toHaveText("")
 	await expect(sidebar.getByRole("button", { name: "Search" })).toBeVisible()
 	await expect(sidebar.getByRole("button", { name: /^Account:/ })).toBeVisible()
 	await expect(sidebar.getByText("Klipstack")).toHaveCount(0)
@@ -114,12 +114,12 @@ test("the sidebar collapses to a rail, and stays that way", async ({ page }) => 
 		const box = await sidebar.getByRole("button", { name }).boundingBox()
 		expect(box?.width).toBe(box?.height)
 	}
-	const inbox = sidebar.getByRole("link", { name: "Library" })
+	const inbox = sidebar.getByRole("link", { name: "Inbox" })
 	const inboxBox = await inbox.boundingBox()
 	expect(inboxBox?.width).toBe(inboxBox?.height)
 	await inbox.hover()
 	const tip = page.getByTestId("tooltip")
-	await expect(tip).toHaveText("Library")
+	await expect(tip).toHaveText("Inbox")
 	expect((await tip.boundingBox())?.x).toBeGreaterThan((inboxBox?.x ?? 0) + (inboxBox?.width ?? 0))
 
 	// the account menu is wider than the rail: it opens from the button's left edge, all in view

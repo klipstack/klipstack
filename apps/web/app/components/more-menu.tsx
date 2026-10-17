@@ -407,6 +407,11 @@ export function MenuLink({
 	)
 }
 
+/** A line between groups of items. */
+export function MenuSeparator() {
+	return <div aria-hidden className="my-1 border-t border-border" />
+}
+
 /** A key hint next to an action; decoration only. */
 export function Kbd({ className, children }: { className?: string; children: React.ReactNode }) {
 	return (

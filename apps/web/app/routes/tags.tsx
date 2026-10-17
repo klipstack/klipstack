@@ -11,7 +11,7 @@ import {
 } from "react-router"
 import { deleteTag, renameTag } from "~/commands/tags.server"
 import { EmptyDrawing } from "~/components/empty-drawing"
-import { tooltip } from "~/components/tooltip-host"
+import { MenuButton, MoreMenu, type MoreMenuHandle } from "~/components/more-menu"
 import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
 import { AppError } from "~/lib/app-error"
@@ -126,7 +126,7 @@ function TagRowItem({
 	const location = useLocation()
 	const fetcher = useFetcher<typeof action>()
 	const { revalidate } = useRevalidator()
-	const editRef = useRef<HTMLButtonElement>(null)
+	const menuRef = useRef<MoreMenuHandle>(null)
 	const [failed, setFailed] = useState(false)
 	// "Delete" asks for a second tap within a few seconds instead of a dialog. Saved searches that
 	// name the tag are said first, with time to read them; the second tap then forces the delete.
@@ -145,7 +145,7 @@ function TagRowItem({
 	useEffect(() => {
 		if (editing || !returnFocus.current) return
 		returnFocus.current = false
-		editRef.current?.focus()
+		menuRef.current?.focus()
 	}, [editing])
 	const close = () => {
 		returnFocus.current = true
@@ -202,50 +202,50 @@ function TagRowItem({
 				>
 					{renamingTo?.trim() || tag.name}
 				</Link>
-				<Button
-					ref={editRef}
-					type="button"
-					variant="ghost"
-					size="sm"
-					onClick={() => {
-						setFailed(false)
-						setArmed(false)
-						onEdit()
-					}}
-					aria-label={t("tags.page.edit", { name: tag.name })}
-					{...tooltip(t("tags.page.rename"))}
-					className="shrink-0 text-muted-fg"
-				>
-					<Pencil className="size-3.5" aria-hidden />
-				</Button>
 			</span>
 			<span className="shrink-0 text-sm text-muted-fg">
 				{t("tags.page.articles", { count: tag.articles })}
 			</span>
-			<fetcher.Form
-				method="post"
-				onSubmit={(e) => {
-					if (!armed) {
-						e.preventDefault()
-						setArmed(true)
-					}
-				}}
-			>
-				<input type="hidden" name="intent" value="delete" />
-				<input type="hidden" name="id" value={tag.id} />
-				{usedBy.length > 0 ? <input type="hidden" name="force" value="true" /> : null}
-				<Button
-					type="submit"
-					variant={armed ? "danger" : "ghost"}
-					size="sm"
-					aria-label={armed ? undefined : t("tags.page.deleteNamed", { name: tag.name })}
-					aria-describedby={warning ? warningId : undefined}
-					className={armed ? undefined : "text-muted-fg"}
+			{/* Delete asks for a second tap, here in the row, where the warning shows. */}
+			{armed ? (
+				<fetcher.Form method="post">
+					<input type="hidden" name="intent" value="delete" />
+					<input type="hidden" name="id" value={tag.id} />
+					{usedBy.length > 0 ? <input type="hidden" name="force" value="true" /> : null}
+					<Button
+						type="submit"
+						variant="danger"
+						size="sm"
+						aria-describedby={warning ? warningId : undefined}
+					>
+						<Trash2 className="size-4" aria-hidden />
+						{t("tags.page.deleteConfirm")}
+					</Button>
+				</fetcher.Form>
+			) : (
+				<MoreMenu
+					ref={menuRef}
+					label={t("tags.page.more", { name: tag.name })}
+					className="shrink-0 p-2"
 				>
-					<Trash2 className="size-4" aria-hidden />
-					{armed ? t("tags.page.deleteConfirm") : null}
-				</Button>
-			</fetcher.Form>
+					<MenuButton
+						icon={<Pencil className="size-4" aria-hidden />}
+						onClick={() => {
+							setFailed(false)
+							onEdit()
+						}}
+					>
+						{t("tags.page.rename")}
+					</MenuButton>
+					<MenuButton
+						icon={<Trash2 className="size-4" aria-hidden />}
+						danger
+						onClick={() => setArmed(true)}
+					>
+						{t("tags.page.delete")}
+					</MenuButton>
+				</MoreMenu>
+			)}
 			{warning ? (
 				<p id={warningId} role="alert" className="w-full text-sm text-danger">
 					{t("tags.page.usedBy", { count: usedBy.length, names: usedBy.join(", ") })}

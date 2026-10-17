@@ -5,7 +5,7 @@ import {
 	CircleAlert,
 	Compass,
 	House,
-	LibraryBig,
+	Inbox,
 	Menu,
 	Newspaper,
 	NotebookPen,
@@ -48,7 +48,7 @@ import { tooltip } from "./tooltip-host"
 
 const items = [
 	{ to: "/home", key: "nav.home", icon: House },
-	{ to: "/library", key: "nav.inbox", icon: LibraryBig },
+	{ to: "/library", key: "nav.inbox", icon: Inbox },
 	{ to: "/feed", key: "nav.feed", icon: Rss },
 	{ to: "/archive", key: "nav.archive", icon: Archive },
 	{ to: "/starred", key: "nav.starred", icon: Star },
@@ -81,7 +81,7 @@ export const linkClass =
 		)
 
 /** Icon centered in a slot as wide as the brand mark, so nav labels align with the app name. */
-export function NavIcon({ icon: Icon }: { icon: typeof LibraryBig }) {
+export function NavIcon({ icon: Icon }: { icon: typeof Inbox }) {
 	return (
 		<span className="flex w-6 shrink-0 justify-center">
 			<Icon className="size-4" aria-hidden />
@@ -98,7 +98,7 @@ export function NavItemInk({
 	truncate,
 	children,
 }: {
-	icon: typeof LibraryBig
+	icon: typeof Inbox
 	truncate?: boolean
 	children: React.ReactNode
 }) {

@@ -141,7 +141,7 @@ test("the end of the article asks for the note, the sidebar's, and can start the
 
 	// Marked for the edition: its note is a second one, for its readers, and can start from the
 	// private one, ready to edit.
-	await end.getByRole("button", { name: "Share in next edition" }).click()
+	await end.getByRole("button", { name: "Add to next edition" }).click()
 	const card = end.getByTestId("reader-end-edition-note")
 	const forReaders = card.getByRole("textbox", { name: "For your edition's readers" })
 	await expect(forReaders).toHaveText("")

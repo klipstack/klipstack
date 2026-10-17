@@ -137,23 +137,29 @@ test("tags: on a card, as a search, in the command menu, in the reader, on their
 	await page.goto("/tags")
 	await waitForHydration(page)
 	await expect(rows).toHaveCount(2)
-	// Names are text until their pencil is pressed, and one at a time: a second pencil closes the
-	// first field. Escape gives up, and the pencil has the focus again.
+	// Names are text until their menu's Rename is chosen, and one at a time: a second Rename closes
+	// the first field. Escape gives up, and the menu's button has the focus again.
 	const fields = page.getByTestId("tags-list").getByRole("textbox")
 	await expect(fields).toHaveCount(0)
-	await page.getByRole("button", { name: "Rename the tag later" }).click()
+	const rename = async (tag: string) => {
+		await page.getByRole("button", { name: `More for ${tag}` }).click()
+		await page.getByRole("menuitem", { name: "Rename" }).click()
+	}
+	await rename("later")
 	await expect(page.getByRole("textbox", { name: "Name of the tag later" })).toBeFocused()
 	await page.keyboard.type("dropped")
-	await page.getByRole("button", { name: "Rename the tag Deep Work" }).click()
+	await rename("Deep Work")
 	await expect(fields).toHaveCount(1)
 	const name = page.getByRole("textbox", { name: "Name of the tag Deep Work" })
 	await expect(name).toBeFocused()
 	await expect(name).toHaveValue("Deep Work")
 	await page.keyboard.press("Escape")
 	await expect(fields).toHaveCount(0)
-	await expect(page.getByRole("button", { name: "Rename the tag Deep Work" })).toBeFocused()
+	await expect(page.getByRole("button", { name: "More for Deep Work" })).toBeFocused()
 	await expect(rows.filter({ hasText: "later" })).toHaveCount(1)
-	// A name no tag can have keeps the field open and says why.
+	// A name no tag can have keeps the field open and says why. Enter opens the menu, then Rename.
+	await page.keyboard.press("Enter")
+	await expect(page.getByRole("menuitem", { name: "Rename" })).toBeFocused()
 	await page.keyboard.press("Enter")
 	await name.fill('Deep "Work"')
 	await page.keyboard.press("Enter")
@@ -170,7 +176,12 @@ test("tags: on a card, as a search, in the command menu, in the reader, on their
 		form: { intent: "create", name: "Soon", query: "is:unread -TAG:Later" },
 	})
 	expect(soon.ok()).toBe(true)
-	const deleteLater = page.getByRole("button", { name: "Delete the tag later" })
+	const deleteLater = {
+		click: async () => {
+			await page.getByRole("button", { name: "More for later" }).click()
+			await page.getByRole("menuitem", { name: "Delete" }).click()
+		},
+	}
 	const confirmDelete = page.getByRole("button", { name: "Tap again to delete" })
 	const warning = page.getByTestId("tags-list").getByRole("alert")
 	const warned = "A saved search uses this tag: Soon. Without the tag, it will find nothing."

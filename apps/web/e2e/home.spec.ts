@@ -628,7 +628,7 @@ test("Home says what was finished this past week, and leaves tidying up out", as
 	await expect(bar).toContainText("2 selected")
 	await Promise.all([
 		page.waitForResponse((r) => r.url().includes("/documents/bulk") && r.ok()),
-		bar.getByRole("button", { name: "Mark finished" }).click(),
+		bar.getByRole("button", { name: "Mark as finished" }).click(),
 	])
 	await page.goto("/home")
 	await expect(finished).toHaveText("You finished Slow reading this past week.")
