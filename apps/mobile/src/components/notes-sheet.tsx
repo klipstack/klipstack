@@ -11,7 +11,7 @@ import { withDictated } from "@/lib/dictated-note"
 import { useDictation } from "@/lib/dictation"
 import { fromStored } from "@/lib/note-field"
 import { tiltFor } from "@/lib/post-it"
-import type { Colors } from "@/lib/theme"
+import { type Colors, fonts } from "@/lib/theme"
 
 /**
  * The web reader's sidebar, as a sheet: which article it is (its title, byline and description, so
@@ -120,7 +120,7 @@ export function NotesSheet({
 					<View style={styles.heading}>
 						{/* The same note as the post-it at the end of the article, and as private. */}
 						<Text style={[styles.label, { color: colors.mutedFg }]}>
-							YOUR NOTE<Text style={styles.onlyYou}> · ONLY YOU</Text>
+							Your note<Text style={styles.onlyYou}> · only you</Text>
 						</Text>
 						<NoteStatus status={note.status} onRetry={note.onFlush} colors={colors} />
 					</View>
@@ -182,7 +182,7 @@ export function NotesSheet({
 						) : null}
 					</View>
 					<Text style={[styles.label, styles.highlightsLabel, { color: colors.mutedFg }]}>
-						{highlights.length ? `HIGHLIGHTS (${highlights.length})` : "HIGHLIGHTS"}
+						{highlights.length ? `Highlights (${highlights.length})` : "Highlights"}
 					</Text>
 					{highlights.length === 0 ? (
 						<Text style={[styles.empty, { color: colors.mutedFg }]}>
@@ -229,7 +229,7 @@ export function NotesSheet({
 					{backlinks.length ? (
 						<>
 							<Text style={[styles.label, styles.highlightsLabel, { color: colors.mutedFg }]}>
-								LINKED FROM YOUR NOTES
+								Linked from your notes
 							</Text>
 							{backlinks.map((link) => (
 								<Pressable
@@ -299,17 +299,18 @@ const styles = StyleSheet.create({
 		justifyContent: "center",
 		borderBottomWidth: StyleSheet.hairlineWidth,
 	},
-	title: { fontSize: 17, fontWeight: "600" },
+	title: { fontFamily: fonts.display, fontSize: 19 },
 	done: { position: "absolute", right: 16 },
 	doneText: { fontSize: 17, fontWeight: "600" },
 	content: { padding: 16, paddingBottom: 48 },
 	article: { gap: 4, marginBottom: 24 },
-	articleTitle: { fontFamily: "Iowan Old Style", fontSize: 22, lineHeight: 27, fontWeight: "600" },
+	articleTitle: { fontFamily: fonts.display, fontSize: 22, lineHeight: 27 },
 	byline: { fontSize: 14 },
 	description: { fontSize: 15, lineHeight: 20, marginTop: 4 },
 	heading: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-	label: { fontSize: 13, fontWeight: "500", letterSpacing: 0.4, marginBottom: 8 },
-	onlyYou: { fontWeight: "400" },
+	// A section's name, as the web's sidebar sets it.
+	label: { fontFamily: fonts.display, fontSize: 17, marginBottom: 8 },
+	onlyYou: { fontFamily: fonts.displayItalic },
 	status: { fontSize: 13, marginBottom: 8 },
 	// Room above for the tape.
 	paper: { marginTop: 10, alignSelf: "stretch" },
@@ -319,7 +320,7 @@ const styles = StyleSheet.create({
 	linkArticle: { flexDirection: "row", alignItems: "center", gap: 6 },
 	linkArticleText: { fontSize: 15 },
 	highlightsLabel: { marginTop: 28 },
-	empty: { fontSize: 15, lineHeight: 21 },
+	empty: { fontFamily: fonts.serif, fontStyle: "italic", fontSize: 17, lineHeight: 23 },
 	row: {
 		flexDirection: "row",
 		gap: 10,

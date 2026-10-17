@@ -84,3 +84,33 @@ function shortTitle(title: string, max: number): string {
 	const space = cut.lastIndexOf(" ")
 	return `${(space > max / 2 ? cut.slice(0, space) : cut).trimEnd()}…`
 }
+
+export type PartOfDay = "morning" | "afternoon" | "evening"
+
+/**
+ * The part of the day in a time zone, as the web's masthead greets: morning from 5, afternoon from
+ * 12, evening from 19 and on through the night (a reader up at 2 is still in their evening).
+ */
+export function partOfDay(now: Date, timeZone?: string): PartOfDay {
+	const hour = Number(
+		new Intl.DateTimeFormat("en-US", { hour: "numeric", hourCycle: "h23", timeZone }).format(now),
+	)
+	if (hour >= 5 && hour < 12) return "morning"
+	if (hour >= 12 && hour < 19) return "afternoon"
+	return "evening"
+}
+
+/** The date as a newspaper prints it: "Saturday, October 17, 2026". */
+export function mastheadDate(now: Date, timeZone?: string): string {
+	return new Intl.DateTimeFormat("en-US", { dateStyle: "full", timeZone }).format(now)
+}
+
+/**
+ * The masthead's greeting, around the reader's first name, which Home marks as the web does:
+ * "Good morning, " and "Ernesto". Without a name, the greeting alone.
+ */
+export function greeting(part: PartOfDay, name: string | null | undefined) {
+	const first = name?.trim().split(/\s+/)[0] || null
+	const words = `Good ${part}`
+	return first ? { before: `${words}, `, name: first } : { before: words, name: null }
+}
