@@ -130,10 +130,10 @@ test("phone: drawer navigation, save dialog, reader sidebar, standalone manifest
 	await page.goto("/library")
 	await waitForHydration(page)
 	const bar = page.locator("header").first()
-	await expect(bar.getByRole("heading", { level: 1 })).toHaveText("Library")
+	await expect(bar.getByRole("heading", { level: 1 })).toHaveText("Inbox")
 	// fields are at least 16px on phones so iOS does not zoom into them
 	await menu.click()
-	await expect(drawer.getByRole("link", { name: "Library", exact: true })).toHaveText("Library")
+	await expect(drawer.getByRole("link", { name: "Inbox", exact: true })).toHaveText("Inbox")
 	await expect(drawer.getByTestId("unread-badge")).toHaveCount(0)
 	await drawer.getByRole("button", { name: "Search" }).click()
 	const paletteInput = palette.locator("[cmdk-input]")

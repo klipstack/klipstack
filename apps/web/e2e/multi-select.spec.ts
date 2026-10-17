@@ -121,12 +121,13 @@ test("multi-select: check cards by mouse and keys, act on them all, undo", async
 	await expect(toast("2 articles deleted")).toBeVisible()
 	await expect(page.getByRole("heading", { name: CHARLIE })).toHaveCount(0)
 
-	// The trash offers Restore, and nothing else
+	// The trash offers Restore and Delete forever, and nothing else
 	await page.goto("/trash")
 	await waitForHydration(page)
 	await page.keyboard.press("ControlOrMeta+a")
 	await expect(bar).toContainText("2 selected")
-	await expect(bar.getByRole("button", { name: "Delete" })).toHaveCount(0)
+	await expect(bar.getByRole("button", { name: "Delete", exact: true })).toHaveCount(0)
+	await expect(bar.getByRole("button", { name: "Delete forever" })).toBeVisible()
 	await expect(bar.getByRole("button", { name: "Star" })).toHaveCount(0)
 	await Promise.all([bulkResponse(page), bar.getByRole("button", { name: "Restore" }).click()])
 	await expect(toast("2 articles restored")).toBeVisible()
@@ -138,7 +139,7 @@ test("multi-select: check cards by mouse and keys, act on them all, undo", async
 	await box(DELTA).click()
 	await Promise.all([
 		bulkResponse(page),
-		bar.getByRole("button", { name: "Mark finished" }).click(),
+		bar.getByRole("button", { name: "Mark as finished" }).click(),
 	])
 	await expect(toast("1 article finished")).toBeVisible()
 	await expect(page.getByRole("heading", { name: DELTA })).toHaveCount(0)

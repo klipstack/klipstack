@@ -71,7 +71,7 @@ test("the landing walkthrough: highlights stay private, an edition only when the
 
 	// Marked for the next edition: a draft, with the note for readers apart from the private one,
 	// and no highlight quoted until chosen.
-	await end.getByRole("button", { name: "Share in next edition" }).click()
+	await end.getByRole("button", { name: "Add to next edition" }).click()
 	await expect(edition).toContainText("Draft · not published")
 	await expect(edition.locator("blockquote")).toHaveCount(0)
 	await expect(edition).not.toContainText(note)

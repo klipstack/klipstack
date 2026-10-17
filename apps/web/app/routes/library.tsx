@@ -477,11 +477,14 @@ function ListControls({
 				) : null}
 				{/* Always here, never a badge: Home's card for it is only an occasional reminder. */}
 				{view === "inbox" ? (
-					<MoreMenu label={t("review.libraryMenu")} className="shrink-0 p-2">
-						<MenuNavLink to="/library/review" icon={<History className="size-4" aria-hidden />}>
-							{t("review.open")}
-						</MenuNavLink>
-					</MoreMenu>
+					<Link
+						to="/library/review"
+						aria-label={t("review.open")}
+						{...tooltip(t("review.open"))}
+						className="shrink-0 rounded-md p-2 text-muted-fg hover:bg-hover hover:text-fg"
+					>
+						<History className="size-4" aria-hidden />
+					</Link>
 				) : null}
 			</div>
 			{/* It archives every read article, not only the topic's. */}

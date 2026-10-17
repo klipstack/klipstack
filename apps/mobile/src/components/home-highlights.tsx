@@ -4,13 +4,15 @@ import { StyleSheet, View } from "react-native"
 import { noteLinking } from "@/components/note-field"
 import { QuoteCard, type QuoteContext } from "@/components/notebook-cards"
 import { showToast } from "@/lib/article-changes"
+import { offerHighlightUndo } from "@/lib/highlight-undo"
 import type { Colors } from "@/lib/theme"
 
 /**
  * Home's "From your highlights", as on the web: a few of the reader's highlights a day
  * (`dailyHighlights`), each as the Notebook's card: the quote in its marker ink, its note on a
  * post-it written on in place, and its article. "Not useful anymore" stops one coming back, with
- * undo. Nothing to show, nothing here.
+ * undo; Delete deletes the highlight itself, with undo, as in the Notebook. Nothing to show,
+ * nothing here.
  */
 export function HomeHighlights({
 	items,
@@ -39,8 +41,18 @@ export function HomeHighlights({
 			headers,
 			linking: noteLinking(client, linkTargets),
 			onHighlightNote: onNote,
+			// Off Home at once; back when the server refused, or after Undo.
+			onDelete: (highlight) => {
+				onHide(highlight.id)
+				const deleting = client.highlights.delete(highlight.id)
+				deleting.catch(() => {
+					onShow(highlight.id)
+					showToast({ message: "Couldn't delete it. Try again." })
+				})
+				offerHighlightUndo(client, highlight, deleting, () => onShow(highlight.id))
+			},
 		}),
-		[client, colors, headers, linkTargets, onNote],
+		[client, colors, headers, linkTargets, onNote, onHide, onShow],
 	)
 	const dismiss = (id: string) => {
 		onHide(id)

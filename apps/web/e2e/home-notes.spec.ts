@@ -58,7 +58,7 @@ test("Home asks about articles finished without a note, gently", async ({ page }
 	// Read again: back in the library, unread, under Home's Read again; not asked about meanwhile.
 	await items.filter({ hasText: "Old maps" }).getByRole("button", { name: "Read again" }).click()
 	await expect(items.filter({ hasText: "Old maps" })).toBeHidden()
-	await expect(page.getByText("It's back in your library, under Read again.")).toBeVisible()
+	await expect(page.getByText("It's back in your Inbox, under Read again.")).toBeVisible()
 	const again = page.getByRole("region", { name: "Read again" })
 	await expect(again.getByRole("link", { name: /Old maps/ }).first()).toBeVisible()
 	const [put] = await db.select().from(documents).where(eq(documents.id, maps))

@@ -57,6 +57,7 @@ import {
 } from "~/lib/ai-threads"
 import { ai as aiModule, topicModels } from "~/lib/ai.server"
 import { warnAboutBacklinks } from "~/lib/backlink-warning.client"
+import { BULK_ACTION } from "~/lib/bulk-actions"
 import { useCommands } from "~/lib/commands"
 import { copyLink } from "~/lib/copy-link"
 import { formatDay, timeZoneFromCookie } from "~/lib/date-groups"
@@ -278,6 +279,26 @@ function Reader({ loaderData }: Route.ComponentProps) {
 	// Moved back to the library, marked unread or deleted here: leaving keeps it that way.
 	const change = (intent: StateIntent) => {
 		if (intent === "unarchive" || intent === "unread" || intent === "delete") ending.keep(true)
+		// The reader stays: the toast says where the article went, with its undo, as on a card.
+		if (intent === "archive" || intent === "unarchive")
+			showToast({
+				message: tl(intent === "archive" ? "toast.archived" : "toast.unarchived"),
+				// Moved to the Inbox, the undo archives it through the bulk action: the reader reloads
+				// for it, where its own state action's "archive" would leave the reader showing Inbox.
+				undo:
+					intent === "archive"
+						? {
+								action: `/documents/${doc.id}/state`,
+								intent: "undo-archive",
+								label: tl("toast.undo"),
+							}
+						: {
+								action: BULK_ACTION,
+								intent: "archive",
+								fields: { ids: doc.id },
+								label: tl("toast.undo"),
+							},
+			})
 		state.change(intent)
 	}
 	const { titleRef, headerRef, titleAway, barHidden } = useReaderBar(ready)
@@ -494,7 +515,9 @@ function Reader({ loaderData }: Route.ComponentProps) {
 				starred={state.starred}
 				shortlisted={editions ? state.shortlisted : undefined}
 				archived={state.archived}
+				finished={state.finished}
 				onChange={change}
+				onFinish={ending.finish}
 				onDelete={deleteArticle}
 				sidebarOpen={sidebarOpen}
 				sidebarTab={sidebarTab}

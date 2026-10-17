@@ -2,6 +2,7 @@ import { data } from "react-router"
 import { z } from "zod"
 import {
 	type ArticleChanges,
+	purgeArticles,
 	restoreArticles,
 	trashArticles,
 	undoChanges,
@@ -28,6 +29,7 @@ const INTENTS = [
 	"keep",
 	"delete",
 	"restore",
+	"purge",
 	"tag",
 	"revert",
 ] as const
@@ -105,6 +107,11 @@ export async function action({ request, context }: Route.ActionArgs) {
 					...done(restored, { intent: "delete", fields: { ids: restored.join(",") } }),
 					alreadySaved,
 				}
+			}
+			// Gone for good: nothing to undo. The selection bar asks for a second tap first.
+			case "purge": {
+				const { purged } = await purgeArticles(user.id, ids)
+				return done(purged, null)
 			}
 			case "tag": {
 				const addTags = form.getAll("name").map(String)

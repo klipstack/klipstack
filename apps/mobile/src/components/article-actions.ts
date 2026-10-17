@@ -1,10 +1,9 @@
-import { TRASH_RETENTION_DAYS } from "@klipstack/api-contract/names"
 import type { ArticleSummary, KlipstackClient } from "@klipstack/sdk"
 import { useCallback, useInsertionEffect, useRef } from "react"
 import { Alert } from "react-native"
-import { track } from "@/lib/article-changes"
+import { showToast, track } from "@/lib/article-changes"
 import { newTitle } from "@/lib/article-title"
-import { actedOn, afterAction, BULK_CHANGES, type BulkAction } from "@/lib/bulk-actions"
+import { actedOn, afterAction, BULK_CHANGES, type BulkAction, bulkNotice } from "@/lib/bulk-actions"
 import { afterMarking } from "@/lib/draft-undo"
 import { waitForExtraction } from "@/lib/extraction"
 
@@ -42,9 +41,9 @@ export function askTitle(
  * Star, archive, finish, mark unread, delete and restore, for a screen's articles: what
  * multi-select's bar and the long-press menu do. `apply` gets the articles as the action leaves
  * them, at once, then as the server has them; `done`, how many the server changed, and how many it
- * couldn't restore (the same page was saved again since: they stay in the trash). Delete asks
- * first: there is no undo, only the Trash. Delete Forever asks too, and the screen loads again
- * after it; Try Again shows the save under way, and the screen loads again once it is done. Unmarking that took articles out of the draft edition
+ * couldn't restore (the same page was saved again since: they stay in the trash). Delete acts at
+ * once, with a toast whose Undo restores them, as on the web; the screen loads again after the
+ * undo. Delete Forever asks first, and the screen loads again after it; Try Again shows the save under way, and the screen loads again once it is done. Unmarking that took articles out of the draft edition
  * in progress offers an undo, as on the web: `apply` gets them back marked. On failure an alert
  * says so, and `reload` puts the screen right.
  */
@@ -100,6 +99,7 @@ export function useArticleActions(options: {
 				if (action === "delete") {
 					const { trashed } = await client.articles.trash(ids)
 					latest.current.done?.(action, trashed.length, 0)
+					if (trashed.length) offerRestore(client, trashed, () => latest.current.reload())
 				} else if (action === "restore") {
 					const { restored, alreadySaved } = await client.articles.restore(ids)
 					// Refused: back as they were, in the trash.
@@ -152,17 +152,36 @@ export function useArticleActions(options: {
 			}
 			const acted = actedOn(articles, action)
 			if (acted.length === 0) return
-			if (action !== "delete") return void run(action, acted)
-			const one = acted.length === 1
-			Alert.alert(
-				one ? "Delete this article?" : `Delete ${acted.length} articles?`,
-				`You can restore ${one ? "it" : "them"} from the Trash for ${TRASH_RETENTION_DAYS} days.`,
-				[
-					{ text: "Cancel", style: "cancel" },
-					{ text: "Delete", style: "destructive", onPress: () => void run(action, acted) },
-				],
-			)
+			void run(action, acted)
 		},
 		[run, rename],
 	)
+}
+
+/**
+ * Deleted: the toast says how many, and its Undo takes them out of the trash again; `reload` puts
+ * the screen right after. One saved again since stays in the trash, and the toast says so.
+ */
+export function offerRestore(
+	client: Pick<KlipstackClient, "articles">,
+	ids: string[],
+	reload: () => void,
+): void {
+	showToast({
+		message: ids.length === 1 ? "Deleted" : bulkNotice("delete", ids.length),
+		action: {
+			label: "Undo",
+			run: () => {
+				// Other screens load again once it lands.
+				track(client.articles.restore(ids)).then(
+					({ alreadySaved }) => {
+						if (alreadySaved.length)
+							showToast({ message: "Saved again since, so it stays in the trash." })
+						reload()
+					},
+					() => showToast({ message: "Couldn't undo it: it's been too long, or you're offline." }),
+				)
+			},
+		},
+	})
 }

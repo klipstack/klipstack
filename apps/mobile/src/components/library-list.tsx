@@ -264,7 +264,8 @@ export function LibraryList({
 		},
 		done: (action, count, conflicts) => {
 			loadCounts()
-			if (select.selecting) select.say(bulkNotice(action, count, conflicts))
+			// A delete says so in its toast, with the undo.
+			if (select.selecting && action !== "delete") select.say(bulkNotice(action, count, conflicts))
 		},
 		reload: () => void load(),
 	})

@@ -1,11 +1,13 @@
 import { TOPIC_NAME_MAX } from "@klipstack/api-contract/names"
+import { topicKey, topicsNamedIn } from "@klipstack/api-contract/search-query"
 import { Pencil, Trash2 } from "lucide-react"
 import { useEffect, useEffectEvent, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { useFetcher } from "react-router"
+import { useFetcher, useRouteLoaderData } from "react-router"
 import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
 import { showToast } from "~/lib/toast"
+import type { loader as layoutLoader } from "~/routes/app-layout"
 import type { action } from "~/routes/topics"
 import { MenuButton, MoreMenu } from "./more-menu"
 
@@ -128,10 +130,18 @@ export function TopicRenameForm({ actions }: { actions: TopicActions }) {
 	)
 }
 
-/** Removing is for good: the topic asks first, in place. */
+/**
+ * Removing is for good: the topic asks first, in place, and names the saved searches that would
+ * find nothing in it, as deleting a tag does.
+ */
 export function TopicRemoveConfirm({ actions }: { actions: TopicActions }) {
 	const { t } = useTranslation("library")
 	const { fetcher, topic } = actions
+	const layout = useRouteLoaderData<typeof layoutLoader>("routes/app-layout")
+	const key = topicKey(topic.name)
+	const naming = (layout?.savedSearches ?? [])
+		.filter((s) => topicsNamedIn(s.query).some((name) => topicKey(name) === key))
+		.map((s) => s.name)
 	return (
 		<fetcher.Form
 			method="post"
@@ -143,7 +153,14 @@ export function TopicRemoveConfirm({ actions }: { actions: TopicActions }) {
 		>
 			<input type="hidden" name="intent" value="remove" />
 			<input type="hidden" name="id" value={topic.id} />
-			<p className="min-w-0 flex-1 basis-56">{t("topics.removeAsk", { name: actions.name })}</p>
+			<p className="min-w-0 flex-1 basis-56">
+				{t("topics.removeAsk", { name: actions.name })}
+				{naming.length > 0 ? (
+					<span className="mt-1 block text-danger">
+						{t("topics.removeSaved", { count: naming.length, names: naming.join(", ") })}
+					</span>
+				) : null}
+			</p>
 			<span className="flex gap-2">
 				<Button
 					type="submit"

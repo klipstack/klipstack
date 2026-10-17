@@ -160,6 +160,15 @@ test("the library narrows to a topic, its search is saved, and the search says w
 	await db.insert(savedSearches).values({ userId, name: "Psyche reading", query: "topic:Psyche" })
 	await page.goto("/topics")
 	await waitForHydration(page)
+	// So does removing the one topic it names, in the question before; Cancel keeps it.
+	await page.getByRole("button", { name: "More for Psyche" }).first().click()
+	await page.getByRole("menuitem", { name: "Remove" }).click()
+	const asking = page.getByRole("group", { name: "Remove the topic Psyche" })
+	await expect(asking).toContainText(
+		"A saved search names this topic and will find nothing in it: Psyche reading.",
+	)
+	await asking.getByRole("button", { name: "Cancel" }).click()
+	await expect(asking).toHaveCount(0)
 	await page.getByRole("button", { name: "Turn off topics" }).click()
 	await expect(page.getByTestId("topics-off-saved")).toHaveText(
 		"1 saved search names topics and will find nothing in them: Psyche reading.",

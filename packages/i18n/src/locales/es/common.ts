@@ -326,7 +326,7 @@ export default {
 	nav: {
 		home: "Inicio",
 		library: "Biblioteca",
-		inbox: "Biblioteca",
+		inbox: "Bandeja de entrada",
 		feed: "Feeds",
 		feedNew: "Publicaciones nuevas",
 		editionDue: "Tu próxima edición te espera",
@@ -385,7 +385,7 @@ export default {
 		unexpected: "Ocurrió un error inesperado.",
 		offline: "Estás sin conexión.",
 		offlineDetail:
-			"Esta página no está guardada para leer sin conexión. Los artículos de la biblioteca y los destacados sí.",
+			"Esta página no está guardada para leer sin conexión. Los de la bandeja de entrada y los destacados sí.",
 		invalidForm: "Revisa los errores del formulario.",
 	},
 	language: {
@@ -410,7 +410,7 @@ export default {
 		theme: "Tema: {{theme}}",
 		showSidebar: "Mostrar notas y subrayados",
 		hideSidebar: "Ocultar notas y subrayados",
-		copyLink: "Copiar enlace original",
+		copyLink: "Copiar enlace",
 		searchFor: "Buscar artículos con “{{q}}”",
 		copied: "Enlace copiado",
 	},

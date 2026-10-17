@@ -120,8 +120,11 @@ describe("bulk actions", () => {
 		])
 	})
 
-	it("offer only Restore in the trash, and nothing for trash and live together", () => {
-		expect(bulkActions([card({ deletedAt: now })])).toEqual({ kind: "trash", actions: ["restore"] })
+	it("offer Restore and Delete forever in the trash, and nothing for trash and live together", () => {
+		expect(bulkActions([card({ deletedAt: now })])).toEqual({
+			kind: "trash",
+			actions: ["restore", "purge"],
+		})
 		expect(bulkActions([card(), card({ deletedAt: now })]).kind).toBe("mixed")
 		expect(bulkActions([]).kind).toBe("none")
 	})

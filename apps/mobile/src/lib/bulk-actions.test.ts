@@ -43,9 +43,10 @@ describe("bulkActions", () => {
 		expect(actedOn(cards, "delete")).toEqual(cards)
 	})
 
-	it("only restores articles in the trash, and not with others", () => {
+	it("restores articles in the trash or deletes them forever, and not with others", () => {
 		const trashed = article({ trashedAt: "2026-09-20T10:00:00.000Z" })
-		expect(bulkActions([trashed])).toEqual({ kind: "trash", actions: ["restore"] })
+		expect(bulkActions([trashed])).toEqual({ kind: "trash", actions: ["restore", "purge"] })
+		expect(actedOn([trashed], "purge")).toEqual([trashed])
 		expect(bulkActions([trashed, article()])).toEqual({ kind: "mixed", actions: [] })
 	})
 })

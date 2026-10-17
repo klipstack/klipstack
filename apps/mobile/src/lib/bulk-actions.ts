@@ -5,7 +5,8 @@ export type LibraryView = "inbox" | "starred" | "archive" | "all" | "trash"
 
 /**
  * What the selection bar offers for the checked articles: the web's (`apps/web/app/lib/
- * bulk-actions.ts`). Restore is for articles in the trash (the Trash, and search's `in:trash`).
+ * bulk-actions.ts`). Restore and Delete Forever are for articles in the trash (the Trash, and
+ * search's `in:trash`).
  * Tags opens the tag sheet (`useTagSheet`) instead of changing anything itself.
  */
 export type BulkAction =
@@ -20,6 +21,7 @@ export type BulkAction =
 	| "tag"
 	| "delete"
 	| "restore"
+	| "purge"
 
 type Card = Pick<ArticleSummary, "status" | "starred" | "location" | "finished" | "trashedAt">
 
@@ -30,14 +32,15 @@ export type BulkChoice =
 /**
  * As the web decides it, from the articles, not the view: starred holds library and archive
  * articles alike. A toggle applies its state when any article lacks it, and takes it away when all
- * have it. Articles in the trash can only be restored, and not together with others (`mixed`).
+ * have it. Articles in the trash can only be restored or deleted forever, and not together with
+ * others (`mixed`).
  * Failed saves take part in Delete only. The mark for the next edition is the long-press menu's
  * only: a seventh button would leave the bar no room for its count on a 375-point phone.
  */
 export function bulkActions(cards: Card[]): BulkChoice {
 	if (cards.length === 0) return { kind: "none", actions: [] }
 	const trashed = cards.filter((c) => c.trashedAt)
-	if (trashed.length === cards.length) return { kind: "trash", actions: ["restore"] }
+	if (trashed.length === cards.length) return { kind: "trash", actions: ["restore", "purge"] }
 	if (trashed.length > 0) return { kind: "mixed", actions: [] }
 	const captured = cards.filter((c) => c.status !== "failed")
 	if (captured.length === 0) return { kind: "live", actions: ["delete"] }
@@ -53,9 +56,12 @@ export function bulkActions(cards: Card[]): BulkChoice {
 	}
 }
 
-/** The articles an action changes: all of them for Delete and Restore, the saved ones otherwise. */
+/**
+ * The articles an action changes: all of them for Delete, Restore and Delete Forever, the saved
+ * ones otherwise.
+ */
 export function actedOn<T extends Card>(cards: T[], action: BulkAction): T[] {
-	return action === "delete" || action === "restore"
+	return action === "delete" || action === "restore" || action === "purge"
 		? cards
 		: cards.filter((c) => c.status !== "failed")
 }
@@ -73,7 +79,7 @@ export const BULK_CHANGES = {
 	unarchive: { location: "inbox" },
 	finish: { finished: true },
 	unread: { finished: false },
-} as const satisfies Record<Exclude<BulkAction, "tag" | "delete" | "restore">, object>
+} as const satisfies Record<Exclude<BulkAction, "tag" | "delete" | "restore" | "purge">, object>
 
 /**
  * An article as the action leaves it, until the server answers: finishing archives it too, and
@@ -116,6 +122,8 @@ export function afterAction(
 			return { ...item, trashedAt: now }
 		case "restore":
 			return { ...item, trashedAt: null }
+		case "purge":
+			return item
 	}
 }
 
@@ -153,6 +161,7 @@ const DONE: Record<BulkAction, string> = {
 	tag: "tagged",
 	delete: "deleted",
 	restore: "restored",
+	purge: "deleted forever",
 }
 
 /**

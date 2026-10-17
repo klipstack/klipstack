@@ -60,8 +60,8 @@ test("inbox filters, sort, and archiving everything read", async ({ page }) => {
 
 	await expect(filters.getByRole("link", { name: "Unread 4", exact: true })).toBeVisible()
 	await expect(
-		page.getByRole("complementary").getByRole("link", { name: "Library", exact: true }),
-	).toHaveText("Library")
+		page.getByRole("complementary").getByRole("link", { name: "Inbox", exact: true }),
+	).toHaveText("Inbox")
 	await expect(page.getByTestId("unread-badge")).toHaveCount(0)
 	await expect.poll(() => badgeCalls.includes("clear")).toBe(true)
 	await filters.getByRole("link", { name: /^Quick reads/ }).click()

@@ -318,7 +318,7 @@ export default {
 	nav: {
 		home: "Home",
 		library: "Library",
-		inbox: "Library",
+		inbox: "Inbox",
 		feed: "Feed",
 		feedNew: "New posts",
 		editionDue: "Your next edition is waiting",
@@ -377,7 +377,7 @@ export default {
 		unexpected: "An unexpected error occurred.",
 		offline: "You are offline.",
 		offlineDetail:
-			"This page is not saved for offline reading. Articles in your library and starred list are.",
+			"This page is not saved for offline reading. Articles in your Inbox and Starred are.",
 		invalidForm: "Please check the form for errors.",
 	},
 	language: {
@@ -402,7 +402,7 @@ export default {
 		theme: "Theme: {{theme}}",
 		showSidebar: "Show notes and highlights",
 		hideSidebar: "Hide notes and highlights",
-		copyLink: "Copy original link",
+		copyLink: "Copy link",
 		searchFor: "Search articles for “{{q}}”",
 		copied: "Link copied",
 	},
