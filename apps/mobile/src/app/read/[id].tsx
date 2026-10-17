@@ -1295,7 +1295,7 @@ export default function Reader() {
 						noteFocused
 							? undefined
 							: [
-									// The first page shows three: Highlight, Copy, Ask (none with AI off).
+									// Highlight, Copy and Ask (none with AI off) first; iOS pages the rest as they fit.
 									{ label: "Highlight", key: "highlight" },
 									{ label: "Copy", key: "copy" },
 									...(ai.asking ? [{ label: "Ask", key: "ask" }] : []),
