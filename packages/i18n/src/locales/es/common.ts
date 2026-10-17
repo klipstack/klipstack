@@ -295,7 +295,7 @@ export default {
 	supportWidget: {
 		open: "Contactar con soporte",
 		loading: "Cargando el formulario de ayuda",
-		unavailable: "El formulario de ayuda no cargó. Escribe a",
+		unavailable: "El formulario de ayuda no cargó. Escribe a <email>{{email}}</email>.",
 		label: "Ayuda",
 		greeting:
 			"Preguntas, problemas o ideas: leo cada mensaje. Si es sobre un artículo, pega su enlace.",

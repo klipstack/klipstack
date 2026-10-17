@@ -286,7 +286,7 @@ export default {
 	supportWidget: {
 		open: "Contact support",
 		loading: "Loading the support form",
-		unavailable: "The support form didn't load. Write to",
+		unavailable: "The support form didn't load. Write to <email>{{email}}</email>.",
 		label: "Support",
 		greeting:
 			"Questions, problems or ideas: I read every message. If it's about an article, paste its link.",

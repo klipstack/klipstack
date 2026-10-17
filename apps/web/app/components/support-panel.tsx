@@ -1,6 +1,6 @@
 import { LifeBuoy, LoaderCircle, X } from "lucide-react"
 import { useEffect, useEffectEvent, useRef, useState } from "react"
-import { useTranslation } from "react-i18next"
+import { Trans, useTranslation } from "react-i18next"
 import { SUPPORT_CONTACT } from "~/lib/company"
 import { SUPPYHQ_ORIGIN, supportPanelUrl } from "~/lib/support-widget"
 import { cn } from "~/lib/utils"
@@ -107,9 +107,11 @@ export function SupportPanel({
 			if (event.origin !== SUPPYHQ_ORIGIN || event.source !== frameRef.current?.contentWindow)
 				return
 			const message = event.data as { type?: string; height?: unknown }
-			if (message.type === "suppyhq:resize" && typeof message.height === "number") {
-				setHeight(message.height)
-				setState((current) => (current === "loading" ? "ready" : current))
+			if (message.type === "suppyhq:resize" && Number.isFinite(message.height)) {
+				// Never taller than the window: the panel can't cover the page.
+				setHeight(Math.min(Math.max(message.height as number, 0), window.innerHeight - 32))
+				// Also after the fallback: a slow panel that arrives takes its place.
+				setState("ready")
 			} else if (message.type === "suppyhq:close") setOpen(false)
 		}
 		window.addEventListener("message", onMessage)
@@ -182,14 +184,21 @@ export function SupportPanel({
 						/>
 					) : (
 						<p>
-							{t("supportWidget.unavailable")}{" "}
-							<a
-								href={`mailto:${SUPPORT_CONTACT}`}
-								className="text-link underline underline-offset-2"
-							>
-								{SUPPORT_CONTACT}
-							</a>
-							.
+							<Trans
+								t={t}
+								i18nKey="supportWidget.unavailable"
+								values={{ email: SUPPORT_CONTACT }}
+								components={{
+									email: (
+										<a
+											href={`mailto:${SUPPORT_CONTACT}`}
+											className="text-link underline underline-offset-2"
+										>
+											{SUPPORT_CONTACT}
+										</a>
+									),
+								}}
+							/>
 						</p>
 					)}
 				</div>
@@ -198,11 +207,14 @@ export function SupportPanel({
 				ref={frameRef}
 				src={src}
 				title={t("supportWidget.open")}
+				// Scripts and its form, but no navigating the app's tab; popups for its own link.
+				sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+				referrerPolicy="no-referrer"
 				style={{ height, colorScheme: theme }}
 				className={cn(
 					"block w-full rounded-[18px] border-0 bg-transparent shadow-2xl ring-1 ring-fg/5",
 					// Drawn off-screen until ready: the frame loads, but its empty box never shows.
-					state === "ready" ? "" : "pointer-events-none fixed -left-[9999px] opacity-0",
+					state === "ready" ? "" : "pointer-events-none fixed -left-[9999px] w-[340px] opacity-0",
 				)}
 			/>
 		</div>
