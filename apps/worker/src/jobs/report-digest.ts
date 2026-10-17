@@ -13,12 +13,20 @@ import { appUrl, defaultSend } from "../mail"
  */
 export async function handleReportDigest({
 	send = defaultSend,
-}: { send?: (email: Email) => Promise<void> } = {}): Promise<{
+	only,
+}: {
+	send?: (email: Email) => Promise<void>
+	/**
+	 * Only these reports, when given. The job passes none; tests pass their own, so a test run never
+	 * counts or marks anyone else's in a shared database.
+	 */
+	only?: string[]
+} = {}): Promise<{
 	fresh: number
 	recipients: number
 }> {
 	const fresh = await db.execute<{ id: string }>(
-		sql`select id from edition_reports where notified_at is null`,
+		sql`select id from edition_reports where notified_at is null ${only ? sql`and id = any(${sql.param(only)}::uuid[])` : sql``}`,
 	)
 	const ids = fresh.rows.map((row) => row.id)
 	if (ids.length === 0) return { fresh: 0, recipients: 0 }

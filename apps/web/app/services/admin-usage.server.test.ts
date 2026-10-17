@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto"
 import {
 	assets,
+	type Db,
 	db,
 	documents,
 	documentVersions,
@@ -8,6 +9,7 @@ import {
 	highlights,
 	inArray,
 	subscriptions,
+	type Tx,
 	usageCounts,
 } from "@klipstack/db"
 import { afterAll, describe, expect, it } from "vitest"
@@ -16,6 +18,7 @@ import { env } from "~/lib/env.server"
 import { countRefusal, defaultLimits, monthOf } from "~/lib/limits.server"
 import { findStarterText, starterUrlHash } from "~/lib/starter-texts.server"
 import { adminFixtures } from "~/test/admin-fixtures"
+import { inSnapshot } from "~/test/snapshot"
 import { listStarterUsage, listTopicUsage, listUsage } from "./admin-usage.server"
 
 const fx = adminFixtures("admin-usage")
@@ -86,17 +89,19 @@ describe("listUsage, AI", () => {
 		const ctx = await authorizeAdmin(await admin.session())
 		const asker = await fx.account()
 		const { month } = monthOf()
-		const before = (await listUsage(ctx, "ai")).aiCostUsd
-		// Far past any test account's real usage, so these two lead the ranking.
-		await db.insert(usageCounts).values([
-			{ userId: asker.id, metric: "ai", month, count: 100_001 },
-			{ userId: admin.id, metric: "ai", month, count: 100_000 },
-			// $4.33 this month, in millionths of a dollar; last month's is not this month's.
-			{ userId: asker.id, metric: "ai_spend", month, count: 4_330_000 },
-			{ userId: asker.id, metric: "ai_spend", month: "2000-01-01", count: 9_000_000 },
-		])
-
-		const usage = await listUsage(ctx, "ai")
+		// The month's total is every account's: read in a snapshot, as other tests' come and go.
+		const { before, usage } = await inSnapshot(async (tx) => {
+			const before = (await listUsage(ctx, "ai", tx)).aiCostUsd
+			// Far past any test account's real usage, so these two lead the ranking.
+			await tx.insert(usageCounts).values([
+				{ userId: asker.id, metric: "ai", month, count: 100_001 },
+				{ userId: admin.id, metric: "ai", month, count: 100_000 },
+				// $4.33 this month, in millionths of a dollar; last month's is not this month's.
+				{ userId: asker.id, metric: "ai_spend", month, count: 4_330_000 },
+				{ userId: asker.id, metric: "ai_spend", month: "2000-01-01", count: 9_000_000 },
+			])
+			return { before, usage: await listUsage(ctx, "ai", tx) }
+		})
 		expect(usage.rows[0]).toMatchObject({
 			id: asker.id,
 			ai: 100_001,
@@ -109,8 +114,7 @@ describe("listUsage, AI", () => {
 			aiMax: env.LIMIT_AI_PER_MONTH_ADMIN,
 			aiCostUsd: 0,
 		})
-		// Every account's: other tests may add to it meanwhile, never take from it.
-		expect(usage.aiCostUsd).toBeGreaterThanOrEqual(before + 4.33 - 1e-9)
+		expect(usage.aiCostUsd).toBeCloseTo(before + 4.33, 9)
 	})
 })
 
@@ -119,15 +123,16 @@ describe("listUsage, topics", () => {
 		const ctx = await authorizeAdmin(await (await fx.account({ role: "admin" })).session())
 		const sorter = await fx.account()
 		const { month } = monthOf()
-		const before = (await listUsage(ctx, "topicCost")).topicCostUsd
-		// Far past any test account's real spend, so this one leads the ranking.
-		await db.insert(usageCounts).values([
-			{ userId: sorter.id, metric: "topic_spend", month, count: 2_000_000_000 },
-			{ userId: sorter.id, metric: "topic_spend", month: "2000-01-01", count: 7_000_000 },
-			{ userId: sorter.id, metric: "ai_spend", month, count: 10_000 },
-		])
-
-		const usage = await listUsage(ctx, "topicCost")
+		const { before, usage } = await inSnapshot(async (tx) => {
+			const before = (await listUsage(ctx, "topicCost", tx)).topicCostUsd
+			// Far past any test account's real spend, so this one leads the ranking.
+			await tx.insert(usageCounts).values([
+				{ userId: sorter.id, metric: "topic_spend", month, count: 2_000_000_000 },
+				{ userId: sorter.id, metric: "topic_spend", month: "2000-01-01", count: 7_000_000 },
+				{ userId: sorter.id, metric: "ai_spend", month, count: 10_000 },
+			])
+			return { before, usage: await listUsage(ctx, "topicCost", tx) }
+		})
 		// Most expensive first; other test accounts may be listed too.
 		const costs = usage.rows.map((r) => r.topicCostUsd)
 		expect(costs).toEqual([...costs].sort((a, b) => b - a))
@@ -135,7 +140,7 @@ describe("listUsage, topics", () => {
 			aiCostUsd: 0.01,
 			topicCostUsd: 2000,
 		})
-		expect(usage.topicCostUsd).toBeGreaterThanOrEqual(before + 2000 - 1e-6)
+		expect(usage.topicCostUsd).toBeCloseTo(before + 2000, 9)
 	})
 })
 
@@ -207,12 +212,13 @@ describe("listTopicUsage", () => {
 describe("listStarterUsage", () => {
 	/** A copy of a starter text in a library, as saving it leaves it, with `values` over that. */
 	async function copy(
+		tx: Db | Tx,
 		userId: string,
 		slug: string,
 		values: Partial<typeof documents.$inferInsert> = {},
 	) {
 		const text = findStarterText(slug)!
-		const [doc] = await db
+		const [doc] = await tx
 			.insert(documents)
 			.values({
 				userId,
@@ -226,12 +232,13 @@ describe("listStarterUsage", () => {
 	}
 
 	async function highlight(
+		tx: Db | Tx,
 		userId: string,
 		documentId: string,
 		note: string | null,
 		deletedAt: Date | null = null,
 	) {
-		const [version] = await db
+		const [version] = await tx
 			.insert(documentVersions)
 			.values({
 				documentId,
@@ -243,7 +250,7 @@ describe("listStarterUsage", () => {
 				extractorVersion: "0",
 			})
 			.returning({ id: documentVersions.id })
-		await db.insert(highlights).values({
+		await tx.insert(highlights).values({
 			userId,
 			documentId,
 			versionId: version!.id,
@@ -257,8 +264,6 @@ describe("listStarterUsage", () => {
 
 	it("counts, per text, the libraries that have it and what their readers did with it", async () => {
 		const ctx = await authorizeAdmin(await (await fx.account({ role: "admin" })).session())
-		// Other tests' libraries may hold starter texts too: what this one adds is the difference.
-		const before = await listStarterUsage(ctx)
 		const [a, b, c, d, e] = await Promise.all([
 			fx.account(),
 			fx.account(),
@@ -266,17 +271,21 @@ describe("listStarterUsage", () => {
 			fx.account(),
 			fx.account(),
 		])
-		await copy(a.id, "bacon-of-studies", { readAt: new Date() })
-		await highlight(b.id, await copy(b.id, "bacon-of-studies"), null)
-		await highlight(c.id, await copy(c.id, "bacon-of-studies"), "Mine.")
-		await copy(d.id, "bacon-of-studies", { note: "On the whole essay." })
-		// A deleted highlight, and its note, no longer count.
-		await highlight(e.id, await copy(e.id, "bacon-of-studies"), "Gone.", new Date())
-		// Not counted: another text, and a copy in the trash.
-		await copy(a.id, "guide-es")
-		await copy(b.id, "seneca-on-reading", { deletedAt: new Date(), readAt: new Date() })
-
-		const after = await listStarterUsage(ctx)
+		// Other tests' libraries hold starter texts too, and save and delete them meanwhile: in a
+		// snapshot, what this one adds is the difference.
+		const { before, after } = await inSnapshot(async (tx) => {
+			const before = await listStarterUsage(ctx, tx)
+			await copy(tx, a.id, "bacon-of-studies", { readAt: new Date() })
+			await highlight(tx, b.id, await copy(tx, b.id, "bacon-of-studies"), null)
+			await highlight(tx, c.id, await copy(tx, c.id, "bacon-of-studies"), "Mine.")
+			await copy(tx, d.id, "bacon-of-studies", { note: "On the whole essay." })
+			// A deleted highlight, and its note, no longer count.
+			await highlight(tx, e.id, await copy(tx, e.id, "bacon-of-studies"), "Gone.", new Date())
+			// Not counted: another text, and a copy in the trash.
+			await copy(tx, a.id, "guide-es")
+			await copy(tx, b.id, "seneca-on-reading", { deletedAt: new Date(), readAt: new Date() })
+			return { before, after: await listStarterUsage(ctx, tx) }
+		})
 		const diff = (slug: string) => {
 			const was = before.find((row) => row.slug === slug)!
 			const now = after.find((row) => row.slug === slug)!

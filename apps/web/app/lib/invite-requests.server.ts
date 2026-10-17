@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto"
-import { db, eq, inviteRequests, sql, user } from "@klipstack/db"
+import { type Db, db, eq, inviteRequests, sql, type Tx, user } from "@klipstack/db"
 import { checkAuthLimit } from "./auth-limits.server"
 import { env } from "./env.server"
 
@@ -53,7 +53,8 @@ export type InviteRequestOutcome = "received" | "expired" | "full"
  * Stores a request for an invite. Nobody is emailed: a form that mails whatever address it is given
  * would let anyone send our mail to anyone. The admins hear of new requests in the worker's daily
  * digest (`apps/worker/src/jobs/invite-digest.ts`).
- * Rate limits throw better-auth's APIError, as sign-up's do (`authLimitResponse`).
+ * Rate limits throw better-auth's APIError, as sign-up's do (`authLimitResponse`). `tx` is where
+ * the requests are counted and stored: a test of the cap passes a snapshot (`app/test/snapshot.ts`).
  */
 export async function requestInvite(
 	{
@@ -64,6 +65,7 @@ export async function requestInvite(
 		trap,
 	}: { email: string; note?: string; locale: string; token: unknown; trap: unknown },
 	headers: Headers,
+	tx: Db | Tx = db,
 ): Promise<InviteRequestOutcome> {
 	if (typeof trap === "string" && trap !== "") return "received"
 	const form = checkFormToken(token)
@@ -72,16 +74,16 @@ export async function requestInvite(
 	const normalized = email.trim().toLowerCase()
 	await checkAuthLimit("/request-invite", normalized, headers)
 
-	const [account] = await db
+	const [account] = await tx
 		.select({ id: user.id })
 		.from(user)
 		.where(eq(user.email, normalized))
 		.limit(1)
 	if (account) return "received"
 	// Checked apart from the insert: two requests at once may pass it together, which is harmless.
-	const [pending] = await db.select({ count: sql<number>`count(*)::int` }).from(inviteRequests)
+	const [pending] = await tx.select({ count: sql<number>`count(*)::int` }).from(inviteRequests)
 	if ((pending?.count ?? 0) >= INVITE_REQUEST_PENDING_MAX) return "full"
-	await db
+	await tx
 		.insert(inviteRequests)
 		.values({ email: normalized, note: note?.trim() || null, locale })
 		.onConflictDoNothing({ target: inviteRequests.email })

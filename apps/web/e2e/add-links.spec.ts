@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test"
-import { signupUser, waitForHydration } from "./helpers"
+import { applePlatform, signupUser, waitForHydration } from "./helpers"
 
 test("the dialog saves several links at once, and keeps the ones it could not save", async ({
 	page,
@@ -56,7 +56,9 @@ test("the dialog saves several links at once, and keeps the ones it could not sa
 	await expect(dialog.getByText("Save up to 10 links at once.")).toBeHidden()
 })
 
-test("the Save link field grows, Enter starts a line and Ctrl+Enter saves", async ({ page }) => {
+test("the Save link field grows, Enter starts a line and ⌘↵ / Ctrl+Enter saves", async ({
+	page,
+}) => {
 	await signupUser(page, "Field Links")
 	// `/add`, where the bookmarklet and the phone's share sheet go: the library, with the dialog open.
 	await page.goto("/add")
@@ -66,8 +68,9 @@ test("the Save link field grows, Enter starts a line and Ctrl+Enter saves", asyn
 	const one = `https://example.com/field-${stamp}/one`
 	const field = dialog.getByLabel("Link", { exact: true })
 	await expect(field).toBeFocused()
-	// The shortcut of this platform (the tests run on Linux).
-	await expect(dialog.getByText("One link per line, up to 10. Ctrl+Enter saves.")).toBeVisible()
+	// The shortcut of this platform.
+	const submit = (await applePlatform(page)) ? "⌘↵" : "Ctrl+Enter"
+	await expect(dialog.getByText(`One link per line, up to 10. ${submit} saves.`)).toBeVisible()
 	const height = () => field.evaluate((el) => el.getBoundingClientRect().height)
 	// Two lines to start; it grows with what is typed, up to eight lines.
 	const empty = await height()
@@ -83,7 +86,7 @@ test("the Save link field grows, Enter starts a line and Ctrl+Enter saves", asyn
 	await field.press("Enter")
 	await field.pressSequentially("https://www.youtube.com/watch?v=x")
 	await expect(field).toHaveValue(`${one}\nhttps://www.youtube.com/watch?v=x`)
-	await field.press("Control+Enter")
+	await field.press("ControlOrMeta+Enter")
 	const results = dialog.getByRole("list", { name: "Links saved" })
 	await expect(results.getByText(one)).toBeVisible()
 	await expect(results.getByText("YouTube videos are not supported yet.")).toBeVisible()
@@ -106,7 +109,7 @@ test("links typed and not saved stay in the field until they are", async ({ page
 	await page.goto("/notebook")
 	await page.reload()
 	await waitForHydration(page)
-	await page.keyboard.press("Control+k")
+	await page.keyboard.press("ControlOrMeta+k")
 	await page.getByRole("option", { name: "Save a link" }).click()
 	await expect(field).toHaveValue(typed)
 
@@ -115,7 +118,7 @@ test("links typed and not saved stay in the field until they are", async ({ page
 	await expect(field).toHaveValue(`${typed}\nhttps://example.com/shared`)
 
 	// Saved: the field starts empty again.
-	await field.press("Control+Enter")
+	await field.press("ControlOrMeta+Enter")
 	await expect(page.getByRole("status").getByText("2 links saved.")).toBeVisible()
 	await page.getByRole("button", { name: "Save link" }).click()
 	await expect(field).toHaveValue("")
@@ -125,7 +128,7 @@ test("the command menu opens the Save link dialog where the reader is", async ({
 	await signupUser(page, "Palette Links")
 	await page.goto("/notebook")
 	await waitForHydration(page)
-	await page.keyboard.press("Control+k")
+	await page.keyboard.press("ControlOrMeta+k")
 	await page.getByRole("option", { name: "Save a link" }).click()
 	const dialog = page.getByRole("dialog", { name: "Save a link" })
 	await expect(dialog.getByLabel("Link", { exact: true })).toBeFocused()

@@ -2,6 +2,7 @@ import { createHmac, randomUUID } from "node:crypto"
 import { authLimits, db, eq, inArray, inviteRequests, like, sql } from "@klipstack/db"
 import { afterAll, afterEach, describe, expect, it } from "vitest"
 import { adminFixtures } from "~/test/admin-fixtures"
+import { inSnapshot } from "~/test/snapshot"
 import { env } from "./env.server"
 import {
 	checkFormToken,
@@ -118,16 +119,27 @@ describe("requestInvite", () => {
 	})
 
 	it("says the list is full past its size, without storing more", async () => {
-		const [{ count }] = (await db
-			.select({ count: sql<number>`count(*)::int` })
-			.from(inviteRequests)) as [{ count: number }]
-		const missing = Math.max(0, INVITE_REQUEST_PENDING_MAX - count)
-		await db.execute(sql`
-			insert into invite_requests (email, locale)
-			select ${`${TAG}-fill-`} || n || '@example.com', 'en' from generate_series(1, ${missing}) n
-		`)
+		// The cap counts every request: filled in a snapshot, so other tests' requests don't come
+		// and go meanwhile, and they never see the list full.
 		const email = address()
-		expect(await ask(email)).toBe("full")
-		expect(await stored(email)).toHaveLength(0)
+		const { outcome, rows } = await inSnapshot(async (tx) => {
+			const [{ count }] = (await tx
+				.select({ count: sql<number>`count(*)::int` })
+				.from(inviteRequests)) as [{ count: number }]
+			const missing = Math.max(0, INVITE_REQUEST_PENDING_MAX - count)
+			await tx.execute(sql`
+				insert into invite_requests (email, locale)
+				select ${`${TAG}-fill-`} || n || '@example.com', 'en' from generate_series(1, ${missing}) n
+			`)
+			const outcome = await requestInvite(
+				{ email, locale: "es", token: aged(), trap: "" },
+				headers(),
+				tx,
+			)
+			const rows = await tx.select().from(inviteRequests).where(eq(inviteRequests.email, email))
+			return { outcome, rows }
+		})
+		expect(outcome).toBe("full")
+		expect(rows).toHaveLength(0)
 	})
 })

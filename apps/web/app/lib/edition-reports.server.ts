@@ -1,5 +1,6 @@
 import {
 	and,
+	type Db,
 	db,
 	editionReports,
 	editions,
@@ -8,6 +9,7 @@ import {
 	isNull,
 	type ReportReason,
 	sql,
+	type Tx,
 } from "@klipstack/db"
 import { checkAuthLimit, trustedAuthAddress } from "./auth-limits.server"
 import { checkFormToken } from "./invite-requests.server"
@@ -27,7 +29,8 @@ export type ReportOutcome = "received" | "expired" | "full"
  * Stores a visitor's report on a public edition. Nobody is emailed now: the address, when given,
  * gets one email once an admin decides. A report hides nothing by itself. The admins hear of new
  * ones in the worker's digest (`apps/worker/src/jobs/report-digest.ts`).
- * Rate limits throw better-auth's APIError, as the wait list's do (`authLimitResponse`).
+ * Rate limits throw better-auth's APIError, as the wait list's do (`authLimitResponse`). `tx` is
+ * where the reports are counted and stored, as for `requestInvite`.
  */
 export async function reportEdition(
 	{
@@ -48,6 +51,7 @@ export async function reportEdition(
 		trap: unknown
 	},
 	headers: Headers,
+	tx: Db | Tx = db,
 ): Promise<ReportOutcome> {
 	if (typeof trap === "string" && trap !== "") return "received"
 	const form = checkFormToken(token, Date.now(), "edition-report")
@@ -56,7 +60,7 @@ export async function reportEdition(
 	// Counted per address, and per edition from that address.
 	await checkAuthLimit("/report-edition", `${publicId}:${trustedAuthAddress(headers)}`, headers)
 
-	const [edition] = await db
+	const [edition] = await tx
 		.select({ id: editions.id })
 		.from(editions)
 		.where(
@@ -69,9 +73,9 @@ export async function reportEdition(
 		)
 	if (!edition) return "received"
 	// Checked apart from the insert: two reports at once may pass it together, which is harmless.
-	const [open] = await db.select({ count: sql<number>`count(*)::int` }).from(editionReports)
+	const [open] = await tx.select({ count: sql<number>`count(*)::int` }).from(editionReports)
 	if ((open?.count ?? 0) >= REPORTS_OPEN_MAX) return "full"
-	await db.insert(editionReports).values({
+	await tx.insert(editionReports).values({
 		editionId: edition.id,
 		reason,
 		details: details.trim(),

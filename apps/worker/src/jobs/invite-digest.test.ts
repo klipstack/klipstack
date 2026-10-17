@@ -55,11 +55,11 @@ describe("handleInviteDigest", () => {
 	it("tells each admin, in their language, how many requests are new, then marks them", async () => {
 		const ids = await requests(2)
 		const mail = outbox()
-		const digest = await handleInviteDigest(mail)
-		expect(digest.fresh).toBeGreaterThanOrEqual(2)
+		const digest = await handleInviteDigest({ ...mail, only: ids })
+		expect(digest.fresh).toBe(2)
 		const [email, ...more] = mail.sent.filter((sent) => sent.to === admin.email)
 		expect(more).toHaveLength(0)
-		expect(email!.subject).toMatch(/^\d+ nuevas solicitudes de invitación$/)
+		expect(email!.subject).toBe("2 nuevas solicitudes de invitación")
 		expect(email!.text).toContain("/admin/requests")
 		// Nothing a visitor typed: no address, no note.
 		expect(email!.text).not.toContain(tag)
@@ -68,10 +68,10 @@ describe("handleInviteDigest", () => {
 	})
 
 	it("sends nothing when no request is new", async () => {
-		await requests(1)
-		await handleInviteDigest(outbox())
+		const ids = await requests(1)
+		await handleInviteDigest({ ...outbox(), only: ids })
 		const mail = outbox()
-		expect(await handleInviteDigest(mail)).toEqual({ fresh: 0, recipients: 0 })
+		expect(await handleInviteDigest({ ...mail, only: ids })).toEqual({ fresh: 0, recipients: 0 })
 		expect(mail.sent).toHaveLength(0)
 	})
 
@@ -80,10 +80,12 @@ describe("handleInviteDigest", () => {
 		const failing = async () => {
 			throw new Error("delivery failed")
 		}
-		await expect(handleInviteDigest({ send: failing })).rejects.toThrow("delivery failed")
+		await expect(handleInviteDigest({ send: failing, only: ids })).rejects.toThrow(
+			"delivery failed",
+		)
 		expect(await counted(ids)).toBe(false)
 		const mail = outbox()
-		await handleInviteDigest(mail)
+		await handleInviteDigest({ ...mail, only: ids })
 		expect(mail.sent.some((sent) => sent.to === admin.email)).toBe(true)
 		expect(await counted(ids)).toBe(true)
 	})

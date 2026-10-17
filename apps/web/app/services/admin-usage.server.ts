@@ -1,9 +1,11 @@
 import {
+	type Db,
 	db,
 	sql,
 	type TopicUseMetric,
 	topicLimits,
 	topicUseMetrics,
+	type Tx,
 	type UserRole,
 } from "@klipstack/db"
 import { USAGE_TOP, type UsageOrder } from "~/lib/admin-constants"
@@ -37,10 +39,14 @@ export interface AdminUsageRow {
 	feeds: number
 }
 
-/** Each account's standing against the caps, as numbers only. */
+/**
+ * Each account's standing against the caps, as numbers only. `tx` is where to read: a test passes
+ * a snapshot (`app/test/snapshot.ts`), so other tests' accounts don't change the totals meanwhile.
+ */
 export async function listUsage(
 	ctx: AdminContext,
 	by: UsageOrder,
+	tx: Db | Tx = db,
 ): Promise<{
 	rows: AdminUsageRow[]
 	/** The caps every account has today, but for `aiMax`; a plan would make them a column. */
@@ -62,7 +68,7 @@ export async function listUsage(
 		ai: sql`ai`,
 		topicCost: sql`topic_spend`,
 	}[by]
-	const result = await db.execute<{
+	const result = await tx.execute<{
 		id: string
 		name: string
 		email: string
@@ -107,7 +113,7 @@ export async function listUsage(
 		limit ${USAGE_TOP}
 	`)
 	const [spent] = (
-		await db.execute<{ ai: string | null; topics: string | null }>(sql`
+		await tx.execute<{ ai: string | null; topics: string | null }>(sql`
 			select sum(count) filter (where metric = 'ai_spend') as ai,
 				sum(count) filter (where metric = 'topic_spend') as topics
 			from usage_counts where month = ${month}
@@ -224,13 +230,17 @@ export interface AdminStarterRow {
 
 /**
  * How the starter texts (`lib/starter-texts.server.ts`) are used, counted from the libraries that
- * have them: numbers only, no one's name. A copy in the trash or deleted no longer counts.
+ * have them: numbers only, no one's name. A copy in the trash or deleted no longer counts. `tx`
+ * is where to read, as for `listUsage`.
  */
-export async function listStarterUsage(ctx: AdminContext): Promise<AdminStarterRow[]> {
+export async function listStarterUsage(
+	ctx: AdminContext,
+	tx: Db | Tx = db,
+): Promise<AdminStarterRow[]> {
 	assertAdminContext(ctx)
 	const texts = starterTexts()
 	const hashes = texts.map((text) => starterUrlHash(text))
-	const result = await db.execute<{
+	const result = await tx.execute<{
 		url_hash: string
 		saved: number
 		finished: number
