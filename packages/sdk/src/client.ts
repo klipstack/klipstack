@@ -111,6 +111,21 @@ export function createClient(options: ClientOptions) {
 		delete: (id: string) => call("highlights.delete", { params: { id } }),
 		/** Brings a deleted highlight back, while its article is in the library. */
 		restore: (id: string) => call("highlights.restore", { params: { id } }),
+		/** Its public link: live, taken down (`removed`), or null when it is not shared. */
+		getShare: (id: string) => call("highlights.getShare", { params: { id } }),
+		/** Shares it at a public link, or updates what the page shows; same address. */
+		share: (id: string, body: BodyOf<"highlights.share">) =>
+			call("highlights.share", { params: { id }, body }),
+		/** Takes its public page down. */
+		stopSharing: (id: string) => call("highlights.stopSharing", { params: { id } }),
+		/** It as a PNG to share, as a Response: wide or tall, with its note or without. */
+		image: (id: string, query: QueryOf<"highlights.image"> = {}) =>
+			call("highlights.image", { params: { id }, query }),
+	}
+
+	const noteLinks = {
+		/** The original address of each article a note links to, by id. */
+		lookup: (ids: string[]) => call("noteLinks.lookup", { body: { ids } }),
 	}
 
 	const notebook = {
@@ -206,6 +221,7 @@ export function createClient(options: ClientOptions) {
 		},
 		links,
 		highlights,
+		noteLinks,
 		ai,
 		notebook,
 		dailyHighlights,
@@ -357,6 +373,11 @@ export const FACADE: Record<EndpointId, string> = {
 	"highlights.resize": "highlights.resize",
 	"highlights.delete": "highlights.delete",
 	"highlights.restore": "highlights.restore",
+	"highlights.getShare": "highlights.getShare",
+	"highlights.share": "highlights.share",
+	"highlights.stopSharing": "highlights.stopSharing",
+	"highlights.image": "highlights.image",
+	"noteLinks.lookup": "noteLinks.lookup",
 	"notebook.get": "notebook.get",
 	"dailyHighlights.list": "dailyHighlights.list",
 	"dailyHighlights.dismiss": "dailyHighlights.dismiss",

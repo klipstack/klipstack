@@ -9,6 +9,7 @@ export * from "./endpoints/library"
 export * from "./endpoints/meta"
 export * from "./endpoints/notebook"
 export * from "./endpoints/review"
+export * from "./endpoints/shares"
 export * from "./endpoints/topics"
 export * from "./endpoints/writes"
 export * from "./enums"
@@ -69,6 +70,13 @@ import {
 	unskipNote,
 } from "./endpoints/notebook"
 import { getReviewSuggestion, listReview, snoozeReview } from "./endpoints/review"
+import {
+	getHighlightShare,
+	highlightImage,
+	lookupNoteLinks,
+	shareHighlight,
+	stopSharingHighlight,
+} from "./endpoints/shares"
 import {
 	confirmTopics,
 	countTopicUse,
@@ -152,6 +160,11 @@ export const endpoints = {
 	"highlights.resize": resizeHighlight,
 	"highlights.delete": deleteHighlight,
 	"highlights.restore": restoreHighlight,
+	"highlights.getShare": getHighlightShare,
+	"highlights.share": shareHighlight,
+	"highlights.stopSharing": stopSharingHighlight,
+	"highlights.image": highlightImage,
+	"noteLinks.lookup": lookupNoteLinks,
 	"notebook.get": getNotebook,
 	"dailyHighlights.list": listDailyHighlights,
 	"dailyHighlights.dismiss": dismissDailyHighlight,

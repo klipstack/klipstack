@@ -217,7 +217,8 @@ export const addHighlight: Handler<typeof createHighlight> = async ({ userId, pa
 	})
 	const doc = await getDocument(userId, params.id)
 	if (!doc) throw notFound(NO_ARTICLE)
-	return { highlight: highlightShape(highlight, articleRef(doc)) }
+	// A new highlight is not shared.
+	return { highlight: highlightShape({ ...highlight, shared: false }, articleRef(doc)) }
 }
 
 export const editHighlight: Handler<typeof updateHighlight> = async ({ userId, params, body }) => {
@@ -228,12 +229,15 @@ export const editHighlight: Handler<typeof updateHighlight> = async ({ userId, p
 	const current = await getHighlightWithArticle(userId, params.id)
 	if (!current) throw notFound(NO_HIGHLIGHT)
 	return {
-		highlight: highlightShape(changed, {
-			id: current.documentId,
-			title: current.documentTitle,
-			site: current.siteName,
-			url: current.sourceUrl,
-		}),
+		highlight: highlightShape(
+			{ ...changed, shared: current.shared },
+			{
+				id: current.documentId,
+				title: current.documentTitle,
+				site: current.siteName,
+				url: current.sourceUrl,
+			},
+		),
 	}
 }
 
@@ -254,12 +258,15 @@ export const moveHighlight: Handler<typeof resizeHighlight> = async ({ userId, p
 		selector: { ...place(body), prefix: "", suffix: "" },
 	})
 	return {
-		highlight: highlightShape(moved, {
-			id: current.documentId,
-			title: current.documentTitle,
-			site: current.siteName,
-			url: current.sourceUrl,
-		}),
+		highlight: highlightShape(
+			{ ...moved, shared: current.shared },
+			{
+				id: current.documentId,
+				title: current.documentTitle,
+				site: current.siteName,
+				url: current.sourceUrl,
+			},
+		),
 	}
 }
 

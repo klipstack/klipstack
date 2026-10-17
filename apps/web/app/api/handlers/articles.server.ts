@@ -22,6 +22,7 @@ import {
 	listDocuments,
 } from "~/services/documents.server"
 import { buildDocumentExport, documentMarkdown } from "~/services/export.server"
+import { sharedHighlightIds } from "~/services/highlight-shares.server"
 import { listDocumentHighlights } from "~/services/highlights.server"
 import { type NumberedImages, numberImages } from "~/services/images"
 import { storedSizes } from "~/services/images.server"
@@ -112,6 +113,10 @@ export const get: Handler<typeof getArticle> = async ({ userId, params }) => {
 		listContentLinks(userId, doc.id),
 	])
 	const article = articleRef(doc)
+	const shared = await sharedHighlightIds(
+		userId,
+		highlights.map((h) => h.id),
+	)
 
 	// Links in the article's note and its highlights' notes, in reading order.
 	const links: Array<{
@@ -138,7 +143,7 @@ export const get: Handler<typeof getArticle> = async ({ userId, params }) => {
 		position: doc.readingPosition,
 		readingCycle: doc.readingCycle,
 		language: doc.language,
-		highlights: highlights.map((h) => highlightShape(h, article)),
+		highlights: highlights.map((h) => highlightShape({ ...h, shared: shared.has(h.id) }, article)),
 		noteLinks: {
 			to: links.map((l) => ({
 				id: l.id,

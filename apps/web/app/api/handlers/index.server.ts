@@ -8,6 +8,7 @@ import * as library from "./library.server"
 import { openapi } from "./meta.server"
 import * as notebook from "./notebook.server"
 import * as review from "./review.server"
+import * as shares from "./shares.server"
 import * as topics from "./topics.server"
 import * as writes from "./writes.server"
 
@@ -48,6 +49,11 @@ export const handlers: HandlerTable<Endpoints> = {
 	"highlights.resize": writes.moveHighlight,
 	"highlights.delete": writes.removeOne,
 	"highlights.restore": writes.bringBackOne,
+	"highlights.getShare": shares.getShare,
+	"highlights.share": shares.share,
+	"highlights.stopSharing": shares.stopSharing,
+	"highlights.image": shares.image,
+	"noteLinks.lookup": shares.noteLinks,
 	"notebook.get": notebook.notebook,
 	"dailyHighlights.list": notebook.daily,
 	"dailyHighlights.dismiss": notebook.dismissDaily,
