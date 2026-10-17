@@ -1,10 +1,9 @@
+import { NOTE_LINKS_MAX } from "@klipstack/api-contract"
 import { data } from "react-router"
 import { getUser } from "~/lib/session.server"
 import { linkTargetDetails } from "~/services/links.server"
 import type { Route } from "./+types/api.note-links"
 
-/** More than one note's links ever are. */
-const IDS_MAX = 500
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 /**
@@ -16,7 +15,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 	const user = getUser(context)
 	if (!user) return data({ urls: {} }, { status: 401 })
 	const ids = new URL(request.url).searchParams.getAll("id")
-	if (ids.length > IDS_MAX) return data({ urls: {} }, { status: 400 })
+	if (ids.length > NOTE_LINKS_MAX) return data({ urls: {} }, { status: 400 })
 	const targets = await linkTargetDetails(
 		user.id,
 		ids.filter((id) => UUID.test(id)),

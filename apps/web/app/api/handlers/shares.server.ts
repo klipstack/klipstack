@@ -12,7 +12,7 @@ import {
 import { env } from "~/lib/env.server"
 import { drawHighlightImage } from "~/services/highlight-image.server"
 import { getShareState, type ShareState } from "~/services/highlight-shares.server"
-import { getHighlightWithArticle } from "~/services/highlights.server"
+import { getHighlight } from "~/services/highlights.server"
 import { linkTargetDetails } from "~/services/links.server"
 import { notFound } from "../errors.server"
 import type { Handler } from "../handler.server"
@@ -22,8 +22,9 @@ const NO_HIGHLIGHT = "No highlight with that id."
 /** A live share as the API shows it: its address absolute, for apps. */
 const live = (state: ShareState) => ({ ...state, url: new URL(state.url, env.APP_URL).href })
 
+/** A share stays up while its article is in the trash: so does its answer here. */
 export const getShare: Handler<typeof getHighlightShare> = async ({ userId, params }) => {
-	if (!(await getHighlightWithArticle(userId, params.id))) throw notFound(NO_HIGHLIGHT)
+	if (!(await getHighlight(userId, params.id))) throw notFound(NO_HIGHLIGHT)
 	const state = await getShareState(userId, params.id)
 	return { share: state && !state.removed ? live(state) : state }
 }

@@ -1,4 +1,6 @@
+import { NOTE_LINKS_MAX, SHARE_LOCALES } from "@klipstack/api-contract"
 import { addUsage, db, documents, eq, highlights, highlightShares, monthOf } from "@klipstack/db"
+import { supportedLanguages } from "@klipstack/i18n"
 import { stopBoss } from "@klipstack/queue"
 import type { KlipstackApiError } from "@klipstack/sdk"
 import sharp from "sharp"
@@ -81,9 +83,19 @@ describe("sharing a highlight in the API", () => {
 		await db.update(highlights).set({ note: "later still" }).where(eq(highlights.id, h.id))
 		expect((await me.client.highlights.getShare(h.id)).share).toMatchObject({ changed: true })
 
-		// Lists mark it.
+		// Lists, the article and an edit's answer mark it.
 		const listed = await me.client.highlights.list({ filter: "shared" })
 		expect(listed.items.map((i) => [i.id, i.shared])).toEqual([[h.id, true]])
+		const article = await me.client.articles.get(h.docId)
+		expect(article.highlights.map((i) => i.shared)).toEqual([true])
+		expect((await me.client.highlights.update(h.id, { color: "green" })).highlight.shared).toBe(
+			true,
+		)
+
+		// The page stays up while its article is in the trash; so does its answer, and it can stop.
+		await db.update(documents).set({ deletedAt: new Date() }).where(eq(documents.id, h.docId))
+		expect((await me.client.highlights.getShare(h.id)).share).toMatchObject({ removed: false })
+		await db.update(documents).set({ deletedAt: null }).where(eq(documents.id, h.docId))
 
 		await me.client.highlights.stopSharing(h.id)
 		expect(await me.client.highlights.getShare(h.id)).toEqual({ share: null })
@@ -158,5 +170,17 @@ describe("sharing a highlight in the API", () => {
 		const { urls } = await me.client.noteLinks.lookup([mine.docId, theirs.docId])
 		expect(urls).toEqual({ [mine.docId]: mine.url })
 		expect(await me.client.noteLinks.lookup([])).toEqual({ urls: {} })
+		// The server refuses too many, whatever the client checked.
+		const tooMany = await request("/api/v1/note-links/lookup", {
+			method: "POST",
+			token: me.key,
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({ ids: Array.from({ length: NOTE_LINKS_MAX + 1 }, () => mine.docId) }),
+		})
+		expect(tooMany.status).toBe(400)
+	})
+
+	it("offers the page in the languages the app speaks", () => {
+		expect(SHARE_LOCALES).toEqual(supportedLanguages)
 	})
 })
