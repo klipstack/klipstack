@@ -134,7 +134,8 @@ export function ReaderSidebar({
 		if (chatting) return
 		const all = buttons()
 		if (all.length === 0) return
-		const at = all.indexOf(document.activeElement as HTMLButtonElement)
+		// From a row's Share button, the row is where j/k start.
+		const at = all.findIndex((b) => b.closest("li")?.contains(document.activeElement))
 		let next: number | null = null
 		if (NEXT.has(e.key)) next = at < 0 ? 0 : Math.min(at + 1, all.length - 1)
 		else if (PREV.has(e.key)) next = at < 0 ? 0 : Math.max(at - 1, 0)
@@ -248,7 +249,11 @@ export function ReaderSidebar({
 									data-active={activeId === h.id ? "" : undefined}
 									{...highlightColor(h.color)}
 									onClick={() => onSelect(h.id)}
-									className="clipping clipping-sm block w-full px-4 pt-[calc(var(--clip-top)+0.625rem)] pb-3 text-left focus-visible:outline-none"
+									className={cn(
+										"clipping clipping-sm block w-full px-4 pt-[calc(var(--clip-top)+0.625rem)] pb-3 text-left focus-visible:outline-none",
+										// Room for the Share button beside the quote's first line.
+										onShare && "pr-10",
+									)}
 								>
 									<ClippingPaper id={h.id} />
 									<span className="reader-type line-clamp-6 text-[0.95rem] leading-normal text-fg">
@@ -281,7 +286,7 @@ export function ReaderSidebar({
 										onClick={() => onShare(h.id)}
 										aria-label={t("highlights.share.open")}
 										{...tooltip(t("highlights.share.open"))}
-										className="absolute top-4 right-1 rounded-md bg-card/80 p-1.5 text-muted-fg opacity-100 transition-opacity hover:bg-hover hover:text-fg focus-visible:opacity-100 md:opacity-0 md:group-hover:opacity-100"
+										className="absolute top-4 right-1 rounded-md bg-card/80 p-1.5 text-muted-fg opacity-100 transition-opacity hover:bg-hover hover:text-fg focus-visible:opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
 									>
 										<Share className="size-4" aria-hidden />
 									</button>

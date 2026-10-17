@@ -158,6 +158,7 @@ export default {
 			includeNote: "Incluir mi nota",
 			copyText: "Copiar texto",
 			copied: "Copiado con un enlace al artículo",
+			copyFailed: "No se pudo copiar: el navegador no lo permitió",
 		},
 		colors: {
 			yellow: "Amarillo",

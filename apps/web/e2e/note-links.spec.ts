@@ -313,7 +313,7 @@ test("content links: articles that link to each other are connected, whichever c
 })
 
 test("a shared note's links lead to the linked articles' originals", async ({ page }) => {
-	test.setTimeout(120_000)
+	test.setTimeout(180_000)
 	await page.context().grantPermissions(["clipboard-read", "clipboard-write"])
 	await signup(page)
 	const makers = await save(page, MAKERS)

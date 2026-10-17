@@ -162,6 +162,7 @@ export default {
 			includeNote: "Include my note",
 			copyText: "Copy text",
 			copied: "Copied with a link to the article",
+			copyFailed: "Couldn't copy: the browser didn't allow it",
 		},
 		colors: {
 			yellow: "Yellow",

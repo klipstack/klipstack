@@ -62,6 +62,9 @@ it("requires a browser session", async () => {
 })
 
 it("refuses more ids than a note can hold links", async () => {
+	expect(await load(Array.from({ length: 500 }, () => mine))).toEqual({
+		urls: { [mine]: "https://example.com/mine" },
+	})
 	expect(await load(Array.from({ length: 501 }, () => mine))).toMatchObject({
 		init: { status: 400 },
 	})

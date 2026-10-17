@@ -7,13 +7,14 @@ export function copyText(text: string, message: string) {
 
 /**
  * Copies `text` with `html` beside it, for apps that paste rich text (mail, docs, chat), and
- * confirms with a toast. A browser without rich clipboard writing gets the text alone.
+ * confirms with a toast; `failed` says it could not. A browser without rich clipboard writing gets
+ * the text alone.
  */
-export function copyRich(text: string, html: string, message: string) {
+export function copyRich(text: string, html: string, message: string, failed: string) {
 	const clipboard = navigator.clipboard
-	if (!clipboard) return
-	const written =
-		typeof ClipboardItem === "undefined" || !clipboard.write
+	const written = !clipboard
+		? Promise.reject(new Error("No clipboard"))
+		: typeof ClipboardItem === "undefined" || !clipboard.write
 			? clipboard.writeText(text)
 			: clipboard
 					.write([
@@ -23,7 +24,10 @@ export function copyRich(text: string, html: string, message: string) {
 						}),
 					])
 					.catch(() => clipboard.writeText(text))
-	void written.then(() => showToast({ message }))
+	void written.then(
+		() => showToast({ message }),
+		() => showToast({ message: failed, warn: true }),
+	)
 }
 
 /** Copies an article's original URL and confirms with a toast. */

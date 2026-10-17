@@ -64,6 +64,16 @@ describe("highlightShareText", () => {
 		expect(bare.markdown).toContain("\n\nSee Other piece\n\n")
 	})
 
+	it("gives a link without a title its address's host to click", () => {
+		const { markdown } = highlightShareText({
+			exact: "Q",
+			note: `See [](/read/${A})`,
+			article,
+			linkUrls: { [A]: "https://other.example/piece" },
+		})
+		expect(markdown).toContain("\n\nSee [other.example](https://other.example/piece)\n\n")
+	})
+
 	it("links only web addresses from a note", () => {
 		const { markdown, html } = highlightShareText({
 			exact: "Q",

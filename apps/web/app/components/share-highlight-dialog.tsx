@@ -60,7 +60,7 @@ export function ShareHighlightDialog({
 			},
 			withNote,
 		)
-		copyRich(markdown, html, t("highlights.share.copied"))
+		copyRich(markdown, html, t("highlights.share.copied"), t("highlights.share.copyFailed"))
 		dialogRef.current?.close()
 	}
 
@@ -111,7 +111,9 @@ export function ShareHighlightDialog({
 							tilt={tiltFor(h.id)}
 							className="mt-5 -mr-2 ml-auto text-base leading-snug"
 						>
-							<NoteText text={shownNote} plainLinks />
+							<span className="line-clamp-[8]">
+								<NoteText text={shownNote} plainLinks />
+							</span>
 						</PostIt>
 					) : null}
 					<figcaption className="mt-5 border-t border-border pt-3 text-sm">

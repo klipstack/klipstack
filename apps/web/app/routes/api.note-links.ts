@@ -9,8 +9,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 /**
  * GET /api/note-links?id=…&id=… — the original address of each of the reader's articles that a
- * note links to, for sharing the note: its links then lead somewhere for anyone. Another reader's
- * article, or one that is gone, is left out.
+ * note links to, for sharing the note: its links then lead somewhere for anyone. One in the trash
+ * still has its address; another reader's article, or one purged, is left out.
  */
 export async function loader({ request, context }: Route.LoaderArgs) {
 	const user = getUser(context)
