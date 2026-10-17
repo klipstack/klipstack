@@ -336,6 +336,8 @@ export default function Reader() {
 
 	// The highlight in the card, if open, is marked in the page.
 	const [editing, setEditing] = useState<string | null>(null)
+	// A highlight just made with Add Note: its card opens on the note's field.
+	const [writing, setWriting] = useState<string | null>(null)
 	const editingHighlight = article?.highlights.find((h) => h.id === editing) ?? null
 	// The link tapped in the article, while its card is open.
 	const [link, setLink] = useState<TappedLink | null>(null)
@@ -801,7 +803,7 @@ export default function Reader() {
 	 * offsets), so a passage across paragraphs needs no search. Without one (the menu came before
 	 * the page's report), by the text the menu had.
 	 */
-	async function highlight(selectedText: string) {
+	async function highlight(selectedText: string, { note = false } = {}) {
 		if (!client || !article || saving) return
 		const picked = selection.current
 		const quote = picked?.exact ?? selectedText.trim()
@@ -826,6 +828,10 @@ export default function Reader() {
 			setArticle((current) =>
 				current ? { ...current, highlights: [...current.highlights, created.highlight] } : current,
 			)
+			// Its card opens, as the web's toolbar does: a color, a note, or Ask, straight away.
+			aiCards.close()
+			setWriting(note ? created.highlight.id : null)
+			setEditing(created.highlight.id)
 			void reloadHighlights()
 			reading.current?.engage()
 		} catch (e) {
@@ -872,6 +878,25 @@ export default function Reader() {
 		setEditing(null)
 		withConsent(() => {
 			aiCards.start({ ...picked, versionId: version })
+			reading.current?.engage()
+		})
+	}
+
+	/** Asks AI about a highlight: the same card as a selection's, its thread tied to the highlight. */
+	function askAboutHighlight(target: Highlight) {
+		const version = versionId.current
+		if (!version) return
+		setEditing(null)
+		withConsent(() => {
+			aiCards.start({
+				exact: target.quote,
+				prefix: target.prefix ?? "",
+				suffix: target.suffix ?? "",
+				start: target.start,
+				end: target.end,
+				versionId: version,
+				highlightId: target.id,
+			})
 			reading.current?.engage()
 		})
 	}
@@ -1271,6 +1296,7 @@ export default function Reader() {
 							? undefined
 							: [
 									{ label: "Highlight", key: "highlight" },
+									{ label: "Add Note", key: "note" },
 									{ label: "Copy", key: "copy" },
 									...(canLookUp ? [{ label: "Look Up", key: "lookup" }] : []),
 									...(ai.asking ? [{ label: "Ask", key: "ask" }] : []),
@@ -1280,6 +1306,7 @@ export default function Reader() {
 					onCustomMenuSelection={(event) => {
 						const { key, selectedText } = event.nativeEvent
 						if (key === "highlight") void highlight(selectedText)
+						else if (key === "note") void highlight(selectedText, { note: true })
 						else if (key === "copy") void copyText(selectedText)
 						else if (key === "lookup") void lookUp(selectedText.trim())
 						else if (key === "share") void Share.share({ message: selectedText.trim() })
@@ -1575,7 +1602,14 @@ export default function Reader() {
 						})
 				}}
 				onDelete={() => editingHighlight && deleteHighlight(editingHighlight)}
-				onDismissed={openPending}
+				onAsk={
+					ai.asking ? () => editingHighlight && askAboutHighlight(editingHighlight) : undefined
+				}
+				onDismissed={() => {
+					setWriting(null)
+					openPending()
+				}}
+				writeNote={writing !== null && writing === editing}
 				linking={linking}
 				colors={colors}
 			/>

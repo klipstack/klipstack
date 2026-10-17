@@ -120,6 +120,7 @@ export function useAiCards(client: KlipstackClient | null, articleId: string, ai
 					suffix: passage.suffix || undefined,
 					start: passage.start,
 					end: passage.end,
+					highlightId: passage.highlightId,
 					question,
 				})
 			}),

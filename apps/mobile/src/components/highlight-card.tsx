@@ -26,7 +26,8 @@ import type { Colors } from "@/lib/theme"
 /**
  * One highlight's tools, as a card at the bottom that leaves the article in view: its color (marker
  * tips) and Done, its note (a post-it written on in place, saved as it's typed, like the article
- * note), Copy, Share, Link and Delete: the web reader's toolbar, and the Notebook card's menu.
+ * note), Ask (with AI answers on), and Copy, Share, Link and Delete as icons: the web reader's
+ * toolbar, and the Notebook card's menu.
  * Not a modal: the article above it still takes touches, for the highlight's handles, another
  * highlight, or a tap elsewhere that closes it (the page says so). It slides in and out.
  */
@@ -38,8 +39,10 @@ export function HighlightCard({
 	onCopy,
 	onShare,
 	onDelete,
+	onAsk,
 	onCover,
 	onDismissed,
+	writeNote = false,
 	linking,
 	colors,
 }: {
@@ -50,10 +53,14 @@ export function HighlightCard({
 	onCopy: () => void
 	onShare: () => void
 	onDelete: () => void
+	/** With AI answers on: ask AI about the highlight. */
+	onAsk?: () => void
 	/** How much of the screen's bottom the card covers, keyboard included, as it changes. */
 	onCover: (points: number) => void
 	/** After the card is gone, however it was closed. */
 	onDismissed: () => void
+	/** Opens with the note's field focused, to write it straight away. */
+	writeNote?: boolean
 	linking: NoteLinking
 	colors: Colors
 }) {
@@ -128,11 +135,24 @@ export function HighlightCard({
 						key={shown.id}
 						highlight={shown}
 						save={saveNote}
+						autoFocus={writeNote}
 						linking={linking}
 						colors={colors}
 						field={note}
 					/>
 					<View style={styles.actions}>
+						{onAsk ? (
+							<Pressable
+								accessibilityRole="button"
+								accessibilityLabel="Ask"
+								onPress={onAsk}
+								hitSlop={8}
+								style={styles.ask}
+							>
+								<SymbolView name="sparkles" tintColor={colors.accent} size={18} />
+								<Text style={[styles.askText, { color: colors.accent }]}>Ask</Text>
+							</Pressable>
+						) : null}
 						<Tool label="Copy" symbol="doc.on.doc" color={colors.accent} onPress={onCopy} />
 						<Tool
 							label="Share"
@@ -157,6 +177,7 @@ export function HighlightCard({
 function HighlightNote({
 	highlight,
 	save,
+	autoFocus,
 	linking,
 	colors,
 	field,
@@ -164,6 +185,7 @@ function HighlightNote({
 	highlight: Highlight
 	/** Called with the card's first `save`: it must not depend on render state. */
 	save: (id: string, note: string | null) => Promise<void>
+	autoFocus: boolean
 	linking: NoteLinking
 	colors: Colors
 	field: Ref<NoteFieldHandle>
@@ -201,6 +223,7 @@ function HighlightNote({
 				<NoteField
 					ref={field}
 					accessibilityLabel="Highlight note"
+					autoFocus={autoFocus}
 					value={value}
 					onChange={(text) => {
 						setValue(text)
@@ -247,8 +270,7 @@ function Tool({
 			hitSlop={8}
 			style={styles.tool}
 		>
-			<SymbolView name={symbol} tintColor={color} size={18} />
-			<Text style={[styles.toolText, { color }]}>{label}</Text>
+			<SymbolView name={symbol} tintColor={color} size={20} />
 		</Pressable>
 	)
 }
@@ -278,8 +300,9 @@ const styles = StyleSheet.create({
 	// The whole paper takes the tap; a long note scrolls.
 	note: { flexGrow: 1, maxHeight: 200, padding: 0, paddingTop: 0 },
 	status: { fontSize: 13, marginTop: 6, textAlign: "center" },
-	actions: { flexDirection: "row", alignItems: "center", gap: 24, paddingHorizontal: 4 },
-	tool: { flexDirection: "row", alignItems: "center", gap: 6 },
-	toolText: { fontSize: 16 },
+	actions: { flexDirection: "row", alignItems: "center", gap: 28, paddingHorizontal: 4 },
+	tool: { minWidth: 28, alignItems: "center" },
+	ask: { flexDirection: "row", alignItems: "center", gap: 6 },
+	askText: { fontSize: 16 },
 	done: { fontSize: 17, fontWeight: "600" },
 })

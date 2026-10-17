@@ -233,6 +233,12 @@ describe("askCard", () => {
 		expect(passageOf(refused)).toMatchObject({ prefix: passage.prefix, suffix: passage.suffix })
 	})
 
+	it("asked from a highlight, its questions are tied to the highlight", () => {
+		const draft = askCard("tmp-ai-t-1", { ...passage, highlightId: "h1" }, false)
+		expect(draft.highlightId).toBe("h1")
+		expect(passageOf(chosen(draft, "define")).highlightId).toBe("h1")
+	})
+
 	it("a thread loaded from the server has no text around it to send", () => {
 		expect(passageOf(card({}))).toMatchObject({ prefix: "", suffix: "" })
 	})

@@ -14,6 +14,8 @@ export interface AiPassage {
 	start: number
 	end: number
 	versionId: string
+	/** Asked from a highlight's card: the thread is tied to it. */
+	highlightId?: string
 }
 
 /** What a draft offers above its question field, sent with one tap. */
@@ -46,7 +48,7 @@ export function askCard(id: string, passage: AiPassage, none: boolean): AiCard {
 		end: passage.end,
 		exact: passage.exact,
 		versionId: passage.versionId,
-		highlightId: null,
+		highlightId: passage.highlightId ?? null,
 		orphaned: false,
 		createdAt: new Date().toISOString(),
 		messages: [],
@@ -69,6 +71,7 @@ export function passageOf(card: AiCard): AiPassage {
 		start: card.start,
 		end: card.end,
 		versionId: card.versionId,
+		highlightId: card.highlightId ?? undefined,
 	}
 }
 
