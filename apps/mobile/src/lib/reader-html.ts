@@ -271,6 +271,8 @@ header h1 { font-family: var(--sans); font-size: 1.875rem; line-height: 1.2; mar
 .via .via-by { font-size: 0.8125rem; color: var(--muted-fg); margin-bottom: 4px; }
 h2, h3, h4, h5, h6 { font-family: var(--sans); line-height: 1.3; margin: 1.6em 0 0.6em; }
 h2 { font-size: 1.3em; } h3 { font-size: 1.15em; } h4, h5, h6 { font-size: 1em; }
+/* A heading picked in the contents takes the focus, for VoiceOver: no ring around it. */
+:is(h2, h3, h4, h5, h6)[tabindex="-1"]:focus { outline: none; }
 p, ul, ol, blockquote, pre, figure, table { margin: 0 0 1.1em; }
 a { color: var(--link); text-decoration-thickness: 1px; text-underline-offset: 2px; }
 img { display: block; max-width: 100%; height: auto; margin: 0 auto; border-radius: 8px; }
