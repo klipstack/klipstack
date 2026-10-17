@@ -19,12 +19,13 @@ import {
 } from "react-native"
 import type { ArticleAction } from "@/components/article-actions"
 import { useListLayout } from "@/components/list-layout"
+import { Grain } from "@/components/paper"
 import { articleByline, articleMeta, shortDate, siteName } from "@/lib/article-meta"
 import { useAuth } from "@/lib/auth"
 import { copyText } from "@/lib/clipboard"
 import { inSections } from "@/lib/date-groups"
 import { leadImageSource } from "@/lib/lead-image"
-import { type Colors, useColors } from "@/lib/theme"
+import { type Colors, fonts, useColors } from "@/lib/theme"
 
 /**
  * Multi-select: while a list is selecting, a tap checks an article instead of opening it, and a
@@ -52,7 +53,8 @@ export type CardMenu = {
  * opens the article's menu.
  *
  * `framed` (a list's grid): the card has its own padding and background, so it lifts as one
- * piece under the menu, and the selection tints it.
+ * piece under the menu, and the selection tints it. `display`: the title in the logo's serif, as
+ * the web's Home sets its articles; the library keeps the reading serif.
  */
 export function ArticleCard({
 	item,
@@ -62,6 +64,7 @@ export function ArticleCard({
 	onCheck,
 	menu,
 	framed = false,
+	display = false,
 }: {
 	item: ArticleSummary
 	colors: Colors
@@ -70,6 +73,7 @@ export function ArticleCard({
 	onCheck?: () => void
 	menu?: CardMenu | null
 	framed?: boolean
+	display?: boolean
 }) {
 	return (
 		<Tappable
@@ -83,13 +87,17 @@ export function ArticleCard({
 				pressed && styles.pressed,
 			]}
 		>
+			{framed ? <Grain /> : null}
 			<View>
 				<CardPicture item={item} colors={colors} headers={headers} />
 				{onCheck ? (
 					<CheckCircle checked={checked} colors={colors} onPicture style={styles.pictureCheck} />
 				) : null}
 			</View>
-			<Text style={[styles.title, { color: colors.fg }]} numberOfLines={3}>
+			<Text
+				style={[styles.title, display && styles.displayTitle, { color: colors.fg }]}
+				numberOfLines={3}
+			>
 				{item.title ?? item.url}
 			</Text>
 			<Starred item={item} colors={colors}>
@@ -139,6 +147,7 @@ export function ArticleRow({
 				pressed && styles.pressed,
 			]}
 		>
+			<Grain />
 			{onCheck ? <CheckCircle checked={checked} colors={colors} /> : null}
 			<View style={styles.rowBody}>
 				<Starred item={item} colors={colors}>
@@ -524,13 +533,14 @@ export function CardPicture({
 	)
 }
 
+/** Progress through an article: a line of the highlighter's ink (the web's ink-line). */
 export function ProgressBar({ progress, colors }: { progress: number; colors: Colors }) {
 	return (
-		<View style={[styles.track, { backgroundColor: colors.border }]}>
+		<View style={[styles.track, { backgroundColor: `${colors.fg}1a` }]}>
 			<View
 				style={[
 					styles.progress,
-					{ backgroundColor: colors.accent, width: `${Math.round(progress * 100)}%` },
+					{ backgroundColor: colors.inkLine, width: `${Math.round(progress * 100)}%` },
 				]}
 			/>
 		</View>
@@ -621,7 +631,6 @@ export function ArticleList(
 		...rest,
 		extraData: selection,
 		contentInsetAdjustmentBehavior: "automatic" as const,
-		style: { backgroundColor: colors.bg },
 	}
 	const row = (item: ArticleSummary) => (
 		<ArticleRow item={item} colors={colors} headers={headers} {...check(item)} />
@@ -726,7 +735,7 @@ const styles = StyleSheet.create({
 	heading: { fontSize: 20, fontWeight: "700", paddingTop: 20, paddingBottom: 4 },
 	firstHeading: { paddingTop: 4 },
 	rows: { paddingHorizontal: GAP, paddingBottom: 32 },
-	framed: { padding: TINT, borderRadius: 12 + TINT },
+	framed: { padding: TINT, borderRadius: 12 + TINT, overflow: "hidden" },
 	articleRow: {
 		flexDirection: "row",
 		alignItems: "center",
@@ -734,6 +743,7 @@ const styles = StyleSheet.create({
 		marginHorizontal: -ROW_INSET,
 		paddingHorizontal: ROW_INSET,
 		borderRadius: 12,
+		overflow: "hidden",
 	},
 	rowBody: { flex: 1, gap: 6, paddingVertical: 16 },
 	rowDetails: { flexDirection: "row", gap: 14 },
@@ -750,8 +760,9 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 		justifyContent: "center",
 	},
-	title: { fontFamily: "Iowan Old Style", fontSize: 17, lineHeight: 21, fontWeight: "600" },
-	rowTitle: { fontFamily: "Iowan Old Style", fontSize: 19, lineHeight: 24, fontWeight: "600" },
+	title: { fontFamily: fonts.serif, fontSize: 17, lineHeight: 21, fontWeight: "600" },
+	displayTitle: { fontFamily: fonts.display, fontSize: 18, lineHeight: 22, fontWeight: undefined },
+	rowTitle: { fontFamily: fonts.serif, fontSize: 19, lineHeight: 24, fontWeight: "600" },
 	meta: { fontSize: 13 },
 	description: { fontSize: 14, lineHeight: 19 },
 	check: {

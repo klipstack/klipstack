@@ -63,7 +63,6 @@ export function NotebookWall({
 			automaticallyAdjustKeyboardInsets
 			keyboardShouldPersistTaps="handled"
 			keyboardDismissMode="on-drag"
-			style={{ backgroundColor: colors.bg }}
 			contentContainerStyle={styles.list}
 			renderItem={({ item: tile, index }) => {
 				switch (tile.kind) {

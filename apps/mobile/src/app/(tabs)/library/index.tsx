@@ -59,11 +59,7 @@ export default function Places() {
 	useFocusEffect(loadTopics)
 
 	return (
-		<ScrollView
-			contentInsetAdjustmentBehavior="automatic"
-			style={{ backgroundColor: colors.bg }}
-			contentContainerStyle={styles.page}
-		>
+		<ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.page}>
 			<PlaceGroup colors={colors}>
 				<PlaceRow title="Inbox" icon="tray" href="/library/inbox" colors={colors} />
 				<PlaceRow title="Starred" icon="star" href="/library/starred" colors={colors} />

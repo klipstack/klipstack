@@ -19,8 +19,12 @@ const light = {
 	danger: "#c92324",
 	// A starred article's star: the web's favorite color.
 	favorite: "#a17003",
-	// A checked article while selecting: the web's selected color, at its 60%.
-	selected: "#b8cce699",
+	// A checked article while selecting: washed in the highlighter's yellow (the web's --hl at 45%),
+	// not a blue tint.
+	selected: "#ffe65773",
+	// Progress through an article: the highlighter's yellow warmed toward orange, so a thin line
+	// still shows on the page (the web's ink-line).
+	inkLine: "#ffc337",
 	// Bars that float over the page (the player, the finish bar) stand apart from it: dark in light
 	// mode, as the web's selection bar and toasts are, with its inverse link color as the accent.
 	floating: {
@@ -60,28 +64,30 @@ const light = {
 }
 
 const dark: typeof light = {
-	bg: "#111419",
-	fg: "#e9e8e3",
-	muted: "#21252d",
-	mutedFg: "#999fa8",
-	card: "#1a1e25",
-	border: "#31363d",
-	divider: "#3d434c",
+	// The same paper under a reading lamp: warm greys rather than blue ones (the web's dark).
+	bg: "#1a1511",
+	fg: "#e9e4da",
+	muted: "#29231e",
+	mutedFg: "#aba398",
+	card: "#231e19",
+	border: "#3b342d",
+	divider: "#463e37",
 	accent: "#7faee9",
-	accentFg: "#0d141f",
+	accentFg: "#1c140c",
 	danger: "#fa695e",
 	favorite: "#e0ae57",
-	selected: "#233f6399",
+	selected: "#75620873",
+	inkLine: "#ffc744",
 	// In dark mode, a raised gray rather than an inverted, near-white bar: the player stays on screen
 	// for as long as it reads, often in the dark.
 	floating: {
-		bg: "#2b3038",
-		fg: "#e9e8e3",
-		mutedFg: "#a6acb5",
-		border: "#3a4049",
-		track: "#444a54",
+		bg: "#332c27",
+		fg: "#e9e4da",
+		mutedFg: "#aba398",
+		border: "#433c35",
+		track: "#4e463f",
 		accent: "#7faee9",
-		accentFg: "#0d141f",
+		accentFg: "#1c140c",
 	},
 	shelf: { board: "#493a2d", bookFg: "#f1eee7", recent: "#83bdf8" },
 	note: NOTE_PAPER.dark.yellow,
@@ -104,6 +110,26 @@ const dark: typeof light = {
 }
 
 export type Colors = typeof light
+
+/**
+ * The app's typefaces. Newsreader is the logo's serif (bundled: assets/fonts, by the expo-font
+ * plugin in app.json), as the web's `font-display`: page titles, Home's sections and lead story,
+ * covers. Iowan Old Style is the web's `font-serif`: articles' titles in lists, quotes, notes.
+ * Newsreader's faces are named by their PostScript names: give them no `fontWeight` or
+ * `fontStyle`, or iOS looks for a face that isn't there.
+ */
+export const fonts = {
+	display: "Newsreader-Medium",
+	displayText: "Newsreader-Regular",
+	displayItalic: "Newsreader-Italic",
+	serif: "Iowan Old Style",
+} as const
+
+/** Native headers' titles, large and small, in the logo's serif, as the web's page titles. */
+export const headerType = {
+	headerTitleStyle: { fontFamily: fonts.display },
+	headerLargeTitleStyle: { fontFamily: fonts.display },
+} as const
 
 /** Light or dark, as the screens draw it now. */
 export function useScheme(): "light" | "dark" {

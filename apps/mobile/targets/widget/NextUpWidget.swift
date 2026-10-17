@@ -272,7 +272,7 @@ struct ProgressBar: View {
     GeometryReader { geometry in
       ZStack(alignment: .leading) {
         Capsule().fill(Palette.track)
-        Capsule().fill(Palette.accent)
+        Capsule().fill(Palette.inkLine)
           .frame(width: max(4, geometry.size.width * min(max(value, 0), 1)))
           .widgetAccentable()
       }
@@ -319,11 +319,13 @@ extension Image {
 
 /// The app's colors (src/lib/theme.ts), light and dark.
 enum Palette {
-  static let background = dynamic(light: 0xfbfaf7, dark: 0x111419)
-  static let foreground = dynamic(light: 0x1a1d23, dark: 0xe9e8e3)
-  static let muted = dynamic(light: 0x5f646b, dark: 0x999fa8)
+  static let background = dynamic(light: 0xfbfaf7, dark: 0x1a1511)
+  static let foreground = dynamic(light: 0x1a1d23, dark: 0xe9e4da)
+  static let muted = dynamic(light: 0x5f646b, dark: 0xaba398)
   static let accent = dynamic(light: 0x243f6c, dark: 0x7faee9)
-  static let track = dynamic(light: 0xe0ded8, dark: 0x31363d)
+  static let track = dynamic(light: 0xe0ded8, dark: 0x3b342d)
+  /// Reading progress: the highlighter's ink, as the app's bars.
+  static let inkLine = dynamic(light: 0xffc337, dark: 0xffc744)
 
   private static func dynamic(light: UInt32, dark: UInt32) -> Color {
     Color(

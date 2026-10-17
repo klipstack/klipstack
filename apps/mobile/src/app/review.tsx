@@ -5,6 +5,7 @@ import { useCallback, useRef, useState } from "react"
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { useImageHeaders } from "@/components/article-card"
+import { Grain } from "@/components/paper"
 import { ReviewDeck, type ReviewDeckHandle } from "@/components/review-deck"
 import { settled, showToast, track } from "@/lib/article-changes"
 import { useAuth } from "@/lib/auth"
@@ -159,6 +160,7 @@ export default function Review() {
 	const all = left.length
 	return (
 		<View style={[styles.page, { backgroundColor: colors.bg }]}>
+			<Grain />
 			<Stack.Screen options={{ title: "Old Saves" }} />
 			{all > 1 ? (
 				<Stack.Toolbar placement="right">

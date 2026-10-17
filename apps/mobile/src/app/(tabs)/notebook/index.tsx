@@ -434,7 +434,6 @@ export default function Notebook() {
 					automaticallyAdjustKeyboardInsets
 					keyboardShouldPersistTaps="handled"
 					keyboardDismissMode="on-drag"
-					style={{ backgroundColor: colors.bg }}
 					contentContainerStyle={styles.list}
 					renderItem={({ item: row, index }) =>
 						!ctx ? null : row.kind === "article" ? (

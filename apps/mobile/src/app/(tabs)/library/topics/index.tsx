@@ -79,7 +79,6 @@ export default function Topics() {
 			keyboardDismissMode="interactive"
 			keyboardShouldPersistTaps="handled"
 			automaticallyAdjustKeyboardInsets
-			style={{ backgroundColor: colors.bg }}
 			contentContainerStyle={styles.page}
 			refreshControl={
 				<RefreshControl

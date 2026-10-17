@@ -29,11 +29,7 @@ export default function Tags() {
 	useFocusEffect(load)
 
 	return (
-		<ScrollView
-			contentInsetAdjustmentBehavior="automatic"
-			style={{ backgroundColor: colors.bg }}
-			contentContainerStyle={styles.page}
-		>
+		<ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.page}>
 			{error && !tags ? (
 				<Text style={[styles.message, { color: colors.mutedFg }]}>{error}</Text>
 			) : !tags ? (

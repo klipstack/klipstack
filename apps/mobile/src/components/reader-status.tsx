@@ -42,7 +42,10 @@ export function ReaderStatus({
 			>
 				<View style={[styles.track, { backgroundColor: colors.border }]}>
 					<Animated.View
-						style={[styles.fill, { backgroundColor: colors.accent, transform: [{ scaleX: line }] }]}
+						style={[
+							styles.fill,
+							{ backgroundColor: colors.inkLine, transform: [{ scaleX: line }] },
+						]}
 					/>
 				</View>
 				<View style={styles.row}>
