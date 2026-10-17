@@ -316,6 +316,17 @@ body {
 	padding-bottom: calc(max(env(safe-area-inset-bottom), 1rem) + 4.25rem);
 }
 
+/* SuppyHQ's support button (components/support-widget.tsx) stays on <body> once loaded: it shows
+   only on pages that ask for it, and from tablet width, clear of the phone's bottom sheets. */
+[data-suppyhq-host] {
+	display: none !important;
+}
+@media (min-width: 48rem) {
+	:root[data-support-widget] [data-suppyhq-host] {
+		display: block !important;
+	}
+}
+
 /* ---------- Highlights: marker ink ---------- */
 /* One ink and one solid line per stored color (HIGHLIGHT_COLORS). The ink is a highlighter's: in
    light mode a bright color under dark text; in dark mode a deep one under light text. The lines

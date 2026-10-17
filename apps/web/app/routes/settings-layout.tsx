@@ -1,7 +1,10 @@
 import { Outlet } from "react-router"
 import { ErrorContent } from "~/components/error-content"
 import { SettingsShell } from "~/components/settings-shell"
+import type { SupportWidgetHandle } from "~/lib/support-widget"
 import type { Route } from "./+types/settings-layout"
+
+export const handle: SupportWidgetHandle = { supportWidget: true }
 
 /** Settings in a frame of their own, instead of the app's. Each section signs in for itself. */
 export default function SettingsLayout() {
