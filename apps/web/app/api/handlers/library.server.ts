@@ -13,6 +13,7 @@ import type {
 } from "@klipstack/api-contract"
 import { and, assets, db, eq } from "@klipstack/db"
 import { getStorage } from "@klipstack/storage"
+import { mayUseFeeds } from "~/commands/feeds.server"
 import { downloadResponse } from "~/lib/download-response.server"
 import { articleSummary } from "~/services/article-summary.server"
 import { getDocument } from "~/services/documents.server"
@@ -89,6 +90,7 @@ export const highlights: Handler<typeof listHighlights> = async ({ userId, query
 }
 
 export const feed: Handler<typeof getFeed> = async ({ userId, query }) => {
+	await mayUseFeeds(userId)
 	const listedAt = new Date().toISOString()
 	// A cursor names its feed; `feed` may repeat it, not contradict it.
 	const after = feedCursor(query.cursor)
@@ -131,6 +133,7 @@ export const feed: Handler<typeof getFeed> = async ({ userId, query }) => {
 }
 
 export const feeds: Handler<typeof listFeeds> = async ({ userId }) => {
+	await mayUseFeeds(userId)
 	const items = await listFollowedFeeds(userId)
 	return {
 		items: items.map((f) => ({

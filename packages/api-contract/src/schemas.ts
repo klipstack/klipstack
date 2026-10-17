@@ -67,6 +67,11 @@ export const Me = z
 		 * and GET /editions/next has nothing.
 		 */
 		editions: z.boolean(),
+		/**
+		 * Feeds are turned on for the account, in Settings → Features on the web. Off (the default),
+		 * every feed endpoint is refused (`forbidden`); the feeds followed before stay.
+		 */
+		feeds: z.boolean(),
 	})
 	.meta({ id: "Me" })
 export type Me = z.infer<typeof Me>

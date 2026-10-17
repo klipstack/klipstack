@@ -18,7 +18,7 @@ import { signupUser, waitForHydration } from "./helpers"
 const urlHash = (url: string) => createHash("sha256").update(url).digest("hex")
 
 async function signup(page: Page): Promise<string> {
-	const email = await signupUser(page, "Reader", { verified: false })
+	const email = await signupUser(page, "Reader", { verified: false, feeds: true })
 	const row = await db.query.user.findFirst({ where: eq(user.email, email) })
 	if (!row) throw new Error("no user")
 	return row.id
@@ -151,6 +151,28 @@ test("feed page: overview, grouped posts, save, dismiss, rename, unsubscribe", a
 			.filter({ hasText: "Busy post 6" })
 			.getByTestId("feed-new-dot")
 	}
+})
+
+test("feeds are off for a new account until turned on in Settings → Features", async ({ page }) => {
+	await signupUser(page, "New Reader")
+	await page.goto("/home")
+	await waitForHydration(page)
+	const nav = page.getByRole("navigation").first()
+	await expect(nav.getByRole("link", { name: "Home" })).toBeVisible()
+	await expect(nav.getByRole("link", { name: "Feed", exact: true })).toHaveCount(0)
+	expect((await page.goto("/feed"))?.status()).toBe(404)
+	expect((await page.request.get("/feed/opml")).status()).toBe(404)
+
+	await page.goto("/settings/features")
+	await waitForHydration(page)
+	const done = page.waitForResponse((r) => r.url().includes("/prefs") && r.ok())
+	await page.getByTestId("feature-feeds").check()
+	await done
+	await page.goto("/home")
+	await waitForHydration(page)
+	await nav.getByRole("link", { name: "Feed", exact: true }).click()
+	await expect(page).toHaveURL(/\/feed$/)
+	await expect(page.getByRole("heading", { name: "No feeds yet" })).toBeVisible()
 })
 
 test("feed page: empty state offers to add a feed", async ({ page }) => {

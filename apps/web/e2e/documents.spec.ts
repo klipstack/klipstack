@@ -760,7 +760,7 @@ test("starring in the reader reloads the article once", async ({ page }) => {
 })
 
 test("a malformed id or cursor is not found, not a server error", async ({ page }) => {
-	await signupUser(page, "Bad ids")
+	await signupUser(page, "Bad ids", { feeds: true })
 	expect((await page.goto("/read/not-an-id"))?.status()).toBe(404)
 	expect(
 		(

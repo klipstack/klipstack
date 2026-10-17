@@ -20,8 +20,9 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 	const user = requireUser(context, request)
 	const prefs = resolvePrefs(user.prefs)
 	const editions = prefs.editions === "on"
+	const feeds = prefs.feeds === "on"
 	const [feedNew, nudge, savedSearches, features] = await Promise.all([
-		countNewFeedItems(user.id),
+		feeds ? countNewFeedItems(user.id) : 0,
 		editions ? editionNudge(user.id) : null,
 		listSavedSearches(user.id).then(async (searches) => {
 			// A saved search that names a topic the reader no longer has finds nothing in it.
@@ -52,6 +53,8 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 		emailEnabled,
 		// Shows the Admin menu link. No admin data belongs in this loader.
 		isAdmin: looksLikeAdmin(user),
+		// Feeds turned on in Settings → Features: their link, and the dot for new posts.
+		feeds,
 		feedNew,
 		// Editions turned on in Settings → Features: their link, and the reader's ways to them.
 		editions,
@@ -87,6 +90,7 @@ export default function AppLayout({ loaderData }: Route.ComponentProps) {
 	return (
 		<AppShell
 			user={loaderData.user}
+			feeds={loaderData.feeds}
 			feedNew={loaderData.feedNew}
 			editions={loaderData.editions}
 			editionDue={loaderData.editionDue}
@@ -115,6 +119,7 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
 	return (
 		<AppShell
 			user={data?.user ?? { name: "", email: "" }}
+			feeds={data?.feeds ?? false}
 			feedNew={data?.feedNew ?? 0}
 			editions={data?.editions ?? false}
 			editionDue={data?.editionDue ?? false}

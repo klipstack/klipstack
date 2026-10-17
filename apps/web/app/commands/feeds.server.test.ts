@@ -19,9 +19,12 @@ const feedUrl = `https://example.com/feed-commands-${Date.now()}/feed.xml`
 let feedId: string
 
 beforeAll(async () => {
-	await db
-		.insert(userTable)
-		.values({ id: userId, name: "Follower", email: `${userId}@example.com` })
+	await db.insert(userTable).values({
+		id: userId,
+		name: "Follower",
+		email: `${userId}@example.com`,
+		prefs: { feeds: "on" },
+	})
 	// A feed someone follows already: following it again needs no fetch.
 	const [feed] = await db
 		.insert(feeds)
@@ -61,9 +64,12 @@ describe("following", () => {
 describe("the feed cap", () => {
 	it("refuses a new follow at the cap, never one the user has already", async () => {
 		const cappedId = `${userId}-capped`
-		await db
-			.insert(userTable)
-			.values({ id: cappedId, name: "Capped", email: `${cappedId}@example.com` })
+		await db.insert(userTable).values({
+			id: cappedId,
+			name: "Capped",
+			email: `${cappedId}@example.com`,
+			prefs: { feeds: "on" },
+		})
 		const otherUrl = `${feedUrl}.other`
 		const [other] = await db
 			.insert(feeds)

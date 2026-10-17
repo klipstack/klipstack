@@ -18,6 +18,7 @@ import { errorDetails, type KlipstackApiError, KlipstackInputError } from "@klip
 import { strFromU8, unzipSync } from "fflate"
 import { JSDOM } from "jsdom"
 import { afterAll, describe, expect, it } from "vitest"
+import { setPrefs } from "~/commands/account.server"
 import { env } from "~/lib/env.server"
 import { rateLimit, SAVE_LIMIT } from "~/lib/rate-limit.server"
 import { getDocument, setNote } from "~/services/documents.server"
@@ -82,6 +83,7 @@ describe("the API's door", () => {
 			via: "api_key",
 			client: null,
 			editions: true,
+			feeds: true,
 		})
 
 		// The document is public, and describes what the client just called.
@@ -1409,5 +1411,33 @@ describe("writes", () => {
 		expect(await client.feeds.unfollow(body.feed.id)).toBeUndefined()
 		expect(await errorOf(client.feeds.unfollow(body.feed.id))).toMatchObject({ status: 404 })
 		expect((await client.feeds.list()).items).toHaveLength(2)
+	})
+
+	it("feeds turned off: every feed endpoint refuses; turned on, the subscriptions are all there", async () => {
+		const me = await users.create("API Feeds Off", {})
+		const { otherUrl } = await seedFeeds(me.email)
+		expect((await me.client.me()).feeds).toBe(false)
+		const refusals = [
+			() => me.client.feed.get(),
+			() => me.client.feeds.list(),
+			() => me.client.feed.saveItems([MISSING]),
+			() => me.client.feed.dismissItems([MISSING]),
+			() => me.client.feed.markViewed(new Date().toISOString()),
+			() => me.client.feeds.follow(otherUrl),
+			() => me.client.feeds.unfollow(MISSING),
+		]
+		for (const refused of refusals)
+			expect(await errorOf(refused())).toMatchObject({
+				status: 403,
+				code: "forbidden",
+				message: "Feeds are turned off for this account.",
+			})
+		// Nothing was deleted: turned on, the feeds followed before are there.
+		await setPrefs(me.id, { feeds: "on" })
+		expect((await me.client.me()).feeds).toBe(true)
+		expect((await me.client.feeds.list()).items.map((f) => f.title)).toEqual([
+			"Busy blog",
+			"Quiet blog",
+		])
 	})
 })

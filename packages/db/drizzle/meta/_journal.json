@@ -344,6 +344,13 @@
 			"when": 1792261627233,
 			"tag": "0048_editions_switch",
 			"breakpoints": true
+		},
+		{
+			"idx": 49,
+			"version": "7",
+			"when": 1792274552953,
+			"tag": "0049_feeds_switch",
+			"breakpoints": true
 		}
 	]
 }

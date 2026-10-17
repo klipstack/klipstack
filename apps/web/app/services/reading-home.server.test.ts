@@ -230,7 +230,12 @@ describe("Home feed discovery", () => {
 	const feedIds: string[] = []
 	const viewedIds: string[] = []
 	beforeAll(async () => {
-		await db.insert(user).values({ id: ownerId, name: "Reader", email: `${ownerId}@example.com` })
+		await db.insert(user).values({
+			id: ownerId,
+			name: "Reader",
+			email: `${ownerId}@example.com`,
+			prefs: { feeds: "on" },
+		})
 		const now = Date.now()
 		const hour = 3_600_000
 		for (const [source, posts] of [
@@ -304,7 +309,7 @@ describe("Home feed discovery", () => {
 		for (const id of feedIds) await db.delete(feeds).where(eq(feeds.id, id))
 	})
 	it("features new posts from different sources and hides the library empty state", async () => {
-		const home = await readingHome(ownerId)
+		const home = await readingHome(ownerId, { feeds: true })
 		expect(home.feed.map(({ item }) => item.title)).toEqual([
 			"Newest",
 			"Different",
@@ -314,7 +319,11 @@ describe("Home feed discovery", () => {
 		expect(new Set(home.feed.map(({ item }) => item.url)).size).toBe(3)
 		expect(home.emptyState).toBeNull()
 		expect(home.candidates.recent).toEqual([])
-		expect((await readingHome(emptyId)).feed).toEqual([])
+		expect((await readingHome(emptyId, { feeds: true })).feed).toEqual([])
+		// Feeds turned off: none of their posts, and the library is as empty as it is.
+		const off = await readingHome(ownerId)
+		expect(off.feed).toEqual([])
+		expect(off.emptyState).not.toBeNull()
 	})
 	it("leaves feed posts out of a topic, which they are never in, and an empty topic is not an empty library", async () => {
 		const home = await readingHome(ownerId, { topicId: crypto.randomUUID() })
@@ -323,10 +332,13 @@ describe("Home feed discovery", () => {
 	})
 	it("can use one active source without showing saved, opened, dismissed, or expired posts", async () => {
 		for (const id of viewedIds) await markFeedItemViewed(ownerId, id)
-		const home = await readingHome(ownerId)
+		const home = await readingHome(ownerId, { feeds: true })
 		expect(home.feed.map(({ item }) => item.title)).toEqual(["Newest", "Second", "Third"])
 		await markFeedViewed(ownerId, new Date())
-		expect((await readingHome(ownerId)).feed).toEqual([])
-		expect((await readingHome(ownerId)).emptyState).toEqual({ kind: "caughtUp", to: "/archive" })
+		expect((await readingHome(ownerId, { feeds: true })).feed).toEqual([])
+		expect((await readingHome(ownerId, { feeds: true })).emptyState).toEqual({
+			kind: "caughtUp",
+			to: "/archive",
+		})
 	})
 })

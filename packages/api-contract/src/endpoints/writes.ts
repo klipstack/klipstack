@@ -525,7 +525,8 @@ export const saveFeedItems = defineEndpoint({
 			notSaved: z.array(z.object({ itemId: Id, code: z.string(), message: z.string() })),
 		}),
 	),
-	errors: [],
+	/** `forbidden`: feeds are turned off for the account (`GET /me`). */
+	errors: ["forbidden"],
 })
 
 export const dismissFeedItems = defineEndpoint({
@@ -536,7 +537,8 @@ export const dismissFeedItems = defineEndpoint({
 	summary: `Hides up to ${BATCH_MAX} feed posts.`,
 	body: z.object({ ids: Ids }),
 	response: json(z.object({ dismissed: z.array(Id), notFound: z.array(Id) })),
-	errors: [],
+	/** `forbidden`: feeds are turned off for the account (`GET /me`). */
+	errors: ["forbidden"],
 })
 
 export const markFeedViewed = defineEndpoint({
@@ -548,7 +550,8 @@ export const markFeedViewed = defineEndpoint({
 		"Explicitly acknowledges new posts available up to `asOf`. A future time counts as now. Do not call merely to list or visit Feed.",
 	body: z.object({ asOf: Time }),
 	response: json(z.object({ viewedAt: Time })),
-	errors: [],
+	/** `forbidden`: feeds are turned off for the account (`GET /me`). */
+	errors: ["forbidden"],
 })
 
 export const followFeed = defineEndpoint({
@@ -560,7 +563,8 @@ export const followFeed = defineEndpoint({
 		"Follows a feed, or the feed a site links: 201 when new, 200 when already followed. A site with several feeds gets 409 choose_feed.",
 	body: z.object({ url: Url }),
 	response: json(z.object({ feed: FollowedFeed, alreadyFollowing: z.boolean() }), [201, 200]),
-	errors: ["choose_feed", "invalid_url", "not_feed", "fetch_failed", "limit_reached"],
+	/** `forbidden`: feeds are turned off for the account (`GET /me`). */
+	errors: ["choose_feed", "invalid_url", "not_feed", "fetch_failed", "limit_reached", "forbidden"],
 })
 
 export const unfollowFeed = defineEndpoint({
@@ -571,5 +575,6 @@ export const unfollowFeed = defineEndpoint({
 	summary: "Stops following a feed. Articles saved from it stay.",
 	params,
 	response: empty(),
-	errors: ["not_found"],
+	/** `forbidden`: feeds are turned off for the account (`GET /me`). */
+	errors: ["not_found", "forbidden"],
 })

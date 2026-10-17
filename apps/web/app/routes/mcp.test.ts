@@ -634,6 +634,15 @@ describe("MCP with an API key", () => {
 		}
 	})
 
+	it("refuses the feed tools while feeds are turned off", async () => {
+		const me = await users.create("MCP Feeds Off", {})
+		const mcp = await connect(me.key)
+		for (const name of ["list_feed", "mark_feed_viewed"])
+			expect(
+				await callError(mcp, name, name === "list_feed" ? {} : { as_of: new Date().toISOString() }),
+			).toContain("Feeds are turned off for this account.")
+	})
+
 	it("goes through the feed: list, save, dismiss, mark viewed, follow, unfollow", async () => {
 		const me = await users.create("MCP Feeds")
 		const { otherUrl } = await seedFeeds(me.email)

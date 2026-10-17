@@ -48,8 +48,8 @@ const entry = (n: number) => {
 
 beforeAll(async () => {
 	await db.insert(userTable).values([
-		{ id: userId, name: "Feeds", email: `${userId}@example.com` },
-		{ id: otherId, name: "Other", email: `${otherId}@example.com` },
+		{ id: userId, name: "Feeds", email: `${userId}@example.com`, prefs: { feeds: "on" } },
+		{ id: otherId, name: "Other", email: `${otherId}@example.com`, prefs: { feeds: "on" } },
 	])
 	const [feed] = await db
 		.insert(feeds)
@@ -279,9 +279,12 @@ describe("a long feed", () => {
 	const numbers = Array.from({ length: 60 }, (_, i) => i + 1)
 
 	beforeAll(async () => {
-		await db
-			.insert(userTable)
-			.values({ id: longUser, name: "Long", email: `${longUser}@example.com` })
+		await db.insert(userTable).values({
+			id: longUser,
+			name: "Long",
+			email: `${longUser}@example.com`,
+			prefs: { feeds: "on" },
+		})
 		const [row] = await db
 			.insert(feeds)
 			.values({ url: longUrl, urlHash: urlHash(longUrl), title: "Long blog" })

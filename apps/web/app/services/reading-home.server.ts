@@ -8,16 +8,20 @@ import { reviewSuggested } from "./review.server"
  * Home: candidates for its sections (`homeShelves` picks from them, for any time choice), whether
  * to offer the time choice, new feed posts, and whether to suggest reviewing old saves. In a topic
  * (`topicId`, one of the reader's), only its articles: feed posts have no topics, and an empty
- * topic is not an empty library.
+ * topic is not an empty library. Feed posts only with `feeds` (turned on in Settings → Features).
  */
 export async function readingHome(
 	userId: string,
-	{ now = new Date(), topicId }: { now?: Date; topicId?: string } = {},
+	{
+		now = new Date(),
+		topicId,
+		feeds = false,
+	}: { now?: Date; topicId?: string; feeds?: boolean } = {},
 ) {
 	const [candidates, unfinished, feed, review] = await Promise.all([
 		homeCandidates(userId, { now, topicId }),
 		countUnfinished(userId),
-		topicId ? [] : homeFeedItems(userId),
+		topicId || !feeds ? [] : homeFeedItems(userId),
 		reviewSuggested(userId, now),
 	])
 	const shelves = homeShelves(candidates, null)

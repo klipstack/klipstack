@@ -34,6 +34,7 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 	const topicsUsable = topicsFlag && topicModels.available
 	return {
 		editions: prefs.editions === "on",
+		feeds: prefs.feeds === "on",
 		ai: aiFlag && aiModule.available ? prefs.ai !== "off" : null,
 		topics: topicsUsable || topicsOn ? { on: topicsOn, usable: topicsUsable } : null,
 	}
@@ -59,6 +60,13 @@ export default function FeaturesSettings({ loaderData }: Route.ComponentProps) {
 				label={t("features.editions.label")}
 				description={t("features.editions.description")}
 			/>
+			<PrefSwitch
+				name="feeds"
+				on={loaderData.feeds}
+				title={t("features.feeds.title")}
+				label={t("features.feeds.label")}
+				description={t("features.feeds.description")}
+			/>
 			{loaderData.topics ? <TopicsSwitch {...loaderData.topics} /> : null}
 		</SettingsPage>
 	)
@@ -72,7 +80,7 @@ function PrefSwitch({
 	label,
 	description,
 }: {
-	name: "ai" | "editions"
+	name: "ai" | "editions" | "feeds"
 	on: boolean
 	title: string
 	label: string

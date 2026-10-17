@@ -61,6 +61,8 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 	const params = new URL(request.url).searchParams
 	const topicId = params.get("topic")
 	const choosing = topicChoice(user.id, topicId, params.has("different"))
+	const prefs = resolvePrefs(user.prefs)
+	const feeds = prefs.feeds === "on"
 	// Without a topic asked for, Home loads alongside the topics; with one, after them, for its id.
 	const [topics, finished, topicsReady, invitation, home, highlights, notes, nudge] =
 		await Promise.all([
@@ -69,13 +71,13 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 			firstTopicsReady(user.id),
 			topicsInvitation(user.id),
 			topicId
-				? choosing.then((choice) => readingHome(user.id, { topicId: choice?.chosen?.id }))
-				: readingHome(user.id),
+				? choosing.then((choice) => readingHome(user.id, { topicId: choice?.chosen?.id, feeds }))
+				: readingHome(user.id, { feeds }),
 			// In a topic, Home is about its articles: no day's highlights picked for it.
 			topicId ? null : homeHighlights(user.id, timeZone),
 			// In a topic, Home is about reading what's next.
 			topicId ? null : listNoteReminders(user.id),
-			resolvePrefs(user.prefs).editions === "on" ? editionNudge(user.id) : null,
+			prefs.editions === "on" ? editionNudge(user.id) : null,
 		])
 	const now = new Date()
 	const locale = isLocale(user.locale) ? user.locale : fallbackLanguage

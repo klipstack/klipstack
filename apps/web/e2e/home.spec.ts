@@ -19,6 +19,7 @@ import {
 	createInviteCode,
 	signupUser,
 	turnOnEditions,
+	turnOnFeeds,
 	uniqueEmail,
 	waitForHydration,
 } from "./helpers"
@@ -165,6 +166,7 @@ test("Home discovers new feed posts and returns here after save and read", async
 	await page.getByLabel("Password").fill("password123")
 	await page.getByRole("button", { name: "Create account" }).click()
 	await expect(page).toHaveURL(/\/home$/)
+	await turnOnFeeds(email)
 	const owner = (await db.query.user.findFirst({ where: eq(user.email, email) }))!
 	const url = `https://home-${Date.now()}.example.com/feed`
 	const hash = (input: string) => createHash("sha256").update(input).digest("hex")

@@ -13,6 +13,7 @@ import {
 	sql,
 	storeFeedEntries,
 	subscriptions,
+	user,
 } from "@klipstack/db"
 import { ExtractError, fetchFeed, parseFeedDocument, urlHash } from "@klipstack/extract"
 import { enqueue, type JobPayloads, QUEUES } from "@klipstack/queue"
@@ -45,7 +46,10 @@ export function nextFetchDelay(
 	return Math.max(jittered, asked)
 }
 
-/** Queues a fetch for every followed feed that is due, claiming each so the next tick skips it. */
+/**
+ * Queues a fetch for every due feed followed by an account with feeds turned on (Settings →
+ * Features), claiming each so the next tick skips it.
+ */
 export async function handleFeedsTick() {
 	const due = await db
 		.update(feeds)
@@ -57,7 +61,8 @@ export async function handleFeedsTick() {
 					db
 						.select({ one: sql`1` })
 						.from(subscriptions)
-						.where(eq(subscriptions.feedId, feeds.id)),
+						.innerJoin(user, eq(user.id, subscriptions.userId))
+						.where(and(eq(subscriptions.feedId, feeds.id), sql`${user.prefs}->>'feeds' = 'on'`)),
 				),
 			),
 		)

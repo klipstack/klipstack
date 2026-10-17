@@ -43,8 +43,8 @@ const row = async <T>(query: Promise<T[]>) => (await query)[0]
 
 beforeAll(async () => {
 	await db.insert(userTable).values([
-		{ id: owner, name: "Owner", email: `${owner}@example.com` },
-		{ id: other, name: "Other", email: `${other}@example.com` },
+		{ id: owner, name: "Owner", email: `${owner}@example.com`, prefs: { feeds: "on" } },
+		{ id: other, name: "Other", email: `${other}@example.com`, prefs: { feeds: "on" } },
 	])
 	const text = "Alpha bravo charlie delta."
 	const doc = await row(

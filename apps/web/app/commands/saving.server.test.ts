@@ -29,7 +29,9 @@ let feedId: string
 /** A user of their own: the save limit is per user and lives in memory. */
 async function newUser() {
 	const id = `test-saving-${stamp}-${users.length}`
-	await db.insert(userTable).values({ id, name: "Saver", email: `${id}@example.com` })
+	await db
+		.insert(userTable)
+		.values({ id, name: "Saver", email: `${id}@example.com`, prefs: { feeds: "on" } })
 	users.push(id)
 	return id
 }

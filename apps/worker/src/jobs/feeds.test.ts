@@ -68,7 +68,9 @@ const hoursToNext = async (id: string) =>
 	((await stored(id)).nextFetchAt.getTime() - Date.now()) / HOUR
 
 beforeAll(async () => {
-	await db.insert(user).values({ id: userId, name: "Feeds", email: `${userId}@example.com` })
+	await db
+		.insert(user)
+		.values({ id: userId, name: "Feeds", email: `${userId}@example.com`, prefs: { feeds: "on" } })
 })
 beforeEach(() => {
 	fetchFeed.mockReset()
@@ -171,9 +173,19 @@ describe("handleFeedsTick", () => {
 	it("queues and claims the due feeds someone follows, and only those", async () => {
 		const followed = await feed()
 		const orphan = await feed(false)
-		await handleFeedsTick()
+		// Followed only by an account with feeds turned off: not fetched for it.
+		const off = `${userId}-off`
+		await db.insert(user).values({ id: off, name: "Off", email: `${off}@example.com` })
+		const idle = await feed(false)
+		await db.insert(subscriptions).values({ userId: off, feedId: idle.id })
+		try {
+			await handleFeedsTick()
+		} finally {
+			await db.delete(user).where(eq(user.id, off))
+		}
 		expect(enqueue).toHaveBeenCalledWith(expect.any(String), { feedId: followed.id })
 		expect(enqueue).not.toHaveBeenCalledWith(expect.any(String), { feedId: orphan.id })
+		expect(enqueue).not.toHaveBeenCalledWith(expect.any(String), { feedId: idle.id })
 		expect(await hoursToNext(followed.id)).toBeGreaterThan(0.2)
 		expect(await hoursToNext(orphan.id)).toBeLessThan(0)
 

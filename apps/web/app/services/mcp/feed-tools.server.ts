@@ -1,7 +1,13 @@
 import { BATCH_MAX, Ids, Time, URL_MAX } from "@klipstack/api-contract"
 import type { McpServer } from "@modelcontextprotocol/server"
 import { z } from "zod"
-import { dismissFeedItems, followFeed, markFeedViewed, unfollowFeed } from "~/commands/feeds.server"
+import {
+	dismissFeedItems,
+	followFeed,
+	markFeedViewed,
+	mayUseFeeds,
+	unfollowFeed,
+} from "~/commands/feeds.server"
 import { saveFeedItems } from "~/commands/saving.server"
 import { AppError } from "~/lib/app-error"
 import { type FeedSubscription, listFeedPage } from "../feeds.server"
@@ -62,6 +68,7 @@ export function registerFeedTools(server: McpServer, userId: string, canWrite: b
 			annotations: READ_ONLY,
 		},
 		async ({ new_only, feed_id, items_per_feed }) => {
+			await mayUseFeeds(userId)
 			const listedAt = new Date().toISOString()
 			const { sections, quiet } = await listFeedPage(userId, {
 				subscriptionId: feed_id,

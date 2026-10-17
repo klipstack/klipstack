@@ -30,6 +30,7 @@ export const me: Handler<typeof getMe> = async ({ principal }) => {
 	return {
 		...account,
 		editions: resolvePrefs(prefs).editions === "on",
+		feeds: resolvePrefs(prefs).feeds === "on",
 		access: principal.access,
 		via: principal.via,
 		client: principal.clientId

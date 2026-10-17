@@ -21,6 +21,7 @@ import { tooltip } from "~/components/tooltip-host"
 import { Button } from "~/components/ui/button"
 import { useFeedReader } from "~/hooks/use-feed-reader"
 import { AppError } from "~/lib/app-error"
+import { requireFeeds } from "~/lib/features.server"
 import { latestFeedItems } from "~/lib/feed-layout"
 import type { PageBarHandle } from "~/lib/page-bar"
 import { pageTitle } from "~/lib/page-title"
@@ -44,6 +45,7 @@ export const handle: PageBarHandle = { pageBar: { titleKey: "common:nav.feed" } 
 
 export async function loader({ context, request }: Route.LoaderArgs) {
 	const user = requireUser(context, request)
+	await requireFeeds(user.id)
 	const { sections, quiet } = await listFeedPage(user.id)
 	return { sections, quiet }
 }

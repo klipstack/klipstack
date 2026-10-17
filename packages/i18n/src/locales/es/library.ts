@@ -281,6 +281,7 @@ export default {
 				"Conéctate a Klipstack, mi app para leer más tarde. Es un servidor MCP remoto en {{url}} (HTTP en streaming) que inicia sesión con OAuth. Si puedes añadir servidores MCP tú mismo, añádelo y dame el enlace de inicio de sesión para que lo apruebe. Si no puedes, explícame paso a paso cómo añadirlo como conector personalizado en los ajustes de esta app. Después lista algunos artículos de mi biblioteca para comprobar que funciona.",
 		},
 		feed: "¿Sigues un blog? Añádelo en <feed>Feeds</feed>.",
+		feedOff: "¿Sigues un blog? Activa los <feed>Feeds</feed> en Ajustes para seguirlo aquí.",
 		errors: {
 			too_many: "Guarda hasta {{max}} enlaces de una vez.",
 			invalid_url: "Eso no parece un enlace válido.",

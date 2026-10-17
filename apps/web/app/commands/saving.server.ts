@@ -13,6 +13,7 @@ import { findStarterText } from "~/lib/starter-texts.server"
 import { getDocument, saveDocument } from "~/services/documents.server"
 import { feedItemUrl, markFeedItemViewed } from "~/services/feeds.server"
 import { savedStarterTexts } from "~/services/starter-texts.server"
+import { mayUseFeeds } from "./feeds.server"
 
 /**
  * Saving pages to the library, wherever the save comes from: the web (a link, the Add page, the
@@ -99,6 +100,11 @@ const NO_POST = "No post with that id in the feed."
 
 /** Saves a feed post's link, and marks the post read. The article's id. */
 export async function saveFeedItem(userId: string, itemId: string) {
+	await mayUseFeeds(userId)
+	return savePost(userId, itemId)
+}
+
+async function savePost(userId: string, itemId: string) {
 	const url = await feedItemUrl(userId, parseInput(Id, itemId))
 	if (!url) throw notFound(NO_POST)
 	const { article } = await saveArticle(userId, { url, source: "feed" })
@@ -111,6 +117,7 @@ export async function saveFeedItem(userId: string, itemId: string) {
  * with the refusal's code and message; past the save limit or at a cap, the rest are not saved.
  */
 export async function saveFeedItems(userId: string, ids: string[]) {
+	await mayUseFeeds(userId)
 	const list = parseInput(
 		Ids.transform((all) => [...new Set(all)]),
 		ids,
@@ -120,7 +127,7 @@ export async function saveFeedItems(userId: string, ids: string[]) {
 	const notSaved: Array<{ itemId: string; code: string; message: string }> = []
 	for (const [index, itemId] of list.entries()) {
 		try {
-			saved.push({ itemId, ...(await saveFeedItem(userId, itemId)) })
+			saved.push({ itemId, ...(await savePost(userId, itemId)) })
 		} catch (error) {
 			if (!(error instanceof AppError)) throw error
 			if (error.code === "not_found") {

@@ -81,6 +81,11 @@ export interface UserPrefs {
 	 * keeps the answers already given, to read and delete.
 	 */
 	ai?: "on" | "off"
+	/**
+	 * Feeds: following sites and going through their posts. Off by default; turning them off hides
+	 * them and deletes nothing, and their sites are not fetched for the account meanwhile.
+	 */
+	feeds?: "on" | "off"
 	/** The article's contents docked left of the text when the window has room for them. */
 	outline?: "on" | "off"
 }
