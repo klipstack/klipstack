@@ -125,16 +125,10 @@ export function useAiThreads(
 			written.clear(current)
 			if (!result.ok) quota.current?.refused(result.error)
 			if (!result.ok)
-				update(current, (c) => ({
-					...c,
-					streaming: undefined,
-					failure: result.error,
-					// A follow-up the server never took is not kept. A new thread's first question is: it
-					// is all the card holds, and Answer again asks it again.
-					messages: isTempThread(c.id)
-						? c.messages
-						: c.messages.filter((m) => !m.id.startsWith("tmp-ai-")),
-				}))
+				// A question the server never took stays where it was asked, with the reason: a new
+				// thread's first question or a follow-up. Answer again asks it; another follow-up takes
+				// its place.
+				update(current, (c) => ({ ...c, streaming: undefined, failure: result.error }))
 		},
 		[documentId, update, written],
 	)
@@ -201,7 +195,7 @@ export function useAiThreads(
 			update(id, (c) => ({
 				...c,
 				failure: undefined,
-				messages: [...c.messages, question(text)],
+				messages: [...c.messages.filter((m) => !isTempThread(m.id)), question(text)],
 				streaming: true,
 			}))
 			void run(id, { intent: "follow-up", id, question: text })
@@ -234,6 +228,9 @@ export function useAiThreads(
 				}
 				return
 			}
+			// A follow-up refused before it began: send it again, rather than answer the one before it.
+			const last = card.messages.at(-1)
+			if (last?.role === "user" && isTempThread(last.id)) return send(id, last.text)
 			// The old answer stays until the server takes the retry (`start`): a refusal keeps it.
 			update(id, (c) => ({ ...c, failure: undefined, streaming: true }))
 			void run(id, { intent: "retry", id })
@@ -337,9 +334,11 @@ export function reloaded(
 				const card = local.get(t.id)
 				if (card?.streaming) return { ...t, ...card }
 				// A failure stays until the load brings something newer: the answer the server saved
-				// after the stream broke, say.
-				if (card?.failure && t.messages.at(-1)?.id === card.messages.at(-1)?.id)
-					return { ...t, failure: card.failure }
+				// after the stream broke, say. So does a follow-up the server never took.
+				const refused = card?.messages.filter((m) => isTempThread(m.id)) ?? []
+				const saved = card?.messages.filter((m) => !isTempThread(m.id))
+				if (card?.failure && t.messages.at(-1)?.id === saved?.at(-1)?.id)
+					return { ...t, failure: card.failure, messages: [...t.messages, ...refused] }
 				return t
 			}),
 		...cards.filter((c) => !known.has(c.id) && (isTempThread(c.id) || asked.has(c.id))),
