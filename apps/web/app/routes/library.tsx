@@ -221,36 +221,42 @@ const VIEW_ICONS = {
 /** The library's views, one page: tabs where the sidebar used to list them. */
 function ViewTabs({ view }: { view: LibraryView }) {
 	const { t } = useTranslation("library")
+	const tab = (v: LibraryView) => {
+		const Icon = VIEW_ICONS[v]
+		const name = t(`views.${v}`)
+		// The trash, rarely opened, is an icon: its name is for screen readers and the tooltip.
+		const trash = v === "trash"
+		return (
+			<Link
+				key={v}
+				to={viewPath(v)}
+				prefetch="intent"
+				aria-current={v === view ? "page" : undefined}
+				{...(trash ? { "aria-label": name, ...tooltip(name) } : {})}
+				className={cn(
+					"flex shrink-0 items-center gap-1.5 py-2 text-sm",
+					trash && "px-1",
+					// An inset shadow, not a border: it covers the row's line, which a scrolling box would clip.
+					v === view
+						? "font-medium text-fg shadow-[inset_0_-2px_0_currentColor]"
+						: "text-muted-fg hover:text-fg",
+				)}
+			>
+				<Icon className="size-4" aria-hidden />
+				{trash ? null : name}
+			</Link>
+		)
+	}
 	return (
 		<nav
 			aria-label={t("tabs.label")}
-			className="-mx-4 flex gap-5 overflow-x-auto border-b border-border px-4 [scrollbar-width:none] md:mx-0 md:mt-2 md:px-0"
+			className="-mx-4 flex items-stretch gap-4 px-4 shadow-[inset_0_-1px_0_var(--color-border)] md:mx-0 md:mt-2 md:px-0"
 		>
-			{LIBRARY_VIEWS.map((v) => {
-				const Icon = VIEW_ICONS[v]
-				const name = t(`views.${v}`)
-				// The trash, rarely opened, is an icon apart at the end: its name is for screen readers.
-				const trash = v === "trash"
-				return (
-					<Link
-						key={v}
-						to={viewPath(v)}
-						prefetch="intent"
-						aria-current={v === view ? "page" : undefined}
-						{...(trash ? { "aria-label": name, ...tooltip(name) } : {})}
-						className={cn(
-							"-mb-px flex shrink-0 items-center gap-1.5 border-b-2 py-2 text-sm",
-							trash && "ml-auto px-1",
-							v === view
-								? "border-fg font-medium text-fg"
-								: "border-transparent text-muted-fg hover:text-fg",
-						)}
-					>
-						<Icon className="size-4" aria-hidden />
-						{trash ? null : name}
-					</Link>
-				)
-			})}
+			{/* Long names (Spanish, on a phone) scroll here, fading out: the trash stays in view. */}
+			<div className="flex min-w-0 flex-1 gap-5 overflow-x-auto pr-6 [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] [scrollbar-width:none]">
+				{LIBRARY_VIEWS.filter((v) => v !== "trash").map(tab)}
+			</div>
+			{tab("trash")}
 		</nav>
 	)
 }

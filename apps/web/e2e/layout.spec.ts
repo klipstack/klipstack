@@ -108,6 +108,8 @@ test("the library is one sidebar entry, its views tabs of the page", async ({ pa
 	const tabs = page.getByRole("navigation", { name: "Library views" })
 	await expect(page.getByRole("heading", { level: 1, name: "Your library" })).toBeVisible()
 	await expect(tabs.getByRole("link", { name: "Inbox" })).toHaveAttribute("aria-current", "page")
+	// the trash is an icon: its name is for screen readers and the tooltip
+	await expect(tabs.getByRole("link", { name: "Trash" })).toHaveText("")
 	await tabs.getByRole("link", { name: "Trash" }).click()
 	await expect(page).toHaveURL(/\/trash$/)
 	await expect(tabs.getByRole("link", { name: "Trash" })).toHaveAttribute("aria-current", "page")
