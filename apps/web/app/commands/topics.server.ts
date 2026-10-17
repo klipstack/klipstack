@@ -216,13 +216,14 @@ export async function renameTopic(userId: string, id: string, rawName: string) {
 	await mayChangeTopics(userId)
 	try {
 		return await db.transaction(async (tx) => {
-			if (await nameTaken(tx, userId, name, [topicId])) throw new AppError("name_taken", NAME_TAKEN)
 			const [before] = await tx
 				.select({ name: topics.name })
 				.from(topics)
 				.where(and(eq(topics.id, topicId), eq(topics.userId, userId), eq(topics.status, "active")))
 				.for("update")
+			// A missing or foreign topic first: it is `not_found`, whatever the name.
 			if (!before) throw notFound(NO_TOPIC)
+			if (await nameTaken(tx, userId, name, [topicId])) throw new AppError("name_taken", NAME_TAKEN)
 			// The saved searches that name it follow it.
 			await rewriteSavedQueries(tx, userId, (q) => renameTopicOperator(q, before.name, [name]))
 			const [renamed] = await tx

@@ -102,6 +102,15 @@ const inLibrary = (userId: string) =>
 		isNull(documents.deletedAt),
 	)
 
+/** The articles in the reader's library that topics sort: ready, out of the trash. */
+export async function libraryCount(userId: string): Promise<number> {
+	const [{ total } = { total: 0 }] = await db
+		.select({ total: count() })
+		.from(documents)
+		.where(inLibrary(userId))
+	return total
+}
+
 /** Whether the account is offered topics: the feature, and the models that write and sort them. */
 export async function topicsOffered(userId: string): Promise<boolean> {
 	return topicModels.available && (await hasFeature(userId, "topics"))
@@ -122,10 +131,7 @@ export async function topicsState(
 		sortsPaused: null,
 	}
 	if (!library) return { stage: "off", ...empty }
-	const [{ total } = { total: 0 }] = await db
-		.select({ total: count() })
-		.from(documents)
-		.where(inLibrary(userId))
+	const total = await libraryCount(userId)
 	// An empty proposal waits for more articles before the next one.
 	const needed =
 		library.proposedAtCount === null
@@ -325,10 +331,7 @@ export async function topicsInvitation(userId: string): Promise<{ count: number 
 		.from(userTable)
 		.where(eq(userTable.id, userId))
 	if (!row || row.ended || row.on) return null
-	const [{ total } = { total: 0 }] = await db
-		.select({ total: count() })
-		.from(documents)
-		.where(inLibrary(userId))
+	const total = await libraryCount(userId)
 	return total >= TOPIC_RULES.bootstrapSize ? { count: total } : null
 }
 

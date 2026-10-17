@@ -8,6 +8,7 @@ import * as library from "./library.server"
 import { openapi } from "./meta.server"
 import * as notebook from "./notebook.server"
 import * as review from "./review.server"
+import * as topics from "./topics.server"
 import * as writes from "./writes.server"
 
 /** One handler per endpoint id; a missing one fails the typecheck. */
@@ -72,6 +73,16 @@ export const handlers: HandlerTable<Endpoints> = {
 	"tags.rename": writes.retitleTag,
 	"tags.delete": writes.removeTag,
 	"topics.list": library.topics,
+	"topics.enable": topics.enable,
+	"topics.disable": topics.disable,
+	"topics.confirm": topics.confirm,
+	"topics.seen": topics.seen,
+	"topics.dismissCard": topics.dismissCard,
+	"topics.endInvitation": topics.endInvitation,
+	"topics.rename": topics.rename,
+	"topics.remove": topics.remove,
+	"topics.takeOut": topics.takeOut,
+	"topics.countUse": topics.countUse,
 	"savedSearches.list": library.savedSearches,
 	"savedSearches.create": writes.addSavedSearch,
 	"savedSearches.rename": writes.retitleSavedSearch,

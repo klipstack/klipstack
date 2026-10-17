@@ -9,6 +9,7 @@ export * from "./endpoints/library"
 export * from "./endpoints/meta"
 export * from "./endpoints/notebook"
 export * from "./endpoints/review"
+export * from "./endpoints/topics"
 export * from "./endpoints/writes"
 export * from "./enums"
 export * from "./errors"
@@ -67,6 +68,18 @@ import {
 	unskipNote,
 } from "./endpoints/notebook"
 import { getReviewSuggestion, listReview, snoozeReview } from "./endpoints/review"
+import {
+	confirmTopics,
+	countTopicUse,
+	disableTopics,
+	dismissTopicsCard,
+	enableTopics,
+	endTopicsInvitation,
+	markTopicsSeen,
+	removeTopic,
+	renameTopic,
+	takeOutOfTopic,
+} from "./endpoints/topics"
 import {
 	appendNote,
 	archiveReadArticles,
@@ -163,6 +176,16 @@ export const endpoints = {
 	"tags.rename": renameTag,
 	"tags.delete": deleteTag,
 	"topics.list": listTopics,
+	"topics.enable": enableTopics,
+	"topics.disable": disableTopics,
+	"topics.confirm": confirmTopics,
+	"topics.seen": markTopicsSeen,
+	"topics.dismissCard": dismissTopicsCard,
+	"topics.endInvitation": endTopicsInvitation,
+	"topics.rename": renameTopic,
+	"topics.remove": removeTopic,
+	"topics.takeOut": takeOutOfTopic,
+	"topics.countUse": countTopicUse,
 	"savedSearches.list": listSavedSearches,
 	"savedSearches.create": createSavedSearch,
 	"savedSearches.rename": renameSavedSearch,

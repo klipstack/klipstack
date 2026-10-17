@@ -41,6 +41,8 @@ export type CardMenu = {
 	act: (item: ArticleSummary, action: ArticleAction) => void
 	tag: (item: ArticleSummary) => void
 	select?: (item: ArticleSummary) => void
+	/** In a topic's own list: takes the article out of the topic. */
+	takeOut?: (item: ArticleSummary) => void
 }
 
 /**
@@ -439,6 +441,11 @@ function articleMenu(item: ArticleSummary, menu: CardMenu) {
 			{original(saved ? null : share)}
 			<Link.Menu inline>
 				{select}
+				{menu.takeOut ? (
+					<Link.MenuAction icon="minus.circle" onPress={() => menu.takeOut?.(item)}>
+						Take Out of This Topic
+					</Link.MenuAction>
+				) : null}
 				<Link.MenuAction icon="trash" destructive onPress={() => menu.act(item, "delete")}>
 					Delete
 				</Link.MenuAction>

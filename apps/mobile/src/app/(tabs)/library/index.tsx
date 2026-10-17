@@ -46,7 +46,7 @@ export default function Places() {
 	useEffect(loadSaved, [loadSaved])
 	useFocusEffect(loadSaved)
 
-	// Topics, for an account offered them, in any stage: their screen says what to do on the web.
+	// Topics, for an account offered them, in any stage: their screen turns them on and manages them.
 	// Without (none offered, or not loaded), no row.
 	const [topics, setTopics] = useState(false)
 	const loadTopics = useCallback(() => {
