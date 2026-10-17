@@ -43,15 +43,36 @@ describe("highlightShareText", () => {
 		expect(html).toContain("<blockquote><p>One line</p><p>Two lines</p></blockquote>")
 	})
 
-	it("turns links to the reader's own library into their titles: they are private", () => {
+	it("points a note's links at the linked articles' originals, never at the reader's library", () => {
+		const B = "0193a5f1-2c3d-7e4f-8a9b-0c1d2e3f4a5c"
 		const { markdown, html } = highlightShareText({
 			exact: "Quote.",
-			note: `See [Other piece](/read/${A}) too\nand more`,
+			note: `See [Other piece](/read/${A}) and [Gone](/read/${B})\nand [Odd](/read/${A})`,
 			article,
+			linkUrls: { [A]: "https://other.example/piece (1)" },
 		})
-		expect(markdown).toContain("See Other piece too\n\nand more")
+		// A target with no original known keeps its title, as text.
+		expect(markdown).toContain(
+			"See [Other piece](https://other.example/piece%20%281%29) and Gone\n\nand [Odd](https://other.example/piece%20%281%29)",
+		)
 		expect(markdown).not.toContain("/read/")
-		expect(html).toContain("<p>See Other piece too</p><p>and more</p>")
+		expect(html).toContain(
+			'<p>See <a href="https://other.example/piece%20(1)">Other piece</a> and Gone</p>',
+		)
+		// Without any originals, every link is its title.
+		const bare = highlightShareText({ exact: "Q", note: `See [Other piece](/read/${A})`, article })
+		expect(bare.markdown).toContain("\n\nSee Other piece\n\n")
+	})
+
+	it("links only web addresses from a note", () => {
+		const { markdown, html } = highlightShareText({
+			exact: "Q",
+			note: `[Trap](/read/${A})`,
+			article,
+			linkUrls: { [A]: "javascript:alert(1)" },
+		})
+		expect(markdown).toContain("\n\nTrap\n\n")
+		expect(html).not.toContain("javascript")
 	})
 
 	it("escapes what would break the HTML or the Markdown link", () => {

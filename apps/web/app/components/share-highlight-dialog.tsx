@@ -1,4 +1,5 @@
 import { highlightShareText } from "@klipstack/api-contract/highlight-share"
+import { extractLinkIds } from "@klipstack/api-contract/note-links"
 import { Copy, X } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -37,11 +38,17 @@ export function ShareHighlightDialog({
 	const [withNote, setWithNote] = useState(true)
 	const shownNote = withNote ? note : null
 
+	const linkUrls = useLinkUrls(note)
+
 	useEffect(() => {
 		const dialog = dialogRef.current
 		if (dialog && !dialog.open) dialog.showModal()
-		copyRef.current?.focus()
 	}, [])
+	// Copy takes the keyboard once it can copy: at once, or when the note's links are looked up.
+	const ready = linkUrls !== null
+	useEffect(() => {
+		if (ready) copyRef.current?.focus()
+	}, [ready])
 
 	const copy = () => {
 		const { markdown, html } = highlightShareText(
@@ -49,6 +56,7 @@ export function ShareHighlightDialog({
 				exact: h.exact,
 				note,
 				article: { title: h.article.title, url: h.article.sourceUrl, siteName: h.article.siteName },
+				linkUrls: linkUrls ?? {},
 			},
 			withNote,
 		)
@@ -128,7 +136,7 @@ export function ShareHighlightDialog({
 				) : null}
 
 				<div className="flex flex-wrap justify-end gap-2">
-					<Button ref={copyRef} onClick={copy}>
+					<Button ref={copyRef} onClick={copy} disabled={!linkUrls}>
 						<Copy className="size-4" aria-hidden />
 						{t("highlights.share.copyText")}
 					</Button>
@@ -136,4 +144,29 @@ export function ShareHighlightDialog({
 			</div>
 		</dialog>
 	)
+}
+
+/**
+ * The original address of each article the note links to: shared, its links go there instead of
+ * into the reader's library. Null while they are being looked up; a failed lookup leaves them as
+ * titles.
+ */
+function useLinkUrls(note: string | null): Record<string, string> | null {
+	const ids = note ? extractLinkIds(note) : []
+	const key = ids.join(",")
+	const [found, setFound] = useState<{ key: string; urls: Record<string, string> } | null>(null)
+	useEffect(() => {
+		if (!key) return
+		let live = true
+		const query = new URLSearchParams(key.split(",").map((id) => ["id", id]))
+		fetch(`/api/note-links?${query}`)
+			.then((r) => (r.ok ? (r.json() as Promise<{ urls: Record<string, string> }>) : { urls: {} }))
+			.catch(() => ({ urls: {} }))
+			.then(({ urls }) => live && setFound({ key, urls }))
+		return () => {
+			live = false
+		}
+	}, [key])
+	if (!key) return {}
+	return found?.key === key ? found.urls : null
 }
