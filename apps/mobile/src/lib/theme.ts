@@ -19,9 +19,9 @@ const light = {
 	danger: "#c92324",
 	// A starred article's star: the web's favorite color.
 	favorite: "#a17003",
-	// A checked article while selecting: washed in the highlighter's yellow (the web's --hl at 45%),
-	// not a blue tint.
-	selected: "#ffe65773",
+	// A checked article while selecting: washed in the highlighter's yellow (the web's --hl at 45%
+	// over the page), not a blue tint. Opaque: the row's own grain is the only grain under it.
+	selected: "#fdf1af",
 	// Progress through an article: the highlighter's yellow warmed toward orange, so a thin line
 	// still shows on the page (the web's ink-line).
 	inkLine: "#ffc337",
@@ -76,7 +76,7 @@ const dark: typeof light = {
 	accentFg: "#1c140c",
 	danger: "#fa695e",
 	favorite: "#e0ae57",
-	selected: "#75620873",
+	selected: "#43380d",
 	inkLine: "#ffc744",
 	// In dark mode, a raised gray rather than an inverted, near-white bar: the player stays on screen
 	// for as long as it reads, often in the dark.

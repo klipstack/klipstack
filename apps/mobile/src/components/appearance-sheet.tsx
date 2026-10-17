@@ -220,7 +220,7 @@ function Choice({
 				styles.choice,
 				selected
 					? [styles.choiceSelected, { backgroundColor: colors.card, borderColor: colors.border }]
-					: { backgroundColor: colors.muted, borderColor: colors.muted },
+					: { borderColor: colors.border },
 				pressed && { opacity: 0.6 },
 			]}
 		>

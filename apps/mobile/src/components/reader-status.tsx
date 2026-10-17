@@ -40,7 +40,7 @@ export function ReaderStatus({
 			<View
 				style={[styles.body, { backgroundColor: colors.bg, paddingBottom: padding(insets.bottom) }]}
 			>
-				<View style={[styles.track, { backgroundColor: colors.border }]}>
+				<View style={[styles.track, { backgroundColor: `${colors.fg}1a` }]}>
 					<Animated.View
 						style={[
 							styles.fill,
