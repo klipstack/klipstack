@@ -10,7 +10,7 @@ import { allowanceMessage, failureMessage, questionsLeft } from "@/lib/ai"
 import { plainAnswer } from "@/lib/ai-answer"
 import { useWritten } from "@/lib/ai-cards"
 import { type AiCard, type AnswerStore, cardState } from "@/lib/ai-threads"
-import type { Colors } from "@/lib/theme"
+import { type Colors, fonts } from "@/lib/theme"
 
 /**
  * The article's chat, as a sheet over the reader: questions about the whole article and their
@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
 		height: 56,
 		borderBottomWidth: StyleSheet.hairlineWidth,
 	},
-	barTitle: { fontSize: 17, fontWeight: "600" },
+	barTitle: { fontFamily: fonts.display, fontSize: 19 },
 	done: { position: "absolute", right: 20 },
 	doneText: { fontSize: 17, fontWeight: "600" },
 	content: { padding: 20, paddingBottom: 24, gap: 16 },

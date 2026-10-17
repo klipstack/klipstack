@@ -37,6 +37,7 @@ import { ClipboardOffer } from "@/components/clipboard-offer"
 import { EmptyDrawing } from "@/components/empty-drawing"
 import { HomeHighlights } from "@/components/home-highlights"
 import { HomeMasthead } from "@/components/home-masthead"
+import { InkMark } from "@/components/ink-mark"
 import { NoteReminders } from "@/components/note-reminders"
 import { Grain } from "@/components/paper"
 import { ReviewSuggestion } from "@/components/review-suggestion"
@@ -130,6 +131,9 @@ export default function Home() {
 	const [finished, setFinished] = useState<FinishedLately | null>(null)
 	const [edition, setEdition] = useState<NextEdition | null>(null)
 	const editionPutOff = useRef(false)
+	// The reader's name, for the masthead's greeting, asked again with each load (it may change on
+	// the web); the last one known stays while offline.
+	const [name, setName] = useState<string | null>(null)
 	// Whether to suggest the review of old saves; put off here ("Not now", or gone through).
 	const [review, setReview] = useState(false)
 	const reviewPutOff = useRef(false)
@@ -146,8 +150,15 @@ export default function Home() {
 	const minutes = timeChoice ? chosenMinutes : null
 	const home = useMemo(() => lists && homeSections(lists, { minutes }), [lists, minutes])
 
+	// The masthead's day and greeting: as of the last load, which comes on each return to Home.
+	const [now, setNow] = useState(() => new Date())
 	const load = useCallback(async () => {
 		if (!client) return
+		setNow(new Date())
+		client
+			.me()
+			.then((me) => setName(me.name))
+			.catch(() => {})
 		const mine = ++generation.current
 		try {
 			// After a closing reader's change lands (src/lib/article-changes.ts).
@@ -379,6 +390,8 @@ export default function Home() {
 		>
 			{client ? (
 				<HomeMasthead
+					name={name}
+					now={now}
 					finished={finished}
 					edition={edition}
 					// In a topic, or with a time chosen, Home is about reading what's next.
@@ -621,18 +634,15 @@ function TimeChoice({
 				onPress={() => {
 					if (!on) onPick(value)
 				}}
-				style={({ pressed }) => [
-					styles.chip,
-					{
-						borderColor: on ? colors.fg : colors.border,
-						backgroundColor: on ? colors.fg : colors.bg,
-					},
-					pressed && styles.pressed,
-				]}
+				hitSlop={CHIP_SLOP}
 			>
-				<Text style={[styles.chipText, { color: on ? colors.bg : colors.fg }]}>
-					{value === null ? "Any" : `${value} min`}
-				</Text>
+				{({ pressed }) => (
+					<InkMark on={on} pressed={pressed} colors={colors} style={styles.filter}>
+						<Text style={[styles.filterText, { color: on ? colors.fg : colors.mutedFg }]}>
+							{value === null ? "Any" : `${value} min`}
+						</Text>
+					</InkMark>
+				)}
 			</Pressable>
 		)
 	}
@@ -689,7 +699,7 @@ function NothingFits({
 
 /**
  * "About what?": Anything, the biggest topics, something different, and More for the rest, in one
- * line scrolled sideways, so Home's sections stay in view. The chosen one is filled.
+ * line scrolled sideways, so Home's sections stay in view. The chosen one is marked.
  */
 function AboutWhat({
 	choice,
@@ -709,16 +719,15 @@ function AboutWhat({
 			onPress={() => {
 				if (!on) onPick(next)
 			}}
-			style={({ pressed }) => [
-				styles.chip,
-				{
-					borderColor: on ? colors.fg : colors.border,
-					backgroundColor: on ? colors.fg : colors.bg,
-				},
-				pressed && styles.pressed,
-			]}
+			hitSlop={CHIP_SLOP}
 		>
-			<Text style={[styles.chipText, { color: on ? colors.bg : colors.fg }]}>{label}</Text>
+			{({ pressed }) => (
+				<InkMark on={on} pressed={pressed} colors={colors} style={styles.filter}>
+					<Text style={[styles.filterText, { color: on ? colors.fg : colors.mutedFg }]}>
+						{label}
+					</Text>
+				</InkMark>
+			)}
 		</Pressable>
 	)
 	const more = () =>
@@ -752,24 +761,23 @@ function AboutWhat({
 						})
 					: null}
 				{choice.more.length ? (
-					<Pressable
-						accessibilityRole="button"
-						accessibilityLabel="More topics"
-						onPress={more}
-						style={({ pressed }) => [
-							styles.chip,
-							styles.moreChip,
-							{ borderColor: colors.border },
-							pressed && styles.pressed,
-						]}
-					>
-						<Text style={[styles.chipText, { color: colors.fg }]}>More</Text>
-						<SymbolView
-							name="chevron.down"
-							tintColor={colors.mutedFg}
-							size={12}
-							accessibilityElementsHidden
-						/>
+					<Pressable accessibilityRole="button" accessibilityLabel="More topics" onPress={more}>
+						{({ pressed }) => (
+							<InkMark
+								on={false}
+								pressed={pressed}
+								colors={colors}
+								style={[styles.filter, styles.moreChip]}
+							>
+								<Text style={[styles.filterText, { color: colors.mutedFg }]}>More</Text>
+								<SymbolView
+									name="chevron.down"
+									tintColor={colors.mutedFg}
+									size={12}
+									accessibilityElementsHidden
+								/>
+							</InkMark>
+						)}
 					</Pressable>
 				) : null}
 			</ScrollView>
@@ -967,6 +975,8 @@ function Shelf({
 }
 
 const PAD = 16
+// A chip is just its words: a finger's worth to tap, above and below them.
+const CHIP_SLOP = { top: 6, bottom: 6 }
 
 const styles = StyleSheet.create({
 	page: { paddingTop: 4, paddingBottom: 40, gap: 32 },
@@ -1003,6 +1013,9 @@ const styles = StyleSheet.create({
 	},
 	moreChip: { flexDirection: "row", alignItems: "center", gap: 4 },
 	chipText: { fontSize: 15, fontWeight: "500" },
+	// A filter: just its words, the current one marked in ink (`InkMark`), as the web's chips.
+	filter: { paddingHorizontal: 10, paddingVertical: 7 },
+	filterText: { fontSize: 15, fontWeight: "500" },
 	topicHeading: {
 		marginHorizontal: PAD,
 		gap: 4,

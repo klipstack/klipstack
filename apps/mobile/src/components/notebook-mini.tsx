@@ -3,8 +3,9 @@ import { FlashList } from "@shopify/flash-list"
 import { Link } from "expo-router"
 import { type ReactElement, useState } from "react"
 import { Pressable, type RefreshControlProps, Share, StyleSheet, Text, View } from "react-native"
+import { CLIP_TOP, ClippingPaper } from "@/components/clipping"
 import { MarkerText } from "@/components/marker-text"
-import { type CardContext, cardSurface, oneLine, Thumb, titleOf } from "@/components/notebook-cards"
+import { type CardContext, oneLine, Thumb, titleOf } from "@/components/notebook-cards"
 import { PostIt, postItText } from "@/components/post-it"
 import { siteName } from "@/lib/article-meta"
 import { copyText } from "@/lib/clipboard"
@@ -197,7 +198,7 @@ function Tile({
 	const { colors } = ctx
 	const [pressed, setPressed] = useState(false)
 	const { article } = item
-	const surface = StyleSheet.flatten([styles.tile, cardSurface(colors), pressed && styles.pressed])
+	const surface = StyleSheet.flatten([styles.tile, pressed && styles.pressed])
 	const press = {
 		onPressIn: () => setPressed(true),
 		onPressOut: () => setPressed(false),
@@ -206,6 +207,7 @@ function Tile({
 		return (
 			<Link href={{ pathname: "/read/[id]", params: { id: article.id } }} push asChild>
 				<Pressable accessibilityRole="link" style={surface} {...press}>
+					<ClippingPaper id={article.id} compact colors={colors} />
 					{withArticle ? (
 						<Text style={[styles.noteTitle, { color: colors.fg }]} numberOfLines={2}>
 							{titleOf(article)}
@@ -229,6 +231,7 @@ function Tile({
 		>
 			<Link.Trigger>
 				<Pressable accessibilityRole="link" style={surface} {...press}>
+					<ClippingPaper id={highlight.id} compact colors={colors} />
 					<MarkerText
 						text={quote}
 						color={highlight.color}
@@ -304,13 +307,8 @@ const styles = StyleSheet.create({
 	meta: { fontSize: 12, marginTop: 1 },
 	moreRow: { paddingHorizontal: HALF, paddingVertical: 8, alignSelf: "flex-start" },
 	more: { fontSize: 14, fontWeight: "500" },
-	tile: {
-		borderRadius: 12,
-		borderWidth: StyleSheet.hairlineWidth,
-		padding: 10,
-		gap: 8,
-		boxShadow: "0 1px 2px rgba(0, 0, 0, 0.05)",
-	},
+	// A small clipping (`ClippingPaper`): its paper starts `CLIP_TOP` down, under the tape.
+	tile: { padding: 10, paddingTop: CLIP_TOP + 10, gap: 8 },
 	pressed: { opacity: 0.6 },
 	quote: { fontFamily: "Iowan Old Style", fontSize: 14, lineHeight: 19 },
 	noteTitle: { fontFamily: "Iowan Old Style", fontStyle: "italic", fontSize: 14, lineHeight: 18 },

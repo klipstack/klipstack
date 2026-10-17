@@ -1,6 +1,13 @@
 import type { NextEdition } from "@klipstack/sdk"
 import { describe, expect, it } from "vitest"
-import { editionEar, editionNudge, finishedLine } from "./home-masthead"
+import {
+	editionEar,
+	editionNudge,
+	finishedLine,
+	greeting,
+	mastheadDate,
+	partOfDay,
+} from "./home-masthead"
 
 describe("finishedLine", () => {
 	it("says nothing after a week without a finish", () => {
@@ -86,5 +93,40 @@ describe("editionNudge", () => {
 				}),
 			),
 		).toBe("You started it 8 days ago. Ready to publish it?")
+	})
+})
+
+describe("partOfDay", () => {
+	it("greets by the hour where the reader is, the small hours still evening", () => {
+		// 11:30 and 12:00 UTC: the turn to the afternoon.
+		expect(partOfDay(new Date("2026-10-17T11:30:00Z"), "UTC")).toBe("morning")
+		expect(partOfDay(new Date("2026-10-17T12:00:00Z"), "UTC")).toBe("afternoon")
+		expect(partOfDay(new Date("2026-10-17T18:59:00Z"), "UTC")).toBe("afternoon")
+		expect(partOfDay(new Date("2026-10-17T19:00:00Z"), "UTC")).toBe("evening")
+		expect(partOfDay(new Date("2026-10-17T04:59:00Z"), "UTC")).toBe("evening")
+		expect(partOfDay(new Date("2026-10-17T05:00:00Z"), "UTC")).toBe("morning")
+		// The same moment, 9:00 in Madrid and 0:00 in Los Angeles.
+		const moment = new Date("2026-10-17T07:00:00Z")
+		expect(partOfDay(moment, "Europe/Madrid")).toBe("morning")
+		expect(partOfDay(moment, "America/Los_Angeles")).toBe("evening")
+	})
+})
+
+describe("mastheadDate", () => {
+	it("prints the reader's day in full, in their time zone", () => {
+		const moment = new Date("2026-10-17T03:00:00Z")
+		expect(mastheadDate(moment, "Europe/Madrid")).toBe("Saturday, October 17, 2026")
+		expect(mastheadDate(moment, "America/Los_Angeles")).toBe("Friday, October 16, 2026")
+	})
+})
+
+describe("greeting", () => {
+	it("greets the reader by their first name, or not at all without one", () => {
+		expect(greeting("morning", "  Ernesto García ")).toEqual({
+			before: "Good morning, ",
+			name: "Ernesto",
+		})
+		expect(greeting("evening", "")).toEqual({ before: "Good evening", name: null })
+		expect(greeting("afternoon", null)).toEqual({ before: "Good afternoon", name: null })
 	})
 })

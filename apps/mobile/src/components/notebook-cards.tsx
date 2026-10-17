@@ -4,6 +4,7 @@ import { Link } from "expo-router"
 import { SymbolView } from "expo-symbols"
 import { type ReactElement, useState } from "react"
 import { Pressable, Share, StyleSheet, Text, View } from "react-native"
+import { CLIP_TOP, ClippingPaper } from "@/components/clipping"
 import { MarkerText } from "@/components/marker-text"
 import type { NoteLinking } from "@/components/note-field"
 import { ArticleNote, HighlightNote } from "@/components/notebook-note"
@@ -223,7 +224,8 @@ export function QuoteCard({
 			</Link.MenuAction>,
 		)
 	return (
-		<View style={[styles.card, cardSurface(colors), dealtTilt(dealt)]}>
+		<View style={[styles.card, dealtTilt(dealt)]}>
+			<ClippingPaper id={highlight.id} colors={colors} />
 			<Link
 				href={{ pathname: "/read/[id]", params: { id: article.id, highlight: highlight.id } }}
 				push
@@ -336,7 +338,8 @@ export function NoteCard({
 	const title = titleOf(article)
 	const byline = [authorOf(article), siteName(article)].filter(Boolean).join(" · ")
 	return (
-		<View style={[styles.card, cardSurface(colors), dealtTilt(dealt)]}>
+		<View style={[styles.card, dealtTilt(dealt)]}>
+			<ClippingPaper id={article.id} colors={colors} />
 			<Link href={{ pathname: "/read/[id]", params: { id: article.id } }} push asChild>
 				<Link.Trigger>
 					<Pressable
@@ -514,14 +517,8 @@ const styles = StyleSheet.create({
 	topicHead: { flexDirection: "row", alignItems: "flex-end", gap: 12 },
 	topicName: { flex: 1 },
 	topicTitle: { fontFamily: "Iowan Old Style", fontSize: 26, lineHeight: 32 },
-	card: {
-		borderRadius: 16,
-		borderWidth: StyleSheet.hairlineWidth,
-		paddingHorizontal: 16,
-		paddingTop: 14,
-		paddingBottom: 16,
-		boxShadow: "0 1px 2px rgba(0, 0, 0, 0.05)",
-	},
+	// A clipping (`ClippingPaper`): its paper starts `CLIP_TOP` down, under the tape.
+	card: { paddingHorizontal: 16, paddingTop: CLIP_TOP + 14, paddingBottom: 16 },
 	// Room around the quote, past the card's padding, so it lifts as one piece under the menu.
 	press: { gap: 12, borderRadius: 10, margin: -8, padding: 8 },
 	pressed: { opacity: 0.6 },

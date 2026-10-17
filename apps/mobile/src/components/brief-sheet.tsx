@@ -6,7 +6,7 @@ import { InkThinking } from "@/components/ink-thinking"
 import { allowanceMessage, failureMessage, questionsLeft } from "@/lib/ai"
 import { briefHeading, plainAnswer } from "@/lib/ai-answer"
 import type { ReaderAi } from "@/lib/reader-ai"
-import type { Colors } from "@/lib/theme"
+import { type Colors, fonts } from "@/lib/theme"
 
 /**
  * The article's brief, as a sheet over the reader: its gist, key claims, things to keep in mind
@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
 		height: 56,
 		borderBottomWidth: StyleSheet.hairlineWidth,
 	},
-	barTitle: { fontSize: 17, fontWeight: "600" },
+	barTitle: { fontFamily: fonts.display, fontSize: 19 },
 	done: { position: "absolute", right: 20 },
 	doneText: { fontSize: 17, fontWeight: "600" },
 	content: { padding: 24, paddingBottom: 48 },
