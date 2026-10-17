@@ -17,6 +17,12 @@ describe("outlineOf", () => {
 			["D", 0],
 			["E", 1],
 		])
+		// An intro under a lower heading than the sections is under them, not over.
+		expect(outline("<h3>Intro</h3><h2>A</h2><h3>B</h3>")).toEqual([
+			["Intro", 1],
+			["A", 0],
+			["B", 1],
+		])
 		// The title's level is not the article's.
 		expect(outline("<h1>Title</h1><h2>A</h2><h3>B</h3>")).toEqual([
 			["A", 0],

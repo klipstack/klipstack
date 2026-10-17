@@ -871,18 +871,20 @@ describe("the reader page: contents", () => {
 			klipSentences: (lang: string) => void
 			klipSpeaking: (index: number | null) => void
 		}
+		// The sentence being read is on screen: reading aloud doesn't scroll.
+		Object.assign(page.window.Range.prototype, {
+			getBoundingClientRect: () => ({ top: 200, bottom: 220 }),
+		})
 		await settle(50)
+		// The sentences are known, but nothing is being read.
+		api.klipSentences("en")
+		api.klipSpeaking(null)
 		// Notes, the second time: the sixth heading, at 300 + 5 × 600.
 		api.klipSection(4)
 		expect(tops).toEqual([3300 - 100 - 16])
 		expect(page.window.document.activeElement?.textContent).toBe("Notes")
 		expect(page.messages.some((m) => m.type === "sentence")).toBe(false)
 
-		// The sentence being read is on screen: reading aloud doesn't scroll.
-		Object.assign(page.window.Range.prototype, {
-			getBoundingClientRect: () => ({ top: 200, bottom: 220 }),
-		})
-		api.klipSentences("en")
 		const list = page.messages.find((m) => m.type === "sentences")
 		api.klipSpeaking(0)
 		api.klipSection(1)
