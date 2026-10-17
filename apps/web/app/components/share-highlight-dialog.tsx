@@ -1,7 +1,7 @@
 import { highlightShareText } from "@klipstack/api-contract/highlight-share"
 import { extractLinkIds } from "@klipstack/api-contract/note-links"
 import { Copy, Image as ImageIcon, Link2, Share, Type, X } from "lucide-react"
-import { type ReactNode, useEffect, useRef, useState } from "react"
+import { type ReactNode, type RefObject, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { Trans, useTranslation } from "react-i18next"
 import { Link, useFetcher } from "react-router"
 import { copyRich, copyText } from "~/lib/copy-link"
@@ -68,6 +68,8 @@ export function ShareHighlightDialog({
 		const dialog = dialogRef.current
 		if (dialog && !dialog.open) dialog.showModal()
 	}, [])
+	const contentRef = useRef<HTMLDivElement>(null)
+	const contentHeight = useHeight(contentRef)
 	// Copy takes the keyboard once it can copy: at once, or when the note's links are looked up.
 	const ready = linkUrls !== null
 	useEffect(() => {
@@ -104,85 +106,105 @@ export function ShareHighlightDialog({
 				if (e.key === "Escape") dialogRef.current?.close()
 			}}
 		>
-			<div className="flex flex-col gap-4 p-6">
-				<div className="flex items-start justify-between gap-4">
-					<h2 className="text-lg font-semibold">{t("highlights.share.title")}</h2>
-					<button
-						type="button"
-						onClick={() => dialogRef.current?.close()}
-						className="rounded-md p-1.5 text-muted-fg hover:bg-hover"
-						aria-label={t("highlights.share.close")}
-					>
-						<X className="size-4" aria-hidden />
-					</button>
-				</div>
-
-				{tabs.length > 1 ? (
-					<div
-						role="tablist"
-						aria-label={t("highlights.share.tabs.label")}
-						className="flex gap-1 rounded-lg bg-muted p-1"
-					>
-						{tabs.map((name) => (
-							<button
-								key={name}
-								type="button"
-								role="tab"
-								id={`share-tab-${name}`}
-								aria-selected={tab === name}
-								aria-controls="share-panel"
-								onClick={() => choose(name)}
-								className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm ${tab === name ? "bg-card font-medium text-fg shadow-sm" : "text-muted-fg hover:text-fg"}`}
-							>
-								{TAB_ICONS[name]}
-								{t(`highlights.share.tabs.${name}`)}
-							</button>
-						))}
+			{/* Switching tabs changes the dialog's height: it eases there instead of jumping. */}
+			<div
+				style={{ height: contentHeight ?? "auto" }}
+				className="overflow-hidden transition-[height] duration-200 ease-out motion-reduce:transition-none"
+			>
+				<div ref={contentRef} className="flex flex-col gap-4 p-6">
+					<div className="flex items-start justify-between gap-4">
+						<h2 className="text-lg font-semibold">{t("highlights.share.title")}</h2>
+						<button
+							type="button"
+							onClick={() => dialogRef.current?.close()}
+							className="rounded-md p-1.5 text-muted-fg hover:bg-hover"
+							aria-label={t("highlights.share.close")}
+						>
+							<X className="size-4" aria-hidden />
+						</button>
 					</div>
-				) : null}
 
-				{note ? (
-					<label className="flex items-center gap-2 text-sm">
-						<input
-							type="checkbox"
-							checked={withNote}
-							onChange={(e) => setWithNote(e.target.checked)}
-						/>
-						{t("highlights.share.includeNote")}
-					</label>
-				) : null}
-
-				<div
-					id="share-panel"
-					role="tabpanel"
-					aria-labelledby={tabs.length > 1 ? `share-tab-${tab}` : undefined}
-					aria-label={tabs.length > 1 ? undefined : t("highlights.share.tabs.text")}
-					className="flex flex-col gap-4"
-				>
-					{tab === "image" ? (
-						<ShareHighlightImage id={h.id} withNote={note !== null && withNote} />
-					) : (
-						<SharePreview highlight={h} note={shownNote} compact={tab === "link"} />
-					)}
-					{tab === "link" ? (
-						<PublicLink
-							link={link}
-							withNote={withNote}
-							hasNote={note !== null}
-							onLeave={() => dialogRef.current?.close()}
-						/>
-					) : tab === "text" ? (
-						<div className="flex justify-end">
-							<Button ref={copyRef} onClick={copy} disabled={!linkUrls}>
-								<Copy className="size-4" aria-hidden />
-								{t("highlights.share.copyText")}
-							</Button>
+					{tabs.length > 1 ? (
+						<div
+							role="tablist"
+							aria-label={t("highlights.share.tabs.label")}
+							className="flex gap-1 rounded-lg bg-muted p-1"
+						>
+							{tabs.map((name) => (
+								<button
+									key={name}
+									type="button"
+									role="tab"
+									id={`share-tab-${name}`}
+									aria-selected={tab === name}
+									aria-controls="share-panel"
+									onClick={() => choose(name)}
+									className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm ${tab === name ? "bg-card font-medium text-fg shadow-sm" : "text-muted-fg hover:text-fg"}`}
+								>
+									{TAB_ICONS[name]}
+									{t(`highlights.share.tabs.${name}`)}
+								</button>
+							))}
 						</div>
 					) : null}
+
+					{note ? (
+						<label className="flex items-center gap-2 text-sm">
+							<input
+								type="checkbox"
+								checked={withNote}
+								onChange={(e) => setWithNote(e.target.checked)}
+							/>
+							{t("highlights.share.includeNote")}
+						</label>
+					) : null}
+
+					<div
+						id="share-panel"
+						role="tabpanel"
+						aria-labelledby={tabs.length > 1 ? `share-tab-${tab}` : undefined}
+						aria-label={tabs.length > 1 ? undefined : t("highlights.share.tabs.text")}
+						className="flex flex-col gap-4"
+					>
+						{tab === "image" ? (
+							<ShareHighlightImage id={h.id} withNote={note !== null && withNote} />
+						) : (
+							<SharePreview highlight={h} note={shownNote} compact={tab === "link"} />
+						)}
+						{tab === "link" ? (
+							<PublicLink
+								link={link}
+								withNote={withNote}
+								hasNote={note !== null}
+								onLeave={() => dialogRef.current?.close()}
+							/>
+						) : tab === "text" ? (
+							<div className="flex justify-end">
+								<Button ref={copyRef} onClick={copy} disabled={!linkUrls}>
+									<Copy className="size-4" aria-hidden />
+									{t("highlights.share.copyText")}
+								</Button>
+							</div>
+						) : null}
+					</div>
 				</div>
 			</div>
 		</dialog>
 	)
+}
+
+/** An element's height as it changes, for a parent to follow it (with a transition). */
+function useHeight(ref: RefObject<HTMLElement | null>): number | null {
+	const [height, setHeight] = useState<number | null>(null)
+	useLayoutEffect(() => {
+		const element = ref.current
+		if (!element) return
+		setHeight(element.offsetHeight)
+		const observer = new ResizeObserver(() => setHeight(element.offsetHeight))
+		observer.observe(element)
+		return () => observer.disconnect()
+	}, [ref])
+	return height
 }
 
 type ShareTab = "text" | "link" | "image"
