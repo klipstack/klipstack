@@ -293,6 +293,7 @@ export default {
 		},
 	},
 	supportWidget: {
+		open: "Escríbeme",
 		label: "Ayuda",
 		greeting:
 			"Preguntas, problemas o ideas: leo cada mensaje. Si es sobre un artículo, pega su enlace.",

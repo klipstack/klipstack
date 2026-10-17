@@ -284,6 +284,7 @@ export default {
 		},
 	},
 	supportWidget: {
+		open: "Contact support",
 		label: "Support",
 		greeting:
 			"Questions, problems or ideas: I read every message. If it's about an article, paste its link.",
