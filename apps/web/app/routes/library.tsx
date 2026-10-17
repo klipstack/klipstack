@@ -8,10 +8,13 @@ import {
 	Check,
 	ChevronDown,
 	History,
+	Inbox,
 	ListFilter as FilterIcon,
 	LayoutGrid,
 	List,
 	Search,
+	Star,
+	Trash2,
 	X,
 } from "lucide-react"
 import { useEffect, useMemo, useRef } from "react"
@@ -208,6 +211,13 @@ export async function action({ context, request }: Route.ActionArgs) {
 	}
 }
 
+const VIEW_ICONS = {
+	inbox: Inbox,
+	archive: Archive,
+	starred: Star,
+	trash: Trash2,
+} as const satisfies Record<LibraryView, typeof Inbox>
+
 /** The library's views, one page: tabs where the sidebar used to list them. */
 function ViewTabs({ view }: { view: LibraryView }) {
 	const { t } = useTranslation("library")
@@ -216,24 +226,31 @@ function ViewTabs({ view }: { view: LibraryView }) {
 			aria-label={t("tabs.label")}
 			className="-mx-4 flex gap-5 overflow-x-auto border-b border-border px-4 [scrollbar-width:none] md:mx-0 md:mt-2 md:px-0"
 		>
-			{LIBRARY_VIEWS.map((v) => (
-				<Link
-					key={v}
-					to={viewPath(v)}
-					prefetch="intent"
-					aria-current={v === view ? "page" : undefined}
-					className={cn(
-						"-mb-px shrink-0 border-b-2 py-2 text-sm",
-						// The trash, rarely opened, stands apart at the end.
-						v === "trash" && "ml-auto",
-						v === view
-							? "border-fg font-medium text-fg"
-							: "border-transparent text-muted-fg hover:text-fg",
-					)}
-				>
-					{t(`views.${v}`)}
-				</Link>
-			))}
+			{LIBRARY_VIEWS.map((v) => {
+				const Icon = VIEW_ICONS[v]
+				const name = t(`views.${v}`)
+				// The trash, rarely opened, is an icon apart at the end: its name is for screen readers.
+				const trash = v === "trash"
+				return (
+					<Link
+						key={v}
+						to={viewPath(v)}
+						prefetch="intent"
+						aria-current={v === view ? "page" : undefined}
+						{...(trash ? { "aria-label": name, ...tooltip(name) } : {})}
+						className={cn(
+							"-mb-px flex shrink-0 items-center gap-1.5 border-b-2 py-2 text-sm",
+							trash && "ml-auto px-1",
+							v === view
+								? "border-fg font-medium text-fg"
+								: "border-transparent text-muted-fg hover:text-fg",
+						)}
+					>
+						<Icon className="size-4" aria-hidden />
+						{trash ? null : name}
+					</Link>
+				)
+			})}
 		</nav>
 	)
 }
