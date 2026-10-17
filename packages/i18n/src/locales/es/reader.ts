@@ -173,6 +173,7 @@ export default {
 				copy: "Copiar enlace",
 				copied: "Enlace copiado",
 				shareSheet: "Compartir…",
+				all: "Puedes ver todos los subrayados que compartiste en el <notebook>Cuaderno</notebook>, en Compartidos.",
 				stale:
 					"La página muestra este subrayado como lo compartiste. Actualiza el enlace para mostrarlo como está ahora.",
 				update: "Actualizar enlace",

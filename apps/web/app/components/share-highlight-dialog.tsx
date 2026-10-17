@@ -2,8 +2,8 @@ import { highlightShareText } from "@klipstack/api-contract/highlight-share"
 import { extractLinkIds } from "@klipstack/api-contract/note-links"
 import { Copy, Link2, Share, X } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
-import { useTranslation } from "react-i18next"
-import { useFetcher } from "react-router"
+import { Trans, useTranslation } from "react-i18next"
+import { Link, useFetcher } from "react-router"
 import { copyRich, copyText } from "~/lib/copy-link"
 import { safeHost, siteLabel } from "~/lib/site-label"
 import type { WebResult } from "~/lib/web-result"
@@ -153,7 +153,12 @@ export function ShareHighlightDialog({
 				) : null}
 
 				{h.canLink === false ? null : (
-					<PublicLink link={link} withNote={withNote} hasNote={note !== null} />
+					<PublicLink
+						link={link}
+						withNote={withNote}
+						hasNote={note !== null}
+						onLeave={() => dialogRef.current?.close()}
+					/>
 				)}
 
 				<div className="flex flex-wrap justify-end gap-2">
@@ -225,6 +230,7 @@ function PublicLink({
 	link,
 	withNote,
 	hasNote,
+	onLeave,
 }: {
 	link: ReturnType<typeof usePublicLink>
 	/**
@@ -233,6 +239,8 @@ function PublicLink({
 	 */
 	withNote: boolean
 	hasNote: boolean
+	/** Closes the dialog: the Notebook link leads away from it. */
+	onLeave: () => void
 }) {
 	const { t } = useTranslation("reader")
 	const { share, loading, busy, change, error } = link
@@ -301,6 +309,21 @@ function PublicLink({
 							{t("highlights.share.link.stop")}
 						</Button>
 					</div>
+					<p className="text-xs text-muted-fg">
+						<Trans
+							t={t}
+							i18nKey="highlights.share.link.all"
+							components={{
+								notebook: (
+									<Link
+										to="/notebook?show=shared"
+										onClick={onLeave}
+										className="text-link hover:underline"
+									/>
+								),
+							}}
+						/>
+					</p>
 				</>
 			) : (
 				<>

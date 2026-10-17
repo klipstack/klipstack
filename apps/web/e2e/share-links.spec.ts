@@ -63,7 +63,11 @@ test("a highlight shared at a link: its page, updates, the Notebook's filter, an
 	const address = link.getByRole("textbox", { name: "Link address" })
 	await expect(address).toHaveValue(/\/h\/[0-9A-Za-z]{12}$/)
 	const url = await address.inputValue()
-	await dialog.getByRole("button", { name: "Close" }).click()
+	// The dialog says where every shared highlight is listed, and leads there.
+	await link.getByRole("link", { name: "Notebook" }).click()
+	await expect(page).toHaveURL(/\/notebook\?show=shared$/)
+	await expect(dialog).toBeHidden()
+	await expect(page.getByTestId("quote-card")).toHaveCount(1)
 
 	// Anyone with the link: the quote, the note, the article; never the sharer's name.
 	const visitorContext = await browser.newContext()

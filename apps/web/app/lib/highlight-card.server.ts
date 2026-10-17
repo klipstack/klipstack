@@ -103,7 +103,7 @@ export function highlightCardSvg(card: HighlightCard): string {
 	}
 
 	parts.push(mark(80, 556, 36, INK.text))
-	parts.push(outline(name, "Klipstack", 126, 584, 26, INK.text))
+	parts.push(outline(name, "Klipstack.com", 126, 584, 26, INK.text))
 
 	return svg(
 		`<rect width="${CARD_WIDTH}" height="${CARD_HEIGHT}" fill="url(#g)"/>`,
