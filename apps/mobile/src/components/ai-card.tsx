@@ -21,7 +21,13 @@ import { InkThinking } from "@/components/ink-thinking"
 import { allowanceMessage, failureMessage, questionsLeft } from "@/lib/ai"
 import { plainAnswer } from "@/lib/ai-answer"
 import { useWritten } from "@/lib/ai-cards"
-import { type AiCard as Card, type AnswerStore, cardState } from "@/lib/ai-threads"
+import {
+	type AiCard as Card,
+	type AnswerStore,
+	cardState,
+	DRAFT_CHOICES,
+	unasked,
+} from "@/lib/ai-threads"
 import type { Colors } from "@/lib/theme"
 
 export const AI_ACTIONS: Record<
@@ -33,6 +39,9 @@ export const AI_ACTIONS: Record<
 	ask: { label: "Ask", symbol: "questionmark.bubble" },
 	chat: { label: "Chat", symbol: "bubble.left.and.text.bubble.right" },
 }
+
+/** Asking AI about a passage, before choosing how: the selection menu's Ask, and the draft's head. */
+const ASK_AI = { label: "Ask AI", symbol: "sparkles" } as const
 
 /** The card's height without its turns: the action, the passage, the tools and the field. */
 const CARD_CHROME = 230
@@ -58,7 +67,8 @@ const SUGGESTIONS = ["Give me an example", "Why does it matter?", "What is the e
  * A question about a passage and its answers, as a card at the bottom that leaves the article in
  * view, as the highlight's card does: the action, the passage, the turns, the answer streaming in
  * (the pen stroke until its first words), its citations, and Answer Again, Copy and Delete, then
- * a field for a follow-up. An Ask opens on its question field, with suggestions. Not a modal: the
+ * a field for a follow-up. Asking opens a draft: Explain and Define, one tap each, above its
+ * question field and suggestions; nothing is sent before. Not a modal: the
  * article above takes touches; a citation flashes its passage there. The web's `AiCard`.
  */
 export function AiCard({
@@ -68,6 +78,7 @@ export function AiCard({
 	canCite,
 	onClose,
 	onSend,
+	onChoose,
 	onRetry,
 	onDelete,
 	onCopy,
@@ -83,6 +94,8 @@ export function AiCard({
 	onClose: () => void
 	/** Missing while AI answers are turned off: the card is read, copied and deleted only. */
 	onSend?: (question: string) => void
+	/** A draft becomes an Explain or a Define. */
+	onChoose?: (action: (typeof DRAFT_CHOICES)[number]) => void
 	onRetry?: () => void
 	onDelete: () => void
 	onCopy: (text: string) => void
@@ -119,7 +132,7 @@ export function AiCard({
 		}
 	}, [open, slide])
 	if (!shown) return null
-	const { label, symbol } = AI_ACTIONS[shown.action]
+	const { label, symbol } = unasked(shown) ? ASK_AI : AI_ACTIONS[shown.action]
 	return (
 		<View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
 			<KeyboardAvoidingView behavior="padding" pointerEvents="box-none" style={styles.bottom}>
@@ -179,6 +192,7 @@ export function AiCard({
 							Math.min(height * 0.42, height - keyboard - insets.top - 44 - CARD_CHROME),
 						)}
 						onSend={onSend}
+						onChoose={onChoose}
 						onRetry={onRetry}
 						onDelete={onDelete}
 						onCopy={onCopy}
@@ -198,6 +212,7 @@ function CardBody({
 	canCite,
 	maxHeight,
 	onSend,
+	onChoose,
 	onRetry,
 	onDelete,
 	onCopy,
@@ -211,6 +226,7 @@ function CardBody({
 	maxHeight: number
 	/** Missing while AI answers are turned off: the card is read, copied and deleted only. */
 	onSend?: (question: string) => void
+	onChoose?: (action: (typeof DRAFT_CHOICES)[number]) => void
 	onRetry?: () => void
 	onDelete: () => void
 	onCopy: (text: string) => void
@@ -267,6 +283,32 @@ function CardBody({
 			) : null}
 			{card.draft && onSend ? (
 				<>
+					{onChoose ? (
+						<View style={styles.choices}>
+							{DRAFT_CHOICES.map((action) => (
+								<Pressable
+									key={action}
+									accessibilityRole="button"
+									accessibilityLabel={AI_ACTIONS[action].label}
+									onPress={() => onChoose(action)}
+									style={({ pressed }) => [
+										styles.choice,
+										{ borderColor: colors.border },
+										pressed && { backgroundColor: colors.muted },
+									]}
+								>
+									<SymbolView
+										name={AI_ACTIONS[action].symbol}
+										tintColor={colors.accent}
+										size={16}
+									/>
+									<Text style={[styles.choiceText, { color: colors.fg }]}>
+										{AI_ACTIONS[action].label}
+									</Text>
+								</Pressable>
+							))}
+						</View>
+					) : null}
 					<QuestionField
 						placeholder="Ask about this passage…"
 						autoFocus
@@ -493,6 +535,18 @@ const styles = StyleSheet.create({
 	},
 	input: { flex: 1, maxHeight: 120, fontSize: 16, paddingTop: 5, paddingBottom: 5 },
 	disabled: { opacity: 0.4 },
+	choices: { flexDirection: "row", gap: 8 },
+	choice: {
+		flex: 1,
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "center",
+		gap: 6,
+		borderWidth: StyleSheet.hairlineWidth,
+		borderRadius: 12,
+		paddingVertical: 10,
+	},
+	choiceText: { fontSize: 15, fontWeight: "500" },
 	suggestions: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
 	suggestion: {
 		borderWidth: StyleSheet.hairlineWidth,

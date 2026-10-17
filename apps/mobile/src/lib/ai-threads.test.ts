@@ -3,12 +3,16 @@ import { describe, expect, it } from "vitest"
 import {
 	type AiCard,
 	afterRefusal,
+	askCard,
 	cardState,
+	chosen,
 	createAnswerStore,
 	followingUp,
+	passageOf,
 	retryOf,
 	tempId,
 	tempQuestion,
+	unasked,
 	withQuestion,
 } from "./ai-threads"
 
@@ -188,5 +192,54 @@ describe("createAnswerStore", () => {
 		stop()
 		store.clear("b")
 		expect(heard).toBe(5)
+	})
+})
+
+describe("askCard", () => {
+	const passage = {
+		exact: "the cost",
+		prefix: "they understand ",
+		suffix: ", which I'll call",
+		start: 40,
+		end: 48,
+		versionId: "v1",
+	}
+
+	it("sends nothing yet: a draft, asking AI, how still to choose", () => {
+		const draft = askCard("tmp-ai-t-1", passage, false)
+		expect(draft.draft).toEqual({ question: "" })
+		expect(draft.messages).toEqual([])
+		expect(draft.streaming).toBeUndefined()
+		expect(unasked(draft)).toBe(true)
+	})
+
+	it("with none left, says why instead of offering a question or a choice", () => {
+		const none = askCard("tmp-ai-t-1", passage, true)
+		expect(none.draft).toBeUndefined()
+		expect(none.failure).toEqual({ code: "limit_reached" })
+		expect(unasked(none)).toBe(true)
+	})
+
+	it("an Explain chosen from the draft goes with the text around the passage", () => {
+		const explain = chosen(askCard("tmp-ai-t-1", passage, false), "explain")
+		expect(explain).toMatchObject({ action: "explain", streaming: true, draft: undefined })
+		expect(unasked(explain)).toBe(false)
+		expect(passageOf(explain)).toEqual(passage)
+	})
+
+	it("a first question refused before it began keeps the text around it for Answer Again", () => {
+		const asked = { ...askCard("tmp-ai-t-1", passage, false), draft: undefined }
+		const refused = afterRefusal(asked, { code: "network" })
+		expect(passageOf(refused)).toMatchObject({ prefix: passage.prefix, suffix: passage.suffix })
+	})
+
+	it("asked from a highlight, its questions are tied to the highlight", () => {
+		const draft = askCard("tmp-ai-t-1", { ...passage, highlightId: "h1" }, false)
+		expect(draft.highlightId).toBe("h1")
+		expect(passageOf(chosen(draft, "define")).highlightId).toBe("h1")
+	})
+
+	it("a thread loaded from the server has no text around it to send", () => {
+		expect(passageOf(card({}))).toMatchObject({ prefix: "", suffix: "" })
 	})
 })

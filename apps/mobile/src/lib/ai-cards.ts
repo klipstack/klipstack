@@ -3,11 +3,16 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
 import { type AiFailure, failureOf, NOTHING_WRITTEN, questionsLeft, type Written } from "./ai"
 import {
 	type AiCard,
+	type AiPassage,
 	type AnswerStore,
 	afterRefusal,
+	askCard,
+	chosen,
 	createAnswerStore,
+	type DRAFT_CHOICES,
 	followingUp,
 	isTempThread,
+	passageOf,
 	refusedNew,
 	retryOf,
 	tempId,
@@ -15,16 +20,6 @@ import {
 	withQuestion,
 } from "./ai-threads"
 import type { ReaderAi } from "./reader-ai"
-
-/** A passage to ask about: where it is in the text on the page. */
-export interface AiPassage {
-	exact: string
-	prefix: string
-	suffix: string
-	start: number
-	end: number
-	versionId: string
-}
 
 export type AiAction = "explain" | "define" | "ask"
 
@@ -125,49 +120,34 @@ export function useAiCards(client: KlipstackClient | null, articleId: string, ai
 					suffix: passage.suffix || undefined,
 					start: passage.start,
 					end: passage.end,
+					highlightId: passage.highlightId,
 					question,
 				})
 			}),
 		[client, articleId, run],
 	)
 
-	/** Explain and Define are sent at once; Ask opens its question field first. */
-	const start = useCallback(
-		(passage: AiPassage, action: AiAction) => {
-			const id = tempId("t")
-			const none = action === "ask" && questionsLeft(allowance.current).none
-			const card: AiCard = {
-				id,
-				action,
-				start: passage.start,
-				end: passage.end,
-				exact: passage.exact,
-				versionId: passage.versionId,
-				highlightId: null,
-				orphaned: false,
-				createdAt: new Date().toISOString(),
-				messages: action === "ask" ? [] : [tempQuestion("")],
-				...(none
-					? { failure: { code: "limit_reached" } }
-					: action === "ask"
-						? { draft: { question: "" } }
-						: { streaming: true }),
-			}
-			setCards((prev) => [...prev.filter((c) => !c.draft), card])
-			setOpenId(id)
-			if (action !== "ask") void askPassage(id, passage, action)
-		},
-		[askPassage],
-	)
+	/**
+	 * Asking about a passage opens a draft: nothing is sent until the reader chooses Explain or
+	 * Define (`choose`) or sends a question. With no questions left, the card says so.
+	 */
+	const start = useCallback((passage: AiPassage) => {
+		const id = tempId("t")
+		const card = askCard(id, passage, questionsLeft(allowance.current).none)
+		setCards((prev) => [...prev.filter((c) => !c.draft), card])
+		setOpenId(id)
+	}, [])
 
-	const passageOf = (card: AiCard): AiPassage => ({
-		exact: card.exact,
-		prefix: "",
-		suffix: "",
-		start: card.start,
-		end: card.end,
-		versionId: card.versionId,
-	})
+	/** A draft becomes an Explain or a Define of its passage, sent at once. */
+	const choose = useCallback(
+		(id: string, action: (typeof DRAFT_CHOICES)[number]) => {
+			const card = latest.current.find((c) => c.id === id)
+			if (!card?.draft) return
+			update(id, (c) => chosen(c, action))
+			void askPassage(id, passageOf(card), action)
+		},
+		[askPassage, update],
+	)
 
 	const send = useCallback(
 		(id: string, text: string) => {
@@ -289,7 +269,7 @@ export function useAiCards(client: KlipstackClient | null, articleId: string, ai
 		)
 	}, [])
 
-	return { cards, openId, open, close, start, send, retry, remove, chat, written }
+	return { cards, openId, open, close, start, send, choose, retry, remove, chat, written }
 }
 
 export type AiCards = ReturnType<typeof useAiCards>

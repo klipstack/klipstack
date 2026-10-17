@@ -6,15 +6,78 @@ import type { AiFailure, Written } from "./ai"
  * server keeps, plus what is happening to each now. Pure: the hook is `useAiCards`.
  */
 
+/** A passage to ask about: where it is in the text on the page. */
+export interface AiPassage {
+	exact: string
+	prefix: string
+	suffix: string
+	start: number
+	end: number
+	versionId: string
+	/** Asked from a highlight's card: the thread is tied to it. */
+	highlightId?: string
+}
+
+/** What a draft offers above its question field, sent with one tap. */
+export const DRAFT_CHOICES = ["explain", "define"] as const
+
 /** A thread on screen. */
 export interface AiCard extends AiThreadWithMessages {
-	/** An Ask not sent yet: its question field. */
+	/** Not sent yet: its question field, with Explain and Define offered above it. */
 	draft?: { question: string }
+	/**
+	 * The text around a passage asked about here, sent with its first question, and again if that
+	 * one is refused before it began. The server keeps it once it takes the thread.
+	 */
+	around?: { prefix: string; suffix: string }
 	/** An answer is being written: its words are in the `AnswerStore`. */
 	streaming?: boolean
 	/** Why the last question was not answered (a refusal before it began, or the network). */
 	failure?: AiFailure
 }
+
+/**
+ * Asking about a passage, before choosing how: a draft that sends nothing until the reader picks
+ * Explain or Define, or sends a question. With no questions left, the card that says why.
+ */
+export function askCard(id: string, passage: AiPassage, none: boolean): AiCard {
+	return {
+		id,
+		action: "ask",
+		start: passage.start,
+		end: passage.end,
+		exact: passage.exact,
+		versionId: passage.versionId,
+		highlightId: passage.highlightId ?? null,
+		orphaned: false,
+		createdAt: new Date().toISOString(),
+		messages: [],
+		around: { prefix: passage.prefix, suffix: passage.suffix },
+		...(none ? { failure: { code: "limit_reached" } } : { draft: { question: "" } }),
+	}
+}
+
+/** A draft become an Explain or a Define, being answered. */
+export function chosen(card: AiCard, action: (typeof DRAFT_CHOICES)[number]): AiCard {
+	return { ...card, action, draft: undefined, messages: [tempQuestion("")], streaming: true }
+}
+
+/** The passage a new card asks about, with the text around it. */
+export function passageOf(card: AiCard): AiPassage {
+	return {
+		exact: card.exact,
+		prefix: card.around?.prefix ?? "",
+		suffix: card.around?.suffix ?? "",
+		start: card.start,
+		end: card.end,
+		versionId: card.versionId,
+		highlightId: card.highlightId ?? undefined,
+	}
+}
+
+/** Nothing asked yet (a draft, or none left this month): asking AI, how still to choose. */
+export const unasked = (card: AiCard) =>
+	!!card.draft || (card.action === "ask" && card.messages.length === 0)
 
 let seq = 0
 export const tempId = (kind: string) => `tmp-ai-${kind}-${++seq}`
