@@ -113,11 +113,15 @@ export async function purgeExpiredSignIns(): Promise<{ sessions: number; verific
  * fetch would bring them back as new), except each feed's latest few (what a new subscriber sees).
  * Feeds nobody has followed for a week go with their items.
  */
-export async function purgeFeeds(): Promise<{ feedItems: number; feeds: number }> {
+export async function purgeFeeds(
+	/** Only these feeds, when given: as `Owners`, for tests. */
+	only?: string[],
+): Promise<{ feedItems: number; feeds: number }> {
+	if (only?.length === 0) return { feedItems: 0, feeds: 0 }
 	const itemCutoff = new Date(Date.now() - FEED_ITEM_RETENTION_DAYS * 86_400_000)
 	const items = await db.execute(sql`
 		delete from feed_items fi
-		where fi.sort_at < ${itemCutoff}
+		where fi.sort_at < ${itemCutoff} ${only ? sql`and fi.feed_id in ${only}` : sql``}
 			and fi.last_seen_at < (select max(last_seen_at) from feed_items latest where latest.feed_id = fi.feed_id)
 			and fi.id not in (
 				select id from (
@@ -130,7 +134,7 @@ export async function purgeFeeds(): Promise<{ feedItems: number; feeds: number }
 	const feedCutoff = new Date(Date.now() - UNFOLLOWED_FEED_DAYS * 86_400_000)
 	const gone = await db.execute(sql`
 		delete from feeds f
-		where coalesce(f.last_fetched_at, f.created_at) < ${feedCutoff}
+		where coalesce(f.last_fetched_at, f.created_at) < ${feedCutoff} ${only ? sql`and f.id in ${only}` : sql``}
 			and not exists (select 1 from subscriptions s where s.feed_id = f.id)
 	`)
 	return { feedItems: items.rowCount ?? 0, feeds: gone.rowCount ?? 0 }

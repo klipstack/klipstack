@@ -72,11 +72,11 @@ describe("handleReportDigest", () => {
 	it("tells each admin, in their language, how many reports are new, then marks them", async () => {
 		const ids = await reports(2)
 		const mail = outbox()
-		const digest = await handleReportDigest(mail)
-		expect(digest.fresh).toBeGreaterThanOrEqual(2)
+		const digest = await handleReportDigest({ ...mail, only: ids })
+		expect(digest.fresh).toBe(2)
 		const [email, ...more] = mail.sent.filter((sent) => sent.to === admin.email)
 		expect(more).toHaveLength(0)
-		expect(email!.subject).toMatch(/^\d+ denuncias nuevas en Klipstack$/)
+		expect(email!.subject).toBe("2 denuncias nuevas en Klipstack")
 		expect(email!.text).toContain("/admin/reports")
 		// Nothing a visitor typed: no details, no address.
 		expect(email!.text).not.toContain(tag)
@@ -85,10 +85,10 @@ describe("handleReportDigest", () => {
 	})
 
 	it("sends nothing when no report is new", async () => {
-		await reports(1)
-		await handleReportDigest(outbox())
+		const ids = await reports(1)
+		await handleReportDigest({ ...outbox(), only: ids })
 		const mail = outbox()
-		expect(await handleReportDigest(mail)).toEqual({ fresh: 0, recipients: 0 })
+		expect(await handleReportDigest({ ...mail, only: ids })).toEqual({ fresh: 0, recipients: 0 })
 		expect(mail.sent).toHaveLength(0)
 	})
 
@@ -97,7 +97,7 @@ describe("handleReportDigest", () => {
 		const failing = async () => {
 			throw new Error("down")
 		}
-		await expect(handleReportDigest({ send: failing })).rejects.toThrow("down")
+		await expect(handleReportDigest({ send: failing, only: ids })).rejects.toThrow("down")
 		expect(await counted(ids)).toBe(false)
 	})
 })

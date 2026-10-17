@@ -1,4 +1,4 @@
-import { createHmac } from "node:crypto"
+import { createHmac, randomUUID } from "node:crypto"
 import {
 	account,
 	apiKeys,
@@ -437,13 +437,22 @@ describe("auth logs", () => {
 			errors.length = 0
 			const before = logs.length
 			vi.stubEnv("NODE_ENV", "production")
+			// An address with no account: the answer must not depend on one existing. This run's own,
+			// from this run's own client address: the rate limits are stored, and outlive a run.
+			const nobody = `nobody-${path.length}-${randomUUID()}@example.com`
 			try {
 				const res = await auth.handler(
 					new Request(new URL(path, auth.options.baseURL), {
 						method: "POST",
-						headers: { "content-type": "application/json", origin: String(auth.options.baseURL) },
-						// An address with no account: the answer must not depend on one existing.
-						body: JSON.stringify({ email: `nobody-${path.length}@example.com` }),
+						headers: {
+							"content-type": "application/json",
+							origin: String(auth.options.baseURL),
+							"x-klipstack-client-ip": nobody,
+							"x-klipstack-client-signature": createHmac("sha256", env.BETTER_AUTH_SECRET)
+								.update(nobody)
+								.digest("hex"),
+						},
+						body: JSON.stringify({ email: nobody }),
 					}),
 				)
 				expect(res.status).toBe(503)

@@ -294,6 +294,15 @@ export function paintedHighlights(page: Page): Promise<string[]> {
 }
 
 /**
+ * Whether the page takes this browser for an Apple one, as the app does (`usePaletteHint`,
+ * `useSubmitHint`, `ShortcutList`): there the shortcuts read ⌘K, ⌘↵, elsewhere Ctrl K, Ctrl+Enter.
+ * Chromium on a Mac says so even when CI, on Linux, does not.
+ */
+export async function applePlatform(page: Page): Promise<boolean> {
+	return page.evaluate(() => /Mac|iPhone|iPad/.test(navigator.platform))
+}
+
+/**
  * Put the caret at the end of the focused note, as a reader on this computer would. `End` will not
  * do on a Mac: there it scrolls the page and leaves the caret where the click put it, often in the
  * middle of the text.

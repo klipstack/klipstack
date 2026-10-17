@@ -1,6 +1,7 @@
 import { createHmac, randomUUID } from "node:crypto"
 import { authLimits, db, editionReports, editions, eq, inArray, sql, user } from "@klipstack/db"
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest"
+import { inSnapshot } from "~/test/snapshot"
 import { REPORTS_OPEN_MAX, reportEdition } from "./edition-reports.server"
 import { env } from "./env.server"
 import { FORM_MIN_MS, formToken } from "./invite-requests.server"
@@ -134,17 +135,39 @@ describe("reportEdition", () => {
 	})
 
 	it("says to try later once too many reports wait", async () => {
-		const [open] = await db.select({ n: sql<number>`count(*)::int` }).from(editionReports)
-		const missing = REPORTS_OPEN_MAX - (open?.n ?? 0)
-		if (missing > 0)
-			await db.insert(editionReports).values(
-				Array.from({ length: missing }, () => ({
-					editionId: live.id,
-					reason: "other" as const,
-					details: "filler",
-					locale: "en",
-				})),
+		// The cap counts every report: filled in a snapshot, so other tests' reports don't come and
+		// go meanwhile, and they never see it full.
+		const { outcome, rows } = await inSnapshot(async (tx) => {
+			const [open] = await tx.select({ n: sql<number>`count(*)::int` }).from(editionReports)
+			const missing = REPORTS_OPEN_MAX - (open?.n ?? 0)
+			if (missing > 0)
+				await tx.insert(editionReports).values(
+					Array.from({ length: missing }, () => ({
+						editionId: live.id,
+						reason: "other" as const,
+						details: "filler",
+						locale: "en",
+					})),
+				)
+			const outcome = await reportEdition(
+				{
+					publicId: live.publicId,
+					reason: "spam",
+					details: `${TAG} details`,
+					locale: "es",
+					token: aged(),
+					trap: "",
+				},
+				headers(),
+				tx,
 			)
-		expect(await report(live.publicId)).toBe("full")
+			const rows = await tx
+				.select({ id: editionReports.id })
+				.from(editionReports)
+				.where(eq(editionReports.details, `${TAG} details`))
+			return { outcome, rows }
+		})
+		expect(outcome).toBe("full")
+		expect(rows).toHaveLength(0)
 	})
 })

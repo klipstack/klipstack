@@ -47,14 +47,14 @@ describe("purgeFeeds", () => {
 	it("keeps old items the feed still lists, so they do not come back as new", async () => {
 		await storeFeedEntries(feedId, entries, new Date(Date.now() - 2 * DAY))
 		await storeFeedEntries(feedId, entries, new Date(Date.now() - DAY))
-		await purgeFeeds()
+		await purgeFeeds([feedId])
 		expect(await guids()).toHaveLength(8)
 	})
 
 	it("drops old items once the feed stops listing them, keeping the latest five", async () => {
 		// The feed now lists only its two newest posts.
 		expect(await storeFeedEntries(feedId, entries.slice(0, 2))).toBe(0)
-		await purgeFeeds()
+		await purgeFeeds([feedId])
 		expect(await guids()).toEqual(["0", "1", "2", "3", "4"])
 	})
 })

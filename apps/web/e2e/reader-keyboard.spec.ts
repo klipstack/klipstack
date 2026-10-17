@@ -9,7 +9,7 @@ import {
 	user,
 } from "@klipstack/db"
 import { expect, type Page, test } from "@playwright/test"
-import { signupUser, waitForHydration } from "./helpers"
+import { applePlatform, signupUser, waitForHydration } from "./helpers"
 import { insertArticle } from "./seed"
 
 const LONG = Array.from(
@@ -340,9 +340,15 @@ test("Settings lists every shortcut; the AI's only with AI", async ({ page, brow
 	await expect(
 		page.getByRole("region", { name: "In lists" }).getByRole("row", { name: /^S Star$/ }),
 	).toBeVisible()
-	// ⌘ on Apple platforms only: the tests run on Linux.
-	await expect(page.getByRole("region", { name: "Everywhere" })).toContainText("Ctrl K")
-	await expect(page.getByRole("region", { name: "Everywhere" })).not.toContainText("⌘")
+	// ⌘ on Apple platforms only, Ctrl elsewhere.
+	const everywhere = page.getByRole("region", { name: "Everywhere" })
+	if (await applePlatform(page)) {
+		await expect(everywhere).toContainText("⌘K")
+		await expect(everywhere).not.toContainText("Ctrl")
+	} else {
+		await expect(everywhere).toContainText("Ctrl K")
+		await expect(everywhere).not.toContainText("⌘")
+	}
 
 	// The switch explains itself. Turned off, the single keys are marked off, the others not.
 	const toggle = page.getByRole("checkbox", { name: "Single-key shortcuts" })
