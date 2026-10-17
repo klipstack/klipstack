@@ -1,349 +1,349 @@
 {
-  "version": "7",
-  "dialect": "postgresql",
-  "entries": [
-    {
-      "idx": 0,
-      "version": "7",
-      "when": 1789221732656,
-      "tag": "0000_typical_cerebro",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1789237084394,
-      "tag": "0001_api_keys",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1789261157574,
-      "tag": "0002_title_edited",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1789337488208,
-      "tag": "0003_reading_position",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1789340050811,
-      "tag": "0004_reset_warmed_opens",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1789399980567,
-      "tag": "0005_unaccent",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1789402999196,
-      "tag": "0006_archived_at",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1789403352538,
-      "tag": "0007_drop_location",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "7",
-      "when": 1789422745486,
-      "tag": "0008_x_posts",
-      "breakpoints": true
-    },
-    {
-      "idx": 9,
-      "version": "7",
-      "when": 1789427065748,
-      "tag": "0009_feeds",
-      "breakpoints": true
-    },
-    {
-      "idx": 10,
-      "version": "7",
-      "when": 1789478729834,
-      "tag": "0010_article_note",
-      "breakpoints": true
-    },
-    {
-      "idx": 11,
-      "version": "7",
-      "when": 1789525728394,
-      "tag": "0011_document_links",
-      "breakpoints": true
-    },
-    {
-      "idx": 12,
-      "version": "7",
-      "when": 1789589397830,
-      "tag": "0012_oauth_provider",
-      "breakpoints": true
-    },
-    {
-      "idx": 13,
-      "version": "7",
-      "when": 1789668322132,
-      "tag": "0013_amused_ultimates",
-      "breakpoints": true
-    },
-    {
-      "idx": 14,
-      "version": "7",
-      "when": 1789668951285,
-      "tag": "0014_melted_ikaris",
-      "breakpoints": true
-    },
-    {
-      "idx": 15,
-      "version": "7",
-      "when": 1789714979149,
-      "tag": "0015_dusty_mastermind",
-      "breakpoints": true
-    },
-    {
-      "idx": 16,
-      "version": "7",
-      "when": 1789771655731,
-      "tag": "0016_search_stemming",
-      "breakpoints": true
-    },
-    {
-      "idx": 17,
-      "version": "7",
-      "when": 1789942209345,
-      "tag": "0017_document_outlinks",
-      "breakpoints": true
-    },
-    {
-      "idx": 18,
-      "version": "7",
-      "when": 1789952926672,
-      "tag": "0018_document_tags_index",
-      "breakpoints": true
-    },
-    {
-      "idx": 19,
-      "version": "7",
-      "when": 1789961975014,
-      "tag": "0019_saved_searches",
-      "breakpoints": true
-    },
-    {
-      "idx": 20,
-      "version": "7",
-      "when": 1790098658300,
-      "tag": "0020_reading_completions",
-      "breakpoints": true
-    },
-    {
-      "idx": 21,
-      "version": "7",
-      "when": 1790106287245,
-      "tag": "0021_feed_item_views",
-      "breakpoints": true
-    },
-    {
-      "idx": 22,
-      "version": "7",
-      "when": 1790117287940,
-      "tag": "0022_editions",
-      "breakpoints": true
-    },
-    {
-      "idx": 23,
-      "version": "7",
-      "when": 1790480227501,
-      "tag": "0023_x_site_name",
-      "breakpoints": true
-    },
-    {
-      "idx": 24,
-      "version": "7",
-      "when": 1790534194448,
-      "tag": "0024_failed_recapture_kept",
-      "breakpoints": true
-    },
-    {
-      "idx": 25,
-      "version": "7",
-      "when": 1790538190118,
-      "tag": "0025_fk_indexes",
-      "breakpoints": true
-    },
-    {
-      "idx": 26,
-      "version": "7",
-      "when": 1790538253436,
-      "tag": "0026_fetch_url",
-      "breakpoints": true
-    },
-    {
-      "idx": 27,
-      "version": "7",
-      "when": 1790613744221,
-      "tag": "0027_user_features",
-      "breakpoints": true
-    },
-    {
-      "idx": 28,
-      "version": "7",
-      "when": 1790800691193,
-      "tag": "0028_invite_requests",
-      "breakpoints": true
-    },
-    {
-      "idx": 29,
-      "version": "7",
-      "when": 1790815400264,
-      "tag": "0029_usage_counts",
-      "breakpoints": true
-    },
-    {
-      "idx": 30,
-      "version": "7",
-      "when": 1790817103637,
-      "tag": "0030_edition_reports",
-      "breakpoints": true
-    },
-    {
-      "idx": 31,
-      "version": "7",
-      "when": 1790877767364,
-      "tag": "0031_editions_without_period",
-      "breakpoints": true
-    },
-    {
-      "idx": 32,
-      "version": "7",
-      "when": 1790879325164,
-      "tag": "0032_documents_shortlisted",
-      "breakpoints": true
-    },
-    {
-      "idx": 33,
-      "version": "7",
-      "when": 1791076964591,
-      "tag": "0033_document_via",
-      "breakpoints": true
-    },
-    {
-      "idx": 34,
-      "version": "7",
-      "when": 1791081553787,
-      "tag": "0034_documents_shared_url",
-      "breakpoints": true
-    },
-    {
-      "idx": 35,
-      "version": "7",
-      "when": 1791584707313,
-      "tag": "0035_ai_threads",
-      "breakpoints": true
-    },
-    {
-      "idx": 36,
-      "version": "7",
-      "when": 1791602797275,
-      "tag": "0036_ai_briefs",
-      "breakpoints": true
-    },
-    {
-      "idx": 37,
-      "version": "7",
-      "when": 1791662649694,
-      "tag": "0037_documents_edition_note",
-      "breakpoints": true
-    },
-    {
-      "idx": 38,
-      "version": "7",
-      "when": 1791680026518,
-      "tag": "0038_documents_kept_at",
-      "breakpoints": true
-    },
-    {
-      "idx": 39,
-      "version": "7",
-      "when": 1791733702120,
-      "tag": "0039_edition_items_included",
-      "breakpoints": true
-    },
-    {
-      "idx": 40,
-      "version": "7",
-      "when": 1791766028496,
-      "tag": "0040_premium_rick_jones",
-      "breakpoints": true
-    },
-    {
-      "idx": 41,
-      "version": "7",
-      "when": 1791774460972,
-      "tag": "0041_edition_cover",
-      "breakpoints": true
-    },
-    {
-      "idx": 42,
-      "version": "7",
-      "when": 1791810278249,
-      "tag": "0042_topic_boundary",
-      "breakpoints": true
-    },
-    {
-      "idx": 43,
-      "version": "7",
-      "when": 1791850246875,
-      "tag": "0043_annotation_search",
-      "breakpoints": true
-    },
-    {
-      "idx": 44,
-      "version": "7",
-      "when": 1791853889099,
-      "tag": "0044_highlight_resurfacing",
-      "breakpoints": true
-    },
-    {
-      "idx": 45,
-      "version": "7",
-      "when": 1791935453735,
-      "tag": "0045_note_skipped",
-      "breakpoints": true
-    },
-    {
-      "idx": 46,
-      "version": "7",
-      "when": 1792022847385,
-      "tag": "0046_fixed_raider",
-      "breakpoints": true
-    },
-    {
-      "idx": 47,
-      "version": "7",
-      "when": 1792250438603,
-      "tag": "0047_highlight_shares",
-      "breakpoints": true
-    },
-    {
-      "idx": 48,
-      "version": "7",
-      "when": 1792261627233,
-      "tag": "0048_editions_switch",
-      "breakpoints": true
-    }
-  ]
+	"version": "7",
+	"dialect": "postgresql",
+	"entries": [
+		{
+			"idx": 0,
+			"version": "7",
+			"when": 1789221732656,
+			"tag": "0000_typical_cerebro",
+			"breakpoints": true
+		},
+		{
+			"idx": 1,
+			"version": "7",
+			"when": 1789237084394,
+			"tag": "0001_api_keys",
+			"breakpoints": true
+		},
+		{
+			"idx": 2,
+			"version": "7",
+			"when": 1789261157574,
+			"tag": "0002_title_edited",
+			"breakpoints": true
+		},
+		{
+			"idx": 3,
+			"version": "7",
+			"when": 1789337488208,
+			"tag": "0003_reading_position",
+			"breakpoints": true
+		},
+		{
+			"idx": 4,
+			"version": "7",
+			"when": 1789340050811,
+			"tag": "0004_reset_warmed_opens",
+			"breakpoints": true
+		},
+		{
+			"idx": 5,
+			"version": "7",
+			"when": 1789399980567,
+			"tag": "0005_unaccent",
+			"breakpoints": true
+		},
+		{
+			"idx": 6,
+			"version": "7",
+			"when": 1789402999196,
+			"tag": "0006_archived_at",
+			"breakpoints": true
+		},
+		{
+			"idx": 7,
+			"version": "7",
+			"when": 1789403352538,
+			"tag": "0007_drop_location",
+			"breakpoints": true
+		},
+		{
+			"idx": 8,
+			"version": "7",
+			"when": 1789422745486,
+			"tag": "0008_x_posts",
+			"breakpoints": true
+		},
+		{
+			"idx": 9,
+			"version": "7",
+			"when": 1789427065748,
+			"tag": "0009_feeds",
+			"breakpoints": true
+		},
+		{
+			"idx": 10,
+			"version": "7",
+			"when": 1789478729834,
+			"tag": "0010_article_note",
+			"breakpoints": true
+		},
+		{
+			"idx": 11,
+			"version": "7",
+			"when": 1789525728394,
+			"tag": "0011_document_links",
+			"breakpoints": true
+		},
+		{
+			"idx": 12,
+			"version": "7",
+			"when": 1789589397830,
+			"tag": "0012_oauth_provider",
+			"breakpoints": true
+		},
+		{
+			"idx": 13,
+			"version": "7",
+			"when": 1789668322132,
+			"tag": "0013_amused_ultimates",
+			"breakpoints": true
+		},
+		{
+			"idx": 14,
+			"version": "7",
+			"when": 1789668951285,
+			"tag": "0014_melted_ikaris",
+			"breakpoints": true
+		},
+		{
+			"idx": 15,
+			"version": "7",
+			"when": 1789714979149,
+			"tag": "0015_dusty_mastermind",
+			"breakpoints": true
+		},
+		{
+			"idx": 16,
+			"version": "7",
+			"when": 1789771655731,
+			"tag": "0016_search_stemming",
+			"breakpoints": true
+		},
+		{
+			"idx": 17,
+			"version": "7",
+			"when": 1789942209345,
+			"tag": "0017_document_outlinks",
+			"breakpoints": true
+		},
+		{
+			"idx": 18,
+			"version": "7",
+			"when": 1789952926672,
+			"tag": "0018_document_tags_index",
+			"breakpoints": true
+		},
+		{
+			"idx": 19,
+			"version": "7",
+			"when": 1789961975014,
+			"tag": "0019_saved_searches",
+			"breakpoints": true
+		},
+		{
+			"idx": 20,
+			"version": "7",
+			"when": 1790098658300,
+			"tag": "0020_reading_completions",
+			"breakpoints": true
+		},
+		{
+			"idx": 21,
+			"version": "7",
+			"when": 1790106287245,
+			"tag": "0021_feed_item_views",
+			"breakpoints": true
+		},
+		{
+			"idx": 22,
+			"version": "7",
+			"when": 1790117287940,
+			"tag": "0022_editions",
+			"breakpoints": true
+		},
+		{
+			"idx": 23,
+			"version": "7",
+			"when": 1790480227501,
+			"tag": "0023_x_site_name",
+			"breakpoints": true
+		},
+		{
+			"idx": 24,
+			"version": "7",
+			"when": 1790534194448,
+			"tag": "0024_failed_recapture_kept",
+			"breakpoints": true
+		},
+		{
+			"idx": 25,
+			"version": "7",
+			"when": 1790538190118,
+			"tag": "0025_fk_indexes",
+			"breakpoints": true
+		},
+		{
+			"idx": 26,
+			"version": "7",
+			"when": 1790538253436,
+			"tag": "0026_fetch_url",
+			"breakpoints": true
+		},
+		{
+			"idx": 27,
+			"version": "7",
+			"when": 1790613744221,
+			"tag": "0027_user_features",
+			"breakpoints": true
+		},
+		{
+			"idx": 28,
+			"version": "7",
+			"when": 1790800691193,
+			"tag": "0028_invite_requests",
+			"breakpoints": true
+		},
+		{
+			"idx": 29,
+			"version": "7",
+			"when": 1790815400264,
+			"tag": "0029_usage_counts",
+			"breakpoints": true
+		},
+		{
+			"idx": 30,
+			"version": "7",
+			"when": 1790817103637,
+			"tag": "0030_edition_reports",
+			"breakpoints": true
+		},
+		{
+			"idx": 31,
+			"version": "7",
+			"when": 1790877767364,
+			"tag": "0031_editions_without_period",
+			"breakpoints": true
+		},
+		{
+			"idx": 32,
+			"version": "7",
+			"when": 1790879325164,
+			"tag": "0032_documents_shortlisted",
+			"breakpoints": true
+		},
+		{
+			"idx": 33,
+			"version": "7",
+			"when": 1791076964591,
+			"tag": "0033_document_via",
+			"breakpoints": true
+		},
+		{
+			"idx": 34,
+			"version": "7",
+			"when": 1791081553787,
+			"tag": "0034_documents_shared_url",
+			"breakpoints": true
+		},
+		{
+			"idx": 35,
+			"version": "7",
+			"when": 1791584707313,
+			"tag": "0035_ai_threads",
+			"breakpoints": true
+		},
+		{
+			"idx": 36,
+			"version": "7",
+			"when": 1791602797275,
+			"tag": "0036_ai_briefs",
+			"breakpoints": true
+		},
+		{
+			"idx": 37,
+			"version": "7",
+			"when": 1791662649694,
+			"tag": "0037_documents_edition_note",
+			"breakpoints": true
+		},
+		{
+			"idx": 38,
+			"version": "7",
+			"when": 1791680026518,
+			"tag": "0038_documents_kept_at",
+			"breakpoints": true
+		},
+		{
+			"idx": 39,
+			"version": "7",
+			"when": 1791733702120,
+			"tag": "0039_edition_items_included",
+			"breakpoints": true
+		},
+		{
+			"idx": 40,
+			"version": "7",
+			"when": 1791766028496,
+			"tag": "0040_premium_rick_jones",
+			"breakpoints": true
+		},
+		{
+			"idx": 41,
+			"version": "7",
+			"when": 1791774460972,
+			"tag": "0041_edition_cover",
+			"breakpoints": true
+		},
+		{
+			"idx": 42,
+			"version": "7",
+			"when": 1791810278249,
+			"tag": "0042_topic_boundary",
+			"breakpoints": true
+		},
+		{
+			"idx": 43,
+			"version": "7",
+			"when": 1791850246875,
+			"tag": "0043_annotation_search",
+			"breakpoints": true
+		},
+		{
+			"idx": 44,
+			"version": "7",
+			"when": 1791853889099,
+			"tag": "0044_highlight_resurfacing",
+			"breakpoints": true
+		},
+		{
+			"idx": 45,
+			"version": "7",
+			"when": 1791935453735,
+			"tag": "0045_note_skipped",
+			"breakpoints": true
+		},
+		{
+			"idx": 46,
+			"version": "7",
+			"when": 1792022847385,
+			"tag": "0046_fixed_raider",
+			"breakpoints": true
+		},
+		{
+			"idx": 47,
+			"version": "7",
+			"when": 1792250438603,
+			"tag": "0047_highlight_shares",
+			"breakpoints": true
+		},
+		{
+			"idx": 48,
+			"version": "7",
+			"when": 1792261627233,
+			"tag": "0048_editions_switch",
+			"breakpoints": true
+		}
+	]
 }
