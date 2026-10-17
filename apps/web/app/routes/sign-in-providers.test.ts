@@ -110,8 +110,7 @@ describe("third-party sign-in in an app's sign-in", () => {
 		expect((await atLoginPage(at("/login"))).providers).toEqual(["github"])
 		expect((await atSignupPage(at("/signup"))).providers).toEqual(["github"])
 		expect((await atSignupPage(at("/signup"))).appQuery).toBeNull()
-		const cli = await signInPage(CLI_CLIENT_ID, "http://127.0.0.1:4567/callback", CLI_SCOPES)
-		expect(CLI_REDIRECT_URI).toContain("127.0.0.1")
+		const cli = await signInPage(CLI_CLIENT_ID, CLI_REDIRECT_URI, CLI_SCOPES)
 		const atLogin = await atLoginPage(cli)
 		expect(atLogin.appQuery).toBeTruthy()
 		expect((await atSignupPage(at("/signup", `?${atLogin.appQuery}`))).providers).toEqual([

@@ -104,6 +104,6 @@ export function written(
  */
 export const AI_CONSENT = {
 	title: "Ask Anthropic's AI?",
-	sent: "To answer, Klipstack sends Anthropic the article's text, the passage you chose and your question. Anthropic uses them only to answer, and doesn't train its models on them.",
-	when: "Nothing is sent until you ask. Your choice holds on all your devices, and you can change it in Account.",
+	sent: "To answer, Klipstack sends Anthropic the article's text and what you ask about it: the passage you chose, your question. Anthropic uses them only to answer, and doesn't train its models on them.",
+	when: "Nothing is sent until you ask. Your choice holds in the app on all your devices, and you can change it in Account.",
 } as const

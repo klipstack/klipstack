@@ -46,6 +46,7 @@ import { NotesSheet } from "@/components/notes-sheet"
 import { ReaderStatus } from "@/components/reader-status"
 import { useTagSheet } from "@/components/tag-sheet"
 import { type AiAction, useAiCards } from "@/lib/ai-cards"
+import { createConsentGate } from "@/lib/ai-consent"
 import { showToast, track } from "@/lib/article-changes"
 import { retagged } from "@/lib/article-tags"
 import { useAuth } from "@/lib/auth"
@@ -194,8 +195,12 @@ export default function Reader() {
 	const [consentOpen, setConsentOpen] = useState(false)
 	const [consenting, setConsenting] = useState(false)
 	const [consentFailed, setConsentFailed] = useState(false)
-	const afterConsent = useRef<(() => void) | null>(null)
-	const consentGiven = useRef(false)
+	const [consentGate] = useState(() =>
+		createConsentGate(() => {
+			setConsentFailed(false)
+			setConsentOpen(true)
+		}),
+	)
 	// A citation followed from a sheet shows once the sheet is gone.
 	const citeAfterSheet = useRef<AiCitation | null>(null)
 	// Reading aloud: its language is guessed from the text when the article has none.
@@ -815,17 +820,14 @@ export default function Reader() {
 	 * the consent sheet's Continue if not (once the sheet is gone, so a sheet can follow it).
 	 */
 	function withConsent(run: () => void) {
-		if (ai.consented) return run()
-		afterConsent.current = run
-		setConsentFailed(false)
-		setConsentOpen(true)
+		consentGate.request(ai.consented, run)
 	}
 
 	async function giveConsent() {
 		setConsenting(true)
 		try {
 			await ai.consent()
-			consentGiven.current = true
+			consentGate.given()
 			setConsentOpen(false)
 		} catch {
 			setConsentFailed(true)
@@ -1467,12 +1469,7 @@ export default function Reader() {
 					privacyUrl={`${apiUrl}/privacy`}
 					onContinue={() => void giveConsent()}
 					onClose={() => setConsentOpen(false)}
-					onDismiss={() => {
-						const run = afterConsent.current
-						afterConsent.current = null
-						if (consentGiven.current && run) run()
-						consentGiven.current = false
-					}}
+					onDismiss={consentGate.dismissed}
 					colors={colors}
 				/>
 			) : null}

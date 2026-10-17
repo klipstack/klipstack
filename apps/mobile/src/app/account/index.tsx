@@ -170,7 +170,7 @@ export default function Account() {
 			{ai ? (
 				<Section
 					title="AI answers"
-					footnote="When you ask about an article, Klipstack sends Anthropic its text, the passage and your question. Your choice holds on all your devices."
+					footnote="When you ask about an article, Klipstack sends Anthropic its text, the passage and your question. Your choice holds in the app on all your devices."
 				>
 					<Row
 						label="Send questions to Anthropic"

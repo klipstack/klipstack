@@ -58,7 +58,7 @@ pnpm dlx expo-doctor         # Diagnose dependency and config problems
   it; a tap opens `klipstack://read/<id>`.
 - `plugins/with-extension-settings.js`: what `@bacons/apple-targets` has no option for: the
   extensions run on the app's devices (iPhone only while `ios.supportsTablet` is false), and a
-  Release build drops the share extension's `NSAllowsLocalNetworking` (the dev server only).
+  Release build drops the extensions' `NSAllowsLocalNetworking` (the dev server only).
 - `app.json` holds the privacy manifest (`ios.privacyManifests`): the required-reason APIs of the
   app and its pods, and the data it collects. A new native dependency may need its reasons added:
   check its `PrivacyInfo.xcprivacy`, and `ios/Klipstack/PrivacyInfo.xcprivacy` after a prebuild.

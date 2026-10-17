@@ -1,6 +1,14 @@
 import { SymbolView } from "expo-symbols"
 import * as WebBrowser from "expo-web-browser"
-import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from "react-native"
+import {
+	ActivityIndicator,
+	Modal,
+	Pressable,
+	ScrollView,
+	StyleSheet,
+	Text,
+	View,
+} from "react-native"
 import { AI_CONSENT } from "@/lib/ai"
 import { type Colors, fonts } from "@/lib/theme"
 
@@ -39,7 +47,7 @@ export function AiConsentSheet({
 			onRequestClose={onClose}
 			onDismiss={onDismiss}
 		>
-			<View style={[styles.sheet, { backgroundColor: colors.bg }]}>
+			<ScrollView style={{ backgroundColor: colors.bg }} contentContainerStyle={styles.sheet}>
 				<SymbolView
 					name="sparkles"
 					tintColor={colors.accent}
@@ -85,13 +93,13 @@ export function AiConsentSheet({
 						<Text style={[styles.notNowText, { color: colors.accent }]}>Not Now</Text>
 					</Pressable>
 				</View>
-			</View>
+			</ScrollView>
 		</Modal>
 	)
 }
 
 const styles = StyleSheet.create({
-	sheet: { flex: 1, paddingHorizontal: 28, paddingTop: 48, paddingBottom: 40, gap: 16 },
+	sheet: { flexGrow: 1, paddingHorizontal: 28, paddingTop: 48, paddingBottom: 40, gap: 16 },
 	title: { fontFamily: fonts.display, fontSize: 28 },
 	body: { fontSize: 17, lineHeight: 24 },
 	link: { fontSize: 17 },

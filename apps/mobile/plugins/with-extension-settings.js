@@ -7,17 +7,18 @@ const { IOSConfig, withFinalizedMod } = require("expo/config-plugins")
  *
  * - The extensions run on the devices the app runs on: iPhone only while `ios.supportsTablet` is
  *   false (the targets come as iPhone and iPad).
- * - The share extension may reach the local dev server (`NSAllowsLocalNetworking` in
- *   targets/share/Info.plist) only in development builds: a build phase removes the key from the
- *   built Info.plist of a Release build, before it is signed.
+ * - The extensions may reach the local dev server (`NSAllowsLocalNetworking` in their Info.plist)
+ *   only in development builds: a build phase removes the key from the built Info.plist of a
+ *   Release build, before it is signed. It fails the build when the key stays.
  */
 const EXTENSIONS = ["KlipstackShare", "KlipstackWidget"]
-const SHARE = "KlipstackShare"
 const PHASE = "Drop local networking from Release"
 const SCRIPT = [
-	'if [ "$CONFIGURATION" = "Release" ]; then',
-	'  /usr/libexec/PlistBuddy -c "Delete :NSAppTransportSecurity:NSAllowsLocalNetworking" "$TARGET_BUILD_DIR/$INFOPLIST_PATH" 2>/dev/null || true',
-	"fi",
+	'[ "$CONFIGURATION" = "Release" ] || exit 0',
+	'plist="$TARGET_BUILD_DIR/$INFOPLIST_PATH"',
+	'key=":NSAppTransportSecurity:NSAllowsLocalNetworking"',
+	'/usr/libexec/PlistBuddy -c "Print $key" "$plist" >/dev/null 2>&1 || exit 0',
+	'/usr/libexec/PlistBuddy -c "Delete $key" "$plist"',
 ].join("\n")
 
 module.exports = function withExtensionSettings(config) {
@@ -40,17 +41,16 @@ module.exports = function withExtensionSettings(config) {
 					objects.XCBuildConfiguration[value].buildSettings.TARGETED_DEVICE_FAMILY = family
 			}
 
-			const [shareId] = targets.find(([, t]) => t.name === SHARE)
-			const present = Object.values(objects.PBXShellScriptBuildPhase ?? {}).some(
-				(p) => typeof p === "object" && p.name === `"${PHASE}"`,
-			)
-			if (!present)
-				project.addBuildPhase([], "PBXShellScriptBuildPhase", PHASE, shareId, {
-					shellPath: "/bin/sh",
-					shellScript: SCRIPT,
-					// After Xcode wrote the Info.plist: the phase reads it.
-					inputPaths: ['"$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)"'],
-				})
+			for (const [id, target] of targets) {
+				const present = target.buildPhases.some(({ comment }) => comment === PHASE)
+				if (!present)
+					project.addBuildPhase([], "PBXShellScriptBuildPhase", PHASE, id, {
+						shellPath: "/bin/sh",
+						shellScript: SCRIPT,
+						// After Xcode wrote the Info.plist: the phase reads it.
+						inputPaths: ['"$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)"'],
+					})
+			}
 			fs.writeFileSync(IOSConfig.Paths.getPBXProjectPath(root), project.writeSync())
 			return config
 		},
