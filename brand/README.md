@@ -37,7 +37,7 @@
 `pnpm --filter @klipstack/web icons` writes the PNG icons (web app, PWA, extension, email, the mobile
 app's iOS and Android icons), the mobile app's logo images (`logo.png`, and `splash-logo*.png` for
 its launch screen, in `apps/mobile/assets/`), the
-share cards (`share-<language>.png`) and the X header (`social/x-header.png`), `apps/web/public/icons/favicon.svg`
+share cards (`share-<language>.png`), the X header (`social/x-header.png`), the Chrome Web Store's icon and promo tiles (`chrome-web-store/`, which has its own README), `apps/web/public/icons/favicon.svg`
 and `mark.svg`, both logos, and `apps/web/app/components/brand-mark.tsx`. Run it after
 changing either mark, the headline, or the sample text the cards show.
 

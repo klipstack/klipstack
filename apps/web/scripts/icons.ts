@@ -541,6 +541,62 @@ for (const lang of supportedLanguages)
 // The X profile is in English.
 write(resolve(root, "brand/social/x-header.png"), await png(xHeader(copyFor("en"))))
 
+/**
+ * The Chrome Web Store's large promo tile, 1400×560, laid out as the share card: the promise on the
+ * left, the essay and note on the right.
+ */
+function marqueeTile(copy: Copy): string {
+	const [w, h] = [1400, 560]
+	const size = 72
+	const leading = 80
+	const lines = headlineLines(copy.headline, size, 720)
+	const blockH = (lines.length - 1) * leading
+	const first = (h - blockH) / 2 - 20
+	const card = essayCard(copy, 930, 64, 400)
+	return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}">${defs}<rect width="${w}" height="${h}" fill="${paper.bg}"/>${textBlock(
+		display,
+		lines,
+		{ x: 90, y: first, size, leading, fill: paper.ink, spacing: -0.02 },
+	)}${placedLogo(92, first + blockH + 50, 40)}${card.svg}</svg>\n`
+}
+
+/** The Chrome Web Store's small promo tile, 440×280: the white logo on the navy tile, and a line. */
+function smallTile(line: string): string {
+	const [w, h] = [440, 280]
+	const logoH = 64
+	const logoW = (logo.width * logoH) / logo.height
+	const size = 25
+	const box = display.getPath(line, 0, 0, size, { letterSpacing: -0.01 }).getBoundingBox()
+	const placed = logoSvg(
+		logo,
+		"#ffffff",
+		"#ffffff",
+		`x="${((w - logoW) / 2).toFixed(1)}" y="88" width="${logoW.toFixed(1)}" height="${logoH}" `,
+	).replace(/\s(xmlns|role|aria-label)="[^"]*"/g, "")
+	return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}">${gradient}<rect width="${w}" height="${h}" fill="url(#tile)"/>${placed}${textBlock(
+		display,
+		[{ text: line }],
+		{ x: (w - (box.x2 - box.x1)) / 2 - box.x1, y: 206, size, leading: 0, fill: "#dbe4f2" },
+	)}</svg>\n`
+}
+
+// The Chrome Web Store (brand/chrome-web-store/README.md): its icon, the app icon drawn 96px inside
+// a transparent 128px square as the store asks, and the promo tiles, in English (the store shows
+// them in every language) and without transparency, which it refuses.
+const store = resolve(root, "brand/chrome-web-store")
+write(
+	`${store}/icon-128.png`,
+	await png(
+		`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">${tile(full, 96, app).replace("<svg ", '<svg x="16" y="16" width="96" height="96" ')}</svg>`,
+	),
+)
+const flat = (svg: string) => sharp(Buffer.from(svg)).flatten().png().toBuffer()
+write(
+	`${store}/promo-small-440x280.png`,
+	await flat(smallTile("Save any page, exactly as you see it")),
+)
+write(`${store}/promo-marquee-1400x560.png`, await flat(marqueeTile(copyFor("en"))))
+
 // React components: the marks and logos inline, in the current text color. oxfmt formats the file.
 const attrs = (tag: string) =>
 	[...tag.matchAll(/([a-z-]+)="([^"]*)"/gi)].map(([, k = "", v = ""]) => [k, v] as const)
