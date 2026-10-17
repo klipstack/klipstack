@@ -99,7 +99,9 @@ describe("third-party sign-in in an app's sign-in", () => {
 		const atLogin = await atLoginPage(old)
 		expect([atLogin.oauthQuery, atLogin.oauthExpired]).toEqual([null, true])
 		expect(atLogin.providers).toEqual([])
-		expect((await atSignupPage(at("/signup", old.search))).providers).toEqual([])
+		// Sign-up sends an expired request back to that login, which says to start again.
+		const fromSignup = await atSignupPage(at("/signup", old.search)).catch((r: Response) => r)
+		expect((fromSignup as Response).headers.get("location")).toBe(`/login${old.search}`)
 
 		// Unsigned, it names no app: what the web offers.
 		const forged = at("/signup", app.search.replace(/sig=[^&]+/, "sig=forged"))

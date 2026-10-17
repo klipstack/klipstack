@@ -1,6 +1,5 @@
 import type { Me, Usage } from "@klipstack/sdk"
 import { router } from "expo-router"
-import * as WebBrowser from "expo-web-browser"
 import { useCallback, useEffect, useState } from "react"
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from "react-native"
 import { Choices, listStyles, Row, Section } from "@/components/grouped-list"
@@ -12,6 +11,7 @@ import { exportLibrary } from "@/lib/library-export"
 import { loadColorScheme, loadTypePrefs, saveColorScheme, saveTypePrefs } from "@/lib/reader-files"
 import { applyColorScheme, type Colors, fonts, useColors } from "@/lib/theme"
 import { resetsOn, type UsageRow, usageRows } from "@/lib/usage"
+import { openOnTheWeb } from "@/lib/web-pages"
 import { speech } from "../../../modules/klip-speech"
 
 const TYPEFACES = [
@@ -104,7 +104,7 @@ export default function Account() {
 		])
 	}
 
-	const web = (path: string) => () => void WebBrowser.openBrowserAsync(`${apiUrl}${path}`)
+	const web = (path: string) => () => openOnTheWeb(`${apiUrl}${path}`)
 
 	return (
 		<ScrollView

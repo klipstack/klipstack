@@ -39,6 +39,15 @@ export async function oauthClientOf(url: URL): Promise<string | null> {
 	return new URLSearchParams(query).get("client_id")
 }
 
+/**
+ * The signed query of the app's sign-in this page is part of, expired or not, for its links to
+ * carry: the pages they lead to stay in that sign-in (the app's providers, the way back to /login).
+ * Null outside one.
+ */
+export async function appSignInQuery(url: URL): Promise<string | null> {
+	return (await oauthClientOf(url)) ? signedOAuthQuery(url) : null
+}
+
 async function signatureHolds(query: string): Promise<boolean> {
 	const params = new URLSearchParams(query)
 	const sigs = params.getAll("sig")

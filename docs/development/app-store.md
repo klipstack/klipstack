@@ -105,20 +105,38 @@ can't do any of them.
   APIs without declaring why.
 - **No local networking in release builds** (this branch): the share extension and the widget reach the
   local dev server only in development builds (`plugins/with-extension-settings.js`).
-- **Google and GitHub hidden in the app's sign-in** (this branch): `/login` and `/signup` reached from
-  the app's sign-in (they carry its signed authorization request) offer no provider button unless
-  Sign in with Apple is among them. The web's own sign-in is unchanged. People whose account has
-  only Google or GitHub can't sign in in the app until they set a password in Settings on the web.
-  *Why:* guideline 4.8, below.
-
-### Open points
-
-- **Account's "On the web" rows** (Ways to sign in, API keys, Connected apps) and "Use the web"
-  in Delete account open klipstack.com in an in-app browser. Without a web session there, they
-  land on a plain `/login`, which shows GitHub. A reviewer who taps one sees "Continue with
-  GitHub" inside the app.
-- **Signing up in the app's sign-in** ends on the web library in the sign-in sheet; it doesn't
-  return to the app, which has to sign in again.
+- **Google and GitHub hidden in the app's sign-in** ([#105](https://github.com/klipstack/klipstack/pull/105)):
+  `/login` and `/signup` reached from the app's sign-in (they carry its signed authorization
+  request) offer no provider button unless Sign in with Apple is among them. The web's own sign-in
+  is unchanged. People whose account has only Google or GitHub can't sign in in the app until they
+  set a password in Settings on the web. *Why:* guideline 4.8, below.
+- **No way from the app to the web's own sign-in** (this branch): the sign-in sheet is the only
+  Klipstack page inside the app.
+  - Account's "On the web" rows, "Use the web" in Delete account and the privacy link of the AI
+    consent sheet open Safari, outside the app. A lint rule refuses `expo-web-browser` in
+    `apps/mobile/src`, so an in-app browser can't come back unnoticed. In Safari the reader has their
+    web session, or signs in their own way: an account without a password signs in with Google or
+    GitHub there, and can delete itself. Apple accepts a link to the website for deletion
+    (5.1.1(v)).
+  - Inside the sign-in sheet, the Terms, Privacy and Support links (and the request-invite page)
+    carry the app's signed request. Those pages then show no brand link to the landing page, and
+    their "Log in" goes back to the app's `/login`. The consent page's brand is not a link either.
+    Without the request, these pages are as before.
+  - The signed request expires after 10 minutes. From then on, the sheet's `/login` shows only
+    "start again from the app": no form, no email-link pages, no way into the web library. Sign-up
+    and the consent page's "Use another account" end there too.
+  - *Why:* guideline 4.8. A reviewer who tapped Terms, then Log in, or a web row in Account, saw
+    "Continue with GitHub" inside the app.
+- **Signing up in the app's sign-in comes back to the app** (this branch): `/signup` keeps the
+  app's request and needs a password there (an emailed sign-up link would open in Mail's browser,
+  outside the sheet). After the account is made, the request goes on: the email isn't verified
+  yet, so the provider stops at `/oauth/verify-email`, which sends the verification link. The
+  reader opens it in Safari, logs in there with the new password if Safari asks (the link verifies
+  only a signed-in account; in the simulator Safari did not have the sheet's session), comes back
+  to the app and taps
+  Continue: the consent screen, then the app, signed in. The request expires 10 minutes after the
+  page was last shown; then the page says to start again from the app. An existing unverified
+  account that logs in from an app stops on the same page, instead of Settings.
 
 ## What the owner does in App Store Connect
 

@@ -51,8 +51,10 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 	const url = new URL(request.url)
 	const signed = signedOAuthQuery(url)
 	const oauthQuery = await validOAuthQuery(signed)
-	if (!oauthQuery) requireAnonymous(context)
 	const app = await oauthClientOf(url)
+	// An app's expired request ends here, signed in or not: the page says to start again from the
+	// app, without a way into the web's own sign-in or library.
+	if (!oauthQuery && !app) requireAnonymous(context)
 	const redirectTo = url.searchParams.get("redirectTo")
 	return {
 		// Arriving from a verification email (routes/verify-email.ts). Only a password login keeps the
@@ -142,8 +144,17 @@ export default function Login({ actionData, loaderData }: Route.ComponentProps) 
 	const busy = navigation.state !== "idle"
 	const { redirectTo } = loaderData
 
+	if (loaderData.oauthExpired && loaderData.appQuery)
+		return (
+			<AuthCard title={t("login.title")} appQuery={loaderData.appQuery}>
+				<p className="text-sm text-danger" role="alert">
+					{t("oauth.invalid")}
+				</p>
+			</AuthCard>
+		)
+
 	return (
-		<AuthCard title={t("login.title")} inApp={!!loaderData.appQuery}>
+		<AuthCard title={t("login.title")} appQuery={loaderData.appQuery}>
 			{loaderData.oauthQuery ? (
 				<p className="mb-4 text-sm text-muted-fg">{t("login.oauthNote")}</p>
 			) : null}
@@ -199,7 +210,7 @@ export default function Login({ actionData, loaderData }: Route.ComponentProps) 
 			</Form>
 			<div className="mt-6 flex flex-col gap-2 text-sm text-muted-fg">
 				{/* An emailed link opens in a new tab and would drop the app's authorization request. */}
-				{loaderData.emailLinks && !loaderData.oauthQuery ? (
+				{loaderData.emailLinks && !loaderData.appQuery ? (
 					<>
 						<Link to="/forgot-password" className="text-link hover:underline">
 							{t("login.forgotPassword")}

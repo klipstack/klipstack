@@ -1,5 +1,4 @@
 import { KlipstackApiError } from "@klipstack/sdk"
-import * as WebBrowser from "expo-web-browser"
 import { useEffect, useState } from "react"
 import {
 	ActivityIndicator,
@@ -14,6 +13,7 @@ import {
 import { listStyles } from "@/components/grouped-list"
 import { useAuth } from "@/lib/auth"
 import { fonts, useColors } from "@/lib/theme"
+import { openOnTheWeb } from "@/lib/web-pages"
 
 /** Whether what was typed is the account's email, as the server compares them. */
 const confirms = (typed: string, email: string | null) =>
@@ -71,7 +71,7 @@ export default function DeleteAccount() {
 				// An account without a password (Google, GitHub, emailed links) can't sign in again here.
 				{
 					text: "Use the web",
-					onPress: () => void WebBrowser.openBrowserAsync(`${apiUrl}/settings/account`),
+					onPress: () => openOnTheWeb(`${apiUrl}/settings/account`),
 				},
 				{
 					text: "Sign in",
@@ -150,7 +150,7 @@ export default function DeleteAccount() {
 					{error.web ? (
 						<Pressable
 							accessibilityRole="link"
-							onPress={() => void WebBrowser.openBrowserAsync(`${apiUrl}/settings/account`)}
+							onPress={() => openOnTheWeb(`${apiUrl}/settings/account`)}
 						>
 							<Text style={[styles.body, { color: colors.accent }]}>Open Settings on the web</Text>
 						</Pressable>

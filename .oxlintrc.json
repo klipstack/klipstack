@@ -147,6 +147,22 @@
 			}
 		},
 		{
+			"files": ["apps/mobile/src/**"],
+			"rules": {
+				"no-restricted-imports": [
+					"error",
+					{
+						"paths": [
+							{
+								"name": "expo-web-browser",
+								"message": "An in-app browser shows the web's own sign-in, with GitHub and no Sign in with Apple (App Review 4.8). Open Klipstack's pages in Safari with openOnTheWeb (src/lib/web-pages.ts); the sign-in sheet is expo-auth-session's."
+							}
+						]
+					}
+				]
+			}
+		},
+		{
 			"files": ["apps/web/app/**"],
 			"rules": {
 				"no-restricted-imports": [

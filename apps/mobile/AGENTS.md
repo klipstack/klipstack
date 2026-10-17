@@ -162,6 +162,9 @@ database), not only the screenshot.
 - In its sign-in (`/login` and `/signup` carrying the app's signed authorization request), the web
   offers no GitHub or Google button unless Sign in with Apple is offered too (App Review 4.8;
   `APPLE_PLATFORM_CLIENTS` in `packages/api-contract/src/auth.ts`).
+- Every other Klipstack page opens in Safari (`openOnTheWeb`, `src/lib/web-pages.ts`), never in an
+  in-app browser: signed out there, the web's own login would show GitHub inside the app. Lint
+  refuses `expo-web-browser` in `src/`.
 - It keeps the session (API URL, tokens) as one JSON keychain item in the app group
   `group.com.klipstack.app`. The share extension and the widget read and refresh the same item;
   only the app and the share extension delete it.

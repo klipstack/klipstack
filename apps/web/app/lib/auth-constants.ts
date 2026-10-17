@@ -13,6 +13,12 @@ export const RESET_PASSWORD_MINUTES = 60
 export const VERIFY_EMAIL_MINUTES = 60
 export const MIN_PASSWORD_LENGTH = 8
 
+/**
+ * Where the OAuth provider sends a signed-in reader whose email is not verified: an app's request
+ * waits there until it is (routes/oauth.verify-email.tsx).
+ */
+export const VERIFY_TO_CONTINUE_PAGE = "/oauth/verify-email"
+
 /** The library scopes (MCP and the HTTP API), named in the contract. */
 export { LIBRARY_READ_SCOPE, LIBRARY_WRITE_SCOPE }
 

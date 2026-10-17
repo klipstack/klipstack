@@ -48,6 +48,7 @@ import {
 	OAUTH_SCOPES,
 	RESET_PASSWORD_MINUTES,
 	VERIFY_EMAIL_MINUTES,
+	VERIFY_TO_CONTINUE_PAGE,
 } from "./auth-constants"
 import { authDb } from "./auth-db.server"
 import { checkAuthLimit } from "./auth-limits.server"
@@ -367,7 +368,7 @@ export const auth = betterAuth({
 			resources: [API_RESOURCE],
 			scopes: [...OAUTH_SCOPES],
 			postLogin: {
-				page: "/settings/account",
+				page: VERIFY_TO_CONTINUE_PAGE,
 				shouldRedirect: ({ user }) => !user.emailVerified,
 				consentReferenceId: ({ user, session }) => consentReference(user.id, session.id),
 			},

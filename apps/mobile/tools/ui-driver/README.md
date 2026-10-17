@@ -38,6 +38,7 @@ finds nothing prints `MISSING <label>` and the run goes on.
 | `type` | text | Types into the field that has the keyboard: focus it with `tapxy` first. For fields `retype` can't find by label (a multiline text input). End with `\n` to submit. |
 | `webtype` | `field\|text` | Like `retype`, in the sign-in sheet's web page (it runs in SafariViewService, outside the app): the field by label or placeholder. End with `\n` to submit. |
 | `webtap` | label | Taps a button or link in the sign-in sheet's web page. |
+| `webapp` | `safari` or `sheet` | Where the next `webtype` and `webtap` act: Safari, or the sign-in sheet (the default). |
 | `wait` | seconds | Waits. |
 | `shot` | name | Saves a screenshot to `shots/<name>.png`. |
 

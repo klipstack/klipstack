@@ -7,9 +7,14 @@ import { AuthCard } from "~/components/auth-card"
 import { ProviderButtons } from "~/components/provider-buttons"
 import { Button } from "~/components/ui/button"
 import { Field } from "~/components/ui/field"
-import { MAGIC_LINK_MINUTES, MIN_PASSWORD_LENGTH as MIN_PASSWORD } from "~/lib/auth-constants"
+import {
+	MAGIC_LINK_MINUTES,
+	MIN_PASSWORD_LENGTH as MIN_PASSWORD,
+	VERIFY_TO_CONTINUE_PAGE,
+} from "~/lib/auth-constants"
 import { authLimitResponse, checkAuthLimit, withAuthLimitChecked } from "~/lib/auth-limits.server"
 import { auth } from "~/lib/auth.server"
+import { requestEmailVerification } from "~/lib/email-verification.server"
 import { emailEnabled } from "~/lib/email.server"
 import { env, invitesRequired } from "~/lib/env.server"
 import { type FieldErrors, parseForm } from "~/lib/forms"
@@ -17,7 +22,8 @@ import { useIsNsKey, useKeyTranslation } from "~/lib/i18n-keys"
 import { getLocale, localeCookie } from "~/lib/i18n.server"
 import { findUsableInvite, signupWithInvite } from "~/lib/invites.server"
 import { requestSignupLink } from "~/lib/magic-link.server"
-import { oauthClientOf, signedOAuthQuery } from "~/lib/oauth.server"
+import { resumeAuthorization } from "~/lib/oauth-resume.server"
+import { appSignInQuery, oauthClientOf, verifySignedOAuthQuery } from "~/lib/oauth.server"
 import { pageTitle } from "~/lib/page-title"
 import {
 	enabledProvider,
@@ -28,7 +34,12 @@ import {
 	startProviderSignIn,
 } from "~/lib/provider-sign-in.server"
 import { readForm } from "~/lib/request-body.server"
-import { cookieHeadersFrom, requireAnonymous, SIGNED_IN_HOME } from "~/lib/session.server"
+import {
+	cookieHeadersFrom,
+	getSession,
+	requireAnonymous,
+	SIGNED_IN_HOME,
+} from "~/lib/session.server"
 import { withSignupAllowed } from "~/lib/signup-gate.server"
 import type { Route } from "./+types/signup"
 
@@ -40,25 +51,39 @@ const schema = z.object({
 		.union([z.literal(""), z.string().min(MIN_PASSWORD, "auth:signup.passwordTooShort")])
 		.optional(),
 	inviteCode: z.string().trim().optional(),
+	oauthQuery: z.string().optional(),
 })
 
 export function meta({ matches }: Route.MetaArgs) {
 	return [{ title: pageTitle(matches, "auth:signup.title") }]
 }
 
+/** The app authorization request this sign-up continues, if it is intact and unexpired. */
+async function validOAuthQuery(query: string | null | undefined) {
+	return query && (await verifySignedOAuthQuery(query)) ? query : null
+}
+
 export async function loader({ context, request }: Route.LoaderArgs) {
-	requireAnonymous(context)
 	const url = new URL(request.url)
 	// Sign up from an app's sign-in (/login's link keeps its signed authorization request).
 	const app = await oauthClientOf(url)
+	const appQuery = await appSignInQuery(url)
+	const oauthQuery = await validOAuthQuery(appQuery)
+	// Signed in already, the app's sign-in goes on with that account (or another, from /login).
+	// Expired, /login says to start again from the app.
+	if (appQuery && (!oauthQuery || getSession(context))) throw redirect(`/login?${appQuery}`)
+	requireAnonymous(context)
 	return {
 		inviteRequired: invitesRequired,
 		waitlist: env.SIGNUP_MODE === "waitlist",
 		// The invite email links here with its code.
 		invite: url.searchParams.get("invite")?.slice(0, 32) ?? "",
-		linkSignup: emailEnabled,
+		// An emailed sign-up link opens in the mail app's browser, outside an app's sign-in sheet,
+		// which would never hear back: there, the account needs a password.
+		linkSignup: emailEnabled && !app,
 		providers: providersFor(app),
-		appQuery: app ? signedOAuthQuery(url) : null,
+		appQuery,
+		oauthQuery,
 		providerError: providerErrorKey(url.searchParams.get("error")),
 	}
 }
@@ -76,10 +101,15 @@ export async function action({ request, context }: Route.ActionArgs) {
 		)
 	const { name, email, password, inviteCode } = parsed.data
 	const values = { name, email, inviteCode: inviteCode ?? "" }
+	const oauthQuery = await validOAuthQuery(parsed.data.oauthQuery)
+	// In an app's sign-in, expired or not: the reader stays in it.
+	const appQuery = await appSignInQuery(
+		new URL(`/signup?${parsed.data.oauthQuery ?? ""}`, request.url),
+	)
 
 	const locale = getLocale(context)
 	if (!password) {
-		if (!emailEnabled)
+		if (!emailEnabled || appQuery)
 			return data(
 				{
 					fieldErrors: { password: "auth:validation.required" } as FieldErrors,
@@ -105,7 +135,9 @@ export async function action({ request, context }: Route.ActionArgs) {
 			: withSignupAllowed(create))
 		const out = cookieHeadersFrom(headers)
 		out.append("set-cookie", await localeCookie.serialize(locale))
-		throw redirect(SIGNED_IN_HOME, { headers: out })
+		const next = oauthQuery ? await continueInApp(request, oauthQuery, email, out) : null
+		// The request expired while the form was filled in: /login says to start again from the app.
+		throw redirect(next ?? (appQuery ? `/login?${appQuery}` : SIGNED_IN_HOME), { headers: out })
 	} catch (error) {
 		const limited = authLimitResponse(error)
 		if (limited) throw limited
@@ -147,6 +179,32 @@ export async function action({ request, context }: Route.ActionArgs) {
 		}
 		throw error
 	}
+}
+
+/**
+ * Takes the app's authorization request up again with the new account: the consent screen, or,
+ * with the email not verified yet, the page that waits for it. That page gets the link sent now.
+ */
+async function continueInApp(request: Request, oauthQuery: string, email: string, out: Headers) {
+	const cookie = out
+		.getSetCookie()
+		.map((c) => c.split(";")[0])
+		.join("; ")
+	const next = await resumeAuthorization(request, oauthQuery, cookie)
+	if (!next || !emailEnabled) return next
+	const to = new URL(next, request.url)
+	if (to.pathname !== VERIFY_TO_CONTINUE_PAGE) return next
+	try {
+		await requestEmailVerification(
+			email,
+			new Headers({ ...Object.fromEntries(request.headers), cookie }),
+		)
+		to.searchParams.set("sent", "1")
+	} catch (error) {
+		// The page offers to send it again.
+		console.warn(`[signup] verification email failed: ${errorLabel(error)}`)
+	}
+	return to.pathname + to.search
 }
 
 /** Sign-up with Google or GitHub: only the invite matters here, the provider supplies the rest. */
@@ -232,13 +290,16 @@ export default function Signup({ loaderData, actionData }: Route.ComponentProps)
 	}
 
 	return (
-		<AuthCard title={t("signup.title")} inApp={!!loaderData.appQuery}>
+		<AuthCard title={t("signup.title")} appQuery={loaderData.appQuery}>
 			{loaderData.providerError && !actionData ? (
 				<p className="mb-4 text-sm text-danger" role="alert">
 					{t(loaderData.providerError)}
 				</p>
 			) : null}
 			<Form method="post" className="flex flex-col gap-4">
+				{loaderData.oauthQuery ? (
+					<input type="hidden" name="oauthQuery" value={loaderData.oauthQuery} />
+				) : null}
 				{loaderData.inviteRequired ? (
 					<>
 						<p className="text-sm text-muted-fg">{t("signup.inviteRequired")}</p>
@@ -253,7 +314,14 @@ export default function Signup({ loaderData, actionData }: Route.ComponentProps)
 						{loaderData.waitlist ? (
 							<p className="-mt-2 text-sm text-muted-fg">
 								{t("signup.noCode")}{" "}
-								<Link to="/request-invite" className="text-link hover:underline">
+								<Link
+									to={
+										loaderData.appQuery
+											? `/request-invite?${loaderData.appQuery}`
+											: "/request-invite"
+									}
+									className="text-link hover:underline"
+								>
 									{t("signup.requestInvite")}
 								</Link>
 							</p>
@@ -304,7 +372,10 @@ export default function Signup({ loaderData, actionData }: Route.ComponentProps)
 				<ProviderButtons providers={loaderData.providers} disabled={busy} />
 				<p className="text-xs text-muted-fg">
 					{t("signup.agree")}{" "}
-					<Link to="/terms" className="text-link hover:underline">
+					<Link
+						to={loaderData.appQuery ? `/terms?${loaderData.appQuery}` : "/terms"}
+						className="text-link hover:underline"
+					>
 						{t("signup.terms")}
 					</Link>
 					.

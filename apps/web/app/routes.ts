@@ -112,6 +112,7 @@ export default [
 	route("settings/reauthenticate", "routes/settings.reauthenticate.ts"),
 	route("api/auth/*", "routes/api.auth.ts"),
 	route("oauth/consent", "routes/oauth.consent.tsx"),
+	route("oauth/verify-email", "routes/oauth.verify-email.tsx"),
 	route(
 		".well-known/oauth-authorization-server/*",
 		"routes/well-known.oauth-authorization-server.ts",

@@ -13,6 +13,8 @@ final class Driver: XCTestCase {
 		let steps = try JSONSerialization.jsonObject(with: data) as! [[String: Any]]
 		let app = XCUIApplication(bundleIdentifier: "com.klipstack.app")
 		app.activate()
+		// Where `webtype` and `webtap` act: the sign-in sheet, or Safari after `webapp safari`.
+		var web = XCUIApplication(bundleIdentifier: "com.apple.SafariViewService")
 		var log = ""
 		for step in steps {
 			let op = step["op"] as! String
@@ -65,7 +67,6 @@ final class Driver: XCTestCase {
 				// SafariViewService, outside the app): the text field whose label or placeholder is
 				// `field`, its text replaced. "\n" at the end submits.
 				let parts = arg.split(separator: "|", maxSplits: 1).map(String.init)
-				let web = XCUIApplication(bundleIdentifier: "com.apple.SafariViewService")
 				let match = NSPredicate(format: "label == %@ OR placeholderValue == %@", parts[0], parts[0])
 				let field = web.descendants(matching: .any).matching(match).matching(NSPredicate(format: "elementType == %d OR elementType == %d", XCUIElement.ElementType.textField.rawValue, XCUIElement.ElementType.secureTextField.rawValue)).firstMatch
 				if field.waitForExistence(timeout: 8) {
@@ -75,9 +76,13 @@ final class Driver: XCTestCase {
 				} else { log += "MISSING \(parts[0])\n" }
 			case "webtap":
 				// A button or link with this label on the sign-in sheet's web page.
-				let web = XCUIApplication(bundleIdentifier: "com.apple.SafariViewService")
 				let el = web.descendants(matching: .any).matching(NSPredicate(format: "label == %@", arg)).firstMatch
 				if el.waitForExistence(timeout: 8) { el.tap(); log += "webtapped \(arg)\n" } else { log += "MISSING \(arg)\n" }
+			case "webapp":
+				// "safari" (brought to the front) or "sheet": where the next `webtype` and `webtap` act.
+				web = XCUIApplication(bundleIdentifier: arg == "safari" ? "com.apple.mobilesafari" : "com.apple.SafariViewService")
+				if arg == "safari" { web.activate() }
+				log += "webapp \(arg)\n"
 			case "wait": Thread.sleep(forTimeInterval: Double(arg) ?? 1)
 			case "shot":
 				let png = XCUIScreen.main.screenshot().pngRepresentation

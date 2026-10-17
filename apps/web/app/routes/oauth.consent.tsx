@@ -10,6 +10,7 @@ import { auth } from "~/lib/auth.server"
 import { hasGrant } from "~/lib/credential-policy.server"
 import { useKeyTranslation } from "~/lib/i18n-keys"
 import {
+	appSignInQuery,
 	describeOAuthRequest,
 	oauthApiContext,
 	oauthRedirectUrl,
@@ -53,7 +54,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 	const oauthQuery = signedOAuthQuery(url)
 	const clientId = url.searchParams.get("client_id")
 	if (!oauthQuery || !clientId || !(await verifySignedOAuthQuery(oauthQuery)))
-		return data({ request: null }, { status: 400 })
+		return data({ request: null, appQuery: await appSignInQuery(url) }, { status: 400 })
 	let clientName: string | null | undefined
 	try {
 		const client = await auth.api.getOAuthClientPublic({
@@ -62,7 +63,8 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 		})
 		clientName = client.client_name
 	} catch (error) {
-		if (error instanceof APIError) return data({ request: null }, { status: 400 })
+		if (error instanceof APIError)
+			return data({ request: null, appQuery: await appSignInQuery(url) }, { status: 400 })
 		throw error
 	}
 	return {
@@ -86,7 +88,9 @@ export async function action({ request, context }: Route.ActionArgs) {
 	const oauthQuery = String(form.get("oauthQuery") ?? "")
 	// Another account: sign this one out and log in again, still on the app's request.
 	if (form.get("intent") === "switch") {
-		const next = (await verifySignedOAuthQuery(oauthQuery)) ? `/login?${oauthQuery}` : "/login"
+		// Expired, the app's /login says to start again from the app.
+		const appQuery = await appSignInQuery(new URL(`/login?${oauthQuery}`, request.url))
+		const next = appQuery ? `/login?${appQuery}` : "/login"
 		throw redirect(next, { headers: await signOutHeaders(request) })
 	}
 	const query = new URLSearchParams(oauthQuery)
@@ -129,7 +133,10 @@ export default function OAuthConsent({ loaderData, actionData }: Route.Component
 
 	if (!req || (actionData && "failed" in actionData)) {
 		return (
-			<AuthCard title={t("oauth.title")}>
+			<AuthCard
+				title={t("oauth.title")}
+				appQuery={req?.oauthQuery ?? ("appQuery" in loaderData ? loaderData.appQuery : null)}
+			>
 				<p className="text-sm" role="alert">
 					{t("oauth.invalid")}
 				</p>
@@ -145,7 +152,7 @@ export default function OAuthConsent({ loaderData, actionData }: Route.Component
 	const lines = identity ? req.scopes.filter((s) => !IDENTITY_SCOPES.includes(s)) : req.scopes
 	const firstParty = req.firstPartyCli || req.firstPartyMobile
 	return (
-		<AuthCard title={t("oauth.title")}>
+		<AuthCard title={t("oauth.title")} appQuery={req.oauthQuery}>
 			{account ? (
 				<div className="mb-4 rounded-lg bg-muted px-3 py-2 text-sm">
 					<div data-testid="oauth-account">
