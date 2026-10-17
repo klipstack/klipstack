@@ -1,14 +1,25 @@
 import { defineConfig } from "wxt"
 
+// The one Klipstack server this build saves to, with the browser's session. Read here only, from
+// the command line, so the code and the host permission cannot disagree (`.env` files reach the
+// code but not this file).
+const appUrl = (process.env.WXT_APP_URL || "https://klipstack.com").replace(/\/+$/, "")
+const appOrigin = new URL(appUrl)
+
 export default defineConfig({
 	srcDir: ".",
-	outDir: "dist",
+	// The e2e spec builds a copy of its own, for its server, beside the real build.
+	outDir: process.env.WXT_OUT_DIR || "dist",
+	vite: () => ({ define: { __APP_URL__: JSON.stringify(appUrl) } }),
 	manifest: {
 		name: "__MSG_name__",
 		description: "__MSG_description__",
 		default_locale: "en",
-		permissions: ["activeTab", "scripting", "storage", "contextMenus"],
-		host_permissions: ["<all_urls>"],
+		permissions: ["activeTab", "scripting", "contextMenus"],
+		// Saving reaches a page through `activeTab`, granted by the click on the button or the menu.
+		// Only the Klipstack server needs lasting access, to send the page with the browser's
+		// session. Without the port: Firefox refuses patterns with one.
+		host_permissions: [`${appOrigin.protocol}//${appOrigin.hostname}/*`],
 		action: {
 			default_title: "__MSG_actionTitle__",
 			// Firefox swaps these with the toolbar theme; Chrome ignores the key and uses `icons`.
@@ -17,7 +28,6 @@ export default defineConfig({
 				{ light: "icon/mono-dark-32.png", dark: "icon/mono-light-32.png", size: 32 },
 			],
 		},
-		options_ui: { page: "options.html", open_in_tab: true },
 		browser_specific_settings: { gecko: { id: "klipstack@klipstack.app" } },
 	},
 })

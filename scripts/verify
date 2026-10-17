@@ -144,7 +144,7 @@ has '^apps/web/(app/(routes|components|hooks)/|app/app\.css|app/root\.tsx|e2e/)'
 has '^apps/mobile/' &&
   notes+=("The mobile app changed and CI skips it: run \`pnpm ci:local\`.")
 has '^apps/extension/' &&
-  notes+=("The extension changed: \`pnpm --filter @klipstack/web exec playwright test e2e/extension.spec.ts\` loads it in Chromium.")
+  notes+=("The extension changed: \`pnpm --filter @klipstack/web exec playwright test e2e/extension.spec.ts\` builds it for the local server and loads it in Chromium.")
 has '^(Dockerfile|\.dockerignore|apps/web/(server|security-middleware)\.js)$' &&
   notes+=("The image or the server changed: \`pnpm ci:local --only build,image\`.")
 if [ ${#notes[@]} -gt 0 ]; then

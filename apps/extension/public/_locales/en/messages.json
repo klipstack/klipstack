@@ -14,21 +14,6 @@
 	"saveLink": {
 		"message": "Save link to Klipstack"
 	},
-	"optionsIntro": {
-		"message": "The extension saves to the Klipstack account you are signed in to in this browser. If a save asks you to log in, sign in to Klipstack in this browser and try again."
-	},
-	"optionsAppUrl": {
-		"message": "Klipstack address"
-	},
-	"optionsAppUrlHint": {
-		"message": "Change it only if you run your own Klipstack server."
-	},
-	"optionsSave": {
-		"message": "Save"
-	},
-	"optionsSaved": {
-		"message": "Saved."
-	},
 	"toastSaving": {
 		"message": "Saving to Klipstack…"
 	},

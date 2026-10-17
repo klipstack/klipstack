@@ -1,5 +1,6 @@
 import { type Browser, browser } from "wxt/browser"
 import { defineBackground } from "wxt/utils/define-background"
+import { APP_URL } from "../lib/app-url"
 import {
 	capturePage,
 	isCapturableUrl,
@@ -7,7 +8,6 @@ import {
 	savePage as sendPage,
 	saveToKlipstack,
 } from "../lib/capture"
-import { forgetApiKey, getSettings } from "../lib/settings"
 import { showToast, type ToastOptions } from "../lib/toast"
 
 const BADGE_RESET_MS = 2500
@@ -23,7 +23,6 @@ type SaveOutcome = {
 
 export default defineBackground(() => {
 	browser.runtime.onInstalled.addListener(() => {
-		void forgetApiKey()
 		browser.contextMenus.create({
 			id: "save-link",
 			title: browser.i18n.getMessage("saveLink"),
@@ -45,33 +44,6 @@ export default defineBackground(() => {
 		if (info.menuItemId === "save-link" && info.linkUrl && tab?.id !== undefined)
 			void saveUrlOnly(info.linkUrl, tab.id)
 	})
-
-	// Messages from extension pages (options, tests). Always answers, even on failure.
-	browser.runtime.onMessage.addListener(
-		(message: { type?: string; tabId?: number }, _sender, sendResponse) => {
-			const respond = (work: Promise<SaveOutcome>) => {
-				work
-					.catch((error): SaveOutcome => ({
-						ok: false,
-						status: 0,
-						error: error instanceof Error ? error.message : String(error),
-					}))
-					.then(sendResponse)
-				return true
-			}
-			if (message?.type === "save-current") {
-				return respond(
-					browser.tabs
-						.query({ active: true, currentWindow: true })
-						.then(([tab]) => (tab ? savePage(tab) : { ok: false, status: 0, error: "no_tab" })),
-				)
-			}
-			if (message?.type === "save-tab" && typeof message.tabId === "number") {
-				return respond(browser.tabs.get(message.tabId).then((tab) => savePage(tab)))
-			}
-			return false
-		},
-	)
 })
 
 async function savePage(tab: Browser.tabs.Tab): Promise<SaveOutcome> {
@@ -80,16 +52,15 @@ async function savePage(tab: Browser.tabs.Tab): Promise<SaveOutcome> {
 		return { ok: false, status: 0, error: "not_capturable" }
 	}
 	await setBadge(tab.id, "…", "#243f6c")
-	const settings = await getSettings()
 	// Shown before the capture, which fetches the page again: that can take a few seconds.
 	void toast(tab.id, { kind: "saving", title: msg("toastSaving") })
 	const captured = isServerCapturedUrl(tab.url) ? null : await captureTab(tab.id)
 	const payload = captured
 		? { url: captured.url, html: captured.html, servedHtml: captured.servedHtml }
 		: { url: tab.url }
-	const result = await sendPage(settings.appUrl, payload)
+	const result = await sendPage(APP_URL, payload)
 	await flash(tab.id, result.ok ? "✓" : "!", result.ok ? "#15803d" : "#b91c1c")
-	await toast(tab.id, outcomeToast(result, settings.appUrl))
+	await toast(tab.id, outcomeToast(result, APP_URL))
 	return result
 }
 
@@ -110,11 +81,10 @@ async function captureTab(tabId: number): Promise<Capture | null> {
 async function saveUrlOnly(url: string, tabId: number) {
 	if (!isCapturableUrl(url)) return
 	await setBadge(tabId, "…", "#243f6c")
-	const settings = await getSettings()
 	void toast(tabId, { kind: "saving", title: msg("toastSaving") })
-	const result = await saveToKlipstack(settings.appUrl, { url })
+	const result = await saveToKlipstack(APP_URL, { url })
 	await flash(tabId, result.ok ? "✓" : "!", result.ok ? "#15803d" : "#b91c1c")
-	await toast(tabId, outcomeToast(result, settings.appUrl))
+	await toast(tabId, outcomeToast(result, APP_URL))
 }
 
 type MessageKey = Parameters<typeof browser.i18n.getMessage>[0]

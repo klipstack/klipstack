@@ -1,20 +1,9 @@
-import { existsSync, readFileSync } from "node:fs"
+import { execFileSync } from "node:child_process"
+import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { chromium, expect, type Page, test } from "@playwright/test"
+import { type BrowserContext, chromium, expect, type Page, test } from "@playwright/test"
 import { createInviteCode, uniqueEmail } from "./helpers"
 
-/** Minimal typing for the extension APIs used inside evaluate() callbacks. */
-declare const chrome: {
-	storage: {
-		sync: {
-			set(values: Record<string, unknown>): Promise<void>
-		}
-	}
-	tabs: { query(query: { url: string }): Promise<Array<{ id?: number; url?: string }>> }
-	runtime: { sendMessage<T>(message: unknown): Promise<T>; lastError?: { message?: string } }
-}
-
-const EXTENSION_DIR = join(import.meta.dirname, "../../extension/dist/chrome-mv3")
 const FIXTURE = join(
 	import.meta.dirname,
 	"../../../packages/extract/test/fixtures/pages/paulgraham-makers.html",
@@ -22,16 +11,26 @@ const FIXTURE = join(
 const PAGE_URL = "https://fixture.test/makers.html"
 const APP_URL = process.env.E2E_BASE_URL ?? `http://localhost:${process.env.E2E_PORT ?? 5180}`
 
-test.skip(
-	!existsSync(EXTENSION_DIR),
-	"extension not built (pnpm --filter @klipstack/extension build)",
-)
+// A build saves to one server, fixed when it is built: this spec builds its own, for this server.
+const OUT_DIR = join(import.meta.dirname, "../../extension/dist/e2e")
+const EXTENSION_DIR = join(OUT_DIR, "chrome-mv3")
 
-/** A browser with the extension, signed up to Klipstack and pointed at this server. */
+test.beforeAll(() => {
+	execFileSync("pnpm", ["--filter", "@klipstack/extension", "exec", "wxt", "build"], {
+		env: { ...process.env, WXT_APP_URL: APP_URL, WXT_OUT_DIR: OUT_DIR },
+	})
+})
+
+/** A browser with the extension, signed up to Klipstack. */
 async function signedInBrowser() {
 	const context = await chromium.launchPersistentContext("", {
 		channel: "chromium",
-		args: [`--disable-extensions-except=${EXTENSION_DIR}`, `--load-extension=${EXTENSION_DIR}`],
+		args: [
+			`--disable-extensions-except=${EXTENSION_DIR}`,
+			`--load-extension=${EXTENSION_DIR}`,
+			// For `Extensions.triggerAction`, which clicks the toolbar button.
+			"--enable-unsafe-extension-debugging",
+		],
 	})
 	// Sign up in this browser: the extension saves with its session cookie.
 	const page = await context.newPage()
@@ -53,38 +52,28 @@ async function signedInBrowser() {
 	const extensionId = new URL(sw.url()).host
 	console.log("[ext] service worker", sw.url())
 
-	// Point it at this server from its own options page (an extension context that can message
-	// the worker). The page offers no API key any more.
-	const options = await context.newPage()
-	options.on("console", (m) => console.log("[options-page]", m.text()))
-	await options.goto(`chrome-extension://${extensionId}/options.html`, { timeout: 20_000 })
-	await expect(options.getByLabel("Klipstack address")).toBeVisible()
-	await expect(options.getByLabel("API key")).toHaveCount(0)
-	await options.evaluate(async (appUrl) => chrome.storage.sync.set({ appUrl }), APP_URL)
-	return { context, page, options }
+	return { context, page, extensionId }
 }
 
-/** Asks the extension's worker to save the tab open at `url`, as its button does. */
-const saveTab = (options: Page, url: string) =>
-	test.step("save-tab", () =>
-		options.evaluate(async (url) => {
-			const [tab] = await chrome.tabs.query({ url })
-			if (!tab?.id) throw new Error("tab not found")
-			const outcome = chrome.runtime.sendMessage<{
-				ok: boolean
-				status: number
-				id?: string
-				error?: string
-			}>({ type: "save-tab", tabId: tab.id })
-			const timeout = new Promise<never>((_, reject) =>
-				setTimeout(() => reject(new Error("save-tab timed out")), 30_000),
-			)
-			return Promise.race([outcome, timeout])
-		}, url))
+/**
+ * Clicks the extension's toolbar button on `tab`. The click is what grants the extension the tab
+ * (`activeTab`): it has no lasting access to the sites it saves.
+ */
+const clickButton = (context: BrowserContext, extensionId: string, tab: Page) =>
+	test.step("click the button", async () => {
+		const browser = await context.browser()!.newBrowserCDPSession()
+		// The action needs the tab's own target, not the page's.
+		const { targetInfos } = await browser.send("Target.getTargets", {
+			filter: [{ type: "tab", exclude: false }],
+		})
+		const target = targetInfos.find((t) => t.url === tab.url())
+		if (!target) throw new Error(`no tab target for ${tab.url()}`)
+		await browser.send("Extensions.triggerAction", { id: extensionId, targetId: target.targetId })
+	})
 
 test("extension captures the rendered page and saves it with the browser session", async () => {
 	test.setTimeout(90_000)
-	const { context, page, options } = await signedInBrowser()
+	const { context, page, extensionId } = await signedInBrowser()
 	try {
 		// Serve the fixture at a realistic https URL (no network involved).
 		await context.route(`${PAGE_URL}**`, (route) =>
@@ -95,16 +84,17 @@ test("extension captures the rendered page and saves it with the browser session
 			}),
 		)
 
-		// Open the article, then ask the worker to save that tab.
+		// Open the article, then click the button on it.
 		const article = await context.newPage()
 		await article.goto(PAGE_URL, { timeout: 20_000 })
 		await expect(article.getByText("There are two types of schedule")).toBeVisible()
-		const tabs = await options.evaluate((url) => chrome.tabs.query({ url }), PAGE_URL)
-		console.log("[ext] tabs", JSON.stringify(tabs))
-
-		const result = await saveTab(options, PAGE_URL)
-		console.log("[ext] save result", JSON.stringify(result))
-		expect(result).toMatchObject({ ok: true, status: 202 })
+		await clickButton(context, extensionId, article)
+		await expect(article.getByText("Saved to Klipstack")).toBeVisible({ timeout: 30_000 })
+		// Its link opens the article the server saved.
+		await expect(article.getByRole("link", { name: "Open" })).toHaveAttribute(
+			"href",
+			new RegExp(`^${APP_URL}/read/[0-9a-f-]{36}$`),
+		)
 
 		// The server extracted from the captured DOM (nothing was fetched from fixture.test).
 		await page.goto(`${APP_URL}/library`)
@@ -112,8 +102,6 @@ test("extension captures the rendered page and saves it with the browser session
 		await expect(link).toBeVisible({ timeout: 60_000 })
 		await link.click()
 		await expect(page.locator(".reader-content")).toContainText("There are two types of schedule")
-		const saved = await page.request.get(`${APP_URL}/api/search?q=maker`)
-		expect(((await saved.json()) as { items: Array<{ id: string }> }).items[0]?.id).toBe(result.id)
 	} finally {
 		await context.close()
 	}
@@ -121,7 +109,7 @@ test("extension captures the rendered page and saves it with the browser session
 
 test("extension saves the whole article when the page's paywall cut it in the browser", async () => {
 	test.setTimeout(90_000)
-	const { context, page, options } = await signedInBrowser()
+	const { context, page, extensionId } = await signedInBrowser()
 	const url = "https://fixture.test/soft-paywall.html"
 	// The site sends the whole article, and its script cuts it after the third paragraph.
 	const paragraphs = Array.from(
@@ -148,7 +136,8 @@ test("extension saves the whole article when the page's paywall cut it in the br
 		await expect(article.getByText("Subscribe to keep reading.")).toBeVisible()
 		await expect(article.getByText("Paragraph 30 of the paywalled story")).toHaveCount(0)
 
-		expect(await saveTab(options, url)).toMatchObject({ ok: true, status: 202 })
+		await clickButton(context, extensionId, article)
+		await expect(article.getByText("Saved to Klipstack")).toBeVisible({ timeout: 30_000 })
 		// The page was fetched again, by the extension inside the tab.
 		expect(requests).toBe(2)
 
