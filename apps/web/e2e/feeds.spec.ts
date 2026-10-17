@@ -162,6 +162,9 @@ test("feeds are off for a new account until turned on in Settings → Features",
 	await expect(nav.getByRole("link", { name: "Feed", exact: true })).toHaveCount(0)
 	expect((await page.goto("/feed"))?.status()).toBe(404)
 	expect((await page.request.get("/feed/opml")).status()).toBe(404)
+	await page.goto("/settings/usage")
+	await expect(page.getByRole("heading", { name: "Usage", exact: true }).first()).toBeVisible()
+	await expect(page.getByText("Feeds followed")).toHaveCount(0)
 
 	await page.goto("/settings/features")
 	await waitForHydration(page)

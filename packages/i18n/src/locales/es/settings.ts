@@ -39,7 +39,7 @@ export default {
 			title: "Feeds",
 			label: "Seguir sitios y blogs",
 			description:
-				"Las entradas nuevas de los sitios que sigues, para guardar las que valga la pena leer. Desactivados, no se borra nada: los sitios que sigues se guardan para cuando vuelvas a activarlos.",
+				"Las publicaciones nuevas de los sitios que sigues, para guardar las que valga la pena leer. Desactivados, no se borra nada: los sitios que sigues se guardan para cuando vuelvas a activarlos.",
 		},
 		topics: {
 			title: "Temas",

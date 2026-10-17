@@ -326,7 +326,7 @@ describe("Home feed discovery", () => {
 		expect(off.emptyState).not.toBeNull()
 	})
 	it("leaves feed posts out of a topic, which they are never in, and an empty topic is not an empty library", async () => {
-		const home = await readingHome(ownerId, { topicId: crypto.randomUUID() })
+		const home = await readingHome(ownerId, { topicId: crypto.randomUUID(), feeds: true })
 		expect(home.feed).toEqual([])
 		expect(home.emptyState).toBeNull()
 	})
