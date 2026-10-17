@@ -104,8 +104,8 @@ const schema = z.object({
 		z.string().regex(/^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/, "Use a bundle ID like com.example.app"),
 	),
 	/**
-	 * The SuppyHQ account whose support button signed-in pages show (`components/support-widget.tsx`).
-	 * Unset, the app loads nothing from SuppyHQ.
+	 * The SuppyHQ account behind Contact support in the sidebar (`components/support-panel.tsx`).
+	 * Unset, the app has no link to SuppyHQ.
 	 */
 	SUPPYHQ_TENANT: optional(
 		z.string().regex(/^[a-z0-9-]+$/, "Use the tenant from SuppyHQ's snippet"),

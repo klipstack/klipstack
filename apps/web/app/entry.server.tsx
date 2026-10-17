@@ -12,7 +12,6 @@ import { isRouteErrorResponse, ServerRouter } from "react-router"
 import { createNonce, documentPolicy } from "~/lib/csp.server"
 import { stopDocumentEvents } from "~/lib/events.server"
 import { getInstanceOrFallback } from "~/lib/i18n.server"
-import { getSession } from "~/lib/session.server"
 
 export const streamTimeout = 5_000
 
@@ -32,8 +31,7 @@ export default function handleRequest(
 		const i18n = getInstanceOrFallback(loadContext)
 		// Replaces a route's own policy: this one includes it (frame-ancestors 'none').
 		const nonce = createNonce()
-		const signedIn = Boolean(getSession(loadContext))
-		responseHeaders.set("Content-Security-Policy", documentPolicy(nonce, { signedIn }))
+		responseHeaders.set("Content-Security-Policy", documentPolicy(nonce))
 
 		const { pipe, abort } = renderToPipeableStream(
 			<I18nextProvider i18n={i18n}>

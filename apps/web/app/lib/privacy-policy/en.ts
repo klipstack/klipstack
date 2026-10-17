@@ -86,7 +86,7 @@ export default {
 						"Hetzner Online hosts our servers and the database.",
 						"Cloudflare stores the images from pages you save, and our encrypted database backups (R2).",
 						"Resend sends our emails. It receives your email address and the message.",
-						"SuppyHQ runs the support button in the app. Its script loads from SuppyHQ on the app's pages; when you open it and send a message, SuppyHQ receives your name, email address and the message.",
+						"SuppyHQ runs the support form in the app. Nothing reaches it until you click Contact support; then it receives your name and email address, and the message you send.",
 						"Better Stack checks from outside that Klipstack is up. It sees no account data.",
 						"Google or GitHub, only if you choose to sign in with them.",
 						"FxTwitter, only when you save a post from X.",

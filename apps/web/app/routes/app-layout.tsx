@@ -10,14 +10,11 @@ import { env } from "~/lib/env.server"
 import { listFeatures } from "~/lib/features.server"
 import { resolvePrefs } from "~/lib/prefs"
 import { requireUser } from "~/lib/session.server"
-import type { SupportWidgetHandle } from "~/lib/support-widget"
 import { editionNudge } from "~/services/editions.server"
 import { countNewFeedItems } from "~/services/feeds.server"
 import { listSavedSearches } from "~/services/saved-searches.server"
 import { firstTopicsNotice, hasTopics, missingTopics } from "~/services/topics.server"
 import type { Route } from "./+types/app-layout"
-
-export const handle: SupportWidgetHandle = { supportWidget: true }
 
 export async function loader({ context, request }: Route.LoaderArgs) {
 	const user = requireUser(context, request)
@@ -58,6 +55,8 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 		isAdmin: looksLikeAdmin(user),
 		// Feeds turned on in Settings → Features: their link, and the dot for new posts.
 		feeds,
+		// Contact support, on a server with a SuppyHQ account. Not for admins: they run the support.
+		support: env.SUPPYHQ_TENANT && !looksLikeAdmin(user) ? { tenant: env.SUPPYHQ_TENANT } : null,
 		feedNew,
 		// Editions turned on in Settings → Features: their link, and the reader's ways to them.
 		editions,
@@ -99,6 +98,7 @@ export default function AppLayout({ loaderData }: Route.ComponentProps) {
 			editionDue={loaderData.editionDue}
 			topics={loaderData.topics}
 			savedSearches={loaderData.savedSearches}
+			support={loaderData.support}
 			notice={
 				!loaderData.user.emailVerified ? (
 					<div className="mx-4 mt-4 rounded-xl border border-accent/30 bg-card p-4 md:mx-8">
