@@ -72,6 +72,31 @@
 						"NSPrivacyCollectedDataTypePurposes": [
 							"NSPrivacyCollectedDataTypePurposeAppFunctionality"
 						]
+					},
+					{
+						"NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeProductInteraction",
+						"NSPrivacyCollectedDataTypeLinked": true,
+						"NSPrivacyCollectedDataTypeTracking": false,
+						"NSPrivacyCollectedDataTypePurposes": [
+							"NSPrivacyCollectedDataTypePurposeAppFunctionality",
+							"NSPrivacyCollectedDataTypePurposeAnalytics"
+						]
+					},
+					{
+						"NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeBrowsingHistory",
+						"NSPrivacyCollectedDataTypeLinked": true,
+						"NSPrivacyCollectedDataTypeTracking": false,
+						"NSPrivacyCollectedDataTypePurposes": [
+							"NSPrivacyCollectedDataTypePurposeAppFunctionality"
+						]
+					},
+					{
+						"NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeSearchHistory",
+						"NSPrivacyCollectedDataTypeLinked": true,
+						"NSPrivacyCollectedDataTypeTracking": false,
+						"NSPrivacyCollectedDataTypePurposes": [
+							"NSPrivacyCollectedDataTypePurposeAppFunctionality"
+						]
 					}
 				]
 			}
