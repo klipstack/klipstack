@@ -129,12 +129,11 @@ export function useAiThreads(
 					...c,
 					streaming: undefined,
 					failure: result.error,
-					// A question the server never took is not kept, except a new chat's: it is all the
-					// card holds, and Try again sends it again.
-					messages:
-						c.action === "chat" && isTempThread(c.id)
-							? c.messages
-							: c.messages.filter((m) => !m.id.startsWith("tmp-ai-")),
+					// A follow-up the server never took is not kept. A new thread's first question is: it
+					// is all the card holds, and Answer again asks it again.
+					messages: isTempThread(c.id)
+						? c.messages
+						: c.messages.filter((m) => !m.id.startsWith("tmp-ai-")),
 				}))
 		},
 		[documentId, update, written],
@@ -217,8 +216,7 @@ export function useAiThreads(
 			if (isTempThread(id)) {
 				// Refused before it began: ask again from the start.
 				const text = card.messages[0]?.text ?? ""
-				if (card.action === "ask" || card.action === "chat")
-					send(id, text || card.draft?.question || "")
+				if (card.action === "ask" || card.action === "chat") send(id, text)
 				else {
 					update(id, (c) => ({
 						...c,
