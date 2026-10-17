@@ -13,6 +13,7 @@
 		"dev": "react-router dev",
 		"e2e:clean": "tsx e2e/clean.ts",
 		"icons": "tsx scripts/icons.ts",
+		"store-screenshots": "tsx scripts/store-screenshots.ts",
 		"invite": "tsx scripts/invite.ts",
 		"reextract": "tsx scripts/reextract.ts",
 		"start": "node server.js",
