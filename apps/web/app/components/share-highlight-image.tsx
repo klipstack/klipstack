@@ -1,4 +1,4 @@
-import { Copy, Download, Image as ImageIcon, Share } from "lucide-react"
+import { Copy, Download, Share } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { showToast } from "~/lib/toast"
@@ -65,16 +65,9 @@ export function ShareHighlightImage({ id, withNote }: { id: string; withNote: bo
 		)
 
 	return (
-		<section
-			aria-label={t("highlights.share.image.label")}
-			data-testid="share-image"
-			className="flex flex-col gap-3 rounded-xl border border-border p-4"
-		>
+		<div data-testid="share-image" className="flex flex-col gap-3">
 			<div className="flex items-center justify-between gap-3">
-				<h3 className="flex items-center gap-2 text-sm font-medium">
-					<ImageIcon className="size-4" aria-hidden />
-					{t("highlights.share.image.label")}
-				</h3>
+				<p className="text-xs text-muted-fg">{t(`highlights.share.image.${shape}Hint`)}</p>
 				<div
 					role="radiogroup"
 					aria-label={t("highlights.share.image.shape")}
@@ -94,8 +87,7 @@ export function ShareHighlightImage({ id, withNote }: { id: string; withNote: bo
 					))}
 				</div>
 			</div>
-			<p className="text-xs text-muted-fg">{t(`highlights.share.image.${shape}Hint`)}</p>
-			<div className="flex h-56 items-center justify-center rounded-lg bg-hover/60 p-2">
+			<div className="flex h-64 items-center justify-center rounded-lg bg-hover/60 p-2">
 				{drawn.state === "ready" ? (
 					<img
 						src={drawn.url}
@@ -144,6 +136,6 @@ export function ShareHighlightImage({ id, withNote }: { id: string; withNote: bo
 					) : null}
 				</div>
 			) : null}
-		</section>
+		</div>
 	)
 }

@@ -162,6 +162,12 @@ export default {
 			copyFailed: "No se pudo copiar: el navegador no lo permitió",
 			shared: "Compartido",
 			sharedHint: "Compartido en un enlace público: ábrelo para verlo o dejar de compartirlo",
+			tabs: {
+				label: "Compartir como",
+				text: "Texto",
+				link: "Enlace",
+				image: "Imagen",
+			},
 			image: {
 				label: "Imagen",
 				shape: "Formato",

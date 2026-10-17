@@ -166,6 +166,12 @@ export default {
 			copyFailed: "Couldn't copy: the browser didn't allow it",
 			shared: "Shared",
 			sharedHint: "Shared at a public link: open to see it or stop sharing",
+			tabs: {
+				label: "Share as",
+				text: "Text",
+				link: "Link",
+				image: "Image",
+			},
 			image: {
 				label: "Image",
 				shape: "Shape",
