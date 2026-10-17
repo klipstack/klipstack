@@ -177,6 +177,7 @@ export default {
 				copy: "Copy link",
 				copied: "Link copied",
 				shareSheet: "Share…",
+				all: "You can see every highlight you shared in the <notebook>Notebook</notebook>, under Shared.",
 				stale:
 					"The page shows this highlight as you shared it. Update the link to show it as it is now.",
 				update: "Update link",

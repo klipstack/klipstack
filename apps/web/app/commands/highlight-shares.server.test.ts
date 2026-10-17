@@ -135,12 +135,12 @@ describe("shareHighlight", () => {
 		expect(await sharesThisMonth()).toBe(before)
 	})
 
-	it("tells the owner the page is behind after a recolor, or a note added since", async () => {
+	it("tells the owner the page is behind after a note added since, not after a recolor", async () => {
 		const h = await highlight(userId)
 		await shareHighlight(userId, h.id, { includeNote: true, locale: "en" })
+		// The page does not show the color: nothing to update.
 		await db.update(highlights).set({ color: 4 }).where(eq(highlights.id, h.id))
-		expect(await getShareState(userId, h.id)).toMatchObject({ changed: true })
-		await shareHighlight(userId, h.id, { includeNote: true, locale: "en" })
+		expect(await getShareState(userId, h.id)).toMatchObject({ changed: false })
 		await setNote(h.id, "Added later.")
 		expect(await getShareState(userId, h.id)).toMatchObject({ changed: true })
 	})

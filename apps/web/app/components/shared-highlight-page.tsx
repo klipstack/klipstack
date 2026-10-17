@@ -1,6 +1,5 @@
 import { parse } from "@klipstack/api-contract/note-links"
 import { Fragment } from "react"
-import { highlightColor, highlightColorName } from "~/lib/highlight-colors"
 import { safeHost, siteLabel } from "~/lib/site-label"
 import type { ShareSnapshot } from "~/services/highlight-shares.server"
 import { BrandMarkSmall } from "./brand-mark"
@@ -23,7 +22,6 @@ export interface NoteRun {
  */
 export interface SharedHighlightView {
 	exact: string
-	color: number
 	locale: string
 	article: ShareSnapshot["article"]
 	note: NoteRun[][] | null
@@ -32,7 +30,6 @@ export interface SharedHighlightView {
 export function sharedHighlightView(snapshot: ShareSnapshot): SharedHighlightView {
 	return {
 		exact: snapshot.exact,
-		color: snapshot.color,
 		locale: snapshot.locale,
 		article: snapshot.article,
 		note: snapshot.note ? noteRuns(snapshot.note, snapshot.linkUrls) : null,
@@ -85,28 +82,27 @@ export function SharedHighlightPage({
 	return (
 		<div lang={view.locale} className="min-h-dvh bg-bg text-fg">
 			<main className="mx-auto flex max-w-xl flex-col px-5 pt-[calc(env(safe-area-inset-top)+3rem)] pb-12 sm:pt-[calc(env(safe-area-inset-top)+5rem)]">
+				{/* Plain: the marker is the app's, and the color means something to its owner only. */}
 				<figure
-					{...highlightColor(view.color)}
 					data-testid="shared-highlight"
 					className="clipping px-6 pt-[calc(var(--clip-top)+1.25rem)] pb-5"
 				>
 					<ClippingPaper id={id} />
 					<span
 						aria-hidden
-						className="-mb-3 block h-10 font-serif text-6xl leading-none text-(--hl-solid)"
+						className="-mb-3 block h-10 font-serif text-6xl leading-none text-muted-fg"
 					>
 						“
 					</span>
 					<blockquote
 						className={`font-serif text-fg ${quoteSize(view.exact).replace("line-clamp-[14] ", "")}`}
 					>
-						<span className="marker">{view.exact}</span>
+						{view.exact}
 					</blockquote>
 					{note ? (
 						<PostIt
 							as="div"
 							fit={note.map((line) => line.map((run) => run.text).join("")).join("\n")}
-							color={highlightColorName(view.color)}
 							tilt={tiltFor(id)}
 							aria-label={labels.noteLabel}
 							className="mt-6 -mr-3 ml-auto text-lg leading-snug"

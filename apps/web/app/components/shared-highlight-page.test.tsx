@@ -60,4 +60,11 @@ describe("SharedHighlightPage", () => {
 		for (const a of outbound) expect(a).toContain('rel="nofollow ugc noopener"')
 		expect(html).not.toContain("target=")
 	})
+
+	it("shows the quote without the marker, and the note on plain yellow, whatever its color", () => {
+		// The fixture's highlight is blue (2): its color means something to its owner only.
+		expect(html).not.toContain('class="marker')
+		expect(html).not.toContain("data-hl=")
+		expect(html).not.toContain("data-note-color=")
+	})
 })

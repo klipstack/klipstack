@@ -2,10 +2,9 @@ import { highlightShareText } from "@klipstack/api-contract/highlight-share"
 import { extractLinkIds } from "@klipstack/api-contract/note-links"
 import { Copy, Link2, Share, X } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
-import { useTranslation } from "react-i18next"
-import { useFetcher } from "react-router"
+import { Trans, useTranslation } from "react-i18next"
+import { Link, useFetcher } from "react-router"
 import { copyRich, copyText } from "~/lib/copy-link"
-import { highlightColor, highlightColorName } from "~/lib/highlight-colors"
 import { safeHost, siteLabel } from "~/lib/site-label"
 import type { WebResult } from "~/lib/web-result"
 import type { ShareState } from "~/services/highlight-shares.server"
@@ -19,7 +18,6 @@ export interface ShareHighlight {
 	/** The quote as the reader sees it: its line breaks are its paragraphs. */
 	exact: string
 	note: string | null
-	color: number
 	article: { title: string | null; sourceUrl: string; siteName: string | null }
 	/** False for a highlight still being saved: it has no id to share at an address yet. */
 	canLink?: boolean
@@ -106,21 +104,25 @@ export function ShareHighlightDialog({
 					</button>
 				</div>
 
-				{/* What goes out, as the Notebook shows it. */}
+				{/* What goes out, as its page shows it: no marker, the note on yellow whatever its color. */}
 				<figure
-					{...highlightColor(h.color)}
 					data-testid="share-preview"
 					className="clipping px-5 pt-[calc(var(--clip-top)+1rem)] pb-4"
 				>
 					<ClippingPaper id={h.id} />
+					<span
+						aria-hidden
+						className="-mb-2 block h-7 font-serif text-5xl leading-none text-muted-fg"
+					>
+						“
+					</span>
 					<blockquote className="line-clamp-[10] font-serif text-lg leading-normal text-fg">
-						<span className="marker whitespace-pre-line">{h.exact.trim()}</span>
+						<span className="whitespace-pre-line">{h.exact.trim()}</span>
 					</blockquote>
 					{shownNote ? (
 						<PostIt
 							as="span"
 							fit={shownNote}
-							color={highlightColorName(h.color)}
 							tilt={tiltFor(h.id)}
 							className="mt-5 -mr-2 ml-auto text-base leading-snug"
 						>
@@ -151,7 +153,12 @@ export function ShareHighlightDialog({
 				) : null}
 
 				{h.canLink === false ? null : (
-					<PublicLink link={link} withNote={withNote} hasNote={note !== null} />
+					<PublicLink
+						link={link}
+						withNote={withNote}
+						hasNote={note !== null}
+						onLeave={() => dialogRef.current?.close()}
+					/>
 				)}
 
 				<div className="flex flex-wrap justify-end gap-2">
@@ -223,6 +230,7 @@ function PublicLink({
 	link,
 	withNote,
 	hasNote,
+	onLeave,
 }: {
 	link: ReturnType<typeof usePublicLink>
 	/**
@@ -231,6 +239,8 @@ function PublicLink({
 	 */
 	withNote: boolean
 	hasNote: boolean
+	/** Closes the dialog: the Notebook link leads away from it. */
+	onLeave: () => void
 }) {
 	const { t } = useTranslation("reader")
 	const { share, loading, busy, change, error } = link
@@ -299,6 +309,21 @@ function PublicLink({
 							{t("highlights.share.link.stop")}
 						</Button>
 					</div>
+					<p className="text-xs text-muted-fg">
+						<Trans
+							t={t}
+							i18nKey="highlights.share.link.all"
+							components={{
+								notebook: (
+									<Link
+										to="/notebook?show=shared"
+										onClick={onLeave}
+										className="text-link hover:underline"
+									/>
+								),
+							}}
+						/>
+					</p>
 				</>
 			) : (
 				<>
