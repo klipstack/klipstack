@@ -98,6 +98,7 @@ export default [
 	route("saved-searches", "routes/saved-searches.ts"),
 	route("topics/use", "routes/topics.use.ts"),
 	route("prefs", "routes/prefs.ts"),
+	route("welcome", "routes/welcome.ts"),
 	route("assets/:id", "routes/assets.ts"),
 	route("api/v1/*", "routes/api.v1.ts"),
 	route("api/documents", "routes/api.documents.ts"),

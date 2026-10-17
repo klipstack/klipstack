@@ -93,6 +93,16 @@ export interface UserPrefs {
 	feeds?: "on" | "off"
 	/** The article's contents docked left of the text when the window has room for them. */
 	outline?: "on" | "off"
+	/**
+	 * Set on accounts created while the welcome is on (`WELCOME_FROM_*`): Home shows the welcome note
+	 * until the reader closes it, then it is false. Only the server writes it.
+	 */
+	welcomeCardDue?: boolean
+	/**
+	 * As `welcomeCardDue`, for the welcome email: the worker sends it once the address is verified,
+	 * then it is false. Only the server writes it.
+	 */
+	welcomeEmailDue?: boolean
 }
 
 export const session = pgTable(

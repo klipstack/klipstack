@@ -11,6 +11,8 @@ export interface Email {
 	subject: string
 	html: string
 	text: string
+	/** Where replies go, when not to the sender. */
+	replyTo?: string
 }
 
 /** An email not sent. Logs show its code, never its message, which can name the recipient. */
@@ -36,7 +38,10 @@ export function createSender({ apiKey, from }: { apiKey?: string; from: string }
 			if (!resend) {
 				if (process.env.NODE_ENV === "production")
 					throw new EmailError("EMAIL_NOT_CONFIGURED", "Email delivery is not configured")
-				console.log(`\n[email] to=${email.to}\n[email] subject=${email.subject}\n${email.text}\n`)
+				const replyTo = email.replyTo ? `\n[email] reply-to=${email.replyTo}` : ""
+				console.log(
+					`\n[email] to=${email.to}${replyTo}\n[email] subject=${email.subject}\n${email.text}\n`,
+				)
 				return
 			}
 			const { error } = await resend.emails.send({ from, ...email })
@@ -117,4 +122,30 @@ export function supportedLocale(locale: unknown): string {
 /** Translations for an email, in the recipient's language (any stored value; unknown ones fall back). */
 export function emailT<N extends "auth" | "admin" | "editions">(locale: unknown, ns: N) {
 	return emailI18n.getFixedT(supportedLocale(locale), ns)
+}
+
+/** Who signs the welcome note in the app and the welcome email (`WELCOME_FROM_*`). */
+export interface WelcomeFrom {
+	name: string
+	/** Shown in the note, and where replies to the email go. */
+	email: string
+	/** An https address or a path on the app; without one, the note shows the name's initial. */
+	photo: string | null
+}
+
+/**
+ * The welcome's signer, or null when `WELCOME_FROM_NAME` and `WELCOME_FROM_EMAIL` are not both set:
+ * then no account gets a welcome. Throws on a malformed address or photo, so a server with a typo
+ * does not start.
+ */
+export function welcomeFrom(source: Record<string, string | undefined>): WelcomeFrom | null {
+	const name = source.WELCOME_FROM_NAME?.trim()
+	const email = source.WELCOME_FROM_EMAIL?.trim()
+	const photo = source.WELCOME_FROM_PHOTO?.trim() || null
+	if (!name || !email) return null
+	if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+		throw new Error("WELCOME_FROM_EMAIL is not an email address")
+	if (photo && !/^(https:\/\/|\/(?!\/))\S+$/.test(photo))
+		throw new Error("WELCOME_FROM_PHOTO must be an https address or a path starting with /")
+	return { name, email, photo }
 }

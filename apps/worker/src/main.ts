@@ -12,6 +12,7 @@ import { handlePurge } from "./jobs/purge"
 import { handleReportDigest } from "./jobs/report-digest"
 import { handleSweep } from "./jobs/sweep"
 import { handleTopics, handleTopicsMonth } from "./jobs/topics"
+import { handleWelcomeEmail } from "./jobs/welcome-email"
 import { log } from "./log"
 
 loadEnv()
@@ -67,6 +68,10 @@ async function main() {
 	await boss.work(QUEUES.topicsMonth, WORK_OPTIONS, async () => {
 		log.info("topics: the month's runs", await handleTopicsMonth())
 	})
+	await boss.work(QUEUES.welcomeEmail, WORK_OPTIONS, async () => {
+		const welcomed = await handleWelcomeEmail()
+		if (welcomed.sent + welcomed.failed > 0) log.info("welcome emails", welcomed)
+	})
 	// Trash retention: once a day, 04:10 UTC. `schedule` upserts, so restarts are harmless.
 	await boss.schedule(QUEUES.purge, "10 4 * * *", {}, { tz: "UTC" })
 	// Feeds: every 5 minutes, queue the ones that are due (each feed keeps its own schedule).
@@ -77,6 +82,8 @@ async function main() {
 	await boss.schedule(QUEUES.inviteDigest, "0 8 * * *", {}, { tz: "UTC" })
 	// New reports on public editions, to the admins: every hour, at a quarter past.
 	await boss.schedule(QUEUES.reportDigest, "15 * * * *", {}, { tz: "UTC" })
+	// Welcome emails, to new accounts whose address is verified: every minute.
+	await boss.schedule(QUEUES.welcomeEmail, "* * * * *", {}, { tz: "UTC" })
 	// Topics' month: on the 1st, 00:05 UTC, runs for readers whose sorts waited for it.
 	await boss.schedule(QUEUES.topicsMonth, "5 0 1 * *", {}, { tz: "UTC" })
 
