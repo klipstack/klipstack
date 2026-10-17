@@ -62,7 +62,7 @@ export const updateArticles = defineEndpoint({
 	method: "PATCH",
 	path: "/articles",
 	scope: "write",
-	summary: `Moves, stars, marks for the next edition, finishes, keeps or tags up to ${BATCH_MAX} articles, in one transaction. shortlisted: true marks them for the user's next edition, and adds those with a web address to the draft edition in progress, if there is one; false takes them out of it. Publishing an edition with them clears the mark. finished: true also archives; finished: false marks them unread. kept: true keeps them out of the review of old saves (GET /review) for a while; keeping again starts that while again. addTags makes the tags that do not exist yet; names match whatever their case.`,
+	summary: `Moves, stars, marks for the next edition, finishes, keeps or tags up to ${BATCH_MAX} articles, in one transaction. shortlisted needs editions turned on for the account (GET /me), forbidden otherwise; true marks them for the user's next edition, and adds those with a web address to the draft edition in progress, if there is one; false takes them out of it. Publishing an edition with them clears the mark. finished: true also archives; finished: false marks them unread. kept: true keeps them out of the review of old saves (GET /review) for a while; keeping again starts that while again. addTags makes the tags that do not exist yet; names match whatever their case.`,
 	body: z
 		.object({
 			ids: Ids,
@@ -113,7 +113,8 @@ export const updateArticles = defineEndpoint({
 		}),
 	),
 	// An article would have more tags than it may, or the library more than it may: nothing changes.
-	errors: ["too_many_article_tags", "too_many_tags"],
+	/** `forbidden`: `shortlisted` with editions turned off for the account. */
+	errors: ["too_many_article_tags", "too_many_tags", "forbidden"],
 })
 
 export const undoArticles = defineEndpoint({
@@ -317,7 +318,8 @@ export const setEditionNote = defineEndpoint({
 		note: z.string().max(NOTE_MAX).refine(withoutNul, NUL_REFUSED).nullable(),
 	}),
 	response: json(EditionNote),
-	errors: ["not_found"],
+	/** `forbidden`: editions are turned off for the account (`GET /me`). */
+	errors: ["not_found", "forbidden"],
 })
 
 const Color = z.enum(HIGHLIGHT_COLORS)

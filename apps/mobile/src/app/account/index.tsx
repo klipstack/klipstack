@@ -147,7 +147,9 @@ export default function Account() {
 						}}
 					/>
 				) : (
-					usageRows(usage).map((row) => <Meter key={row.key} row={row} colors={colors} />)
+					usageRows(usage, { editions: me?.editions ?? true }).map((row) => (
+						<Meter key={row.key} row={row} colors={colors} />
+					))
 				)}
 			</Section>
 

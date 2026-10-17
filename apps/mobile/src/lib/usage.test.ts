@@ -61,6 +61,11 @@ describe("usageRows", () => {
 		])
 	})
 
+	it("leaves editions out while they are turned off", () => {
+		expect(usageRows(usage, { editions: false }).map((r) => r.key)).not.toContain("editions")
+		expect(usageRows(usage).map((r) => r.key)).toContain("editions")
+	})
+
 	it("shows topic sorting only when the account sorts, and never more than full", () => {
 		const rows = usageRows({ ...usage, ai: null, topicSorts: { used: 1200, max: 1000 } })
 		expect(rows.map((r) => r.key)).toEqual(["saves", "topicSorts", "editions", "storage", "feeds"])

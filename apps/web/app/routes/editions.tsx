@@ -26,6 +26,7 @@ import { pageTitle } from "~/lib/page-title"
 import { resolvePrefs } from "~/lib/prefs"
 import { readForm } from "~/lib/request-body.server"
 import { requireUser } from "~/lib/session.server"
+import { answer } from "~/lib/web-action.server"
 import {
 	currentDraft,
 	editionNudge,
@@ -131,14 +132,18 @@ async function draftDesk(userId: string, id: string, ago: (days: number) => stri
  */
 export async function action({ request, context }: Route.ActionArgs) {
 	const user = requireUser(context, request)
-	if ((await readForm(request)).get("intent") === "snooze") {
-		await snoozeEditionNudge(user.id)
-		return { ok: true as const }
-	}
-	const timeZone = timeZoneFromCookie(request.headers.get("cookie"))
-	const locale = isLocale(user.locale) ? user.locale : fallbackLanguage
-	const edition = await startEdition(user.id, { locale, timeZone })
-	throw redirect(`/editions/${edition.id}`)
+	const snooze = (await readForm(request)).get("intent") === "snooze"
+	// A refusal (editions turned off meanwhile, in another tab) is answered, not a crash.
+	return answer(async () => {
+		if (snooze) {
+			await snoozeEditionNudge(user.id)
+			return {}
+		}
+		const timeZone = timeZoneFromCookie(request.headers.get("cookie"))
+		const locale = isLocale(user.locale) ? user.locale : fallbackLanguage
+		const edition = await startEdition(user.id, { locale, timeZone })
+		throw redirect(`/editions/${edition.id}`)
+	})
 }
 
 type LoaderData = Route.ComponentProps["loaderData"]

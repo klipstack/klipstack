@@ -109,5 +109,6 @@ export const snoozeNextEdition = defineEndpoint({
 	summary:
 		'"Not now" on the nudge for an edition: none for a week, here or on the web. The marks and the draft stay.',
 	response: empty(),
-	errors: [],
+	/** `forbidden`: editions are turned off for the account (`GET /me`). */
+	errors: ["forbidden"],
 })

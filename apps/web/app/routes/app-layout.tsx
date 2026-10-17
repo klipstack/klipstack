@@ -62,8 +62,6 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 		savedSearches,
 		// Features in testing turned on for this account: their links show only then.
 		features,
-		// AI answers while reading, unless turned off in Settings → Features.
-		aiOn: features.includes("ai") && prefs.ai !== "off",
 		topics,
 		// The Save link dialog: its bookmarklet, and the address an AI assistant connects to.
 		appUrl: env.APP_URL,

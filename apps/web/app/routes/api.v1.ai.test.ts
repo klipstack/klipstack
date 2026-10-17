@@ -253,7 +253,10 @@ describe("the reader's AI in the API", () => {
 		const kept = await reader.app.ai.article(article)
 		expect(kept.threads.map((t) => [t.id, t.messages.length])).toEqual([[id, 2]])
 		expect(kept.brief).not.toBeNull()
+		const another = await captured(reader.id, FIXTURES.joel)
 		const refusals = [
+			// A new brief, for an article without one: the kept one above is free to read.
+			() => reader.app.ai.brief(another),
 			() => reader.app.ai.ask(article, { action: "explain", ...passage }),
 			() => reader.app.ai.chat(article, "What is it about?"),
 			() => reader.app.ai.followUp(id, "Why?"),

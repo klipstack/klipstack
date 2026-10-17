@@ -160,7 +160,8 @@ export default function Home() {
 			.me()
 			.then((me) => {
 				setName(me.name)
-				setEditions(me.editions)
+				// An older server says nothing of editions: they were on for everyone then.
+				setEditions(me.editions ?? true)
 			})
 			.catch(() => {})
 		const mine = ++generation.current

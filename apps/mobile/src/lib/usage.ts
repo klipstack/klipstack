@@ -57,14 +57,15 @@ function row(
 
 /**
  * The caps as Account lists them: the monthly ones first, then what the account holds. AI and
- * topic sorting only when the account has them (the server sends null otherwise).
+ * topic sorting only when the account has them (the server sends null otherwise); editions only
+ * while they are turned on.
  */
-export function usageRows(usage: Usage): UsageRow[] {
+export function usageRows(usage: Usage, { editions = true } = {}): UsageRow[] {
 	return [
 		row("saves", "Saves", usage.saves),
 		...(usage.ai ? [row("ai", "AI questions", usage.ai, count, { left: true })] : []),
 		...(usage.topicSorts ? [row("topicSorts", "Topic sorting", usage.topicSorts)] : []),
-		row("editions", "Editions published", usage.editions),
+		...(editions ? [row("editions", "Editions published", usage.editions)] : []),
 		row("storage", "Storage", usage.storage, megabytes, { unit: " MB" }),
 		row("feeds", "Feeds followed", usage.feeds),
 	]
