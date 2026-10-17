@@ -37,6 +37,7 @@ import { ClipboardOffer } from "@/components/clipboard-offer"
 import { HomeHighlights } from "@/components/home-highlights"
 import { HomeMasthead } from "@/components/home-masthead"
 import { NoteReminders } from "@/components/note-reminders"
+import { Grain } from "@/components/paper"
 import { ReviewSuggestion } from "@/components/review-suggestion"
 import { useTagSheet } from "@/components/tag-sheet"
 import { TopicsHomeCard } from "@/components/topics-home-card"
@@ -71,7 +72,7 @@ import {
 	saveRecentSince,
 } from "@/lib/offline"
 import { downloadAhead, keepLibraryLists } from "@/lib/offline-download"
-import { type Colors, useColors } from "@/lib/theme"
+import { type Colors, fonts, useColors } from "@/lib/theme"
 import { chooseFilter, chooseTopic } from "@/lib/topic-choices"
 
 /**
@@ -372,7 +373,6 @@ export default function Home() {
 	return (
 		<ScrollView
 			contentInsetAdjustmentBehavior="automatic"
-			style={{ backgroundColor: colors.bg }}
 			contentContainerStyle={styles.page}
 			refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
 		>
@@ -901,6 +901,7 @@ function Hero({
 				pressed && styles.pressed,
 			]}
 		>
+			<Grain />
 			<CardPicture item={item} colors={colors} headers={headers} radius={16} />
 			<Text style={[styles.heroTitle, { color: colors.fg }]} numberOfLines={3}>
 				{item.title ?? item.url}
@@ -952,7 +953,7 @@ function Shelf({
 			contentContainerStyle={styles.shelf}
 			renderItem={({ item }) => (
 				<View style={[styles.shelfCard, { width: Math.min(260, width * 0.62) + CARD_FRAME * 2 }]}>
-					<ArticleCard item={item} colors={colors} headers={headers} menu={menu} framed />
+					<ArticleCard item={item} colors={colors} headers={headers} menu={menu} framed display />
 				</View>
 			)}
 		/>
@@ -971,11 +972,13 @@ const styles = StyleSheet.create({
 	emptyTitle: { fontSize: 20, fontWeight: "600", textAlign: "center" },
 	section: { gap: 12 },
 	heading: { flexDirection: "row", alignItems: "center", gap: 6 },
-	sectionTitle: { fontSize: 22, fontWeight: "700" },
+	// The web's section-title: the logo's serif.
+	sectionTitle: { fontFamily: fonts.display, fontSize: 24, lineHeight: 30, letterSpacing: -0.24 },
 	note: { fontSize: 14, marginTop: 2 },
 	// Room for the lifted card's edge above and below its content; the layout doesn't move.
-	hero: { gap: 8, paddingVertical: 8, marginTop: -8, borderRadius: 24 },
-	heroTitle: { fontFamily: "Iowan Old Style", fontSize: 24, lineHeight: 29, fontWeight: "600" },
+	hero: { gap: 8, paddingVertical: 8, marginTop: -8, borderRadius: 24, overflow: "hidden" },
+	// The lead story, in the logo's serif, as the web's Home sets its articles.
+	heroTitle: { fontFamily: fonts.display, fontSize: 27, lineHeight: 31, letterSpacing: -0.2 },
 	meta: { fontSize: 14 },
 	progressRow: { flexDirection: "row", alignItems: "center", gap: 10 },
 	grow: { flex: 1 },
@@ -1000,7 +1003,7 @@ const styles = StyleSheet.create({
 		paddingBottom: 16,
 		borderBottomWidth: StyleSheet.hairlineWidth,
 	},
-	topicTitle: { fontFamily: "Iowan Old Style", fontSize: 28, lineHeight: 33, fontWeight: "600" },
+	topicTitle: { fontFamily: fonts.display, fontSize: 30, lineHeight: 36, letterSpacing: -0.45 },
 	shelf: { paddingHorizontal: PAD, paddingVertical: CARD_FRAME, gap: 14 },
 	shelfFrame: { marginVertical: -CARD_FRAME },
 	shelfCard: { marginHorizontal: -CARD_FRAME },

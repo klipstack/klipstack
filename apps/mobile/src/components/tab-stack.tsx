@@ -3,14 +3,16 @@ import { SymbolView } from "expo-symbols"
 import type { ReactNode } from "react"
 import { Pressable, StyleSheet, Text, View } from "react-native"
 import { AccountButton } from "@/components/account-button"
-import { useColors } from "@/lib/theme"
+import { Paper } from "@/components/paper"
+import { headerType, useColors } from "@/lib/theme"
 
 /**
  * The navigation stack inside a tab: native tabs draw no header of their own. A large title that
  * shrinks as the list scrolls, and, on the tab's first screen, the account button on the left and,
  * on Home (`canSave`), the button to save a link on the right, where iOS puts adding. The screens
  * a tab opens from its first (`children`) have the way back on the left; the library's lists put
- * their own buttons on the right (`LibraryList`).
+ * their own buttons on the right (`LibraryList`). Titles are in the logo's serif, and every screen
+ * is on the page's paper, grain and all (`Paper`): its lists are clear over it.
  */
 export function TabStack({
 	title,
@@ -24,7 +26,9 @@ export function TabStack({
 	const colors = useColors()
 	return (
 		<Stack
+			screenLayout={({ children }) => <Paper>{children}</Paper>}
 			screenOptions={{
+				...headerType,
 				headerLargeTitle: true,
 				headerShadowVisible: false,
 				headerLargeTitleShadowVisible: false,

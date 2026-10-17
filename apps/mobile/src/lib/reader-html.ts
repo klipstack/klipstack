@@ -234,23 +234,22 @@ const css = `
 	--hl-deepen: oklch(0.25 0.03 60) 15%;
 	--speaking: oklch(0.48 0.16 257 / 0.13);
 	--accent: oklch(0.37 0.085 260); --accent-fg: oklch(0.99 0 0); --favorite: oklch(0.58 0.12 78);
-	--selected: oklch(0.838517 0.042484 255.026856); --selected-fg: oklch(0.362349 0.098058 256.863103);
 	--note: oklch(0.955 0.065 96); --note-fg: oklch(0.27 0.03 75); --note-tape: oklch(1 0 0 / 0.55);
 	--serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
 	--sans: ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
 }
 @media (prefers-color-scheme: dark) {
 	:root {
-		--bg: oklch(0.19 0.012 260); --fg: oklch(0.93 0.006 90); --muted-fg: oklch(0.7 0.015 260);
-		--muted: oklch(0.265 0.015 260); --border: oklch(0.33 0.015 260); --link: oklch(0.78 0.105 250);
+		/* The same paper under a reading lamp: warm greys rather than blue ones, as the web's. */
+		--bg: oklch(0.2 0.011 65); --fg: oklch(0.92 0.014 85); --muted-fg: oklch(0.72 0.018 75);
+		--muted: oklch(0.26 0.013 65); --border: oklch(0.33 0.015 65); --link: oklch(0.78 0.105 250);
 		--hl-0: oklch(0.5 0.1 95); --hl-1: oklch(0.46 0.1 152); --hl-2: oklch(0.46 0.11 248);
 		--hl-3: oklch(0.47 0.12 355); --hl-4: oklch(0.5 0.12 55);
 		--hl-1-solid: oklch(0.82 0.15 150); --hl-2-solid: oklch(0.78 0.12 240);
 		--hl-3-solid: oklch(0.79 0.13 355); --hl-4-solid: oklch(0.82 0.14 60);
 		--hl-deepen: oklch(0.95 0.02 90) 8%;
 		--speaking: oklch(0.78 0.105 250 / 0.2);
-		--accent: oklch(0.74 0.1 255); --accent-fg: oklch(0.19 0.025 260); --favorite: oklch(0.78 0.12 80);
-		--selected: oklch(0.364043 0.071354 255.403282); --selected-fg: oklch(0.875271 0.061525 257.523997);
+		--accent: oklch(0.74 0.1 255); --accent-fg: oklch(0.2 0.02 65); --favorite: oklch(0.78 0.12 80);
 		--note: oklch(0.4 0.05 85); --note-fg: oklch(0.95 0.025 90); --note-tape: oklch(1 0 0 / 0.15);
 	}
 }
@@ -379,7 +378,8 @@ html.hl-dragging, html.hl-dragging * { -webkit-user-select: none; user-select: n
 .end-choice.wide { grid-column: 1 / -1; }
 .end-choice svg { fill: none; color: var(--muted-fg); }
 .end-choice.starred svg { fill: var(--favorite); color: var(--favorite); }
-#klip-end .end-choice.on { background: var(--selected); color: var(--selected-fg); }
+/* Chosen: the navy of actions, as the web's end of an article, not a blue tint. */
+#klip-end .end-choice.on { background: var(--accent); color: var(--accent-fg); }
 .end-choice.on svg { color: currentColor; }
 /* Marked: the note for the edition's readers, which the app's sheet edits. */
 .end-edition {

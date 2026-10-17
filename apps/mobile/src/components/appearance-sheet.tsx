@@ -6,7 +6,7 @@ import { Modal, Pressable, StyleSheet, Text, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { COLOR_SCHEMES, type ColorSchemePref } from "@/lib/color-scheme"
 import { stepTextSize, TEXT_SIZES, type TypePrefs } from "@/lib/reader-type"
-import type { Colors } from "@/lib/theme"
+import { type Colors, fonts } from "@/lib/theme"
 
 const SCHEME_ICONS: Record<ColorSchemePref, SymbolViewProps["name"]> = {
 	system: "circle.lefthalf.filled",
@@ -215,20 +215,23 @@ function Choice({
 			accessibilityLabel={label}
 			accessibilityState={{ selected }}
 			onPress={onPress}
+			// Chosen, a sheet raised off the others, as the web's reader settings: not a blue tint.
 			style={({ pressed }) => [
 				styles.choice,
-				{ borderColor: selected ? colors.accent : colors.border },
-				selected && styles.choiceSelected,
-				pressed && { backgroundColor: colors.muted },
+				selected
+					? [styles.choiceSelected, { backgroundColor: colors.card, borderColor: colors.border }]
+					: { borderColor: colors.border },
+				pressed && { opacity: 0.6 },
 			]}
 		>
 			{icon ? (
-				<SymbolView name={icon} tintColor={selected ? colors.accent : colors.fg} size={17} />
+				<SymbolView name={icon} tintColor={selected ? colors.fg : colors.mutedFg} size={17} />
 			) : null}
 			<Text
 				style={[
 					styles.choiceText,
-					{ color: selected ? colors.accent : colors.fg, fontFamily: family },
+					{ color: selected ? colors.fg : colors.mutedFg, fontFamily: family },
+					selected && !family && styles.choiceTextSelected,
 				]}
 			>
 				{label}
@@ -252,7 +255,8 @@ const styles = StyleSheet.create({
 		shadowOffset: { width: 0, height: -2 },
 	},
 	heading: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-	title: { fontSize: 17, fontWeight: "600" },
+	// A sheet's name, in the logo's serif, as the web's sidebars.
+	title: { fontFamily: fonts.display, fontSize: 20 },
 	done: { fontSize: 17, fontWeight: "600" },
 	sizes: {
 		flexDirection: "row",
@@ -283,6 +287,12 @@ const styles = StyleSheet.create({
 		borderRadius: 12,
 		borderWidth: StyleSheet.hairlineWidth,
 	},
-	choiceSelected: { borderWidth: 2 },
+	choiceSelected: {
+		shadowColor: "#000",
+		shadowOpacity: 0.08,
+		shadowRadius: 2,
+		shadowOffset: { width: 0, height: 1 },
+	},
 	choiceText: { fontSize: 17 },
+	choiceTextSelected: { fontWeight: "600" },
 })

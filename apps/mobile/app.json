@@ -34,6 +34,16 @@
 			"expo-secure-store",
 			"expo-web-browser",
 			"@bacons/apple-targets",
+			[
+				"expo-font",
+				{
+					"fonts": [
+						"./assets/fonts/Newsreader-Regular.ttf",
+						"./assets/fonts/Newsreader-Italic.ttf",
+						"./assets/fonts/Newsreader-Medium.ttf"
+					]
+				}
+			],
 			["expo-build-properties", { "ios": { "enableSceneSupport": true } }],
 			[
 				"expo-splash-screen",
@@ -43,7 +53,7 @@
 					"backgroundColor": "#fbfaf7",
 					"dark": {
 						"image": "./assets/splash-logo-dark.png",
-						"backgroundColor": "#111419"
+						"backgroundColor": "#1a1511"
 					}
 				}
 			]

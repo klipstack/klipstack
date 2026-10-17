@@ -6,7 +6,7 @@ import { useColorScheme } from "react-native"
 import { ToastHost } from "@/components/toast-host"
 import { AuthProvider, useAuth } from "@/lib/auth"
 import { loadColorScheme } from "@/lib/reader-files"
-import { applyColorScheme, useColors } from "@/lib/theme"
+import { applyColorScheme, headerType, useColors } from "@/lib/theme"
 import { reloadNextUpInBackground } from "@/lib/widget"
 
 // The launch screen stays up until the app knows whether it is signed in, then fades.
@@ -65,6 +65,7 @@ function Screens() {
 	return (
 		<Stack
 			screenOptions={{
+				...headerType,
 				headerTintColor: colors.fg,
 				contentStyle: { backgroundColor: colors.bg },
 			}}
