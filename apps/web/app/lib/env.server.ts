@@ -103,6 +103,13 @@ const schema = z.object({
 	APPLE_BUNDLE_ID: optional(
 		z.string().regex(/^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/, "Use a bundle ID like com.example.app"),
 	),
+	/**
+	 * The SuppyHQ account behind Contact support in the sidebar (`components/support-panel.tsx`).
+	 * Unset, the app has no link to SuppyHQ.
+	 */
+	SUPPYHQ_TENANT: optional(
+		z.string().regex(/^[a-z0-9-]+$/, "Use the tenant from SuppyHQ's snippet"),
+	),
 })
 
 const parsed = schema.safeParse(process.env)

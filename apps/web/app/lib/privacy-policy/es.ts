@@ -86,6 +86,7 @@ export default {
 						"Hetzner Online aloja nuestros servidores y la base de datos.",
 						"Cloudflare guarda las imágenes de las páginas que guardas y nuestras copias de seguridad cifradas de la base de datos (R2).",
 						"Resend envía nuestros correos. Recibe tu dirección de correo y el mensaje.",
+						"SuppyHQ hace funcionar el formulario de ayuda de la app. No recibe nada hasta que haces clic en Contactar con soporte; entonces recibe tu nombre y tu dirección de correo, y el mensaje que envíes.",
 						"Better Stack comprueba desde fuera que Klipstack funciona. No ve datos de cuentas.",
 						"Google o GitHub, solo si eliges iniciar sesión con ellos.",
 						"FxTwitter, solo cuando guardas una publicación de X.",

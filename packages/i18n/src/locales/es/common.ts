@@ -292,6 +292,16 @@ export default {
 			copyright: "© {{year}} {{company}}",
 		},
 	},
+	supportWidget: {
+		open: "Contactar con soporte",
+		loading: "Cargando el formulario de ayuda",
+		unavailable: "El formulario de ayuda no cargó. Escribe a <email>{{email}}</email>.",
+		label: "Ayuda",
+		greeting:
+			"Preguntas, problemas o ideas: leo cada mensaje. Si es sobre un artículo, pega su enlace.",
+		acknowledgment: "Gracias, recibí tu mensaje.",
+		expectation: "Te responderé al correo de tu cuenta de Klipstack, normalmente en un día o dos.",
+	},
 	support: {
 		title: "Ayuda",
 		description: "Ayuda con Klipstack: escríbenos, gestiona tus datos o elimina tu cuenta.",
