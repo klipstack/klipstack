@@ -4,7 +4,7 @@ import { log } from "../log"
 import { appUrl, defaultSend } from "../mail"
 
 /**
- * Every hour: when reports on public editions arrived since the last digest, emails every verified
+ * Every hour: when reports on public pages (editions and shared highlights) arrived since the last digest, emails every verified
  * admin how many, with a link to /admin/reports. Counts only: nothing a visitor typed reaches an
  * inbox. Hourly, not daily like the wait list's: a report may be about illegal content.
  *

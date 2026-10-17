@@ -217,6 +217,16 @@ export default {
 			footer: "Recibes este email porque diste esta dirección al denunciar la página.",
 		},
 	},
+	shareRemoval: {
+		email: {
+			subject: "Retiramos un subrayado que compartiste",
+			body: "Retiramos tu subrayado compartido «{{title}}» de su enlace público tras una denuncia. Motivo: {{ground}}.",
+			facts:
+				"Lo decidió una persona después de leer la denuncia; nada se decidió automáticamente. El subrayado sigue en tu biblioteca, pero no se puede volver a compartir.",
+			terms: "Lo que las páginas públicas no pueden contener: {{url}}",
+			footer: "Recibes este correo porque compartiste este subrayado en Klipstack.",
+		},
+	},
 	removal: {
 		notice:
 			"Un admin retiró esta edición el {{date}} tras una denuncia ({{ground}}). No se puede volver a publicar.",
@@ -269,6 +279,14 @@ export default {
 		remove: "Quitar el enlace",
 	},
 	/** The public page. It uses the edition's language, whoever visits. */
+	shared: {
+		/** The window's and the link preview's title. */
+		title: "Un subrayado de «{{title}}»",
+		description: "Un pasaje de «{{title}}», compartido con Klipstack.",
+		readArticle: "Leer el artículo",
+		noteLabel: "La nota del lector",
+		pictureAlt: "El pasaje subrayado, con la nota del lector",
+	},
 	public: {
 		updated: "Actualizado el {{date}}",
 		minutes: "{{count}} min de lectura",

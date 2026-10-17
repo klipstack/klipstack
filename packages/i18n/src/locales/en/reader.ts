@@ -163,6 +163,30 @@ export default {
 			copyText: "Copy text",
 			copied: "Copied with a link to the article",
 			copyFailed: "Couldn't copy: the browser didn't allow it",
+			shared: "Shared",
+			sharedHint: "Shared at a public link: open to see it or stop sharing",
+			link: {
+				label: "Public link",
+				loading: "Checking the link…",
+				about:
+					"Anyone with the link sees this highlight and the article it's from. Your name isn't shown.",
+				aboutWithNote:
+					"Anyone with the link sees this highlight, your note and the article it's from. Your name isn't shown.",
+				create: "Create link",
+				address: "Link address",
+				copy: "Copy link",
+				copied: "Link copied",
+				shareSheet: "Share…",
+				stale:
+					"The page shows this highlight as you shared it. Update the link to show it as it is now.",
+				update: "Update link",
+				stop: "Stop sharing",
+				removed: "This highlight was taken down after a report, and can't be shared.",
+				errors: {
+					limit: "You shared as many highlights as you can this month.",
+					failed: "The link didn't change. Try again.",
+				},
+			},
 		},
 		colors: {
 			yellow: "Yellow",
@@ -281,6 +305,7 @@ export default {
 			all: "All",
 			notes: "Notes",
 			highlights: "Highlights",
+			shared: "Shared",
 			empty: "Nothing here.",
 			tag: "Tag",
 			tagChoose: "Choose a tag",

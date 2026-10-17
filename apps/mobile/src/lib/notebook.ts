@@ -135,6 +135,7 @@ export function filterLabel(filter: NotebookFilter | null): string {
 	if (filter === null) return "All"
 	if (filter === "notes") return "Notes"
 	if (filter === "highlights") return "Highlights"
+	if (filter === "shared") return "Shared"
 	return COLOR_LABELS[filter]
 }
 

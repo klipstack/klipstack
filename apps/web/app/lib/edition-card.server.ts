@@ -100,7 +100,7 @@ export function canDraw(text: string): boolean {
 	return total > 0 && letters(drawable(loadFonts().text, text)) >= total * 0.9
 }
 
-const width = (font: Font, text: string, size: number, spacing = 0) =>
+export const width = (font: Font, text: string, size: number, spacing = 0) =>
 	font.getAdvanceWidth(text, size) + spacing * size * Math.max(0, [...text].length - 1)
 
 /**
@@ -128,7 +128,7 @@ export function wrap(font: Font, text: string, size: number, max: number, lines:
 }
 
 /** `text` as an SVG path, its baseline starting at (x, y). */
-function outline(
+export function outline(
 	font: Font,
 	text: string,
 	x: number,
@@ -151,11 +151,11 @@ function outline(
 
 const MARK = `<path d="M106.5 238.5L28.1 268.6Q19.7 271.9 23.4 280.1L207.6 687"/><path d="M175.2 134.9L88.7 163Q80.2 165.8 83.4 174.3C115.1 260.6 145.6 347.3 173.1 435C199.3 518.4 222.8 602.5 244.9 687"/><path d="M271.5 687C267.3 474.7 226.9 284.9 167.4 82C324.9 35 530.7 9.8 689 31.1C708.2 33.7 721.6 43.7 727.8 62C824.2 349 869.4 635.8 865.6 938C865.3 956.7 852.2 969.7 834 974C709.5 1003.6 565 1005.8 438 994C419.6 992.3 404.9 980.4 403 962C387.4 808.5 352.1 656.9 341.3 503C336.8 439.4 374.4 376.3 440 364.5C484.5 356.5 538.4 371.6 566.2 409C607.3 464.5 626.7 636.9 633.5 709C638.7 764.8 653.3 840.6 592 871C559 887.4 508.2 885.7 485.5 853C457.1 812.1 444.6 652.3 436.6 596C432.2 565.4 423.4 530.4 433.3 500C442.5 471.5 484 467.9 502.4 489.1C526.7 516.8 530 569.1 535.7 604C542.1 642.7 543.3 682.6 552 725.9"/>`
 /** The Klipstack mark (brand/), `size` tall, its top left at (x, y). */
-function mark(x: number, y: number, size: number, color: string) {
+export function mark(x: number, y: number, size: number, color: string) {
 	return `<g transform="translate(${x} ${y}) scale(${size / 1022})" fill="none" stroke="${color}" stroke-width="41" stroke-linecap="round" stroke-linejoin="round">${MARK}<path fill="${color}" stroke="none" d="M184.4 685.5L305.5 953C300.9 860.9 293.3 768.9 291.8 676.7L242.4 677Z"/></g>`
 }
 
-const svg = (ground: string, body: string, defs = "") =>
+export const svg = (ground: string, body: string, defs = "") =>
 	`<svg xmlns="http://www.w3.org/2000/svg" width="${CARD_WIDTH}" height="${CARD_HEIGHT}" viewBox="0 0 ${CARD_WIDTH} ${CARD_HEIGHT}"><defs>${defs}</defs>${ground}${body}</svg>`
 
 /** The card as SVG, in its cover. */

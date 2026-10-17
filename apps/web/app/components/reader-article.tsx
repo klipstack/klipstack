@@ -387,6 +387,7 @@ export function ReaderArticle({
 			note: h.note ?? null,
 			color: h.color ?? 0,
 			article: { title: doc.title, sourceUrl: doc.sourceUrl, siteName: doc.siteName },
+			canLink: !isTemporary(h.id),
 		})
 	}
 

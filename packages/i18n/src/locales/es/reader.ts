@@ -159,6 +159,30 @@ export default {
 			copyText: "Copiar texto",
 			copied: "Copiado con un enlace al artículo",
 			copyFailed: "No se pudo copiar: el navegador no lo permitió",
+			shared: "Compartido",
+			sharedHint: "Compartido en un enlace público: ábrelo para verlo o dejar de compartirlo",
+			link: {
+				label: "Enlace público",
+				loading: "Revisando el enlace…",
+				about:
+					"Quien tenga el enlace ve este subrayado y el artículo del que viene. Tu nombre no aparece.",
+				aboutWithNote:
+					"Quien tenga el enlace ve este subrayado, tu nota y el artículo del que viene. Tu nombre no aparece.",
+				create: "Crear enlace",
+				address: "Dirección del enlace",
+				copy: "Copiar enlace",
+				copied: "Enlace copiado",
+				shareSheet: "Compartir…",
+				stale:
+					"La página muestra este subrayado como lo compartiste. Actualiza el enlace para mostrarlo como está ahora.",
+				update: "Actualizar enlace",
+				stop: "Dejar de compartir",
+				removed: "Este subrayado se retiró tras una denuncia y no se puede compartir.",
+				errors: {
+					limit: "Ya compartiste todos los subrayados que puedes este mes.",
+					failed: "El enlace no cambió. Inténtalo de nuevo.",
+				},
+			},
 		},
 		colors: {
 			yellow: "Amarillo",
@@ -280,6 +304,7 @@ export default {
 			all: "Todo",
 			notes: "Notas",
 			highlights: "Subrayados",
+			shared: "Compartidos",
 			empty: "No hay nada aquí.",
 			tag: "Etiqueta",
 			tagChoose: "Elige una etiqueta",

@@ -30,8 +30,12 @@ export interface AdminReport {
 }
 
 export interface AdminReportedEdition {
+	/** What is reported: a public edition, or a shared highlight. */
+	kind: "edition" | "share"
 	id: string
 	publicId: string
+	/** The public page. */
+	href: string
 	/** The public page's title, as readers saw it. */
 	title: string
 	owner: { id: string; name: string }
@@ -41,8 +45,10 @@ export interface AdminReportedEdition {
 }
 
 export interface AdminRemovedEdition {
+	kind: "edition" | "share"
 	id: string
 	publicId: string
+	href: string
 	title: string
 	owner: { id: string; name: string }
 	ground: ReportReason
@@ -102,8 +108,10 @@ export async function listReportedEditions(ctx: AdminContext): Promise<AdminRepo
 		limit ${REPORTED_EDITIONS_MAX}
 	`)
 	return result.rows.map((row) => ({
+		kind: "edition" as const,
 		id: row.id,
 		publicId: row.public_id,
+		href: `/e/${row.public_id}`,
 		title: shownTitle(row),
 		owner: { id: row.owner_id, name: row.owner_name },
 		count: row.count,
@@ -139,8 +147,10 @@ export async function listRemovedEditions(ctx: AdminContext): Promise<AdminRemov
 		limit ${REPORTED_EDITIONS_MAX}
 	`)
 	return result.rows.map((row) => ({
+		kind: "edition" as const,
 		id: row.id,
 		publicId: row.public_id,
+		href: `/e/${row.public_id}`,
 		title: shownTitle(row),
 		owner: { id: row.owner_id, name: row.owner_name },
 		ground: row.removed_ground,
@@ -151,13 +161,16 @@ export async function listRemovedEditions(ctx: AdminContext): Promise<AdminRemov
 
 type Reporter = { email: string; locale: string }
 
-/** Deletes the edition's open reports; the addresses that came with them, once each. */
+/** Deletes the page's open reports; the addresses that came with them, once each. */
 async function closeReports(
 	tx: Tx,
-	editionId: string,
+	id: string,
+	kind: "edition" | "share" = "edition",
 ): Promise<{ count: number; reporters: Reporter[] }> {
 	const closed = await tx.execute<{ email: string | null; locale: string }>(
-		sql`delete from edition_reports where edition_id = ${editionId}::uuid returning email, locale`,
+		kind === "edition"
+			? sql`delete from edition_reports where edition_id = ${id}::uuid returning email, locale`
+			: sql`delete from edition_reports where share_id = ${id}::uuid returning email, locale`,
 	)
 	const reporters = new Map<string, Reporter>()
 	for (const row of closed.rows) if (row.email) reporters.set(row.email, row as Reporter)
@@ -320,6 +333,237 @@ export function restoreEdition(ctx: AdminContext, editionId: string): Promise<{ 
 			action: "edition.restore",
 			targetKind: "edition",
 			targetId: editionId,
+			correlationId: ctx.correlationId,
+			metadata: { ownerId: row.owner_id },
+		})
+		return { changed: true as const }
+	})
+}
+
+// ---- shared highlights ----
+
+/**
+ * What names a shared highlight to admins and in emails: the start of its quote and its article,
+ * from the snapshot (kept while it is removed).
+ */
+const SHARE_TITLE = sql`s.published->>'exact' as exact, s.published->'article'->>'title' as article`
+type ShareTitleColumns = { exact: string | null; article: string | null }
+
+function shareTitle(row: ShareTitleColumns): string {
+	const quote = (row.exact ?? "").replace(/\s+/g, " ").trim()
+	const short = quote.length > 80 ? `${quote.slice(0, 79).trimEnd()}…` : quote
+	return [short || null, row.article].filter(Boolean).join(" — ")
+}
+
+/** Shared highlights with open reports, the most recently reported first, with their reports. */
+export async function listReportedShares(ctx: AdminContext): Promise<AdminReportedEdition[]> {
+	assertAdminContext(ctx)
+	const result = await db.execute<
+		ShareTitleColumns & {
+			id: string
+			public_id: string
+			owner_id: string
+			owner_name: string
+			count: number
+			reports: Array<{
+				id: string
+				reason: ReportReason
+				details: string
+				email: string | null
+				created_at: string
+			}>
+		}
+	>(sql`
+		select s.id, s.public_id, ${SHARE_TITLE}, u.id as owner_id, u.name as owner_name,
+			(select count(*)::int from edition_reports r where r.share_id = s.id) as count,
+			(
+				select json_agg(r order by r.created_at desc) from (
+					select r.id, r.reason, r.details, r.email, r.created_at from edition_reports r
+					where r.share_id = s.id order by r.created_at desc limit ${REPORTS_SHOWN_MAX}
+				) r
+			) as reports
+		from highlight_shares s
+		join "user" u on u.id = s.user_id
+		where exists (select 1 from edition_reports r where r.share_id = s.id)
+		order by (select max(r.created_at) from edition_reports r where r.share_id = s.id) desc, s.id
+		limit ${REPORTED_EDITIONS_MAX}
+	`)
+	return result.rows.map((row) => ({
+		kind: "share" as const,
+		id: row.id,
+		publicId: row.public_id,
+		href: `/h/${row.public_id}`,
+		title: shareTitle(row),
+		owner: { id: row.owner_id, name: row.owner_name },
+		count: row.count,
+		reports: (row.reports ?? []).map((report) => ({
+			id: report.id,
+			reason: report.reason,
+			details: report.details,
+			email: report.email,
+			createdAt: new Date(report.created_at).toISOString(),
+		})),
+	}))
+}
+
+/** Shared highlights an admin took down, the latest first. */
+export async function listRemovedShares(ctx: AdminContext): Promise<AdminRemovedEdition[]> {
+	assertAdminContext(ctx)
+	const result = await db.execute<
+		ShareTitleColumns & {
+			id: string
+			public_id: string
+			owner_id: string
+			owner_name: string
+			removed_ground: ReportReason
+			removed_note: string
+			removed_at: string
+		}
+	>(sql`
+		select s.id, s.public_id, ${SHARE_TITLE}, u.id as owner_id, u.name as owner_name,
+			s.removed_ground, s.removed_note, s.removed_at
+		from highlight_shares s join "user" u on u.id = s.user_id
+		where s.removed_at is not null
+		order by s.removed_at desc, s.id
+		limit ${REPORTED_EDITIONS_MAX}
+	`)
+	return result.rows.map((row) => ({
+		kind: "share" as const,
+		id: row.id,
+		publicId: row.public_id,
+		href: `/h/${row.public_id}`,
+		title: shareTitle(row),
+		owner: { id: row.owner_id, name: row.owner_name },
+		ground: row.removed_ground,
+		note: row.removed_note,
+		removedAt: new Date(row.removed_at).toISOString(),
+	}))
+}
+
+/**
+ * Takes a shared highlight down: its page says an admin removed it, and the owner cannot share it
+ * again until an admin restores it. Its open reports close. After the commit the owner is told why,
+ * and each reporter who left an address is told the decision, as for editions.
+ */
+export async function removeShare(
+	ctx: AdminContext,
+	shareId: string,
+	{ ground, note }: { ground: ReportReason; note: string },
+): Promise<{ reports: number; ownerEmailed: boolean; reportersEmailed: number }> {
+	const clean = note.trim()
+	if (!clean || clean.length > REMOVAL_NOTE_MAX)
+		throw new AppError("invalid_request", `Write why, in ${REMOVAL_NOTE_MAX} characters at most.`)
+	const removed = await adminMutation(ctx, async (tx) => {
+		await checkAdminLimit(tx, ADMIN_LIMITS.reportDecide, ctx.userId)
+		const found = await tx.execute<
+			ShareTitleColumns & {
+				owner_id: string
+				owner_email: string
+				owner_locale: string | null
+				removed_at: string | null
+			}
+		>(sql`
+			select ${SHARE_TITLE}, u.id as owner_id, u.email as owner_email,
+				u.locale as owner_locale, s.removed_at
+			from highlight_shares s join "user" u on u.id = s.user_id
+			where s.id = ${shareId}::uuid
+			for update of s
+		`)
+		const share = found.rows[0]
+		if (!share || share.removed_at)
+			throw notFound("No such shared highlight, or it is removed already.")
+		await tx.execute(sql`
+			update highlight_shares set removed_at = now(), removed_ground = ${ground},
+				removed_note = ${clean}
+			where id = ${shareId}::uuid
+		`)
+		const { count, reporters } = await closeReports(tx, shareId, "share")
+		await recordAudit(tx, {
+			actor: auditActor(ctx),
+			action: "share.remove",
+			targetKind: "highlight_share",
+			targetId: shareId,
+			correlationId: ctx.correlationId,
+			metadata: { ownerId: share.owner_id, ground, reports: count },
+		})
+		return { ...share, title: shareTitle(share), count, reporters }
+	})
+
+	const t = emailT(removed.owner_locale, "editions")
+	const subject = t("shareRemoval.email.subject")
+	const groundText = t(`removal.grounds.${ground}`)
+	const owner = {
+		to: removed.owner_email,
+		subject,
+		...renderEmail({
+			heading: subject,
+			body: [
+				t("shareRemoval.email.body", { title: removed.title, ground: groundText }),
+				t("removal.email.note", { note: clean }),
+				t("shareRemoval.email.facts"),
+				t("shareRemoval.email.terms", { url: new URL("/terms#editions", env.APP_URL).href }),
+				t("removal.email.contest", { contact: SUPPORT_CONTACT }),
+			].join("\n\n"),
+			footer: t("shareRemoval.email.footer"),
+		}),
+	}
+	const ownerEmailed = (await sendAll([owner])) === 1
+	const reportersEmailed = await sendAll(
+		removed.reporters.map((reporter) => reporterEmail(reporter, "removed", removed.title)),
+	)
+	return { reports: removed.count, ownerEmailed, reportersEmailed }
+}
+
+/** Closes a shared highlight's reports and leaves it up; reporters who left an address are told. */
+export async function dismissShareReports(
+	ctx: AdminContext,
+	shareId: string,
+): Promise<{ reports: number; reportersEmailed: number }> {
+	const dismissed = await adminMutation(ctx, async (tx) => {
+		await checkAdminLimit(tx, ADMIN_LIMITS.reportDecide, ctx.userId)
+		const found = await tx.execute<ShareTitleColumns>(
+			sql`select ${SHARE_TITLE} from highlight_shares s where s.id = ${shareId}::uuid for update`,
+		)
+		const share = found.rows[0]
+		if (!share) throw notFound("No such shared highlight.")
+		const { count, reporters } = await closeReports(tx, shareId, "share")
+		if (count === 0) throw notFound("That shared highlight has no open reports.")
+		await recordAudit(tx, {
+			actor: auditActor(ctx),
+			action: "share_reports.dismiss",
+			targetKind: "highlight_share",
+			targetId: shareId,
+			correlationId: ctx.correlationId,
+			metadata: { reports: count },
+		})
+		return { title: shareTitle(share), count, reporters }
+	})
+	const reportersEmailed = await sendAll(
+		dismissed.reporters.map((reporter) => reporterEmail(reporter, "kept", dismissed.title)),
+	)
+	return { reports: dismissed.count, reportersEmailed }
+}
+
+/**
+ * Undoes a removal: the owner may share the highlight again, at a new address. Until they do, it
+ * is not shared, and what it showed is dropped. Nobody is emailed.
+ */
+export function restoreShare(ctx: AdminContext, shareId: string): Promise<{ changed: true }> {
+	return adminMutation(ctx, async (tx) => {
+		await checkAdminLimit(tx, ADMIN_LIMITS.editionRestore, ctx.userId)
+		const restored = await tx.execute<{ owner_id: string }>(sql`
+			update highlight_shares set removed_at = null, removed_ground = null, removed_note = null,
+				published = null
+			where id = ${shareId}::uuid and removed_at is not null
+			returning user_id as owner_id
+		`)
+		const row = restored.rows[0]
+		if (!row) throw notFound("No removed shared highlight with that id.")
+		await recordAudit(tx, {
+			actor: auditActor(ctx),
+			action: "share.restore",
+			targetKind: "highlight_share",
+			targetId: shareId,
 			correlationId: ctx.correlationId,
 			metadata: { ownerId: row.owner_id },
 		})

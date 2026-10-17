@@ -28,6 +28,7 @@ import { type HighlightFilter, searchTerms } from "~/lib/highlight-filters"
 import { type ModificationRange, modificationRange } from "./annotation-dates.server"
 import { getDocument } from "./documents.server"
 import type { TopicScope } from "./documents.server"
+import { liveShare } from "./highlight-shares.server"
 import { syncNoteLinks } from "./links.server"
 import { articleInTopic, inTopic } from "./topic-scope.server"
 
@@ -385,6 +386,8 @@ export interface HighlightListItem {
 	author: string | null
 	siteName: string | null
 	sourceUrl: string
+	/** Shared at a public link, now. */
+	shared: boolean
 	/** The article's lead image, as an address to show; null without one. */
 	image: string | null
 }
@@ -408,6 +411,8 @@ export const listColumns = {
 	author: documents.author,
 	siteName: documents.siteName,
 	sourceUrl: documents.sourceUrl,
+	/** Shared at a public link, now. */
+	shared: sql<boolean>`${liveShare}`.as("shared"),
 	// Stored images through the app (the bucket is private), others where they are.
 	image: sql<
 		string | null
@@ -433,7 +438,9 @@ export function termsMatch(vector: SQLWrapper, q: string | undefined): SQL | und
 const hasNote = and(isNotNull(highlights.note), ne(highlights.note, "")) as SQL
 
 export function filterWhere(filter: HighlightFilter): SQL {
-	return filter === "notes" ? hasNote : eq(highlights.color, HIGHLIGHT_COLOR_NAMES.indexOf(filter))
+	if (filter === "notes") return hasNote
+	if (filter === "shared") return liveShare
+	return eq(highlights.color, HIGHLIGHT_COLOR_NAMES.indexOf(filter))
 }
 
 /**

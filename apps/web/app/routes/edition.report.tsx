@@ -58,16 +58,37 @@ async function publicEdition(publicId: string) {
 
 /** GET /e/:publicId/report — anyone may report a public edition; signed in or not. */
 export async function loader({ params, context }: Route.LoaderArgs) {
-	const edition = await publicEdition(params.publicId)
+	return reportLoader(
+		getInstance(context).t("editions:report.title"),
+		await publicEdition(params.publicId),
+	)
+}
+
+/** The form's page, about the public page `edition` (its title and address). */
+export function reportLoader(pageTitle: string, edition: { title: string; path: string }) {
 	return {
-		pageTitle: getInstance(context).t("editions:report.title"),
+		pageTitle,
 		edition,
 		token: formToken(Date.now(), "edition-report"),
 		detailsMax: REPORT_DETAILS_MAX,
 	}
 }
 
-export async function action({ request, context, params }: Route.ActionArgs) {
+export function action({ request, context, params }: Route.ActionArgs) {
+	return reportAction(request, getLocale(context), (input) =>
+		reportEdition({ ...input, publicId: params.publicId }, request.headers),
+	)
+}
+
+/**
+ * A report form's answer, for an edition's and a shared highlight's alike: `report` stores it, or
+ * not (see `ReportOutcome`).
+ */
+export async function reportAction(
+	request: Request,
+	locale: string,
+	report: (input: Omit<Parameters<typeof reportEdition>[0], "publicId">) => Promise<ReportOutcome>,
+) {
 	const form = await readForm(request)
 	const started = form.get("started")
 	const parsed = parseForm(form, schema)
@@ -80,18 +101,14 @@ export async function action({ request, context, params }: Route.ActionArgs) {
 		)
 	let outcome: ReportOutcome
 	try {
-		outcome = await reportEdition(
-			{
-				publicId: params.publicId,
-				reason: parsed.data.reason,
-				details: parsed.data.details,
-				email: parsed.data.email || null,
-				locale: getLocale(context),
-				token: started,
-				trap: form.get(TRAP),
-			},
-			request.headers,
-		)
+		outcome = await report({
+			reason: parsed.data.reason,
+			details: parsed.data.details,
+			email: parsed.data.email || null,
+			locale,
+			token: started,
+			trap: form.get(TRAP),
+		})
 	} catch (error) {
 		const limited = authLimitResponse(error)
 		if (limited) throw limited

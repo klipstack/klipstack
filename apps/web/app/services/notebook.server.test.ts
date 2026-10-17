@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto"
 import {
+	and,
 	db,
 	documents,
 	documentTags,
@@ -7,6 +8,7 @@ import {
 	documentVersions,
 	eq,
 	highlights,
+	highlightShares,
 	sql,
 	tags,
 	topics,
@@ -321,6 +323,36 @@ describe("the stream", () => {
 		expect(await list("blue")).toEqual(["design one"])
 	})
 
+	it("Shared: only highlights at a live link; not stopped ones, nor ones taken down", async () => {
+		const idOf = async (exact: string) =>
+			(
+				await db
+					.select({ id: highlights.id })
+					.from(highlights)
+					.where(and(eq(highlights.userId, userId), eq(highlights.exact, exact)))
+			)[0]!.id
+		const share = (exact: string, values: Partial<typeof highlightShares.$inferInsert>) =>
+			idOf(exact).then((highlightId) =>
+				db.insert(highlightShares).values({ userId, highlightId, published: { v: 1 }, ...values }),
+			)
+		await share("design one", {})
+		await share("both one", { published: null })
+		await share("loose one", { removedAt: new Date(), published: null })
+		try {
+			expect(shown((await listNotebookStream({ userId, filter: "shared" })).items)).toEqual([
+				"design one",
+			])
+			expect(await countNotebook(userId)).toMatchObject({ shared: 1 })
+			const listed = await listNotebookStream({ userId })
+			const marks = listed.items.flatMap((i) =>
+				i.kind === "highlight" ? [[i.exact, i.shared] as const] : [],
+			)
+			expect(marks.filter(([, shared]) => shared).map(([exact]) => exact)).toEqual(["design one"])
+		} finally {
+			await db.delete(highlightShares).where(eq(highlightShares.userId, userId))
+		}
+	})
+
 	it("one search finds quotes, highlight notes and article notes, accents and case aside", async () => {
 		const find = async (q: string) => shown((await listNotebookStream({ userId, q })).items)
 		expect(await find("THOUGHTS")).toEqual(["note: Both"])
@@ -518,6 +550,7 @@ describe("filter counts, tags and topics", () => {
 			all: 8,
 			notes: 4,
 			highlights: 5,
+			shared: 0,
 			yellow: 3,
 			green: 1,
 			blue: 1,

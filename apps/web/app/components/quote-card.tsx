@@ -1,4 +1,4 @@
-import { Share, StickyNote, Trash2 } from "lucide-react"
+import { Link2, Share, StickyNote, Trash2 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link, useFetcher } from "react-router"
@@ -16,7 +16,7 @@ import { ShareHighlightDialog } from "./share-highlight-dialog"
 import { tooltip } from "./tooltip-host"
 
 /** Short quotes read large; long ones step down so a card stays a card. */
-function quoteSize(text: string): string {
+export function quoteSize(text: string): string {
 	if (text.length <= 90) return "text-2xl leading-snug"
 	if (text.length <= 220) return "text-xl leading-snug"
 	return "line-clamp-[14] text-lg leading-normal"
@@ -152,6 +152,18 @@ export function QuoteCard({
 				>
 					<NoteText text={note} linkTargets={linkTargets} />
 				</PostIt>
+			) : null}
+			{h.shared ? (
+				// Shared at a public link: the mark opens the Share dialog, where the link is.
+				<button
+					type="button"
+					onClick={() => setSharing(true)}
+					{...tooltip(t("highlights.share.sharedHint"))}
+					className="relative z-10 mt-4 inline-flex items-center gap-1 rounded-full border border-border bg-card/80 px-2 py-0.5 text-xs text-muted-fg hover:bg-hover hover:text-fg"
+				>
+					<Link2 className="size-3.5" aria-hidden />
+					{t("highlights.share.shared")}
+				</button>
 			) : null}
 			{withArticle ? <ArticleLine h={h} /> : null}
 			<div className="absolute top-[calc(var(--clip-top)+0.5rem)] right-2 z-10 flex gap-0.5 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100">

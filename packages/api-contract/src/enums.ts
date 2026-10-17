@@ -37,14 +37,15 @@ export type ListSort = (typeof LIST_SORTS)[number]
 export const HIGHLIGHT_COLORS = ["yellow", "green", "blue", "pink", "orange"] as const
 export type HighlightColor = (typeof HIGHLIGHT_COLORS)[number]
 
-export const HIGHLIGHT_FILTERS = ["notes", ...HIGHLIGHT_COLORS] as const
+/** `shared`: shared at a public link, now. */
+export const HIGHLIGHT_FILTERS = ["notes", "shared", ...HIGHLIGHT_COLORS] as const
 export type HighlightFilter = (typeof HIGHLIGHT_FILTERS)[number]
 
 /**
  * What the Notebook shows besides everything: notes (article notes, and highlights with a note),
- * highlights alone, or the highlights of one color.
+ * highlights alone, the highlights shared at a public link, or the highlights of one color.
  */
-export const NOTEBOOK_FILTERS = ["notes", "highlights", ...HIGHLIGHT_COLORS] as const
+export const NOTEBOOK_FILTERS = ["notes", "highlights", "shared", ...HIGHLIGHT_COLORS] as const
 export type NotebookFilter = (typeof NOTEBOOK_FILTERS)[number]
 
 /** By article, as one stream, by the articles' topics, or a random hand. */
