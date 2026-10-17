@@ -3,15 +3,6 @@ import { join } from "node:path"
 import { type BrowserContext, chromium, expect, type Page, test } from "@playwright/test"
 import { createInviteCode, uniqueEmail } from "./helpers"
 
-/** Minimal typing for the extension APIs used inside evaluate() callbacks. */
-declare const chrome: {
-	storage: {
-		sync: {
-			set(values: Record<string, unknown>): Promise<void>
-		}
-	}
-}
-
 const EXTENSION_DIR = join(import.meta.dirname, "../../extension/dist/chrome-mv3")
 const FIXTURE = join(
 	import.meta.dirname,
@@ -20,12 +11,22 @@ const FIXTURE = join(
 const PAGE_URL = "https://fixture.test/makers.html"
 const APP_URL = process.env.E2E_BASE_URL ?? `http://localhost:${process.env.E2E_PORT ?? 5180}`
 
-test.skip(
-	!existsSync(EXTENSION_DIR),
-	"extension not built (pnpm --filter @klipstack/extension build)",
-)
+const BUILD = `WXT_APP_URL=${APP_URL} pnpm --filter @klipstack/extension build`
 
-/** A browser with the extension, signed up to Klipstack and pointed at this server. */
+test.skip(!existsSync(EXTENSION_DIR), `extension not built (${BUILD})`)
+
+test.beforeAll(() => {
+	// A build saves to one server, fixed when it is built: this one.
+	const manifest = JSON.parse(readFileSync(join(EXTENSION_DIR, "manifest.json"), "utf8")) as {
+		host_permissions: string[]
+	}
+	const { protocol, hostname } = new URL(APP_URL)
+	expect(manifest.host_permissions, `build it for this server: ${BUILD}`).toEqual([
+		`${protocol}//${hostname}/*`,
+	])
+})
+
+/** A browser with the extension, signed up to Klipstack. */
 async function signedInBrowser() {
 	const context = await chromium.launchPersistentContext("", {
 		channel: "chromium",
@@ -56,17 +57,7 @@ async function signedInBrowser() {
 	const extensionId = new URL(sw.url()).host
 	console.log("[ext] service worker", sw.url())
 
-	// Point it at this server from its own options page. The page offers no API key any more.
-	const options = await context.newPage()
-	options.on("console", (m) => console.log("[options-page]", m.text()))
-	await options.goto(`chrome-extension://${extensionId}/options.html`, { timeout: 20_000 })
-	await expect(options.getByLabel("Klipstack address")).toBeVisible()
-	await expect(options.getByLabel("API key")).toHaveCount(0)
-	// A local server needs no permission prompt: the extension may always reach one.
-	await options.getByLabel("Klipstack address").fill(APP_URL)
-	await options.getByRole("button", { name: "Save" }).click()
-	await expect(options.getByRole("status")).toHaveText("Saved.")
-	return { context, page, options, extensionId }
+	return { context, page, extensionId }
 }
 
 /**
@@ -157,40 +148,6 @@ test("extension saves the whole article when the page's paywall cut it in the br
 		await expect(page.locator(".reader-content")).toContainText(
 			"Paragraph 30 of the paywalled story",
 		)
-	} finally {
-		await context.close()
-	}
-})
-
-test("extension asks for access to a server the user has not allowed, and sends nothing", async () => {
-	test.setTimeout(90_000)
-	const { context, options, extensionId } = await signedInBrowser()
-	const server = "https://klipstack.example"
-	let sent = 0
-	try {
-		await context.route(`${server}/**`, (route) => {
-			sent++
-			return route.fulfill({ status: 202, contentType: "application/json", body: "{}" })
-		})
-		await context.route(`${PAGE_URL}**`, (route) =>
-			route.fulfill({ status: 200, contentType: "text/html", body: readFileSync(FIXTURE, "utf8") }),
-		)
-		// A server set before this version, which asked for access to every site.
-		await options.evaluate(async (appUrl) => chrome.storage.sync.set({ appUrl }), server)
-		await options.close()
-
-		const article = await context.newPage()
-		await article.goto(PAGE_URL, { timeout: 20_000 })
-		await clickButton(context, extensionId, article)
-		await expect(
-			article.getByText("Allow the extension to reach your Klipstack server"),
-		).toBeVisible({
-			timeout: 30_000,
-		})
-		// The options page opens, where saving the address asks for access to it.
-		const optionsUrl = `chrome-extension://${extensionId}/options.html`
-		await expect.poll(() => context.pages().some((p) => p.url() === optionsUrl)).toBe(true)
-		expect(sent).toBe(0)
 	} finally {
 		await context.close()
 	}

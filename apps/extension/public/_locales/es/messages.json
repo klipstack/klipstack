@@ -14,24 +14,6 @@
 	"saveLink": {
 		"message": "Guardar enlace en Klipstack"
 	},
-	"optionsIntro": {
-		"message": "La extensión guarda en la cuenta de Klipstack con la que hayas iniciado sesión en este navegador. Si al guardar te pide iniciar sesión, entra en Klipstack en este navegador y vuelve a intentarlo."
-	},
-	"optionsAppUrl": {
-		"message": "Dirección de Klipstack"
-	},
-	"optionsAppUrlHint": {
-		"message": "Cámbiala solo si usas tu propio servidor de Klipstack."
-	},
-	"optionsSave": {
-		"message": "Guardar"
-	},
-	"optionsNeedsAccess": {
-		"message": "No se guardó: la extensión necesita tu permiso para llegar a esta dirección."
-	},
-	"optionsSaved": {
-		"message": "Guardado."
-	},
 	"toastSaving": {
 		"message": "Guardando en Klipstack…"
 	},
@@ -66,9 +48,6 @@
 	},
 	"toastUsage": {
 		"message": "Ver uso"
-	},
-	"toastNeedsAccess": {
-		"message": "Permite que la extensión llegue a tu servidor de Klipstack: vuelve a guardar su dirección en las opciones"
 	},
 	"toastNotCapturable": {
 		"message": "Esta página no se puede guardar"

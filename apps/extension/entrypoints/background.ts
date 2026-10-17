@@ -1,5 +1,6 @@
 import { type Browser, browser } from "wxt/browser"
 import { defineBackground } from "wxt/utils/define-background"
+import { APP_URL } from "../lib/app-url"
 import {
 	capturePage,
 	isCapturableUrl,
@@ -7,8 +8,6 @@ import {
 	savePage as sendPage,
 	saveToKlipstack,
 } from "../lib/capture"
-import { originPattern } from "../lib/hosts"
-import { forgetApiKey, getSettings } from "../lib/settings"
 import { showToast, type ToastOptions } from "../lib/toast"
 
 const BADGE_RESET_MS = 2500
@@ -24,7 +23,6 @@ type SaveOutcome = {
 
 export default defineBackground(() => {
 	browser.runtime.onInstalled.addListener(() => {
-		void forgetApiKey()
 		browser.contextMenus.create({
 			id: "save-link",
 			title: browser.i18n.getMessage("saveLink"),
@@ -53,8 +51,6 @@ async function savePage(tab: Browser.tabs.Tab): Promise<SaveOutcome> {
 		await flash(tab.id, "!", "#b91c1c")
 		return { ok: false, status: 0, error: "not_capturable" }
 	}
-	const settings = await getSettings()
-	if (!(await canReach(settings.appUrl))) return askForAccess(tab.id)
 	await setBadge(tab.id, "…", "#243f6c")
 	// Shown before the capture, which fetches the page again: that can take a few seconds.
 	void toast(tab.id, { kind: "saving", title: msg("toastSaving") })
@@ -62,9 +58,9 @@ async function savePage(tab: Browser.tabs.Tab): Promise<SaveOutcome> {
 	const payload = captured
 		? { url: captured.url, html: captured.html, servedHtml: captured.servedHtml }
 		: { url: tab.url }
-	const result = await sendPage(settings.appUrl, payload)
+	const result = await sendPage(APP_URL, payload)
 	await flash(tab.id, result.ok ? "✓" : "!", result.ok ? "#15803d" : "#b91c1c")
-	await toast(tab.id, outcomeToast(result, settings.appUrl))
+	await toast(tab.id, outcomeToast(result, APP_URL))
 	return result
 }
 
@@ -84,33 +80,11 @@ async function captureTab(tabId: number): Promise<Capture | null> {
 
 async function saveUrlOnly(url: string, tabId: number) {
 	if (!isCapturableUrl(url)) return
-	const settings = await getSettings()
-	if (!(await canReach(settings.appUrl))) {
-		await askForAccess(tabId)
-		return
-	}
 	await setBadge(tabId, "…", "#243f6c")
 	void toast(tabId, { kind: "saving", title: msg("toastSaving") })
-	const result = await saveToKlipstack(settings.appUrl, { url })
+	const result = await saveToKlipstack(APP_URL, { url })
 	await flash(tabId, result.ok ? "✓" : "!", result.ok ? "#15803d" : "#b91c1c")
-	await toast(tabId, outcomeToast(result, settings.appUrl))
-}
-
-/** klipstack.com and local servers always; another server once the user allowed it in the options. */
-async function canReach(appUrl: string): Promise<boolean> {
-	try {
-		return await browser.permissions.contains({ origins: [originPattern(appUrl)] })
-	} catch {
-		return false
-	}
-}
-
-/** Nothing is sent: the options page, where saving the address asks for access to it, opens. */
-async function askForAccess(tabId: number): Promise<SaveOutcome> {
-	await flash(tabId, "!", "#b91c1c")
-	await toast(tabId, { kind: "error", title: msg("toastNeedsAccess"), ms: 8000 })
-	await browser.runtime.openOptionsPage()
-	return { ok: false, status: 0, error: "no_access" }
+	await toast(tabId, outcomeToast(result, APP_URL))
 }
 
 type MessageKey = Parameters<typeof browser.i18n.getMessage>[0]
