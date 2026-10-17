@@ -4,6 +4,7 @@ import { parseColorScheme } from "./color-scheme"
 import { parseListLayout } from "./list-layout"
 import { parseZoomed } from "./notebook"
 import { parseTypePrefs } from "./reader-type"
+import { parseShareTab } from "./share-highlight"
 import { parseSpeechPrefs } from "./speech"
 
 /**
@@ -121,3 +122,21 @@ export const saveListLayout = listLayout.save
 const notebookZoom = jsonSetting("notebook-zoom.json", parseZoomed)
 export const loadNotebookZoom = notebookZoom.load
 export const saveNotebookZoom = notebookZoom.save
+
+/** The Share sheet's tab chosen last: text, link or image. */
+const shareTab = jsonSetting("share-tab.json", parseShareTab)
+export const loadShareTab = shareTab.load
+export const saveShareTab = shareTab.save
+
+/**
+ * A highlight's picture to share, in the cache: one file per highlight and shape, written anew
+ * each time it is drawn, and shared from here (the share sheet needs a file).
+ */
+export function writeShareImage(highlightId: string, shape: string, bytes: Uint8Array): File {
+	const folder = new Directory(Paths.cache, "share")
+	folder.create({ intermediates: true, idempotent: true })
+	const file = new File(folder, `highlight-${highlightId}-${shape}.png`)
+	file.create({ overwrite: true })
+	file.write(bytes)
+	return file
+}

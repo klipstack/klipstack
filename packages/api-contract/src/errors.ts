@@ -66,6 +66,8 @@ export const ERROR_STATUS = {
 	quote_cap: 422,
 	/** What keeps an edition from being published (`details.problems`). */
 	publish_problems: 422,
+	/** A highlight's image: its quote has characters the image's fonts do not have. */
+	cannot_draw: 422,
 	too_many_tags: 422,
 	too_many_article_tags: 422,
 	too_many_saved_searches: 422,

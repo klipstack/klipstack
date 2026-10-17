@@ -287,6 +287,11 @@ export const Highlight = z
 		 */
 		start: z.number().int().nonnegative(),
 		end: z.number().int().nonnegative(),
+		/**
+		 * Shared at a public link now (GET /highlights/{id}/share has the link). Optional because
+		 * servers before 2026-10-17 don't send it.
+		 */
+		shared: z.boolean().optional(),
 	})
 	.meta({ id: "Highlight" })
 export type Highlight = z.infer<typeof Highlight>

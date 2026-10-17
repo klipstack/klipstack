@@ -17,6 +17,7 @@
 				"UIBackgroundModes": ["audio"],
 				"NSMicrophoneUsageDescription": "Klipstack listens while you dictate a note.",
 				"NSSpeechRecognitionUsageDescription": "Klipstack turns what you dictate into your note, on this iPhone.",
+				"NSPhotoLibraryAddUsageDescription": "Klipstack saves highlight images you share to your photos.",
 				"ITSAppUsesNonExemptEncryption": false
 			},
 			"privacyManifests": {

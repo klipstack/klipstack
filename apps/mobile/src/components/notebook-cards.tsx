@@ -27,6 +27,8 @@ export type QuoteContext = {
 	onHighlightNote: (id: string, note: string | null) => void
 	/** Without it, the card offers no Delete (Home). */
 	onDelete?: (highlight: QuoteHighlight) => void
+	/** Opens the Share sheet: text, a public link, an image. */
+	onShare: (highlight: QuoteHighlight, article: QuoteArticle) => void
 }
 
 /** What every card needs from the screen: a highlight's card's needs, and article notes' edits. */
@@ -37,7 +39,7 @@ export type CardContext = QuoteContext & {
 }
 
 /** What a highlight's card shows of a highlight: the Notebook's, or one of Home's. */
-export type QuoteHighlight = Pick<Highlight, "id" | "quote" | "note" | "color">
+export type QuoteHighlight = Pick<Highlight, "id" | "quote" | "note" | "color" | "shared">
 
 /** What a highlight's card shows of its article: Home's highlights come without a cover. */
 export type QuoteArticle = Pick<NotebookArticle, "id" | "title" | "site" | "url"> &
@@ -168,7 +170,8 @@ export function Card({
  * in its color, written on in place; and, outside its article's section, where it is from. A tap on
  * the quote opens the article at the highlight; a long press, its menu (Copy, Share, Add Note,
  * Delete). On Home (`onDismiss`), Add Note and "Not useful anymore" show below it too, as on the
- * web, and the menu has "Not useful anymore" before Delete.
+ * web, and the menu has "Not useful anymore" before Delete. Shared at a public link, it says so
+ * under it; the mark opens the Share sheet, where the link is.
  */
 export function QuoteCard({
 	highlight,
@@ -197,9 +200,7 @@ export function QuoteCard({
 		<Link.MenuAction
 			key="share"
 			icon="square.and.arrow.up"
-			onPress={() =>
-				void Share.share({ message: `“${quote}”\n\n${titleOf(article)}`, url: article.url })
-			}
+			onPress={() => ctx.onShare(highlight, article)}
 		>
 			Share
 		</Link.MenuAction>,
@@ -272,6 +273,17 @@ export function QuoteCard({
 				colors={colors}
 				onSaved={(note) => ctx.onHighlightNote(highlight.id, note)}
 			/>
+			{highlight.shared ? (
+				<View style={styles.tools}>
+					<CardTool
+						label="Shared"
+						symbol="link"
+						hint="Opens the Share sheet, with the link"
+						onPress={() => ctx.onShare(highlight, article)}
+						colors={colors}
+					/>
+				</View>
+			) : null}
 			{onDismiss ? (
 				<View style={styles.tools}>
 					{highlight.note || writing ? null : (
@@ -294,21 +306,27 @@ export function QuoteCard({
 	)
 }
 
-/** A small button under a card, in the muted ink: Home's Add a note and Not useful anymore. */
+/**
+ * A small button under a card, in the muted ink: Home's Add a note and Not useful anymore, and a
+ * shared highlight's mark.
+ */
 function CardTool({
 	label,
 	symbol,
+	hint,
 	onPress,
 	colors,
 }: {
 	label: string
-	symbol: "note.text.badge.plus" | "eye.slash"
+	symbol: "note.text.badge.plus" | "eye.slash" | "link"
+	hint?: string
 	onPress: () => void
 	colors: Colors
 }) {
 	return (
 		<Pressable
 			accessibilityRole="button"
+			accessibilityHint={hint}
 			onPress={onPress}
 			hitSlop={8}
 			style={({ pressed }) => [styles.tool, pressed && styles.pressed]}

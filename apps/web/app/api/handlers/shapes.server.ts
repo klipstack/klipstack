@@ -20,6 +20,8 @@ export function highlightShape(
 		note: string | null
 		color: number
 		createdAt: Date
+		/** Shared at a public link now. */
+		shared: boolean
 	},
 	article: HighlightArticle,
 ): Highlight {
@@ -34,5 +36,6 @@ export function highlightShape(
 		suffix: h.suffix,
 		start: h.startOffset,
 		end: h.endOffset,
+		shared: h.shared,
 	}
 }

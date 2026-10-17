@@ -42,9 +42,9 @@ import { HighlightCard } from "@/components/highlight-card"
 import { LinkCard, type TappedLink } from "@/components/link-card"
 import { ListenBar } from "@/components/listen-bar"
 import type { NoteLinking } from "@/components/note-field"
-import { oneLine, titleOf } from "@/components/notebook-cards"
 import { NotesSheet } from "@/components/notes-sheet"
 import { ReaderStatus } from "@/components/reader-status"
+import { useShareSheet } from "@/components/share-sheet"
 import { useTagSheet } from "@/components/tag-sheet"
 import { useAiCards } from "@/lib/ai-cards"
 import { createConsentGate } from "@/lib/ai-consent"
@@ -116,6 +116,7 @@ export default function Reader() {
 	const editions = useEditions(client)
 	const [article, setArticle] = useState<ArticleDetails | null>(null)
 	const tags = useTagSheet(client, (changed) => setArticle((a) => a && retagged(a, changed)))
+	const shares = useShareSheet(client)
 	const [page, setPage] = useState<{ uri: string; folder: string } | null>(null)
 	const [error, setError] = useState<string | null>(null)
 	/** Counts loads asked for after the first: the article changed on the server (`readPost`). */
@@ -1565,6 +1566,7 @@ export default function Reader() {
 				/>
 			) : null}
 			{tags.sheet}
+			{shares.sheet}
 			<AppearanceSheet
 				visible={appearanceOpen}
 				type={type}
@@ -1595,12 +1597,8 @@ export default function Reader() {
 					setEditing(null)
 				}}
 				onShare={() => {
-					// As the Notebook shares it: the quote, the article's title and its address.
-					if (editingHighlight && article)
-						void Share.share({
-							message: `“${oneLine(editingHighlight.quote)}”\n\n${titleOf(article)}`,
-							url: article.url,
-						})
+					if (editingHighlight) shares.open(editingHighlight, editingHighlight.article)
+					setEditing(null)
 				}}
 				onDelete={() => editingHighlight && deleteHighlight(editingHighlight)}
 				onAsk={

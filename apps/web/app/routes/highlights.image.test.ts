@@ -3,7 +3,8 @@ import { db, documents, documentVersions, eq, highlights, user as userTable } fr
 import sharp from "sharp"
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import { getUser } from "~/lib/session.server"
-import { IMAGE_LIMIT, loader } from "./highlights.image"
+import { IMAGE_LIMIT } from "~/services/highlight-image.server"
+import { loader } from "./highlights.image"
 
 vi.mock("~/lib/session.server", () => ({ getUser: vi.fn() }))
 

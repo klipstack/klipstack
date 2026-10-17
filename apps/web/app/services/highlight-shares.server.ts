@@ -5,6 +5,8 @@ import {
 	eq,
 	highlights,
 	highlightShares,
+	inArray,
+	isNotNull,
 	isNull,
 	sql,
 	type Tx,
@@ -137,3 +139,20 @@ export const liveShare = sql`exists (
 	select 1 from ${highlightShares} s
 	where s.highlight_id = ${highlights.id} and s.published is not null and s.removed_at is null
 )`
+
+/** Which of these highlights of the user's are shared at a public link now. */
+export async function sharedHighlightIds(userId: string, ids: string[]): Promise<Set<string>> {
+	if (ids.length === 0) return new Set()
+	const rows = await db
+		.select({ id: highlightShares.highlightId })
+		.from(highlightShares)
+		.where(
+			and(
+				eq(highlightShares.userId, userId),
+				inArray(highlightShares.highlightId, ids),
+				isNotNull(highlightShares.published),
+				isNull(highlightShares.removedAt),
+			),
+		)
+	return new Set(rows.map((r) => r.id))
+}

@@ -277,7 +277,7 @@ function Row({
 }
 
 /** The site's address without "www.": dropbox.com, en.wikipedia.org. */
-function hostOf(url: string): string {
+export function hostOf(url: string): string {
 	try {
 		return new URL(url).hostname.replace(/^www\./, "")
 	} catch {
