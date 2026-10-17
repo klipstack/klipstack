@@ -8,7 +8,7 @@ import type {
 } from "@klipstack/sdk"
 import { router, useFocusEffect } from "expo-router"
 import { SymbolView } from "expo-symbols"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useMemo, useRef, useState } from "react"
 import {
 	ActionSheetIOS,
 	ActivityIndicator,
@@ -131,20 +131,9 @@ export default function Home() {
 	const [finished, setFinished] = useState<FinishedLately | null>(null)
 	const [edition, setEdition] = useState<NextEdition | null>(null)
 	const editionPutOff = useRef(false)
-	// The reader's name, for the masthead's greeting: undefined until the account answers, null
-	// when it can't (offline), so the greeting comes without one.
-	const [name, setName] = useState<string | null | undefined>(undefined)
-	useEffect(() => {
-		if (!client) return
-		let live = true
-		client
-			.me()
-			.then((me) => live && setName(me.name))
-			.catch(() => live && setName(null))
-		return () => {
-			live = false
-		}
-	}, [client])
+	// The reader's name, for the masthead's greeting, asked again with each load (it may change on
+	// the web); the last one known stays while offline.
+	const [name, setName] = useState<string | null>(null)
 	// Whether to suggest the review of old saves; put off here ("Not now", or gone through).
 	const [review, setReview] = useState(false)
 	const reviewPutOff = useRef(false)
@@ -166,6 +155,10 @@ export default function Home() {
 	const load = useCallback(async () => {
 		if (!client) return
 		setNow(new Date())
+		client
+			.me()
+			.then((me) => setName(me.name))
+			.catch(() => {})
 		const mine = ++generation.current
 		try {
 			// After a closing reader's change lands (src/lib/article-changes.ts).
@@ -641,6 +634,7 @@ function TimeChoice({
 				onPress={() => {
 					if (!on) onPick(value)
 				}}
+				hitSlop={CHIP_SLOP}
 			>
 				{({ pressed }) => (
 					<InkMark on={on} pressed={pressed} colors={colors} style={styles.filter}>
@@ -725,6 +719,7 @@ function AboutWhat({
 			onPress={() => {
 				if (!on) onPick(next)
 			}}
+			hitSlop={CHIP_SLOP}
 		>
 			{({ pressed }) => (
 				<InkMark on={on} pressed={pressed} colors={colors} style={styles.filter}>
@@ -980,6 +975,8 @@ function Shelf({
 }
 
 const PAD = 16
+// A chip is just its words: a finger's worth to tap, above and below them.
+const CHIP_SLOP = { top: 6, bottom: 6 }
 
 const styles = StyleSheet.create({
 	page: { paddingTop: 4, paddingBottom: 40, gap: 32 },

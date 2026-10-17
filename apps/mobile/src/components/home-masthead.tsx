@@ -26,8 +26,8 @@ export function HomeMasthead({
 	onNotNow,
 	colors,
 }: {
-	/** The reader's name, once the account is known: the greeting waits for it. */
-	name: string | null | undefined
+	/** The reader's name, once the account is known: the greeting comes first, the name after. */
+	name: string | null
 	now: Date
 	finished: FinishedLately | null
 	edition: NextEdition | null
@@ -56,26 +56,24 @@ export function HomeMasthead({
 			>
 				{mastheadDate(now)}
 			</Text>
-			{name === undefined ? null : (
-				<View
-					testID="home-greeting"
-					accessible
-					accessibilityRole="header"
-					accessibilityLabel={hello.before + (hello.name ?? "")}
-					style={styles.greeting}
-				>
-					<Text style={[styles.hello, { color: colors.fg }]}>{hello.before}</Text>
-					{hello.name ? (
-						<MarkerText
-							text={hello.name}
-							color="yellow"
-							seed="greeting"
-							colors={colors}
-							style={[styles.hello, { color: colors.fg }]}
-						/>
-					) : null}
-				</View>
-			)}
+			<View
+				testID="home-greeting"
+				accessible
+				accessibilityRole="header"
+				accessibilityLabel={hello.before + (hello.name ?? "")}
+				style={styles.greeting}
+			>
+				<Text style={[styles.hello, { color: colors.fg }]}>{hello.before}</Text>
+				{hello.name ? (
+					<MarkerText
+						text={hello.name}
+						color="yellow"
+						seed="greeting"
+						colors={colors}
+						style={[styles.hello, { color: colors.fg }]}
+					/>
+				) : null}
+			</View>
 			{line ? (
 				<Text testID="home-finished" style={[styles.finished, { color: colors.mutedFg }]}>
 					{line.before}

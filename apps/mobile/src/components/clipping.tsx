@@ -74,7 +74,11 @@ export function ClippingPaper({
 	colors: Colors
 }) {
 	const cut = tiltFor(id) % CUTS.length
-	const [size, setSize] = useState<{ width: number; height: number } | null>(null)
+	// Measured for this id: a list recycles the view, and another clipping's size must not show.
+	const [measured, setMeasured] = useState<{ id: string; width: number; height: number } | null>(
+		null,
+	)
+	const size = measured?.id === id ? measured : null
 	const tape = TAPES[cut]!
 	return (
 		<>
@@ -84,8 +88,10 @@ export function ClippingPaper({
 				importantForAccessibility="no-hide-descendants"
 				onLayout={(e) => {
 					const { width, height } = e.nativeEvent.layout
-					setSize((was) =>
-						was?.width === width && was.height === height ? was : { width, height },
+					setMeasured((was) =>
+						was?.id === id && was.width === width && was.height === height
+							? was
+							: { id, width, height },
 					)
 				}}
 				// Until it is measured, a plain sheet: the cut differs from it by a few points only.
