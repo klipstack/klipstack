@@ -320,6 +320,14 @@ test("phone: the selection's and a new highlight's toolbars are sheets at the bo
 	expect(
 		editorBox && viewport && Math.abs(editorBox.y + editorBox.height - viewport.height),
 	).toBeLessThan(2)
+	// The colors have the first row to themselves; the other buttons share the second.
+	const [orange, note, remove] = await Promise.all([
+		editor.getByRole("button", { name: "Orange" }).boundingBox(),
+		editor.getByRole("button", { name: "Add note" }).boundingBox(),
+		editor.getByRole("button", { name: "Delete" }).boundingBox(),
+	])
+	expect(note!.y).toBeGreaterThanOrEqual(orange!.y + orange!.height)
+	expect(remove!.y).toBe(note!.y)
 	await editor.getByRole("button", { name: "Close" }).click()
 	await expect(editor).toBeHidden()
 })

@@ -79,7 +79,8 @@ export function ReaderToolbar({
 					type="button"
 					disabled={disabled}
 					onClick={onClose}
-					className="rounded-md p-1.5 text-muted-fg hover:bg-hover"
+					// Level with the first row, when the buttons take two.
+					className="flex h-11 w-9 shrink-0 items-center justify-center self-start rounded-md text-muted-fg hover:bg-hover"
 					aria-label={t("highlights.toolbar.close")}
 				>
 					<X className="size-4" aria-hidden />

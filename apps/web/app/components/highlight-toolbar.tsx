@@ -120,7 +120,10 @@ export function HighlightToolbar({
 	)
 }
 
-/** The five colors as marker tips, the highlight's own raised; a line after them. */
+/**
+ * The five colors as marker tips, the highlight's own raised; a line after them. In the touch
+ * sheet they have the first row to themselves, and the other buttons share the second.
+ */
 function ColorPicker({
 	color,
 	onColor,
@@ -132,12 +135,14 @@ function ColorPicker({
 }) {
 	return (
 		<>
-			<HighlighterNibs
-				value={HIGHLIGHT_COLOR_NAMES.indexOf(highlightColorName(color))}
-				onChange={onColor}
-				disabled={disabled}
-			/>
-			<span aria-hidden className="mx-0.5 h-5 w-px bg-border" />
+			<div className="flex pointer-coarse:basis-full">
+				<HighlighterNibs
+					value={HIGHLIGHT_COLOR_NAMES.indexOf(highlightColorName(color))}
+					onChange={onColor}
+					disabled={disabled}
+				/>
+			</div>
+			<span aria-hidden className="mx-0.5 h-5 w-px bg-border pointer-coarse:hidden" />
 		</>
 	)
 }
