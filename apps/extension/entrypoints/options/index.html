@@ -4,6 +4,8 @@
 		<meta charset="utf-8" />
 		<title>Klipstack</title>
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<!-- WXT builds `options_ui` from these tags: the config's `open_in_tab` alone is overwritten. -->
+		<meta name="manifest.open_in_tab" content="true" />
 		<style>
 			/* Matches the web app's paper, navy, and charcoal palette. */
 			:root {
@@ -17,6 +19,7 @@
 				--accent-fg: #fcfcfc;
 				--ring: #3070c7;
 				--success: #15803d;
+				--danger: #b91c1c;
 			}
 			@media (prefers-color-scheme: dark) {
 				:root {
@@ -30,6 +33,7 @@
 					--accent-fg: #0d141f;
 					--ring: #7faee9;
 					--success: #86d6a2;
+					--danger: #f19c9c;
 				}
 			}
 			body {
@@ -91,6 +95,9 @@
 			#status {
 				margin-left: 12px;
 				color: var(--success);
+			}
+			#status[data-kind="error"] {
+				color: var(--danger);
 			}
 			small {
 				color: var(--muted-fg);

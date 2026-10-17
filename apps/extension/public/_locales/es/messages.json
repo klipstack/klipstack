@@ -26,6 +26,9 @@
 	"optionsSave": {
 		"message": "Guardar"
 	},
+	"optionsNeedsAccess": {
+		"message": "No se guardó: la extensión necesita tu permiso para llegar a esta dirección."
+	},
 	"optionsSaved": {
 		"message": "Guardado."
 	},
@@ -63,6 +66,9 @@
 	},
 	"toastUsage": {
 		"message": "Ver uso"
+	},
+	"toastNeedsAccess": {
+		"message": "Permite que la extensión llegue a tu servidor de Klipstack: vuelve a guardar su dirección en las opciones"
 	},
 	"toastNotCapturable": {
 		"message": "Esta página no se puede guardar"

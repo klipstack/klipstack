@@ -1,5 +1,6 @@
 import { browser } from "wxt/browser"
-import { getSettings, saveSettings } from "../../lib/settings"
+import { originPattern } from "../../lib/hosts"
+import { getSettings, normalizeAppUrl, saveSettings } from "../../lib/settings"
 
 for (const el of document.querySelectorAll<HTMLElement>("[data-i18n]")) {
 	el.textContent = browser.i18n.getMessage(
@@ -17,7 +18,20 @@ getSettings().then((s) => {
 
 form.addEventListener("submit", async (e) => {
 	e.preventDefault()
-	await saveSettings({ appUrl: appUrl.value })
+	const url = normalizeAppUrl(appUrl.value)
+	// The extension reaches only klipstack.com and local servers by itself: another address needs
+	// the user's permission, asked here, while the click still counts (before any other await).
+	// For an address it can already reach, the browser answers yes without asking.
+	const allowed = await browser.permissions
+		.request({ origins: [originPattern(url)] })
+		.catch(() => false)
+	if (!allowed) {
+		status.dataset.kind = "error"
+		status.textContent = browser.i18n.getMessage("optionsNeedsAccess")
+		return
+	}
+	await saveSettings({ appUrl: url })
+	delete status.dataset.kind
 	status.textContent = browser.i18n.getMessage("optionsSaved")
 	setTimeout(() => {
 		status.textContent = ""

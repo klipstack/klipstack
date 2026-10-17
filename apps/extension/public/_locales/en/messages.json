@@ -26,6 +26,9 @@
 	"optionsSave": {
 		"message": "Save"
 	},
+	"optionsNeedsAccess": {
+		"message": "Not saved: the extension needs your permission to reach this address."
+	},
 	"optionsSaved": {
 		"message": "Saved."
 	},
@@ -63,6 +66,9 @@
 	},
 	"toastUsage": {
 		"message": "See usage"
+	},
+	"toastNeedsAccess": {
+		"message": "Allow the extension to reach your Klipstack server: save its address again in the options"
 	},
 	"toastNotCapturable": {
 		"message": "This page can't be saved"
