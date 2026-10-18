@@ -141,7 +141,7 @@ export default {
 			save: {
 				title: "Save from anywhere",
 				description:
-					"Paste a link, use the browser extension for Chrome and Firefox, or follow a site's feed. The extension saves the page as you see it, even behind a login.",
+					"Paste a link, use the browser extension for Chrome, or follow a site's feed. The extension saves the page as you see it, even behind a login.",
 			},
 			read: {
 				title: "Read your way",
@@ -241,7 +241,7 @@ export default {
 			extension: {
 				question: "Is there a browser extension?",
 				answer:
-					"Yes. For Chrome, install it from the Chrome Web Store; Settings links to it. For Firefox, build it from the source code for now and load it yourself.",
+					"Yes, for Chrome: install it from the Chrome Web Store (Settings links to it). Firefox and Safari are coming later.",
 			},
 			search: {
 				question: "How do I find things later?",
