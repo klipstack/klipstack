@@ -36,6 +36,13 @@ async function openMenuAnd(page: Page, item: string) {
 	await page.getByRole("menuitem", { name: item }).click()
 }
 
+/** Whether the first card counts as opened: only an opened article can be marked unread. */
+async function expectOpened(page: Page, opened: boolean) {
+	await page.getByRole("button", { name: "More actions" }).first().click()
+	await expect(page.getByRole("menuitem", { name: "Mark as unread" })).toHaveCount(opened ? 1 : 0)
+	await page.keyboard.press("Escape")
+}
+
 async function signup(page: Page) {
 	await signupUser(page, "Reader", { verified: false, editions: true })
 	// The scenarios here start from the library.
@@ -311,7 +318,7 @@ test("an open library sees saves from elsewhere and their extraction finishing (
 	await expect(
 		page.getByRole("complementary").getByRole("link", { name: "Library", exact: true }),
 	).toHaveText("Library")
-	await expect(page.getByTestId("unread-dot")).toHaveCount(1)
+	await expectOpened(page, false)
 	// opened and left right away, it is still new
 	const article = page.getByRole("link", { name: "Maker's Schedule, Manager's Schedule" })
 	await article.click()
@@ -320,7 +327,7 @@ test("an open library sees saves from elsewhere and their extraction finishing (
 	await page.getByRole("link", { name: "Back to library" }).click()
 	await expect(page).toHaveURL(/\/library$/)
 	await expect(badge).toHaveCount(0)
-	await expect(page.getByTestId("unread-dot")).toHaveCount(1)
+	await expectOpened(page, false)
 	// scrolled a screen down, it is not
 	await article.click()
 	await expect(page.locator(".reader-content")).toContainText("There are two types of schedule")
@@ -334,14 +341,11 @@ test("an open library sees saves from elsewhere and their extraction finishing (
 	await page.getByRole("link", { name: "Back to library" }).click()
 	await expect(page).toHaveURL(/\/library$/)
 	await expect(badge).toHaveCount(0)
-	await expect(page.getByTestId("unread-dot")).toHaveCount(0)
+	await expectOpened(page, true)
 	// and back to unread, which also resets progress
 	await Promise.all([stateSaved(page, "unread"), openMenuAnd(page, "Mark as unread")])
-	await expect(page.getByTestId("unread-dot")).toHaveCount(1)
+	await expectOpened(page, false)
 	await expect(badge).toHaveCount(0)
-	await page.getByRole("button", { name: "More actions" }).first().click()
-	await expect(page.getByRole("menuitem", { name: "Mark as unread" })).toHaveCount(0)
-	await page.keyboard.press("Escape")
 	// right-click on the article opens its menu where the pointer is
 	const box = await article.boundingBox()
 	await article.click({ button: "right", position: { x: 10, y: 5 } })
