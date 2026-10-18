@@ -71,7 +71,6 @@ import {
 	unskipNote,
 } from "./endpoints/notebook"
 import { getReviewSuggestion, listReview, snoozeReview } from "./endpoints/review"
-import { getStarterOffer, listStarterTexts, saveStarterText } from "./endpoints/starter"
 import {
 	getHighlightShare,
 	highlightImage,
@@ -79,6 +78,7 @@ import {
 	shareHighlight,
 	stopSharingHighlight,
 } from "./endpoints/shares"
+import { getStarterOffer, listStarterTexts, saveStarterText } from "./endpoints/starter"
 import {
 	confirmTopics,
 	countTopicUse,
