@@ -362,6 +362,7 @@ describe("auth", () => {
 			emailVerified: true,
 			locale: "es",
 		})
+		expect(await listFeatures(row!.id)).toEqual(["ai", "topics"])
 		expect(await db.select().from(account).where(eq(account.userId, row!.id))).toHaveLength(0)
 		const [invite] = await db.select().from(invites).where(eq(invites.code, inviteCode))
 		expect(invite?.usedBy).toBe(row!.id)

@@ -3,6 +3,7 @@ import { db, eq, invites, sql, user } from "@klipstack/db"
 import { afterAll, expect, it } from "vitest"
 import { auth } from "./auth.server"
 import { env } from "./env.server"
+import { listFeatures } from "./features.server"
 import { createInvite, signupWithInvite } from "./invites.server"
 
 const suffix = crypto.randomUUID()
@@ -62,9 +63,10 @@ it("rolls back the account if work fails after auth creation, leaving the invite
 		}),
 	).rejects.toThrow("simulate failure")
 	expect(await db.select().from(user).where(eq(user.email, emails[2]!))).toHaveLength(0)
-	expect((await signupWithInvite(code, () => create(emails[2]!))).response.user.email).toBe(
-		emails[2],
-	)
+	const { response } = await signupWithInvite(code, () => create(emails[2]!))
+	expect(response.user.email).toBe(emails[2])
+	// The sign-up's flags came with it.
+	expect(await listFeatures(response.user.id)).toEqual(["ai", "topics"])
 })
 
 it("rejects expired invites and releases a claim after a duplicate-email failure", async () => {
