@@ -100,7 +100,7 @@ test("a highlight shared at a link: its page, updates, the Notebook's filter, an
 	await expect(page.getByTestId("quote-card")).toHaveCount(1)
 
 	// The note changes: the page keeps what was shared until Update link.
-	const id = await card.getByRole("link").first().getAttribute("href")
+	const id = await card.getByRole("link", { name: "Open in article" }).getAttribute("href")
 	const highlightId = id!.split("#h=")[1]!
 	const documentId = id!.split("/read/")[1]!.split("#")[0]!
 	await page.request.post(`/documents/${documentId}/highlights`, {

@@ -348,4 +348,13 @@ test("a shared note's links lead to the linked articles' originals", async ({ pa
 	})
 	expect(html).toContain(`<p>Like <a href="${joelUrl}">${JOEL.title}</a> says.</p>`)
 	expect(html).not.toContain("/read/")
+
+	// The card copies its note alone, its link led the same way; and its quote alone.
+	await card.hover()
+	await card.getByRole("button", { name: "Copy note" }).click()
+	await expect
+		.poll(() => page.evaluate(() => navigator.clipboard.readText()))
+		.toBe(`Like [${JOEL.title}](${joelUrl}) says.`)
+	await card.getByRole("button", { name: "Copy highlight" }).click()
+	await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(MAKERS.quote)
 })

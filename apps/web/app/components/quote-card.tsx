@@ -1,7 +1,9 @@
-import { Link2, Share, StickyNote, Trash2 } from "lucide-react"
+import { noteShareText } from "@klipstack/api-contract/highlight-share"
+import { BookOpen, ClipboardPen, Copy, Link2, Share, StickyNote, Trash2 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link, useFetcher } from "react-router"
+import { copyRich, copyText } from "~/lib/copy-link"
 import { highlightColor, highlightColorName } from "~/lib/highlight-colors"
 import type { LinkTargets } from "~/lib/note-links"
 import { safeHost, sourceLabel } from "~/lib/site-label"
@@ -14,6 +16,9 @@ import { NoteText } from "./note-text"
 import { PostIt, tiltFor } from "./post-it"
 import { ShareHighlightDialog } from "./share-highlight-dialog"
 import { tooltip } from "./tooltip-host"
+
+/** A button of the card's toolbar. */
+const ACTION = "rounded-md bg-card/80 p-1.5 text-muted-fg hover:bg-hover hover:text-fg"
 
 /** Short quotes read large; long ones step down so a card stays a card. */
 export function quoteSize(text: string): string {
@@ -33,18 +38,21 @@ export const DEALT = [
 
 /**
  * The highlights board's card, a clipping (ClippingPaper): the quote large, in its highlight's color, the note a post-it stuck
- * on it and written on in place, and the article it came from. The whole card opens the highlight in
- * the reader. `withArticle` adds the article's line (not under the article's own heading); `dealt`
+ * on it and written on in place, and the article it came from. The quote is text to select: a
+ * button opens it in the reader, others copy it or its note. `withArticle` adds the article's line (not under the article's own heading); `dealt`
  * tilts the card by its place in a Shuffle hand.
  */
 export function QuoteCard({
 	h,
 	linkTargets,
+	linkUrls,
 	withArticle = true,
 	dealt,
 }: {
 	h: HighlightListItem
 	linkTargets: LinkTargets
+	/** The original address of each article the note links to: a copied note links there. */
+	linkUrls: Record<string, string>
 	withArticle?: boolean
 	dealt?: number
 }) {
@@ -98,16 +106,10 @@ export function QuoteCard({
 			>
 				“
 			</span>
-			<Link
-				to={`/read/${h.documentId}#h=${h.id}`}
-				className={cn(
-					"block font-serif text-fg after:absolute after:inset-0 after:top-(--clip-top) after:content-['']",
-					quoteSize(h.exact),
-				)}
-			>
+			<p className={cn("font-serif text-fg", quoteSize(h.exact))}>
 				{/* Marked as it is in the article, line by line. */}
 				<span className="marker">{h.exact}</span>
-			</Link>
+			</p>
 			{h.orphaned ? <p className="mt-2 text-xs text-danger">{t("highlights.orphaned")}</p> : null}
 			{editing ? (
 				<div className="relative z-10 mt-5 -mr-2 text-base leading-snug">
@@ -173,17 +175,53 @@ export function QuoteCard({
 						onClick={() => setEditing(true)}
 						aria-label={t("highlights.popover.addNote")}
 						{...tooltip(t("highlights.popover.addNote"))}
-						className="rounded-md bg-card/80 p-1.5 text-muted-fg hover:bg-hover hover:text-fg"
+						className={ACTION}
 					>
 						<StickyNote className="size-4" aria-hidden />
 					</button>
 				)}
+				<Link
+					to={`/read/${h.documentId}#h=${h.id}`}
+					aria-label={t("highlights.popover.openInArticle")}
+					{...tooltip(t("highlights.popover.openInArticle"))}
+					className={ACTION}
+				>
+					<BookOpen className="size-4" aria-hidden />
+				</Link>
+				<button
+					type="button"
+					onClick={() => copyText(h.exact, t("highlights.popover.copied"))}
+					aria-label={t("highlights.popover.copyHighlight")}
+					{...tooltip(t("highlights.popover.copyHighlight"))}
+					className={ACTION}
+				>
+					<Copy className="size-4" aria-hidden />
+				</button>
+				{note ? (
+					<button
+						type="button"
+						onClick={() => {
+							const { markdown, html } = noteShareText(note, linkUrls)
+							copyRich(
+								markdown,
+								html,
+								t("highlights.popover.copied"),
+								t("highlights.share.copyFailed"),
+							)
+						}}
+						aria-label={t("highlights.popover.copyNote")}
+						{...tooltip(t("highlights.popover.copyNote"))}
+						className={ACTION}
+					>
+						<ClipboardPen className="size-4" aria-hidden />
+					</button>
+				) : null}
 				<button
 					type="button"
 					onClick={() => setSharing(true)}
 					aria-label={t("highlights.share.open")}
 					{...tooltip(t("highlights.share.open"))}
-					className="rounded-md bg-card/80 p-1.5 text-muted-fg hover:bg-hover hover:text-fg"
+					className={ACTION}
 				>
 					<Share className="size-4" aria-hidden />
 				</button>
@@ -208,7 +246,7 @@ export function QuoteCard({
 					<input type="hidden" name="id" value={h.id} />
 					<button
 						type="submit"
-						className="rounded-md bg-card/80 p-1.5 text-muted-fg hover:bg-hover hover:text-fg"
+						className={ACTION}
 						aria-label={t("highlights.popover.delete")}
 						{...tooltip(t("highlights.popover.delete"))}
 					>
