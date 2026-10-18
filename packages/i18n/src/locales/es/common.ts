@@ -150,7 +150,7 @@ export default {
 			save: {
 				title: "Guarda desde cualquier parte",
 				description:
-					"Pega un enlace, usa la extensión para Chrome y Firefox o sigue el feed de un sitio. La extensión guarda la página tal como la ves, aunque requiera iniciar sesión.",
+					"Pega un enlace, usa la extensión para Chrome o sigue el feed de un sitio. La extensión guarda la página tal como la ves, aunque requiera iniciar sesión.",
 			},
 			read: {
 				title: "Lee a tu manera",
@@ -250,7 +250,7 @@ export default {
 			extension: {
 				question: "¿Hay una extensión para el navegador?",
 				answer:
-					"Sí, para Chrome y Firefox. Aún no está en las tiendas de extensiones, así que por ahora la compilas desde el código fuente y la cargas tú. Ajustes tiene el enlace.",
+					"Sí, para Chrome: instálala desde la Chrome Web Store (Ajustes tiene el enlace). Firefox y Safari llegarán más adelante.",
 			},
 			search: {
 				question: "¿Cómo encuentro las cosas después?",

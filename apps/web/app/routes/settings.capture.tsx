@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next"
 import { SettingsCard, SettingsPage } from "~/components/settings-page"
 import { env } from "~/lib/env.server"
+import { extensionUrl } from "~/lib/extension-url"
 import type { PageBarHandle } from "~/lib/page-bar"
 import { pageTitle } from "~/lib/page-title"
 import { requireUser } from "~/lib/session.server"
@@ -16,7 +17,7 @@ export function loader({ context, request }: Route.LoaderArgs) {
 	requireUser(context, request)
 	return {
 		appUrl: env.APP_URL,
-		extensionUrl: "https://github.com/klipstack/klipstack/tree/main/apps/extension",
+		extensionUrl: extensionUrl(env.APP_URL),
 	}
 }
 
