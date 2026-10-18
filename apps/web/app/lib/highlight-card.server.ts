@@ -41,16 +41,17 @@ const PAPER = { ground: "#FBF8F1", text: "#1A2132", muted: "#5B6476", accent: "#
 const CREDIT_SPACING = 0.12
 
 /**
- * The credit under the quote, "AUTHOR · SITE", on one line of the clipping's width. A long author is
- * shortened first: where it was published stays whole.
+ * The credit under the quote, "AUTHOR · SITE", on one line of the clipping's width. The site is
+ * shortened first, then left out: who wrote it matters more than where.
  */
 export function creditLine(card: HighlightCard, shape: HighlightShape): string {
 	const { small, text } = loadFonts()
 	const withNote = card.note !== null && drawable(text, plainNote(card.note)) !== ""
+	// On the wide picture the post-it covers the clipping's right edge, as for the quote.
 	const { size, max } =
 		shape === "tall"
 			? { size: 22, max: 920 - 72 * 2 }
-			: { size: 15, max: (withNote ? 780 : 1040) - 56 * 2 }
+			: { size: 15, max: withNote ? 780 - 56 * 2 - 70 : 1040 - 56 * 2 }
 	const measure = (s: string) => width(small, s, size) + CREDIT_SPACING * size * [...s].length
 	const fit = (s: string, room: number) => {
 		for (let m = room; m > 0; m -= size) {
@@ -64,8 +65,8 @@ export function creditLine(card: HighlightCard, shape: HighlightShape): string {
 	if (!author) return fit(site, max)
 	const full = `${author} · ${site}`
 	if (measure(full) <= max) return full
-	const short = fit(author, max - measure(` · ${site}`))
-	return short && short !== "…" ? `${short} · ${site}` : fit(site, max)
+	const short = fit(site, max - measure(`${author} · `))
+	return short && short !== "…" ? `${author} · ${short}` : fit(author, max)
 }
 
 /** The quote's lines at the largest size that shows it whole, or cut at the smallest. */

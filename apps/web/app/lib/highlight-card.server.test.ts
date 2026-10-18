@@ -55,21 +55,23 @@ describe("highlightCardSvg", () => {
 		expect(card(null)).toMatchObject({ author: null, site: "Example Magazine" })
 	})
 
-	it("shortens a long author before the site, on both shapes", () => {
+	it("shortens the site before the author, and leaves it out when the author fills the line", () => {
 		const card = {
 			exact: "Q",
 			note: "A note.",
-			site: "The New York Times Magazine",
-			author: "Markus Eisele and Alexandra Montgomery-Smithson with Friends",
+			site: "The New York Times Magazine — Culture, Politics and Ideas Since 1896",
+			author: "Markus Eisele and Ada Writer",
 			title: "T",
 		}
 		for (const shape of ["wide", "tall"] as const) {
 			const line = creditLine(card, shape)
-			expect(line).toMatch(/^MARKUS .*… · THE NEW YORK TIMES MAGAZINE$/)
+			expect(line).toMatch(/^MARKUS EISELE AND ADA WRITER · THE .*…$/)
 		}
-		expect(creditLine({ ...card, author: "Ada Writer" }, "wide")).toBe(
-			"ADA WRITER · THE NEW YORK TIMES MAGAZINE",
+		const long = "Markus Eisele and Alexandra Montgomery-Smithson with Friends and Colleagues"
+		expect(creditLine({ ...card, author: long }, "wide")).toMatch(/^MARKUS EISELE [^·]*…$/)
+		expect(creditLine({ ...card, author: "Ada Writer", site: "Example" }, "wide")).toBe(
+			"ADA WRITER · EXAMPLE",
 		)
-		expect(creditLine({ ...card, author: null }, "tall")).toBe("THE NEW YORK TIMES MAGAZINE")
+		expect(creditLine({ ...card, author: null, site: "Example" }, "tall")).toBe("EXAMPLE")
 	})
 })
