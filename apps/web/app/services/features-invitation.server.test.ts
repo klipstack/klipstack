@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto"
-import { db, eq, sql, user as userTable, userFeatures } from "@klipstack/db"
+import { db, eq, sql, topicLibraries, user as userTable, userFeatures } from "@klipstack/db"
 import { stopBoss } from "@klipstack/queue"
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -50,26 +50,55 @@ describe("The sidebar's invitation to Settings → Features", () => {
 		expect(await featuresInvitation(otherId)).toEqual({ topics: false })
 	})
 
-	it("ends for good once a feature is turned on, even if it is turned off again", async () => {
+	it("ends for good once a feature is turned on, either one, even if it is turned off again", async () => {
 		await setPrefs(userId, { feeds: "off", font: "sans" })
 		expect(await featuresInvitation(userId)).toEqual({ topics: false })
 		await setPrefs(userId, { editions: "on" })
-		expect(await featuresInvitation(userId)).toBeNull()
 		await setPrefs(userId, { editions: "off" })
 		expect(await featuresInvitation(userId)).toBeNull()
 
-		await db.insert(userFeatures).values({ userId: otherId, feature: "topics" })
-		await enableTopics(otherId)
-		await disableTopics(otherId)
+		await setPrefs(otherId, { feeds: "on" })
+		await setPrefs(otherId, { feeds: "off" })
 		expect(await featuresInvitation(otherId)).toBeNull()
 	})
 
+	it("ends for good once topics are turned on, from anywhere", async () => {
+		await db.insert(userFeatures).values({ userId, feature: "topics" })
+		await enableTopics(userId)
+		await disableTopics(userId)
+		expect(await featuresInvitation(userId)).toBeNull()
+	})
+
+	it("is not there for an account that turned a feature on before it existed", async () => {
+		// Prefs written before the invitation, so without its end.
+		const on = (prefs: object) =>
+			db
+				.update(userTable)
+				.set({ prefs: sql`${userTable.prefs} || ${JSON.stringify(prefs)}::jsonb` })
+				.where(eq(userTable.id, userId))
+		await on({ feeds: "on" })
+		expect(await featuresInvitation(userId)).toBeNull()
+		await on({ feeds: "off", editions: "on" })
+		expect(await featuresInvitation(userId)).toBeNull()
+		await on({ editions: "off" })
+		expect(await featuresInvitation(userId)).toEqual({ topics: false })
+
+		await db.insert(userFeatures).values({ userId, feature: "topics" })
+		await db.insert(topicLibraries).values({ userId })
+		expect(await featuresInvitation(userId)).toBeNull()
+	})
+
 	it("keeps the first time it ended", async () => {
-		await endFeaturesInvitation(userId)
-		const first = await endedAt(userId)
-		await setPrefs(userId, { feeds: "on" })
-		await endFeaturesInvitation(userId)
-		expect(await endedAt(userId)).toBe(first)
+		vi.useFakeTimers({ now: new Date("2026-01-01T00:00:00Z"), toFake: ["Date"] })
+		try {
+			await endFeaturesInvitation(userId)
+			vi.setSystemTime(new Date("2026-02-01T00:00:00Z"))
+			await setPrefs(userId, { feeds: "on" })
+			await endFeaturesInvitation(userId)
+		} finally {
+			vi.useRealTimers()
+		}
+		expect(await endedAt(userId)).toBe("2026-01-01T00:00:00.000Z")
 	})
 })
 

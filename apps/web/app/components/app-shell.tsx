@@ -351,24 +351,26 @@ function FeaturesInvitation({
 	if (fetcher.state !== "idle" || fetcher.data) return null
 	const title = t("featuresInvitation.title")
 	const list = topics ? t("featuresInvitation.withTopics") : t("featuresInvitation.withoutTopics")
-	if (collapsed)
+	if (collapsed) {
+		const label = t("featuresInvitation.rail", { title, list })
 		return (
 			<Link
 				to="/settings/features"
 				data-testid="features-invitation"
-				aria-label={`${title}: ${list}`}
-				{...tooltip(`${title}: ${list}`, undefined, "right")}
+				aria-label={label}
+				{...tooltip(label, undefined, "right")}
 				className="mx-auto mt-auto flex size-9 items-center justify-center rounded-lg border border-dashed border-accent/50 text-accent hover:bg-accent/10"
 			>
 				<Sparkles className="size-4" aria-hidden />
 			</Link>
 		)
+	}
 	return (
 		<div data-testid="features-invitation" className="group/invite relative mt-auto pt-4">
 			<Link
 				to="/settings/features"
 				onClick={onNavigate}
-				className="block rounded-lg border border-dashed border-accent/50 bg-accent/5 py-2 pr-8 pl-2 text-sm hover:bg-accent/10"
+				className="block rounded-lg border border-dashed border-accent/50 bg-accent/5 py-2 pr-8 pl-[calc(0.5rem-1px)] text-sm hover:bg-accent/10"
 			>
 				<span className="flex items-center gap-2 font-medium">
 					<span className="flex w-6 shrink-0 justify-center text-accent">
@@ -389,7 +391,7 @@ function FeaturesInvitation({
 				}
 				aria-label={t("featuresInvitation.dismiss")}
 				{...tooltip(t("featuresInvitation.dismiss"))}
-				className="absolute top-5 right-1 rounded-md p-1 text-muted-fg hover:bg-hover hover:text-fg focus-visible:opacity-100 md:opacity-0 md:group-hover/invite:opacity-100 md:group-focus-within/invite:opacity-100"
+				className="absolute top-5 right-1 rounded-md p-1 text-muted-fg hover:bg-hover hover:text-fg focus-visible:opacity-100 md:opacity-0 md:group-hover/invite:opacity-100 md:group-focus-within/invite:opacity-100 [@media(hover:none)]:opacity-100 [@media(pointer:coarse)]:opacity-100"
 			>
 				<X className="size-3.5" aria-hidden />
 			</button>

@@ -369,6 +369,8 @@ export default {
 		withTopics: "Temas, feeds y ediciones",
 		withoutTopics: "Feeds y ediciones",
 		dismiss: "Ocultar esto",
+		// The collapsed sidebar's icon: its tooltip and name.
+		rail: "{{title}}: {{list}}",
 	},
 	savedSearches: {
 		heading: "Búsquedas guardadas",
