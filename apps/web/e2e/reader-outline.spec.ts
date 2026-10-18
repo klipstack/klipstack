@@ -109,7 +109,8 @@ test("outline: slides in from the button on a narrower window, and goes again", 
 	// With a mouse: resting at the window's left edge slides it in; leaving it puts it away.
 	await page.mouse.move(400, 450)
 	await page.mouse.move(1, 450)
-	await expect(outline).toBeVisible()
+	// All the way in: a pointer that leaves while it slides never enters it, so never leaves it.
+	await expect(outline).toBeInViewport({ ratio: 1 })
 	await page.mouse.move(600, 450, { steps: 10 })
 	await expect(outline).toBeHidden()
 	// A press anywhere else puts it away too.

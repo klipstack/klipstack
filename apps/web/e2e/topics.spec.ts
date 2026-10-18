@@ -232,7 +232,11 @@ test("topics: turned on and off in Settings → Features, off only on a second a
 	await page.getByRole("button", { name: "Keep them" }).click()
 	await expect(page.getByRole("link", { name: "Open Topics" })).toBeVisible()
 	await topicsSwitch.click()
-	await page.getByRole("button", { name: "Turn off and delete" }).click()
+	// The switch shows the answer it asked for at once: wait for the server's.
+	await Promise.all([
+		page.waitForResponse((r) => r.url().includes("/topics") && r.request().method() === "POST"),
+		page.getByRole("button", { name: "Turn off and delete" }).click(),
+	])
 	await expect(topicsSwitch).not.toBeChecked()
 	expect((await page.goto("/topics"))?.status()).toBe(200)
 	// Off: the Topics page offers them again.

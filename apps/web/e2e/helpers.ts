@@ -16,7 +16,7 @@ import {
 	user,
 	userFeatures,
 } from "@klipstack/db"
-import { expect, type Locator, type Page } from "@playwright/test"
+import { expect, type Locator, type Page, type TestInfo } from "@playwright/test"
 import { changeRole } from "../app/services/admin-roles.server"
 
 /**
@@ -329,4 +329,22 @@ export async function applePlatform(page: Page): Promise<boolean> {
  */
 export async function caretToEnd(page: Page) {
 	await page.keyboard.press(process.platform === "darwin" ? "Meta+ArrowDown" : "Control+End")
+}
+
+/**
+ * For `test.use`: each test from a client address of its own, in the forwarding header the server
+ * trusts from loopback. Limits the server keeps in memory per address add up otherwise across the
+ * tests of a run, all from 127.0.0.1: better-auth's on /oauth2/token allows 20 calls and starts
+ * over only after a minute without any.
+ */
+export const ownClientAddress = {
+	extraHTTPHeaders: async (
+		{ extraHTTPHeaders }: { extraHTTPHeaders?: Record<string, string> },
+		provide: (headers: Record<string, string>) => Promise<void>,
+		testInfo: TestInfo,
+	) => {
+		const id = `${testInfo.testId}:${testInfo.retry}:${testInfo.repeatEachIndex}`
+		const [a, b, c] = createHash("sha256").update(id).digest()
+		await provide({ ...extraHTTPHeaders, "X-Forwarded-For": `10.${a}.${b}.${c}` })
+	},
 }

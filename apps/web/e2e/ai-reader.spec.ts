@@ -1,6 +1,15 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { aiThreads, db, documents, eq, usageCounts, user } from "@klipstack/db"
+import {
+	aiThreads,
+	db,
+	documents,
+	documentVersions,
+	eq,
+	sql,
+	usageCounts,
+	user,
+} from "@klipstack/db"
 import { expect, type Locator, type Page, test } from "@playwright/test"
 import { signupUser, waitForHydration } from "./helpers"
 import { insertArticle } from "./seed"
@@ -418,7 +427,9 @@ test("turned off in Settings: answers kept are read and deleted, nothing new is 
 	await page.goto("/settings/features")
 	await waitForHydration(page)
 	await Promise.all([
-		page.waitForResponse((r) => r.url().includes("/prefs") && r.ok()),
+		page.waitForResponse(
+			(r) => r.url().includes("/prefs") && r.request().method() === "POST" && r.ok(),
+		),
 		page.getByRole("checkbox", { name: "Ask AI while reading" }).uncheck(),
 	])
 	await page.goto(`/read/${id}`)
@@ -493,6 +504,28 @@ async function askedThisMonth(documentId: string, count: number) {
 			set: { count },
 		})
 	return doc!.userId
+}
+
+/**
+ * Waits until the worker is done with the article: its images job, the last one a save queues,
+ * has finished and told the page, which then loads it again.
+ */
+async function settled(documentId: string) {
+	await expect
+		.poll(async () => {
+			const [version] = await db
+				.select({ id: documentVersions.id, imagesDone: documentVersions.imagesDone })
+				.from(documents)
+				.innerJoin(documentVersions, eq(documentVersions.id, documents.currentVersionId))
+				.where(eq(documents.id, documentId))
+			if (!version?.imagesDone) return "images not done"
+			const { rows } = await db.execute(sql`
+				select count(*)::int as n from pgboss.job
+				where name = 'images' and data->>'versionId' = ${version.id}
+					and state in ('created', 'retry', 'active')`)
+			return (rows[0] as { n: number }).n === 0 ? "settled" : "images job running"
+		})
+		.toBe("settled")
 }
 
 /** The 1st of next month, as the reader writes it. */
@@ -583,6 +616,9 @@ test("a question the server refuses at the cap turns the page to none left", asy
 	test.setTimeout(120_000)
 	await page.setViewportSize({ width: 1440, height: 900 })
 	const id = await open(page)
+	// Loaded once more after the worker's last word, so nothing reloads it after the cap is reached.
+	await settled(id)
+	await page.reload()
 	// Another tab used the last one: this page still thinks there are some.
 	await askedThisMonth(id, 100)
 	await select(page, PASSAGE)
