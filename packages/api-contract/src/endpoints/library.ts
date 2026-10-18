@@ -61,7 +61,8 @@ export const getFeed = defineEndpoint({
 		cursor: z.string().optional(),
 	}),
 	response: json(FeedPage),
-	errors: [],
+	/** `forbidden`: feeds are turned off for the account (`GET /me`). */
+	errors: ["forbidden"],
 })
 
 export const listFeeds = defineEndpoint({
@@ -71,7 +72,8 @@ export const listFeeds = defineEndpoint({
 	scope: "read",
 	summary: "Every followed feed, quiet ones included, by title.",
 	response: json(z.object({ items: z.array(FollowedFeed) })),
-	errors: [],
+	/** `forbidden`: feeds are turned off for the account (`GET /me`). */
+	errors: ["forbidden"],
 })
 
 export const listTags = defineEndpoint({

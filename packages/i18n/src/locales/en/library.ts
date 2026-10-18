@@ -273,6 +273,7 @@ export default {
 				"Connect to Klipstack, my read-it-later app. It is a remote MCP server at {{url}} (streamable HTTP) that signs in with OAuth. If you can add MCP servers yourself, add it and give me the sign-in link to approve. If you can't, tell me step by step how to add it as a custom connector in this app's settings. Then list a few articles from my library to check it works.",
 		},
 		feed: "Following a blog? Add it in <feed>Feed</feed>.",
+		feedOff: "Following a blog? Turn on <feed>Feeds</feed> in Settings to follow it here.",
 		errors: {
 			too_many: "Save up to {{max}} links at once.",
 			invalid_url: "That does not look like a valid link.",

@@ -8,20 +8,26 @@ import { rateLimit, SAVE_LIMIT } from "~/lib/rate-limit.server"
 import {
 	dismissFeedItem,
 	followFeed,
+	importFeeds,
+	markFeedItemRead,
 	markFeedViewed,
 	renameFeed,
 	restoreFeedItem,
 	unfollowFeed,
 } from "./feeds.server"
+import { saveFeedItem } from "./saving.server"
 
 const userId = `test-feed-commands-${Date.now()}`
 const feedUrl = `https://example.com/feed-commands-${Date.now()}/feed.xml`
 let feedId: string
 
 beforeAll(async () => {
-	await db
-		.insert(userTable)
-		.values({ id: userId, name: "Follower", email: `${userId}@example.com` })
+	await db.insert(userTable).values({
+		id: userId,
+		name: "Follower",
+		email: `${userId}@example.com`,
+		prefs: { feeds: "on" },
+	})
 	// A feed someone follows already: following it again needs no fetch.
 	const [feed] = await db
 		.insert(feeds)
@@ -61,9 +67,12 @@ describe("following", () => {
 describe("the feed cap", () => {
 	it("refuses a new follow at the cap, never one the user has already", async () => {
 		const cappedId = `${userId}-capped`
-		await db
-			.insert(userTable)
-			.values({ id: cappedId, name: "Capped", email: `${cappedId}@example.com` })
+		await db.insert(userTable).values({
+			id: cappedId,
+			name: "Capped",
+			email: `${cappedId}@example.com`,
+			prefs: { feeds: "on" },
+		})
 		const otherUrl = `${feedUrl}.other`
 		const [other] = await db
 			.insert(feeds)
@@ -88,6 +97,34 @@ describe("the feed cap", () => {
 			env.LIMIT_FEEDS = before
 			await db.delete(userTable).where(eq(userTable.id, cappedId))
 			await db.delete(feeds).where(eq(feeds.id, other!.id))
+		}
+	})
+})
+
+describe("feeds turned off", () => {
+	it("refuses every feed command, the web page's own among them", async () => {
+		const offId = `${userId}-off`
+		await db.insert(userTable).values({ id: offId, name: "Off", email: `${offId}@example.com` })
+		try {
+			const id = randomUUID()
+			const refusals = [
+				() => followFeed(offId, feedUrl),
+				() => unfollowFeed(offId, id),
+				() => renameFeed(offId, id, "Mine"),
+				() => dismissFeedItem(offId, id),
+				() => restoreFeedItem(offId, id),
+				() => markFeedItemRead(offId, id),
+				() => markFeedViewed(offId, new Date().toISOString()),
+				() => importFeeds(offId, "<opml/>"),
+				() => saveFeedItem(offId, id),
+			]
+			for (const refused of refusals)
+				await expect(refused()).rejects.toMatchObject({
+					code: "forbidden",
+					message: "Feeds are turned off for this account.",
+				})
+		} finally {
+			await db.delete(userTable).where(eq(userTable.id, offId))
 		}
 	})
 })

@@ -96,6 +96,7 @@ const Prefs = z.object({
 	outline: z.enum(["on", "off"]).optional(),
 	editions: z.enum(["on", "off"]).optional(),
 	ai: z.enum(["on", "off"]).optional(),
+	feeds: z.enum(["on", "off"]).optional(),
 })
 
 /** Merges preferences into the user's; the result. */

@@ -35,6 +35,12 @@ export default {
 			description:
 				"Gather what was worth reading into a public page you can share. Turned off, nothing is deleted, and the editions you published stay public.",
 		},
+		feeds: {
+			title: "Feeds",
+			label: "Follow sites and blogs",
+			description:
+				"New posts from the sites you follow, to save the ones worth reading. Turned off, nothing is deleted: the sites you follow are kept for when you turn it back on.",
+		},
 		topics: {
 			title: "Topics",
 			label: "Sort my library into topics",

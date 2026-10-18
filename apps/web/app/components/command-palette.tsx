@@ -166,7 +166,9 @@ export function CommandPalette() {
 	const navigation: PaletteCommand[] = [
 		{ id: "go-home", label: t("nav.home"), icon: House, run: () => go("/home") },
 		{ id: "go-inbox", label: t("nav.inbox"), icon: Inbox, run: () => go("/library") },
-		{ id: "go-feed", label: t("nav.feed"), icon: Rss, run: () => go("/feed") },
+		...(layout?.feeds
+			? [{ id: "go-feed", label: t("nav.feed"), icon: Rss, run: () => go("/feed") }]
+			: []),
 		{ id: "go-archive", label: t("nav.archive"), icon: Archive, run: () => go("/archive") },
 		{ id: "go-starred", label: t("nav.starred"), icon: Star, run: () => go("/starred") },
 		{

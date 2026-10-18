@@ -270,7 +270,8 @@ async function createAccount(state: State) {
 			emailVerified: true,
 			role: "user",
 			locale: "en",
-			prefs: { font: "serif", fontSize: "md", width: "normal", theme: "system" },
+			// The demo follows feeds: they are on for it, as for any account that follows one.
+			prefs: { font: "serif", fontSize: "md", width: "normal", theme: "system", feeds: "on" },
 			createdAt,
 			updatedAt: createdAt,
 		})

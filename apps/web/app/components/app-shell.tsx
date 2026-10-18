@@ -110,6 +110,7 @@ export function NavItemInk({
 /** Navigation, theme switch, account: shared by the desktop sidebar and the mobile drawer. */
 function SidebarContent({
 	user,
+	feeds,
 	feedNew,
 	editions,
 	editionDue,
@@ -122,6 +123,7 @@ function SidebarContent({
 }: {
 	/** Who is signed in: the account button shows the name. */
 	user: AccountUser
+	feeds: boolean
 	feedNew: number
 	editions: boolean
 	editionDue: boolean
@@ -185,7 +187,12 @@ function SidebarContent({
 			</div>
 			<nav className="flex flex-1 flex-col gap-1">
 				{items
-					.filter(({ to }) => (to !== "/topics" || topics) && (to !== "/editions" || editions))
+					.filter(
+						({ to }) =>
+							(to !== "/topics" || topics) &&
+							(to !== "/editions" || editions) &&
+							(to !== "/feed" || feeds),
+					)
 					.map(({ to, key, icon: Icon }) => {
 						// Dots, not counts: busy blogs would make a number meaningless, and why an edition is due
 						// is said on its page.
@@ -391,6 +398,7 @@ export function AppShell({
 	children,
 	notice,
 	user,
+	feeds,
 	feedNew,
 	editions,
 	editionDue,
@@ -401,6 +409,8 @@ export function AppShell({
 	notice?: React.ReactNode
 	/** Who is signed in: the account button shows the name. */
 	user: AccountUser
+	/** Feeds are turned on for the account, from the layout loader. */
+	feeds: boolean
 	/** New posts in the user's feeds, from the layout loader. */
 	feedNew: number
 	/** Editions are turned on for the account, from the layout loader. */
@@ -499,6 +509,7 @@ export function AppShell({
 			>
 				<SidebarContent
 					user={user}
+					feeds={feeds}
 					feedNew={feedNew}
 					editions={editions}
 					editionDue={editionDue}
@@ -615,6 +626,7 @@ export function AppShell({
 			<MobileDrawer drawer={drawer}>
 				<SidebarContent
 					user={user}
+					feeds={feeds}
 					feedNew={feedNew}
 					editions={editions}
 					editionDue={editionDue}

@@ -247,6 +247,7 @@ export function SaveLinkDialog() {
 						appUrl={layout.appUrl}
 						mcpUrl={layout.mcpUrl}
 						emailVerified={Boolean(layout.user.emailVerified)}
+						feeds={layout.feeds}
 					/>
 				) : null}
 			</div>
@@ -262,10 +263,13 @@ function Anywhere({
 	appUrl,
 	mcpUrl,
 	emailVerified,
+	feeds,
 }: {
 	appUrl: string
 	mcpUrl: string
 	emailVerified: boolean
+	/** Feeds are turned on: the hint goes to Feed, else to the switch that turns them on. */
+	feeds: boolean
 }) {
 	const { t } = useTranslation("library")
 	const bookmarklet = `javascript:(function(){location.href=${JSON.stringify(`${appUrl}/add?url=`)}+encodeURIComponent(location.href)})()`
@@ -332,8 +336,15 @@ function Anywhere({
 				<p className="text-muted-fg">
 					<Trans
 						t={t}
-						i18nKey="add.feed"
-						components={{ feed: <Link to="/feed" className="text-link hover:underline" /> }}
+						i18nKey={feeds ? "add.feed" : "add.feedOff"}
+						components={{
+							feed: (
+								<Link
+									to={feeds ? "/feed" : "/settings/features"}
+									className="text-link hover:underline"
+								/>
+							),
+						}}
 					/>
 				</p>
 			</div>

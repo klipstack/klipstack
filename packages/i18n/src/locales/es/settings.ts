@@ -35,6 +35,12 @@ export default {
 			description:
 				"Reúne lo que mereció la pena leer en una página pública que puedes compartir. Desactivadas, no se borra nada, y las ediciones que publicaste siguen públicas.",
 		},
+		feeds: {
+			title: "Feeds",
+			label: "Seguir sitios y blogs",
+			description:
+				"Las publicaciones nuevas de los sitios que sigues, para guardar las que valga la pena leer. Desactivados, no se borra nada: los sitios que sigues se guardan para cuando vuelvas a activarlos.",
+		},
 		topics: {
 			title: "Temas",
 			label: "Ordenar mi biblioteca por temas",

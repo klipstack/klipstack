@@ -15,6 +15,7 @@ export const DEFAULT_PREFS: Required<UserPrefs> = {
 	outline: "on",
 	editions: "off",
 	ai: "on",
+	feeds: "off",
 }
 
 export function resolvePrefs(prefs: UserPrefs | null | undefined): Required<UserPrefs> {

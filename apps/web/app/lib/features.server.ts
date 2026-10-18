@@ -50,6 +50,16 @@ export async function requireEditions(userId: string): Promise<void> {
 	if (!(await editionsOn(userId))) throw data(null, { status: 404 })
 }
 
+/** Feeds are on: the account turned them on (they are off by default). */
+export async function feedsOn(userId: string): Promise<boolean> {
+	return (await prefsOf(userId)).feeds === "on"
+}
+
+/** For the feed's routes: a 404 while feeds are off, as if the page did not exist. */
+export async function requireFeeds(userId: string): Promise<void> {
+	if (!(await feedsOn(userId))) throw data(null, { status: 404 })
+}
+
 /** Asking AI while reading: the `ai` feature, and the account has not turned it off. */
 export async function aiOn(userId: string): Promise<boolean> {
 	const [flag, prefs] = await Promise.all([hasFeature(userId, "ai"), prefsOf(userId)])

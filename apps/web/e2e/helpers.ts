@@ -61,9 +61,8 @@ export async function waitForHydration(page: Page) {
 const SIDEBAR_ROUTES = [
 	"routes/reading-home",
 	"routes/library",
-	"routes/feed",
+	// Not "routes/feed" or "routes/editions": their links show only with them turned on.
 	"routes/notebook",
-	// Not "routes/editions": its link shows only with editions turned on.
 	"routes/tags",
 ]
 
@@ -143,7 +142,8 @@ export async function signupUser(
 		verified = true,
 		features = [],
 		editions = false,
-	}: { verified?: boolean; features?: FeatureFlag[]; editions?: boolean } = {},
+		feeds = false,
+	}: { verified?: boolean; features?: FeatureFlag[]; editions?: boolean; feeds?: boolean } = {},
 ) {
 	const code = await createInviteCode()
 	const email = uniqueEmail(name.toLowerCase().replace(/\W+/g, "-"))
@@ -156,6 +156,7 @@ export async function signupUser(
 	// actual verification flow. This is fixture setup, never an application verification API.
 	if (verified) await db.update(user).set({ emailVerified: true }).where(eq(user.email, email))
 	if (editions) await turnOnEditions(email)
+	if (feeds) await turnOnFeeds(email)
 	// Features in testing, as an admin would turn them on.
 	if (features.length) {
 		const [account] = await db.select({ id: user.id }).from(user).where(eq(user.email, email))
@@ -171,6 +172,14 @@ export async function turnOnEditions(email: string) {
 	await db
 		.update(user)
 		.set({ prefs: sql`${user.prefs} || '{"editions": "on"}'::jsonb` })
+		.where(eq(user.email, email))
+}
+
+/** Feeds for the account, as the reader turns them on in Settings → Features (off by default). */
+export async function turnOnFeeds(email: string) {
+	await db
+		.update(user)
+		.set({ prefs: sql`${user.prefs} || '{"feeds": "on"}'::jsonb` })
 		.where(eq(user.email, email))
 }
 

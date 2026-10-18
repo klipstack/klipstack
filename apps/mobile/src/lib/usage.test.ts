@@ -61,9 +61,11 @@ describe("usageRows", () => {
 		])
 	})
 
-	it("leaves editions out while they are turned off", () => {
+	it("leaves editions and feeds out while they are turned off", () => {
 		expect(usageRows(usage, { editions: false }).map((r) => r.key)).not.toContain("editions")
 		expect(usageRows(usage).map((r) => r.key)).toContain("editions")
+		expect(usageRows(usage, { feeds: false }).map((r) => r.key)).not.toContain("feeds")
+		expect(usageRows(usage).map((r) => r.key)).toContain("feeds")
 	})
 
 	it("shows topic sorting only when the account sorts, and never more than full", () => {

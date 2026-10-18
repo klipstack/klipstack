@@ -20,7 +20,8 @@ export const handle: PageBarHandle = { pageBar: { titleKey: "settings:usage.titl
 export async function loader({ context, request }: Route.LoaderArgs) {
 	const user = requireUser(context, request)
 	const [usage, asking] = await Promise.all([usageOf(user.id), aiOn(user.id)])
-	const editions = resolvePrefs(user.prefs).editions === "on"
+	const prefs = resolvePrefs(user.prefs)
+	const editions = prefs.editions === "on"
 	const locale = getLocale(context)
 	// Numbers are formatted here, as dates are: the server's Intl and the browser's may differ.
 	const number = new Intl.NumberFormat(locale)
@@ -29,8 +30,8 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 	const limits: LimitName[] = [
 		"saves",
 		"storage",
-		"feeds",
 		// The features turned off in Settings → Features take nothing from their caps.
+		...(prefs.feeds === "on" ? ["feeds" as const] : []),
 		...(editions ? ["editions" as const] : []),
 		"shares",
 		...(asking ? ["ai" as const] : []),

@@ -75,12 +75,12 @@ export async function mcpClient(token: string, { legacy = false } = {}) {
 }
 
 /**
- * Test accounts with an API key; `cleanup` deletes them and what they own. Editions are on for them
- * unless `prefs` says otherwise.
+ * Test accounts with an API key; `cleanup` deletes them and what they own. Editions and feeds are
+ * on for them unless `prefs` says otherwise.
  */
 export function apiUsers(tag: string) {
 	const ids: string[] = []
-	async function create(name: string, prefs: UserPrefs = { editions: "on" }) {
+	async function create(name: string, prefs: UserPrefs = { editions: "on", feeds: "on" }) {
 		const id = `test-${tag}-${randomUUID()}`
 		const email = `${id}@example.com`
 		await db.insert(user).values({ id, name, email, emailVerified: true, prefs })
