@@ -64,7 +64,9 @@ async function seed(userId: string) {
 	return { busyId: busy!.id, quietId: quiet!.id }
 }
 
-test("feed page: overview, grouped posts, save, dismiss, rename, unsubscribe", async ({ page }) => {
+test("feed page: new posts by date, the sites followed, save, dismiss, rename, unsubscribe", async ({
+	page,
+}) => {
 	const userId = await signup(page)
 	const { busyId, quietId } = await seed(userId)
 	// Timers the test can fast-forward: waiting out a timer that must not fire takes no real time.
@@ -72,33 +74,33 @@ test("feed page: overview, grouped posts, save, dismiss, rename, unsubscribe", a
 	await page.goto("/feed")
 	await waitForHydration(page)
 
-	// Nav dot: there are new posts.
+	// Nav dot and the dateline: there are new posts.
 	await expect(page.getByTestId("feed-nav-dot").first()).toBeVisible()
+	await expect(page.getByTestId("feed-summary")).toHaveText("7 new posts")
 
-	const section = page.getByTestId("feed-section")
-	await expect(section.getByRole("heading", { name: "Busy blog" })).toBeVisible()
-	await expect(page.getByTestId("feed-latest").getByTestId("feed-item")).toHaveCount(1)
-	await expect(page.getByTestId("feed-latest")).toContainText("Busy post 7")
-	await expect(section.getByTestId("feed-item")).toHaveCount(3)
-	await expect(section.getByTestId("feed-item").first()).toContainText("Busy post 6")
-	await section.getByRole("button", { name: "Show 3 more" }).click()
-	await expect(section.getByTestId("feed-item")).toHaveCount(6)
+	// Every new post, newest first, under its day; the first is the lead.
+	const fresh = page.getByTestId("feed-new")
+	const posts = fresh.getByTestId("feed-item")
+	await expect(posts).toHaveCount(7)
+	await expect(posts.first()).toContainText("Busy post 7")
+	await expect(posts.last()).toContainText("Busy post 1")
+	await expect(fresh.getByRole("heading", { level: 2 }).first()).toHaveText(/today|yesterday/i)
+	await expect(page.getByTestId("feed-seen")).toHaveCount(0)
 
-	// The quiet feed sits at the bottom, flagged as not updating.
-	const quietRow = page.getByTestId("feed-quiet-row")
-	await expect(quietRow).toContainText("Quiet blog")
-	await expect(quietRow).toContainText("Not updating")
+	// The sites followed: the busy one with its new posts, the quiet one flagged as not updating.
+	const sites = page.getByTestId("feed-sites")
+	await expect(sites.getByRole("link", { name: /Busy blog/ })).toContainText("7")
+	await expect(
+		sites.getByRole("link", { name: /Quiet blog/ }).getByRole("img"),
+	).toHaveAccessibleName("Not updating")
 
 	// Merely leaving Feed on screen no longer acknowledges every post after three seconds.
 	await page.clock.runFor(3_500)
 	await expect(page.getByTestId("feed-nav-dot").first()).toBeVisible()
-	await expect(section.getByTestId("feed-new-dot").first()).toBeVisible()
+	await expect(posts.first().getByTestId("feed-new-dot")).toBeVisible()
 
-	// Save keeps the overview in place and links to the library article.
-	const first = page
-		.getByTestId("feed-latest")
-		.getByTestId("feed-item")
-		.filter({ hasText: "Busy post 7" })
+	// Save keeps the post in its place, clipped, and links to the library article.
+	const first = posts.filter({ hasText: "Busy post 7" })
 	await page.mouse.move(1, 1)
 	await expect(first.getByTestId("feed-actions")).toHaveCSS("opacity", "0")
 	await first.getByRole("button", { name: "Busy post 7", exact: true }).focus()
@@ -106,27 +108,40 @@ test("feed page: overview, grouped posts, save, dismiss, rename, unsubscribe", a
 	await first.hover()
 	await first.getByRole("button", { name: "Save", exact: true }).click()
 	await expect(first.getByRole("link", { name: "Read", exact: true })).toBeVisible()
+	await expect(first.getByTestId("feed-clipped")).toHaveText("Clipped")
 	await expect(first.getByTestId("feed-new-dot")).toHaveCount(0)
-	await expect(secondNewMarker()).toBeVisible()
+	await expect(posts.first()).toContainText("Busy post 7")
 	const saved = await db.query.documents.findFirst({ where: eq(documents.userId, userId) })
 	expect(saved?.captureSource).toBe("feed")
 	expect(saved?.archivedAt).toBeNull()
 	expect(saved?.readAt).toBeNull()
 
 	// Dismiss, then undo.
-	const second = section.getByTestId("feed-item").filter({ hasText: "Busy post 6" })
+	const second = posts.filter({ hasText: "Busy post 6" })
 	await second.hover()
 	await second.getByRole("button", { name: "Dismiss", exact: true }).click()
-	await expect(section.getByTestId("feed-item").filter({ hasText: "Busy post 6" })).toHaveCount(0)
+	await expect(posts.filter({ hasText: "Busy post 6" })).toHaveCount(0)
 	await page.getByRole("status").getByRole("button", { name: "Undo" }).click()
-	await expect(section.getByTestId("feed-item").filter({ hasText: "Busy post 6" })).toHaveCount(1)
+	await expect(posts.filter({ hasText: "Busy post 6" })).toHaveCount(1)
 
-	// Rename from the menu.
-	await section.getByRole("button", { name: "Feed actions" }).click()
+	// A new visit: the saved post is among those seen, below the line that ends the new ones.
+	await page.reload()
+	await waitForHydration(page)
+	await expect(page.getByTestId("feed-summary")).toHaveText("6 new posts")
+	await expect(page.getByTestId("feed-caught-up")).toBeVisible()
+	await expect(page.getByTestId("feed-seen").getByTestId("feed-item")).toContainText("Busy post 7")
+
+	// One site at a time: its name over its posts, renamed from its menu.
+	await sites.getByRole("link", { name: /Busy blog/ }).click()
+	await expect(page).toHaveURL(/\/feed\?site=/)
+	const heading = page.getByRole("heading", { level: 2, name: "Busy blog" })
+	await expect(heading).toBeVisible()
+	await page.getByRole("button", { name: "Feed actions" }).click()
 	await page.getByRole("menuitem", { name: "Rename" }).click()
-	await section.getByRole("textbox", { name: "Name" }).fill("My busy blog")
-	await section.getByRole("textbox", { name: "Name" }).press("Enter")
-	await expect(section.getByRole("heading", { name: "My busy blog" })).toBeVisible()
+	await page.getByRole("textbox", { name: "Name" }).fill("My busy blog")
+	await page.getByRole("textbox", { name: "Name" }).press("Enter")
+	await expect(page.getByRole("heading", { level: 2, name: "My busy blog" })).toBeVisible()
+	await expect(sites.getByRole("link", { name: /My busy blog/ })).toBeVisible()
 	await expect
 		.poll(async () => {
 			const row = await db.query.subscriptions.findFirst({
@@ -136,21 +151,21 @@ test("feed page: overview, grouped posts, save, dismiss, rename, unsubscribe", a
 		})
 		.toBe("My busy blog")
 
-	// Unsubscribe from the quiet one.
-	await quietRow.getByRole("button", { name: "Feed actions" }).click()
+	// A site that is not one of the reader's is every site.
+	await page.goto(`/feed?site=${crypto.randomUUID()}`)
+	await expect(page).toHaveURL(/\/feed$/)
+
+	// Unsubscribe from the quiet one: back to every site, without it.
+	await sites.getByRole("link", { name: /Quiet blog/ }).click()
+	await expect(page.getByRole("heading", { level: 2, name: "Quiet blog" })).toBeVisible()
+	await page.getByRole("button", { name: "Feed actions" }).click()
 	await page.getByRole("menuitem", { name: "Unsubscribe" }).click()
-	await quietRow.getByRole("button", { name: "Unsubscribe" }).click()
-	await expect(page.getByTestId("feed-quiet-row")).toHaveCount(0)
+	await page.getByRole("button", { name: "Unsubscribe", exact: true }).click()
+	await expect(page).toHaveURL(/\/feed$/)
+	await expect(sites.getByRole("link", { name: /Quiet blog/ })).toHaveCount(0)
 	await expect
 		.poll(() => db.query.subscriptions.findFirst({ where: eq(subscriptions.feedId, quietId) }))
 		.toBeUndefined()
-
-	function secondNewMarker() {
-		return section
-			.getByTestId("feed-item")
-			.filter({ hasText: "Busy post 6" })
-			.getByTestId("feed-new-dot")
-	}
 })
 
 test("feeds are off for a new account until turned on in Settings → Features", async ({ page }) => {
@@ -184,11 +199,11 @@ test("feed page: empty state offers to add a feed", async ({ page }) => {
 	await waitForHydration(page)
 	await expect(page.getByRole("heading", { name: "No feeds yet" })).toBeVisible()
 	await expect(page.locator("[data-empty-drawing=mailbox] svg")).toBeVisible()
-	await page.getByRole("button", { name: "Add feed" }).click()
-	const dialog = page.getByRole("dialog", { name: "Follow a blog" })
+	await page.getByRole("button", { name: "Follow a site" }).click()
+	const dialog = page.getByRole("dialog", { name: "Follow a site" })
 	await expect(dialog).toBeVisible()
 	// Local addresses are refused, like saved links.
-	await dialog.getByLabel("Blog or feed address").fill("http://localhost:1/feed")
+	await dialog.getByLabel("Site or feed address").fill("http://localhost:1/feed")
 	await dialog.getByRole("button", { name: "Follow" }).click()
 	await expect(dialog.getByText("We could not reach that site.")).toBeVisible()
 })
@@ -198,7 +213,10 @@ test("feed: titles and right-click share post actions", async ({ page, context }
 	await seed(userId)
 	await page.goto("/feed")
 	await waitForHydration(page)
-	const featured = page.getByTestId("feed-latest").getByTestId("feed-item")
+	const featured = page
+		.getByTestId("feed-new")
+		.getByTestId("feed-item")
+		.filter({ hasText: "Busy post 7" })
 	const title = featured.getByRole("button", { name: "Busy post 7", exact: true })
 	const dialog = page.getByRole("dialog", { name: "Post actions" })
 	await title.focus()
@@ -216,12 +234,14 @@ test("feed: titles and right-click share post actions", async ({ page, context }
 	// The excerpt is also a context-menu target. Keep the popover beside the pointer.
 	const excerpt = featured.getByText("What post 7 is about.")
 	const box = (await excerpt.boundingBox())!
-	await excerpt.click({ button: "right", position: { x: 12, y: 10 } })
+	// On whole pixels: a click's coordinates are, and the excerpt may sit between two.
+	const point = { x: Math.ceil(box.x) + 12, y: Math.ceil(box.y) + 10 }
+	await excerpt.click({ button: "right", position: { x: point.x - box.x, y: point.y - box.y } })
 	await expect(dialog).toHaveAttribute("data-placement", "floating")
 	const popupBox = (await dialog.boundingBox())!
-	expect(popupBox.x).toBeCloseTo(box.x + 12, 0)
+	expect(popupBox.x).toBeCloseTo(point.x, 0)
 	expect(popupBox.y).toBeCloseTo(
-		Math.min(box.y + 10, page.viewportSize()!.height - popupBox.height - 8),
+		Math.min(point.y, page.viewportSize()!.height - popupBox.height - 8),
 		0,
 	)
 	const original = dialog.getByRole("link", { name: "Open original" })
@@ -239,7 +259,7 @@ test("feed: titles and right-click share post actions", async ({ page, context }
 	await expect(page).toHaveURL(/\/feed$/)
 	await expect(dialog).toHaveCount(0)
 	await expect(featured.getByTestId("feed-new-dot")).toHaveCount(0)
-	await expect(page.getByTestId("feed-section").getByTestId("feed-new-dot").first()).toBeVisible()
+	await expect(page.getByTestId("feed-new").getByTestId("feed-new-dot").first()).toBeVisible()
 
 	await title.click()
 	await dialog.getByRole("button", { name: "Save", exact: true }).click()
@@ -361,11 +381,11 @@ test("feed page: imports an OPML file, and exports the feeds again", async ({ pa
 	})
 	await expect(page.getByRole("status")).toContainText("Following 2 new feeds.")
 	await expect(page.getByRole("status")).toContainText("1 skipped.")
-	// Nothing is fetched yet: both wait in the quiet block, under the file's names.
-	const quiet = page.getByTestId("feed-quiet-row")
-	await expect(quiet).toHaveCount(2)
-	await expect(quiet.first()).toContainText("First imported blog")
-	await expect(quiet.last()).toContainText("Second imported blog")
+	// Nothing is fetched yet: both are among the sites followed, under the file's names.
+	const sites = page.getByTestId("feed-sites").getByRole("link")
+	await expect(sites).toHaveCount(3)
+	await expect(sites.nth(1)).toContainText("First imported blog")
+	await expect(sites.nth(2)).toContainText("Second imported blog")
 
 	// A file that is something else says so.
 	await page.getByTestId("opml-file").setInputFiles({
@@ -396,7 +416,10 @@ test.describe("feed on touch devices", () => {
 		await expect
 			.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
 			.toBe(true)
-		const featured = page.getByTestId("feed-latest").getByTestId("feed-item")
+		const featured = page
+			.getByTestId("feed-new")
+			.getByTestId("feed-item")
+			.filter({ hasText: "Busy post 7" })
 		const item = (await db.select().from(feedItems).where(eq(feedItems.feedId, busyId))).find(
 			(item) => item.title === "Busy post 7",
 		)!
@@ -444,7 +467,9 @@ test.describe("feed on touch devices", () => {
 		await waitForHydration(page)
 		await page.getByRole("button", { name: "Mark as finished", exact: true }).click()
 		await expect(page).toHaveURL(/\/feed$/)
-		await expect(page.getByTestId("feed-latest")).toContainText("Busy post 6")
+		await expect(page.getByTestId("feed-new").getByTestId("feed-item").first()).toContainText(
+			"Busy post 6",
+		)
 		await page.getByRole("button", { name: "Feed options", exact: true }).tap()
 		await page.getByRole("menuitem", { name: "Following", exact: true }).tap()
 		const following = page.getByRole("dialog", { name: "Following", exact: true })

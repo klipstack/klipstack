@@ -107,6 +107,33 @@ export function NavItemInk({
 	)
 }
 
+/**
+ * New posts in the feeds, as a mailbox says it: its little flag raised. In the place of the other
+ * items' dots, and as small.
+ */
+function MailboxFlag({
+	testId,
+	label,
+	className,
+}: {
+	testId: string
+	label: string
+	className?: string
+}) {
+	return (
+		<svg
+			data-testid={testId}
+			role="img"
+			aria-label={label}
+			viewBox="0 0 10 14"
+			className={cn("h-3.5 w-2.5 shrink-0 text-accent", className)}
+		>
+			<path d="M2 1.5v12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+			<path d="M2.6 1.2h6.2l-1.6 2.1 1.6 2.1H2.6z" fill="currentColor" />
+		</svg>
+	)
+}
+
 /** Navigation, theme switch, account: shared by the desktop sidebar and the mobile drawer. */
 function SidebarContent({
 	user,
@@ -212,7 +239,13 @@ function SidebarContent({
 								) : (
 									<NavItemInk icon={Icon}>{t(key)}</NavItemInk>
 								)}
-								{dot ? (
+								{dot && to === "/feed" ? (
+									<MailboxFlag
+										testId={dot.testId}
+										label={dot.label}
+										className={collapsed ? "absolute top-0.5 right-1" : "mr-1 ml-auto"}
+									/>
+								) : dot ? (
 									<span
 										data-testid={dot.testId}
 										role="img"
