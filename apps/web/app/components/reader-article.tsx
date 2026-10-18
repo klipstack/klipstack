@@ -393,7 +393,12 @@ export function ReaderArticle({
 			// As copying takes it: with the article's line breaks.
 			exact: range ? rangeText(range) : h.exact,
 			note: h.note ?? null,
-			article: { title: doc.title, sourceUrl: doc.sourceUrl, siteName: doc.siteName },
+			article: {
+				title: doc.title,
+				sourceUrl: doc.sourceUrl,
+				siteName: doc.siteName,
+				author: doc.author,
+			},
 			canLink: !isTemporary(h.id),
 		})
 	}

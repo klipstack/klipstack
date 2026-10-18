@@ -1,7 +1,23 @@
+import { articleAuthor } from "@klipstack/api-contract/highlight-share"
+
 /** A site's own name, unless it is a long tagline: the host says the same in less space. */
 export function siteLabel(siteName: string | null, host: string): string {
 	if (!siteName) return host
 	return siteName.length > host.length + 6 ? host : siteName
+}
+
+/**
+ * Who wrote an article, to credit beside its site in a shared highlight: null when unknown, or when
+ * it only repeats the site's name (as stored or as shown) or the title.
+ */
+export function creditAuthor(article: {
+	title: string | null
+	url: string
+	siteName: string | null
+	author?: string | null
+}): string | null {
+	const shown = siteLabel(article.siteName, safeHost(article.url))
+	return articleAuthor(article) && articleAuthor({ ...article, siteName: shown })
 }
 
 /**

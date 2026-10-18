@@ -31,7 +31,13 @@ const highlight = (id: string, articleId: string, note: string | null = null): H
 	note,
 	color: "yellow",
 	createdAt: "2026-10-01T00:00:00.000Z",
-	article: { id: articleId, title: null, url: `https://example.com/${articleId}`, site: null },
+	article: {
+		id: articleId,
+		title: null,
+		url: `https://example.com/${articleId}`,
+		site: null,
+		author: null,
+	},
 	start: 0,
 	end: 5,
 })

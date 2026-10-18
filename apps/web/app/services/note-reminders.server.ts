@@ -58,6 +58,7 @@ export interface NoteReminder {
 	id: string
 	title: string | null
 	siteName: string | null
+	author: string | null
 	sourceUrl: string
 	finishedAt: Date
 	listened: boolean
@@ -84,6 +85,7 @@ export async function listNoteReminders(
 				id: documents.id,
 				title: documents.title,
 				siteName: documents.siteName,
+				author: documents.author,
 				sourceUrl: documents.sourceUrl,
 				finishedAt: readingCompletions.completedAt,
 				source: readingCompletions.source,

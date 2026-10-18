@@ -129,6 +129,7 @@ export interface ResurfacedHighlight {
 	color: number
 	documentTitle: string | null
 	siteName: string | null
+	author: string | null
 	sourceUrl: string
 }
 
@@ -189,6 +190,7 @@ export async function listDay(
 			color: highlights.color,
 			documentTitle: documents.title,
 			siteName: documents.siteName,
+			author: documents.author,
 			sourceUrl: documents.sourceUrl,
 		})
 		.from(highlights)

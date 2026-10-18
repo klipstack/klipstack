@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { highlightShareText } from "./highlight-share"
+import { articleAuthor, highlightShareText } from "./highlight-share"
 
 const A = "0193a5f1-2c3d-7e4f-8a9b-0c1d2e3f4a5b"
 
@@ -148,5 +148,45 @@ describe("highlightShareText", () => {
 		expect(markdown).toContain("— Local")
 		expect(markdown).not.toContain("javascript")
 		expect(html).not.toContain("javascript")
+	})
+
+	it("credits the article's author between its title and its site", () => {
+		const { markdown, html, plain } = highlightShareText({
+			exact: "First sentence.",
+			note: null,
+			article: { ...article, author: "Ada Writer" },
+		})
+		expect(markdown).toBe(
+			"> First sentence.\n\n— [The Long Read](https://example.com/essays/long-read), Ada Writer, Example Magazine",
+		)
+		expect(html).toContain("</a>, Ada Writer, Example Magazine</p>")
+		expect(plain).toContain("— The Long Read, Ada Writer, Example Magazine\n")
+
+		// From the page's metadata: pasted as Markdown, it stays text, not a link.
+		const sneaky = highlightShareText({
+			exact: "Q.",
+			note: null,
+			article: { ...article, author: "[Read more](https://evil.example)" },
+		})
+		expect(sneaky.markdown).toContain(", \\[Read more\\](https://evil.example), Example Magazine")
+	})
+})
+
+describe("articleAuthor", () => {
+	it("is the author, tidied", () => {
+		expect(
+			articleAuthor({ author: "  Ada  Writer ", siteName: "Example Magazine", title: "T" }),
+		).toBe("Ada Writer")
+	})
+
+	it("is nothing when the author only repeats the site or the title", () => {
+		expect(
+			articleAuthor({ author: "example magazine", siteName: "Example Magazine", title: "T" }),
+		).toBe(null)
+		expect(articleAuthor({ author: "The Long Read", siteName: null, title: "The Long Read" })).toBe(
+			null,
+		)
+		expect(articleAuthor({ author: " ", siteName: null, title: null })).toBe(null)
+		expect(articleAuthor({ siteName: "Example Magazine", title: "T" })).toBe(null)
 	})
 })

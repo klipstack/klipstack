@@ -2,6 +2,7 @@ import {
 	and,
 	type Db,
 	db,
+	documents,
 	eq,
 	highlights,
 	highlightShares,
@@ -28,6 +29,8 @@ const SnapshotV1 = z.object({
 		title: z.string().nullable(),
 		url: z.string(),
 		siteName: z.string().nullable(),
+		/** Absent from links shared before authors were credited. */
+		author: z.string().nullable().optional(),
 	}),
 	linkUrls: z.record(z.string(), z.string()),
 	/** The sharer's language when they shared it: the page speaks it, whoever visits. */
@@ -49,9 +52,11 @@ const PUBLIC_ID = /^[0-9A-Za-z]{12}$/
 /** Whether the highlight's quote or note moved on from what the page shows (not its color). */
 export function shareChanged(
 	snapshot: ShareSnapshot,
-	current: { exact: string; note: string | null },
+	current: { exact: string; note: string | null; author: string | null },
 ): boolean {
 	if (snapshot.exact !== current.exact) return true
+	// Links shared before authors were credited have none: updating adds it.
+	if ((snapshot.article.author ?? null) !== current.author) return true
 	return snapshot.includeNote && (snapshot.note ?? "") !== (current.note?.trim() || "")
 }
 
@@ -81,9 +86,11 @@ export async function getShareState(
 			removedAt: highlightShares.removedAt,
 			exact: highlights.exact,
 			note: highlights.note,
+			author: documents.author,
 		})
 		.from(highlightShares)
 		.innerJoin(highlights, eq(highlights.id, highlightShares.highlightId))
+		.innerJoin(documents, eq(documents.id, highlights.documentId))
 		.where(
 			and(
 				eq(highlightShares.highlightId, highlightId),

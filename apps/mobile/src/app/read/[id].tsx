@@ -1597,7 +1597,12 @@ export default function Reader() {
 					setEditing(null)
 				}}
 				onShare={() => {
-					if (editingHighlight) shares.open(editingHighlight, editingHighlight.article)
+					// The article's own author when the server sent none (an older one, or kept offline).
+					if (editingHighlight)
+						shares.open(editingHighlight, {
+							...editingHighlight.article,
+							author: editingHighlight.article.author ?? article?.author ?? null,
+						})
 					setEditing(null)
 				}}
 				onDelete={() => editingHighlight && deleteHighlight(editingHighlight)}

@@ -266,6 +266,8 @@ export const HighlightArticle = z.object({
 	id: Id,
 	title: z.string().nullable(),
 	site: z.string().nullable(),
+	/** Who wrote it, as the page says; null when unknown. Absent from servers before it was added. */
+	author: z.string().nullable().optional(),
 	url: z.string(),
 })
 

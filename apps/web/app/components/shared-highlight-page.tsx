@@ -1,9 +1,10 @@
 import { parse } from "@klipstack/api-contract/note-links"
 import { Fragment } from "react"
-import { safeHost, siteLabel } from "~/lib/site-label"
+import { safeHost } from "~/lib/site-label"
 import type { ShareSnapshot } from "~/services/highlight-shares.server"
 import { BrandMarkSmall } from "./brand-mark"
 import { ClippingPaper } from "./clipping"
+import { CreditLine } from "./credit-line"
 import { PostIt, tiltFor } from "./post-it"
 import { quoteSize } from "./quote-card"
 
@@ -122,9 +123,7 @@ export function SharedHighlightPage({
 						) : (
 							<span className="line-clamp-2 font-medium leading-snug">{article.title ?? host}</span>
 						)}
-						<span className="block truncate text-sm text-muted-fg">
-							{siteLabel(article.siteName, host)}
-						</span>
+						<CreditLine article={article} className="text-sm text-muted-fg" />
 					</figcaption>
 				</figure>
 				{web ? (

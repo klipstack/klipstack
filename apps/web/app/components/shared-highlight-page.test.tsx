@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it } from "vitest"
+import { parseShareSnapshot } from "~/services/highlight-shares.server"
 import { SharedHighlightPage, sharedHighlightView } from "./shared-highlight-page"
 
 const A = "0193a5f1-2c3d-7e4f-8a9b-0c1d2e3f4a5b"
@@ -66,5 +67,39 @@ describe("SharedHighlightPage", () => {
 		expect(html).not.toContain('class="marker')
 		expect(html).not.toContain("data-hl=")
 		expect(html).not.toContain("data-note-color=")
+	})
+
+	it("credits the author beside the site, and only the site on links shared before authors were", () => {
+		const stored = {
+			v: 1,
+			exact: "Quote.",
+			note: null,
+			includeNote: false,
+			color: 1,
+			article: { title: "T", url: "https://example.com/a", siteName: "Example Magazine" },
+			linkUrls: {},
+			locale: "en",
+		}
+		const page = (value: unknown) => {
+			const snapshot = parseShareSnapshot(value)
+			if (!snapshot) throw new Error("unreadable snapshot")
+			return renderToStaticMarkup(
+				<SharedHighlightPage
+					id="Abc123def456"
+					view={sharedHighlightView(snapshot)}
+					labels={labels}
+					reportHref="/h/Abc123def456/report"
+				/>,
+			)
+		}
+		const credit = (html: string) =>
+			html
+				.match(/<figcaption[\s\S]*<\/figcaption>/)![0]
+				.replace(/<[^>]+>/g, "")
+				.replace(/^T/, "")
+		expect(credit(page({ ...stored, article: { ...stored.article, author: "Ada Writer" } }))).toBe(
+			"Ada Writer · Example Magazine",
+		)
+		expect(credit(page(stored))).toBe("Example Magazine")
 	})
 })

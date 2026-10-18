@@ -31,6 +31,7 @@ async function article(uid: string, title: string) {
 			urlHash: `${uid}-${title}-${Math.random()}`,
 			title,
 			siteName: "Example",
+			author: "Ada Writer",
 			status: "ready",
 		})
 		.returning({ id: documents.id })
@@ -108,6 +109,7 @@ describe("shareHighlight", () => {
 				title: expect.stringMatching(/^piece-/),
 				url: expect.stringMatching(/^https:\/\/example\.com\/piece-/),
 				siteName: "Example",
+				author: "Ada Writer",
 			},
 			linkUrls: { [linked.id]: "https://example.com/linked" },
 			locale: "es",
@@ -143,6 +145,25 @@ describe("shareHighlight", () => {
 		expect(await getShareState(userId, h.id)).toMatchObject({ changed: false })
 		await setNote(h.id, "Added later.")
 		expect(await getShareState(userId, h.id)).toMatchObject({ changed: true })
+	})
+
+	it("tells the owner a link shared before authors were credited is behind, until updated", async () => {
+		const h = await highlight(userId)
+		const shared = await shareHighlight(userId, h.id, { includeNote: true, locale: "en" })
+		// As stored before: no author in the snapshot.
+		const { author: _author, ...article } = (await live(shared.publicId))!.article
+		const [row] = await db
+			.select({ published: highlightShares.published })
+			.from(highlightShares)
+			.where(eq(highlightShares.highlightId, h.id))
+		await db
+			.update(highlightShares)
+			.set({ published: { ...(row!.published as object), article } })
+			.where(eq(highlightShares.highlightId, h.id))
+		expect(await getShareState(userId, h.id)).toMatchObject({ changed: true })
+		await shareHighlight(userId, h.id, { includeNote: true, locale: "en" })
+		expect((await live(shared.publicId))!.article.author).toBe("Ada Writer")
+		expect(await getShareState(userId, h.id)).toMatchObject({ changed: false })
 	})
 
 	it("stays up while its article is in the trash", async () => {

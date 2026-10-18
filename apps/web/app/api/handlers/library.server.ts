@@ -82,6 +82,7 @@ export const highlights: Handler<typeof listHighlights> = async ({ userId, query
 				id: h.documentId,
 				title: h.documentTitle,
 				site: h.siteName,
+				author: h.author,
 				url: h.sourceUrl,
 			}),
 		),

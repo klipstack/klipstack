@@ -56,6 +56,7 @@ export async function shareHighlight(
 				title: documents.title,
 				url: documents.sourceUrl,
 				siteName: documents.siteName,
+				author: documents.author,
 			})
 			.from(highlights)
 			.innerJoin(documents, eq(documents.id, highlights.documentId))
@@ -79,7 +80,7 @@ export async function shareHighlight(
 			note,
 			includeNote,
 			color: h.color,
-			article: { title: h.title, url: h.url, siteName: h.siteName },
+			article: { title: h.title, url: h.url, siteName: h.siteName, author: h.author },
 			linkUrls: Object.fromEntries(Object.entries(targets).map(([lid, t]) => [lid, t.url])),
 			locale,
 		}

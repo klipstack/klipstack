@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
+	creditLine,
 	highlightCardFor,
 	highlightCardSvg,
 	TALL_CONTENT_BOTTOM,
@@ -39,5 +40,38 @@ describe("highlightCardSvg", () => {
 		expect(layout.titleLines).toHaveLength(2)
 		expect(layout.noteLines.length).toBeGreaterThan(5)
 		expect(layout.bottom).toBeLessThanOrEqual(TALL_CONTENT_BOTTOM)
+	})
+
+	it("credits the author beside the site, unless the author only repeats it", () => {
+		const article = {
+			title: "T",
+			url: "https://example.com/essays/x",
+			siteName: "Example Magazine",
+		}
+		const card = (author: string | null) =>
+			highlightCardFor({ exact: "Q", note: null, article: { ...article, author } })
+		expect(card("Ada Writer")).toMatchObject({ author: "Ada Writer", site: "Example Magazine" })
+		expect(card("example magazine")).toMatchObject({ author: null, site: "Example Magazine" })
+		expect(card(null)).toMatchObject({ author: null, site: "Example Magazine" })
+	})
+
+	it("shortens the site before the author, and leaves it out when the author fills the line", () => {
+		const card = {
+			exact: "Q",
+			note: "A note.",
+			site: "The New York Times Magazine — Culture, Politics and Ideas Since 1896",
+			author: "Markus Eisele and Ada Writer",
+			title: "T",
+		}
+		for (const shape of ["wide", "tall"] as const) {
+			const line = creditLine(card, shape)
+			expect(line).toMatch(/^MARKUS EISELE AND ADA WRITER · THE .*…$/)
+		}
+		const long = "Markus Eisele and Alexandra Montgomery-Smithson with Friends and Colleagues"
+		expect(creditLine({ ...card, author: long }, "wide")).toMatch(/^MARKUS EISELE [^·]*…$/)
+		expect(creditLine({ ...card, author: "Ada Writer", site: "Example" }, "wide")).toBe(
+			"ADA WRITER · EXAMPLE",
+		)
+		expect(creditLine({ ...card, author: null, site: "Example" }, "tall")).toBe("EXAMPLE")
 	})
 })
