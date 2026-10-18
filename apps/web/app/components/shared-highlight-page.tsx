@@ -11,6 +11,13 @@ import { quoteSize } from "./quote-card"
 /** Links out of a public page: no endorsement for search engines, no handle on this window. */
 const OUTBOUND = "nofollow ugc noopener"
 
+/**
+ * The page has room the pictures lack: a quote or note of a few screens shows whole, and only one
+ * longer than that (a quote can be 20,000 characters, a note 10,000) is cut.
+ */
+const PAGE_QUOTE_LINES = "line-clamp-[30]"
+const PAGE_NOTE_LINES = "line-clamp-[40]"
+
 /** A run of a note's line: text, or a link to the original of an article the note links to. */
 export interface NoteRun {
 	text: string
@@ -96,7 +103,7 @@ export function SharedHighlightPage({
 						“
 					</span>
 					<blockquote
-						className={`font-serif text-fg ${quoteSize(view.exact).replace("line-clamp-[14] ", "")}`}
+						className={`font-serif text-fg ${quoteSize(view.exact).replace("line-clamp-[14]", PAGE_QUOTE_LINES)}`}
 					>
 						{view.exact}
 					</blockquote>
@@ -108,7 +115,9 @@ export function SharedHighlightPage({
 							aria-label={labels.noteLabel}
 							className="mt-6 -mr-3 ml-auto text-lg leading-snug"
 						>
-							<NoteWithLinks note={note} />
+							<span className={PAGE_NOTE_LINES}>
+								<NoteWithLinks note={note} />
+							</span>
 						</PostIt>
 					) : null}
 					<figcaption className="mt-6 border-t border-border pt-3">
