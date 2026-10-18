@@ -43,6 +43,7 @@ import {
 import { SearchField } from "./search-field"
 import { SelectButton } from "./select-button"
 import { SidebarResizer } from "./sidebar-resizer"
+import { SupportButton, SupportPanel } from "./support-panel"
 import { tooltip } from "./tooltip-host"
 
 const items = [
@@ -143,6 +144,7 @@ function SidebarContent({
 	editionDue,
 	topics,
 	savedSearches,
+	support,
 	collapsed = false,
 	onToggle,
 	onNavigate,
@@ -156,6 +158,8 @@ function SidebarContent({
 	editionDue: boolean
 	topics: TopicsNav
 	savedSearches: SavedSearchItem[]
+	/** Contact support shows. */
+	support: boolean
 	/** A rail of icons (desktop only). */
 	collapsed?: boolean
 	/** Shows the collapse toggle where the drawer has its close button. */
@@ -308,6 +312,7 @@ function SidebarContent({
 			<div className="mt-auto flex flex-col gap-1 border-t border-border pt-3">
 				{/* Below the divider: the keyboard is the way in, this is how people find it. */}
 				<CommandPaletteButton onOpen={onNavigate} collapsed={collapsed} />
+				{support ? <SupportButton onOpen={onNavigate} collapsed={collapsed} /> : null}
 				<AccountMenu user={user} collapsed={collapsed} onNavigate={onNavigate} />
 			</div>
 		</>
@@ -437,6 +442,7 @@ export function AppShell({
 	editionDue,
 	topics = null,
 	savedSearches,
+	support = null,
 }: {
 	children: React.ReactNode
 	notice?: React.ReactNode
@@ -454,6 +460,8 @@ export function AppShell({
 	topics?: TopicsNav
 	/** By name, from the layout loader. */
 	savedSearches: SavedSearchItem[]
+	/** The SuppyHQ account behind Contact support, from the layout loader. */
+	support?: { tenant: string } | null
 }) {
 	const { t } = useTranslation()
 	const tk = useKeyTranslation()
@@ -548,6 +556,7 @@ export function AppShell({
 					editionDue={editionDue}
 					topics={topics}
 					savedSearches={savedSearches}
+					support={Boolean(support)}
 					collapsed={collapsed}
 					onToggle={() => setSidebar({ collapsed: !collapsed })}
 				/>
@@ -655,6 +664,9 @@ export function AppShell({
 
 			{/* The one Save link dialog: the page's buttons, the command menu and `?save` open it. */}
 			<SaveLinkDialog />
+			{support ? (
+				<SupportPanel tenant={support.tenant} email={user.email} name={user.name} />
+			) : null}
 
 			<MobileDrawer drawer={drawer}>
 				<SidebarContent
@@ -665,6 +677,7 @@ export function AppShell({
 					editionDue={editionDue}
 					topics={topics}
 					savedSearches={savedSearches}
+					support={Boolean(support)}
 					onNavigate={() => setOpen(false)}
 					onClose={() => setOpen(false)}
 				/>

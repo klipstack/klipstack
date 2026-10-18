@@ -55,6 +55,8 @@ export default defineConfig({
 			// Shows the GitHub button. The tests stop at GitHub's door: no request reaches it.
 			GITHUB_CLIENT_ID: "e2e-client",
 			GITHUB_CLIENT_SECRET: "e2e-secret",
+			// Shows Contact support. Nothing loads from SuppyHQ before its click; support.spec.ts stubs it.
+			SUPPYHQ_TENANT: "e2e",
 			// AI answers come from a fixed fake model: no provider is called.
 			AI_FAKE: "1",
 			// The caps ai-reader.spec.ts, admin.spec.ts and topics-usage.spec.ts count against, whatever

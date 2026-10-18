@@ -283,6 +283,16 @@ export default {
 			copyright: "© {{year}} {{company}}",
 		},
 	},
+	supportWidget: {
+		open: "Contact support",
+		loading: "Loading the support form",
+		unavailable: "The support form didn't load. Write to <email>{{email}}</email>.",
+		label: "Support",
+		greeting:
+			"Questions, problems or ideas: I read every message. If it's about an article, paste its link.",
+		acknowledgment: "Thanks, I got your message.",
+		expectation: "I'll reply to the email on your Klipstack account, usually within a day or two.",
+	},
 	support: {
 		title: "Support",
 		description: "Help with Klipstack: write to us, manage your data, or delete your account.",
