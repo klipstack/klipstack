@@ -102,43 +102,74 @@ export interface NoteText {
 	height: number
 }
 
+/** A paragraph's words, one wider than a line (an address) broken into pieces that fit. */
+function breakWide(
+	font: ReturnType<typeof loadFonts>["text"],
+	text: string,
+	size: number,
+	max: number,
+): string {
+	return text
+		.split(" ")
+		.flatMap((word) => {
+			const pieces = [""]
+			for (const char of word) {
+				if (pieces.at(-1) && width(font, pieces.at(-1)! + char, size) > max) pieces.push("")
+				pieces[pieces.length - 1] += char
+			}
+			return pieces
+		})
+		.join(" ")
+}
+
+/** The note's lines at `size`, its line breaks kept and a blank line a half-line gap. */
+function noteLines(paragraphs: string[], size: number, max: number) {
+	const { text: font } = loadFonts()
+	const leading = Math.round(size * 1.33)
+	const lines: { text: string; y: number; paragraph: number }[] = []
+	let y = 0
+	let gap = false
+	paragraphs.forEach((paragraph, i) => {
+		if (!paragraph) {
+			gap = lines.length > 0
+			return
+		}
+		if (gap) y += Math.round(leading / 2)
+		gap = false
+		const shown = breakWide(font, paragraph, size, max)
+		for (const text of wrap(font, shown, size, max, Number.POSITIVE_INFINITY)) {
+			lines.push({ text, y, paragraph: i })
+			y += leading
+		}
+	})
+	return lines
+}
+
 /**
- * The note at the first of `sizes` that shows it whole within `height`, its line breaks kept and a
- * blank line a half-line gap. Too long at the smallest, it runs on as one paragraph, cut where the
- * room ends.
+ * The note at the first of `sizes` that shows it whole within `height`. Too long at the smallest,
+ * it ends with the last line that fits, cut after a word.
  */
 function noteText(note: string, max: number, height: number, sizes: number[]): NoteText {
 	const { text: font } = loadFonts()
 	const paragraphs = writtenLines(note).map((line) => drawable(font, line))
+	const strip = (lines: ReturnType<typeof noteLines>) => lines.map(({ text, y }) => ({ text, y }))
 	for (const size of sizes) {
-		const leading = Math.round(size * 1.33)
-		const lines: NoteText["lines"] = []
-		let y = 0
-		let gap = false
-		for (const paragraph of paragraphs) {
-			if (!paragraph) {
-				gap = lines.length > 0
-				continue
-			}
-			if (gap) y += Math.round(leading / 2)
-			gap = false
-			for (const text of wrap(font, paragraph, size, max, Number.POSITIVE_INFINITY)) {
-				lines.push({ text, y })
-				y += leading
-			}
-		}
-		const total = y - leading + size
-		if (total <= height) return { lines, size, height: total }
+		const lines = noteLines(paragraphs, size, max)
+		const total = (lines.at(-1)?.y ?? 0) + size
+		if (total <= height) return { lines: strip(lines), size, height: total }
 	}
 	const size = sizes.at(-1)!
-	const leading = Math.round(size * 1.33)
-	const fit = Math.max(1, Math.floor((height - size) / leading) + 1)
-	const lines = wrap(font, drawable(font, plainNote(note)), size, max, fit)
-	return {
-		lines: lines.map((text, i) => ({ text, y: i * leading })),
-		size,
-		height: (lines.length - 1) * leading + size,
-	}
+	const all = noteLines(paragraphs, size, max)
+	const kept = all.filter((line) => line.y + size <= height)
+	if (!kept.length) kept.push(all[0]!)
+	// The last line kept ends in "…", shortened when there is no room for it.
+	const last = kept.at(-1)!
+	const ended = `${last.text.replace(/[\s,.;:!?–—-]+$/, "")}…`
+	last.text =
+		width(font, ended, size) <= max
+			? ended
+			: wrap(font, `${last.text} ${all[kept.length]?.text ?? ""}`, size, max, 1)[0]!
+	return { lines: strip(kept), size, height: last.y + size }
 }
 
 /**
