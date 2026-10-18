@@ -24,6 +24,7 @@ import { archiveFinished, undoArchive } from "~/commands/articles.server"
 import { saveArticle, saveLinks } from "~/commands/saving.server"
 import { DocumentList } from "~/components/document-list"
 import { EmptyDrawing, type EmptyDrawingName } from "~/components/empty-drawing"
+import { ExtensionHint } from "~/components/extension-hint"
 import { LayoutToggle } from "~/components/layout-toggle"
 import { MenuButton, MenuNavLink, MoreMenu } from "~/components/more-menu"
 import { PinnedControls } from "~/components/pinned-controls"
@@ -35,6 +36,8 @@ import { useListCursor } from "~/hooks/use-list-cursor"
 import { AppError } from "~/lib/app-error"
 import { useCommands } from "~/lib/commands"
 import { dateGroup, timeZoneFromCookie } from "~/lib/date-groups"
+import { env } from "~/lib/env.server"
+import { extensionUrl } from "~/lib/extension-url"
 import {
 	type FilterableView,
 	filterSearch,
@@ -74,6 +77,7 @@ import {
 	listDocuments,
 	type TopicScope,
 } from "~/services/documents.server"
+import { extensionHint, extensionOffered } from "~/services/onboarding.server"
 import { offeredStarterTexts } from "~/services/starter-texts.server"
 import { type ListTopics, listTopics, topicLabels, topicsInUse } from "~/services/topics.server"
 import type { Route } from "./+types/library"
@@ -152,6 +156,8 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 					return at ? dateGroup(at, now, zone) : "today"
 				})
 			: null
+	// The Inbox empty, unfiltered: nothing saved yet, or all of it archived.
+	const emptyInbox = view === "inbox" && !items.length && !cursor && !filter && !topic
 	return {
 		view,
 		items,
@@ -168,9 +174,11 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 		labels,
 		// Nothing to read: something to start with instead.
 		language,
-		starter:
-			view === "inbox" && !items.length && !cursor && !filter && !topic
-				? await offeredStarterTexts(user.id, language)
+		starter: emptyInbox ? await offeredStarterTexts(user.id, language) : null,
+		// A new account that never used the extension hears of it, quietly.
+		extensionHint:
+			emptyInbox && (await extensionHint(user.id, { offered: extensionOffered(request.headers) }))
+				? extensionUrl(env.APP_URL)
 				: null,
 	}
 }
@@ -399,6 +407,7 @@ export default function Library({ loaderData }: Route.ComponentProps) {
 					<p className="max-w-sm text-sm">
 						{t(`empty.${loaderData.view}.description`, { days: TRASH_RETENTION_DAYS })}
 					</p>
+					{loaderData.extensionHint ? <ExtensionHint url={loaderData.extensionHint} /> : null}
 					{loaderData.starter ? (
 						<StarterOffer
 							offer={loaderData.starter}

@@ -8,7 +8,7 @@ import { topicModels } from "~/lib/ai.server"
 import { MCP_RESOURCE } from "~/lib/auth.server"
 import { emailEnabled } from "~/lib/email.server"
 import { env } from "~/lib/env.server"
-import { chromiumDesktop, extensionInStore, extensionUrl } from "~/lib/extension-url"
+import { extensionUrl } from "~/lib/extension-url"
 import { listFeatures } from "~/lib/features.server"
 import { resolvePrefs } from "~/lib/prefs"
 import { requireUser } from "~/lib/session.server"
@@ -16,7 +16,7 @@ import { isStarterLanguage } from "~/lib/starter-shelves"
 import { starterGuide } from "~/lib/starter-texts.server"
 import { editionNudge } from "~/services/editions.server"
 import { countNewFeedItems } from "~/services/feeds.server"
-import { gettingStarted } from "~/services/onboarding.server"
+import { extensionOffered, gettingStarted } from "~/services/onboarding.server"
 import { listSavedSearches } from "~/services/saved-searches.server"
 import { firstTopicsNotice, hasTopics, missingTopics } from "~/services/topics.server"
 import type { Route } from "./+types/app-layout"
@@ -39,8 +39,7 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 		}),
 		listFeatures(user.id),
 		gettingStarted(user.id, {
-			// The store's extension saves to klipstack.com only, and installs in Chromium on a computer.
-			extension: extensionInStore(env.APP_URL) && chromiumDesktop(request.headers),
+			extension: extensionOffered(request.headers),
 		}),
 	])
 	// Topics show for an account with the feature, on a server with both providers' keys; and for

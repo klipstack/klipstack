@@ -4,7 +4,9 @@ import {
 	type Db,
 	documents,
 	eq,
+	gt,
 	highlights,
+	notExists,
 	notInArray,
 	type Onboarding,
 	type SQL,
@@ -13,6 +15,8 @@ import {
 	user as userTable,
 } from "@klipstack/db"
 import { topicModels } from "~/lib/ai.server"
+import { env } from "~/lib/env.server"
+import { chromiumDesktop, extensionInStore } from "~/lib/extension-url"
 import { hasFeature } from "~/lib/features.server"
 import { resolvePrefs } from "~/lib/prefs"
 import { starterTexts, starterUrlHash } from "~/lib/starter-texts.server"
@@ -121,4 +125,41 @@ export async function gettingStarted(
 
 async function exists(query: Promise<unknown[]>): Promise<boolean> {
 	return (await query).length > 0
+}
+
+/** The store's extension saves to klipstack.com only, and installs in Chromium on a computer. */
+export function extensionOffered(headers: Headers): boolean {
+	return extensionInStore(env.APP_URL) && chromiumDesktop(headers)
+}
+
+/** How long after signing up the empty screens mention the browser extension. */
+const EXTENSION_HINT_DAYS = 30
+
+/**
+ * Whether Home's and the Inbox's empty screens mention the browser extension: where it is
+ * `offered` (the store's extension, in a browser it installs in), to an account under
+ * `EXTENSION_HINT_DAYS` old that has never saved with it.
+ */
+export async function extensionHint(
+	userId: string,
+	{ offered, now = new Date() }: { offered: boolean; now?: Date },
+): Promise<boolean> {
+	if (!offered) return false
+	const since = new Date(now.getTime() - EXTENSION_HINT_DAYS * 24 * 60 * 60 * 1000)
+	const [row] = await db
+		.select({ id: userTable.id })
+		.from(userTable)
+		.where(
+			and(
+				eq(userTable.id, userId),
+				gt(userTable.createdAt, since),
+				notExists(
+					db
+						.select({ id: documents.id })
+						.from(documents)
+						.where(and(eq(documents.userId, userId), eq(documents.captureSource, "extension"))),
+				),
+			),
+		)
+	return !!row
 }
