@@ -14,6 +14,7 @@ import {
 	Rss,
 	Search,
 	Shapes,
+	Sparkles,
 	Tag,
 	X,
 } from "lucide-react"
@@ -62,6 +63,9 @@ const items = [
 
 /** Topics in the sidebar: none for an account without them; a dot for a proposal not opened yet. */
 export type TopicsNav = { unseen: boolean } | null
+
+/** The way to Settings → Features while every feature there is off; `topics` when they are among them. */
+export type FeaturesInvitationNav = { topics: boolean } | null
 
 export const linkClass =
 	(collapsed: boolean) =>
@@ -143,6 +147,7 @@ function SidebarContent({
 	editions,
 	editionDue,
 	topics,
+	featuresInvitation,
 	savedSearches,
 	support,
 	collapsed = false,
@@ -157,6 +162,7 @@ function SidebarContent({
 	editions: boolean
 	editionDue: boolean
 	topics: TopicsNav
+	featuresInvitation: FeaturesInvitationNav
 	savedSearches: SavedSearchItem[]
 	/** Contact support shows. */
 	support: boolean
@@ -308,6 +314,13 @@ function SidebarContent({
 						</ul>
 					</section>
 				)}
+				{featuresInvitation ? (
+					<FeaturesInvitation
+						topics={featuresInvitation.topics}
+						collapsed={collapsed}
+						onNavigate={onNavigate}
+					/>
+				) : null}
 			</nav>
 			<div className="mt-auto flex flex-col gap-1 border-t border-border pt-3">
 				{/* Below the divider: the keyboard is the way in, this is how people find it. */}
@@ -316,6 +329,73 @@ function SidebarContent({
 				<AccountMenu user={user} collapsed={collapsed} onNavigate={onNavigate} />
 			</div>
 		</>
+	)
+}
+
+/**
+ * New accounts start with topics, feeds and editions off: this says they are there and leads to
+ * where they are turned on. Set apart from the items, at the bottom of the list. Its ✕ ends it for
+ * good, as opening the page does.
+ */
+function FeaturesInvitation({
+	topics,
+	collapsed,
+	onNavigate,
+}: {
+	topics: boolean
+	collapsed: boolean
+	onNavigate?: () => void
+}) {
+	const { t } = useTranslation()
+	const fetcher = useFetcher()
+	if (fetcher.state !== "idle" || fetcher.data) return null
+	const title = t("featuresInvitation.title")
+	const list = topics ? t("featuresInvitation.withTopics") : t("featuresInvitation.withoutTopics")
+	if (collapsed) {
+		const label = t("featuresInvitation.rail", { title, list })
+		return (
+			<Link
+				to="/settings/features"
+				data-testid="features-invitation"
+				aria-label={label}
+				{...tooltip(label, undefined, "right")}
+				className="mx-auto mt-auto flex size-9 items-center justify-center rounded-lg border border-dashed border-accent/50 text-accent hover:bg-accent/10"
+			>
+				<Sparkles className="size-4" aria-hidden />
+			</Link>
+		)
+	}
+	return (
+		<div data-testid="features-invitation" className="group/invite relative mt-auto pt-4">
+			<Link
+				to="/settings/features"
+				onClick={onNavigate}
+				className="block rounded-lg border border-dashed border-accent/50 bg-accent/5 py-2 pr-8 pl-[calc(0.5rem-1px)] text-sm hover:bg-accent/10"
+			>
+				<span className="flex items-center gap-2 font-medium">
+					<span className="flex w-6 shrink-0 justify-center text-accent">
+						<Sparkles className="size-4" aria-hidden />
+					</span>
+					{title}
+				</span>
+				<span className="mt-0.5 block pl-8 text-xs text-muted-fg">{list}</span>
+			</Link>
+			{/* Beside the link, not in it: a button inside a link is invalid. */}
+			<button
+				type="button"
+				onClick={() =>
+					void fetcher.submit(
+						{ intent: "end-invitation" },
+						{ method: "post", action: "/settings/features" },
+					)
+				}
+				aria-label={t("featuresInvitation.dismiss")}
+				{...tooltip(t("featuresInvitation.dismiss"))}
+				className="absolute top-5 right-1 rounded-md p-1 text-muted-fg hover:bg-hover hover:text-fg focus-visible:opacity-100 md:opacity-0 md:group-hover/invite:opacity-100 md:group-focus-within/invite:opacity-100 [@media(hover:none)]:opacity-100 [@media(pointer:coarse)]:opacity-100"
+			>
+				<X className="size-3.5" aria-hidden />
+			</button>
+		</div>
 	)
 }
 
@@ -441,6 +521,7 @@ export function AppShell({
 	editions,
 	editionDue,
 	topics = null,
+	featuresInvitation = null,
 	savedSearches,
 	support = null,
 }: {
@@ -458,6 +539,8 @@ export function AppShell({
 	editionDue: boolean
 	/** Topics, for accounts that have them, from the layout loader. */
 	topics?: TopicsNav
+	/** The way to Settings → Features (`featuresInvitation`), from the layout loader. */
+	featuresInvitation?: FeaturesInvitationNav
 	/** By name, from the layout loader. */
 	savedSearches: SavedSearchItem[]
 	/** The SuppyHQ account behind Contact support, from the layout loader. */
@@ -555,6 +638,7 @@ export function AppShell({
 					editions={editions}
 					editionDue={editionDue}
 					topics={topics}
+					featuresInvitation={featuresInvitation}
 					savedSearches={savedSearches}
 					support={Boolean(support)}
 					collapsed={collapsed}
@@ -676,6 +760,7 @@ export function AppShell({
 					editions={editions}
 					editionDue={editionDue}
 					topics={topics}
+					featuresInvitation={featuresInvitation}
 					savedSearches={savedSearches}
 					support={Boolean(support)}
 					onNavigate={() => setOpen(false)}

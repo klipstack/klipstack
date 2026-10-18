@@ -201,3 +201,36 @@ test("Settings replaces the app's sidebar with its sections, and goes back where
 	await drawer.getByRole("link", { name: "Back" }).click()
 	await expect(page).toHaveURL(/\/archive\?sort=oldest$/)
 })
+
+test("a new account's sidebar leads to Settings → Features, until the page is opened", async ({
+	page,
+}) => {
+	await signupUser(page, "Invited")
+	await page.goto("/home")
+	await waitForHydration(page)
+	// The phone drawer has its own, hidden here.
+	const invitation = page.getByTestId("features-invitation")
+	await expect(invitation.filter({ visible: true })).toContainText("Feeds and editions")
+	await invitation.filter({ visible: true }).getByRole("link").click()
+	await expect(page).toHaveURL(/\/settings\/features$/)
+	await expect(page.getByTestId("feature-feeds")).toBeVisible()
+	// Ended by opening the page, not by the click: the next visit has none.
+	await page.waitForLoadState("networkidle")
+	await page.goto("/home")
+	await waitForHydration(page)
+	await expect(page.getByRole("link", { name: "Library" })).toBeVisible()
+	await expect(invitation).toHaveCount(0)
+})
+
+test("the sidebar's way to Settings → Features goes for good with its ✕", async ({ page }) => {
+	await signupUser(page, "Dismissing")
+	await page.goto("/home")
+	await waitForHydration(page)
+	const invitation = page.getByTestId("features-invitation")
+	await invitation.filter({ visible: true }).getByRole("button", { name: "Hide this" }).click()
+	await expect(invitation).toHaveCount(0)
+	await page.reload()
+	await waitForHydration(page)
+	await expect(page.getByRole("link", { name: "Library" })).toBeVisible()
+	await expect(invitation).toHaveCount(0)
+})

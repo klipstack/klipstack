@@ -6,6 +6,7 @@ import { AppError, notFound, parseInput } from "~/lib/app-error"
 import { signedInRecently } from "~/lib/recent-sign-in.server"
 import { deleteAccount as deleteEverything } from "~/services/account.server"
 import { createApiKey as insertApiKey, revokeApiKey as revokeKey } from "~/services/api-keys.server"
+import { markFeaturesInvitationEnded } from "~/services/features-invitation.server"
 import { disconnectApp as removeConsent } from "~/services/oauth-apps.server"
 
 /**
@@ -109,7 +110,15 @@ export async function setPrefs(userId: string, input: z.input<typeof Prefs>): Pr
 			.where(eq(userTable.id, userId))
 			.for("update")
 		const prefs: UserPrefs = { ...((row?.prefs ?? {}) as UserPrefs), ...patch }
+		// A feature turned on: the sidebar's invitation to them has done its work.
+		if ((patch.editions === "on" || patch.feeds === "on") && !prefs.featuresInvitationEndedAt)
+			prefs.featuresInvitationEndedAt = new Date().toISOString()
 		await tx.update(userTable).set({ prefs }).where(eq(userTable.id, userId))
 		return prefs
 	})
+}
+
+/** The sidebar's invitation to Settings → Features is over, for good: closed, or the page opened. */
+export async function endFeaturesInvitation(userId: string): Promise<void> {
+	await markFeaturesInvitationEnded(db, userId)
 }

@@ -2,6 +2,7 @@ import { afterAll, afterEach, describe, expect, it } from "vitest"
 import { env } from "~/lib/env.server"
 import { adminFixtures } from "~/test/admin-fixtures"
 import { loader } from "./app-layout"
+import { action as endInvitation } from "./settings.features"
 
 const fx = adminFixtures("app-layout")
 afterAll(fx.cleanup)
@@ -27,5 +28,29 @@ describe("Contact support in the app's sidebar", () => {
 	it("is not there on a server without one", async () => {
 		Object.assign(env, { SUPPYHQ_TENANT: undefined })
 		expect(await supportFor(await fx.account())).toBeNull()
+	})
+})
+
+describe("The sidebar's way to Settings → Features", () => {
+	it("shows for a new account, and goes for good once the Features page ends it", async () => {
+		const reader = await fx.account()
+		const layout = async () =>
+			(
+				await loader({
+					request: new Request(new URL("/library", env.APP_URL)),
+					context: await fx.routerContext(reader),
+				} as never)
+			).featuresInvitation
+		expect(await layout()).toEqual({ topics: false })
+
+		const end = async (intent: string) =>
+			endInvitation({
+				request: fx.post("/settings/features", { intent }),
+				context: await fx.routerContext(reader),
+			} as never)
+		expect(await end("something-else")).toMatchObject({ data: { ok: false } })
+		expect(await layout()).toEqual({ topics: false })
+		await end("end-invitation")
+		expect(await layout()).toBeNull()
 	})
 })

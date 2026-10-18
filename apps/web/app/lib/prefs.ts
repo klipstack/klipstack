@@ -10,6 +10,7 @@ export const DEFAULT_PREFS: Required<UserPrefs> = {
 	reviewSuggestAfter: null,
 	noteRemindersAfter: null,
 	topicsInvitationEndedAt: null,
+	featuresInvitationEndedAt: null,
 	aiConsentAt: null,
 	linkEditions: "off",
 	outline: "on",

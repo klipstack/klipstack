@@ -62,6 +62,11 @@ export interface UserPrefs {
 	 */
 	topicsInvitationEndedAt?: string | null
 	/**
+	 * The sidebar's invitation to Settings → Features is over: closed, the page opened, or a feature
+	 * turned on (ISO, when). It does not come back. Only the server writes it.
+	 */
+	featuresInvitationEndedAt?: string | null
+	/**
 	 * When the account agreed, in one of our apps, that its questions and the article's text go to
 	 * the AI provider (ISO); null or missing: not, or taken back. Only the server writes it.
 	 */

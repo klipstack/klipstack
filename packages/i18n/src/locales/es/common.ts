@@ -363,6 +363,15 @@ export default {
 		menu: "Menú",
 		add: "Añadir",
 	},
+	// The sidebar's way to Settings → Features, for a new account with every feature off.
+	featuresInvitation: {
+		title: "Más para activar",
+		withTopics: "Temas, feeds y ediciones",
+		withoutTopics: "Feeds y ediciones",
+		dismiss: "Ocultar esto",
+		// The collapsed sidebar's icon: its tooltip and name.
+		rail: "{{title}}: {{list}}",
+	},
 	savedSearches: {
 		heading: "Búsquedas guardadas",
 		save: "Guardar búsqueda",
