@@ -241,7 +241,7 @@ export default {
 			extension: {
 				question: "Is there a browser extension?",
 				answer:
-					"Yes, for Chrome and Firefox. It isn't in the browser stores yet, so for now you build it from the source code and load it yourself. Settings links to it.",
+					"Yes. For Chrome, install it from the Chrome Web Store; Settings links to it. For Firefox, build it from the source code for now and load it yourself.",
 			},
 			search: {
 				question: "How do I find things later?",

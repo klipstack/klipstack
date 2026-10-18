@@ -250,7 +250,7 @@ export default {
 			extension: {
 				question: "¿Hay una extensión para el navegador?",
 				answer:
-					"Sí, para Chrome y Firefox. Aún no está en las tiendas de extensiones, así que por ahora la compilas desde el código fuente y la cargas tú. Ajustes tiene el enlace.",
+					"Sí. Para Chrome, instálala desde la Chrome Web Store; Ajustes tiene el enlace. Para Firefox, por ahora la compilas desde el código fuente y la cargas tú.",
 			},
 			search: {
 				question: "¿Cómo encuentro las cosas después?",
