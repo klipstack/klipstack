@@ -161,6 +161,14 @@ describe("highlightShareText", () => {
 		)
 		expect(html).toContain("</a>, Ada Writer, Example Magazine</p>")
 		expect(plain).toContain("— The Long Read, Ada Writer, Example Magazine\n")
+
+		// From the page's metadata: pasted as Markdown, it stays text, not a link.
+		const sneaky = highlightShareText({
+			exact: "Q.",
+			note: null,
+			article: { ...article, author: "[Read more](https://evil.example)" },
+		})
+		expect(sneaky.markdown).toContain(", \\[Read more\\](https://evil.example), Example Magazine")
 	})
 })
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { sourceLabel } from "./site-label"
+import { creditAuthor, sourceLabel } from "./site-label"
 
 describe("sourceLabel", () => {
 	it("names the author of a post on X", () => {
@@ -26,5 +26,15 @@ describe("sourceLabel", () => {
 		expect(
 			sourceLabel({ siteName: null, author: null, sourceUrl: "https://x.com/i/status/1" }),
 		).toBe("x.com")
+	})
+})
+
+describe("creditAuthor", () => {
+	it("leaves out an author who repeats the site's name, however long the name is", () => {
+		const tagline = "O'Reilly Media — Technology and Business Training"
+		const article = { title: "T", url: "https://www.oreilly.com/radar/a", siteName: tagline }
+		expect(creditAuthor({ ...article, author: tagline })).toBe(null)
+		expect(creditAuthor({ ...article, author: "oreilly.com" })).toBe(null)
+		expect(creditAuthor({ ...article, author: "Ada Writer" })).toBe("Ada Writer")
 	})
 })

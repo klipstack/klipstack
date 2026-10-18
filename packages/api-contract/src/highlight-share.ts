@@ -36,7 +36,7 @@ export function highlightShareText(h: ShareableHighlight, withNote = true): Shar
 	const markdown = [
 		quote.map((p) => `> ${p}`).join("\n>\n"),
 		...note.map((p) => p.map((s) => (s.href ? markdownLink(s.text, s.href) : s.text)).join("")),
-		`— ${href ? markdownLink(name, href) : name}${after ? `, ${after}` : ""}`,
+		`— ${href ? markdownLink(name, href) : name}${after ? `, ${escapeLinkText(after)}` : ""}`,
 	].join("\n\n")
 
 	const html = [

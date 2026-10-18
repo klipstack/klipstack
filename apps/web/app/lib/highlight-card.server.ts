@@ -12,7 +12,7 @@ import {
 	width,
 	wrap,
 } from "./edition-card.server"
-import { creditLabel, safeHost } from "./site-label"
+import { creditAuthor, safeHost, siteLabel } from "./site-label"
 
 /**
  * A shared highlight's picture for link previews (`og:image`): 1200×630, drawn as the page shows
@@ -25,8 +25,10 @@ export interface HighlightCard {
 	exact: string
 	/** Null leaves the post-it off and the clipping takes the room. */
 	note: string | null
-	/** Who wrote the article and where: "Jane Doe · Example Magazine". */
+	/** Where the article was published. */
 	site: string
+	/** Who wrote it, shown before the site; null when unknown. */
+	author?: string | null
 	title: string
 }
 
@@ -34,6 +36,37 @@ export interface HighlightCard {
 const NOTE = { paper: "#FDF1BF", ink: "#2F2416" }
 const INK = { from: "#26344F", to: "#0D1322", text: "#FFFFFF" }
 const PAPER = { ground: "#FBF8F1", text: "#1A2132", muted: "#5B6476", accent: "#B8432F" }
+
+/** The credit's letter spacing, in ems: the measure of a line adds it to every character. */
+const CREDIT_SPACING = 0.12
+
+/**
+ * The credit under the quote, "AUTHOR · SITE", on one line of the clipping's width. A long author is
+ * shortened first: where it was published stays whole.
+ */
+export function creditLine(card: HighlightCard, shape: HighlightShape): string {
+	const { small, text } = loadFonts()
+	const withNote = card.note !== null && drawable(text, plainNote(card.note)) !== ""
+	const { size, max } =
+		shape === "tall"
+			? { size: 22, max: 920 - 72 * 2 }
+			: { size: 15, max: (withNote ? 780 : 1040) - 56 * 2 }
+	const measure = (s: string) => width(small, s, size) + CREDIT_SPACING * size * [...s].length
+	const fit = (s: string, room: number) => {
+		for (let m = room; m > 0; m -= size) {
+			const line = wrap(small, s, size, m, 1)[0] ?? ""
+			if (measure(line) <= room) return line
+		}
+		return ""
+	}
+	const site = drawable(small, card.site).toUpperCase()
+	const author = card.author ? drawable(small, card.author).toUpperCase() : ""
+	if (!author) return fit(site, max)
+	const full = `${author} · ${site}`
+	if (measure(full) <= max) return full
+	const short = fit(author, max - measure(` · ${site}`))
+	return short && short !== "…" ? `${short} · ${site}` : fit(site, max)
+}
 
 /** The quote's lines at the largest size that shows it whole, or cut at the smallest. */
 function quoteLines(text: string, max: number, height: number, sizes = [46, 40, 34, 30]) {
@@ -80,9 +113,9 @@ export function highlightCardSvg(card: HighlightCard): string {
 		clip.push(outline(text, line, pad, baseline, size, PAPER.text))
 	})
 	// Where it came from, at the foot.
-	const site = wrap(small, drawable(small, card.site).toUpperCase(), 15, W - pad * 2, 1)[0] ?? ""
+	const site = creditLine(card, "wide")
 	clip.push(`<rect x="${pad}" y="${H - 104}" width="${W - pad * 2}" height="1.5" fill="#E2DCCF"/>`)
-	clip.push(outline(small, site, pad, H - 70, 15, PAPER.accent, 0.12))
+	clip.push(outline(small, site, pad, H - 70, 15, PAPER.accent, CREDIT_SPACING))
 	const title = wrap(text, drawable(text, card.title), 24, W - pad * 2, 1)[0] ?? ""
 	clip.push(outline(text, title, pad, H - 36, 24, PAPER.muted))
 	parts.push(
@@ -217,9 +250,9 @@ export function highlightCardTallSvg(card: HighlightCard): string {
 	lines.forEach((line, i) => {
 		clip.push(outline(text, line, pad, quoteTop + i * leading, size, PAPER.text))
 	})
-	const site = wrap(small, drawable(small, card.site).toUpperCase(), 22, W - pad * 2, 1)[0] ?? ""
+	const site = creditLine(card, "tall")
 	clip.push(`<rect x="${pad}" y="${footTop}" width="${W - pad * 2}" height="2" fill="#E2DCCF"/>`)
-	clip.push(outline(small, site, pad, footTop + 62, 22, PAPER.accent, 0.12))
+	clip.push(outline(small, site, pad, footTop + 62, 22, PAPER.accent, CREDIT_SPACING))
 	titleLines.forEach((line, i) => {
 		clip.push(outline(text, line, pad, footTop + 112 + i * 46, 34, PAPER.muted))
 	})
@@ -271,7 +304,8 @@ export function highlightCardFor(snapshot: {
 	return {
 		exact: snapshot.exact,
 		note: snapshot.note,
-		site: creditLabel(snapshot.article),
+		site: siteLabel(snapshot.article.siteName, host),
+		author: creditAuthor(snapshot.article),
 		title: snapshot.article.title ?? host,
 	}
 }

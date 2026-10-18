@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
+	creditLine,
 	highlightCardFor,
 	highlightCardSvg,
 	TALL_CONTENT_BOTTOM,
@@ -44,13 +45,31 @@ describe("highlightCardSvg", () => {
 	it("credits the author beside the site, unless the author only repeats it", () => {
 		const article = {
 			title: "T",
-			url: "https://www.oreilly.com/radar/x",
-			siteName: "O'Reilly Media",
+			url: "https://example.com/essays/x",
+			siteName: "Example Magazine",
 		}
 		const card = (author: string | null) =>
-			highlightCardFor({ exact: "Q", note: null, article: { ...article, author } }).site
-		expect(card("Markus Eisele")).toBe("Markus Eisele · O'Reilly Media")
-		expect(card("O'Reilly Media")).toBe("O'Reilly Media")
-		expect(card(null)).toBe("O'Reilly Media")
+			highlightCardFor({ exact: "Q", note: null, article: { ...article, author } })
+		expect(card("Ada Writer")).toMatchObject({ author: "Ada Writer", site: "Example Magazine" })
+		expect(card("example magazine")).toMatchObject({ author: null, site: "Example Magazine" })
+		expect(card(null)).toMatchObject({ author: null, site: "Example Magazine" })
+	})
+
+	it("shortens a long author before the site, on both shapes", () => {
+		const card = {
+			exact: "Q",
+			note: "A note.",
+			site: "The New York Times Magazine",
+			author: "Markus Eisele and Alexandra Montgomery-Smithson with Friends",
+			title: "T",
+		}
+		for (const shape of ["wide", "tall"] as const) {
+			const line = creditLine(card, shape)
+			expect(line).toMatch(/^MARKUS .*… · THE NEW YORK TIMES MAGAZINE$/)
+		}
+		expect(creditLine({ ...card, author: "Ada Writer" }, "wide")).toBe(
+			"ADA WRITER · THE NEW YORK TIMES MAGAZINE",
+		)
+		expect(creditLine({ ...card, author: null }, "tall")).toBe("THE NEW YORK TIMES MAGAZINE")
 	})
 })

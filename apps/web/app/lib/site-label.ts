@@ -7,18 +7,17 @@ export function siteLabel(siteName: string | null, host: string): string {
 }
 
 /**
- * Who wrote an article and where, for a shared highlight: "Jane Doe · The Guardian", or the site
- * alone when the author is unknown or only repeats the site or the title.
+ * Who wrote an article, to credit beside its site in a shared highlight: null when unknown, or when
+ * it only repeats the site's name (as stored or as shown) or the title.
  */
-export function creditLabel(article: {
+export function creditAuthor(article: {
 	title: string | null
 	url: string
 	siteName: string | null
 	author?: string | null
-}): string {
-	const site = siteLabel(article.siteName, safeHost(article.url))
-	const author = articleAuthor({ ...article, siteName: site })
-	return author ? `${author} · ${site}` : site
+}): string | null {
+	const shown = siteLabel(article.siteName, safeHost(article.url))
+	return articleAuthor(article) && articleAuthor({ ...article, siteName: shown })
 }
 
 /**

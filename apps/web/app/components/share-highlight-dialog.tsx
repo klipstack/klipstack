@@ -5,10 +5,10 @@ import { type ReactNode, type RefObject, useEffect, useLayoutEffect, useRef, use
 import { Trans, useTranslation } from "react-i18next"
 import { Link, useFetcher } from "react-router"
 import { copyRich, copyText } from "~/lib/copy-link"
-import { creditLabel } from "~/lib/site-label"
 import type { WebResult } from "~/lib/web-result"
 import type { ShareState } from "~/services/highlight-shares.server"
 import { ClippingPaper } from "./clipping"
+import { CreditLine } from "./credit-line"
 import { NoteText } from "./note-text"
 import { PostIt, tiltFor } from "./post-it"
 import { ShareHighlightImage, useDrawnPictures } from "./share-highlight-image"
@@ -305,9 +305,10 @@ function SharePreview({
 			) : null}
 			<figcaption className={`border-t border-border pt-3 text-sm ${compact ? "mt-3" : "mt-5"}`}>
 				<span className="line-clamp-2 font-medium">{h.article.title ?? h.article.sourceUrl}</span>
-				<span className="block truncate text-xs text-muted-fg">
-					{creditLabel({ ...h.article, url: h.article.sourceUrl })}
-				</span>
+				<CreditLine
+					article={{ ...h.article, url: h.article.sourceUrl }}
+					className="text-xs text-muted-fg"
+				/>
 			</figcaption>
 		</figure>
 	)
