@@ -28,6 +28,8 @@ const SnapshotV1 = z.object({
 		title: z.string().nullable(),
 		url: z.string(),
 		siteName: z.string().nullable(),
+		/** Absent from links shared before authors were credited. */
+		author: z.string().nullable().optional(),
 	}),
 	linkUrls: z.record(z.string(), z.string()),
 	/** The sharer's language when they shared it: the page speaks it, whoever visits. */

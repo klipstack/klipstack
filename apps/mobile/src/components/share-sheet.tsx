@@ -38,7 +38,9 @@ import { type Colors, useColors } from "@/lib/theme"
 
 /** What the sheet shares: a highlight, and the article it is from. */
 type Shareable = Pick<Highlight, "id" | "quote" | "note"> & { article: ShareArticle }
-type ShareArticle = Pick<Highlight["article"], "title" | "site" | "url">
+type ShareArticle = Pick<Highlight["article"], "title" | "site" | "url"> & {
+	author?: string | null
+}
 
 /**
  * The Share sheet for a screen's highlights: `open` shows it for one, `sheet` goes in the screen.
@@ -129,7 +131,12 @@ function ShareSheet({
 			{
 				exact: h.quote,
 				note,
-				article: { title: h.article.title, url: h.article.url, siteName: h.article.site },
+				article: {
+					title: h.article.title,
+					url: h.article.url,
+					siteName: h.article.site,
+					author: h.article.author,
+				},
 				linkUrls: linkUrls ?? {},
 			},
 			withNote,

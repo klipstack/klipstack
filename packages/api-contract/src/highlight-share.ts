@@ -9,7 +9,7 @@ import { parse, type Segment } from "./note-links"
 export interface ShareableHighlight {
 	exact: string
 	note: string | null
-	article: { title: string | null; url: string; siteName: string | null }
+	article: { title: string | null; url: string; siteName: string | null; author?: string | null }
 	/**
 	 * The original address of each article the note links to, by id. A note's links point into the
 	 * reader's own library, where nobody else can follow them: they go to these instead, and one
@@ -30,11 +30,13 @@ export function highlightShareText(h: ShareableHighlight, withNote = true): Shar
 	const quote = paragraphs(h.exact)
 	const note = withNote && h.note ? noteParagraphs(h.note, h.linkUrls ?? {}) : []
 	const { name, site, href } = credit(h.article)
+	const by = articleAuthor(h.article)
+	const after = [by, site].filter(Boolean).join(", ")
 
 	const markdown = [
 		quote.map((p) => `> ${p}`).join("\n>\n"),
 		...note.map((p) => p.map((s) => (s.href ? markdownLink(s.text, s.href) : s.text)).join("")),
-		`— ${href ? markdownLink(name, href) : name}${site ? `, ${site}` : ""}`,
+		`— ${href ? markdownLink(name, href) : name}${after ? `, ${after}` : ""}`,
 	].join("\n\n")
 
 	const html = [
@@ -43,16 +45,31 @@ export function highlightShareText(h: ShareableHighlight, withNote = true): Shar
 			(p) =>
 				`<p>${p.map((s) => (s.href ? htmlLink(s.text, s.href) : escapeHtml(s.text))).join("")}</p>`,
 		),
-		`<p>— ${href ? htmlLink(name, href) : escapeHtml(name)}${site ? `, ${escapeHtml(site)}` : ""}</p>`,
+		`<p>— ${href ? htmlLink(name, href) : escapeHtml(name)}${after ? `, ${escapeHtml(after)}` : ""}</p>`,
 	].join("")
 
 	const plain = [
 		`“${quote.join("\n")}”`,
 		...note.map((p) => p.map((s) => (s.href ? `${s.text} (${s.href})` : s.text)).join("")),
-		`— ${name}${site ? `, ${site}` : ""}${href ? `\n${href}` : ""}`,
+		`— ${name}${after ? `, ${after}` : ""}${href ? `\n${href}` : ""}`,
 	].join("\n\n")
 
 	return { markdown, html, plain }
+}
+
+/**
+ * Who wrote the article, to credit beside its site: null when there is no author, or when the
+ * author only repeats the site's name or the title, as some sites' metadata does.
+ */
+export function articleAuthor(article: {
+	author?: string | null
+	siteName: string | null
+	title: string | null
+}): string | null {
+	const author = article.author?.replace(/\s+/g, " ").trim()
+	if (!author) return null
+	const same = (other: string | null) => other?.trim().toLowerCase() === author.toLowerCase()
+	return same(article.siteName) || same(article.title) ? null : author
 }
 
 /** Text as its paragraphs: one per line, spaces tidied, blank lines dropped. */

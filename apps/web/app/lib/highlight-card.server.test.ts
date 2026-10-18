@@ -40,4 +40,17 @@ describe("highlightCardSvg", () => {
 		expect(layout.noteLines.length).toBeGreaterThan(5)
 		expect(layout.bottom).toBeLessThanOrEqual(TALL_CONTENT_BOTTOM)
 	})
+
+	it("credits the author beside the site, unless the author only repeats it", () => {
+		const article = {
+			title: "T",
+			url: "https://www.oreilly.com/radar/x",
+			siteName: "O'Reilly Media",
+		}
+		const card = (author: string | null) =>
+			highlightCardFor({ exact: "Q", note: null, article: { ...article, author } }).site
+		expect(card("Markus Eisele")).toBe("Markus Eisele · O'Reilly Media")
+		expect(card("O'Reilly Media")).toBe("O'Reilly Media")
+		expect(card(null)).toBe("O'Reilly Media")
+	})
 })

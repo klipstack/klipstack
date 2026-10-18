@@ -31,6 +31,7 @@ async function article(uid: string, title: string) {
 			urlHash: `${uid}-${title}-${Math.random()}`,
 			title,
 			siteName: "Example",
+			author: "Ada Writer",
 			status: "ready",
 		})
 		.returning({ id: documents.id })
@@ -108,6 +109,7 @@ describe("shareHighlight", () => {
 				title: expect.stringMatching(/^piece-/),
 				url: expect.stringMatching(/^https:\/\/example\.com\/piece-/),
 				siteName: "Example",
+				author: "Ada Writer",
 			},
 			linkUrls: { [linked.id]: "https://example.com/linked" },
 			locale: "es",

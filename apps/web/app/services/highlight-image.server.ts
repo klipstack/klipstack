@@ -38,7 +38,12 @@ export async function drawHighlightImage(
 	const snapshot = {
 		exact: h.exact,
 		note: withNote && h.note?.trim() ? h.note.trim() : null,
-		article: { title: h.documentTitle, url: h.sourceUrl, siteName: h.siteName },
+		article: {
+			title: h.documentTitle,
+			url: h.sourceUrl,
+			siteName: h.siteName,
+			author: h.author,
+		},
 	}
 	// Drawn again only when what it shows changed.
 	const version = createHash("sha256").update(JSON.stringify(snapshot)).digest("base64url")

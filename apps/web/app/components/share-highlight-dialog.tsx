@@ -5,7 +5,7 @@ import { type ReactNode, type RefObject, useEffect, useLayoutEffect, useRef, use
 import { Trans, useTranslation } from "react-i18next"
 import { Link, useFetcher } from "react-router"
 import { copyRich, copyText } from "~/lib/copy-link"
-import { safeHost, siteLabel } from "~/lib/site-label"
+import { creditLabel } from "~/lib/site-label"
 import type { WebResult } from "~/lib/web-result"
 import type { ShareState } from "~/services/highlight-shares.server"
 import { ClippingPaper } from "./clipping"
@@ -19,7 +19,12 @@ export interface ShareHighlight {
 	/** The quote as the reader sees it: its line breaks are its paragraphs. */
 	exact: string
 	note: string | null
-	article: { title: string | null; sourceUrl: string; siteName: string | null }
+	article: {
+		title: string | null
+		sourceUrl: string
+		siteName: string | null
+		author: string | null
+	}
 	/** False for a highlight still being saved: it has no id to share at an address yet. */
 	canLink?: boolean
 }
@@ -86,7 +91,12 @@ export function ShareHighlightDialog({
 			{
 				exact: h.exact,
 				note,
-				article: { title: h.article.title, url: h.article.sourceUrl, siteName: h.article.siteName },
+				article: {
+					title: h.article.title,
+					url: h.article.sourceUrl,
+					siteName: h.article.siteName,
+					author: h.article.author,
+				},
 				linkUrls: linkUrls ?? {},
 			},
 			withNote,
@@ -296,7 +306,7 @@ function SharePreview({
 			<figcaption className={`border-t border-border pt-3 text-sm ${compact ? "mt-3" : "mt-5"}`}>
 				<span className="line-clamp-2 font-medium">{h.article.title ?? h.article.sourceUrl}</span>
 				<span className="block truncate text-xs text-muted-fg">
-					{siteLabel(h.article.siteName, safeHost(h.article.sourceUrl))}
+					{creditLabel({ ...h.article, url: h.article.sourceUrl })}
 				</span>
 			</figcaption>
 		</figure>

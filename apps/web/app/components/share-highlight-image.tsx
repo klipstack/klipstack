@@ -118,7 +118,10 @@ export function ShareHighlightImage({
 					))}
 				</div>
 			</div>
-			<div className="flex h-64 items-center justify-center rounded-lg bg-hover/60 p-2">
+			{/* Tall gets a taller frame, short screens permitting: the dialog grows to show it. */}
+			<div
+				className={`flex items-center justify-center rounded-lg bg-hover/60 p-2 ${shape === "tall" ? "h-[max(16rem,min(36rem,58dvh))]" : "h-64"}`}
+			>
 				{drawn.state === "ready" ? (
 					<img
 						src={drawn.url}

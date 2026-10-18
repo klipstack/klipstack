@@ -12,7 +12,7 @@ import {
 	width,
 	wrap,
 } from "./edition-card.server"
-import { safeHost, siteLabel } from "./site-label"
+import { creditLabel, safeHost } from "./site-label"
 
 /**
  * A shared highlight's picture for link previews (`og:image`): 1200×630, drawn as the page shows
@@ -25,6 +25,7 @@ export interface HighlightCard {
 	exact: string
 	/** Null leaves the post-it off and the clipping takes the room. */
 	note: string | null
+	/** Who wrote the article and where: "Jane Doe · Example Magazine". */
 	site: string
 	title: string
 }
@@ -264,13 +265,13 @@ export function canDrawHighlight(exact: string): boolean {
 export function highlightCardFor(snapshot: {
 	exact: string
 	note: string | null
-	article: { title: string | null; url: string; siteName: string | null }
+	article: { title: string | null; url: string; siteName: string | null; author?: string | null }
 }): HighlightCard {
 	const host = safeHost(snapshot.article.url)
 	return {
 		exact: snapshot.exact,
 		note: snapshot.note,
-		site: siteLabel(snapshot.article.siteName, host),
+		site: creditLabel(snapshot.article),
 		title: snapshot.article.title ?? host,
 	}
 }
