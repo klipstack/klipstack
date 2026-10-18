@@ -82,11 +82,106 @@ function quoteLines(text: string, max: number, height: number, sizes = [46, 40, 
 	throw new Error("unreachable")
 }
 
-/** The note as text: a link to an article reads as its title. */
+/** The note's lines as written: a link to an article reads as its title. */
+function writtenLines(note: string): string[] {
+	return parseNote(note).map((line) =>
+		line.map((s) => (s.kind === "text" ? s.text : s.title)).join(""),
+	)
+}
+
+/** The note as one run of text. */
 function plainNote(note: string): string {
-	return parseNote(note)
-		.map((line) => line.map((s) => (s.kind === "text" ? s.text : s.title)).join(""))
+	return writtenLines(note).join(" ")
+}
+
+/** A note's lines and where their baselines fall below the first one. */
+export interface NoteText {
+	lines: { text: string; y: number }[]
+	size: number
+	/** From the first line's top to the last line's baseline. */
+	height: number
+}
+
+/** A paragraph's words, one wider than a line (an address) broken into pieces that fit. */
+function breakWide(
+	font: ReturnType<typeof loadFonts>["text"],
+	text: string,
+	size: number,
+	max: number,
+): string {
+	return text
+		.split(" ")
+		.flatMap((word) => {
+			const pieces = [""]
+			for (const char of word) {
+				if (pieces.at(-1) && width(font, pieces.at(-1)! + char, size) > max) pieces.push("")
+				pieces[pieces.length - 1] += char
+			}
+			return pieces
+		})
 		.join(" ")
+}
+
+/** The note's lines at `size`, its line breaks kept and a blank line a half-line gap. */
+function noteLines(paragraphs: string[], size: number, max: number) {
+	const { text: font } = loadFonts()
+	const leading = Math.round(size * 1.33)
+	const lines: { text: string; y: number; paragraph: number }[] = []
+	let y = 0
+	let gap = false
+	paragraphs.forEach((paragraph, i) => {
+		if (!paragraph) {
+			gap = lines.length > 0
+			return
+		}
+		if (gap) y += Math.round(leading / 2)
+		gap = false
+		const shown = breakWide(font, paragraph, size, max)
+		for (const text of wrap(font, shown, size, max, Number.POSITIVE_INFINITY)) {
+			lines.push({ text, y, paragraph: i })
+			y += leading
+		}
+	})
+	return lines
+}
+
+/**
+ * The note at the first of `sizes` that shows it whole within `height`. Too long at the smallest,
+ * it ends with the last line that fits, cut after a word.
+ */
+function noteText(note: string, max: number, height: number, sizes: number[]): NoteText {
+	const { text: font } = loadFonts()
+	const paragraphs = writtenLines(note).map((line) => drawable(font, line))
+	const strip = (lines: ReturnType<typeof noteLines>) => lines.map(({ text, y }) => ({ text, y }))
+	for (const size of sizes) {
+		const lines = noteLines(paragraphs, size, max)
+		const total = (lines.at(-1)?.y ?? 0) + size
+		if (total <= height) return { lines: strip(lines), size, height: total }
+	}
+	const size = sizes.at(-1)!
+	const all = noteLines(paragraphs, size, max)
+	const kept = all.filter((line) => line.y + size <= height)
+	if (!kept.length) kept.push(all[0]!)
+	// The last line kept ends in "…", shortened when there is no room for it.
+	const last = kept.at(-1)!
+	const ended = `${last.text.replace(/[\s,.;:!?–—-]+$/, "")}…`
+	last.text =
+		width(font, ended, size) <= max
+			? ended
+			: wrap(font, `${last.text} ${all[kept.length]?.text ?? ""}`, size, max, 1)[0]!
+	return { lines: strip(kept), size, height: last.y + size }
+}
+
+/**
+ * The wide picture's post-it, beside the quote's lines: as tall as its note, from a square at the
+ * clipping's foot up to nearly the picture's top, smaller words before any are cut.
+ */
+export function wideNote(note: string) {
+	const NW = 360
+	const bottom = 560
+	const written = noteText(note, NW - 64, bottom - 34 - 36 - 46, [27, 24, 22])
+	const NH = Math.max(330, 36 + written.height + 46)
+	return { NW, NH, top: bottom - NH, note: written }
 }
 
 export function highlightCardSvg(card: HighlightCard): string {
@@ -124,17 +219,16 @@ export function highlightCardSvg(card: HighlightCard): string {
 	)
 
 	if (withNote && card.note) {
-		const paper = NOTE
-		const NW = 360
-		const NH = 330
-		const noteLines = wrap(text, drawable(text, plainNote(card.note)), 27, NW - 64, 7)
+		const { NW, NH, top, note: written } = wideNote(card.note)
 		const note = [
-			`<rect width="${NW}" height="${NH}" fill="${paper.paper}" filter="url(#shadow)"/>`,
+			`<rect width="${NW}" height="${NH}" fill="${NOTE.paper}" filter="url(#shadow)"/>`,
 			`<rect x="${NW / 2 - 55}" y="-14" width="110" height="30" fill="#FFFFFF" opacity="0.55"/>`,
-			...noteLines.map((line, i) => outline(text, line, 32, 64 + i * 36, 27, paper.ink)),
+			...written.lines.map((line) =>
+				outline(text, line.text, 32, 36 + written.size + line.y, written.size, NOTE.ink),
+			),
 		]
 		parts.push(
-			`<g transform="translate(790 230) rotate(2.5 ${NW / 2} ${NH / 2})">${note.join("")}</g>`,
+			`<g transform="translate(790 ${top}) rotate(2.5 ${NW / 2} ${NH / 2})">${note.join("")}</g>`,
 		)
 	}
 
@@ -174,13 +268,13 @@ export function tallLayout(card: HighlightCard) {
 	const pad = 72
 	const titleLines = wrap(text, drawable(text, card.title), 34, W - pad * 2, 2)
 	// The note hangs below the clipping, over its bottom margin only: the title stays readable.
-	const NW = 600
-	const noteLines =
-		withNote && card.note ? wrap(text, drawable(text, plainNote(card.note)), 40, NW - 96, 7) : []
-	const NH = Math.max(260, 110 + noteLines.length * 54)
+	// Up to about a dozen lines whole, smaller and wider before any are cut; the quote takes the rest.
+	const NW = 640
+	const note = withNote && card.note ? noteText(card.note, NW - 96, 660, [40, 36, 32]) : null
+	const NH = note ? Math.max(260, 56 + note.height + 60) : 0
 	const overlap = 36
-	const noteBelow = noteLines.length ? NH - overlap : 0
-	const top = 120
+	const noteBelow = note ? NH - overlap : 0
+	const top = 80
 	// The clipping is as tall as its words: the quote mark, the quote, then where it came from.
 	const below = 90 + 100 + titleLines.length * 46 + 30
 	const room = TALL_CONTENT_BOTTOM - top - noteBelow - 258 - below
@@ -209,7 +303,7 @@ export function tallLayout(card: HighlightCard) {
 		footTop,
 		H,
 		NW,
-		noteLines,
+		note,
 		NH,
 		overlap,
 		Y,
@@ -238,7 +332,7 @@ export function highlightCardTallSvg(card: HighlightCard): string {
 		footTop,
 		H,
 		NW,
-		noteLines,
+		note: written,
 		NH,
 		overlap,
 		Y,
@@ -261,11 +355,13 @@ export function highlightCardTallSvg(card: HighlightCard): string {
 		`<g transform="translate(${X} ${Y}) rotate(-1.2 ${W / 2} ${H / 2})">${clip.join("")}</g>`,
 	)
 
-	if (noteLines.length) {
+	if (written) {
 		const note = [
 			`<rect width="${NW}" height="${NH}" fill="${NOTE.paper}" filter="url(#shadow)"/>`,
 			`<rect x="${NW / 2 - 80}" y="-18" width="160" height="40" fill="#FFFFFF" opacity="0.55"/>`,
-			...noteLines.map((line, i) => outline(text, line, 48, 96 + i * 54, 40, NOTE.ink)),
+			...written.lines.map((line) =>
+				outline(text, line.text, 48, 56 + written.size + line.y, written.size, NOTE.ink),
+			),
 		]
 		parts.push(
 			`<g transform="translate(${TALL_WIDTH - NW - 70} ${Y + H - overlap}) rotate(2.5 ${NW / 2} ${NH / 2})">${note.join("")}</g>`,

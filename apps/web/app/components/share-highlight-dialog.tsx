@@ -265,8 +265,8 @@ function rememberTab(tab: ShareTab) {
 }
 
 /**
- * What goes out, as its page shows it: no marker, the note on yellow whatever its color. Compact
- * beside the link's controls, where the page shows it whole.
+ * What goes out, as its page shows it: no marker, the note on yellow whatever its color. Beside the
+ * link's controls, smaller and longer before it is cut: the page shows more than the pictures.
  */
 function SharePreview({
 	highlight: h,
@@ -287,7 +287,7 @@ function SharePreview({
 				“
 			</span>
 			<blockquote
-				className={`font-serif leading-normal text-fg ${compact ? "line-clamp-5 text-base" : "line-clamp-[10] text-lg"}`}
+				className={`font-serif leading-normal text-fg ${compact ? "line-clamp-[12] text-base" : "line-clamp-[10] text-lg"}`}
 			>
 				<span className="whitespace-pre-line">{h.exact.trim()}</span>
 			</blockquote>
@@ -298,7 +298,8 @@ function SharePreview({
 					tilt={tiltFor(h.id)}
 					className={`-mr-2 ml-auto leading-snug ${compact ? "mt-3 text-sm" : "mt-5 text-base"}`}
 				>
-					<span className={compact ? "line-clamp-6" : "line-clamp-[8]"}>
+					{/* A note of a few paragraphs whole, as the page and the pictures show it. */}
+					<span className={compact ? "line-clamp-[24]" : "line-clamp-[16]"}>
 						<NoteText text={note} plainLinks />
 					</span>
 				</PostIt>
