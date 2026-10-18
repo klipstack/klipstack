@@ -328,7 +328,6 @@ export default {
 		/** The date stamp an archived card gets as it goes: one short word, in capitals. */
 		archiveStamp: "Archived",
 		untitled: "Untitled",
-		unread: "Unread",
 		markUnread: "Mark as unread",
 		finish: "Mark as finished",
 		original: "Open original",

@@ -139,9 +139,6 @@ export function DocumentCard({
 		optimisticIntent === "purge" ||
 		(!keepsArchived && archived !== Boolean(doc.archivedAt))
 	const trashed = Boolean(doc.deletedAt)
-	const unread =
-		optimisticIntent === "unread" ||
-		(optimisticIntent !== "finish" && !doc.firstOpenedAt && !trashed && !failed)
 	// "Delete forever" asks for a second tap within a few seconds instead of a dialog.
 	const [armed, setArmed] = useState(false)
 	const [tagging, setTagging] = useState(false)
@@ -431,14 +428,6 @@ export function DocumentCard({
 					data-testid="card-clip"
 					onAnimationEnd={() => onEntered?.(doc.id)}
 					className="card-clip pointer-events-none absolute top-1 left-18 z-20 size-9 text-accent drop-shadow-sm max-sm:top-0 max-sm:left-3 layout-grid:-top-2 layout-grid:right-6 layout-grid:left-auto"
-				/>
-			) : null}
-			{unread ? (
-				<span
-					data-testid="unread-dot"
-					role="img"
-					aria-label={t("card.unread")}
-					className="absolute top-2.5 left-1.5 size-3 rounded-full bg-accent ring-2 ring-bg layout-grid:top-0.5 layout-grid:left-0.5"
 				/>
 			) : null}
 			<div className="relative hidden shrink-0 sm:block layout-grid:block">
