@@ -418,7 +418,7 @@ describe("Home's daily highlights in the API", () => {
 	it("brings back old highlights for the device's day; dismiss and restore them", async () => {
 		const me = await users.create("Daily")
 		const other = await users.create("Other daily")
-		const doc = await article(me.id, "Old", { siteName: "Site" })
+		const doc = await article(me.id, "Old", { siteName: "Site", author: "Ada Writer" })
 		const old = await highlight(doc, "old passage", ago(30), { note: "a note", color: 2 })
 		await highlight(doc, "too fresh", ago(1))
 
@@ -432,7 +432,13 @@ describe("Home's daily highlights in the API", () => {
 					quote: "old passage",
 					note: "a note",
 					color: "blue",
-					article: { id: doc.id, title: "Old", site: "Site", url: doc.sourceUrl },
+					article: {
+						id: doc.id,
+						title: "Old",
+						site: "Site",
+						author: "Ada Writer",
+						url: doc.sourceUrl,
+					},
 				},
 			],
 			linkTargets: {},

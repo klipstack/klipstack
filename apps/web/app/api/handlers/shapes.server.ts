@@ -5,8 +5,16 @@ import type { Document } from "@klipstack/db"
 
 export type HighlightArticle = Highlight["article"]
 
-export function articleRef(doc: Pick<Document, "id" | "title" | "siteName" | "sourceUrl">) {
-	return { id: doc.id, title: doc.title, site: doc.siteName, url: doc.sourceUrl }
+export function articleRef(
+	doc: Pick<Document, "id" | "title" | "siteName" | "author" | "sourceUrl">,
+) {
+	return {
+		id: doc.id,
+		title: doc.title,
+		site: doc.siteName,
+		author: doc.author,
+		url: doc.sourceUrl,
+	}
 }
 
 export function highlightShape(

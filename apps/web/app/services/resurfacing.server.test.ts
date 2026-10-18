@@ -192,6 +192,7 @@ describe("dailyHighlights", () => {
 				color: 2,
 				documentTitle: "Kept",
 				siteName: "example.com",
+				author: null,
 				sourceUrl: expect.any(String),
 			},
 		])

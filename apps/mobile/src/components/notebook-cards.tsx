@@ -43,7 +43,7 @@ export type QuoteHighlight = Pick<Highlight, "id" | "quote" | "note" | "color" |
 
 /** What a highlight's card shows of its article: Home's highlights come without a cover. */
 export type QuoteArticle = Pick<NotebookArticle, "id" | "title" | "site" | "url"> &
-	Partial<Pick<NotebookArticle, "leadImage">>
+	Partial<Pick<NotebookArticle, "leadImage" | "author">>
 
 /** Highlights an article's section shows before "Show all", as on the web. */
 const COLLAPSED = 6

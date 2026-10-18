@@ -235,6 +235,7 @@ export const editHighlight: Handler<typeof updateHighlight> = async ({ userId, p
 				id: current.documentId,
 				title: current.documentTitle,
 				site: current.siteName,
+				author: current.author,
 				url: current.sourceUrl,
 			},
 		),
@@ -264,6 +265,7 @@ export const moveHighlight: Handler<typeof resizeHighlight> = async ({ userId, p
 				id: current.documentId,
 				title: current.documentTitle,
 				site: current.siteName,
+				author: current.author,
 				url: current.sourceUrl,
 			},
 		),
@@ -284,6 +286,7 @@ export const bringBackOne: Handler<typeof restoreHighlight> = async ({ userId, p
 			id: current.documentId,
 			title: current.documentTitle,
 			site: current.siteName,
+			author: current.author,
 			url: current.sourceUrl,
 		}),
 	}

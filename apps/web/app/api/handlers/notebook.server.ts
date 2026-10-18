@@ -66,6 +66,7 @@ const ref = (a: NotebookArticleFields) => ({
 	id: a.documentId,
 	title: a.documentTitle,
 	site: a.siteName,
+	author: a.author,
 	url: a.sourceUrl,
 })
 
@@ -195,7 +196,13 @@ export const daily: Handler<typeof listDailyHighlights> = async ({ userId, query
 			quote: h.exact,
 			note: h.note,
 			color: HIGHLIGHT_COLORS[h.color] ?? "yellow",
-			article: { id: h.documentId, title: h.documentTitle, site: h.siteName, url: h.sourceUrl },
+			article: {
+				id: h.documentId,
+				title: h.documentTitle,
+				site: h.siteName,
+				author: h.author,
+				url: h.sourceUrl,
+			},
 		})),
 		linkTargets,
 	}
@@ -213,7 +220,13 @@ export const reminders: Handler<typeof listNoteReminders> = async ({ userId }) =
 	const { items, total, suggested } = await noteReminders(userId)
 	return {
 		items: items.map((item) => ({
-			article: { id: item.id, title: item.title, site: item.siteName, url: item.sourceUrl },
+			article: {
+				id: item.id,
+				title: item.title,
+				site: item.siteName,
+				author: item.author,
+				url: item.sourceUrl,
+			},
 			finishedAt: item.finishedAt.toISOString(),
 			listened: item.listened,
 			highlights: item.highlights.map((h) => ({

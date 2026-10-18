@@ -1597,11 +1597,7 @@ export default function Reader() {
 					setEditing(null)
 				}}
 				onShare={() => {
-					if (editingHighlight)
-						shares.open(editingHighlight, {
-							...editingHighlight.article,
-							author: article?.author ?? null,
-						})
+					if (editingHighlight) shares.open(editingHighlight, editingHighlight.article)
 					setEditing(null)
 				}}
 				onDelete={() => editingHighlight && deleteHighlight(editingHighlight)}
