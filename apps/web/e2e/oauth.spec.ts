@@ -8,7 +8,11 @@ import {
 	pkce,
 	signupUser,
 	waitForHydration,
+	ownClientAddress,
 } from "./helpers"
+
+// The OAuth token endpoint's limit is per address: see ownClientAddress.
+test.use(ownClientAddress)
 
 async function signup(page: Page) {
 	return signupUser(page, "OAuth Person")

@@ -320,7 +320,9 @@ test("editions are off until the reader turns them on in Settings, and off again
 	await expect(editionsSwitch).not.toBeChecked()
 	if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/features.png` })
 	await Promise.all([
-		page.waitForResponse((r) => r.url().includes("/prefs") && r.ok()),
+		page.waitForResponse(
+			(r) => r.url().includes("/prefs") && r.request().method() === "POST" && r.ok(),
+		),
 		editionsSwitch.check(),
 	])
 	await page.goto("/home")
@@ -344,7 +346,9 @@ test("editions are off until the reader turns them on in Settings, and off again
 	await page.goto("/settings/features")
 	await waitForHydration(page)
 	await Promise.all([
-		page.waitForResponse((r) => r.url().includes("/prefs") && r.ok()),
+		page.waitForResponse(
+			(r) => r.url().includes("/prefs") && r.request().method() === "POST" && r.ok(),
+		),
 		page.getByRole("checkbox", { name: "Make editions" }).uncheck(),
 	])
 	await expect.poll(async () => (await page.request.get("/editions")).status()).toBe(404)

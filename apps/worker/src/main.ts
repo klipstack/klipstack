@@ -28,7 +28,10 @@ async function main() {
 	const boss = await getBoss()
 	log.info("worker started")
 
-	await boss.work(QUEUES.extract, WORK_OPTIONS, async ([job]: Batch<"extract">) => {
+	// pg-boss waits a polling interval (2 s by default) after every job, even with more waiting:
+	// a reader who saved ten links would wait 20 s for the last. Half a second is its minimum.
+	const extractOptions = { ...WORK_OPTIONS, pollingIntervalSeconds: 0.5 }
+	await boss.work(QUEUES.extract, extractOptions, async ([job]: Batch<"extract">) => {
 		if (job) await handleExtract(job)
 	})
 	await boss.work(QUEUES.images, WORK_OPTIONS, async ([job]: Batch<"images">) => {

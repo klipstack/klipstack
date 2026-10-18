@@ -19,7 +19,11 @@ import {
 	pkce,
 	signupUser,
 	waitForHydration,
+	ownClientAddress,
 } from "./helpers"
+
+// The OAuth token endpoint's limit is per address: see ownClientAddress.
+test.use(ownClientAddress)
 
 const MISSING = "00000000-0000-4000-8000-000000000000"
 

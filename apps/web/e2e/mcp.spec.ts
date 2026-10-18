@@ -8,8 +8,12 @@ import {
 	pkce,
 	signupUser,
 	waitForHydration,
+	ownClientAddress,
 } from "./helpers"
 import { insertArticle } from "./seed"
+
+// The OAuth token endpoint's limit is per address: see ownClientAddress.
+test.use(ownClientAddress)
 
 /**
  * MCP where it needs a real server: discovery through /.well-known, and OAuth tokens (a browser
