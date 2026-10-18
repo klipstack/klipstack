@@ -337,13 +337,15 @@ export async function caretToEnd(page: Page) {
  * tests of a run, all from 127.0.0.1: better-auth's on /oauth2/token allows 20 calls and starts
  * over only after a minute without any.
  */
+/** Per run: the sign-up limit (`auth_limits`) is in the database and outlives the run. */
+const RUN = randomBytes(8).toString("hex")
 export const ownClientAddress = {
 	extraHTTPHeaders: async (
 		{ extraHTTPHeaders }: { extraHTTPHeaders?: Record<string, string> },
 		provide: (headers: Record<string, string>) => Promise<void>,
 		testInfo: TestInfo,
 	) => {
-		const id = `${testInfo.testId}:${testInfo.retry}:${testInfo.repeatEachIndex}`
+		const id = `${RUN}:${testInfo.testId}:${testInfo.retry}:${testInfo.repeatEachIndex}`
 		const [a, b, c] = createHash("sha256").update(id).digest()
 		await provide({ ...extraHTTPHeaders, "X-Forwarded-For": `10.${a}.${b}.${c}` })
 	},

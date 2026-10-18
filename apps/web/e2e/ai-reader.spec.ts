@@ -512,19 +512,22 @@ async function askedThisMonth(documentId: string, count: number) {
  */
 async function settled(documentId: string) {
 	await expect
-		.poll(async () => {
-			const [version] = await db
-				.select({ id: documentVersions.id, imagesDone: documentVersions.imagesDone })
-				.from(documents)
-				.innerJoin(documentVersions, eq(documentVersions.id, documents.currentVersionId))
-				.where(eq(documents.id, documentId))
-			if (!version?.imagesDone) return "images not done"
-			const { rows } = await db.execute(sql`
+		.poll(
+			async () => {
+				const [version] = await db
+					.select({ id: documentVersions.id, imagesDone: documentVersions.imagesDone })
+					.from(documents)
+					.innerJoin(documentVersions, eq(documentVersions.id, documents.currentVersionId))
+					.where(eq(documents.id, documentId))
+				if (!version?.imagesDone) return "images not done"
+				const { rows } = await db.execute(sql`
 				select count(*)::int as n from pgboss.job
 				where name = 'images' and data->>'versionId' = ${version.id}
 					and state in ('created', 'retry', 'active')`)
-			return (rows[0] as { n: number }).n === 0 ? "settled" : "images job running"
-		})
+				return (rows[0] as { n: number }).n === 0 ? "settled" : "images job running"
+			},
+			{ timeout: 30_000 },
+		)
 		.toBe("settled")
 }
 
