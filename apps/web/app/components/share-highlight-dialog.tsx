@@ -298,7 +298,8 @@ function SharePreview({
 					tilt={tiltFor(h.id)}
 					className={`-mr-2 ml-auto leading-snug ${compact ? "mt-3 text-sm" : "mt-5 text-base"}`}
 				>
-					<span className={compact ? "line-clamp-6" : "line-clamp-[8]"}>
+					{/* A note of a few paragraphs whole, as the page and the pictures show it. */}
+					<span className="line-clamp-[16]">
 						<NoteText text={note} plainLinks />
 					</span>
 				</PostIt>
