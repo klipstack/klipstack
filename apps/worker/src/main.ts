@@ -1,4 +1,5 @@
 import { loadEnv, pool } from "@klipstack/db"
+import { welcomeFrom } from "@klipstack/email"
 import { getBoss, type JobPayloads, QUEUES, stopBoss } from "@klipstack/queue"
 import { getStorage } from "@klipstack/storage"
 import type { JobWithMetadata } from "pg-boss"
@@ -12,6 +13,7 @@ import { handlePurge } from "./jobs/purge"
 import { handleReportDigest } from "./jobs/report-digest"
 import { handleSweep } from "./jobs/sweep"
 import { handleTopics, handleTopicsMonth } from "./jobs/topics"
+import { handleWelcomeEmail } from "./jobs/welcome-email"
 import { log } from "./log"
 
 loadEnv()
@@ -22,9 +24,10 @@ const WORK_OPTIONS = { batchSize: 1, includeMetadata: true } as const
 type Batch<Q extends keyof JobPayloads> = JobWithMetadata<JobPayloads[Q]>[]
 
 async function main() {
-	// A wrong setting stops the worker now, not at the first image job. The database URL and the
-	// pool size are checked when `@klipstack/db` loads.
+	// A wrong setting stops the worker now, not at the first image job or welcome email. The
+	// database URL and the pool size are checked when `@klipstack/db` loads.
 	getStorage()
+	const welcome = welcomeFrom(process.env)
 	const boss = await getBoss()
 	log.info("worker started")
 
@@ -67,6 +70,10 @@ async function main() {
 	await boss.work(QUEUES.topicsMonth, WORK_OPTIONS, async () => {
 		log.info("topics: the month's runs", await handleTopicsMonth())
 	})
+	await boss.work(QUEUES.welcomeEmail, WORK_OPTIONS, async () => {
+		const welcomed = await handleWelcomeEmail({ from: welcome })
+		if (welcomed.sent + welcomed.failed > 0) log.info("welcome emails", welcomed)
+	})
 	// Trash retention: once a day, 04:10 UTC. `schedule` upserts, so restarts are harmless.
 	await boss.schedule(QUEUES.purge, "10 4 * * *", {}, { tz: "UTC" })
 	// Feeds: every 5 minutes, queue the ones that are due (each feed keeps its own schedule).
@@ -77,6 +84,8 @@ async function main() {
 	await boss.schedule(QUEUES.inviteDigest, "0 8 * * *", {}, { tz: "UTC" })
 	// New reports on public editions, to the admins: every hour, at a quarter past.
 	await boss.schedule(QUEUES.reportDigest, "15 * * * *", {}, { tz: "UTC" })
+	// Welcome emails, to new accounts whose address is verified: every minute.
+	await boss.schedule(QUEUES.welcomeEmail, "* * * * *", {}, { tz: "UTC" })
 	// Topics' month: on the 1st, 00:05 UTC, runs for readers whose sorts waited for it.
 	await boss.schedule(QUEUES.topicsMonth, "5 0 1 * *", {}, { tz: "UTC" })
 

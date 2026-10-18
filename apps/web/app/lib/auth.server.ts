@@ -54,7 +54,7 @@ import { authDb } from "./auth-db.server"
 import { checkAuthLimit } from "./auth-limits.server"
 import { consentReference, credentialClaims, revokeCredentials } from "./credential-policy.server"
 import { EmailError, renderEmail, sendEmail, sendEmailInBackground } from "./email.server"
-import { env, invitesRequired, oauth } from "./env.server"
+import { env, invitesRequired, oauth, welcomeFrom } from "./env.server"
 import { findUsableInvite } from "./invites.server"
 import {
 	currentProviderCallback,
@@ -238,7 +238,15 @@ export const auth = betterAuth({
 					const fromProvider = ctx?.path?.startsWith("/callback/")
 					const headers = ctx?.headers ?? ctx?.request?.headers
 					const locale = fromProvider && headers ? localeFromHeaders(headers) : null
-					const extra = locale ? { data: { locale } } : undefined
+					// While the welcome is on, the new account has its note and email to come.
+					// (No one gives an account its prefs at sign-up: they start here.)
+					const welcome = welcomeFrom
+						? { prefs: { welcomeCardDue: true, welcomeEmailDue: true } }
+						: {}
+					const extra =
+						locale || welcomeFrom
+							? { data: { ...(locale ? { locale } : {}), ...welcome } }
+							: undefined
 					if (!invitesRequired || signupAllowed()) return extra
 					if (fromProvider && (await providerInviteLocked(data.email))) return extra
 					throw new APIError("FORBIDDEN", {

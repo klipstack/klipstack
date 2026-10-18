@@ -1,3 +1,4 @@
+import type { UserPrefs } from "@klipstack/db"
 import { fallbackLanguage, isLocale, type Locale } from "@klipstack/i18n/languages"
 import { ChevronDown, CircleAlert, Clock3 } from "lucide-react"
 import { type ReactNode, useEffect, useMemo } from "react"
@@ -22,9 +23,11 @@ import { MenuNavLink, MoreMenu } from "~/components/more-menu"
 import { openSaveLink } from "~/components/save-link-dialog"
 import { StarterOffer } from "~/components/starter-texts"
 import { Button, buttonVariants } from "~/components/ui/button"
+import { type Welcome, WelcomeNote } from "~/components/welcome-note"
 import { useFeedReader } from "~/hooks/use-feed-reader"
 import { topicModels } from "~/lib/ai.server"
 import { knownTimeZone } from "~/lib/date-groups"
+import { welcomeFrom } from "~/lib/env.server"
 import { hasFeature } from "~/lib/features.server"
 import { editionEar, mastheadDate, partOfDay } from "~/lib/home-masthead"
 import { fitsIn, homeShelves } from "~/lib/home-shelves"
@@ -113,8 +116,16 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 			part: knownZone ? partOfDay(now, knownZone) : null,
 			edition: nudge ? editionEar(nudge) : null,
 		},
+		welcome: welcomeFor(user),
 		title: `${t("home.title")} · Klipstack`,
 	}
+}
+
+/** The welcome note, while a new account has it to come and the welcome is on. */
+function welcomeFor(user: { name: string; prefs?: UserPrefs | null }): Welcome | null {
+	if (!welcomeFrom || !resolvePrefs(user.prefs).welcomeCardDue) return null
+	const firstName = user.name.trim().split(/\s+/)[0] ?? ""
+	return { ...welcomeFrom, firstName }
 }
 
 /** The starter texts Home offers when it has nothing to feature: nothing saved, or all of it read. */
@@ -225,6 +236,7 @@ export default function ReadingHome({
 		highlights,
 		notes,
 		masthead,
+		welcome,
 	},
 }: Route.ComponentProps) {
 	const { t } = useTranslation(["library", "feed"])
@@ -268,6 +280,7 @@ export default function ReadingHome({
 				{timeChoice ? <TimeChoice minutes={minutes} topic={pick} /> : null}
 				{topics ? <TopicChoice topics={topics} minutes={minutes} pick={pick} /> : null}
 			</HomeMasthead>
+			{welcome ? <WelcomeNote welcome={welcome} /> : null}
 			{topicsReady ? <TopicsCard /> : null}
 			{/* With a time chosen, the reader came to read. */}
 			{invitation && !timed ? <TopicsInvitation count={invitation.count} /> : null}

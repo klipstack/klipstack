@@ -194,6 +194,16 @@ export default {
 		starred: "Destacados",
 		trash: "Papelera",
 	},
+	welcome: {
+		from: "Una bienvenida de {{name}}",
+		greeting: "¡Hola, {{firstName}}! Gracias por unirte. Tu biblioteca está lista.",
+		greetingNoName: "¡Hola! Gracias por unirte. Tu biblioteca está lista.",
+		body: "Klipstack es un lugar tranquilo para lo que lees. Guarda un artículo desde cualquier sitio, lee aquí una copia limpia y conserva tus subrayados y notas junto al texto.",
+		help: "Si algo no funciona o echas algo en falta, escríbeme a <email/>. Solo estoy yo, y leo todos los mensajes.",
+		thanks: "Gracias de nuevo, y te doy la bienvenida.",
+		guide: "Enséñame cómo funciona",
+		explore: "Prefiero explorar por mi cuenta",
+	},
 	starter: {
 		title: "Algo para leer",
 		description:

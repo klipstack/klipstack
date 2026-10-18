@@ -60,7 +60,7 @@ export function ReaderPrefs({
 				<div className="flex gap-1 rounded-lg bg-muted p-1">
 					{values.map((v) => (
 						<button
-							key={v}
+							key={String(v)}
 							type="button"
 							onClick={() => set(key, v)}
 							aria-pressed={prefs[key] === v}

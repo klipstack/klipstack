@@ -194,6 +194,13 @@ export default {
 				"Change your library: save articles, archive, star and rename them, edit notes and highlights, and move articles to the trash",
 		},
 	},
+	welcomeEmail: {
+		subject: "Welcome to Klipstack",
+		heading: "Welcome to Klipstack, {{firstName}}",
+		headingNoName: "Welcome to Klipstack",
+		body: "Thanks for joining. Klipstack is a quiet place for what you read: save an article, read a clean copy of it, and keep your highlights and notes beside the text.\n\nYou can save from more places than this website: a button in your bookmarks bar for any page, or your AI assistant, which can also find what you highlighted. The button below shows each of them.\n\nIf something does not work, or you miss something, reply to this email. It comes to me, and I read every one.\n\n{{name}}",
+		cta: "See the ways to save",
+	},
 	validation: {
 		emailInvalid: "Enter a valid email address.",
 		required: "This field is required.",

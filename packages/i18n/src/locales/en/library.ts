@@ -193,6 +193,16 @@ export default {
 		starred: "Starred",
 		trash: "Trash",
 	},
+	welcome: {
+		from: "A welcome from {{name}}",
+		greeting: "Hi {{firstName}}! Thanks for joining. Your library is ready.",
+		greetingNoName: "Hi! Thanks for joining. Your library is ready.",
+		body: "Klipstack is a quiet place for what you read. Save an article from anywhere, read a clean copy of it here, and keep your highlights and notes beside the text.",
+		help: "If something does not work, or you miss something, write to me at <email/>. It is just me, and I read every message.",
+		thanks: "Thanks again, and welcome,",
+		guide: "Show me around",
+		explore: "I'll look around myself",
+	},
 	starter: {
 		title: "Something to read",
 		description:

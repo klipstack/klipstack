@@ -195,6 +195,13 @@ export default {
 				"Cambiar tu biblioteca: guardar artículos, archivarlos, marcarlos con estrella y renombrarlos, editar notas y destacados, y mover artículos a la papelera",
 		},
 	},
+	welcomeEmail: {
+		subject: "Te damos la bienvenida a Klipstack",
+		heading: "Te damos la bienvenida a Klipstack, {{firstName}}",
+		headingNoName: "Te damos la bienvenida a Klipstack",
+		body: "Gracias por unirte. Klipstack es un lugar tranquilo para lo que lees: guarda un artículo, lee una copia limpia y conserva tus subrayados y notas junto al texto.\n\nPuedes guardar desde más sitios que esta web: un botón en tu barra de marcadores para cualquier página, o tu asistente de IA, que además encuentra lo que subrayaste. El botón de abajo te enseña cada uno.\n\nSi algo no funciona o echas algo en falta, responde a este correo. Me llega a mí y los leo todos.\n\n{{name}}",
+		cta: "Ver las formas de guardar",
+	},
 	validation: {
 		emailInvalid: "Introduce un correo válido.",
 		required: "Este campo es obligatorio.",

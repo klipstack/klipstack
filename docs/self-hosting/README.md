@@ -116,6 +116,12 @@ login still works, but email links, password resets and email verification do no
 account can become an admin, create API keys or connect apps, so without email you need Google or
 GitHub sign-in ([sign-in-providers.md](sign-in-providers.md)): they verify the address themselves.
 
+A welcome for new accounts is off unless you turn it on. With `WELCOME_FROM_NAME` and
+`WELCOME_FROM_EMAIL` set in `.env`, each account created from then on
+sees a short note signed by that person on its first visit to Home, and gets one welcome email once
+its address is verified. Replies to the email go to `WELCOME_FROM_EMAIL`. `WELCOME_FROM_PHOTO`, an
+`https://` address or a path such as `/welcome.jpg`, adds a photo to the note.
+
 ### Image storage
 
 | Variable | What it is |

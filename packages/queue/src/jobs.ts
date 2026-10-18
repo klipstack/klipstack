@@ -16,6 +16,7 @@ export const QUEUES = {
 	reportDigest: "report-digest",
 	topics: "topics",
 	topicsMonth: "topics-month",
+	welcomeEmail: "welcome-email",
 } as const
 
 export type QueueName = (typeof QUEUES)[keyof typeof QUEUES]
@@ -43,6 +44,8 @@ export interface JobPayloads {
 	topics: { userId: string }
 	/** Scheduled on the 1st: a `topics` run for every reader with topics on, as the sorts start again. */
 	"topics-month": Record<string, never>
+	/** Scheduled every minute: the welcome email, to new accounts whose address is now verified. */
+	"welcome-email": Record<string, never>
 }
 
 export const QUEUE_OPTIONS: Record<
@@ -80,4 +83,6 @@ export const QUEUE_OPTIONS: Record<
 	},
 	// A retry queues the runs again: a reader's run already waiting takes the place of its twin.
 	"topics-month": { retryLimit: 2, retryDelay: 300, retryBackoff: false, expireInSeconds: 600 },
+	// No retries: the next minute's run sends what is still due.
+	"welcome-email": { retryLimit: 0, retryDelay: 60, retryBackoff: false, expireInSeconds: 120 },
 }

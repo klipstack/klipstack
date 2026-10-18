@@ -1,4 +1,5 @@
 import { loadEnv } from "@klipstack/db"
+import { welcomeFrom as readWelcomeFrom } from "@klipstack/email"
 import { z } from "zod"
 
 loadEnv()
@@ -140,6 +141,12 @@ export const oauth = {
 			? { clientId: env.GITHUB_CLIENT_ID, clientSecret: env.GITHUB_CLIENT_SECRET }
 			: null,
 }
+
+/**
+ * Who signs the welcome note and email for new accounts, or null: no welcome. A malformed setting
+ * stops the server here.
+ */
+export const welcomeFrom = readWelcomeFrom(process.env)
 
 /** Short form of the deployed commit, as shown in Settings. */
 export const appVersion = /^[0-9a-f]{40}$/.test(env.APP_VERSION)
