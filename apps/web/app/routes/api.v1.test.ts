@@ -388,6 +388,8 @@ describe("reads", () => {
 			// Highlights: filters, search, one article's, pages.
 			const hls = await client.highlights.list()
 			expect(hls.items).toEqual([details.highlights[0]])
+			// The author is sent even when unknown: an app tells "none" from an older server's absence.
+			expect(hls.items[0]?.article).toHaveProperty("author", details.author)
 			expect((await client.highlights.list({ filter: "notes" })).items).toHaveLength(1)
 			expect((await client.highlights.list({ filter: "green" })).items).toHaveLength(1)
 			expect((await client.highlights.list({ filter: "pink" })).items).toEqual([])

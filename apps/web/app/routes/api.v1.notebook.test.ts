@@ -475,7 +475,11 @@ describe("Home's question about notes in the API", () => {
 	it("asks about an article listened to the end; Nothing to add, its undo, and Not now", async () => {
 		const me = await users.create("Reminders")
 		const other = await users.create("Other reminders")
-		const doc = await article(me.id, "Heard", { siteName: "Site", firstOpenedAt: ago(1) })
+		const doc = await article(me.id, "Heard", {
+			siteName: "Site",
+			author: "Ada Writer",
+			firstOpenedAt: ago(1),
+		})
 		await highlight(doc, "a passage", ago(0), { color: 1 })
 		expect(await me.client.noteReminders.list()).toEqual({ items: [], total: 0, suggested: false })
 
@@ -487,7 +491,13 @@ describe("Home's question about notes in the API", () => {
 		expect(asked).toMatchObject({
 			items: [
 				{
-					article: { id: doc.id, title: "Heard", site: "Site", url: doc.sourceUrl },
+					article: {
+						id: doc.id,
+						title: "Heard",
+						site: "Site",
+						author: "Ada Writer",
+						url: doc.sourceUrl,
+					},
 					listened: true,
 					highlights: [{ quote: "a passage", color: "green" }],
 				},
