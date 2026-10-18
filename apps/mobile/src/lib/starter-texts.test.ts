@@ -1,6 +1,6 @@
 import { KlipstackApiError, type StarterText } from "@klipstack/sdk"
 import { describe, expect, it, vi } from "vitest"
-import { starterLabel, starterRefusal } from "./starter-texts"
+import { keptShelves, type StarterShelves, starterLabel, starterRefusal } from "./starter-texts"
 
 // The offline store is not under test: no files.
 vi.mock("expo-file-system", () => ({}))
@@ -43,5 +43,18 @@ describe("starterRefusal", () => {
 		expect(starterRefusal(capped)).toBe(
 			"You have saved 500 articles this month, the most an account can.",
 		)
+	})
+})
+
+describe("keptShelves", () => {
+	const shelves = (language: "en" | "es", readerLanguage: "en" | "es") =>
+		({ language, readerLanguage, guide: text, guideFirst: true, shelves: [] }) as StarterShelves
+	// A Spanish reader who also looked at the English texts: both are kept.
+	const kept = { en: shelves("en", "es"), es: shelves("es", "es") }
+
+	it("shows the language asked for, or else the reader's own", () => {
+		expect(keptShelves("en", (l) => kept[l])).toBe(kept.en)
+		expect(keptShelves(null, (l) => kept[l])).toBe(kept.es)
+		expect(keptShelves(null, (l) => (l === "en" ? kept.en : null))).toBeNull()
 	})
 })

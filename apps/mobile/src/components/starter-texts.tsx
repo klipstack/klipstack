@@ -12,6 +12,7 @@ import {
 	View,
 	type ViewStyle,
 } from "react-native"
+import { waitForExtraction } from "@/lib/extraction"
 import { canUseOffline, keepStarter, keptStarter } from "@/lib/offline"
 import {
 	STARTER_DESCRIPTION,
@@ -38,13 +39,23 @@ export function useAddStarter(client: KlipstackClient | null) {
 	const busy = useRef(false)
 	const open = useCallback(
 		async (item: StarterText) => {
-			if (item.articleId)
+			// One tap at a time: a second, quick one would open the reader twice.
+			if (busy.current) return
+			if (item.articleId) {
+				busy.current = true
+				setTimeout(() => (busy.current = false), 800)
 				return router.push({ pathname: "/read/[id]", params: { id: item.articleId } })
-			if (!client || busy.current) return
+			}
+			if (!client) return
 			busy.current = true
 			setAdding(item.slug)
 			try {
 				const { articleId } = await client.starterTexts.save(item.slug)
+				// A new copy is read in a second or two (one from its site, longer): the reader opens once
+				// it is, not on "still saving". Past 20 seconds it opens all the same.
+				const { status } = await client.articles.get(articleId)
+				if (status === "queued" || status === "processing")
+					await waitForExtraction(client, articleId)
 				router.push({ pathname: "/read/[id]", params: { id: articleId } })
 			} catch (e) {
 				Alert.alert("Not added", starterRefusal(e))
@@ -60,7 +71,6 @@ export function useAddStarter(client: KlipstackClient | null) {
 
 export function StarterShelf({
 	items,
-	readerLanguage,
 	wide = false,
 	inset = 16,
 	style,
@@ -72,8 +82,6 @@ export function StarterShelf({
 	/** Room before the first book and after the last, as the page's margin: the shelf runs edge to edge. */
 	inset?: number
 	style?: StyleProp<ViewStyle>
-	/** A book in another language is read out in its own. */
-	readerLanguage: string
 	/** A screen of its own: bigger books, each with a line about it. */
 	wide?: boolean
 	adding: string | null
@@ -92,7 +100,6 @@ export function StarterShelf({
 					<StarterBook
 						key={item.slug}
 						item={item}
-						foreign={item.language !== readerLanguage}
 						wide={wide}
 						adding={adding === item.slug}
 						disabled={adding !== null}
@@ -107,7 +114,6 @@ export function StarterShelf({
 
 function StarterBook({
 	item,
-	foreign,
 	wide,
 	adding,
 	disabled,
@@ -115,7 +121,6 @@ function StarterBook({
 	colors,
 }: {
 	item: StarterText
-	foreign: boolean
 	wide: boolean
 	adding: boolean
 	disabled: boolean
@@ -129,7 +134,6 @@ function StarterBook({
 		<Pressable
 			accessibilityRole="button"
 			accessibilityLabel={starterLabel(item)}
-			accessibilityLanguage={foreign ? item.language : undefined}
 			accessibilityState={{ busy: adding, disabled }}
 			disabled={disabled}
 			onPress={onPress}
@@ -269,8 +273,8 @@ export function StarterGuide({
 
 /**
  * What Home offers when it has nothing to read, as the web's: the guide while the reader is new,
- * a few texts from different topics, and the way to the rest (Discover). Loaded on each return to
- * Home, kept for offline; nothing while there is nothing to offer.
+ * a few texts from different topics, and the way to the rest (Discover), which stays when there is
+ * nothing left to offer. Loaded on each return to Home, kept for offline.
  */
 export function StarterOffer({
 	client,
@@ -298,13 +302,16 @@ export function StarterOffer({
 				})
 		}, [client]),
 	)
-	if (!offer || (!offer.guide && !offer.texts.length)) return null
-	const language = offer.guide?.language ?? offer.texts[0]!.language
+	if (!offer) return null
+	// All of them read: still the way to the rest.
+	const offering = Boolean(offer.guide || offer.texts.length)
 	return (
 		<View style={styles.offer}>
-			<Text accessibilityRole="header" style={[styles.offerTitle, { color: colors.fg }]}>
-				Or start with one of these
-			</Text>
+			{offering ? (
+				<Text accessibilityRole="header" style={[styles.offerTitle, { color: colors.fg }]}>
+					Or start with one of these
+				</Text>
+			) : null}
 			{offer.guide ? (
 				<StarterGuide item={offer.guide} adding={adding} onOpen={open} colors={colors} />
 			) : null}
@@ -315,7 +322,6 @@ export function StarterOffer({
 						items={offer.texts}
 						inset={margin}
 						style={{ marginHorizontal: -margin }}
-						readerLanguage={language}
 						adding={adding}
 						onOpen={open}
 						colors={colors}

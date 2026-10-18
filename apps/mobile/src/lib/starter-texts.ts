@@ -58,6 +58,22 @@ export function starterBook(
 	return { color: bookColor((h % 12) * 30, scheme), taller: h % 14 }
 }
 
+/**
+ * The shelves to show offline, from those kept per language (`kept`): the language asked for, or,
+ * with none asked, the ones kept in the reader's own language.
+ */
+export function keptShelves(
+	asked: StarterLanguage | null,
+	kept: (language: StarterLanguage) => StarterShelves | null,
+): StarterShelves | null {
+	if (asked) return kept(asked)
+	return (
+		(["en", "es"] as const)
+			.map(kept)
+			.find((shelves) => shelves && shelves.language === shelves.readerLanguage) ?? null
+	)
+}
+
 /** What VoiceOver says a book does when tapped. */
 export function starterLabel(item: StarterText): string {
 	if (item.articleId) return `Open ${item.title}`

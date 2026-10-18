@@ -110,6 +110,17 @@ describe("offline lists and articles", () => {
 		expect(offline.loadArticle("a")).toEqual({ details: details("a"), stored: page(), savedAt: 42 })
 	})
 
+	it("keeps the starter texts last shown, until sign-out", () => {
+		expect(offline.keptStarter("starter-es")).toBeNull()
+		offline.keepStarter("starter-es", { language: "es", shelves: [] })
+		offline.keepStarter("starter-offer", { guide: null, texts: [] })
+		expect(offline.keptStarter("starter-es")).toEqual({ language: "es", shelves: [] })
+		expect(offline.keptStarter("starter-en")).toBeNull()
+		offline.forgetLists()
+		expect(offline.keptStarter("starter-es")).toBeNull()
+		expect(offline.keptStarter("starter-offer")).toBeNull()
+	})
+
 	it("answers from the phone only when the server didn't say no", () => {
 		expect(offline.canUseOffline(new TypeError("Network request failed"))).toBe(true)
 		expect(offline.canUseOffline(new KlipstackApiError(503, "unavailable", "down"))).toBe(true)

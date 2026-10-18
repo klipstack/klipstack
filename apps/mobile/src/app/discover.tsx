@@ -8,6 +8,7 @@ import { StarterGuide, StarterShelf, useAddStarter } from "@/components/starter-
 import { useAuth } from "@/lib/auth"
 import { canUseOffline, keepStarter, keptStarter, OFFLINE_NOTE } from "@/lib/offline"
 import {
+	keptShelves,
 	LANGUAGE_NAMES,
 	STARTER_DESCRIPTION,
 	type StarterShelves,
@@ -48,12 +49,7 @@ export default function Discover() {
 			} catch (e) {
 				if (mine !== latest.current) return
 				if (canUseOffline(e)) {
-					// None asked: the shelves kept in the reader's own language.
-					const kept = language
-						? keptStarter<StarterShelves>(`starter-${language}`)
-						: LANGUAGES.map((l) => keptStarter<StarterShelves>(`starter-${l}`)).find(
-								(k) => k && k.language === k.readerLanguage,
-							)
+					const kept = keptShelves(language, (l) => keptStarter<StarterShelves>(`starter-${l}`))
 					if (kept) setAnswer(kept)
 					return setError(OFFLINE_NOTE)
 				}
@@ -69,7 +65,8 @@ export default function Discover() {
 		}, [load, asked]),
 	)
 
-	const shown = answer?.language ?? asked
+	// The one chosen, ticked at once; the server's answer follows.
+	const shown = asked ?? answer?.language ?? null
 	return (
 		<Paper>
 			<Stack.Screen
@@ -118,14 +115,7 @@ export default function Discover() {
 										</Text>
 									) : null}
 								</View>
-								<StarterShelf
-									items={items}
-									readerLanguage={answer.readerLanguage}
-									wide
-									adding={adding}
-									onOpen={open}
-									colors={colors}
-								/>
+								<StarterShelf items={items} wide adding={adding} onOpen={open} colors={colors} />
 							</View>
 						))}
 						{answer.guideFirst ? null : (
