@@ -31,7 +31,7 @@ function StaticNote({ value, placeholder, linkTargets, className }: NoteEditorPr
 			{value ? (
 				<NoteText text={value} linkTargets={linkTargets} />
 			) : (
-				<span className="text-[color:var(--note-placeholder,var(--k-muted-fg))]">
+				<span className="whitespace-pre-line text-[color:var(--note-placeholder,var(--k-muted-fg))]">
 					{placeholder}
 				</span>
 			)}

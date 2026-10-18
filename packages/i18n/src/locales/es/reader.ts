@@ -73,7 +73,8 @@ export default {
 		keptUnfinished: "Se queda sin terminar.",
 		finishOnLeave: "Terminar al salir",
 		finish: "Marcar como terminado",
-		notePlaceholder: "¿Qué te llevas de esto?",
+		notePlaceholder:
+			"Una línea o dos para tu yo futuro:\n· ¿Qué se te quedó?\n· ¿Con qué no estás de acuerdo?\n· ¿Qué le contarías a un amigo?",
 		star: "Destacar",
 		starred: "Destacado",
 		shortlist: "Añadir a la próxima edición",

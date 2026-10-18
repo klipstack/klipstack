@@ -393,6 +393,9 @@ export default function NoteEditor({
 					"whitespace-pre-wrap break-words outline-none",
 					// Placeholder, shown on the first line while the note is empty.
 					"[&_p.is-editor-empty:first-child]:before:pointer-events-none [&_p.is-editor-empty:first-child]:before:float-left [&_p.is-editor-empty:first-child]:before:h-0 [&_p.is-editor-empty:first-child]:before:text-[color:var(--note-placeholder,var(--k-muted-fg))] [&_p.is-editor-empty:first-child]:before:content-[attr(data-placeholder)]",
+					// The placeholder floats at no height so the caret stays on its first line; an unseen
+					// copy, raised a line, keeps the room a placeholder of several lines takes.
+					"[&_p.is-editor-empty:first-child]:after:invisible [&_p.is-editor-empty:first-child]:after:-mt-[1lh] [&_p.is-editor-empty:first-child]:after:block [&_p.is-editor-empty:first-child]:after:content-[attr(data-placeholder)]",
 					className,
 				),
 			},

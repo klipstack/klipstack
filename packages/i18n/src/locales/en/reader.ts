@@ -73,8 +73,9 @@ export default {
 		keptUnfinished: "It stays unfinished.",
 		finishOnLeave: "Finish when I leave",
 		finish: "Mark as finished",
-		/** On the private note's post-it, while it is empty. */
-		notePlaceholder: "What will you take from this?",
+		/** On the private note's post-it, while it is empty: an invitation, then a few questions, one a line. */
+		notePlaceholder:
+			"A line or two for later you:\n· What stayed with you?\n· What do you disagree with?\n· What would you tell a friend about it?",
 		star: "Star",
 		starred: "Starred",
 		shortlist: "Add to next edition",
