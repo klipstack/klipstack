@@ -80,11 +80,11 @@ export function GettingStarted({
 				data-testid="getting-started"
 				aria-label={label}
 				{...tooltip(label, undefined, "right")}
-				className="relative mx-auto mt-auto flex size-9 items-center justify-center rounded-lg border border-dashed border-accent/50 text-accent hover:bg-accent/10"
+				className="relative mx-auto my-3 flex size-9 items-center justify-center rounded-lg border border-dashed border-accent/50 text-accent hover:bg-accent/10"
 			>
 				<ListChecks className="size-4" aria-hidden />
 				<span className="absolute -top-1.5 -right-1.5 rounded-full bg-accent px-1 text-[10px] leading-4 font-medium text-accent-fg tabular-nums">
-					{done}/{total}
+					{t("gettingStarted.badge", { done, total })}
 				</span>
 			</button>
 		)
@@ -107,7 +107,7 @@ export function GettingStarted({
 
 	if (allSet)
 		return (
-			<section data-testid="getting-started" className="mt-auto pt-4" aria-live="polite">
+			<section data-testid="getting-started" className="pt-4 pb-3" aria-live="polite">
 				<div className="rounded-lg border border-dashed border-accent/50 bg-accent/5 p-2.5 text-sm">
 					<div className="flex items-center gap-2">
 						<Check className="size-4 text-accent" aria-hidden />
@@ -122,21 +122,18 @@ export function GettingStarted({
 	const labelId = "getting-started-title"
 	const row = (key: (typeof offered)[number][0], isDone: boolean, children: ReactNode) => (
 		<li key={key} className="flex items-start gap-2 py-1">
+			{/* The box says the step's state to a screen reader, as its own word: no text is joined. */}
 			<span
-				aria-hidden
+				role="img"
+				aria-label={isDone ? t("gettingStarted.done") : t("gettingStarted.toDo")}
 				className={cn(
 					"mt-0.5 flex size-3.5 shrink-0 items-center justify-center rounded-[4px]",
 					isDone ? "bg-accent text-accent-fg" : "ring-1 ring-muted-fg ring-inset",
 				)}
 			>
-				{isDone ? <Check className="size-2.5" strokeWidth={3} /> : null}
+				{isDone ? <Check aria-hidden className="size-2.5" strokeWidth={3} /> : null}
 			</span>
-			<span className={cn("min-w-0", isDone && "text-muted-fg line-through")}>
-				<span className="sr-only">
-					{isDone ? t("gettingStarted.done") : t("gettingStarted.toDo")}
-				</span>
-				{children}
-			</span>
+			<span className={cn("min-w-0", isDone && "text-muted-fg line-through")}>{children}</span>
 		</li>
 	)
 	// An open step leads where it is done; the extension's store is a link out, so it looks like one.
@@ -147,7 +144,7 @@ export function GettingStarted({
 			? t("gettingStarted.steps.featureNoTopics")
 			: t(`gettingStarted.steps.${key}`)
 	return (
-		<section data-testid="getting-started" aria-labelledby={labelId} className="mt-auto pt-4">
+		<section data-testid="getting-started" aria-labelledby={labelId} className="pt-4 pb-3">
 			<div className="rounded-lg border border-dashed border-accent/50 bg-accent/5 p-2.5 text-sm">
 				<div className="flex items-center gap-2">
 					<ListChecks className="size-4 text-accent" aria-hidden />

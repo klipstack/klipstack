@@ -221,8 +221,10 @@ test("a new account's Getting started card ticks a step as it is done, and goes 
 	await waitForHydration(page)
 	await expect(card).toContainText("1 of 3")
 	await expect(card.getByRole("link", { name: /^Turn on/ })).toHaveCount(0)
-	// Done: struck through, and named so for screen readers.
-	await expect(card.getByText(/^Done: Turn on .*feeds or editions$/)).toBeVisible()
+	// Done: struck through, its box named so for screen readers.
+	const doneStep = card.getByRole("listitem").filter({ hasText: /Turn on .*feeds or editions/ })
+	await expect(doneStep.getByRole("img", { name: "Done" })).toBeVisible()
+	await expect(card.getByRole("img", { name: "To do" })).toHaveCount(2)
 
 	await card.getByRole("button", { name: "Hide this" }).click()
 	await expect(page.getByTestId("getting-started")).toHaveCount(0)

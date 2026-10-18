@@ -311,13 +311,14 @@ function SidebarContent({
 						</ul>
 					</section>
 				)}
-				<GettingStarted
-					card={gettingStarted}
-					collapsed={collapsed}
-					onExpand={onToggle}
-					onNavigate={onNavigate}
-				/>
 			</nav>
+			{/* Below the list, not in it: steps to do, not places to go. */}
+			<GettingStarted
+				card={gettingStarted}
+				collapsed={collapsed}
+				onExpand={onToggle}
+				onNavigate={onNavigate}
+			/>
 			<div className="mt-auto flex flex-col gap-1 border-t border-border pt-3">
 				{/* Below the divider: the keyboard is the way in, this is how people find it. */}
 				<CommandPaletteButton onOpen={onNavigate} collapsed={collapsed} />

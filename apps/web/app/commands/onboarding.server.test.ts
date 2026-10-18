@@ -1,5 +1,5 @@
 import { db, documents, eq, user as userTable } from "@klipstack/db"
-import { afterAll, describe, expect, it } from "vitest"
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest"
 import { rateLimit, SAVE_LIMIT } from "~/lib/rate-limit.server"
 import { starterGuide } from "~/lib/starter-texts.server"
 import { setPrefs } from "./account.server"
@@ -25,6 +25,16 @@ const prefsOf = async (id: string) =>
 		.prefs
 const savedBy = (id: string) => db.select().from(documents).where(eq(documents.userId, id))
 
+const ISO = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/
+/** Each call is a day later than the last: a time overwritten shows. */
+let day = 0
+const tomorrow = () => {
+	vi.useFakeTimers({ toFake: ["Date"] })
+	vi.setSystemTime(new Date(Date.UTC(2026, 0, ++day)))
+	return new Date().toISOString()
+}
+afterEach(() => vi.useRealTimers())
+
 afterAll(async () => {
 	for (const id of users) await db.delete(userTable).where(eq(userTable.id, id))
 })
@@ -35,19 +45,35 @@ describe("closeWelcome", () => {
 		expect(await closeWelcome(id, { guide: false, locale: "en" })).toEqual({ articleId: null })
 		const { onboarding } = await prefsOf(id)
 		expect(onboarding?.email).toBe("due")
-		expect(onboarding?.note).toMatch(/^\d{4}-\d\d-\d\dT/)
+		expect(onboarding?.note).toMatch(ISO)
 		expect(await savedBy(id)).toHaveLength(0)
+	})
+
+	it("keeps when it was first closed, and closes nothing for an account it was never shown", async () => {
+		const id = await newcomer()
+		const first = tomorrow()
+		await closeWelcome(id, { guide: false, locale: "en" })
+		tomorrow()
+		await closeWelcome(id, { guide: true, locale: "en" })
+		expect((await prefsOf(id)).onboarding?.note).toBe(first)
+
+		const older = `${stamp}-older`
+		users.push(older)
+		await db.insert(userTable).values({ id: older, name: "Older", email: `${older}@example.com` })
+		await closeWelcome(older, { guide: false, locale: "en" })
+		expect((await prefsOf(older)).onboarding).toBeUndefined()
 	})
 
 	it("opens the guide in the reader's language, once, however often it is asked", async () => {
 		const id = await newcomer()
+		const closed = tomorrow()
 		const first = await closeWelcome(id, { guide: true, locale: "es" })
 		const again = await closeWelcome(id, { guide: true, locale: "es" })
 		expect(first.articleId).toBeTruthy()
 		expect(again.articleId).toBe(first.articleId)
 		const saved = await savedBy(id)
 		expect(saved.map((doc) => doc.sourceUrl)).toEqual([starterGuide("es").url])
-		expect((await prefsOf(id)).onboarding?.note).not.toBe("due")
+		expect((await prefsOf(id)).onboarding?.note).toBe(closed)
 	})
 
 	it("opens the English guide for a language it is not written in", async () => {
@@ -70,10 +96,9 @@ describe("closeWelcome", () => {
 describe("endGettingStarted", () => {
 	it("ends the card for good, keeping when it first ended, and the rest", async () => {
 		const id = await newcomer()
+		const ended = tomorrow()
 		await endGettingStarted(id)
-		const ended = (await prefsOf(id)).onboarding?.cardEndedAt
-		expect(ended).toMatch(/^\d{4}-\d\d-\d\dT/)
-		await new Promise((resolve) => setTimeout(resolve, 5))
+		tomorrow()
 		await endGettingStarted(id)
 		expect((await prefsOf(id)).onboarding).toEqual({
 			note: "due",
@@ -92,9 +117,9 @@ describe("onboarding", () => {
 
 	it("records the first time a feature is turned on, and keeps it when turned off", async () => {
 		const id = await newcomer()
+		const first = tomorrow()
 		await setPrefs(id, { feeds: "on" })
-		const first = (await prefsOf(id)).onboarding?.featureOnAt
-		expect(first).toMatch(/^\d{4}-\d\d-\d\dT/)
+		tomorrow()
 		await setPrefs(id, { feeds: "off" })
 		await setPrefs(id, { editions: "on" })
 		expect((await prefsOf(id)).onboarding).toEqual({

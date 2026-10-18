@@ -136,6 +136,24 @@ describe("Getting started", () => {
 		expect((await steps())!.feature).toBe(true)
 	})
 
+	it("keeps the first time a feature was turned on when topics are turned on later", async () => {
+		vi.useFakeTimers({ toFake: ["Date"] })
+		try {
+			vi.setSystemTime(new Date("2026-01-01T00:00:00Z"))
+			await setPrefs(userId, { feeds: "on" })
+			vi.setSystemTime(new Date("2026-02-01T00:00:00Z"))
+			await db.insert(userFeatures).values({ userId, feature: "topics" })
+			await enableTopics(userId)
+		} finally {
+			vi.useRealTimers()
+		}
+		const [row] = await db
+			.select({ prefs: userTable.prefs })
+			.from(userTable)
+			.where(sql`${userTable.id} = ${userId}`)
+		expect(row!.prefs.onboarding?.featureOnAt).toBe("2026-01-01T00:00:00.000Z")
+	})
+
 	it("is over once ended, for this account only", async () => {
 		await endGettingStarted(userId)
 		expect(await steps()).toBeNull()

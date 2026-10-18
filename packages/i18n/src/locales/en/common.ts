@@ -355,15 +355,18 @@ export default {
 		menu: "Menu",
 		add: "Add",
 	},
-	// The sidebar's way to Settings → Features, for a new account with every feature off.
+	// The sidebar's Getting started card: a new account's first steps, each ticked when done.
 	gettingStarted: {
 		title: "Getting started",
 		progress: "{{done}} of {{total}}",
 		// The collapsed sidebar's icon: its tooltip and name.
 		rail: "Getting started: {{done}} of {{total}} done",
 		dismiss: "Hide this",
-		done: "Done: ",
-		toDo: "To do: ",
+		// A step's box, to a screen reader.
+		done: "Done",
+		toDo: "To do",
+		// The collapsed sidebar's count, on its icon.
+		badge: "{{done}}/{{total}}",
 		steps: {
 			save: "Save your first article",
 			extension: "Save an article with the <store>browser extension</store>",

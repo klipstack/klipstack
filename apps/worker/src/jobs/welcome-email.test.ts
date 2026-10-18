@@ -107,7 +107,7 @@ describe("handleWelcomeEmail", () => {
 			failed: 0,
 		})
 		expect(tries).toBe(1)
-		expect((await prefsOf(reader.id)).onboarding?.email).not.toBe("due")
+		expect((await prefsOf(reader.id)).onboarding?.email).toMatch(/^\d{4}-\d\d-\d\dT/)
 	})
 
 	it("points klipstack.com's readers to the extension in the Chrome Web Store", async () => {
