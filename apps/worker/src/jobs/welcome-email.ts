@@ -1,5 +1,5 @@
 import { and, db, eq, inArray, sql, user } from "@klipstack/db"
-import { type Email, emailT, renderEmail, type WelcomeFrom, welcomeFrom } from "@klipstack/email"
+import { type Email, emailT, renderEmail, type WelcomeFrom } from "@klipstack/email"
 import { log } from "../log"
 import { appUrl, defaultSend } from "../mail"
 
@@ -15,14 +15,15 @@ const BATCH = 20
  */
 export async function handleWelcomeEmail({
 	send = defaultSend,
-	from = welcomeFrom(process.env),
+	from,
 	only,
 }: {
 	send?: (email: Email) => Promise<void>
-	from?: WelcomeFrom | null
+	/** The signer, read when the worker starts (`welcomeFrom`); null: no welcome. */
+	from: WelcomeFrom | null
 	/** Only these accounts, when given: tests pass their own, never anyone else's. */
 	only?: string[]
-} = {}): Promise<{ sent: number; failed: number }> {
+}): Promise<{ sent: number; failed: number }> {
 	if (!from) return { sent: 0, failed: 0 }
 	const due = db
 		.select({ id: user.id })

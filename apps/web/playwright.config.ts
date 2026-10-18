@@ -57,6 +57,9 @@ export default defineConfig({
 			GITHUB_CLIENT_SECRET: "e2e-secret",
 			// Shows Contact support. Nothing loads from SuppyHQ before its click; support.spec.ts stubs it.
 			SUPPYHQ_TENANT: "e2e",
+			// No welcome note over Home for the accounts the tests sign up, whatever the local \`.env\` says.
+			WELCOME_FROM_NAME: "",
+			WELCOME_FROM_EMAIL: "",
 			// AI answers come from a fixed fake model: no provider is called.
 			AI_FAKE: "1",
 			// The caps ai-reader.spec.ts, admin.spec.ts and topics-usage.spec.ts count against, whatever

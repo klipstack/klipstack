@@ -1,4 +1,5 @@
 import { loadEnv, pool } from "@klipstack/db"
+import { welcomeFrom } from "@klipstack/email"
 import { getBoss, type JobPayloads, QUEUES, stopBoss } from "@klipstack/queue"
 import { getStorage } from "@klipstack/storage"
 import type { JobWithMetadata } from "pg-boss"
@@ -23,9 +24,10 @@ const WORK_OPTIONS = { batchSize: 1, includeMetadata: true } as const
 type Batch<Q extends keyof JobPayloads> = JobWithMetadata<JobPayloads[Q]>[]
 
 async function main() {
-	// A wrong setting stops the worker now, not at the first image job. The database URL and the
-	// pool size are checked when `@klipstack/db` loads.
+	// A wrong setting stops the worker now, not at the first image job or welcome email. The
+	// database URL and the pool size are checked when `@klipstack/db` loads.
 	getStorage()
+	const welcome = welcomeFrom(process.env)
 	const boss = await getBoss()
 	log.info("worker started")
 
@@ -69,7 +71,7 @@ async function main() {
 		log.info("topics: the month's runs", await handleTopicsMonth())
 	})
 	await boss.work(QUEUES.welcomeEmail, WORK_OPTIONS, async () => {
-		const welcomed = await handleWelcomeEmail()
+		const welcomed = await handleWelcomeEmail({ from: welcome })
 		if (welcomed.sent + welcomed.failed > 0) log.info("welcome emails", welcomed)
 	})
 	// Trash retention: once a day, 04:10 UTC. `schedule` upserts, so restarts are harmless.

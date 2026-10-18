@@ -17,6 +17,12 @@ import { afterAll, describe, expect, it, vi } from "vitest"
 import { createApiKey, hashApiKey, userForApiKey } from "~/services/api-keys.server"
 import { env } from "./env.server"
 
+// The welcome off, whatever the local `.env` says (auth.welcome.server.test.ts has it on).
+vi.hoisted(() => {
+	process.env.WELCOME_FROM_NAME = ""
+	process.env.WELCOME_FROM_EMAIL = ""
+})
+
 // Capture console-transport emails instead of printing them.
 const logs: string[] = []
 vi.spyOn(console, "log").mockImplementation((...args: unknown[]) => {
@@ -107,6 +113,9 @@ describe("auth", () => {
 		)
 		expect(signup.response.user.email).toBe(email)
 		expect(signup.response.user.locale).toBe("es")
+		// With the welcome off, no note or email waits for the new account.
+		const [row] = await db.select().from(userTable).where(eq(userTable.id, signup.response.user.id))
+		expect(row!.prefs).toEqual({})
 		await expect(createApiKey(signup.response.user.id, "Unverified")).rejects.toMatchObject({
 			code: "verification_required",
 		})

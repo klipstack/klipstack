@@ -1,9 +1,7 @@
-import { fallbackLanguage } from "@klipstack/i18n/languages"
 import { redirect } from "react-router"
 import { closeWelcome } from "~/commands/welcome.server"
 import { readForm } from "~/lib/request-body.server"
 import { requireUser } from "~/lib/session.server"
-import { isStarterLanguage } from "~/lib/starter-shelves"
 import { answer } from "~/lib/web-action.server"
 import type { Route } from "./+types/welcome"
 
@@ -14,8 +12,7 @@ import type { Route } from "./+types/welcome"
 export async function action({ context, request }: Route.ActionArgs) {
 	const user = requireUser(context, request)
 	const guide = (await readForm(request)).get("intent") === "guide"
-	const language = isStarterLanguage(user.locale) ? user.locale : fallbackLanguage
-	const result = await answer(() => closeWelcome(user.id, { guide, language }))
+	const result = await answer(() => closeWelcome(user.id, { guide, locale: user.locale }))
 	if ("ok" in result && result.articleId) throw redirect(`/read/${result.articleId}`)
 	return result
 }

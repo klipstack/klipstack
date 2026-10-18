@@ -89,10 +89,20 @@ describe("handleWelcomeEmail", () => {
 
 	it("sends at most once, even when the send fails", async () => {
 		const reader = await account({ verified: true, prefs: { welcomeEmailDue: true } })
+		let tries = 0
 		const failing = async () => {
+			tries++
 			throw new Error("Resend is down")
 		}
-		await handleWelcomeEmail({ send: failing, from, only: [reader.id] })
+		expect(await handleWelcomeEmail({ send: failing, from, only: [reader.id] })).toEqual({
+			sent: 0,
+			failed: 1,
+		})
+		expect(await handleWelcomeEmail({ send: failing, from, only: [reader.id] })).toEqual({
+			sent: 0,
+			failed: 0,
+		})
+		expect(tries).toBe(1)
 		expect(await prefsOf(reader.id)).toMatchObject({ welcomeEmailDue: false })
 	})
 })

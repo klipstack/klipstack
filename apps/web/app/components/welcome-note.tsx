@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react"
 import { Trans, useTranslation } from "react-i18next"
 import { useFetcher } from "react-router"
 import { buttonVariants } from "~/components/ui/button"
-import { cn } from "~/lib/utils"
 
 export interface Welcome {
 	/** Who signs it (`WELCOME_FROM_*`). */
@@ -44,7 +43,7 @@ export function WelcomeNote({ welcome }: { welcome: Welcome }) {
 			ref={dialogRef}
 			data-testid="welcome-note"
 			aria-labelledby="welcome-from"
-			className="m-auto w-[min(32rem,92vw)] overflow-hidden rounded-2xl border border-border bg-card p-0 text-fg shadow-2xl backdrop:bg-black/40"
+			className="m-auto max-h-[calc(100dvh-2rem)] w-[min(32rem,92vw)] overflow-hidden rounded-2xl border border-border bg-card p-0 text-fg shadow-2xl backdrop:bg-black/40 open:flex open:flex-col"
 			onClose={close}
 			onClick={(e) => {
 				if (e.target === dialogRef.current) dialogRef.current?.close()
@@ -54,7 +53,8 @@ export function WelcomeNote({ welcome }: { welcome: Welcome }) {
 				e.stopPropagation()
 			}}
 		>
-			<div className="flex flex-col gap-4 px-6 pt-8 pb-6 sm:px-8">
+			{/* The note scrolls on a short screen; its buttons stay in view. */}
+			<div className="flex min-h-0 flex-col gap-4 overflow-y-auto px-6 pt-8 pb-6 sm:px-8">
 				<div className="flex flex-col items-center gap-3 text-center">
 					{welcome.photo ? (
 						<img
@@ -104,7 +104,7 @@ export function WelcomeNote({ welcome }: { welcome: Welcome }) {
 			<fetcher.Form
 				method="post"
 				action="/welcome"
-				className="flex flex-col gap-2 border-t border-border bg-muted/40 px-6 py-4 sm:flex-row-reverse sm:px-8"
+				className="flex shrink-0 flex-col gap-2 border-t border-border bg-muted/40 px-6 py-4 sm:px-8"
 				onSubmit={(e) => {
 					const submitter = (e.nativeEvent as SubmitEvent).submitter
 					setChoice(submitter?.getAttribute("value") === "guide" ? "guide" : "explore")
@@ -117,7 +117,7 @@ export function WelcomeNote({ welcome }: { welcome: Welcome }) {
 					// The modal focuses its first control otherwise: the address, mid-text.
 					autoFocus
 					disabled={choice !== null}
-					className={cn(buttonVariants({ size: "lg" }), "sm:flex-1")}
+					className={buttonVariants({ size: "lg" })}
 				>
 					{t("welcome.guide")}
 				</button>
@@ -126,7 +126,7 @@ export function WelcomeNote({ welcome }: { welcome: Welcome }) {
 					name="intent"
 					value="explore"
 					disabled={choice !== null}
-					className={cn(buttonVariants({ variant: "ghost", size: "lg" }), "sm:flex-1")}
+					className={buttonVariants({ variant: "ghost", size: "lg" })}
 				>
 					{t("welcome.explore")}
 				</button>
