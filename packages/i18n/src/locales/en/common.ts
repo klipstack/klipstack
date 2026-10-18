@@ -355,8 +355,9 @@ export default {
 		menu: "Menu",
 		add: "Add",
 	},
-	// The sidebar's Getting started card: a new account's first steps, each ticked when done.
+	// Home's and the Inbox's empty screens, for a new account that never saved with the extension.
 	extensionHint: "Save any page in one click with the <store>browser extension</store>.",
+	// The sidebar's Getting started card: a new account's first steps, each ticked when done.
 	gettingStarted: {
 		title: "Getting started",
 		progress: "{{done}} of {{total}}",
