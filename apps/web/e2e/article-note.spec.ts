@@ -105,8 +105,12 @@ test("the end of the article asks for the note, the sidebar's, and can start the
 	await expect(atEnd).toHaveText("")
 	await expect(endNote.locator("[data-placeholder]")).toHaveAttribute(
 		"data-placeholder",
-		"What will you take from this?",
+		"A line or two for later you:\n· What stayed with you?\n· What do you disagree with?\n· What would you tell a friend about it?",
 	)
+	// Every line of the placeholder shows: the empty note is as tall as its questions.
+	const empty = endNote.getByTestId("note-editor")
+	expect(await empty.evaluate((el) => el.scrollHeight <= el.clientHeight)).toBe(true)
+	expect((await empty.boundingBox())!.height).toBeGreaterThan(80)
 	const below = await end.getByRole("button", { name: "Star", exact: true }).boundingBox()
 	expect((await endNote.boundingBox())!.y).toBeLessThan(below!.y)
 
