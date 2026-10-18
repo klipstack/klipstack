@@ -355,6 +355,11 @@ test("a shared note's links lead to the linked articles' originals", async ({ pa
 	await expect
 		.poll(() => page.evaluate(() => navigator.clipboard.readText()))
 		.toBe(`Like [${JOEL.title}](${joelUrl}) says.`)
+	const noteHtml = await page.evaluate(async () => {
+		const [item] = await navigator.clipboard.read()
+		return item ? (await item.getType("text/html")).text() : ""
+	})
+	expect(noteHtml).toContain(`<p>Like <a href="${joelUrl}">${JOEL.title}</a> says.</p>`)
 	await card.getByRole("button", { name: "Copy highlight" }).click()
 	await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(MAKERS.quote)
 })
