@@ -35,16 +35,13 @@ export function highlightShareText(h: ShareableHighlight, withNote = true): Shar
 
 	const markdown = [
 		quote.map((p) => `> ${p}`).join("\n>\n"),
-		...note.map((p) => p.map((s) => (s.href ? markdownLink(s.text, s.href) : s.text)).join("")),
+		...note.map(markdownRuns),
 		`— ${href ? markdownLink(name, href) : name}${after ? `, ${escapeLinkText(after)}` : ""}`,
 	].join("\n\n")
 
 	const html = [
 		`<blockquote>${quote.map((p) => `<p>${escapeHtml(p)}</p>`).join("")}</blockquote>`,
-		...note.map(
-			(p) =>
-				`<p>${p.map((s) => (s.href ? htmlLink(s.text, s.href) : escapeHtml(s.text))).join("")}</p>`,
-		),
+		...note.map(htmlParagraph),
 		`<p>— ${href ? htmlLink(name, href) : escapeHtml(name)}${after ? `, ${escapeHtml(after)}` : ""}</p>`,
 	].join("")
 
@@ -70,6 +67,28 @@ export function articleAuthor(article: {
 	if (!author) return null
 	const same = (other: string | null) => other?.trim().toLowerCase() === author.toLowerCase()
 	return same(article.siteName) || same(article.title) ? null : author
+}
+
+/**
+ * A note on its own, to copy: Markdown and HTML, its links sent to `linkUrls` as in
+ * `highlightShareText`; one without a web address there stays its title, as text.
+ */
+export function noteShareText(
+	note: string,
+	linkUrls: Record<string, string>,
+): Pick<ShareText, "markdown" | "html"> {
+	const runs = noteParagraphs(note, linkUrls)
+	return { markdown: runs.map(markdownRuns).join("\n\n"), html: runs.map(htmlParagraph).join("") }
+}
+
+type Run = { text: string; href: string | null }
+
+function markdownRuns(runs: Run[]): string {
+	return runs.map((s) => (s.href ? markdownLink(s.text, s.href) : s.text)).join("")
+}
+
+function htmlParagraph(runs: Run[]): string {
+	return `<p>${runs.map((s) => (s.href ? htmlLink(s.text, s.href) : escapeHtml(s.text))).join("")}</p>`
 }
 
 /** Text as its paragraphs: one per line, spaces tidied, blank lines dropped. */

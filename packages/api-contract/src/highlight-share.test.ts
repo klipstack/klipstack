@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { articleAuthor, highlightShareText } from "./highlight-share"
+import { articleAuthor, highlightShareText, noteShareText } from "./highlight-share"
 
 const A = "0193a5f1-2c3d-7e4f-8a9b-0c1d2e3f4a5b"
 
@@ -188,5 +188,22 @@ describe("articleAuthor", () => {
 		)
 		expect(articleAuthor({ author: " ", siteName: null, title: null })).toBe(null)
 		expect(articleAuthor({ siteName: "Example Magazine", title: "T" })).toBe(null)
+	})
+})
+
+describe("noteShareText", () => {
+	it("points the note's links at their articles' own addresses, and keeps the title alone without one", () => {
+		const B = "0193a5f1-2c3d-7e4f-8a9b-0c1d2e3f4a5c"
+		const C = "0193a5f1-2c3d-7e4f-8a9b-0c1d2e3f4a5d"
+		const { markdown, html } = noteShareText(
+			`See [Other & piece](/read/${A}) and [Pasted](/read/${B}).\n\nAlso [Gone](/read/${C})`,
+			{ [A]: "https://other.example/a(b)", [B]: "klipstack:text" },
+		)
+		expect(markdown).toBe(
+			"See [Other & piece](https://other.example/a%28b%29) and Pasted.\n\nAlso Gone",
+		)
+		expect(html).toBe(
+			'<p>See <a href="https://other.example/a(b)">Other &amp; piece</a> and Pasted.</p><p>Also Gone</p>',
+		)
 	})
 })

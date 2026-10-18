@@ -33,7 +33,7 @@ import { requireUser } from "~/lib/session.server"
 import { sourceLabel } from "~/lib/site-label"
 import { cn } from "~/lib/utils"
 import type { HighlightListItem } from "~/services/highlights.server"
-import { linkTargetStatus } from "~/services/links.server"
+import { linkTargetDetails } from "~/services/links.server"
 import {
 	activeTopicName,
 	countNotebook,
@@ -173,10 +173,28 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 			}))
 		})(),
 	])
-	// The notes' links say whether their articles are still there.
-	const linkTargets = await linkTargetStatus(user.id, extractLinkIds(notesOf(board).join("\n")))
+	// The notes' links say whether their articles are still there, and where they came from: a
+	// note copied takes its links to their original addresses.
+	const targets = await linkTargetDetails(user.id, extractLinkIds(notesOf(board).join("\n")))
+	const linkTargets: LinkTargets = {}
+	const linkUrls: Record<string, string> = {}
+	for (const [id, target] of Object.entries(targets)) {
+		linkTargets[id] = target.status
+		linkUrls[id] = target.url
+	}
 	return data(
-		{ ...state, savedView: saved, topicsOn, topicName, tags, counts, board, seed, linkTargets },
+		{
+			...state,
+			savedView: saved,
+			topicsOn,
+			topicName,
+			tags,
+			counts,
+			board,
+			seed,
+			linkTargets,
+			linkUrls,
+		},
 		{ headers },
 	)
 }
@@ -197,7 +215,7 @@ function isEmpty(board: Board): boolean {
 export default function Notebook({ loaderData }: Route.ComponentProps) {
 	const { t } = useTranslation("reader")
 	const { t: tc } = useTranslation()
-	const { q, filter, view, tag, topic, board, linkTargets, counts } = loaderData
+	const { q, filter, view, tag, topic, board, linkTargets, linkUrls, counts } = loaderData
 	const state: NotebookState = { q, filter, view, tag, topic }
 	const empty = isEmpty(board)
 	// Nothing kept at all yet: no search or narrowing could find anything.
@@ -268,6 +286,7 @@ export default function Notebook({ loaderData }: Route.ComponentProps) {
 								key={article.documentId}
 								article={article}
 								linkTargets={linkTargets}
+								linkUrls={linkUrls}
 							/>
 						))}
 					</div>
@@ -281,13 +300,19 @@ export default function Notebook({ loaderData }: Route.ComponentProps) {
 							group={group}
 							state={state}
 							linkTargets={linkTargets}
+							linkUrls={linkUrls}
 							shownAbove={notesIn(board.groups.slice(0, i))}
 						/>
 					))}
 				</div>
 			) : (
 				<>
-					<Cards items={board.items} linkTargets={linkTargets} dealt={board.kind === "shuffle"} />
+					<Cards
+						items={board.items}
+						linkTargets={linkTargets}
+						linkUrls={linkUrls}
+						dealt={board.kind === "shuffle"}
+					/>
 					{board.kind === "stream" ? <More state={state} cursor={board.nextCursor} /> : null}
 				</>
 			)}
@@ -324,6 +349,7 @@ function More({ state, cursor }: { state: NotebookState; cursor: string | null }
 function Cards({
 	items,
 	linkTargets,
+	linkUrls,
 	withArticle = true,
 	dealt = false,
 	readOnlyNotes,
@@ -331,6 +357,8 @@ function Cards({
 }: {
 	items: Array<Card | HighlightListItem>
 	linkTargets: LinkTargets
+	/** The original address of each article the notes link to, by id. */
+	linkUrls: Record<string, string>
 	withArticle?: boolean
 	dealt?: boolean
 	/** Article notes written on elsewhere on the page: shown, not edited, here. */
@@ -354,6 +382,7 @@ function Cards({
 						key={(c as HighlightListItem).id}
 						h={c as HighlightListItem}
 						linkTargets={linkTargets}
+						linkUrls={linkUrls}
 						withArticle={withArticle}
 						dealt={dealt ? i : undefined}
 					/>
@@ -549,7 +578,15 @@ const COLLAPSED = 6
  * the left, staying in view while its highlights scroll by on the right. On phones, one after the
  * other: the title, the note, the highlights.
  */
-function ArticleSection({ article, linkTargets }: { article: Article; linkTargets: LinkTargets }) {
+function ArticleSection({
+	article,
+	linkTargets,
+	linkUrls,
+}: {
+	article: Article
+	linkTargets: LinkTargets
+	linkUrls: Record<string, string>
+}) {
 	const { t } = useTranslation("reader")
 	const location = useLocation()
 	const [open, setOpen] = useState(false)
@@ -614,6 +651,7 @@ function ArticleSection({ article, linkTargets }: { article: Article; linkTarget
 					<Cards
 						items={shown}
 						linkTargets={linkTargets}
+						linkUrls={linkUrls}
 						withArticle={false}
 						className="sm:columns-2 lg:columns-1 xl:columns-2"
 					/>
@@ -653,11 +691,13 @@ function TopicSection({
 	group,
 	state,
 	linkTargets,
+	linkUrls,
 	shownAbove,
 }: {
 	group: TopicGroup
 	state: NotebookState
 	linkTargets: LinkTargets
+	linkUrls: Record<string, string>
 	/** Article notes an earlier group shows, and writes on. */
 	shownAbove: Set<string>
 }) {
@@ -685,7 +725,12 @@ function TopicSection({
 					</Link>
 				) : null}
 			</div>
-			<Cards items={group.items} linkTargets={linkTargets} readOnlyNotes={shownAbove} />
+			<Cards
+				items={group.items}
+				linkTargets={linkTargets}
+				linkUrls={linkUrls}
+				readOnlyNotes={shownAbove}
+			/>
 		</section>
 	)
 }

@@ -321,11 +321,18 @@ test("highlight → persists → note → sidebar → highlights page → delete
 	})
 	expect(missing.status()).toBe(422)
 
-	// the Notebook shows the quote and note; the whole card opens the highlight in the reader
+	// the Notebook shows the quote and note; the quote is text to select, and a button opens the
+	// highlight in the reader
 	await page.goto("/notebook")
+	await waitForHydration(page)
 	await expect(page.getByText(QUOTE)).toBeVisible()
 	await expect(page.getByText("Makers need long blocks.")).toBeVisible()
-	await page.getByRole("listitem").filter({ hasText: "Makers need long blocks." }).click()
+	const card = page.getByTestId("quote-card").filter({ hasText: QUOTE })
+	await card.getByText(QUOTE).click({ clickCount: 3 })
+	await expect(page).toHaveURL(/\/notebook$/)
+	expect(await page.evaluate(() => window.getSelection()?.toString())).toContain(QUOTE)
+	await card.hover()
+	await card.getByRole("link", { name: "Open in article" }).click()
 	await expect(page).toHaveURL(new RegExp(`/read/${id}#h=`))
 
 	// search covers quotes and notes only
