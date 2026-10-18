@@ -1,7 +1,9 @@
 import type { StarterLanguage } from "@klipstack/sdk"
-import { useFocusEffect } from "expo-router"
+import { Stack, useFocusEffect } from "expo-router"
+import type { NativeStackHeaderItem } from "expo-router/native-stack"
 import { useCallback, useRef, useState } from "react"
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native"
+import { Paper } from "@/components/paper"
 import { StarterGuide, StarterShelf, useAddStarter } from "@/components/starter-texts"
 import { useAuth } from "@/lib/auth"
 import { canUseOffline, keepStarter, keptStarter, OFFLINE_NOTE } from "@/lib/offline"
@@ -11,7 +13,7 @@ import {
 	type StarterShelves,
 	TOPIC_NAMES,
 } from "@/lib/starter-texts"
-import { type Colors, fonts, useColors } from "@/lib/theme"
+import { fonts, useColors } from "@/lib/theme"
 
 const LANGUAGES: StarterLanguage[] = ["en", "es"]
 
@@ -69,125 +71,112 @@ export default function Discover() {
 
 	const shown = answer?.language ?? asked
 	return (
-		<ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.page}>
-			<View style={styles.inset}>
-				<LanguageSwitch
-					shown={shown}
-					onPick={(language) => {
-						setAsked(language)
-						// What was kept for it shows at once, offline too; the server's answer follows.
-						const kept = keptStarter<StarterShelves>(`starter-${language}`)
-						if (kept) setAnswer(kept)
-					}}
-					colors={colors}
-				/>
-				{error ? <Text style={[styles.note, { color: colors.mutedFg }]}>{error}</Text> : null}
-			</View>
-			{!answer ? (
-				error ? null : (
-					<ActivityIndicator style={styles.loading} color={colors.mutedFg} />
-				)
-			) : (
-				<>
-					{answer.guideFirst ? (
-						<View style={styles.inset}>
-							<StarterGuide item={answer.guide} adding={adding} onOpen={open} colors={colors} />
-						</View>
-					) : null}
-					<Text style={[styles.inset, styles.description, { color: colors.mutedFg }]}>
-						{STARTER_DESCRIPTION}
-					</Text>
-					{answer.shelves.map(({ topic, items }) => (
-						<View key={topic} style={styles.shelf}>
+		<Paper>
+			<Stack.Screen
+				options={{
+					// As the tabs' first screens: a large title over the page's paper, no line under it.
+					headerLargeTitle: true,
+					headerShadowVisible: false,
+					headerLargeTitleShadowVisible: false,
+					unstable_headerRightItems: () => [
+						languageMenu(shown, colors.accent, (language) => {
+							setAsked(language)
+							// What was kept for it shows at once, offline too; the server's answer follows.
+							const kept = keptStarter<StarterShelves>(`starter-${language}`)
+							if (kept) setAnswer(kept)
+						}),
+					],
+				}}
+			/>
+			<ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.page}>
+				{error ? (
+					<Text style={[styles.inset, styles.note, { color: colors.mutedFg }]}>{error}</Text>
+				) : null}
+				{!answer ? (
+					error ? null : (
+						<ActivityIndicator style={styles.loading} color={colors.mutedFg} />
+					)
+				) : (
+					<>
+						{answer.guideFirst ? (
 							<View style={styles.inset}>
-								<Text accessibilityRole="header" style={[styles.title, { color: colors.fg }]}>
-									{TOPIC_NAMES[topic]?.title ?? topic}
-								</Text>
-								{TOPIC_NAMES[topic] ? (
-									<Text style={[styles.topicLine, { color: colors.mutedFg }]}>
-										{TOPIC_NAMES[topic].description}
-									</Text>
-								) : null}
+								<StarterGuide item={answer.guide} adding={adding} onOpen={open} colors={colors} />
 							</View>
-							<StarterShelf
-								items={items}
-								readerLanguage={answer.readerLanguage}
-								wide
-								adding={adding}
-								onOpen={open}
-								colors={colors}
-							/>
-						</View>
-					))}
-					{answer.guideFirst ? null : (
-						<View style={[styles.inset, styles.guideLast]}>
-							<StarterGuide item={answer.guide} adding={adding} onOpen={open} colors={colors} />
-						</View>
-					)}
-				</>
-			)}
-		</ScrollView>
+						) : null}
+						<Text style={[styles.inset, styles.description, { color: colors.mutedFg }]}>
+							{STARTER_DESCRIPTION}
+						</Text>
+						{answer.shelves.map(({ topic, items }) => (
+							<View key={topic} style={styles.shelf}>
+								<View style={styles.inset}>
+									<Text accessibilityRole="header" style={[styles.title, { color: colors.fg }]}>
+										{TOPIC_NAMES[topic]?.title ?? topic}
+									</Text>
+									{TOPIC_NAMES[topic] ? (
+										<Text style={[styles.topicLine, { color: colors.mutedFg }]}>
+											{TOPIC_NAMES[topic].description}
+										</Text>
+									) : null}
+								</View>
+								<StarterShelf
+									items={items}
+									readerLanguage={answer.readerLanguage}
+									wide
+									adding={adding}
+									onOpen={open}
+									colors={colors}
+								/>
+							</View>
+						))}
+						{answer.guideFirst ? null : (
+							<View style={[styles.inset, styles.guideLast]}>
+								<StarterGuide item={answer.guide} adding={adding} onOpen={open} colors={colors} />
+							</View>
+						)}
+					</>
+				)}
+			</ScrollView>
+		</Paper>
 	)
 }
 
-/** Which language's texts the screen shows, each by its own name. */
-function LanguageSwitch({
-	shown,
-	onPick,
-	colors,
-}: {
-	shown: StarterLanguage | null
-	onPick: (language: StarterLanguage) => void
-	colors: Colors
-}) {
-	return (
-		<View
-			accessibilityLabel="Language of the texts"
-			style={[styles.switch, { backgroundColor: colors.muted }]}
-		>
-			{LANGUAGES.map((language) => {
-				const on = language === shown
-				return (
-					<Pressable
-						key={language}
-						accessibilityRole="button"
-						accessibilityLanguage={language}
-						accessibilityState={{ selected: on }}
-						onPress={() => onPick(language)}
-						style={[styles.choice, on ? [styles.chosen, { backgroundColor: colors.bg }] : null]}
-					>
-						<Text
-							style={[
-								styles.choiceText,
-								{ color: on ? colors.fg : colors.mutedFg, fontWeight: on ? "600" : "400" },
-							]}
-						>
-							{LANGUAGE_NAMES[language]}
-						</Text>
-					</Pressable>
-				)
-			})}
-		</View>
-	)
+/**
+ * Which language's texts the screen shows: the header's menu, each language by its own name, the
+ * one shown ticked.
+ */
+function languageMenu(
+	shown: StarterLanguage | null,
+	tint: string,
+	onPick: (language: StarterLanguage) => void,
+): NativeStackHeaderItem {
+	return {
+		type: "menu",
+		label: "Language",
+		accessibilityLabel: shown
+			? `Language of the texts: ${LANGUAGE_NAMES[shown]}`
+			: "Language of the texts",
+		tintColor: tint,
+		icon: { type: "sfSymbol", name: "globe" },
+		menu: {
+			title: "Language of the texts",
+			items: LANGUAGES.map((language) => ({
+				type: "action" as const,
+				label: LANGUAGE_NAMES[language],
+				state: language === shown ? ("on" as const) : ("off" as const),
+				onPress: () => onPick(language),
+			})),
+		},
+	}
 }
 
 const styles = StyleSheet.create({
-	page: { paddingTop: 8, paddingBottom: 48 },
+	page: { paddingBottom: 48 },
 	inset: { paddingHorizontal: 16 },
 	loading: { marginTop: 48 },
-	note: { marginTop: 12, fontSize: 14, lineHeight: 20 },
+	note: { marginBottom: 12, fontSize: 14, lineHeight: 20 },
 	description: { marginTop: 16, fontSize: 14, lineHeight: 20 },
 	shelf: { marginTop: 28, gap: 6 },
 	title: { fontFamily: fonts.display, fontSize: 22, lineHeight: 28 },
 	topicLine: { fontSize: 14, lineHeight: 19 },
 	guideLast: { marginTop: 36 },
-	switch: { flexDirection: "row", alignSelf: "flex-start", borderRadius: 9, padding: 2 },
-	choice: { borderRadius: 7, paddingHorizontal: 14, paddingVertical: 6 },
-	chosen: {
-		shadowColor: "#000",
-		shadowOpacity: 0.08,
-		shadowRadius: 2,
-		shadowOffset: { width: 0, height: 1 },
-	},
-	choiceText: { fontSize: 14 },
 })
