@@ -13,6 +13,7 @@ import {
 } from "react-router"
 import { dailyHighlights } from "~/commands/resurfacing.server"
 import { EmptyDrawing } from "~/components/empty-drawing"
+import { ExtensionHint } from "~/components/extension-hint"
 import { FeedArticle } from "~/components/feed-article"
 import { HomeArticle } from "~/components/home-article"
 import { FinishedLately } from "~/components/home-finished"
@@ -27,7 +28,8 @@ import { type Welcome, WelcomeNote } from "~/components/welcome-note"
 import { useFeedReader } from "~/hooks/use-feed-reader"
 import { topicModels } from "~/lib/ai.server"
 import { knownTimeZone } from "~/lib/date-groups"
-import { welcomeFrom } from "~/lib/env.server"
+import { env, welcomeFrom } from "~/lib/env.server"
+import { extensionUrl } from "~/lib/extension-url"
 import { hasFeature } from "~/lib/features.server"
 import { editionEar, mastheadDate, partOfDay } from "~/lib/home-masthead"
 import { fitsIn, homeShelves } from "~/lib/home-shelves"
@@ -44,6 +46,7 @@ import { cn } from "~/lib/utils"
 import { editionNudge } from "~/services/editions.server"
 import { linkTargetStatus } from "~/services/links.server"
 import { listNoteReminders } from "~/services/note-reminders.server"
+import { extensionHint, extensionOffered } from "~/services/onboarding.server"
 import { finishedLately } from "~/services/reading-history.server"
 import { readingHome } from "~/services/reading-home.server"
 import { resurfacingDay } from "~/services/resurfacing.server"
@@ -102,6 +105,12 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 		...home,
 		// Nothing to read, now or yet: something to start with, in the reader's language.
 		starter: await homeStarter(user.id, locale, home.emptyState?.kind),
+		// Nothing to read: a new account that never used the extension hears of it, quietly.
+		extensionHint:
+			(home.emptyState?.kind === "new" || home.emptyState?.kind === "caughtUp") &&
+			(await extensionHint(user.id, { offered: extensionOffered(request.headers) }))
+				? extensionUrl(env.APP_URL)
+				: null,
 		language: locale,
 		finished,
 		topicsReady,
@@ -226,6 +235,7 @@ export default function ReadingHome({
 		feed,
 		emptyState,
 		starter,
+		extensionHint,
 		language,
 		review,
 		finished,
@@ -402,6 +412,7 @@ export default function ReadingHome({
 						>
 							{t(`home.empty.${emptyState.kind}.action`)}
 						</Link>
+						{extensionHint ? <ExtensionHint url={extensionHint} /> : null}
 						{starter ? (
 							<StarterOffer offer={starter} language={language} className="mt-10 w-full max-w-xl" />
 						) : null}

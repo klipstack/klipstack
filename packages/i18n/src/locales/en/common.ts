@@ -356,6 +356,7 @@ export default {
 		add: "Add",
 	},
 	// The sidebar's Getting started card: a new account's first steps, each ticked when done.
+	extensionHint: "Save any page in one click with the <store>browser extension</store>.",
 	gettingStarted: {
 		title: "Getting started",
 		progress: "{{done}} of {{total}}",

@@ -19,7 +19,7 @@ vi.hoisted(() => {
 const { setPrefs } = await import("~/commands/account.server")
 const { endGettingStarted } = await import("~/commands/onboarding.server")
 const { disableTopics, enableTopics } = await import("~/commands/topics.server")
-const { gettingStarted } = await import("./onboarding.server")
+const { extensionHint, gettingStarted } = await import("./onboarding.server")
 const { topicModels } = await import("~/lib/ai.server")
 
 const tag = `test-getting-started-${randomUUID().slice(0, 8)}`
@@ -158,5 +158,35 @@ describe("Getting started", () => {
 		await endGettingStarted(userId)
 		expect(await steps()).toBeNull()
 		expect(await steps(otherId)).toEqual(none)
+	})
+})
+
+describe("the extension hint", () => {
+	const day = 24 * 60 * 60 * 1000
+	const joined = (id: string, daysAgo: number) =>
+		db
+			.update(userTable)
+			.set({ createdAt: new Date(Date.now() - daysAgo * day) })
+			.where(sql`${userTable.id} = ${id}`)
+
+	it("shows to an account under 30 days old that never saved with the extension", async () => {
+		await joined(userId, 29)
+		await save(userId, { captureSource: "web" })
+		await save(otherId, { captureSource: "extension" })
+		expect(await extensionHint(userId, { offered: true })).toBe(true)
+	})
+
+	it("is gone once the account is 30 days old", async () => {
+		await joined(userId, 31)
+		expect(await extensionHint(userId, { offered: true })).toBe(false)
+	})
+
+	it("is gone once an article was saved with the extension, even one in the trash", async () => {
+		await save(userId, { captureSource: "extension", deletedAt: new Date() })
+		expect(await extensionHint(userId, { offered: true })).toBe(false)
+	})
+
+	it("never shows where the store's extension is not offered", async () => {
+		expect(await extensionHint(userId, { offered: false })).toBe(false)
 	})
 })
