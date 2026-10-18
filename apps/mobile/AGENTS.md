@@ -38,6 +38,8 @@ pnpm dlx expo-doctor         # Diagnose dependency and config problems
     Trash, `tags/`, `topics/`, `saved/`); the tab opens on Inbox, pushed by `index.tsx` onto its own stack.
   - `read/[id].tsx`: the reader, on the root stack over the tabs.
   - `save.tsx`: the sheet to save a link, from the + button on Home and Inbox.
+  - `discover.tsx`: the starter texts (`GET /starter-texts`), the guide and shelves by topic, as
+    the web's Discover, from the Library and Home's empty state, which offers a few itself.
   - `account/`: Account, a sheet with its own stack, from the header's account button: who is
     signed in, usage (`GET /usage`), appearance, Voices, the library's export, links to the web,
     signing out and deleting the account (`POST /account/delete`, which may ask to sign in again).

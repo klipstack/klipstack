@@ -174,6 +174,16 @@ export function createClient(options: ClientOptions) {
 		snooze: () => call("review.snooze"),
 	}
 
+	/** The guide and texts to start with, as the web's Discover page and empty Home show them. */
+	const starterTexts = {
+		/** Every one in `language` (the account's by default), the guide and a shelf per topic. */
+		list: (language?: "en" | "es") => call("starterTexts.list", { query: { language } }),
+		/** What Home offers with nothing to read: the guide while the reader is new, and a few texts. */
+		offer: () => call("starterTexts.offer"),
+		/** Adds one to the library, or finds the reader's copy (`created: false`): open `articleId`. */
+		save: (slug: string) => call("starterTexts.save", { params: { slug } }),
+	}
+
 	type Language = { language?: "en" | "es"; signal?: AbortSignal }
 	/**
 	 * The AI about an article. Each question, follow-up, retry and new brief counts against the
@@ -229,6 +239,7 @@ export function createClient(options: ClientOptions) {
 		home,
 		editions,
 		review,
+		starterTexts,
 		annotations: {
 			/** Highlights and article notes with the words of `q`, grouped, with snippets. */
 			search: (q: string, query: Omit<QueryOf<"annotations.search">, "q"> = {}) =>
@@ -391,6 +402,9 @@ export const FACADE: Record<EndpointId, string> = {
 	"review.list": "review.list",
 	"review.suggested": "review.suggested",
 	"review.snooze": "review.snooze",
+	"starterTexts.list": "starterTexts.list",
+	"starterTexts.offer": "starterTexts.offer",
+	"starterTexts.save": "starterTexts.save",
 	"feed.get": "feed.get",
 	"feed.saveItems": "feed.saveItems",
 	"feed.dismissItems": "feed.dismissItems",

@@ -3,6 +3,7 @@ import {
 	Id,
 	Ids,
 	SAVE_LINKS_MAX,
+	STARTER_SLUG_MAX,
 	URL_MAX,
 	utf8Length,
 } from "@klipstack/api-contract"
@@ -150,7 +151,7 @@ export async function saveFeedItems(userId: string, ids: string[]) {
  * highlights, notes and all, even when the text has changed since: the reader opens their copy. A
  * linked one is saved as any link, so a copy whose fetch failed is fetched again. The article's id.
  */
-export async function saveStarterText(userId: string, slug: string) {
+export async function saveStarterText(userId: string, slug: string, source: "web" | "api" = "web") {
 	const text = findStarterText(parseInput(StarterSlug, slug))
 	if (!text) throw notFound("No starter text with that name.")
 	if (text.kind !== "link") {
@@ -160,9 +161,9 @@ export async function saveStarterText(userId: string, slug: string) {
 	const { article, created } = await saveArticle(userId, {
 		url: text.url,
 		html: text.html,
-		source: "web",
+		source,
 	})
 	return { articleId: article.id, created }
 }
 
-const StarterSlug = z.string().trim().min(1).max(100)
+const StarterSlug = z.string().trim().min(1).max(STARTER_SLUG_MAX)

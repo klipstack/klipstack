@@ -117,6 +117,32 @@ export function loadRecentSince(): string | null {
 	}
 }
 
+/**
+ * The starter texts the screens showed last (Home's offer, Discover's shelves in each language),
+ * kept with the lists: a library that is empty offline still shows what to start with.
+ */
+export type KeptStarter = "starter-offer" | "starter-en" | "starter-es"
+
+export function keepStarter(name: KeptStarter, answer: unknown): void {
+	try {
+		const file = new File(listsFolder(), `${name}.json`)
+		file.create({ overwrite: true })
+		file.write(JSON.stringify(answer))
+	} catch {
+		// Offline, the screen says it can't reach Klipstack, as before.
+	}
+}
+
+export function keptStarter<T>(name: KeptStarter): T | null {
+	try {
+		const file = new File(listsFolder(), `${name}.json`)
+		if (!file.exists) return null
+		return JSON.parse(file.textSync()) as T
+	} catch {
+		return null
+	}
+}
+
 /** The lists kept, at sign-out. */
 export function forgetLists(): void {
 	const folder = new Directory(Paths.cache, "offline-lists")

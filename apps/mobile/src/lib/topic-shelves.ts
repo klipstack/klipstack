@@ -27,7 +27,7 @@ export function phoneShelf(topic: Topic): { books: ArticleSummary[]; more: numbe
 }
 
 /** A small, stable number for a text: a book keeps its height and color from one visit to the next. */
-function hash(text: string) {
+export function hash(text: string) {
 	let h = 7
 	for (const c of text) h = (h * 31 + c.charCodeAt(0)) >>> 0
 	return h

@@ -1,20 +1,15 @@
-/**
- * The starter texts' languages and topics (`starter-texts.server.ts` has the texts): here, apart,
- * because pages show them too.
- */
-export const STARTER_LANGUAGES = ["en", "es"] as const
-export type StarterLanguage = (typeof STARTER_LANGUAGES)[number]
+import { STARTER_LANGUAGES, type StarterLanguage } from "@klipstack/api-contract/enums"
 
-/** The shelves, in the order shown. */
-export const STARTER_TOPICS = [
-	"reading",
-	"stories",
-	"living",
-	"ideas",
-	"science",
-	"society",
-] as const
-export type StarterTopic = (typeof STARTER_TOPICS)[number]
+/**
+ * The starter texts' languages and topics (`starter-texts.server.ts` has the texts): in the API's
+ * contract, because pages and the API's clients show them too.
+ */
+export {
+	STARTER_LANGUAGES,
+	STARTER_TOPICS,
+	type StarterLanguage,
+	type StarterTopic,
+} from "@klipstack/api-contract/enums"
 
 export function isStarterLanguage(value: unknown): value is StarterLanguage {
 	return typeof value === "string" && (STARTER_LANGUAGES as readonly string[]).includes(value)

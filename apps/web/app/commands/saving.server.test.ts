@@ -254,7 +254,12 @@ describe("saveStarterText", () => {
 		const { articleId, created } = await saveStarterText(userId, "guide-en")
 		expect(created).toBe(true)
 		const [doc] = await db.select().from(documents).where(eq(documents.id, articleId))
-		expect(doc).toMatchObject({ sourceUrl: `${env.APP_URL}/guide/en`, status: "queued" })
+		expect(doc).toMatchObject({
+			sourceUrl: `${env.APP_URL}/guide/en`,
+			status: "queued",
+			// The web's Discover page; the API passes its own.
+			captureSource: "web",
+		})
 		const [raw] = await db.select().from(documentRaw).where(eq(documentRaw.documentId, articleId))
 		expect(gunzipSync(raw!.rawHtml).toString("utf8")).toContain("<h1>How to use Klipstack</h1>")
 	})

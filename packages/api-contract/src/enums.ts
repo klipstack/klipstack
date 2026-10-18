@@ -90,3 +90,18 @@ export const TOPIC_USES = [
 	"topic_home",
 ] as const
 export type TopicUse = (typeof TOPIC_USES)[number]
+
+/** The languages of the starter texts (GET /starter-texts). */
+export const STARTER_LANGUAGES = ["en", "es"] as const
+export type StarterLanguage = (typeof STARTER_LANGUAGES)[number]
+
+/** The starter texts' shelves, in the order shown. */
+export const STARTER_TOPICS = [
+	"reading",
+	"stories",
+	"living",
+	"ideas",
+	"science",
+	"society",
+] as const
+export type StarterTopic = (typeof STARTER_TOPICS)[number]

@@ -9,6 +9,7 @@ import { openapi } from "./meta.server"
 import * as notebook from "./notebook.server"
 import * as review from "./review.server"
 import * as shares from "./shares.server"
+import * as starter from "./starter.server"
 import * as topics from "./topics.server"
 import * as writes from "./writes.server"
 
@@ -67,6 +68,9 @@ export const handlers: HandlerTable<Endpoints> = {
 	"review.list": review.list,
 	"review.suggested": review.suggested,
 	"review.snooze": review.snooze,
+	"starterTexts.list": starter.list,
+	"starterTexts.offer": starter.offer,
+	"starterTexts.save": starter.save,
 	"feed.get": library.feed,
 	"feed.saveItems": writes.saveItems,
 	"feed.dismissItems": writes.dismissItems,

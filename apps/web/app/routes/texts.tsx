@@ -10,11 +10,10 @@ import { pageTitle } from "~/lib/page-title"
 import { readForm } from "~/lib/request-body.server"
 import { saveErrorKey } from "~/lib/save-errors"
 import { requireUser } from "~/lib/session.server"
-import { isStarterLanguage, STARTER_LANGUAGES, STARTER_TOPICS } from "~/lib/starter-shelves"
-import { starterGuide, starterTextsIn } from "~/lib/starter-texts.server"
+import { isStarterLanguage, STARTER_LANGUAGES } from "~/lib/starter-shelves"
 import { cn } from "~/lib/utils"
 import { refused } from "~/lib/web-action.server"
-import { experiencedReader, starterItems } from "~/services/starter-texts.server"
+import { starterShelves } from "~/services/starter-texts.server"
 import type { Route } from "./+types/texts"
 
 export function meta({ matches }: Route.MetaArgs) {
@@ -29,22 +28,7 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 	// The texts' language, `?lang=`: the reader's own unless they ask for another.
 	const asked = new URL(request.url).searchParams.get("lang")
 	const shown = isStarterLanguage(asked) ? asked : language
-	// The guide is about the app, so it is in the app's language whichever texts are shown.
-	const [[guide, ...texts], experienced] = await Promise.all([
-		starterItems(user.id, [starterGuide(language), ...starterTextsIn(shown)]),
-		experiencedReader(user.id),
-	])
-	return {
-		language,
-		shown,
-		guide: guide!,
-		// First for a reader new to Klipstack; last once they have it, or know their way around.
-		guideFirst: !guide!.articleId && !experienced,
-		shelves: STARTER_TOPICS.map((topic) => ({
-			topic,
-			items: texts.filter((text) => text.topic === topic),
-		})).filter((shelf) => shelf.items.length),
-	}
+	return { language, shown, ...(await starterShelves(user.id, language, shown)) }
 }
 
 /** Adds a starter text (from these shelves, Home's, the library's or the guide's page) and opens it. */

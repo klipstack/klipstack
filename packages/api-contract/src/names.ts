@@ -16,6 +16,8 @@ export const ARTICLE_TITLE_MAX = 300
 export const URL_MAX = 4096
 /** Most links saved in one go, from the Save link dialog or page. */
 export const SAVE_LINKS_MAX = 10
+/** Longest name of a starter text (`guide-en`, `poe-tell-tale-heart`), in characters. */
+export const STARTER_SLUG_MAX = 100
 /** Longest name a user gives a followed feed, in characters. */
 export const FEED_TITLE_MAX = 200
 

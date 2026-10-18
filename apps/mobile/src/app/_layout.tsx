@@ -92,6 +92,15 @@ function Screens() {
 						fullScreenGestureEnabled: false,
 					}}
 				/>
+				{/* Over the tabs too, from Home's empty state and the Library: the reader opens over it. */}
+				<Stack.Screen
+					name="discover"
+					options={{
+						title: "Discover",
+						headerBackTitle: "Back",
+						headerBackButtonDisplayMode: "minimal",
+					}}
+				/>
 				<Stack.Screen name="voices" options={{ title: "Voices", presentation: "modal" }} />
 				{/* A sheet with its own stack (`account/_layout.tsx`), from the header's account button. */}
 				<Stack.Screen name="account" options={{ headerShown: false, presentation: "modal" }} />
