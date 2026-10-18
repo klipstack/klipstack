@@ -11,6 +11,7 @@ import { listFeatures } from "~/lib/features.server"
 import { resolvePrefs } from "~/lib/prefs"
 import { requireUser } from "~/lib/session.server"
 import { editionNudge } from "~/services/editions.server"
+import { featuresInvitation } from "~/services/features-invitation.server"
 import { countNewFeedItems } from "~/services/feeds.server"
 import { listSavedSearches } from "~/services/saved-searches.server"
 import { firstTopicsNotice, hasTopics, missingTopics } from "~/services/topics.server"
@@ -21,7 +22,7 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 	const prefs = resolvePrefs(user.prefs)
 	const editions = prefs.editions === "on"
 	const feeds = prefs.feeds === "on"
-	const [feedNew, nudge, savedSearches, features] = await Promise.all([
+	const [feedNew, nudge, savedSearches, features, invitation] = await Promise.all([
 		feeds ? countNewFeedItems(user.id) : 0,
 		editions ? editionNudge(user.id) : null,
 		listSavedSearches(user.id).then(async (searches) => {
@@ -33,6 +34,7 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 			return searches.map((s, i) => ({ ...s, endedTopics: ended[i] ?? [] }))
 		}),
 		listFeatures(user.id),
+		featuresInvitation(user.id),
 	])
 	// Topics show for an account with the feature, on a server with both providers' keys; and for
 	// one that has topics still, to turn them off.
@@ -69,6 +71,8 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 		// Features in testing turned on for this account: their links show only then.
 		features,
 		topics,
+		// The way to Settings → Features, while every feature there is still off.
+		featuresInvitation: invitation,
 		// The Save link dialog: its bookmarklet, and the address an AI assistant connects to.
 		appUrl: env.APP_URL,
 		mcpUrl: MCP_RESOURCE,
@@ -98,6 +102,7 @@ export default function AppLayout({ loaderData }: Route.ComponentProps) {
 			editions={loaderData.editions}
 			editionDue={loaderData.editionDue}
 			topics={loaderData.topics}
+			featuresInvitation={loaderData.featuresInvitation}
 			savedSearches={loaderData.savedSearches}
 			support={loaderData.support}
 			notice={
@@ -128,6 +133,7 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
 			editions={data?.editions ?? false}
 			editionDue={data?.editionDue ?? false}
 			topics={data?.topics ?? null}
+			featuresInvitation={data?.featuresInvitation ?? null}
 			savedSearches={data?.savedSearches ?? []}
 			support={data?.support ?? null}
 		>
