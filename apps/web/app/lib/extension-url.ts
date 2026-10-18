@@ -1,10 +1,12 @@
+export { extensionInStore, extensionUrl } from "@klipstack/email/extension-url"
+
 /**
- * Where "Get the extension" leads. The store's build saves to klipstack.com only (its server is
- * fixed when it is built, `apps/extension/lib/app-url.ts`), so another server's readers get the
- * source, to build it for theirs.
+ * Whether the request comes from a desktop browser the Chrome Web Store's extension installs in:
+ * Chromium-based ones (Chrome, Edge, Brave, Opera) name Chromium in `Sec-CH-UA`, which Firefox and
+ * Safari do not send, and say `?0` in `Sec-CH-UA-Mobile` on a computer.
  */
-export function extensionUrl(appUrl: string): string {
-	return new URL(appUrl).origin === "https://klipstack.com"
-		? "https://chromewebstore.google.com/detail/jpaablflkefkjccjgmaibjljcikbemoa"
-		: "https://github.com/klipstack/klipstack/tree/main/apps/extension"
+export function chromiumDesktop(headers: Headers): boolean {
+	return (
+		/"Chromium"/.test(headers.get("sec-ch-ua") ?? "") && headers.get("sec-ch-ua-mobile") === "?0"
+	)
 }

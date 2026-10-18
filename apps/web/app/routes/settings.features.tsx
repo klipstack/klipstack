@@ -1,18 +1,14 @@
-import { useEffect, useEffectEvent, useId, useState } from "react"
+import { useId, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link, useFetcher } from "react-router"
-import { endFeaturesInvitation } from "~/commands/account.server"
 import { SettingsCard, SettingsPage } from "~/components/settings-page"
 import { Button } from "~/components/ui/button"
 import { ai as aiModule, topicModels } from "~/lib/ai.server"
-import { AppError } from "~/lib/app-error"
 import { hasFeature } from "~/lib/features.server"
 import type { PageBarHandle } from "~/lib/page-bar"
 import { pageTitle } from "~/lib/page-title"
 import { resolvePrefs } from "~/lib/prefs"
-import { readForm } from "~/lib/request-body.server"
 import { requireUser } from "~/lib/session.server"
-import { answer } from "~/lib/web-action.server"
 import { hasTopics } from "~/services/topics.server"
 import type { Route } from "./+types/settings.features"
 
@@ -41,34 +37,11 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 		feeds: prefs.feeds === "on",
 		ai: aiFlag && aiModule.available ? prefs.ai !== "off" : null,
 		topics: topicsUsable || topicsOn ? { on: topicsOn, usable: topicsUsable } : null,
-		// Opened: the sidebar's invitation to this page has done its work.
-		invited: !prefs.featuresInvitationEndedAt,
 	}
-}
-
-/** POST /settings/features  intent=end-invitation: the sidebar's invitation here is over, for good. */
-export async function action({ request, context }: Route.ActionArgs) {
-	const user = requireUser(context, request)
-	const form = await readForm(request)
-	return answer(async () => {
-		if (form.get("intent") !== "end-invitation")
-			throw new AppError("invalid_request", "Unknown intent.")
-		await endFeaturesInvitation(user.id)
-		return {}
-	})
 }
 
 export default function FeaturesSettings({ loaderData }: Route.ComponentProps) {
 	const { t } = useTranslation("settings")
-	// Seeing this page ends the sidebar's invitation to it: on opening, not in the loader, which a
-	// prefetch runs too.
-	const ended = useFetcher()
-	const endInvitation = useEffectEvent(() =>
-		ended.submit({ intent: "end-invitation" }, { method: "post" }),
-	)
-	useEffect(() => {
-		if (loaderData.invited) endInvitation()
-	}, [loaderData.invited])
 	return (
 		<SettingsPage title={t("features.title")} description={t("features.description")}>
 			{loaderData.ai !== null ? (

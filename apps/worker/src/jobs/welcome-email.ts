@@ -1,5 +1,6 @@
 import { and, db, eq, inArray, sql, user } from "@klipstack/db"
 import { type Email, emailT, renderEmail, type WelcomeFrom } from "@klipstack/email"
+import { extensionInStore, extensionUrl } from "@klipstack/email/extension-url"
 import { log } from "../log"
 import { appUrl, defaultSend } from "../mail"
 
@@ -8,7 +9,7 @@ const BATCH = 20
 
 /**
  * Every minute: the welcome email, signed by `WELCOME_FROM_*`, to each account created while the
- * welcome was on (`welcomeEmailDue`) whose address is verified by now. Replies go to the signer.
+ * welcome was on (`onboarding.email` "due") whose address is verified by now. Replies go to the signer.
  *
  * An account is taken off the list before its email goes out: a run that overlaps another, or a
  * failed send, never writes to anyone twice. A failed send is logged, not retried.
@@ -31,7 +32,7 @@ export async function handleWelcomeEmail({
 		.where(
 			and(
 				eq(user.emailVerified, true),
-				sql`(${user.prefs}->>'welcomeEmailDue')::boolean is true`,
+				sql`${user.prefs}->'onboarding'->>'email' = 'due'`,
 				only ? inArray(user.id, only) : undefined,
 			),
 		)
@@ -40,7 +41,9 @@ export async function handleWelcomeEmail({
 		.for("update", { skipLocked: true })
 	const recipients = await db
 		.update(user)
-		.set({ prefs: sql`${user.prefs} || '{"welcomeEmailDue": false}'::jsonb` })
+		.set({
+			prefs: sql`jsonb_set(${user.prefs}, '{onboarding,email}', to_jsonb(${new Date().toISOString()}::text))`,
+		})
 		.where(inArray(user.id, due))
 		.returning({ id: user.id, email: user.email, name: user.name, locale: user.locale })
 	let sent = 0
@@ -64,7 +67,18 @@ function welcomeEmail(recipient: { name: string; locale: string }, from: Welcome
 			heading: firstName
 				? t("welcomeEmail.heading", { firstName })
 				: t("welcomeEmail.headingNoName"),
-			body: t("welcomeEmail.body", { name: from.name }),
+			body: [
+				t("welcomeEmail.intro"),
+				// The store's extension saves to klipstack.com only.
+				extensionInStore(appUrl())
+					? t("welcomeEmail.extension", { url: extensionUrl(appUrl()) })
+					: null,
+				t("welcomeEmail.ways"),
+				t("welcomeEmail.reply"),
+				from.name,
+			]
+				.filter(Boolean)
+				.join("\n\n"),
 			// Save link, with the other ways to save under it.
 			cta: { label: t("welcomeEmail.cta"), url: new URL("/library?save", appUrl()).href },
 		},

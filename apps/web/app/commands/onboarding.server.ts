@@ -1,7 +1,8 @@
-import { and, db, eq, sql, user as userTable } from "@klipstack/db"
+import { db, sql } from "@klipstack/db"
 import { fallbackLanguage } from "@klipstack/i18n/languages"
 import { isStarterLanguage } from "~/lib/starter-shelves"
 import { starterGuide } from "~/lib/starter-texts.server"
+import { onboardingField, setOnboarding } from "~/services/onboarding.server"
 import { saveStarterText } from "./saving.server"
 
 /**
@@ -18,11 +19,21 @@ export async function closeWelcome(
 	const articleId = guide
 		? (await saveStarterText(userId, starterGuide(language).slug)).articleId
 		: null
-	await db
-		.update(userTable)
-		.set({ prefs: sql`${userTable.prefs} || '{"welcomeCardDue": false}'::jsonb` })
-		.where(
-			and(eq(userTable.id, userId), sql`(${userTable.prefs}->>'welcomeCardDue')::boolean is true`),
-		)
+	await setOnboarding(
+		db,
+		userId,
+		{ note: new Date().toISOString() },
+		{ when: sql`${onboardingField("note")} = 'due'` },
+	)
 	return { articleId }
+}
+
+/** The sidebar's Getting started card is over, for good: closed, or seen with every step done. */
+export async function endGettingStarted(userId: string): Promise<void> {
+	await setOnboarding(
+		db,
+		userId,
+		{ cardEndedAt: new Date().toISOString() },
+		{ when: sql`${onboardingField("cardEndedAt")} is null` },
+	)
 }

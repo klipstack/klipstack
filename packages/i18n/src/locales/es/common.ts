@@ -363,14 +363,27 @@ export default {
 		menu: "Menú",
 		add: "Añadir",
 	},
-	// The sidebar's way to Settings → Features, for a new account with every feature off.
-	featuresInvitation: {
-		title: "Más para activar",
-		withTopics: "Temas, feeds y ediciones",
-		withoutTopics: "Feeds y ediciones",
-		dismiss: "Ocultar esto",
+	// The sidebar's Getting started card: a new account's first steps, each ticked when done.
+	gettingStarted: {
+		title: "Primeros pasos",
+		progress: "{{done}} de {{total}}",
 		// The collapsed sidebar's icon: its tooltip and name.
-		rail: "{{title}}: {{list}}",
+		rail: "Primeros pasos: {{done}} de {{total}} hechos",
+		dismiss: "Ocultar esto",
+		// A step's box, to a screen reader.
+		done: "Hecho",
+		toDo: "Pendiente",
+		// The collapsed sidebar's count, on its icon.
+		badge: "{{done}}/{{total}}",
+		steps: {
+			save: "Guarda tu primer artículo",
+			extension: "Guarda un artículo con la <store>extensión del navegador</store>",
+			highlight: "Subraya un pasaje",
+			feature: "Activa temas, feeds o ediciones",
+			featureNoTopics: "Activa feeds o ediciones",
+		},
+		allSet: "Todo listo",
+		allSetText: "Ya conoces lo básico. En Ajustes tienes el resto, cuando quieras.",
 	},
 	savedSearches: {
 		heading: "Búsquedas guardadas",

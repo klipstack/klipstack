@@ -123,7 +123,7 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 
 /** The welcome note, while a new account has it to come and the welcome is on. */
 function welcomeFor(user: { name: string; prefs?: UserPrefs | null }): Welcome | null {
-	if (!welcomeFrom || !resolvePrefs(user.prefs).welcomeCardDue) return null
+	if (!welcomeFrom || resolvePrefs(user.prefs).onboarding.note !== "due") return null
 	const firstName = user.name.trim().split(/\s+/)[0] ?? ""
 	return { ...welcomeFrom, firstName }
 }

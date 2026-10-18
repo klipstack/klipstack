@@ -241,7 +241,7 @@ export const auth = betterAuth({
 					// While the welcome is on, the new account has its note and email to come.
 					// (No one gives an account its prefs at sign-up: they start here.)
 					const welcome = welcomeFrom
-						? { prefs: { welcomeCardDue: true, welcomeEmailDue: true } }
+						? { prefs: { onboarding: { note: "due", email: "due" } } }
 						: {}
 					const extra =
 						locale || welcomeFrom

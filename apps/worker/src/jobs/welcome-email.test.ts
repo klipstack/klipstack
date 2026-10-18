@@ -45,7 +45,7 @@ describe("handleWelcomeEmail", () => {
 	it("welcomes a verified new account once, in its language, with replies to the signer", async () => {
 		const reader = await account({
 			verified: true,
-			prefs: { welcomeEmailDue: true, welcomeCardDue: true },
+			prefs: { onboarding: { note: "due", email: "due" } },
 			locale: "es",
 		})
 		const mail = outbox()
@@ -58,19 +58,23 @@ describe("handleWelcomeEmail", () => {
 		expect(email!.text).toContain("Te damos la bienvenida a Klipstack, Ada")
 		expect(email!.text).toMatch(/\nErnesto\n/)
 		expect(email!.text).toContain("/library?save")
+		// The store's extension saves to klipstack.com only: no link to it from elsewhere.
+		expect(email!.text).not.toContain("chromewebstore")
 		// The note on Home is its own: the email leaves it due.
-		expect(await prefsOf(reader.id)).toMatchObject({ welcomeEmailDue: false, welcomeCardDue: true })
+		const { onboarding } = await prefsOf(reader.id)
+		expect(onboarding?.email).toMatch(/^\d{4}-\d\d-\d\dT/)
+		expect(onboarding?.note).toBe("due")
 
 		await handleWelcomeEmail({ ...mail, from, only: [reader.id] })
 		expect(mail.sent).toHaveLength(1)
 	})
 
 	it("waits for the address to be verified", async () => {
-		const reader = await account({ verified: false, prefs: { welcomeEmailDue: true } })
+		const reader = await account({ verified: false, prefs: { onboarding: { email: "due" } } })
 		const mail = outbox()
 		await handleWelcomeEmail({ ...mail, from, only: [reader.id] })
 		expect(mail.sent).toHaveLength(0)
-		expect(await prefsOf(reader.id)).toMatchObject({ welcomeEmailDue: true })
+		expect((await prefsOf(reader.id)).onboarding).toEqual({ email: "due" })
 
 		await db.update(user).set({ emailVerified: true }).where(eq(user.id, reader.id))
 		await handleWelcomeEmail({ ...mail, from, only: [reader.id] })
@@ -79,7 +83,7 @@ describe("handleWelcomeEmail", () => {
 
 	it("writes to no account created before the welcome, nor without a signer", async () => {
 		const older = await account({ verified: true, prefs: {} })
-		const due = await account({ verified: true, prefs: { welcomeEmailDue: true } })
+		const due = await account({ verified: true, prefs: { onboarding: { email: "due" } } })
 		const mail = outbox()
 		await handleWelcomeEmail({ ...mail, from: null, only: [older.id, due.id] })
 		expect(mail.sent).toHaveLength(0)
@@ -88,7 +92,7 @@ describe("handleWelcomeEmail", () => {
 	})
 
 	it("sends at most once, even when the send fails", async () => {
-		const reader = await account({ verified: true, prefs: { welcomeEmailDue: true } })
+		const reader = await account({ verified: true, prefs: { onboarding: { email: "due" } } })
 		let tries = 0
 		const failing = async () => {
 			tries++
@@ -103,6 +107,22 @@ describe("handleWelcomeEmail", () => {
 			failed: 0,
 		})
 		expect(tries).toBe(1)
-		expect(await prefsOf(reader.id)).toMatchObject({ welcomeEmailDue: false })
+		expect((await prefsOf(reader.id)).onboarding?.email).toMatch(/^\d{4}-\d\d-\d\dT/)
+	})
+
+	it("points klipstack.com's readers to the extension in the Chrome Web Store", async () => {
+		const reader = await account({ verified: true, prefs: { onboarding: { email: "due" } } })
+		const mail = outbox()
+		const appUrl = process.env.APP_URL
+		process.env.APP_URL = "https://klipstack.com"
+		try {
+			await handleWelcomeEmail({ ...mail, from, only: [reader.id] })
+		} finally {
+			if (appUrl === undefined) delete process.env.APP_URL
+			else process.env.APP_URL = appUrl
+		}
+		expect(mail.sent[0]!.text).toContain(
+			"Chrome. It saves a page as you see it, even behind a login: https://chromewebstore.google.com/detail/",
+		)
 	})
 })

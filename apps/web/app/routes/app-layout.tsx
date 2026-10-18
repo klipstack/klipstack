@@ -1,3 +1,4 @@
+import { fallbackLanguage } from "@klipstack/i18n/languages"
 import { Outlet, type ShouldRevalidateFunctionArgs, useRouteLoaderData } from "react-router"
 import { AppShell } from "~/components/app-shell"
 import { EmailVerification } from "~/components/email-verification"
@@ -7,12 +8,15 @@ import { topicModels } from "~/lib/ai.server"
 import { MCP_RESOURCE } from "~/lib/auth.server"
 import { emailEnabled } from "~/lib/email.server"
 import { env } from "~/lib/env.server"
+import { chromiumDesktop, extensionInStore, extensionUrl } from "~/lib/extension-url"
 import { listFeatures } from "~/lib/features.server"
 import { resolvePrefs } from "~/lib/prefs"
 import { requireUser } from "~/lib/session.server"
+import { isStarterLanguage } from "~/lib/starter-shelves"
+import { starterGuide } from "~/lib/starter-texts.server"
 import { editionNudge } from "~/services/editions.server"
-import { featuresInvitation } from "~/services/features-invitation.server"
 import { countNewFeedItems } from "~/services/feeds.server"
+import { gettingStarted } from "~/services/onboarding.server"
 import { listSavedSearches } from "~/services/saved-searches.server"
 import { firstTopicsNotice, hasTopics, missingTopics } from "~/services/topics.server"
 import type { Route } from "./+types/app-layout"
@@ -22,7 +26,7 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 	const prefs = resolvePrefs(user.prefs)
 	const editions = prefs.editions === "on"
 	const feeds = prefs.feeds === "on"
-	const [feedNew, nudge, savedSearches, features, invitation] = await Promise.all([
+	const [feedNew, nudge, savedSearches, features, steps] = await Promise.all([
 		feeds ? countNewFeedItems(user.id) : 0,
 		editions ? editionNudge(user.id) : null,
 		listSavedSearches(user.id).then(async (searches) => {
@@ -34,7 +38,10 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 			return searches.map((s, i) => ({ ...s, endedTopics: ended[i] ?? [] }))
 		}),
 		listFeatures(user.id),
-		featuresInvitation(user.id),
+		gettingStarted(user.id, {
+			// The store's extension saves to klipstack.com only, and installs in Chromium on a computer.
+			extension: extensionInStore(env.APP_URL) && chromiumDesktop(request.headers),
+		}),
 	])
 	// Topics show for an account with the feature, on a server with both providers' keys; and for
 	// one that has topics still, to turn them off.
@@ -71,8 +78,14 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 		// Features in testing turned on for this account: their links show only then.
 		features,
 		topics,
-		// The way to Settings → Features, while every feature there is still off.
-		featuresInvitation: invitation,
+		// The Getting started card: its steps, the extension's store, and the guide to highlight in.
+		gettingStarted: steps
+			? {
+					steps,
+					extensionUrl: extensionUrl(env.APP_URL),
+					guide: starterGuide(isStarterLanguage(user.locale) ? user.locale : fallbackLanguage).slug,
+				}
+			: null,
 		// The Save link dialog: its bookmarklet, and the address an AI assistant connects to.
 		appUrl: env.APP_URL,
 		mcpUrl: MCP_RESOURCE,
@@ -102,7 +115,7 @@ export default function AppLayout({ loaderData }: Route.ComponentProps) {
 			editions={loaderData.editions}
 			editionDue={loaderData.editionDue}
 			topics={loaderData.topics}
-			featuresInvitation={loaderData.featuresInvitation}
+			gettingStarted={loaderData.gettingStarted}
 			savedSearches={loaderData.savedSearches}
 			support={loaderData.support}
 			notice={
@@ -133,7 +146,7 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
 			editions={data?.editions ?? false}
 			editionDue={data?.editionDue ?? false}
 			topics={data?.topics ?? null}
-			featuresInvitation={data?.featuresInvitation ?? null}
+			gettingStarted={data?.gettingStarted ?? null}
 			savedSearches={data?.savedSearches ?? []}
 			support={data?.support ?? null}
 		>

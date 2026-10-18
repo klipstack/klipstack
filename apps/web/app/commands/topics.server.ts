@@ -28,7 +28,7 @@ import { hasFeature } from "~/lib/features.server"
 import { isUniqueViolation } from "~/lib/postgres-errors.server"
 import { rateLimit } from "~/lib/rate-limit.server"
 import { TOPIC_CLICKS } from "~/lib/topic-use"
-import { markFeaturesInvitationEnded } from "~/services/features-invitation.server"
+import { markFeatureOn } from "~/services/onboarding.server"
 
 /**
  * A reader's automatic topics: turning them on and off, confirming the first ones, and correcting
@@ -93,7 +93,7 @@ export async function enableTopics(userId: string): Promise<void> {
 	await db.transaction(async (tx) => {
 		await tx.insert(topicLibraries).values({ userId }).onConflictDoNothing()
 		await endInvitation(tx, userId)
-		await markFeaturesInvitationEnded(tx, userId)
+		await markFeatureOn(tx, userId)
 	})
 	await queueRun(userId)
 }

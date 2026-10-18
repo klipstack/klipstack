@@ -15,7 +15,7 @@ export interface Welcome {
 /**
  * A new account's first visit to Home: a short note from the person behind Klipstack, in a modal.
  * "Show me around" opens the guide; the other button, Escape or a click outside close it. Either
- * way it does not come back (`POST /welcome`).
+ * way it does not come back (`POST /onboarding`).
  */
 export function WelcomeNote({ welcome }: { welcome: Welcome }) {
 	const { t } = useTranslation("library")
@@ -33,7 +33,7 @@ export function WelcomeNote({ welcome }: { welcome: Welcome }) {
 	const close = () => {
 		if (choice) return
 		setChoice("explore")
-		void fetcher.submit({ intent: "explore" }, { method: "post", action: "/welcome" })
+		void fetcher.submit({ intent: "explore" }, { method: "post", action: "/onboarding" })
 	}
 
 	if (choice === "explore") return null
@@ -103,7 +103,7 @@ export function WelcomeNote({ welcome }: { welcome: Welcome }) {
 			</div>
 			<fetcher.Form
 				method="post"
-				action="/welcome"
+				action="/onboarding"
 				className="flex shrink-0 flex-col gap-2 border-t border-border bg-muted/40 px-6 py-4 sm:px-8"
 				onSubmit={(e) => {
 					const submitter = (e.nativeEvent as SubmitEvent).submitter

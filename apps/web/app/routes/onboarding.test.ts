@@ -1,8 +1,8 @@
 import { db, documents, eq, inArray, newId, user } from "@klipstack/db"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { starterGuide } from "~/lib/starter-texts.server"
+import { action } from "./onboarding"
 import { loader } from "./reading-home"
-import { action } from "./welcome"
 
 // The welcome on, for this file: the settings are read when the server starts.
 const session = vi.hoisted(() => {
@@ -27,7 +27,7 @@ beforeAll(async () => {
 			id,
 			name: "Ada Lovelace",
 			email: `${id}@example.com`,
-			prefs: { welcomeCardDue: true },
+			prefs: { onboarding: { note: "due" } },
 		})),
 	)
 })
@@ -43,7 +43,7 @@ const signIn = (
 		id,
 		name: "Ada Lovelace",
 		locale: "en",
-		prefs: { welcomeCardDue: true },
+		prefs: { onboarding: { note: "due" } },
 		...fields,
 	}
 }
@@ -57,13 +57,20 @@ const home = async () =>
 	).welcome
 const post = (intent: string) =>
 	action({
-		request: new Request("http://localhost/welcome", {
+		request: new Request("http://localhost/onboarding", {
 			method: "POST",
 			body: new URLSearchParams({ intent }),
 		}),
 		context: {},
 		params: {},
 	} as never)
+
+describe("POST /onboarding", () => {
+	it("refuses an intent it does not know", async () => {
+		signIn(ids[0]!)
+		expect(await post("something-else")).toMatchObject({ data: { ok: false } })
+	})
+})
 
 describe("Home's welcome note", () => {
 	it("shows while the account has it to come, signed, greeting the reader by first name", async () => {
@@ -76,7 +83,7 @@ describe("Home's welcome note", () => {
 		})
 		signIn(ids[0]!, { name: "  " })
 		expect((await home())?.firstName).toBe("")
-		signIn(ids[0]!, { prefs: { welcomeCardDue: false } })
+		signIn(ids[0]!, { prefs: { onboarding: { note: "2026-10-18T00:00:00.000Z" } } })
 		expect(await home()).toBeNull()
 		signIn(ids[0]!, { prefs: {} })
 		expect(await home()).toBeNull()
@@ -86,7 +93,7 @@ describe("Home's welcome note", () => {
 		signIn(ids[0]!)
 		expect(await post("explore")).toEqual({ ok: true, articleId: null })
 		const [row] = await db.select().from(user).where(eq(user.id, ids[0]!))
-		expect(row!.prefs).toEqual({ welcomeCardDue: false })
+		expect(row!.prefs.onboarding?.note).toMatch(/^\d{4}-\d\d-\d\dT/)
 	})
 
 	it("opens the guide, in the reader's language, when they ask to be shown around", async () => {

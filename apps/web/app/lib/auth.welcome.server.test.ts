@@ -34,7 +34,7 @@ describe("the welcome, while it is on", () => {
 			}),
 		)
 		const [row] = await db.select().from(userTable).where(eq(userTable.id, signup.user.id))
-		expect(row!.prefs).toEqual({ welcomeCardDue: true, welcomeEmailDue: true })
+		expect(row!.prefs).toEqual({ onboarding: { note: "due", email: "due" } })
 		expect(row!.locale).toBe("es")
 	})
 })
