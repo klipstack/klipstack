@@ -2,7 +2,7 @@ import { afterAll, afterEach, describe, expect, it } from "vitest"
 import { env } from "~/lib/env.server"
 import { adminFixtures } from "~/test/admin-fixtures"
 import { loader } from "./app-layout"
-import { action as endInvitation } from "./settings.features"
+import { action as onboarding } from "./onboarding"
 
 const fx = adminFixtures("app-layout")
 afterAll(fx.cleanup)
@@ -31,26 +31,42 @@ describe("Contact support in the app's sidebar", () => {
 	})
 })
 
-describe("The sidebar's way to Settings → Features", () => {
-	it("shows for a new account, and goes for good once the Features page ends it", async () => {
+describe("The sidebar's Getting started card", () => {
+	it("offers the extension only to Chromium on a computer, and goes for good once closed", async () => {
 		const reader = await fx.account()
-		const layout = async () =>
+		const layout = async (headers: Record<string, string> = {}) =>
 			(
 				await loader({
-					request: new Request(new URL("/library", env.APP_URL)),
+					request: new Request(new URL("/library", env.APP_URL), { headers }),
 					context: await fx.routerContext(reader),
 				} as never)
-			).featuresInvitation
-		expect(await layout()).toEqual({ topics: false })
+			).gettingStarted
+		const chrome = {
+			"sec-ch-ua": '"Chromium";v="140", "Google Chrome";v="140"',
+			"sec-ch-ua-mobile": "?0",
+		}
+		const appUrl = env.APP_URL
+		try {
+			Object.assign(env, { APP_URL: "https://klipstack.com" })
+			expect((await layout(chrome))?.steps.extension).toBe(false)
+			expect((await layout(chrome))?.extensionUrl).toMatch(
+				/^https:\/\/chromewebstore\.google\.com\//,
+			)
+			// Firefox and Safari send no client hints; a phone says ?1.
+			expect((await layout())?.steps.extension).toBeNull()
+			expect((await layout({ ...chrome, "sec-ch-ua-mobile": "?1" }))?.steps.extension).toBeNull()
+			// Another server: the store's extension does not save to it.
+			Object.assign(env, { APP_URL: "https://reader.example.com" })
+			expect((await layout(chrome))?.steps.extension).toBeNull()
+		} finally {
+			Object.assign(env, { APP_URL: appUrl })
+		}
+		expect((await layout())?.guide).toBe("guide-en")
 
-		const end = async (intent: string) =>
-			endInvitation({
-				request: fx.post("/settings/features", { intent }),
-				context: await fx.routerContext(reader),
-			} as never)
-		expect(await end("something-else")).toMatchObject({ data: { ok: false } })
-		expect(await layout()).toEqual({ topics: false })
-		await end("end-invitation")
+		await onboarding({
+			request: fx.post("/onboarding", { intent: "end-card" }),
+			context: await fx.routerContext(reader),
+		} as never)
 		expect(await layout()).toBeNull()
 	})
 })

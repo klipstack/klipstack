@@ -202,35 +202,42 @@ test("Settings replaces the app's sidebar with its sections, and goes back where
 	await expect(page).toHaveURL(/\/archive\?sort=oldest$/)
 })
 
-test("a new account's sidebar leads to Settings → Features, until the page is opened", async ({
+test("a new account's Getting started card ticks a step as it is done, and goes for good with its ✕", async ({
 	page,
 }) => {
-	await signupUser(page, "Invited")
+	await signupUser(page, "Starting")
 	await page.goto("/home")
 	await waitForHydration(page)
-	// The phone drawer has its own, hidden here.
-	const invitation = page.getByTestId("features-invitation")
-	await expect(invitation.filter({ visible: true })).toContainText("Feeds and editions")
-	await invitation.filter({ visible: true }).getByRole("link").click()
+	// The phone drawer has its own, hidden here. No extension step: the server is not klipstack.com.
+	const card = page.getByTestId("getting-started").filter({ visible: true })
+	await expect(card).toContainText("0 of 3")
+	const feature = card.getByRole("link", { name: /^Turn on .*feeds or editions$/ })
+	await feature.click()
 	await expect(page).toHaveURL(/\/settings\/features$/)
-	await expect(page.getByTestId("feature-feeds")).toBeVisible()
-	// Ended by opening the page, not by the click: the next visit has none.
-	await page.waitForLoadState("networkidle")
+	const done = page.waitForResponse((r) => r.url().includes("/prefs") && r.ok())
+	await page.getByTestId("feature-feeds").check()
+	await done
 	await page.goto("/home")
 	await waitForHydration(page)
-	await expect(page.getByRole("link", { name: "Library" })).toBeVisible()
-	await expect(invitation).toHaveCount(0)
-})
+	await expect(card).toContainText("1 of 3")
+	await expect(card.getByRole("link", { name: /^Turn on/ })).toHaveCount(0)
+	// Done: struck through, and named so for screen readers.
+	await expect(card.getByText(/^Done: Turn on .*feeds or editions$/)).toBeVisible()
 
-test("the sidebar's way to Settings → Features goes for good with its ✕", async ({ page }) => {
-	await signupUser(page, "Dismissing")
-	await page.goto("/home")
-	await waitForHydration(page)
-	const invitation = page.getByTestId("features-invitation")
-	await invitation.filter({ visible: true }).getByRole("button", { name: "Hide this" }).click()
-	await expect(invitation).toHaveCount(0)
+	await card.getByRole("button", { name: "Hide this" }).click()
+	await expect(page.getByTestId("getting-started")).toHaveCount(0)
 	await page.reload()
 	await waitForHydration(page)
 	await expect(page.getByRole("link", { name: "Library" })).toBeVisible()
-	await expect(invitation).toHaveCount(0)
+	await expect(page.getByTestId("getting-started")).toHaveCount(0)
+})
+
+test("Getting started opens the guide to try a highlight in", async ({ page }) => {
+	await signupUser(page, "Highlighting")
+	await page.goto("/home")
+	await waitForHydration(page)
+	const card = page.getByTestId("getting-started").filter({ visible: true })
+	await card.getByRole("button", { name: "Highlight a passage" }).click()
+	await expect(page).toHaveURL(/\/read\//)
+	await expect(page.getByRole("heading", { name: "How to use Klipstack" })).toBeVisible()
 })

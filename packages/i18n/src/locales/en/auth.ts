@@ -198,7 +198,13 @@ export default {
 		subject: "Welcome to Klipstack",
 		heading: "Welcome to Klipstack, {{firstName}}",
 		headingNoName: "Welcome to Klipstack",
-		body: "Thanks for joining. Klipstack is a quiet place for what you read: save an article, read a clean copy of it, and keep your highlights and notes beside the text.\n\nYou can save from more places than this website: a button in your bookmarks bar for any page, or your AI assistant, which can also find what you highlighted. The button below shows each of them.\n\nIf something does not work, or you miss something, reply to this email. It comes to me, and I read every one.\n\n{{name}}",
+		intro:
+			"Thanks for joining. Klipstack is a quiet place for what you read: save an article, read a clean copy of it, and keep your highlights and notes beside the text.",
+		extension:
+			"The quickest way to save is the browser extension for Chrome. It saves a page as you see it, even behind a login: {{url}}",
+		ways: "You can also save with a button in your bookmarks bar, or from your AI assistant, which can also find what you highlighted. The button below shows each of them.",
+		reply:
+			"If something does not work, or you miss something, reply to this email. It comes to me, and I read every one.",
 		cta: "See the ways to save",
 	},
 	validation: {

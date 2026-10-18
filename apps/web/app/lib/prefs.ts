@@ -10,15 +10,13 @@ export const DEFAULT_PREFS: Required<UserPrefs> = {
 	reviewSuggestAfter: null,
 	noteRemindersAfter: null,
 	topicsInvitationEndedAt: null,
-	featuresInvitationEndedAt: null,
 	aiConsentAt: null,
 	linkEditions: "off",
 	outline: "on",
 	editions: "off",
 	ai: "on",
 	feeds: "off",
-	welcomeCardDue: false,
-	welcomeEmailDue: false,
+	onboarding: {},
 }
 
 export function resolvePrefs(prefs: UserPrefs | null | undefined): Required<UserPrefs> {

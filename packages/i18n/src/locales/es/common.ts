@@ -364,13 +364,23 @@ export default {
 		add: "Añadir",
 	},
 	// The sidebar's way to Settings → Features, for a new account with every feature off.
-	featuresInvitation: {
-		title: "Más para activar",
-		withTopics: "Temas, feeds y ediciones",
-		withoutTopics: "Feeds y ediciones",
-		dismiss: "Ocultar esto",
+	gettingStarted: {
+		title: "Primeros pasos",
+		progress: "{{done}} de {{total}}",
 		// The collapsed sidebar's icon: its tooltip and name.
-		rail: "{{title}}: {{list}}",
+		rail: "Primeros pasos: {{done}} de {{total}} hechos",
+		dismiss: "Ocultar esto",
+		done: "Hecho: ",
+		toDo: "Pendiente: ",
+		steps: {
+			save: "Guarda tu primer artículo",
+			extension: "Guarda un artículo con la <store>extensión del navegador</store>",
+			highlight: "Subraya un pasaje",
+			feature: "Activa temas, feeds o ediciones",
+			featureNoTopics: "Activa feeds o ediciones",
+		},
+		allSet: "Todo listo",
+		allSetText: "Ya conoces lo básico. En Ajustes tienes el resto, cuando quieras.",
 	},
 	savedSearches: {
 		heading: "Búsquedas guardadas",

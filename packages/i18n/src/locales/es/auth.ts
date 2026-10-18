@@ -199,7 +199,13 @@ export default {
 		subject: "Te damos la bienvenida a Klipstack",
 		heading: "Te damos la bienvenida a Klipstack, {{firstName}}",
 		headingNoName: "Te damos la bienvenida a Klipstack",
-		body: "Gracias por unirte. Klipstack es un lugar tranquilo para lo que lees: guarda un artículo, lee una copia limpia y conserva tus subrayados y notas junto al texto.\n\nPuedes guardar desde más sitios que esta web: un botón en tu barra de marcadores para cualquier página, o tu asistente de IA, que además encuentra lo que subrayaste. El botón de abajo te enseña cada uno.\n\nSi algo no funciona o echas algo en falta, responde a este correo. Me llega a mí y los leo todos.\n\n{{name}}",
+		intro:
+			"Gracias por unirte. Klipstack es un lugar tranquilo para lo que lees: guarda un artículo, lee una copia limpia y conserva tus subrayados y notas junto al texto.",
+		extension:
+			"La forma más rápida de guardar es la extensión del navegador para Chrome. Guarda la página tal como la ves, incluso detrás de un inicio de sesión: {{url}}",
+		ways: "También puedes guardar con un botón en tu barra de marcadores, o desde tu asistente de IA, que además encuentra lo que subrayaste. El botón de abajo te enseña cada uno.",
+		reply:
+			"Si algo no funciona o echas algo en falta, responde a este correo. Me llega a mí y los leo todos.",
 		cta: "Ver las formas de guardar",
 	},
 	validation: {

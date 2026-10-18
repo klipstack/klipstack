@@ -62,11 +62,6 @@ export interface UserPrefs {
 	 */
 	topicsInvitationEndedAt?: string | null
 	/**
-	 * The sidebar's invitation to Settings → Features is over: closed, the page opened, or a feature
-	 * turned on (ISO, when). It does not come back. Only the server writes it.
-	 */
-	featuresInvitationEndedAt?: string | null
-	/**
 	 * When the account agreed, in one of our apps, that its questions and the article's text go to
 	 * the AI provider (ISO); null or missing: not, or taken back. Only the server writes it.
 	 */
@@ -93,16 +88,26 @@ export interface UserPrefs {
 	feeds?: "on" | "off"
 	/** The article's contents docked left of the text when the window has room for them. */
 	outline?: "on" | "off"
+	/** A new account's first steps. Only the server writes it. */
+	onboarding?: Onboarding
+}
+
+/**
+ * A new account's first steps: the welcome (note and email) and the sidebar's Getting started
+ * card. Times are ISO. Each step of the card is read from what the reader did, not kept here.
+ */
+export interface Onboarding {
 	/**
-	 * Set on accounts created while the welcome is on (`WELCOME_FROM_*`): Home shows the welcome note
-	 * until the reader closes it, then it is false. Only the server writes it.
+	 * Home's welcome note: "due" on an account created while the welcome is on (`WELCOME_FROM_*`),
+	 * then when it was closed.
 	 */
-	welcomeCardDue?: boolean
-	/**
-	 * As `welcomeCardDue`, for the welcome email: the worker sends it once the address is verified,
-	 * then it is false. Only the server writes it.
-	 */
-	welcomeEmailDue?: boolean
+	note?: string
+	/** The welcome email: "due" as `note`, then when it was sent, once the address is verified. */
+	email?: string
+	/** When topics, feeds or editions were first turned on: the step stays done if turned off. */
+	featureOnAt?: string
+	/** When the Getting started card was closed, or seen with every step done. It does not return. */
+	cardEndedAt?: string
 }
 
 export const session = pgTable(

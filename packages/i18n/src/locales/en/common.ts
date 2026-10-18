@@ -356,13 +356,23 @@ export default {
 		add: "Add",
 	},
 	// The sidebar's way to Settings → Features, for a new account with every feature off.
-	featuresInvitation: {
-		title: "More to turn on",
-		withTopics: "Topics, feeds and editions",
-		withoutTopics: "Feeds and editions",
-		dismiss: "Hide this",
+	gettingStarted: {
+		title: "Getting started",
+		progress: "{{done}} of {{total}}",
 		// The collapsed sidebar's icon: its tooltip and name.
-		rail: "{{title}}: {{list}}",
+		rail: "Getting started: {{done}} of {{total}} done",
+		dismiss: "Hide this",
+		done: "Done: ",
+		toDo: "To do: ",
+		steps: {
+			save: "Save your first article",
+			extension: "Save an article with the <store>browser extension</store>",
+			highlight: "Highlight a passage",
+			feature: "Turn on topics, feeds or editions",
+			featureNoTopics: "Turn on feeds or editions",
+		},
+		allSet: "All set",
+		allSetText: "You know your way around. Settings has the rest, whenever you want it.",
 	},
 	savedSearches: {
 		heading: "Saved searches",

@@ -7,6 +7,8 @@ import { cn } from "~/lib/utils"
 import { tooltip } from "./tooltip-host"
 
 type Prefs = Required<UserPrefs>
+/** The preferences the panel sets: values, not the server's records. */
+type PrefKey = Exclude<keyof Prefs, "onboarding">
 
 const SIZE_LABEL: Record<Prefs["fontSize"], string> = { sm: "A-", md: "A", lg: "A+", xl: "A++" }
 
@@ -39,14 +41,14 @@ export function ReaderPrefs({
 		}
 	}, [open])
 
-	function set<K extends keyof Prefs>(key: K, value: Prefs[K]) {
+	function set<K extends PrefKey>(key: K, value: Prefs[K]) {
 		const next = { ...prefs, [key]: value }
 		onChange(next)
 		fetcher.submit({ [key]: value }, { method: "post", action: "/prefs" })
 	}
 
 	/** One row of choices for a preference: `label` names each value. */
-	function group<K extends keyof Prefs>(
+	function group<K extends PrefKey>(
 		key: K,
 		title: string,
 		values: readonly Prefs[K][],

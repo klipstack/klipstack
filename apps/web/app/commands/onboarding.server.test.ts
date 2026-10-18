@@ -3,7 +3,7 @@ import { afterAll, describe, expect, it } from "vitest"
 import { rateLimit, SAVE_LIMIT } from "~/lib/rate-limit.server"
 import { starterGuide } from "~/lib/starter-texts.server"
 import { setPrefs } from "./account.server"
-import { closeWelcome } from "./welcome.server"
+import { closeWelcome, endGettingStarted } from "./onboarding.server"
 
 const stamp = `test-welcome-${Date.now()}`
 const users: string[] = []
@@ -15,7 +15,7 @@ async function newcomer() {
 		id,
 		name: "Newcomer",
 		email: `${id}@example.com`,
-		prefs: { welcomeCardDue: true, welcomeEmailDue: true },
+		prefs: { onboarding: { note: "due", email: "due" } },
 	})
 	return id
 }
@@ -33,7 +33,9 @@ describe("closeWelcome", () => {
 	it("ends the note for good and leaves the email to come", async () => {
 		const id = await newcomer()
 		expect(await closeWelcome(id, { guide: false, locale: "en" })).toEqual({ articleId: null })
-		expect(await prefsOf(id)).toEqual({ welcomeCardDue: false, welcomeEmailDue: true })
+		const { onboarding } = await prefsOf(id)
+		expect(onboarding?.email).toBe("due")
+		expect(onboarding?.note).toMatch(/^\d{4}-\d\d-\d\dT/)
 		expect(await savedBy(id)).toHaveLength(0)
 	})
 
@@ -45,7 +47,7 @@ describe("closeWelcome", () => {
 		expect(again.articleId).toBe(first.articleId)
 		const saved = await savedBy(id)
 		expect(saved.map((doc) => doc.sourceUrl)).toEqual([starterGuide("es").url])
-		expect((await prefsOf(id)).welcomeCardDue).toBe(false)
+		expect((await prefsOf(id)).onboarding?.note).not.toBe("due")
 	})
 
 	it("opens the English guide for a language it is not written in", async () => {
@@ -61,16 +63,44 @@ describe("closeWelcome", () => {
 		await expect(closeWelcome(id, { guide: true, locale: "en" })).rejects.toMatchObject({
 			code: "rate_limited",
 		})
-		expect((await prefsOf(id)).welcomeCardDue).toBe(true)
+		expect((await prefsOf(id)).onboarding?.note).toBe("due")
 	})
 })
 
-describe("the welcome flags", () => {
-	it("are the server's: preferences sent by the reader cannot bring them back", async () => {
+describe("endGettingStarted", () => {
+	it("ends the card for good, keeping when it first ended, and the rest", async () => {
 		const id = await newcomer()
-		const over = { welcomeCardDue: false, welcomeEmailDue: false }
-		await db.update(userTable).set({ prefs: over }).where(eq(userTable.id, id))
-		await setPrefs(id, { welcomeCardDue: true, welcomeEmailDue: true, theme: "dark" } as never)
-		expect(await prefsOf(id)).toEqual({ ...over, theme: "dark" })
+		await endGettingStarted(id)
+		const ended = (await prefsOf(id)).onboarding?.cardEndedAt
+		expect(ended).toMatch(/^\d{4}-\d\d-\d\dT/)
+		await new Promise((resolve) => setTimeout(resolve, 5))
+		await endGettingStarted(id)
+		expect((await prefsOf(id)).onboarding).toEqual({
+			note: "due",
+			email: "due",
+			cardEndedAt: ended,
+		})
+	})
+})
+
+describe("onboarding", () => {
+	it("is the server's: preferences sent by the reader cannot change it", async () => {
+		const id = await newcomer()
+		await setPrefs(id, { onboarding: { note: "due", cardEndedAt: "x" }, theme: "dark" } as never)
+		expect(await prefsOf(id)).toEqual({ onboarding: { note: "due", email: "due" }, theme: "dark" })
+	})
+
+	it("records the first time a feature is turned on, and keeps it when turned off", async () => {
+		const id = await newcomer()
+		await setPrefs(id, { feeds: "on" })
+		const first = (await prefsOf(id)).onboarding?.featureOnAt
+		expect(first).toMatch(/^\d{4}-\d\d-\d\dT/)
+		await setPrefs(id, { feeds: "off" })
+		await setPrefs(id, { editions: "on" })
+		expect((await prefsOf(id)).onboarding).toEqual({
+			note: "due",
+			email: "due",
+			featureOnAt: first,
+		})
 	})
 })
