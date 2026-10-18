@@ -16,6 +16,7 @@ import { APIError } from "better-auth/api"
 import { afterAll, describe, expect, it, vi } from "vitest"
 import { createApiKey, hashApiKey, userForApiKey } from "~/services/api-keys.server"
 import { env } from "./env.server"
+import { listFeatures } from "./features.server"
 
 // The welcome off, whatever the local `.env` says (auth.welcome.server.test.ts has it on).
 vi.hoisted(() => {
@@ -116,6 +117,8 @@ describe("auth", () => {
 		// With the welcome off, no note or email waits for the new account.
 		const [row] = await db.select().from(userTable).where(eq(userTable.id, signup.response.user.id))
 		expect(row!.prefs).toEqual({})
+		// A new account starts with AI and topics turned on; an admin can still turn them off.
+		expect(await listFeatures(signup.response.user.id)).toEqual(["ai", "topics"])
 		await expect(createApiKey(signup.response.user.id, "Unverified")).rejects.toMatchObject({
 			code: "verification_required",
 		})

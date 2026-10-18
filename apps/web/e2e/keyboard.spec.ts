@@ -84,7 +84,7 @@ test("keyboard: j/k move the cursor, keys act on it, the reader answers the same
 	const palette = page.getByRole("dialog", { name: "Command palette" })
 	await page.keyboard.press("ControlOrMeta+k")
 	await expect(palette.locator("[cmdk-input]")).toBeFocused()
-	await expect(palette.getByText("This article")).toBeVisible()
+	await expect(palette.getByText("This article", { exact: true })).toBeVisible()
 	await expect(
 		palette.getByRole("option", { name: "Star", exact: true }).locator("kbd"),
 	).toHaveText("S")

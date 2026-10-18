@@ -12,6 +12,7 @@ for (const method of ["log", "warn", "error"] as const)
 const { env } = await import("./env.server")
 const { auth } = await import("./auth.server")
 const { createInvite } = await import("./invites.server")
+const { listFeatures } = await import("./features.server")
 const { withSignupAllowed } = await import("./signup-gate.server")
 const { handleProviderCallback, InvalidInviteError, startProviderSignIn } =
 	await import("./provider-sign-in.server")
@@ -105,6 +106,7 @@ describe("provider sign-in", () => {
 
 		const [row] = await usersWith(profile.email)
 		expect(row).toMatchObject({ name: "Octo Cat", emailVerified: true, locale: "es" })
+		expect(await listFeatures(row!.id)).toEqual(["ai", "topics"])
 		const [invite] = await db.select().from(invites).where(eq(invites.code, inviteCode))
 		expect(invite?.usedBy).toBe(row!.id)
 		const accounts = await db.select().from(account).where(eq(account.userId, row!.id))

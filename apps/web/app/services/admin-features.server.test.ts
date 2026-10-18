@@ -25,7 +25,8 @@ describe("feature flags", () => {
 	it("ignore rows of flags the code no longer knows", async () => {
 		const { reader } = await setup()
 		await db.insert(userFeatures).values({ userId: reader.id, feature: RETIRED })
-		expect(await listFeatures(reader.id)).toEqual([])
+		// The ones a new account starts with, and not the retired one.
+		expect(await listFeatures(reader.id)).toEqual(["ai", "topics"])
 	})
 
 	it("answer 404 for an account that does not exist", async () => {
