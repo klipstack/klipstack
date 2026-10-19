@@ -10,6 +10,8 @@ Two switches must both be on for anyone to see it:
   everyone.
 - **The `ai` feature flag**, per account, in `/admin` → the account → Features in testing. A new
   account starts with it on (and with `topics`); accounts made before keep what they had.
+  With `SIGNUP_MODE=open`, that means anyone who signs up can ask questions on your key at once,
+  up to the limits below: turn `ai` off for accounts you don't know.
 
 ## What it costs, and the limits
 
