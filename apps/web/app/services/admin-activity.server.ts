@@ -29,7 +29,7 @@ export async function listActivity(
 	assertAdminContext(ctx)
 	const today = sql`(${now.toISOString()}::timestamptz at time zone 'utc')::date`
 	const first = sql`(${today} - ${ACTIVITY_DAYS - 1}::int)`
-	const since = sql`(${first} at time zone 'utc')`
+	const since = sql`(${first}::timestamp at time zone 'utc')`
 	const starters = starterTexts().map((text) => sql`${starterUrlHash(text)}`)
 	const result = await tx.execute<{
 		day: string

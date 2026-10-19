@@ -198,7 +198,7 @@ export default {
 		finished: "Artículos terminados",
 		people: "Personas activas",
 		inDays: "Últimos {{count}} días",
-		note: "Guardados no incluye los textos para empezar que se ofrecen al registrarse. Terminados cuenta un artículo a la vez (a mano, o leyendo o escuchando hasta el final), no marcar muchos como leídos de una vez. Personas activas hizo al menos una de las tres cosas ese día.",
+		note: "Guardados no incluye los textos para empezar que se ofrecen al registrarse. Terminados cuenta un artículo a la vez (a mano, o leyendo o escuchando hasta el final), no marcar muchos como leídos de una vez. Personas activas cuenta a quienes hicieron al menos una de las tres cosas ese día.",
 	},
 	usage: {
 		title: "Uso",

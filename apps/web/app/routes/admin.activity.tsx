@@ -37,7 +37,9 @@ export default function AdminActivity({ loaderData }: Route.ComponentProps) {
 			<div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
 				{(["saved", "highlighted", "finished"] as const).map((key) => (
 					<Card key={key} title={t(`activity.${key}`)}>
-						<p className="text-3xl font-semibold tabular-nums">{totals[key]}</p>
+						<p className="text-3xl font-semibold tabular-nums">
+							{totals[key].toLocaleString("en-US")}
+						</p>
 						<p className="mt-1 text-xs text-muted-fg">
 							{t("activity.inDays", { count: ACTIVITY_DAYS })}
 						</p>
@@ -53,7 +55,7 @@ export default function AdminActivity({ loaderData }: Route.ComponentProps) {
 						<td className="tabular-nums">{day.day}</td>
 						{COUNTS.map((key) => (
 							<td key={key} className={cn("tabular-nums", !day[key] && "text-muted-fg")}>
-								{day[key]}
+								{day[key].toLocaleString("en-US")}
 							</td>
 						))}
 					</tr>

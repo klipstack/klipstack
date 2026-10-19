@@ -5,6 +5,7 @@ import {
 	documentVersions,
 	highlights,
 	readingCompletions,
+	sql,
 	type Tx,
 } from "@klipstack/db"
 import { afterAll, describe, expect, it } from "vitest"
@@ -79,6 +80,8 @@ describe("listActivity", () => {
 		const tooOld = new Date(now.getTime() - ACTIVITY_DAYS * 86_400_000)
 
 		const { before, after } = await inSnapshot(async (tx) => {
+			// A server whose database doesn't run in UTC still counts UTC days.
+			await tx.execute(sql`set local timezone = 'America/New_York'`)
 			const before = await listActivity(ctx, now, tx)
 			const doc = await save(tx, a.id, today)
 			await save(tx, a.id, today)
@@ -87,6 +90,9 @@ describe("listActivity", () => {
 			await finish(tx, a.id, doc, today, "listened", 2)
 			const other = await save(tx, b.id, yesterday)
 			await finish(tx, b.id, other, yesterday, "manual")
+			// The first moment of the oldest day counts; the last of the day before doesn't.
+			await save(tx, b.id, new Date("2026-10-06T00:00:00Z"))
+			await save(tx, b.id, new Date("2026-10-05T23:59:59Z"))
 			// Not counted: finishing many at once, old read dates, a starter text, an admin's
 			// activity, and anything before the period.
 			const tidied = await save(tx, b.id, tooOld)
@@ -116,7 +122,8 @@ describe("listActivity", () => {
 		}
 		expect(diff("2026-10-19")).toEqual({ saved: 2, highlighted: 1, finished: 2, people: 1 })
 		expect(diff("2026-10-18")).toEqual({ saved: 1, highlighted: 0, finished: 1, people: 1 })
-		for (const row of after.slice(2))
+		expect(diff("2026-10-06")).toEqual({ saved: 1, highlighted: 0, finished: 0, people: 1 })
+		for (const row of after.slice(2, -1))
 			expect(diff(row.day)).toEqual({ saved: 0, highlighted: 0, finished: 0, people: 0 })
 	})
 })
