@@ -333,6 +333,10 @@ export default {
 		select: "Seleccionar",
 		done: "Listo",
 	},
+	updateNotice: {
+		message: "Klipstack se ha actualizado.",
+		reload: "Recargar",
+	},
 	nav: {
 		home: "Inicio",
 		library: "Biblioteca",

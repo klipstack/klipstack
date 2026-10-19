@@ -325,6 +325,10 @@ export default {
 		select: "Select",
 		done: "Done",
 	},
+	updateNotice: {
+		message: "Klipstack has been updated.",
+		reload: "Reload",
+	},
 	nav: {
 		home: "Home",
 		library: "Library",

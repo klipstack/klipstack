@@ -166,6 +166,59 @@ test("settings shows the running version, and offers a reload when a newer one i
 	await expect(about.locator("code")).toHaveText("dev")
 })
 
+test("every page tells of a newer version, and once closed only of the one after it", async ({
+	page,
+}) => {
+	await page.clock.install()
+	await signupUser(page, "Update Notice")
+	await page.goto("/library")
+	await waitForHydration(page)
+	const notice = page.getByRole("status").filter({ hasText: "Klipstack has been updated." })
+	await expect(notice).toHaveCount(0)
+
+	// deployed while the tab is open: the next navigation after a few minutes finds out
+	let live = "beefbee"
+	await page.route("**/version", (route) =>
+		route.fulfill({ status: 200, body: JSON.stringify({ version: live }) }),
+	)
+	let checks = 0
+	page.on("request", (request) => {
+		if (new URL(request.url()).pathname === "/version") checks++
+	})
+	// within a few minutes of the last check, a navigation does not ask again
+	await page.getByRole("link", { name: "Home" }).first().click()
+	await expect(page).toHaveURL(/\/home$/)
+	await waitForHydration(page)
+	expect(checks).toBe(0)
+	await expect(notice).toHaveCount(0)
+	// after them, the tab coming back to the front does
+	await page.clock.fastForward("06:00")
+	await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")))
+	await expect(notice).toBeVisible()
+	expect(checks).toBe(1)
+
+	await page.evaluate(() => Object.assign(window, { beforeReload: true }))
+	await notice.getByRole("button", { name: "Reload" }).click()
+	await expect.poll(() => page.evaluate(() => "beforeReload" in window)).toBe(false)
+	await waitForHydration(page)
+
+	// closed, it stays closed in this tab for the same version
+	await notice.getByRole("button", { name: "Close" }).click()
+	await expect(notice).toHaveCount(0)
+	// a new page load: the check has seen the newer version (Settings offers it), and the notice stays closed
+	await page.goto("/settings/about")
+	await waitForHydration(page)
+	await expect(page.getByRole("main").getByRole("button", { name: /reload/i })).toBeVisible()
+	await expect(notice).toHaveCount(0)
+
+	// another deploy brings it back, found on the next navigation a few minutes later
+	live = "cafe123"
+	await page.clock.fastForward("06:00")
+	await page.getByRole("link", { name: "Account", exact: true }).click()
+	await expect(page).toHaveURL(/\/settings\/account$/)
+	await expect(notice).toBeVisible()
+})
+
 test("Settings replaces the app's sidebar with its sections, and goes back where it was opened", async ({
 	page,
 }) => {
