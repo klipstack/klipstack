@@ -65,6 +65,10 @@ pnpm dlx expo-doctor         # Diagnose dependency and config problems
 - `app.json` holds the privacy manifest (`ios.privacyManifests`): the required-reason APIs of the
   app and its pods, and the data it collects. A new native dependency may need its reasons added:
   check its `PrivacyInfo.xcprivacy`, and `ios/Klipstack/PrivacyInfo.xcprivacy` after a prebuild.
+  Apple also refuses a build whose code (the pods' included) references a protected API without
+  its purpose string in `ios.infoPlist`, even if the app never calls it: `NSPhotoLibraryUsageDescription`
+  is there for expo-image and expo-file-system. The refusal comes by email (ITMS-90683), after the
+  upload; the build never shows in TestFlight.
 - `ios/` and `android/` are generated (`expo prebuild`) and ignored. Never edit them. Change
   `app.json`, a config plugin, or `targets/` instead, then run `pnpm ios` again.
   After a release build (`pnpm ios:device`), a development build can fail to link
