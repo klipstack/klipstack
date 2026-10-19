@@ -1,6 +1,9 @@
-import { StyleSheet, Text, View } from "react-native"
+import { Linking, Pressable, StyleSheet, Text, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useColors } from "@/lib/theme"
+
+/** The app's page in the App Store (App Store Connect → App Information → Apple ID). */
+const APP_STORE_URL = "https://apps.apple.com/app/id6824513146"
 
 /** Shown when the API answers `client_outdated`: this version no longer works with the server. */
 export default function Update() {
@@ -13,6 +16,13 @@ export default function Update() {
 					This version of the app no longer works. Install the latest version to keep using
 					Klipstack.
 				</Text>
+				<Pressable
+					accessibilityRole="button"
+					onPress={() => void Linking.openURL(APP_STORE_URL)}
+					style={[styles.button, { backgroundColor: colors.accent }]}
+				>
+					<Text style={[styles.buttonText, { color: colors.accentFg }]}>Open the App Store</Text>
+				</Pressable>
 			</View>
 		</SafeAreaView>
 	)
@@ -23,4 +33,6 @@ const styles = StyleSheet.create({
 	body: { flex: 1, justifyContent: "center", paddingHorizontal: 32, gap: 12 },
 	title: { fontSize: 28, fontWeight: "700" },
 	text: { fontSize: 17, lineHeight: 24 },
+	button: { marginTop: 16, borderRadius: 10, paddingVertical: 14, alignItems: "center" },
+	buttonText: { fontSize: 17, fontWeight: "600" },
 })

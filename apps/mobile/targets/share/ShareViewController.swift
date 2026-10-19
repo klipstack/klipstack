@@ -246,7 +246,7 @@ enum Keychain {
       kSecAttrService as String: "klipstack:no-auth",
       kSecAttrGeneric as String: key,
       kSecAttrAccount as String: key,
-      kSecAttrAccessGroup as String: "group.com.klipstack.app",
+      kSecAttrAccessGroup as String: "group.com.klipstack",
     ]
   }
 

@@ -48,7 +48,8 @@ export const MOBILE_SCOPES = CLI_SCOPES
 
 /**
  * The mobile app's registered redirect URI: a reverse-domain private-use scheme (RFC 8252, 7.1),
- * the only custom-scheme form better-auth's redirect check accepts.
+ * the only custom-scheme form better-auth's redirect check accepts. It was the app's first bundle ID;
+ * `app.json` lists it in `scheme`, since the bundle ID is now `com.klipstack.mobile`.
  */
 export const MOBILE_REDIRECT_URI = "com.klipstack.app:/oauth/callback"
 

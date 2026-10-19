@@ -5,7 +5,7 @@ XCUITest. Under Xcode 27 it is the only way an agent can touch the simulator: AX
 run without error but do nothing.
 
 It is a tiny Xcode project (`project.yml`, for XcodeGen): an empty host app and one UI test,
-`UITests/Driver.swift`, that attaches to the installed `com.klipstack.app` and runs a list of
+`UITests/Driver.swift`, that attaches to the installed `com.klipstack.mobile` and runs a list of
 steps. It does not build or launch Klipstack.
 
 ## Use

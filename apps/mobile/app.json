@@ -2,16 +2,16 @@
 	"expo": {
 		"name": "Klipstack",
 		"slug": "klipstack",
-		"scheme": "klipstack",
+		"scheme": ["klipstack", "com.klipstack.app"],
 		"version": "0.1.0",
 		"orientation": "portrait",
 		"icon": "./assets/icon.png",
 		"userInterfaceStyle": "automatic",
 		"ios": {
-			"bundleIdentifier": "com.klipstack.app",
+			"bundleIdentifier": "com.klipstack.mobile",
 			"supportsTablet": false,
 			"entitlements": {
-				"com.apple.security.application-groups": ["group.com.klipstack.app"]
+				"com.apple.security.application-groups": ["group.com.klipstack"]
 			},
 			"infoPlist": {
 				"UIBackgroundModes": ["audio"],
@@ -103,7 +103,7 @@
 			}
 		},
 		"android": {
-			"package": "com.klipstack.app",
+			"package": "com.klipstack.mobile",
 			"adaptiveIcon": {
 				"backgroundColor": "#132548",
 				"foregroundImage": "./assets/android-icon-foreground.png",

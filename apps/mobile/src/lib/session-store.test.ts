@@ -18,7 +18,7 @@ describe("the share extension's keychain query", () => {
 		const store = read("session-store.ts")
 		expect(store).toContain('keychainService: "klipstack"')
 		expect(store).toContain('const KEY = "session"')
-		expect(store).toContain('export const APP_GROUP = "group.com.klipstack.app"')
+		expect(store).toContain('export const APP_GROUP = "group.com.klipstack"')
 		// The app never asks for authentication, so expo appends ":no-auth" to the service.
 		expect(store).not.toContain("requireAuthentication")
 
@@ -32,6 +32,6 @@ describe("the share extension's keychain query", () => {
 		expect(share).toContain('let key = Data("session".utf8)')
 		expect(share).toContain("kSecAttrGeneric as String: key")
 		expect(share).toContain("kSecAttrAccount as String: key")
-		expect(share).toContain('kSecAttrAccessGroup as String: "group.com.klipstack.app"')
+		expect(share).toContain('kSecAttrAccessGroup as String: "group.com.klipstack"')
 	})
 })

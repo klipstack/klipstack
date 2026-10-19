@@ -13,7 +13,7 @@ export type Session = {
 	expiresAt: number
 }
 
-export const APP_GROUP = "group.com.klipstack.app"
+export const APP_GROUP = "group.com.klipstack"
 
 const KEY = "session"
 const OPTIONS: SecureStore.SecureStoreOptions = {

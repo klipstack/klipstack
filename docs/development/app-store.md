@@ -5,25 +5,25 @@ owner. Each item says what it is, why Apple checks it, and where it stands. Appl
 [App Review Guidelines](https://developer.apple.com/app-store/review/guidelines/); the numbers
 below (4.8, 5.1.1, …) are theirs.
 
-Status as of October 17, 2026: the Apple Developer Program enrollment is pending.
+Status as of October 19, 2026: enrolled as Klipstack SpA; the app exists in App Store Connect.
 
 ## Blocked on the enrollment
 
 A paid team is needed for all of these. The free personal team that signs today's device builds
 can't do any of them.
 
-- **Switch the team.** Device builds are signed by the team in `APPLE_TEAM_ID`, in
-  `apps/mobile/.env.local` (never in the repo; `app.config.ts` reads it). Put the new team's ID
-  there. The server's `APPLE_TEAM_ID` (below) is a separate setting with the same value. *Why:* only a paid team can upload builds, and the team ID is part of every ID below.
-- **App IDs and the app group.** In the developer portal (Certificates, Identifiers & Profiles),
-  register `com.klipstack.app`, `com.klipstack.app.share` (the share extension) and
-  `com.klipstack.app.widget` (the widget), and the app group `group.com.klipstack.app` on all
-  three. *Why:* the app, the extension and the widget share the sign-in through that group; an ID
-  without it can't read the session, and Apple refuses a build whose entitlements its IDs lack.
-  Turn on Associated Domains (for universal links) and Sign in with Apple on the app's ID when you
-  get to those items.
+- **Switch the team.** Done: device and TestFlight builds are signed by the team in
+  `APPLE_TEAM_ID`, in `apps/mobile/.env.local` (never in the repo; `app.config.ts` reads it). The
+  server's `APPLE_TEAM_ID` (below) is a separate setting with the same value.
+- **App IDs and the app group.** Done: `com.klipstack.mobile`, `com.klipstack.mobile.share` and
+  `com.klipstack.mobile.widget`, all three in the app group `group.com.klipstack`; Associated
+  Domains and Sign in with Apple are on for the app. The first choice, `com.klipstack.app` and
+  `group.com.klipstack.app`, is held by the free personal team that signed the early device builds,
+  and Apple gives an identifier to one team only. The sign-in's custom scheme stays
+  `com.klipstack.app` (`MOBILE_REDIRECT_URI`), listed in `app.json`'s `scheme`: it was the bundle
+  ID, which Expo registers as a scheme on its own.
 - **Universal links, the app side.** The server side is done and off (below). Then:
-  1. Set `APPLE_TEAM_ID` and `APPLE_BUNDLE_ID=com.klipstack.app` in klipstack.com's environment
+  1. Set `APPLE_TEAM_ID` and `APPLE_BUNDLE_ID=com.klipstack.mobile` in klipstack.com's environment
      and redeploy. `https://klipstack.com/.well-known/apple-app-site-association` then answers
      the file instead of 404. Apple's servers fetch it, not the phone: check what they hold at
      `https://app-site-association.cdn-apple.com/a/v1/klipstack.com` (it can take a day to
@@ -52,15 +52,15 @@ can't do any of them.
     arrive.
   - Deleting an account that signed in with Apple must also revoke its Apple tokens (Apple's
     REST API), not only delete our rows.
-- **The TestFlight build and upload.** A release build (Xcode's Archive; the repository has no EAS setup), uploaded
-  to App Store Connect. *Why:* TestFlight is the only way to put the app on testers' phones
-  without the 7-day signing of today's builds, and App Review reviews uploaded builds. The first
-  build for external testers gets a short review too.
-- **The App Store link on the update screen.** `apps/mobile/src/app/update.tsx`, shown when the
-  server answers `426 client_outdated`, says to install the latest version but has no button. Add
-  one that opens the app's App Store page (`https://apps.apple.com/app/id<number>`); the number
-  exists once the app is created in App Store Connect. *Why:* App Review checks that every screen
-  has a way forward; a dead end can be a rejection under 2.1 (app completeness).
+- **The TestFlight build and upload.** `pnpm ios:testflight` (in `apps/mobile`) archives a
+  release build and uploads it to App Store Connect, signed in with the Xcode account of the team.
+  The build number is the upload's time, so each upload is higher; the version is `app.json`'s.
+  *Why:* TestFlight is the only way to put the app on testers' phones without the 7-day signing of
+  device builds, and App Review reviews uploaded builds. The first build for external testers gets
+  a short review too.
+- **The App Store link on the update screen.** Done: `apps/mobile/src/app/update.tsx` opens
+  `https://apps.apple.com/app/id6824513146`. *Why:* App Review checks that every screen has a way
+  forward; a dead end can be a rejection under 2.1 (app completeness).
 
 ## Done in code
 
