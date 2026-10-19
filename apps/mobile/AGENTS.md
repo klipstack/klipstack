@@ -21,7 +21,7 @@ The app's `console.log` output shows in Metro's output.
 pnpm expo install <package>  # Always: it picks versions that match the SDK
 pnpm ios                     # Prebuild, build and run in the iOS simulator
 pnpm ios:release             # A release build in the simulator
-pnpm ios:device              # A release build on the connected iPhone; renews its 7-day signing
+pnpm ios:device              # A release build on the connected iPhone, signed for development
 pnpm ios:testflight          # A release build, uploaded to App Store Connect for TestFlight
 pnpm start                   # Metro only, for an app that is already installed
 pnpm typecheck

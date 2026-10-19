@@ -4,17 +4,20 @@
 # Signs with the team in APPLE_TEAM_ID (.env.local) and uploads with the Apple account signed in
 # to Xcode (Settings → Accounts), which must belong to that team as Admin or App Manager. Xcode
 # creates the distribution certificate and profiles the first time. The build number is the time
-# (yymmdd.HHMM, UTC), so each upload is higher than the last. The version is app.json's `version`.
+# (yymmdd.HHMMSS, UTC), so each upload is higher than the last. The version is app.json's `version`.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
 
-team=$(sed -nE 's/^APPLE_TEAM_ID=(.+)$/\1/p' .env.local 2>/dev/null | tail -n 1)
+# The last APPLE_TEAM_ID= line, without quotes, a trailing comment or a carriage return.
+team=$(sed -nE 's/^APPLE_TEAM_ID=["'"'"']?([A-Z0-9]+).*$/\1/p' .env.local 2>/dev/null | tail -n 1)
 if [ -z "$team" ]; then
   echo "No APPLE_TEAM_ID in apps/mobile/.env.local: uploads need the paid team." >&2
   exit 1
 fi
-export IOS_BUILD_NUMBER=${IOS_BUILD_NUMBER:-$(date -u +%y%m%d.%H%M)}
+# The date, then the time of day as a number without leading zeros (Apple wants plain integers):
+# 0.1.0 (261019.92233) at 09:22:33 UTC. Two runs a second apart get different numbers.
+export IOS_BUILD_NUMBER=${IOS_BUILD_NUMBER:-$(date -u +%y%m%d).$((10#$(date -u +%H%M%S)))}
 version=$(node -p 'require("./app.json").expo.version')
 
 out=build/testflight/$version-$IOS_BUILD_NUMBER
@@ -48,7 +51,7 @@ cat >"$out/ExportOptions.plist" <<PLIST
 </plist>
 PLIST
 
-echo "Klipstack $version ($IOS_BUILD_NUMBER), team $team, from $(git rev-parse --short HEAD)$(git diff --quiet HEAD -- . || echo ' with uncommitted changes')"
+echo "Klipstack $version ($IOS_BUILD_NUMBER), team $team, from $(git rev-parse --short HEAD)$([ -z "$(git status --porcelain -- .)" ] || echo ' with uncommitted changes')"
 # --clean: a native project made from scratch, so nothing from development builds ends up in it.
 step "native project" env EXPO_NO_GIT_STATUS=1 pnpm expo prebuild -p ios --clean
 step "archive (signing)" xcodebuild -workspace ios/Klipstack.xcworkspace -scheme Klipstack \

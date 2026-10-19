@@ -7,9 +7,9 @@ below (4.8, 5.1.1, …) are theirs.
 
 Status as of October 19, 2026: enrolled as Klipstack SpA; the app exists in App Store Connect.
 
-## Blocked on the enrollment
+## Needed the paid team
 
-A paid team is needed for all of these. The free personal team that signs today's device builds
+The Apple Developer Program (team Klipstack SpA) is needed for all of these; a free personal team
 can't do any of them.
 
 - **Switch the team.** Done: device and TestFlight builds are signed by the team in
@@ -55,12 +55,14 @@ can't do any of them.
 - **The TestFlight build and upload.** `pnpm ios:testflight` (in `apps/mobile`) archives a
   release build and uploads it to App Store Connect, signed in with the Xcode account of the team.
   The build number is the upload's time, so each upload is higher; the version is `app.json`'s.
-  *Why:* TestFlight is the only way to put the app on testers' phones without the 7-day signing of
-  device builds, and App Review reviews uploaded builds. The first build for external testers gets
+  *Why:* TestFlight is the only way to put the app on testers' phones without connecting each phone to
+  the Mac, and App Review reviews uploaded builds. The first build for external testers gets
   a short review too.
 - **The App Store link on the update screen.** Done: `apps/mobile/src/app/update.tsx` opens
   `https://apps.apple.com/app/id6824513146`. *Why:* App Review checks that every screen has a way
-  forward; a dead end can be a rejection under 2.1 (app completeness).
+  forward; a dead end can be a rejection under 2.1 (app completeness). That page exists only once
+  the app is released in the App Store: until then, testers update in TestFlight, so don't raise
+  the server's minimum version for them alone.
 
 ## Done in code
 
