@@ -47,19 +47,38 @@ export const APPLE_PLATFORM_CLIENTS: readonly string[] = [MOBILE_CLIENT_ID]
 export const MOBILE_SCOPES = CLI_SCOPES
 
 /**
- * The mobile app's registered redirect URI: a reverse-domain private-use scheme (RFC 8252, 7.1),
- * the only custom-scheme form better-auth's redirect check accepts. It was the app's first bundle ID;
- * `app.json` lists it in `scheme`, since the bundle ID is now `com.klipstack.mobile`.
+ * The mobile app's redirect URI on the http dev server: a reverse-domain private-use scheme
+ * (RFC 8252, 7.1), the only custom-scheme form better-auth's redirect check accepts. Any iOS app can
+ * claim a scheme and catch the sign-in, so an https server never accepts it; there the app uses the
+ * universal link. It was the app's first bundle ID; `app.json` lists it in `scheme`, since the
+ * bundle ID is now `com.klipstack.mobile`.
  */
 export const MOBILE_REDIRECT_URI = "com.klipstack.app:/oauth/callback"
 
 /**
- * The mobile app's sign-in callback as a universal link, `<APP_URL>/app/oauth/callback`: the https
- * redirect that will replace the custom scheme once the app has an Apple team. The server lists it
- * in `/.well-known/apple-app-site-association` when the team is configured; it is not registered on
- * `klipstack-mobile` until the app uses it. No web page answers at this path.
+ * The mobile app's sign-in callback as a universal link, `<APP_URL>/app/oauth/callback`. The server
+ * lists it in `/.well-known/apple-app-site-association` when the Apple team is configured, so only
+ * the app signed by that team can open it. No web page answers at this path.
  */
 export const MOBILE_CALLBACK_PATH = "/app/oauth/callback"
+
+/**
+ * The redirect URI the mobile app signs in with on the server at `apiUrl`: the universal link on an
+ * https server, the custom scheme on the http dev server.
+ */
+export function mobileRedirectUri(apiUrl: string): string {
+	if (!apiUrl.startsWith("https://")) return MOBILE_REDIRECT_URI
+	return `${apiUrl.replace(/\/+$/, "")}${MOBILE_CALLBACK_PATH}`
+}
+
+/**
+ * The redirect URIs the server at `appUrl` accepts from the mobile app. An https server accepts the
+ * universal link only. The http dev server also accepts the custom scheme, which the app sends it.
+ */
+export function mobileRedirectUris(appUrl: string): string[] {
+	const universalLink = `${appUrl.replace(/\/+$/, "")}${MOBILE_CALLBACK_PATH}`
+	return appUrl.startsWith("https://") ? [universalLink] : [universalLink, MOBILE_REDIRECT_URI]
+}
 
 /** The path of the CLI's one-shot login server. */
 export const CLI_CALLBACK_PATH = "/callback"

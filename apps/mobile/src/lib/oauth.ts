@@ -1,8 +1,8 @@
 import {
 	API_RESOURCE_PATH,
 	MOBILE_CLIENT_ID,
-	MOBILE_REDIRECT_URI,
 	MOBILE_SCOPES,
+	mobileRedirectUri,
 } from "@klipstack/api-contract/auth"
 import { AuthRequest, Prompt } from "expo-auth-session"
 import { USER_AGENT } from "./config"
@@ -33,16 +33,18 @@ export async function authorize(
 	apiUrl: string,
 	{ again = false }: { again?: boolean } = {},
 ): Promise<Session | null> {
+	const redirectUri = mobileRedirectUri(apiUrl)
 	const request = new AuthRequest({
 		clientId: MOBILE_CLIENT_ID,
-		redirectUri: MOBILE_REDIRECT_URI,
+		redirectUri,
 		scopes: [...MOBILE_SCOPES],
 		usePKCE: true,
 		// The server reuses an earlier consent silently otherwise: always show what is granted.
 		prompt: again ? [Prompt.Login, Prompt.Consent] : Prompt.Consent,
 		extraParams: { resource: resourceOf(apiUrl) },
 	})
-	const result = await request.promptAsync(endpoints(apiUrl))
+	// iOS hands an https redirect to the app only with this, and only from iOS 17.4, the app's minimum.
+	const result = await request.promptAsync(endpoints(apiUrl), { preferUniversalLinks: true })
 	if (result.type === "cancel" || result.type === "dismiss") return null
 	if (result.type !== "success") {
 		const message = result.type === "error" ? result.error?.message : undefined
@@ -53,7 +55,7 @@ export async function authorize(
 	return tokenRequest(apiUrl, {
 		grant_type: "authorization_code",
 		code,
-		redirect_uri: MOBILE_REDIRECT_URI,
+		redirect_uri: redirectUri,
 		client_id: MOBILE_CLIENT_ID,
 		code_verifier: request.codeVerifier,
 		resource: resourceOf(apiUrl),

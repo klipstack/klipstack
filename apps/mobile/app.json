@@ -10,6 +10,7 @@
 		"ios": {
 			"bundleIdentifier": "com.klipstack.mobile",
 			"supportsTablet": false,
+			"associatedDomains": ["applinks:klipstack.com", "webcredentials:klipstack.com"],
 			"entitlements": {
 				"com.apple.security.application-groups": ["group.com.klipstack"]
 			},
@@ -132,6 +133,7 @@
 				"expo-build-properties",
 				{
 					"ios": {
+						"deploymentTarget": "17.4",
 						"enableSceneSupport": true
 					}
 				}

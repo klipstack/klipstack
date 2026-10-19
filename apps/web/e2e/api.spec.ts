@@ -4,6 +4,7 @@ import {
 	CLI_SCOPES,
 	LIBRARY_WRITE_SCOPE,
 	MOBILE_CLIENT_ID,
+	MOBILE_CALLBACK_PATH,
 	MOBILE_REDIRECT_URI,
 	MOBILE_SCOPES,
 } from "@klipstack/api-contract/auth"
@@ -250,7 +251,9 @@ test("the mobile app signs in with its own client, gets write access, and names 
 	test.setTimeout(60_000)
 	const base = baseURL ?? ""
 	const email = await signupUser(page, "Phone Person")
-	const client = { clientId: MOBILE_CLIENT_ID, redirectUri: MOBILE_REDIRECT_URI }
+	// The app's universal link, as on klipstack.com (the custom scheme is for the http dev server).
+	const redirectUri = `${base}${MOBILE_CALLBACK_PATH}`
+	const client = { clientId: MOBILE_CLIENT_ID, redirectUri }
 	const resource = `${base}/api`
 	const { challenge, verifier } = pkce()
 	const scope = MOBILE_SCOPES.join(" ")
@@ -270,8 +273,8 @@ test("the mobile app signs in with its own client, gets write access, and names 
 	await expect(page.getByText(/You will return to/)).toHaveCount(0)
 	await expect(page.getByText("Klipstack has not verified this app")).toHaveCount(0)
 
-	// The browser can't follow the app's scheme, so post the form (no `grant` fields, as the page
-	// sends none) and read the redirect it answers with.
+	// Only the app follows its link, so post the form (no `grant` fields, as the page sends none)
+	// and read the redirect it answers with.
 	const oauthQuery = await page.locator('#oauth-consent input[name="oauthQuery"]').inputValue()
 	const allowed = await page.request.post("/oauth/consent", {
 		form: { oauthQuery, intent: "allow" },
@@ -280,7 +283,7 @@ test("the mobile app signs in with its own client, gets write access, and names 
 	})
 	expect(allowed.status()).toBe(302)
 	const back = new URL(allowed.headers().location ?? "")
-	expect(`${back.protocol}${back.pathname}`).toBe(MOBILE_REDIRECT_URI)
+	expect(`${back.origin}${back.pathname}`).toBe(redirectUri)
 	expect(back.searchParams.get("state")).toBe("state-123")
 	const issued = await tokens(
 		request,
