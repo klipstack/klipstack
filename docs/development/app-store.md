@@ -28,11 +28,9 @@ can't do any of them.
   iOS 17.4, and signs in with `https://<server>/app/oauth/callback` (`mobileRedirectUri` in
   `packages/api-contract/src/auth.ts`) through `preferUniversalLinks: true`: `expo-web-browser`
   hands an https callback to the app only with that, and only from iOS 17.4. Against the http dev
-  server it keeps the custom scheme. The `klipstack-mobile` client accepts both.
-
-  Left to do: drop the custom scheme from the client on klipstack.com once no build that sends it
-  is installed. Until then any iOS app can still claim `com.klipstack.app:/oauth/callback` and
-  catch a reader's sign-in, if the reader allows it (`docs/security.md`, "Mobile app sign-in").
+  server it keeps the custom scheme. An https server accepts only the universal link
+  (`mobileRedirectUris`), so builds from before it can't sign in to klipstack.com again: install a
+  new one.
 - **Sign in with Apple.** Required by guideline 4.8 while Google or GitHub sign-in is offered
   (see "The rule", below). It needs a Services ID and a key from the developer portal, a provider
   on the server (better-auth has one), and the button on the login page. Two things Apple adds:
