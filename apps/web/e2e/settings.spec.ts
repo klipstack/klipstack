@@ -181,10 +181,21 @@ test("every page tells of a newer version, and once closed only of the one after
 	await page.route("**/version", (route) =>
 		route.fulfill({ status: 200, body: JSON.stringify({ version: live }) }),
 	)
-	await page.clock.fastForward("06:00")
+	let checks = 0
+	page.on("request", (request) => {
+		if (new URL(request.url()).pathname === "/version") checks++
+	})
+	// within a few minutes of the last check, a navigation does not ask again
 	await page.getByRole("link", { name: "Home" }).first().click()
 	await expect(page).toHaveURL(/\/home$/)
+	await waitForHydration(page)
+	expect(checks).toBe(0)
+	await expect(notice).toHaveCount(0)
+	// after them, the tab coming back to the front does
+	await page.clock.fastForward("06:00")
+	await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")))
 	await expect(notice).toBeVisible()
+	expect(checks).toBe(1)
 
 	await page.evaluate(() => Object.assign(window, { beforeReload: true }))
 	await notice.getByRole("button", { name: "Reload" }).click()
@@ -200,10 +211,11 @@ test("every page tells of a newer version, and once closed only of the one after
 	await expect(page.getByRole("main").getByRole("button", { name: /reload/i })).toBeVisible()
 	await expect(notice).toHaveCount(0)
 
-	// another deploy brings it back
+	// another deploy brings it back, found on the next navigation a few minutes later
 	live = "cafe123"
-	await page.reload()
-	await waitForHydration(page)
+	await page.clock.fastForward("06:00")
+	await page.getByRole("link", { name: "Account", exact: true }).click()
+	await expect(page).toHaveURL(/\/settings\/account$/)
 	await expect(notice).toBeVisible()
 })
 
