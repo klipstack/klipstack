@@ -9,6 +9,7 @@
 		"ios": "expo run:ios --port 8082",
 		"ios:release": "expo run:ios --configuration Release",
 		"ios:device": "scripts/ios-device",
+		"ios:testflight": "scripts/ios-testflight",
 		"android": "expo run:android --port 8082",
 		"typecheck": "tsc --noEmit",
 		"test": "vitest run",

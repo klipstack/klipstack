@@ -75,7 +75,7 @@ step "release build (signing)" xcodebuild -quiet -workspace ios/Klipstack.xcwork
 step "install" xcrun devicectl device install app --device "$udid" \
   ios/build/Build/Products/Release-iphoneos/Klipstack.app
 # Launching fails while the phone is locked; the app is installed either way.
-if xcrun devicectl device process launch --device "$udid" com.klipstack.app >>"$log" 2>&1; then
+if xcrun devicectl device process launch --device "$udid" com.klipstack.mobile >>"$log" 2>&1; then
   echo "  launched"
 else
   echo "  installed; unlock the phone and open Klipstack"

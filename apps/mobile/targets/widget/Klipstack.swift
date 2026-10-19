@@ -331,7 +331,7 @@ enum Keychain {
       kSecAttrService as String: "klipstack:no-auth",
       kSecAttrGeneric as String: key,
       kSecAttrAccount as String: key,
-      kSecAttrAccessGroup as String: "group.com.klipstack.app",
+      kSecAttrAccessGroup as String: "group.com.klipstack",
     ]
   }
 
@@ -362,7 +362,7 @@ enum Keychain {
 enum Cache {
   private static var dir: URL? {
     FileManager.default
-      .containerURL(forSecurityApplicationGroupIdentifier: "group.com.klipstack.app")?
+      .containerURL(forSecurityApplicationGroupIdentifier: "group.com.klipstack")?
       .appending(path: "Library/Caches/widget", directoryHint: .isDirectory)
   }
 

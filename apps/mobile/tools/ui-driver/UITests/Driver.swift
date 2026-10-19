@@ -11,7 +11,7 @@ final class Driver: XCTestCase {
 		}
 		let data = try Data(contentsOf: URL(fileURLWithPath: "\(run)/steps.json"))
 		let steps = try JSONSerialization.jsonObject(with: data) as! [[String: Any]]
-		let app = XCUIApplication(bundleIdentifier: "com.klipstack.app")
+		let app = XCUIApplication(bundleIdentifier: "com.klipstack.mobile")
 		app.activate()
 		// Where `webtype` and `webtap` act: the sign-in sheet, or Safari after `webapp safari`.
 		var web = XCUIApplication(bundleIdentifier: "com.apple.SafariViewService")

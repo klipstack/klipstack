@@ -21,7 +21,8 @@ The app's `console.log` output shows in Metro's output.
 pnpm expo install <package>  # Always: it picks versions that match the SDK
 pnpm ios                     # Prebuild, build and run in the iOS simulator
 pnpm ios:release             # A release build in the simulator
-pnpm ios:device              # A release build on the connected iPhone; renews its 7-day signing
+pnpm ios:device              # A release build on the connected iPhone, signed for development
+pnpm ios:testflight          # A release build, uploaded to App Store Connect for TestFlight
 pnpm start                   # Metro only, for an app that is already installed
 pnpm typecheck
 pnpm test                    # Vitest, for the pure code in src/lib and src/page (no React Native imports)
@@ -168,7 +169,7 @@ database), not only the screenshot.
   in-app browser: signed out there, the web's own login would show GitHub inside the app. Lint
   refuses `expo-web-browser` in `src/`.
 - It keeps the session (API URL, tokens) as one JSON keychain item in the app group
-  `group.com.klipstack.app`. The share extension and the widget read and refresh the same item;
+  `group.com.klipstack`. The share extension and the widget read and refresh the same item;
   only the app and the share extension delete it.
 - Every API request sends `X-Klipstack-Client: ios/<version>`. The server answers `426` when the
   version is too old; the app and the extension then ask the user to update.
