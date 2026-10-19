@@ -16,5 +16,8 @@ export function isUsageOrder(value: unknown): value is UsageOrder {
 	return typeof value === "string" && (USAGE_ORDERS as readonly string[]).includes(value)
 }
 
+/** Days `/admin/activity` shows, today included. */
+export const ACTIVITY_DAYS = 14
+
 /** Accounts `/admin/usage` lists: the top of the ranking, not every account. */
 export const USAGE_TOP = 50

@@ -2,7 +2,7 @@ import { CONTROLLER, type Policy, PRIVACY_CONTACT } from "./types"
 
 export default {
 	title: "Política de privacidad",
-	updated: "Última actualización: 17 de octubre de 2026",
+	updated: "Última actualización: 19 de octubre de 2026",
 	summary:
 		"Klipstack guarda lo que guardas para que puedas leerlo. No vende tus datos, no muestra anuncios y no te rastrea. Esta página explica qué recopilamos, para qué, quién nos ayuda a operar el servicio y qué puedes hacer al respecto.",
 	contentsLabel: "En esta página",
@@ -55,6 +55,7 @@ export default {
 						"Para mantener el servicio seguro y frenar el abuso.",
 						"Para responder preguntas sobre lo que lees y escribir el resumen de un artículo, cuando lo pides. Mira «Preguntas sobre lo que lees» más abajo.",
 						"Para resolver problemas.",
+						"Para ver cuánto se usa Klipstack, a partir de las fechas de lo que haces: cuántos artículos se guardaron, subrayaron y terminaron cada día, y cuántas personas lo hicieron. Solo totales de todas las cuentas, nunca quién lo hizo ni qué artículo. Solo las personas que operan Klipstack los ven, para decidir qué mejorar.",
 					],
 				},
 				"No vendemos tus datos. No los usamos para publicidad ni para entrenar modelos de IA.",

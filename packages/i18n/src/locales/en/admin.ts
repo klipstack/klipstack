@@ -5,6 +5,7 @@ export default {
 	nav: {
 		label: "Admin sections",
 		overview: "Overview",
+		activity: "Activity",
 		invites: "Invites",
 		requests: "Requests",
 		reports: "Reports",
@@ -182,6 +183,18 @@ export default {
 			cta: "Review requests",
 			footer: "Klipstack sends this once a day, only when new requests arrive.",
 		},
+	},
+	activity: {
+		title: "Activity",
+		description:
+			"What people did each day of the last {{count}} days, in UTC: totals across every account but the admins', with no names. An article or account deleted since no longer counts.",
+		day: "Day",
+		saved: "Articles saved",
+		highlighted: "Highlights",
+		finished: "Articles finished",
+		people: "People active",
+		inDays: "Last {{count}} days",
+		note: "Saved leaves out the starter texts offered at sign-up. Finished counts one article at a time (by hand, or reading or listening to the end), not marking many as read at once. People active did at least one of the three that day.",
 	},
 	usage: {
 		title: "Usage",
