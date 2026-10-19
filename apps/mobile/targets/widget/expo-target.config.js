@@ -4,7 +4,7 @@ module.exports = (config) => ({
 	name: "KlipstackWidget",
 	displayName: "Klipstack",
 	bundleIdentifier: ".widget",
-	deploymentTarget: "17.0",
+	deploymentTarget: "17.4",
 	frameworks: ["WidgetKit", "SwiftUI", "ImageIO"],
 	entitlements: {
 		// The app keeps its session in a keychain item of this group (src/lib/session-store.ts).

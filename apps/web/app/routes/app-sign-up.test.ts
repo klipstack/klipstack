@@ -1,6 +1,7 @@
 import { createHash, createHmac, randomBytes, randomUUID } from "node:crypto"
 import {
 	API_RESOURCE_PATH,
+	MOBILE_CALLBACK_PATH,
 	MOBILE_CLIENT_ID,
 	MOBILE_REDIRECT_URI,
 	MOBILE_SCOPES,
@@ -50,14 +51,14 @@ const client = {
 }
 
 /** Where the provider sends a signed-out reader who starts the iPhone app's sign-in. */
-async function appSignIn() {
+async function appSignIn(redirectUri = MOBILE_REDIRECT_URI) {
 	const verifier = randomBytes(32).toString("base64url")
 	const response = await auth.handler(
 		new Request(
 			`${env.APP_URL}/api/auth/oauth2/authorize?${new URLSearchParams({
 				response_type: "code",
 				client_id: MOBILE_CLIENT_ID,
-				redirect_uri: MOBILE_REDIRECT_URI,
+				redirect_uri: redirectUri,
 				scope: MOBILE_SCOPES.join(" "),
 				code_challenge: createHash("sha256").update(verifier).digest("base64url"),
 				code_challenge_method: "S256",
@@ -139,6 +140,18 @@ function newEmail(label: string) {
 	emails.push(email)
 	return email
 }
+
+describe("the iPhone app's redirect", () => {
+	it("may be the universal link or the custom scheme, and nothing else on the server", async () => {
+		for (const redirect of [`${env.APP_URL}${MOBILE_CALLBACK_PATH}`, MOBILE_REDIRECT_URI])
+			expect((await appSignIn(redirect)).pathname).toBe("/login")
+		for (const redirect of [
+			`${env.APP_URL}/app/oauth/elsewhere`,
+			"https://evil.example/app/oauth/callback",
+		])
+			expect((await appSignIn(redirect)).pathname).not.toBe("/login")
+	})
+})
 
 describe("signing up in the iPhone app's sign-in", () => {
 	it("comes back to the app, signed in, once the email is verified", async () => {

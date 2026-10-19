@@ -22,27 +22,17 @@ can't do any of them.
   and Apple gives an identifier to one team only. The sign-in's custom scheme stays
   `com.klipstack.app` (`MOBILE_REDIRECT_URI`), listed in `app.json`'s `scheme`: it was the bundle
   ID, which Expo registers as a scheme on its own.
-- **Universal links, the app side.** The server side is done and off (below). Then:
-  1. Set `APPLE_TEAM_ID` and `APPLE_BUNDLE_ID=com.klipstack.mobile` in klipstack.com's environment
-     and redeploy. `https://klipstack.com/.well-known/apple-app-site-association` then answers
-     the file instead of 404. Apple's servers fetch it, not the phone: check what they hold at
-     `https://app-site-association.cdn-apple.com/a/v1/klipstack.com` (it can take a day to
-     update).
-  2. The app thread adds `applinks:klipstack.com` and `webcredentials:klipstack.com` to the
-     app's Associated Domains and signs in with the https callback
-     `https://klipstack.com/app/oauth/callback` (`MOBILE_CALLBACK_PATH` in
-     `packages/api-contract/src/auth.ts`). `expo-web-browser` hands an https callback back to the
-     app only with `preferUniversalLinks: true` and on iOS 17.4 or later; the app sets no minimum
-     iOS version today, so either raise it to 17.4 or keep the custom scheme on older versions.
-  3. Register that redirect on the `klipstack-mobile` client (`apps/web/app/lib/auth.server.ts`),
-     next to the custom scheme, which older builds keep using until they are below the minimum
-     version.
+- **Universal links, the app side.** Done. klipstack.com serves the file (`APPLE_TEAM_ID`, `APPLE_BUNDLE_ID`), and Apple's copy at
+  `https://app-site-association.cdn-apple.com/a/v1/klipstack.com` matches. The app has
+  `applinks:klipstack.com` and `webcredentials:klipstack.com` in its Associated Domains, requires
+  iOS 17.4, and signs in with `https://<server>/app/oauth/callback` (`mobileRedirectUri` in
+  `packages/api-contract/src/auth.ts`) through `preferUniversalLinks: true`: `expo-web-browser`
+  hands an https callback to the app only with that, and only from iOS 17.4. Against the http dev
+  server it keeps the custom scheme. The `klipstack-mobile` client accepts both.
 
-  *Why:* today the app receives its sign-in through the custom scheme
-  `com.klipstack.app:/oauth/callback`, which any iOS app can claim. Another app could then catch a
-  reader's sign-in and act as them, delete the account included (`docs/security.md`, "Mobile app
-  sign-in"). Only an app signed by the team in that file can open a universal link, so this has
-  to be done before the app reaches anyone but us.
+  Left to do: drop the custom scheme from the client on klipstack.com once no build that sends it
+  is installed. Until then any iOS app can still claim `com.klipstack.app:/oauth/callback` and
+  catch a reader's sign-in, if the reader allows it (`docs/security.md`, "Mobile app sign-in").
 - **Sign in with Apple.** Required by guideline 4.8 while Google or GitHub sign-in is offered
   (see "The rule", below). It needs a Services ID and a key from the developer portal, a provider
   on the server (better-auth has one), and the button on the login page. Two things Apple adds:
@@ -85,8 +75,7 @@ can't do any of them.
   parties, AI included, receive personal data.
 - **Universal links, the server side** (this branch): `/.well-known/apple-app-site-association`,
   built from `APPLE_TEAM_ID` and `APPLE_BUNDLE_ID`, for the callback path
-  `/app/oauth/callback` only. Unset, it answers 404, as klipstack.com does today. See "Universal
-  links, the app side" above for turning it on.
+  `/app/oauth/callback` only. Unset, it answers 404. See "Universal links, the app side" above.
 - **A consent sheet before the first AI request** (this branch): before the reader's first Explain,
   Define, Ask, brief or chat, a sheet says that the article's text and what is asked go to
   Anthropic, and that nothing is sent until the reader asks; Continue or Not Now. The choice is

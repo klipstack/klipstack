@@ -7,6 +7,7 @@ import {
 	CLI_CLIENT_ID,
 	CLI_REDIRECT_URI,
 	MOBILE_CLIENT_ID,
+	MOBILE_CALLBACK_PATH,
 	MOBILE_REDIRECT_URI,
 } from "@klipstack/api-contract/auth"
 import {
@@ -100,8 +101,13 @@ const NATIVE_CLIENT = {
 const FIRST_PARTY_CLIENTS = [
 	// The CLI's loopback redirect may use any port (RFC 8252).
 	{ clientId: CLI_CLIENT_ID, name: "Klipstack CLI", redirectUris: [CLI_REDIRECT_URI] },
-	// The mobile app's redirect uses its reverse-domain URL scheme (RFC 8252, section 7.1).
-	{ clientId: MOBILE_CLIENT_ID, name: "Klipstack app", redirectUris: [MOBILE_REDIRECT_URI] },
+	// The mobile app's universal link, and its reverse-domain URL scheme (RFC 8252, section 7.1) for
+	// the dev server and for builds that still send it.
+	{
+		clientId: MOBILE_CLIENT_ID,
+		name: "Klipstack app",
+		redirectUris: [`${env.APP_URL}${MOBILE_CALLBACK_PATH}`, MOBILE_REDIRECT_URI],
+	},
 ]
 
 export const auth = betterAuth({
