@@ -67,7 +67,8 @@ export const MOBILE_CALLBACK_PATH = "/app/oauth/callback"
  * https server, the custom scheme on the http dev server.
  */
 export function mobileRedirectUri(apiUrl: string): string {
-	return apiUrl.startsWith("https://") ? `${apiUrl}${MOBILE_CALLBACK_PATH}` : MOBILE_REDIRECT_URI
+	if (!apiUrl.startsWith("https://")) return MOBILE_REDIRECT_URI
+	return `${apiUrl.replace(/\/+$/, "")}${MOBILE_CALLBACK_PATH}`
 }
 
 /** The path of the CLI's one-shot login server. */

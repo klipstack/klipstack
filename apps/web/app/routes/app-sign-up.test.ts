@@ -148,8 +148,13 @@ describe("the iPhone app's redirect", () => {
 		for (const redirect of [
 			`${env.APP_URL}/app/oauth/elsewhere`,
 			"https://evil.example/app/oauth/callback",
-		])
-			expect((await appSignIn(redirect)).pathname).not.toBe("/login")
+		]) {
+			const refused = await appSignIn(redirect)
+			expect(refused.origin).toBe(new URL(env.APP_URL).origin)
+			expect(refused.pathname).toBe("/api/auth/error")
+			expect(refused.searchParams.get("error")).toBe("invalid_redirect")
+			expect(refused.searchParams.has("code")).toBe(false)
+		}
 	})
 })
 

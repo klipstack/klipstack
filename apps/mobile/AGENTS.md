@@ -164,7 +164,8 @@ database), not only the screenshot.
   `klipstack-mobile`, like the CLI does. On an https server the sign-in comes back through the
   universal link `<server>/app/oauth/callback`, which needs the paid team's signature, the
   Associated Domains in `app.json`, and iOS 17.4 (the app's minimum). Against the http dev server
-  it comes back through the custom scheme `com.klipstack.app:` (`mobileRedirectUri`).
+  it comes back through the custom scheme `com.klipstack.app:` (`mobileRedirectUri`). Associated
+  Domains name klipstack.com only: a build pointed at another https server can't finish signing in.
 - In its sign-in (`/login` and `/signup` carrying the app's signed authorization request), the web
   offers no GitHub or Google button unless Sign in with Apple is offered too (App Review 4.8;
   `APPLE_PLATFORM_CLIENTS` in `packages/api-contract/src/auth.ts`).

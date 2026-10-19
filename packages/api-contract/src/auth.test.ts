@@ -6,6 +6,9 @@ describe("mobileRedirectUri", () => {
 		expect(mobileRedirectUri("https://klipstack.com")).toBe(
 			"https://klipstack.com/app/oauth/callback",
 		)
+		expect(mobileRedirectUri("https://klipstack.com/")).toBe(
+			"https://klipstack.com/app/oauth/callback",
+		)
 		expect(mobileRedirectUri("https://read.example.com")).toBe(
 			"https://read.example.com/app/oauth/callback",
 		)
