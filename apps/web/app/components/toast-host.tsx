@@ -14,6 +14,7 @@ import {
 	useToasts,
 } from "~/lib/toast"
 import { BrandMarkSmall } from "./brand-mark"
+import { UpdateNotice } from "./update-notice"
 
 const TYPING = "input, textarea, select, [contenteditable]:not([contenteditable='false'])"
 
@@ -21,7 +22,7 @@ const TYPING = "input, textarea, select, [contenteditable]:not([contenteditable=
  * Renders toasts from `~/lib/toast` (mounted once, in the root). Undo posts through a fetcher.
  * The live region stays in the page, so a screen reader announces each toast as it arrives. A toast
  * waits while the pointer is over it or the focus is in it, and ⌘Z / Ctrl+Z presses its Undo from
- * anywhere nothing is being typed.
+ * anywhere nothing is being typed. The notice of a new version stacks above them.
  */
 export function ToastHost() {
 	const toasts = useToasts()
@@ -106,6 +107,7 @@ export function ToastHost() {
 			// (app.css): the two stack instead of overlapping.
 			className="toast-host pointer-events-none fixed inset-x-0 bottom-0 z-50 flex flex-col items-center gap-2 p-4 pb-[max(env(safe-area-inset-bottom),1rem)]"
 		>
+			<UpdateNotice />
 			{toasts.map((toast) => (
 				<div
 					key={toast.id}

@@ -166,6 +166,47 @@ test("settings shows the running version, and offers a reload when a newer one i
 	await expect(about.locator("code")).toHaveText("dev")
 })
 
+test("every page tells of a newer version, and once closed only of the one after it", async ({
+	page,
+}) => {
+	await page.clock.install()
+	await signupUser(page, "Update Notice")
+	await page.goto("/library")
+	await waitForHydration(page)
+	const notice = page.getByRole("status").filter({ hasText: "Klipstack has been updated." })
+	await expect(notice).toHaveCount(0)
+
+	// deployed while the tab is open: the next navigation after a few minutes finds out
+	let live = "beefbee"
+	await page.route("**/version", (route) =>
+		route.fulfill({ status: 200, body: JSON.stringify({ version: live }) }),
+	)
+	await page.clock.fastForward("06:00")
+	await page.getByRole("link", { name: "Home" }).first().click()
+	await expect(page).toHaveURL(/\/home$/)
+	await expect(notice).toBeVisible()
+
+	await page.evaluate(() => Object.assign(window, { beforeReload: true }))
+	await notice.getByRole("button", { name: "Reload" }).click()
+	await expect.poll(() => page.evaluate(() => "beforeReload" in window)).toBe(false)
+	await waitForHydration(page)
+
+	// closed, it stays closed in this tab for the same version
+	await notice.getByRole("button", { name: "Close" }).click()
+	await expect(notice).toHaveCount(0)
+	// a new page load: the check has seen the newer version (Settings offers it), and the notice stays closed
+	await page.goto("/settings/about")
+	await waitForHydration(page)
+	await expect(page.getByRole("main").getByRole("button", { name: /reload/i })).toBeVisible()
+	await expect(notice).toHaveCount(0)
+
+	// another deploy brings it back
+	live = "cafe123"
+	await page.reload()
+	await waitForHydration(page)
+	await expect(notice).toBeVisible()
+})
+
 test("Settings replaces the app's sidebar with its sections, and goes back where it was opened", async ({
 	page,
 }) => {

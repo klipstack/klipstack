@@ -47,11 +47,11 @@ export default function AboutSettings() {
 /** The commit this page is running, and a way back to a newer one once it is live. */
 function AppVersion() {
 	const { t } = useTranslation("settings")
-	const { version, stale } = useAppVersion()
+	const { version, newer } = useAppVersion()
 	return (
 		<div className="flex flex-wrap items-center gap-3">
 			<code className="rounded-lg bg-muted px-2 py-1 text-sm">{version || "dev"}</code>
-			{stale ? (
+			{newer ? (
 				<button
 					type="button"
 					onClick={() => window.location.reload()}
