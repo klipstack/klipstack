@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next"
-import { data, Form, redirect, useFetcher, useNavigation } from "react-router"
+import { data, Form, redirect, redirectDocument, useFetcher, useNavigation } from "react-router"
 import { AuthCard } from "~/components/auth-card"
 import { Button } from "~/components/ui/button"
 import { VERIFY_EMAIL_MINUTES, VERIFY_TO_CONTINUE_PAGE } from "~/lib/auth-constants"
@@ -56,7 +56,8 @@ export async function action({ request, context }: Route.ActionArgs) {
 		to.searchParams.set("pending", "1")
 		if (here.searchParams.has("sent")) to.searchParams.set("sent", "1")
 	}
-	throw redirect(to.origin === here.origin ? to.pathname + to.search : next)
+	// A page load: the app's callback may be on this origin (see oauth.consent).
+	throw redirectDocument(to.origin === here.origin ? to.pathname + to.search : next)
 }
 
 export default function OAuthVerifyEmail({ loaderData, actionData }: Route.ComponentProps) {

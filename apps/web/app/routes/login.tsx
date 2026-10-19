@@ -1,6 +1,6 @@
 import { APIError } from "better-auth/api"
 import { useTranslation } from "react-i18next"
-import { data, Form, Link, redirect, useNavigation } from "react-router"
+import { data, Form, Link, redirect, redirectDocument, useNavigation } from "react-router"
 import { z } from "zod"
 import { AuthCard } from "~/components/auth-card"
 import { ProviderButtons } from "~/components/provider-buttons"
@@ -118,7 +118,9 @@ export async function action({ request, context }: Route.ActionArgs) {
 		if ("user" in response)
 			out.append("set-cookie", await localeCookie.serialize(response.user.locale))
 		const next = oauthQuery ? oauthRedirectUrl(response) : null
-		throw redirect(next ?? safeRedirect(parsed.data.redirectTo), { headers: out })
+		// A page load for an app's request: its callback may be on this origin (see oauth.consent).
+		if (next) throw redirectDocument(next, { headers: out })
+		throw redirect(safeRedirect(parsed.data.redirectTo), { headers: out })
 	} catch (error) {
 		const limited = authLimitResponse(error)
 		if (limited) throw limited

@@ -273,17 +273,14 @@ test("the mobile app signs in with its own client, gets write access, and names 
 	await expect(page.getByText(/You will return to/)).toHaveCount(0)
 	await expect(page.getByText("Klipstack has not verified this app")).toHaveCount(0)
 
-	// Only the app follows its link, so post the form (no `grant` fields, as the page sends none)
-	// and read the redirect it answers with.
-	const oauthQuery = await page.locator('#oauth-consent input[name="oauthQuery"]').inputValue()
-	const allowed = await page.request.post("/oauth/consent", {
-		form: { oauthQuery, intent: "allow" },
-		headers: { origin: base },
-		maxRedirects: 0,
-	})
-	expect(allowed.status()).toBe(302)
-	const back = new URL(allowed.headers().location ?? "")
-	expect(`${back.origin}${back.pathname}`).toBe(redirectUri)
+	// The sign-in sheet hands the callback to the app only when the browser loads it as a page. It
+	// is on this origin, so the router must not treat it as one of its own pages.
+	const callback = page.waitForRequest(
+		(req) => req.isNavigationRequest() && req.url().startsWith(`${redirectUri}?`),
+	)
+	await waitForHydration(page)
+	await page.getByRole("button", { name: "Allow" }).click()
+	const back = new URL((await callback).url())
 	expect(back.searchParams.get("state")).toBe("state-123")
 	const issued = await tokens(
 		request,
