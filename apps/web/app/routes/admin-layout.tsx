@@ -28,6 +28,7 @@ export function shouldRevalidate() {
 
 const SECTIONS = [
 	{ to: "/admin", key: "overview", end: true },
+	{ to: "/admin/activity", key: "activity", end: false },
 	{ to: "/admin/invites", key: "invites", end: false },
 	{ to: "/admin/requests", key: "requests", end: false },
 	{ to: "/admin/reports", key: "reports", end: false },

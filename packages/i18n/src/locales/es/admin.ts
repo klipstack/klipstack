@@ -5,6 +5,7 @@ export default {
 	nav: {
 		label: "Secciones de administración",
 		overview: "Resumen",
+		activity: "Actividad",
 		invites: "Invitaciones",
 		requests: "Solicitudes",
 		reports: "Denuncias",
@@ -186,6 +187,18 @@ export default {
 			cta: "Ver solicitudes",
 			footer: "Klipstack envía este correo una vez al día, solo cuando llegan solicitudes nuevas.",
 		},
+	},
+	activity: {
+		title: "Actividad",
+		description:
+			"Lo que se hizo cada día de los últimos {{count}} días, en UTC: totales de todas las cuentas salvo las de administración, sin nombres. Un artículo o una cuenta que se borró ya no cuenta.",
+		day: "Día",
+		saved: "Artículos guardados",
+		highlighted: "Subrayados",
+		finished: "Artículos terminados",
+		people: "Personas activas",
+		inDays: "Últimos {{count}} días",
+		note: "Guardados no incluye los textos para empezar que se ofrecen al registrarse. Terminados cuenta un artículo a la vez (a mano, o leyendo o escuchando hasta el final), no marcar muchos como leídos de una vez. Personas activas cuenta a quienes hicieron al menos una de las tres cosas ese día.",
 	},
 	usage: {
 		title: "Uso",

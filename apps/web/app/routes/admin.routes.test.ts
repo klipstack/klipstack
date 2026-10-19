@@ -3,6 +3,7 @@ import { afterAll, describe, expect, it } from "vitest"
 import { adminFixtures, statusOf, thrownBy } from "~/test/admin-fixtures"
 import routes from "../routes"
 import * as layout from "./admin-layout"
+import * as activity from "./admin.activity"
 import * as audit from "./admin.audit"
 import * as invites from "./admin.invites"
 import * as invitesCreate from "./admin.invites.create"
@@ -38,6 +39,7 @@ const loaders: Array<[string, Handler, Record<string, string>]> = [
 	["/admin/reports", reports.loader as unknown as Handler, {}],
 	["/admin/users?q=a", users.loader as unknown as Handler, {}],
 	["/admin/users/%27%3B--", userDetail.loader as unknown as Handler, { id: "';--" }],
+	["/admin/activity", activity.loader as unknown as Handler, {}],
 	["/admin/usage?by=storage", usage.loader as unknown as Handler, {}],
 	["/admin/jobs", jobs.loader as unknown as Handler, {}],
 	["/admin/system", system.loader as unknown as Handler, {}],

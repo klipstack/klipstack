@@ -2,7 +2,7 @@ import { CONTROLLER, type Policy, PRIVACY_CONTACT } from "./types"
 
 export default {
 	title: "Privacy policy",
-	updated: "Last updated October 17, 2026",
+	updated: "Last updated October 19, 2026",
 	summary:
 		"Klipstack keeps what you save so you can read it. It doesn't sell your data, show ads or track you. This page explains what we collect, why, who helps us run the service, and what you can do about it.",
 	contentsLabel: "On this page",
@@ -55,6 +55,7 @@ export default {
 						"To keep the service secure and stop abuse.",
 						"To answer questions about what you read and write an article's brief, when you ask. See “Questions about what you read” below.",
 						"To fix problems.",
+						"To see how much Klipstack is used, from the dates of what you do: how many articles were saved, highlighted and finished each day, and by how many people. Only totals across every account, never who did it or which article. Only the people who run Klipstack see them, to decide what to improve.",
 					],
 				},
 				"We don't sell your data. We don't use it for ads, and we don't train AI models on it.",

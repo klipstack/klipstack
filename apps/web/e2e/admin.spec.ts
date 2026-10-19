@@ -374,6 +374,8 @@ test("admin sections are reachable and usable with the keyboard alone", async ({
 	await page.keyboard.press("Tab")
 	await expect(page.getByRole("link", { name: "Overview" })).toBeFocused()
 	await page.keyboard.press("Tab")
+	await expect(page.getByRole("link", { name: "Activity" })).toBeFocused()
+	await page.keyboard.press("Tab")
 	await expect(page.getByRole("link", { name: "Invites" })).toBeFocused()
 	await page.keyboard.press("Enter")
 	await expect(page).toHaveURL(/\/admin\/invites$/)
@@ -403,6 +405,7 @@ test.describe("on a phone", () => {
 		await signupAdmin(page, "Phone Admin")
 		for (const path of [
 			"/admin",
+			"/admin/activity",
 			"/admin/invites",
 			"/admin/users",
 			"/admin/jobs",
