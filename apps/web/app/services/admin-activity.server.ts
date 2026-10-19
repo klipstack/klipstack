@@ -6,7 +6,7 @@ import { starterTexts, starterUrlHash } from "~/lib/starter-texts.server"
 export interface ActivityDay {
 	/** The UTC day, `YYYY-MM-DD`. */
 	day: string
-	/** Articles saved, but for the starter texts offered at sign-up. */
+	/** Articles saved. Starter texts offered at sign-up count in no column. */
 	saved: number
 	highlighted: number
 	/** Articles finished one at a time: by hand, by reading or listening to the end. */
@@ -39,14 +39,20 @@ export async function listActivity(
 		people: number
 	}>(sql`
 		with members as (select id from "user" where role <> 'admin'),
+		chosen as (
+			select id, user_id, created_at from documents
+			where url_hash not in (${sql.join(starters, sql`, `)})
+		),
 		events as (
-			select 'saved' as kind, d.user_id, d.created_at as at from documents d
-			where d.created_at >= ${since} and d.url_hash not in (${sql.join(starters, sql`, `)})
+			select 'saved' as kind, d.user_id, d.created_at as at from chosen d
+			where d.created_at >= ${since}
 			union all
 			select 'highlighted', h.user_id, h.created_at from highlights h
+			join chosen d on d.id = h.document_id
 			where h.created_at >= ${since}
 			union all
 			select 'finished', c.user_id, c.completed_at from reading_completions c
+			join chosen d on d.id = c.document_id
 			where c.completed_at >= ${since} and c.source in ('manual', 'progress', 'listened')
 		),
 		counted as (

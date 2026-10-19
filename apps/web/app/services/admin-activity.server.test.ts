@@ -98,7 +98,15 @@ describe("listActivity", () => {
 			const tidied = await save(tx, b.id, tooOld)
 			await finish(tx, b.id, tidied, yesterday, "bulk")
 			await finish(tx, b.id, tidied, yesterday, "legacy", 2)
-			await save(tx, b.id, yesterday, starterUrlHash(findStarterText("bacon-of-studies")!))
+			// A starter text counts in no column: saving, highlighting or finishing it.
+			const starter = await save(
+				tx,
+				b.id,
+				yesterday,
+				starterUrlHash(findStarterText("bacon-of-studies")!),
+			)
+			await highlight(tx, b.id, starter, yesterday)
+			await finish(tx, b.id, starter, yesterday, "progress")
 			const mine = await save(tx, admin.id, today)
 			await highlight(tx, admin.id, mine, today)
 			await finish(tx, admin.id, mine, today, "manual")

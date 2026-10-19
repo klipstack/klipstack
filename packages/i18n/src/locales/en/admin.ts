@@ -194,7 +194,7 @@ export default {
 		finished: "Articles finished",
 		people: "People active",
 		inDays: "Last {{count}} days",
-		note: "Saved leaves out the starter texts offered at sign-up. Finished counts one article at a time (by hand, or reading or listening to the end), not marking many as read at once. People active did at least one of the three that day.",
+		note: "The starter texts offered at sign-up count in no column: saving, highlighting or finishing them. Finished counts one article at a time (by hand, or reading or listening to the end), not marking many as read at once. People active did at least one of the three that day.",
 	},
 	usage: {
 		title: "Usage",
