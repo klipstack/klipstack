@@ -2,7 +2,7 @@ import { CLI_CLIENT_ID, MOBILE_CLIENT_ID } from "@klipstack/api-contract/auth"
 import { APIError } from "better-auth/api"
 import { Check } from "lucide-react"
 import { useTranslation } from "react-i18next"
-import { data, Form, redirect, useNavigation } from "react-router"
+import { data, Form, redirect, redirectDocument, useNavigation } from "react-router"
 import { AuthCard } from "~/components/auth-card"
 import { Button } from "~/components/ui/button"
 import { IDENTITY_SCOPES, identityKey, optionalScopesFor, scopeKey } from "~/lib/auth-constants"
@@ -121,7 +121,9 @@ export async function action({ request, context }: Route.ActionArgs) {
 	}
 	const next = oauthRedirectUrl(result)
 	if (!next) return data({ failed: true, signInAgain: false }, { status: 400 })
-	throw redirect(next)
+	// A page load, not the router's navigation: the app's callback may be on this origin, and the
+	// sign-in sheet hands it to the app only when the browser loads it.
+	throw redirectDocument(next)
 }
 
 export default function OAuthConsent({ loaderData, actionData }: Route.ComponentProps) {

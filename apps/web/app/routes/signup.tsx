@@ -1,7 +1,7 @@
 import { errorLabel } from "@klipstack/log"
 import { APIError } from "better-auth/api"
 import { useTranslation } from "react-i18next"
-import { data, Form, Link, redirect, useNavigation } from "react-router"
+import { data, Form, Link, redirect, redirectDocument, useNavigation } from "react-router"
 import { z } from "zod"
 import { AuthCard } from "~/components/auth-card"
 import { ProviderButtons } from "~/components/provider-buttons"
@@ -136,8 +136,10 @@ export async function action({ request, context }: Route.ActionArgs) {
 		const out = cookieHeadersFrom(headers)
 		out.append("set-cookie", await localeCookie.serialize(locale))
 		const next = oauthQuery ? await continueInApp(request, oauthQuery, email, out) : null
+		// A page load for an app's request: its callback may be on this origin (see oauth.consent).
+		if (next) throw redirectDocument(next, { headers: out })
 		// The request expired while the form was filled in: /login says to start again from the app.
-		throw redirect(next ?? (appQuery ? `/login?${appQuery}` : SIGNED_IN_HOME), { headers: out })
+		throw redirect(appQuery ? `/login?${appQuery}` : SIGNED_IN_HOME, { headers: out })
 	} catch (error) {
 		const limited = authLimitResponse(error)
 		if (limited) throw limited
