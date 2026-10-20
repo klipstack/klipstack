@@ -171,7 +171,12 @@ database), not only the screenshot.
   no consent screen: the password, the code and Apple's tokens through `POST /app/sign-in`, Google
   and GitHub in a private sign-in sheet at `/app/sign-in/<provider>`, which goes straight to the
   provider and back to the app. The server's side is `apps/web/app/lib/app-sign-in.server.ts`.
-  Emailed codes print in the dev server's output. The app creates no account. On an https server
+  Emailed codes print in the dev server's output. "Create an account" opens
+  `src/app/sign-up.tsx`: the invite (unless the server's sign-up is open), then Apple, Google or
+  GitHub, or a name, email and password confirmed by an emailed code (`/app/sign-up`,
+  `app-sign-up.server.ts`). In the simulator the password field shows iOS's strong-password
+  overlay, which has no keychain there: to type a password in a test, set its `textContentType` to
+  `none` for the run. On an https server
   the code from the sign-in sheet comes back through the
   universal link `<server>/app/oauth/callback`, which needs the paid team's signature, the
   Associated Domains in `app.json`, and iOS 17.4 (the app's minimum). Against the http dev server
