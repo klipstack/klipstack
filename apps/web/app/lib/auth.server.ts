@@ -1,6 +1,6 @@
 import { cimd } from "@better-auth/cimd"
 import { fetchClientMetadataResource } from "@better-auth/cimd/node"
-import { getCurrentAuthContext } from "@better-auth/core/context"
+import { getCurrentAuthContext, queueAfterTransactionHook } from "@better-auth/core/context"
 import { mcp } from "@better-auth/mcp"
 import {
 	API_RESOURCE_PATH,
@@ -24,8 +24,10 @@ import {
 	oauthConsent,
 	oauthRefreshToken,
 	oauthResource,
+	newAccountFeatures,
 	session,
 	user,
+	userFeatures,
 	verification,
 } from "@klipstack/db"
 import { emailT } from "@klipstack/email"
@@ -257,6 +259,17 @@ export const auth = betterAuth({
 					throw new APIError("FORBIDDEN", {
 						code: "INVITE_REQUIRED",
 						message: "Sign-up requires an invite code.",
+					})
+				},
+				// Every way in (email and invite, Google, GitHub) creates the user here. Its flags go in
+				// after better-auth's own transaction, in the sign-up's (`authDb`): with the invite, they
+				// commit or roll back together with the user.
+				async after(created) {
+					await queueAfterTransactionHook(async () => {
+						await authDb
+							.insert(userFeatures)
+							.values(newAccountFeatures.map((feature) => ({ userId: created.id, feature })))
+							.onConflictDoNothing()
 					})
 				},
 			},

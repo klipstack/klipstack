@@ -157,13 +157,14 @@ export async function signupUser(
 	if (verified) await db.update(user).set({ emailVerified: true }).where(eq(user.email, email))
 	if (editions) await turnOnEditions(email)
 	if (feeds) await turnOnFeeds(email)
-	// Features in testing, as an admin would turn them on.
-	if (features.length) {
-		const [account] = await db.select({ id: user.id }).from(user).where(eq(user.email, email))
+	// Features in testing: exactly these, as an admin would set them. A new account starts with
+	// some on (`newAccountFeatures`); scenarios name the ones they need.
+	const [account] = await db.select({ id: user.id }).from(user).where(eq(user.email, email))
+	await db.delete(userFeatures).where(eq(userFeatures.userId, account!.id))
+	if (features.length)
 		await db
 			.insert(userFeatures)
 			.values(features.map((feature) => ({ userId: account!.id, feature })))
-	}
 	return email
 }
 

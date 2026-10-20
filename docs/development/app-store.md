@@ -204,7 +204,8 @@ public) or in a pull request: they go only in App Store Connect's review notes.
    → Account sends the link): an unverified account can't connect an app, so the app's sign-in
    would fail at the consent step.
 3. Save a dozen varied articles to it, so the library, Home and search have something to show.
-4. In `/admin/users`, open the account, and under "Features in testing" turn on `ai` and `topics`.
+4. In `/admin/users`, open the account, and check that "Features in testing" has `ai` and `topics`
+   on (a new account starts with both).
 5. Sign in to it on the web, open Topics and turn topics on, then confirm the proposed topics.
 6. Sign in to it in the app once and check: an AI answer, the brief, reading aloud, the widget.
 7. Put the email and password in the review notes. After the review, change the password.

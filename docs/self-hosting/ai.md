@@ -8,7 +8,10 @@ Two switches must both be on for anyone to see it:
 
 - **The key** (`ANTHROPIC_API_KEY`), in the server's `.env`. Without it the feature is off for
   everyone.
-- **The `ai` feature flag**, per account, in `/admin` → the account → Features in testing.
+- **The `ai` feature flag**, per account, in `/admin` → the account → Features in testing. A new
+  account starts with it on (and with `topics`); accounts made before keep what they had.
+  With `SIGNUP_MODE=open`, that means anyone who signs up can ask questions on your key at once,
+  up to the limits below: turn `ai` off for accounts you don't know.
 
 ## What it costs, and the limits
 
