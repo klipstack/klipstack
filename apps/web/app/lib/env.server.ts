@@ -209,6 +209,31 @@ function appleOptions() {
 }
 
 /**
+ * The iPhone app as Apple's client (its bundle ID), with Sign in with Apple on: the server exchanges
+ * the codes Apple's sheet gives the app, and revokes them, with this client's own secret. Null
+ * without Apple or the bundle ID.
+ */
+export const appleApp = appleAppOptions()
+
+function appleAppOptions() {
+	const { APPLE_TEAM_ID, APPLE_BUNDLE_ID, APPLE_KEY_ID, APPLE_PRIVATE_KEY } = env
+	if (!oauth.apple || !APPLE_TEAM_ID || !APPLE_BUNDLE_ID || !APPLE_KEY_ID || !APPLE_PRIVATE_KEY)
+		return null
+	const secret = appleClientSecret({
+		teamId: APPLE_TEAM_ID,
+		clientId: APPLE_BUNDLE_ID,
+		keyId: APPLE_KEY_ID,
+		privateKey: APPLE_PRIVATE_KEY,
+	})
+	return {
+		clientId: APPLE_BUNDLE_ID,
+		get clientSecret() {
+			return secret()
+		},
+	}
+}
+
+/**
  * Who signs the welcome note and email for new accounts, or null: no welcome. A malformed setting
  * stops the server here.
  */

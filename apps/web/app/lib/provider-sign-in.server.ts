@@ -1,11 +1,17 @@
-import { APPLE_PLATFORM_CLIENTS } from "@klipstack/api-contract/auth"
+import {
+	APP_SIGN_IN_PATH,
+	APPLE_PLATFORM_CLIENTS,
+	type AppSignInErrorCode,
+	MOBILE_CLIENT_ID,
+	mobileRedirectUris,
+} from "@klipstack/api-contract/auth"
 import { eq, user } from "@klipstack/db"
 import { APIError } from "better-auth/api"
-import { redirect } from "react-router"
+import { createCookie, redirect } from "react-router"
 import { withAuthTransaction } from "./auth-db.server"
 import { checkAuthLimit } from "./auth-limits.server"
 import { auth } from "./auth.server"
-import { invitesRequired, oauth } from "./env.server"
+import { env, invitesRequired, oauth } from "./env.server"
 import { consumeInvite, findUsableInvite } from "./invites.server"
 import { cookieHeadersFrom, safeRedirect } from "./session.server"
 import {
@@ -117,7 +123,119 @@ export async function handleProviderCallback(request: Request): Promise<Response
 		})
 	} catch (error) {
 		if (error instanceof APIError && error.body?.code === "INVITE_REQUIRED")
-			return redirect("/signup?error=INVITE_REQUIRED")
+			// The app's sheet goes back to the app, which creates no account.
+			return redirect(
+				(await appSignInPending(request))
+					? `${APP_SIGN_IN_ERROR_PATH}?error=INVITE_REQUIRED`
+					: "/signup?error=INVITE_REQUIRED",
+			)
 		throw error
 	}
+}
+
+/** Where the provider sign-in in the app's sheet lands when it fails. */
+export const APP_SIGN_IN_ERROR_PATH = `${APP_SIGN_IN_PATH}/error`
+
+/**
+ * Where the app's sheet goes back to when a provider sign-in fails: its redirect URI and state,
+ * for 10 minutes, in a signed cookie of the sheet's own (an ephemeral browser session).
+ */
+const pendingCookie = createCookie("klip_app_sign_in", {
+	httpOnly: true,
+	sameSite: "lax",
+	secure: env.APP_URL.startsWith("https://"),
+	path: "/",
+	maxAge: 600,
+	secrets: [env.BETTER_AUTH_SECRET],
+})
+
+type Pending = { redirectUri: string; state: string }
+
+const AUTHORIZE_PARAMS = [
+	"response_type",
+	"client_id",
+	"redirect_uri",
+	"scope",
+	"state",
+	"code_challenge",
+	"code_challenge_method",
+	"resource",
+]
+
+/**
+ * `GET /app/sign-in/<provider>` with the app's authorization request: straight to Google or GitHub.
+ * After the provider's callback better-auth goes on to that request, now signed in, which answers
+ * the app's redirect URI with the code. Only the app's own request is taken: another client, or a
+ * redirect URI not the app's, is 404.
+ */
+export async function startAppProviderSignIn(
+	request: Request,
+	providerParam: string | undefined,
+): Promise<Response> {
+	const query = new URL(request.url).searchParams
+	const pending = { redirectUri: query.get("redirect_uri") ?? "", state: query.get("state") ?? "" }
+	if (query.get("client_id") !== MOBILE_CLIENT_ID || !isAppRedirect(pending.redirectUri))
+		return new Response("Not found", { status: 404 })
+	const provider = enabledProvider(providerParam)
+	if (provider !== "google" && provider !== "github") return redirect(backToApp(pending, "failed"))
+	const authorize = new URLSearchParams()
+	for (const key of AUTHORIZE_PARAMS) {
+		const value = query.get(key)
+		if (value !== null) authorize.set(key, value)
+	}
+	const { headers, response } = await auth.api.signInSocial({
+		body: {
+			provider,
+			callbackURL: `/api/auth/oauth2/authorize?${authorize}`,
+			errorCallbackURL: APP_SIGN_IN_ERROR_PATH,
+			disableRedirect: true,
+		},
+		headers: request.headers,
+		returnHeaders: true,
+	})
+	if (!response.url) throw new Error("the provider sign-in returned no URL")
+	const out = cookieHeadersFrom(headers)
+	out.append("set-cookie", await pendingCookie.serialize(pending))
+	return redirect(response.url, { headers: out })
+}
+
+/** Whether a provider sign-in started from the app's sheet is under way in this browser. */
+export async function appSignInPending(request: Request): Promise<boolean> {
+	return (await readPending(request)) !== null
+}
+
+/** `GET /app/sign-in/error?error=…`: back to the app, with why. */
+export async function returnAppProviderError(request: Request): Promise<Response> {
+	const pending = await readPending(request)
+	if (!pending) return redirect("/login")
+	const code = appErrorCode(new URL(request.url).searchParams.get("error"))
+	return redirect(backToApp(pending, code), {
+		headers: { "set-cookie": await pendingCookie.serialize("", { maxAge: 0 }) },
+	})
+}
+
+async function readPending(request: Request): Promise<Pending | null> {
+	const value: unknown = await pendingCookie.parse(request.headers.get("cookie"))
+	if (!value || typeof value !== "object") return null
+	const { redirectUri, state } = value as Record<string, unknown>
+	if (typeof redirectUri !== "string" || typeof state !== "string" || !isAppRedirect(redirectUri))
+		return null
+	return { redirectUri, state }
+}
+
+const isAppRedirect = (uri: string) => mobileRedirectUris(env.APP_URL).includes(uri)
+
+function backToApp({ redirectUri, state }: Pending, error: AppSignInErrorCode): string {
+	const url = new URL(redirectUri)
+	url.searchParams.set("error", error)
+	if (state) url.searchParams.set("state", state)
+	return url.href
+}
+
+/** better-auth's callback errors (and ours), as the app's. */
+function appErrorCode(error: string | null): AppSignInErrorCode {
+	if (error === "INVITE_REQUIRED" || error === "signup_disabled") return "no_account"
+	if (error === "account_not_linked") return "not_linked"
+	if (error === "email_not_found") return "no_email"
+	return "failed"
 }

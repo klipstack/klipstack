@@ -16,6 +16,7 @@ const fixture = vi.hoisted(() => ({
 	changePassword: vi.fn(),
 	linkSocialAccount: vi.fn(),
 	checkAuthLimit: vi.fn(),
+	revoked: [] as { userId: string; links: string[] }[],
 }))
 vi.mock("~/lib/session.server", () => ({
 	requireUser: () => fixture.user,
@@ -32,6 +33,13 @@ vi.mock("~/lib/provider-sign-in.server", () => ({
 vi.mock("~/lib/auth-limits.server", () => ({
 	checkAuthLimit: fixture.checkAuthLimit,
 	withAuthLimitChecked: (fn: () => unknown) => fn(),
+}))
+// Apple is the process boundary: what the account still had linked when its revocation ran.
+vi.mock("~/lib/apple-tokens.server", () => ({
+	revokeAppleSignIn: async (userId: string) => {
+		const links = await db.select().from(account).where(eq(account.userId, userId))
+		fixture.revoked.push({ userId, links: links.map((link) => link.providerId).sort() })
+	},
 }))
 vi.mock("~/lib/auth.server", () => ({
 	auth: {
@@ -193,4 +201,16 @@ it("disconnects an unverified account's provider too, and nothing it does not ha
 			.from(account)
 			.where(and(eq(account.userId, other), eq(account.providerId, "github"))),
 	).toHaveLength(1)
+})
+
+it("revokes Sign in with Apple at Apple when Apple is disconnected, before its link goes", async () => {
+	await waysIn(owner, ["apple", "credential"])
+	fixture.revoked.length = 0
+	expect(await post({ intent: "unlink", provider: "apple" })).toEqual({ result: "unlinked" })
+	expect(fixture.revoked).toEqual([{ userId: owner, links: ["apple", "credential"] }])
+	expect(await providersOf(owner)).toEqual(["credential"])
+	// Disconnecting another provider asks Apple nothing.
+	await waysIn(owner, ["github", "credential"])
+	await post({ intent: "unlink", provider: "github" })
+	expect(fixture.revoked).toHaveLength(1)
 })

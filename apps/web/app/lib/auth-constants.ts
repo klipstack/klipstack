@@ -11,6 +11,8 @@ import { isNsKey, type NsKey } from "./i18n-keys"
 export const MAGIC_LINK_MINUTES = 15
 export const RESET_PASSWORD_MINUTES = 60
 export const VERIFY_EMAIL_MINUTES = 60
+/** The iPhone app's emailed sign-in code. */
+export const SIGN_IN_CODE_MINUTES = 10
 export const MIN_PASSWORD_LENGTH = 8
 
 /**

@@ -76,6 +76,14 @@ export default {
 		emailCta: "Log in to Klipstack",
 		emailIgnore: "If you did not request this, you can ignore this email.",
 	},
+	signInCode: {
+		emailSubject: "Your Klipstack sign-in code",
+		emailBody:
+			"Enter this code in the Klipstack app to sign in. It expires in {{minutes}} minutes.",
+		verifyBody:
+			"Enter this code in the Klipstack app to confirm your email address and sign in. It expires in {{minutes}} minutes. For your security, signing in this way signs out older sessions and removes your password. You can set a new password from the login page.",
+		emailIgnore: "If you did not request this, you can ignore this email. Never share this code.",
+	},
 	signupLink: {
 		passwordHint: "Optional. Leave it empty and we will email you a link to create your account.",
 		sentTitle: "Check your inbox",

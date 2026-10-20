@@ -1,4 +1,17 @@
-import { createHmac, createPublicKey, generateKeyPairSync, sign, verify } from "node:crypto"
+import {
+	createHash,
+	createHmac,
+	createPublicKey,
+	generateKeyPairSync,
+	randomBytes,
+	sign,
+	verify,
+} from "node:crypto"
+import {
+	API_RESOURCE_PATH,
+	MOBILE_CLIENT_ID,
+	MOBILE_REDIRECT_URI,
+} from "@klipstack/api-contract/auth"
 import { account, db, eq, inArray, invites, pool, user as userTable } from "@klipstack/db"
 import { RouterContextProvider } from "react-router"
 import { afterAll, describe, expect, it, vi } from "vitest"
@@ -23,6 +36,9 @@ const { createInvite } = await import("./invites.server")
 const { startProviderSignIn } = await import("./provider-sign-in.server")
 const { auth } = await import("./auth.server")
 const route = await import("~/routes/api.auth")
+const appSignInRoute = await import("~/routes/app.sign-in")
+const { deleteAccount } = await import("~/services/account.server")
+const { symmetricDecrypt } = await import("better-auth/crypto")
 
 const stamp = Date.now()
 const email = `apple-${stamp}@privaterelay.appleid.com`
@@ -54,6 +70,10 @@ function appleIdToken(claims: Record<string, unknown>) {
 
 /** The client secrets the server sent to Apple's token endpoint. */
 const sentSecrets: string[] = []
+/** Who the code Apple's sheet gave the app signs in, as Apple's token endpoint answers it. */
+let appCodeSubject = subject
+/** What the server asked Apple to revoke. */
+const revoked: URLSearchParams[] = []
 
 vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
 	const url = String(input instanceof Request ? input.url : input)
@@ -62,6 +82,16 @@ vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
 	if (url === "https://appleid.apple.com/auth/token") {
 		const body = new URLSearchParams(String(init?.body ?? (await (input as Request).text())))
 		sentSecrets.push(body.get("client_secret") ?? "")
+		if (body.get("client_id") === env.APPLE_BUNDLE_ID)
+			return body.get("code") === "app-code"
+				? json({
+						access_token: "apple-app-access",
+						refresh_token: "apple-app-refresh",
+						token_type: "Bearer",
+						expires_in: 3600,
+						id_token: appleIdToken({ aud: env.APPLE_BUNDLE_ID, sub: appCodeSubject }),
+					})
+				: new Response(JSON.stringify({ error: "invalid_grant" }), { status: 400 })
 		return json({
 			access_token: "apple-access",
 			refresh_token: "apple-refresh",
@@ -69,6 +99,10 @@ vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
 			expires_in: 3600,
 			id_token: appleIdToken({ aud: env.APPLE_SERVICES_ID }),
 		})
+	}
+	if (url === "https://appleid.apple.com/auth/revoke") {
+		revoked.push(new URLSearchParams(String(init?.body)))
+		return new Response(null, { status: 200 })
 	}
 	if (url === "https://appleid.apple.com/auth/keys")
 		return json({
@@ -94,6 +128,35 @@ const clientHeaders = () =>
 
 const routeArgs = (request: Request) =>
 	({ request, context: new RouterContextProvider(), params: {} }) as never
+
+const opened = async (sealed: string | null | undefined) =>
+	sealed ? JSON.parse(await symmetricDecrypt({ key: env.BETTER_AUTH_SECRET, data: sealed })) : null
+
+/** The iPhone app's sign-in with Apple's sheet: its nonce, Apple's token and code, its PKCE challenge. */
+async function appleFromTheApp(claims: Record<string, unknown> = {}, code = "app-code") {
+	const nonce = randomBytes(16).toString("hex")
+	const verifier = randomBytes(32).toString("base64url")
+	const headers = clientHeaders()
+	headers.set("content-type", "application/json")
+	const request = new Request(new URL("/app/sign-in", env.APP_URL), {
+		method: "POST",
+		headers,
+		body: JSON.stringify({
+			method: "apple",
+			// The app asks Apple for the SHA-256 of its nonce, and sends the nonce itself.
+			idToken: appleIdToken({
+				aud: "com.example.reader",
+				nonce: createHash("sha256").update(nonce).digest("hex"),
+				...claims,
+			}),
+			nonce,
+			authorizationCode: code,
+			codeChallenge: createHash("sha256").update(verifier).digest("base64url"),
+		}),
+	})
+	const response = (await appSignInRoute.action(routeArgs(request))) as Response
+	return { status: response.status, body: await response.json(), verifier }
+}
 
 afterAll(async () => {
 	await db.delete(userTable).where(inArray(userTable.email, [email, stranger]))
@@ -162,8 +225,13 @@ describe("Sign in with Apple", () => {
 			providerId: "apple",
 			accountId: subject,
 			accessToken: null,
-			refreshToken: null,
 			idToken: null,
+		})
+		// Apple's refresh token alone is kept, sealed, to revoke the sign-in with the account.
+		expect(link!.refreshToken).not.toContain("apple-refresh")
+		expect(await opened(link!.refreshToken)).toEqual({
+			clientId: "com.example.reader.web",
+			refreshToken: "apple-refresh",
 		})
 	})
 
@@ -241,5 +309,96 @@ describe("Sign in with Apple", () => {
 		// Refused for its audience, not for a missing invite: the account exists (the first test).
 		expect(response.status).toBe(401)
 		expect(await response.json()).toMatchObject({ code: "INVALID_TOKEN" })
+	})
+	it("takes no ID token over HTTP: only /app/sign-in, which exchanges Apple's code", async () => {
+		const response = await auth.handler(
+			new Request(`${env.APP_URL}/api/auth/sign-in/social`, {
+				method: "POST",
+				headers: { "content-type": "application/json", origin: env.APP_URL },
+				body: JSON.stringify({
+					provider: "apple",
+					idToken: { token: appleIdToken({ aud: "com.example.reader" }) },
+				}),
+			}),
+		)
+		expect(response.status).toBe(404)
+	})
+
+	it("lists Apple first among the app's ways in", async () => {
+		const response = appSignInRoute.loader() as Response
+		expect((await response.json()).providers[0]).toBe("apple")
+	})
+
+	it("signs the app in with Apple's sheet, and keeps the app's Apple token", async () => {
+		const answer = await appleFromTheApp()
+		expect(answer.status).toBe(200)
+		const token = await auth.handler(
+			new Request(`${env.APP_URL}/api/auth/oauth2/token`, {
+				method: "POST",
+				headers: { "content-type": "application/x-www-form-urlencoded" },
+				body: new URLSearchParams({
+					grant_type: "authorization_code",
+					code: answer.body.code,
+					redirect_uri: MOBILE_REDIRECT_URI,
+					client_id: MOBILE_CLIENT_ID,
+					code_verifier: answer.verifier,
+					resource: `${env.APP_URL}${API_RESOURCE_PATH}`,
+				}),
+			}),
+		)
+		expect(token.status).toBe(200)
+		const [owner] = await db.select().from(userTable).where(eq(userTable.email, email))
+		const [link] = await db.select().from(account).where(eq(account.userId, owner!.id))
+		expect(await opened(link!.refreshToken)).toEqual({
+			clientId: "com.example.reader",
+			refreshToken: "apple-app-refresh",
+		})
+	})
+
+	it("refuses an ID token whose code Apple doesn't confirm", async () => {
+		// A code that does not work (used, expired, made up)...
+		const unknown = await appleFromTheApp({}, "used-code")
+		expect(unknown.status).toBe(401)
+		expect(unknown.body.error).toMatchObject({ code: "unauthorized" })
+		// ...or one for someone else: a copied ID token with the thief's own code.
+		appCodeSubject = `${subject}-thief`
+		try {
+			const other = await appleFromTheApp()
+			expect(other.status).toBe(401)
+		} finally {
+			appCodeSubject = subject
+		}
+	})
+
+	it("refuses a nonce that isn't the one Apple signed", async () => {
+		const answer = await appleFromTheApp({ nonce: "another-nonce" })
+		expect(answer.status).toBe(401)
+	})
+
+	it("creates no account for an unknown Apple ID: not_found", async () => {
+		appCodeSubject = `${subject}-new`
+		try {
+			const answer = await appleFromTheApp({ sub: `${subject}-new`, email: stranger })
+			expect(answer.status).toBe(404)
+			expect(answer.body.error).toMatchObject({ code: "not_found" })
+		} finally {
+			appCodeSubject = subject
+		}
+		expect(await db.select().from(userTable).where(eq(userTable.email, stranger))).toHaveLength(0)
+	})
+
+	it("revokes the person's Sign in with Apple when the account is deleted", async () => {
+		const [owner] = await db.select().from(userTable).where(eq(userTable.email, email))
+		await deleteAccount(owner!.id)
+		expect(revoked).toHaveLength(1)
+		expect(Object.fromEntries(revoked[0]!)).toMatchObject({
+			client_id: "com.example.reader",
+			token: "apple-app-refresh",
+			token_type_hint: "refresh_token",
+		})
+		const secret = revoked[0]!.get("client_secret")!
+		const claims = JSON.parse(Buffer.from(secret.split(".")[1]!, "base64url").toString())
+		expect(claims).toMatchObject({ iss: "TEAM123456", sub: "com.example.reader" })
+		expect(await db.select().from(userTable).where(eq(userTable.email, email))).toHaveLength(0)
 	})
 })

@@ -4,6 +4,7 @@ import { getCurrentAuthContext, queueAfterTransactionHook } from "@better-auth/c
 import { mcp } from "@better-auth/mcp"
 import {
 	API_RESOURCE_PATH,
+	APP_SIGN_IN_CODE_LENGTH,
 	CLI_CLIENT_ID,
 	CLI_REDIRECT_URI,
 	MOBILE_CLIENT_ID,
@@ -43,12 +44,14 @@ import {
 	getSessionFromCtx,
 	isAPIError,
 } from "better-auth/api"
-import { jwt, magicLink } from "better-auth/plugins"
+import { emailOTP, jwt, magicLink } from "better-auth/plugins"
+import { sealAppleToken } from "./apple-tokens.server"
 import {
 	MAGIC_LINK_MINUTES,
 	MIN_PASSWORD_LENGTH,
 	OAUTH_SCOPES,
 	RESET_PASSWORD_MINUTES,
+	SIGN_IN_CODE_MINUTES,
 	VERIFY_EMAIL_MINUTES,
 	VERIFY_TO_CONTINUE_PAGE,
 } from "./auth-constants"
@@ -89,6 +92,19 @@ await db
 	)
 	.onConflictDoNothing({ target: oauthResource.identifier })
 
+/** The email-OTP plugin's endpoints, all closed over HTTP. */
+const EMAIL_OTP_PATHS = [
+	"/email-otp/send-verification-otp",
+	"/email-otp/check-verification-otp",
+	"/email-otp/verify-email",
+	"/sign-in/email-otp",
+	"/email-otp/request-password-reset",
+	"/forget-password/email-otp",
+	"/email-otp/reset-password",
+	"/email-otp/request-email-change",
+	"/email-otp/change-email",
+]
+
 /** Public native clients: PKCE, no secret, linked to the /api resource only. */
 const NATIVE_CLIENT = {
 	tokenEndpointAuthMethod: "none",
@@ -103,10 +119,13 @@ const FIRST_PARTY_CLIENTS = [
 	// The CLI's loopback redirect may use any port (RFC 8252).
 	{ clientId: CLI_CLIENT_ID, name: "Klipstack CLI", redirectUris: [CLI_REDIRECT_URI] },
 	// The mobile app's universal link; on the http dev server, its reverse-domain URL scheme too.
+	// No consent screen: the app signs in on its own screen, and on an https server only our signed
+	// app opens the link the code comes back to (docs/security.md, "Mobile app sign-in").
 	{
 		clientId: MOBILE_CLIENT_ID,
 		name: "Klipstack app",
 		redirectUris: mobileRedirectUris(env.APP_URL),
+		skipConsent: true,
 	},
 ]
 
@@ -123,7 +142,8 @@ export const auth = betterAuth({
 			if (signup?.inviteCode) await addOAuthServerContext({ invite: signup.inviteCode })
 			// Refuse before the account lookup: failing for existing accounts only would reveal them.
 			if (
-				ctx.path === "/request-password-reset" &&
+				(ctx.path === "/request-password-reset" ||
+					ctx.path === "/email-otp/send-verification-otp") &&
 				process.env.NODE_ENV === "production" &&
 				!env.RESEND_API_KEY
 			)
@@ -275,17 +295,24 @@ export const auth = betterAuth({
 			},
 		},
 		// Providers only tell us who signed in. We call none of their APIs, so their tokens are
-		// not kept.
+		// not kept, but for Apple's refresh token, sealed, which revokes the sign-in when the account
+		// is deleted (apple-tokens.server.ts).
 		account: {
 			create: {
-				async before(data) {
-					return { data: { ...data, ...NO_PROVIDER_TOKENS } }
+				async before(data, ctx) {
+					return { data: { ...data, ...NO_PROVIDER_TOKENS, ...(await appleToken(data, ctx)) } }
 				},
 			},
 			update: {
-				async before(data) {
+				async before(data, ctx) {
 					const tokens = Object.keys(NO_PROVIDER_TOKENS).filter((key) => key in data)
-					return { data: { ...data, ...Object.fromEntries(tokens.map((key) => [key, null])) } }
+					return {
+						data: {
+							...data,
+							...Object.fromEntries(tokens.map((key) => [key, null])),
+							...(await appleToken(data, ctx)),
+						},
+					}
 				},
 			},
 		},
@@ -311,6 +338,14 @@ export const auth = betterAuth({
 		"/change-password",
 		"/link-social",
 		"/unlink-account",
+		// Provider sign-ins start on our pages (in process): over HTTP this endpoint would also take
+		// an Apple ID token by itself, which works for an hour wherever it was copied. The app's
+		// Apple sign-in goes through /app/sign-in, which exchanges Apple's one-time code first.
+		"/sign-in/social",
+		// The emailed sign-in code is the app's alone: only /app/sign-in sends and checks it (the
+		// plugin's endpoints, called in process). Its other uses (verifying, resetting a password,
+		// changing the email) are not offered.
+		...EMAIL_OTP_PATHS,
 	],
 	// better-auth prints raw errors, and a failed query's message lists its parameters (tokens,
 	// emails): its messages are its own text, but errors and other arguments are reduced.
@@ -382,6 +417,32 @@ export const auth = betterAuth({
 				sendEmailInBackground({ to: email, subject, ...rendered })
 			},
 		}),
+		// The iPhone app's emailed sign-in code, for existing accounts only. Like a magic link, it is
+		// proof of the mailbox: an unverified account becomes verified, and loses the ways in it had.
+		emailOTP({
+			otpLength: APP_SIGN_IN_CODE_LENGTH,
+			expiresIn: SIGN_IN_CODE_MINUTES * 60,
+			allowedAttempts: 3,
+			storeOTP: "hashed",
+			disableSignUp: true,
+			// Called for existing accounts only (`disableSignUp`).
+			async sendVerificationOTP({ email, otp, type }) {
+				if (type !== "sign-in") return
+				const recipient = await db.query.user.findFirst({ where: eq(user.email, email) })
+				if (!recipient) return
+				const t = emailT(recipient.locale, "auth")
+				const subject = t("signInCode.emailSubject")
+				const body = t(recipient.emailVerified ? "signInCode.emailBody" : "signInCode.verifyBody", {
+					minutes: SIGN_IN_CODE_MINUTES,
+				})
+				const rendered = renderEmail({
+					heading: subject,
+					body: `${body}\n\n${otp}`,
+					footer: t("signInCode.emailIgnore"),
+				})
+				sendEmailInBackground({ to: email, subject, ...rendered })
+			},
+		}),
 		// Signing keys for OAuth access and ID tokens, published at /api/auth/jwks.
 		jwt({ disableSettingJwtHeader: true }),
 		// Klipstack as an OAuth 2.1 authorization server (better-auth's OAuth provider, set up for MCP):
@@ -418,6 +479,21 @@ for (const { clientId, ...fields } of FIRST_PARTY_CLIENTS) {
 		.insert(oauthClientResource)
 		.values({ id: newId(), clientId, resourceId: API_RESOURCE, createdAt: startedAt })
 		.onConflictDoNothing({ target: [oauthClientResource.clientId, oauthClientResource.resourceId] })
+}
+
+/**
+ * Apple's refresh token from the web's sign-in (the provider callback, which links Settings'
+ * connections too), sealed for the Services ID. The app's own Apple sign-in brings none here: its
+ * token is kept by /app/sign-in.
+ */
+async function appleToken(
+	data: { providerId?: unknown; refreshToken?: unknown },
+	ctx: GenericEndpointContext | null | undefined,
+): Promise<{ refreshToken?: string }> {
+	if (data.providerId !== "apple" || !oauth.apple) return {}
+	if (typeof data.refreshToken !== "string" || !data.refreshToken) return {}
+	if (!ctx?.path?.startsWith("/callback/")) return {}
+	return { refreshToken: await sealAppleToken(oauth.apple.clientId, data.refreshToken) }
 }
 
 const NO_PROVIDER_TOKENS = {

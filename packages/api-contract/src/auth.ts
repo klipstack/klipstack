@@ -80,6 +80,62 @@ export function mobileRedirectUris(appUrl: string): string[] {
 	return appUrl.startsWith("https://") ? [universalLink] : [universalLink, MOBILE_REDIRECT_URI]
 }
 
+/**
+ * The mobile app's own sign-in, outside the API (`/api/v1`): every way in ends in an authorization
+ * code for `klipstack-mobile`, which the app exchanges at the token endpoint with its PKCE verifier,
+ * as after the browser sign-in.
+ *
+ * - `GET` answers `AppSignInOptions`: the ways in this server offers.
+ * - `POST` (JSON `AppSignInRequest`) signs in and answers `{ code }`, or `{ error: { code, message } }`.
+ */
+export const APP_SIGN_IN_PATH = "/app/sign-in"
+
+/** `POST` (JSON `{ email }`): emails a sign-in code to an existing account. Answers 204 either way. */
+export const APP_SIGN_IN_CODE_PATH = "/app/sign-in/code"
+
+/**
+ * `GET /app/sign-in/<provider>` with the parameters of an authorization request: the provider's
+ * sign-in, in the app's sign-in sheet. It ends at the app's redirect URI with the code, or with an
+ * `error` (`AppSignInErrorCode`).
+ */
+export const appProviderSignInPath = (provider: "google" | "github") =>
+	`${APP_SIGN_IN_PATH}/${provider}`
+
+/** The providers the app may offer, in the order it shows them. */
+export type AppSignInProvider = "apple" | "google" | "github"
+
+export type AppSignInOptions = {
+	providers: AppSignInProvider[]
+	/** Whether the server can email a sign-in code. */
+	emailCode: boolean
+}
+
+export type AppSignInRequest = { codeChallenge: string } & (
+	| { method: "password"; email: string; password: string }
+	| { method: "code"; email: string; code: string }
+	| {
+			method: "apple"
+			/** Apple's ID token, issued to the app with the SHA-256 of `nonce` as its nonce. */
+			idToken: string
+			nonce: string
+			/** Apple's authorization code: the server exchanges it, which proves the token fresh. */
+			authorizationCode: string
+			/** Apple sends the name only at the first sign-in. */
+			givenName?: string
+			familyName?: string
+	  }
+)
+
+/**
+ * Why a provider sign-in in the sheet came back without a code (`error` on the redirect):
+ * `no_account` (nobody has this identity, and the app creates no account), `not_linked` (an account
+ * has its email but is not connected to that provider), `no_email`, `failed`.
+ */
+export type AppSignInErrorCode = "no_account" | "not_linked" | "no_email" | "failed"
+
+/** The digits of an emailed sign-in code. */
+export const APP_SIGN_IN_CODE_LENGTH = 6
+
 /** The path of the CLI's one-shot login server. */
 export const CLI_CALLBACK_PATH = "/callback"
 

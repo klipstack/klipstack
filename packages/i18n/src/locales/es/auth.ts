@@ -77,6 +77,14 @@ export default {
 		emailCta: "Entrar en Klipstack",
 		emailIgnore: "Si no lo solicitaste, puedes ignorar este correo.",
 	},
+	signInCode: {
+		emailSubject: "Tu código para entrar en Klipstack",
+		emailBody:
+			"Escribe este código en la app de Klipstack para entrar. Caduca en {{minutes}} minutos.",
+		verifyBody:
+			"Escribe este código en la app de Klipstack para confirmar tu correo electrónico y entrar. Caduca en {{minutes}} minutos. Por tu seguridad, entrar de esta forma cierra las sesiones anteriores y elimina tu contraseña. Puedes crear una contraseña nueva desde la página de inicio de sesión.",
+		emailIgnore: "Si no lo solicitaste, puedes ignorar este correo. No compartas este código.",
+	},
 	signupLink: {
 		passwordHint: "Opcional. Déjala vacía y te enviaremos un enlace para crear tu cuenta.",
 		sentTitle: "Revisa tu correo",
