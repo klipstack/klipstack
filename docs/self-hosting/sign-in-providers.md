@@ -9,32 +9,68 @@ itself, so on a server without email delivery it is the way to get a verified ac
 
 In this page, `YOUR_DOMAIN` is the host of `APP_URL`, for example `klipstack.example.com`.
 
-## Register the apps
+Use accounts you control for the server, not personal ones. Store every secret in your password
+manager, never in the repository or a chat. The consoles below rename their menus from time to
+time: look for the nearest match.
 
-Use an account you control for the server, not a personal one. Store the client secrets in your
-password manager.
+## Google
 
-| | Google | GitHub |
-| --- | --- | --- |
-| Where | Google Cloud console → APIs & Services → Credentials → OAuth client ID (Web application) | GitHub → your organization or account → Settings → Developer settings → OAuth Apps |
-| Redirect / callback URL | `https://YOUR_DOMAIN/api/auth/callback/google` | `https://YOUR_DOMAIN/api/auth/callback/github` |
-| Scopes | `openid`, `email`, `profile` (the defaults) | `read:user`, `user:email` (the defaults) |
-| Consent screen | App name, support email, your domain. Publish it: a "Testing" app only admits listed test users. These scopes are not sensitive: no "unverified app" warning and no user cap apply without verification. Brand verification only adds the app name and logo to Google's screen. It needs a homepage that describes the app, a privacy policy linked from it, and the domain verified in Search Console. The landing page links the privacy policy at `/privacy`. | App name, homepage URL. |
+Google needs three things: a project, a consent screen and a client.
 
-GitHub settings: leave wildcard redirect matching and Device Flow off (Klipstack uses neither).
-Token expiry can stay on: no GitHub token is kept. An OAuth App needs nothing else. A GitHub App
-also works, with three more settings: Account permissions → Email addresses: Read-only (without it
-sign-in fails with `email_not_found`), the webhook set to inactive, and installation allowed for
-any account.
+**1. A project.** In [Google Cloud](https://console.cloud.google.com), pick or create a project
+for the server in the project picker at the top. Everything below happens inside it.
+
+**2. The consent screen**: what Google shows people when they choose Continue with Google. Google
+issues no client until it exists. Open APIs & Services → OAuth consent screen (on newer accounts,
+Google Auth Platform → Get started):
+
+- App information: the app's name, and a user support email that people will see.
+- Audience: **External** (Internal admits only a Google Workspace organization's own people).
+- Contact information: an address where Google writes to you about the app. Accept the policy and
+  create it.
+- Branding: the home page (`https://YOUR_DOMAIN`), the privacy policy (`https://YOUR_DOMAIN/privacy`),
+  the terms (`https://YOUR_DOMAIN/terms`), and `YOUR_DOMAIN` under Authorized domains. Leave out the
+  logo at first: with a logo, Google checks the brand before showing it, which takes days. Brand
+  verification also needs the domain verified in Google Search Console.
+- Data access: add nothing. Klipstack asks for `openid`, `email` and `profile`, which Google
+  counts as non-sensitive: no review, no "unverified app" warning, no user cap.
+- Audience: **Publish app**, so that it says In production. An app left in Testing admits only
+  the test users it lists; everyone else gets an error.
+
+**3. The client**: Clients → Create client (or Credentials → Create credentials → OAuth client ID).
+
+- Application type: Web application. The name is for you only.
+- Authorized JavaScript origins: none.
+- Authorized redirect URIs: `https://YOUR_DOMAIN/api/auth/callback/google`, exactly: `https`, no
+  trailing slash.
+- Create, then copy the client ID and the client secret right away: Google may not show the
+  secret again.
+
+Then turn it on (below) with `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
+
+## GitHub
+
+GitHub → your organization or account → Settings → Developer settings → OAuth Apps → New OAuth
+App: the app's name, the homepage URL (`https://YOUR_DOMAIN`), and the callback URL
+`https://YOUR_DOMAIN/api/auth/callback/github`. Generate a client secret and copy it. The scopes
+are GitHub's defaults (`read:user`, `user:email`).
+
+Leave wildcard redirect matching and Device Flow off (Klipstack uses neither). Token expiry can
+stay on: no GitHub token is kept. An OAuth App needs nothing else. A GitHub App also works, with
+three more settings: Account permissions → Email addresses: Read-only (without it sign-in fails
+with `email_not_found`), the webhook set to inactive, and installation allowed for any account.
+
+## Local development
 
 The callback URL must match `APP_URL` exactly. For local development register a second app (or a
 second redirect URI on Google) with `http://localhost:5180/api/auth/callback/<provider>` and put
-its values in the local `.env`. Never reuse the production secret locally.
+its values in the local `.env`. Never reuse the production secret locally. Apple accepts no
+`localhost` address, so Sign in with Apple can't be tried locally.
 
 ## Turn a provider on
 
 1. Add the pair to `.env` (`GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`, or `GITHUB_CLIENT_ID`
-   and `GITHUB_CLIENT_SECRET`).
+   and `GITHUB_CLIENT_SECRET`; Apple's four values are below).
 2. Recreate the web container. `docker compose restart` keeps the old environment; `up` recreates
    a container whose settings changed. The worker does not read these values.
 
@@ -44,40 +80,67 @@ its values in the local `.env`. Never reuse the production secret locally.
 
 3. Check: `/login` shows the button; a sign-up with a fresh invite creates the account and marks
    the invite used in `/admin`; the login button with an account that does not exist answers "No
-   Klipstack account uses that login yet".
+   Klipstack account uses that login yet". To use it with an existing account, connect it first
+   in Settings → Ways to log in: the provider's email must be the account's.
 
 ## Sign in with Apple
 
-Apple needs a paid Apple Developer account, and works only on an https `APP_URL`: Apple accepts
-no `localhost` return URL, so a local server can't try it. In the developer account, under
-Certificates, Identifiers & Profiles:
+Apple needs a paid Apple Developer account and an https `APP_URL`. Everything is in the
+[developer account](https://developer.apple.com/account), under Certificates, Identifiers &
+Profiles, except the team ID: Membership details shows it.
 
-1. **An App ID.** Apple groups the web's sign-in under one. With your own build of the iPhone app,
-   use its App ID; otherwise create one (Identifiers → +, App IDs). Turn on Sign in with Apple in
-   its capabilities.
-2. **A Services ID**, the identity the web signs in as: Identifiers → +, Services IDs, for example
-   `com.example.web`. Turn on Sign in with Apple and configure it: the App ID above as primary,
-   `YOUR_DOMAIN` under Domains, and `https://YOUR_DOMAIN/api/auth/callback/apple` under Return
-   URLs.
-3. **A key**: Keys → +, Sign in with Apple, configured with the same App ID. Download the `.p8`
-   file. Apple offers it once: keep it in your password manager. Note its key ID.
-4. **Email relay.** People may hide their address from you, and Apple gives you one at
-   `privaterelay.appleid.com` instead. Apple forwards mail to it only from senders you register:
-   under Services, Sign in with Apple for Email Communication, add the domain of `EMAIL_FROM`.
-   Without it, sign-in links and password resets never reach those people.
+**1. The App ID.** Apple groups the web's sign-in under an app. With your own build of the iPhone
+app, use its App ID; otherwise register one (Identifiers → +, App IDs, App). Open it, tick
+**Sign in with Apple** under Capabilities, keep "Enable as a primary App ID", and save. An app
+already in the App Store keeps working; its next build carries the capability.
 
-Then set four values and recreate the web container:
+**2. A Services ID**, the identity the web signs in as. Identifiers → +, **Services IDs**:
+
+- Description: the name people may see on Apple's sign-in page, such as your app's name.
+- Identifier: reverse-domain and different from the App ID, such as `com.example.web`.
+- Register it, open it, tick **Sign in with Apple**, and Configure:
+  - Primary App ID: the App ID of step 1.
+  - Domains and Subdomains: `YOUR_DOMAIN`, without `https://`.
+  - Return URLs: `https://YOUR_DOMAIN/api/auth/callback/apple`, exactly.
+- Next, Done, Continue, Save.
+
+**3. A key**, which signs the server's requests to Apple. Keys → +:
+
+- A name for you, such as "Sign in with Apple".
+- Tick **Sign in with Apple**, Configure, choose the App ID of step 1, Save.
+- Continue, Register, then **Download** the `.p8` file. Apple offers it once: put it in your
+  password manager. Note the key ID shown beside it (10 characters).
+
+**4. Email relay.** People may hide their address from you: Apple then gives you one at
+`privaterelay.appleid.com` and forwards to it only mail from senders you registered. Under
+Services → **Sign in with Apple for Email Communication** → Configure, add the address in
+`EMAIL_FROM` and its domain. Apple checks SPF on that mail, which a domain set up with your email
+provider (for example Resend) passes. Without this, sign-in links, password resets and the
+welcome email never reach those people.
+
+**5. The server's values.** Set all four in `.env`, then recreate the web container as above:
 
 | Variable | Value |
 | --- | --- |
-| `APPLE_TEAM_ID` | Your team ID (Membership details, 10 characters) |
-| `APPLE_SERVICES_ID` | The Services ID |
-| `APPLE_KEY_ID` | The key's ID (10 characters) |
-| `APPLE_PRIVATE_KEY` | The `.p8` file on one line: `awk 'NF {printf "%s\\n", $0}' AuthKey_KEYID.p8` prints it |
+| `APPLE_TEAM_ID` | The team ID, from Membership details (10 characters) |
+| `APPLE_SERVICES_ID` | The Services ID of step 2 |
+| `APPLE_KEY_ID` | The key ID of step 3 |
+| `APPLE_PRIVATE_KEY` | The `.p8` file on one line, its line breaks written as `\n` |
 
-All four, or the server refuses to start. The server signs Apple's client secret with the key
-itself and renews it daily, so nothing expires. With `APPLE_BUNDLE_ID` also set, the server
-accepts Apple's sign-in tokens from that iPhone app as well.
+This prints the `.p8` file as that one line:
+
+```sh
+awk 'NF {printf "%s\\n", $0}' AuthKey_KEYID.p8
+```
+
+Set all four, or the server refuses to start rather than hide the button without a word. The
+server signs Apple's client secret with the key itself and renews it daily, so nothing expires.
+With `APPLE_BUNDLE_ID` also set, the server accepts Apple's sign-in tokens from that iPhone app as
+well.
+
+**6. Check.** `/login` shows Continue with Apple, and it opens Apple's page with your
+Services ID's sign-in. Connect it to your own account in Settings → Ways to log in, with "Share
+My Email" and the Apple ID whose address is your account's, then log out and back in with Apple.
 
 What differs from Google and GitHub:
 
