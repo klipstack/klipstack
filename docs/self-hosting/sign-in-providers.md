@@ -1,7 +1,7 @@
-# Sign-in providers: Google and GitHub
+# Sign-in providers: Google, GitHub and Apple
 
-Both are optional. A provider's button appears on `/login`, `/signup` and in Settings when its
-client ID and secret are both set.
+All are optional. A provider's button appears on `/login`, `/signup` and in Settings when its
+client ID and secret are both set (Apple: see [Sign in with Apple](#sign-in-with-apple)).
 
 Klipstack asks each provider who signed in (name, email, whether the email is verified). It calls
 no other provider API and does not keep provider tokens. A provider verifies the email address
@@ -45,6 +45,48 @@ its values in the local `.env`. Never reuse the production secret locally.
 3. Check: `/login` shows the button; a sign-up with a fresh invite creates the account and marks
    the invite used in `/admin`; the login button with an account that does not exist answers "No
    Klipstack account uses that login yet".
+
+## Sign in with Apple
+
+Apple needs a paid Apple Developer account, and works only on an https `APP_URL`: Apple accepts
+no `localhost` return URL, so a local server can't try it. In the developer account, under
+Certificates, Identifiers & Profiles:
+
+1. **An App ID.** Apple groups the web's sign-in under one. With your own build of the iPhone app,
+   use its App ID; otherwise create one (Identifiers → +, App IDs). Turn on Sign in with Apple in
+   its capabilities.
+2. **A Services ID**, the identity the web signs in as: Identifiers → +, Services IDs, for example
+   `com.example.web`. Turn on Sign in with Apple and configure it: the App ID above as primary,
+   `YOUR_DOMAIN` under Domains, and `https://YOUR_DOMAIN/api/auth/callback/apple` under Return
+   URLs.
+3. **A key**: Keys → +, Sign in with Apple, configured with the same App ID. Download the `.p8`
+   file. Apple offers it once: keep it in your password manager. Note its key ID.
+4. **Email relay.** People may hide their address from you, and Apple gives you one at
+   `privaterelay.appleid.com` instead. Apple forwards mail to it only from senders you register:
+   under Services, Sign in with Apple for Email Communication, add the domain of `EMAIL_FROM`.
+   Without it, sign-in links and password resets never reach those people.
+
+Then set four values and recreate the web container:
+
+| Variable | Value |
+| --- | --- |
+| `APPLE_TEAM_ID` | Your team ID (Membership details, 10 characters) |
+| `APPLE_SERVICES_ID` | The Services ID |
+| `APPLE_KEY_ID` | The key's ID (10 characters) |
+| `APPLE_PRIVATE_KEY` | The `.p8` file on one line: `awk 'NF {printf "%s\\n", $0}' AuthKey_KEYID.p8` prints it |
+
+All four, or the server refuses to start. The server signs Apple's client secret with the key
+itself and renews it daily, so nothing expires. With `APPLE_BUNDLE_ID` also set, the server
+accepts Apple's sign-in tokens from that iPhone app as well.
+
+What differs from Google and GitHub:
+
+- Apple sends the person's name only at their first sign-in to your Services ID.
+- Someone who hides their address arrives with a new one, so Apple never matches an existing
+  account. To connect Apple in Settings, they share their real address with Apple, since it must
+  equal the account's.
+- To use another key, create it, replace `APPLE_KEY_ID` and `APPLE_PRIVATE_KEY`, recreate the web
+  container, then revoke the old key at Apple.
 
 ## Turn a provider off, or rotate its secret
 

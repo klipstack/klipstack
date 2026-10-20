@@ -5,7 +5,7 @@ Compose: the containers, their settings, upgrades and backups.
 
 - [compose.yml](compose.yml): an example Compose file for the web server, the worker and PostgreSQL.
 - [admin.md](admin.md): roles, the operator CLI, stopping an account, release and rollback.
-- [sign-in-providers.md](sign-in-providers.md): Google and GitHub sign-in.
+- [sign-in-providers.md](sign-in-providers.md): Google, GitHub and Apple sign-in.
 - [ai.md](ai.md): AI answers in the reader, with an Anthropic key.
 - [postgres-collation.md](postgres-collation.md): why the database uses the builtin collation
   provider, and how to move an existing database to it.
@@ -113,8 +113,8 @@ the `postgres` service and the `DATABASE_URL` line from `compose.yml`, and set `
 
 Without a key the server sends no email at all; it never prints sign-in links to the log. Password
 login still works, but email links, password resets and email verification do not. Only a verified
-account can become an admin, create API keys or connect apps, so without email you need Google or
-GitHub sign-in ([sign-in-providers.md](sign-in-providers.md)): they verify the address themselves.
+account can become an admin, create API keys or connect apps, so without email you need Google,
+GitHub or Apple sign-in ([sign-in-providers.md](sign-in-providers.md)): they verify the address themselves.
 
 A welcome for new accounts is off unless you turn it on. With `WELCOME_FROM_NAME` and
 `WELCOME_FROM_EMAIL` set in `.env`, each account created from then on
@@ -145,6 +145,7 @@ work. Keep the bucket private: the app serves images itself, after checking who 
 | `SIGNUP_MODE` | `invite` | `invite`: sign-up needs an invite. `waitlist`: the same, plus a public form at `/request-invite`. `open`: anyone can sign up. See [admin.md](admin.md#wait-list). |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | unset | Google sign-in. See [sign-in-providers.md](sign-in-providers.md). |
 | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | unset | GitHub sign-in. |
+| `APPLE_SERVICES_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY` | unset | With `APPLE_TEAM_ID`, Sign in with Apple. All four or none. See [sign-in-providers.md](sign-in-providers.md#sign-in-with-apple). |
 | `ANTHROPIC_API_KEY` | unset | AI answers in the reader. See [ai.md](ai.md). |
 | `TYPESAFE_API_KEY` | unset | With `ANTHROPIC_API_KEY`, automatic topics. See [ai.md](ai.md#automatic-topics). |
 | `LIMIT_TOPICS_PER_MONTH` | `100` | Haiku's work on one account's topics per month. |

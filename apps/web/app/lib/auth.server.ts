@@ -233,6 +233,7 @@ export const auth = betterAuth({
 	socialProviders: {
 		...(oauth.google ? { google: oauth.google } : {}),
 		...(oauth.github ? { github: oauth.github } : {}),
+		...(oauth.apple ? { apple: oauth.apple } : {}),
 	},
 	databaseHooks: {
 		user: {

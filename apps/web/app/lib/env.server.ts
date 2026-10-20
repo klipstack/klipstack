@@ -1,6 +1,7 @@
 import { loadEnv } from "@klipstack/db"
 import { welcomeFrom as readWelcomeFrom } from "@klipstack/email"
 import { z } from "zod"
+import { appleClientSecret } from "./apple-client-secret.server"
 
 loadEnv()
 
@@ -29,7 +30,7 @@ export const dashboardUrl = z
 const optional = <T extends z.ZodType>(type: T) =>
 	z.preprocess((value) => (value === "" ? undefined : value), type.optional())
 
-const schema = z.object({
+const fields = z.object({
 	NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 	DATABASE_URL: z.string().min(1),
 	BETTER_AUTH_SECRET: z
@@ -123,12 +124,36 @@ const schema = z.object({
 		z.string().regex(/^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/, "Use a bundle ID like com.example.app"),
 	),
 	/**
+	 * Sign in with Apple, with APPLE_TEAM_ID: the Services ID the web signs in as, and the Sign in
+	 * with Apple key that signs its client secret (its key ID, and the `.p8` file on one line, its
+	 * line breaks written as \n). All three, or Apple sign-in is off.
+	 */
+	APPLE_SERVICES_ID: optional(
+		z.string().regex(/^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/, "Use a Services ID like com.example.web"),
+	),
+	APPLE_KEY_ID: optional(z.string().regex(/^[A-Z0-9]{10}$/, "Use the 10-character key ID")),
+	APPLE_PRIVATE_KEY: optional(
+		z.string().includes("PRIVATE KEY", { message: "Use the .p8 file's text" }),
+	),
+	/**
 	 * The SuppyHQ account behind Contact support in the sidebar (`components/support-panel.tsx`).
 	 * Unset, the app has no link to SuppyHQ.
 	 */
 	SUPPYHQ_TENANT: optional(
 		z.string().regex(/^[a-z0-9-]+$/, "Use the tenant from SuppyHQ's snippet"),
 	),
+})
+
+const schema = fields.superRefine((value, ctx) => {
+	const apple = [value.APPLE_SERVICES_ID, value.APPLE_KEY_ID, value.APPLE_PRIVATE_KEY]
+	// Half a configuration would hide the button without a word: refuse to start instead.
+	if (apple.some(Boolean) && !(apple.every(Boolean) && value.APPLE_TEAM_ID))
+		ctx.addIssue({
+			code: "custom",
+			path: ["APPLE_SERVICES_ID"],
+			message:
+				"Set APPLE_TEAM_ID, APPLE_SERVICES_ID, APPLE_KEY_ID and APPLE_PRIVATE_KEY together for Sign in with Apple",
+		})
 })
 
 const parsed = schema.safeParse(process.env)
@@ -158,6 +183,28 @@ export const oauth = {
 		env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET
 			? { clientId: env.GITHUB_CLIENT_ID, clientSecret: env.GITHUB_CLIENT_SECRET }
 			: null,
+	apple: appleOptions(),
+}
+
+function appleOptions() {
+	const { APPLE_TEAM_ID, APPLE_SERVICES_ID, APPLE_KEY_ID, APPLE_PRIVATE_KEY } = env
+	if (!APPLE_TEAM_ID || !APPLE_SERVICES_ID || !APPLE_KEY_ID || !APPLE_PRIVATE_KEY) return null
+	const secret = appleClientSecret({
+		teamId: APPLE_TEAM_ID,
+		clientId: APPLE_SERVICES_ID,
+		keyId: APPLE_KEY_ID,
+		privateKey: APPLE_PRIVATE_KEY,
+	})
+	return {
+		clientId: APPLE_SERVICES_ID,
+		// Read at each use: a secret lasts six months at most, and is renewed while the server runs.
+		get clientSecret() {
+			return secret()
+		},
+		// The ID tokens Apple issues to the web (the Services ID) and to our iPhone app (its bundle
+		// ID), which signs in with Apple's own sheet.
+		audience: [APPLE_SERVICES_ID, ...(env.APPLE_BUNDLE_ID ? [env.APPLE_BUNDLE_ID] : [])],
+	}
 }
 
 /**

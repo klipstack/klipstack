@@ -14,7 +14,7 @@ import {
 	withProviderSignup,
 } from "./signup-gate.server"
 
-export const PROVIDERS = ["google", "github"] as const
+export const PROVIDERS = ["apple", "google", "github"] as const
 export type Provider = (typeof PROVIDERS)[number]
 
 /** The providers with credentials in the environment, in display order. */

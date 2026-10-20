@@ -221,5 +221,10 @@ and password, or our own emailed links, don't count as third-party and need noth
 GitHub sign-in is on at klipstack.com, and the app's sign-in opens the same login page. The app's
 sign-in now hides Google and GitHub (done above). The rule in code is generic: in the sign-in of
 one of our apps on Apple's platforms (`APPLE_PLATFORM_CLIENTS`), providers show only when Apple is
-among them (`offeredIn` in `apps/web/app/lib/provider-sign-in.server.ts`). Once Sign in with Apple
-is added, all of them show there together.
+among them (`offeredIn` in `apps/web/app/lib/provider-sign-in.server.ts`). The server now has
+Sign in with Apple (`APPLE_SERVICES_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`; see
+`docs/self-hosting/sign-in-providers.md`), but the app's sign-in sheet still shows no provider:
+while the login page carries the app's authorization request, it hides them all, since a trip to
+a provider would lose that request (`login.tsx`). The app is to offer them as its own buttons
+instead, Apple's through Apple's own sheet: the server already accepts the ID tokens Apple issues
+to the app's bundle ID.

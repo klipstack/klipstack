@@ -48,6 +48,9 @@ it.each([
 	["APPLE_TEAM_ID", "AB12CD34E"],
 	["APPLE_BUNDLE_ID", "comexample"],
 	["APPLE_BUNDLE_ID", "com.example.reader/"],
+	// Sign in with Apple needs the team, the Services ID and the key together.
+	["APPLE_SERVICES_ID", "com.example.reader.web"],
+	["APPLE_KEY_ID", "KEY1234567"],
 ])("refuses %s=%s", async (name, value) => {
 	vi.stubEnv(name, value)
 	vi.resetModules()
