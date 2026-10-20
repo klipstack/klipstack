@@ -130,7 +130,7 @@ welcome email never reach those people.
 This prints the `.p8` file as that one line:
 
 ```sh
-awk 'NF {printf "%s\\n", $0}' AuthKey_KEYID.p8
+awk 'NF {sub(/\r$/, ""); printf "%s\\n", $0}' AuthKey_KEYID.p8
 ```
 
 Set all four, or the server refuses to start rather than hide the button without a word. The
@@ -147,7 +147,11 @@ What differs from Google and GitHub:
 - Apple sends the person's name only at their first sign-in to your Services ID.
 - Someone who hides their address arrives with a new one, so Apple never matches an existing
   account. To connect Apple in Settings, they share their real address with Apple, since it must
-  equal the account's.
+  equal the account's. Apple remembers the first choice: someone who hid it first removes the
+  app from their Apple ID (Settings → their name → Sign in with Apple on an iPhone) and connects
+  again.
+- Turning Apple off means emptying `APPLE_SERVICES_ID`, `APPLE_KEY_ID` and `APPLE_PRIVATE_KEY`
+  together. Keep `APPLE_TEAM_ID` if your own build of the iPhone app uses it.
 - To use another key, create it, replace `APPLE_KEY_ID` and `APPLE_PRIVATE_KEY`, recreate the web
   container, then revoke the old key at Apple.
 

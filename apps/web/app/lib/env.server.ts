@@ -117,7 +117,8 @@ const fields = z.object({
 	AI_FAKE: z.enum(["0", "1", "demo"]).default("0"),
 	/**
 	 * The Apple team and bundle ID of the iPhone app that may open this server's links (universal
-	 * links, `/.well-known/apple-app-site-association`). Both, or the file is not found.
+	 * links, `/.well-known/apple-app-site-association`). Both, or the file is not found. Sign in
+	 * with Apple needs the team ID too, app or not.
 	 */
 	APPLE_TEAM_ID: optional(z.string().regex(/^[A-Z0-9]{10}$/, "Use the 10-character Apple team ID")),
 	APPLE_BUNDLE_ID: optional(

@@ -29,12 +29,12 @@ export function providersFor(clientId: string | null): Provider[] {
 }
 
 /**
- * In the sign-in of one of our apps on Apple's platforms, App Review wants Sign in with Apple
- * wherever another company's sign-in is offered (guideline 4.8): none without Apple among them.
+ * None in the sign-in of one of our apps on Apple's platforms. A trip to a provider from its sheet
+ * would leave the app's request behind, and end on the web inside the sheet. The app offers the
+ * providers itself, with Sign in with Apple among them, as App Review wants (guideline 4.8).
  */
 export function offeredIn<P extends string>(clientId: string | null, enabled: readonly P[]): P[] {
-	const apple = clientId !== null && APPLE_PLATFORM_CLIENTS.includes(clientId)
-	return apple && !enabled.some((p) => p === "apple") ? [] : [...enabled]
+	return clientId !== null && APPLE_PLATFORM_CLIENTS.includes(clientId) ? [] : [...enabled]
 }
 
 export function enabledProvider(value: unknown): Provider | null {

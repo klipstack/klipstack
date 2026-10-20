@@ -1,4 +1,4 @@
-import { createPublicKey, generateKeyPairSync, sign, verify } from "node:crypto"
+import { createHmac, createPublicKey, generateKeyPairSync, sign, verify } from "node:crypto"
 import { account, db, eq, inArray, invites, pool, user as userTable } from "@klipstack/db"
 import { RouterContextProvider } from "react-router"
 import { afterAll, describe, expect, it, vi } from "vitest"
@@ -83,6 +83,15 @@ const cookiesOf = (headers: Headers) =>
 		.map((cookie) => cookie.split(";")[0])
 		.join("; ")
 
+/** A client address of this run's own, signed as the proxy signs it: the sign-up limit counts per address. */
+const clientHeaders = () =>
+	new Headers({
+		"x-klipstack-client-ip": email,
+		"x-klipstack-client-signature": createHmac("sha256", env.BETTER_AUTH_SECRET)
+			.update(email)
+			.digest("hex"),
+	})
+
 const routeArgs = (request: Request) =>
 	({ request, context: new RouterContextProvider(), params: {} }) as never
 
@@ -96,11 +105,14 @@ describe("Sign in with Apple", () => {
 	it("signs up with an invite through Apple's form post, with the name Apple sends once", async () => {
 		const inviteCode = await createInvite({ note: "unit" })
 		inviteCodes.push(inviteCode)
-		const start = await startProviderSignIn(new Request(new URL("/signup", env.APP_URL)), {
-			provider: "apple",
-			signup: true,
-			inviteCode,
-		})
+		const start = await startProviderSignIn(
+			new Request(new URL("/signup", env.APP_URL), { headers: clientHeaders() }),
+			{
+				provider: "apple",
+				signup: true,
+				inviteCode,
+			},
+		)
 		const authorize = new URL(start.headers.get("location")!)
 		expect(authorize.origin + authorize.pathname).toBe("https://appleid.apple.com/auth/authorize")
 		expect(authorize.searchParams.get("client_id")).toBe("com.example.reader.web")
@@ -215,7 +227,8 @@ describe("Sign in with Apple", () => {
 			headers: new Headers(),
 			asResponse: true,
 		})
-		expect(response.status).not.toBe(200)
+		expect(response.status).toBe(403)
+		expect(await response.json()).toMatchObject({ code: "INVITE_REQUIRED" })
 		expect(await db.select().from(userTable).where(eq(userTable.email, stranger))).toHaveLength(0)
 	})
 
@@ -225,6 +238,8 @@ describe("Sign in with Apple", () => {
 			headers: new Headers(),
 			asResponse: true,
 		})
-		expect(response.status).not.toBe(200)
+		// Refused for its audience, not for a missing invite: the account exists (the first test).
+		expect(response.status).toBe(401)
+		expect(await response.json()).toMatchObject({ code: "INVALID_TOKEN" })
 	})
 })

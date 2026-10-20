@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "node:crypto"
+import { createHash, generateKeyPairSync, randomBytes } from "node:crypto"
 import {
 	API_RESOURCE_PATH,
 	CLI_CLIENT_ID,
@@ -15,6 +15,13 @@ import { describe, expect, it } from "vitest"
 // GitHub's credentials make it a provider the web offers. No request reaches GitHub.
 process.env.GITHUB_CLIENT_ID = "test-client"
 process.env.GITHUB_CLIENT_SECRET = "test-secret"
+// Apple too: with Sign in with Apple on, the iPhone app's sign-in must still offer none.
+process.env.APPLE_TEAM_ID = "TEAM123456"
+process.env.APPLE_SERVICES_ID = "com.example.reader.web"
+process.env.APPLE_KEY_ID = "KEY1234567"
+process.env.APPLE_PRIVATE_KEY = generateKeyPairSync("ec", { namedCurve: "P-256" })
+	.privateKey.export({ type: "pkcs8", format: "pem" })
+	.toString()
 
 const { env } = await import("~/lib/env.server")
 const { auth } = await import("~/lib/auth.server")
@@ -73,9 +80,9 @@ const atLoginPage = (url: URL) => login.loader(args(url))
 const atSignupPage = (url: URL) => signup.loader(args(url))
 
 describe("third-party sign-in in an app's sign-in", () => {
-	it("is offered in the iPhone app's only with Apple among the providers (App Review 4.8)", () => {
+	it("is never offered in the iPhone app's: the app offers providers itself", () => {
 		expect(offeredIn(MOBILE_CLIENT_ID, ["google", "github"])).toEqual([])
-		expect(offeredIn(MOBILE_CLIENT_ID, ["github", "apple"])).toEqual(["github", "apple"])
+		expect(offeredIn(MOBILE_CLIENT_ID, ["github", "apple"])).toEqual([])
 		expect(offeredIn(CLI_CLIENT_ID, ["google", "github"])).toEqual(["google", "github"])
 		expect(offeredIn(null, ["github"])).toEqual(["github"])
 	})
@@ -105,17 +112,18 @@ describe("third-party sign-in in an app's sign-in", () => {
 
 		// Unsigned, it names no app: what the web offers.
 		const forged = at("/signup", app.search.replace(/sig=[^&]+/, "sig=forged"))
-		expect((await atSignupPage(forged)).providers).toEqual(["github"])
+		expect((await atSignupPage(forged)).providers).toEqual(["apple", "github"])
 	})
 
 	it("leaves the web's sign-in, and other apps', as they are", async () => {
-		expect((await atLoginPage(at("/login"))).providers).toEqual(["github"])
-		expect((await atSignupPage(at("/signup"))).providers).toEqual(["github"])
+		expect((await atLoginPage(at("/login"))).providers).toEqual(["apple", "github"])
+		expect((await atSignupPage(at("/signup"))).providers).toEqual(["apple", "github"])
 		expect((await atSignupPage(at("/signup"))).appQuery).toBeNull()
 		const cli = await signInPage(CLI_CLIENT_ID, CLI_REDIRECT_URI, CLI_SCOPES)
 		const atLogin = await atLoginPage(cli)
 		expect(atLogin.appQuery).toBeTruthy()
 		expect((await atSignupPage(at("/signup", `?${atLogin.appQuery}`))).providers).toEqual([
+			"apple",
 			"github",
 		])
 	})

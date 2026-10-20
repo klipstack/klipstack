@@ -57,3 +57,13 @@ it.each([
 	vi.spyOn(console, "error").mockImplementation(() => {})
 	await expect(import("./env.server")).rejects.toThrow("Invalid environment variables")
 })
+
+it("refuses Sign in with Apple without the team ID", async () => {
+	vi.stubEnv("APPLE_TEAM_ID", "")
+	vi.stubEnv("APPLE_SERVICES_ID", "com.example.reader.web")
+	vi.stubEnv("APPLE_KEY_ID", "KEY1234567")
+	vi.stubEnv("APPLE_PRIVATE_KEY", "-----BEGIN PRIVATE KEY-----\\n…\\n-----END PRIVATE KEY-----")
+	vi.resetModules()
+	vi.spyOn(console, "error").mockImplementation(() => {})
+	await expect(import("./env.server")).rejects.toThrow("Invalid environment variables")
+})
