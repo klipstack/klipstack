@@ -257,6 +257,8 @@ test("the mobile app signs in with its own client, gets write access, and names 
 	const resource = `${base}/api`
 	const { challenge, verifier } = pkce()
 	const scope = MOBILE_SCOPES.join(" ")
+	// The app skips consent now (its own sign-in screen, app.sign-in.test.ts), but builds from
+	// before it sign in in the browser with `prompt=consent`: the consent page stays for them.
 	await page.goto(authorizeUrl(client, { challenge, scope, resource, prompt: "consent" }))
 	await expect(page).toHaveURL(/\/oauth\/consent\?/)
 	await expect(

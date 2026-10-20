@@ -3,6 +3,7 @@ import { useEffect, useState } from "react"
 import {
 	ActivityIndicator,
 	Alert,
+	Modal,
 	Pressable,
 	ScrollView,
 	StyleSheet,
@@ -11,7 +12,9 @@ import {
 	View,
 } from "react-native"
 import { listStyles } from "@/components/grouped-list"
+import { SignInForm } from "@/components/sign-in-form"
 import { useAuth } from "@/lib/auth"
+import type { Session } from "@/lib/session-store"
 import { fonts, useColors } from "@/lib/theme"
 import { openOnTheWeb } from "@/lib/web-pages"
 
@@ -22,15 +25,17 @@ const confirms = (typed: string, email: string | null) =>
 /**
  * Deleting the account, as Settings on the web does it: typing the account's email to confirm,
  * and a sign-in from the last 30 minutes. The server says when that sign-in is too old; the app
- * then signs in again, password and all, and deletes.
+ * then asks to sign in again, in a sheet with the sign-in screen's ways in, and deletes.
  */
 export default function DeleteAccount() {
-	const { state, apiUrl, signInAgain, accountDeleted } = useAuth()
+	const { state, apiUrl, signedInAgain, accountDeleted } = useAuth()
 	const colors = useColors()
 	const client = state.status === "signed-in" ? state.client : null
 	const [email, setEmail] = useState<string | null>(null)
 	const [typed, setTyped] = useState("")
 	const [busy, setBusy] = useState(false)
+	// The sheet that asks to sign in again.
+	const [confirming, setConfirming] = useState(false)
 	// What went wrong; `web` when only the web can delete it (this sign-in isn't the app's own).
 	const [error, setError] = useState<{ message: string; web?: boolean } | null>(null)
 	const ready = confirms(typed, email) && !busy
@@ -51,7 +56,7 @@ export default function DeleteAccount() {
 		} catch (e) {
 			setBusy(false)
 			if (e instanceof KlipstackApiError && e.code === "reauthentication_required" && !again)
-				return askToSignInAgain()
+				return setConfirming(true)
 			setError({
 				message: e instanceof Error ? e.message : String(e),
 				web: e instanceof KlipstackApiError && e.code === "forbidden",
@@ -62,36 +67,18 @@ export default function DeleteAccount() {
 		Alert.alert("Account deleted", "Your account and everything in it are gone.")
 	}
 
-	function askToSignInAgain() {
-		Alert.alert(
-			"Sign in again",
-			"To delete the account, sign in again with your password first: it needs a sign-in from the last 30 minutes. Without a password, delete it on the web.",
-			[
-				{ text: "Cancel", style: "cancel" },
-				// An account without a password (Google, GitHub, emailed links) can't sign in again here.
-				{
-					text: "Use the web",
-					onPress: () => openOnTheWeb(`${apiUrl}/settings/account`),
-				},
-				{
-					text: "Sign in",
-					onPress: async () => {
-						try {
-							if (!(await signInAgain())) return
-							// The sheet lets anyone sign in: deleting goes on only for the same account.
-							const now = await client?.me()
-							if (now && now.email.toLowerCase() !== email?.toLowerCase())
-								return setError({
-									message: `You signed in as ${now.email}, so nothing was deleted. The app now uses that account.`,
-								})
-							await remove(true)
-						} catch (e) {
-							setError({ message: e instanceof Error ? e.message : String(e) })
-						}
-					},
-				},
-			],
-		)
+	async function signedIn(session: Session) {
+		// Saved first: if that fails, the sheet stays open with the error.
+		await signedInAgain(session)
+		setConfirming(false)
+		// The sheet lets anyone sign in: deleting goes on only for the same account. The client reads
+		// the new session.
+		const now = await client?.me()
+		if (now && now.email.toLowerCase() !== email?.toLowerCase())
+			return setError({
+				message: `You signed in as ${now.email}, so nothing was deleted. The app now uses that account.`,
+			})
+		await remove(true)
 	}
 
 	function confirm() {
@@ -174,6 +161,31 @@ export default function DeleteAccount() {
 					<Text style={styles.buttonText}>Delete account</Text>
 				)}
 			</Pressable>
+			<Modal
+				visible={confirming}
+				animationType="slide"
+				presentationStyle="pageSheet"
+				onRequestClose={() => setConfirming(false)}
+			>
+				<View style={[styles.sheet, { backgroundColor: colors.bg }]}>
+					<View style={styles.sheetBar}>
+						<Text style={[styles.sheetTitle, { color: colors.fg }]}>Confirm it's you</Text>
+						<Pressable accessibilityRole="button" hitSlop={8} onPress={() => setConfirming(false)}>
+							<Text style={[styles.cancel, { color: colors.accent }]}>Cancel</Text>
+						</Pressable>
+					</View>
+					<SignInForm
+						apiUrl={apiUrl}
+						onSession={signedIn}
+						header={
+							<Text style={[styles.body, styles.sheetLead, { color: colors.mutedFg }]}>
+								Deleting the account needs a sign-in from the last 30 minutes. Sign in again
+								{email ? ` as ${email}` : ""}, any way you like.
+							</Text>
+						}
+					/>
+				</View>
+			</Modal>
 		</ScrollView>
 	)
 }
@@ -200,4 +212,15 @@ const styles = StyleSheet.create({
 	},
 	buttonText: { color: "#fff", fontSize: 17, fontWeight: "600" },
 	dim: { opacity: 0.45 },
+	sheet: { flex: 1 },
+	sheetBar: {
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "space-between",
+		paddingHorizontal: 20,
+		paddingTop: 20,
+	},
+	sheetTitle: { fontFamily: fonts.displayText, fontSize: 21 },
+	cancel: { fontSize: 17 },
+	sheetLead: { marginBottom: 8 },
 })

@@ -117,6 +117,11 @@ export default [
 	route("settings/reauthenticate", "routes/settings.reauthenticate.ts"),
 	route("api/auth/*", "routes/api.auth.ts"),
 	route("oauth/consent", "routes/oauth.consent.tsx"),
+	// The iPhone app's own sign-in screen (lib/app-sign-in.server.ts).
+	route("app/sign-in", "routes/app.sign-in.ts"),
+	route("app/sign-in/code", "routes/app.sign-in.code.ts"),
+	route("app/sign-in/error", "routes/app.sign-in.error.ts"),
+	route("app/sign-in/:provider", "routes/app.sign-in.provider.ts"),
 	route("oauth/verify-email", "routes/oauth.verify-email.tsx"),
 	route(
 		".well-known/oauth-authorization-server/*",

@@ -3,7 +3,7 @@ import { createClient, type KlipstackClient } from "@klipstack/sdk"
 import { Image } from "expo-image"
 import { createContext, type ReactNode, use, useEffect, useMemo, useState } from "react"
 import { CLIENT, DEFAULT_API_URL, DEV_API_TOKEN, DEV_APP_REFRESH_TOKEN, USER_AGENT } from "./config"
-import { authorize, refresh, revoke, SignedOutError } from "./oauth"
+import { refresh, revoke, SignedOutError } from "./oauth"
 import { forgetOffline } from "./offline-download"
 import {
 	clearSession,
@@ -26,12 +26,13 @@ export type AuthState =
 type Auth = {
 	state: AuthState
 	apiUrl: string
-	signIn: () => Promise<void>
+	/** Starts the session the sign-in screen got (`SignInForm`). */
+	signIn: (session: Session) => Promise<void>
 	/**
-	 * Signs in again, password and all, for what needs a recent sign-in (deleting the account).
-	 * False when the user closed the sheet: the session stays as it was.
+	 * Replaces the session with a new sign-in's, for what needs a recent sign-in (deleting the
+	 * account). The one before is revoked.
 	 */
-	signInAgain: () => Promise<boolean>
+	signedInAgain: (session: Session) => Promise<void>
 	signOut: () => Promise<void>
 	/** The account was deleted: forget it here, with nothing to revoke. */
 	accountDeleted: () => Promise<void>
@@ -158,22 +159,17 @@ function createAuth(setState: (state: AuthState) => void) {
 			}
 			return { authorization: `Bearer ${token}`, [CLIENT_HEADER]: CLIENT }
 		},
-		async signIn() {
-			const session = await authorize(DEFAULT_API_URL)
-			if (!session) return
+		async signIn(session: Session) {
 			await writeSession(session)
 			signedIn(session)
 			reloadNextUp()
 		},
-		async signInAgain() {
+		async signedInAgain(session: Session) {
 			const before = await readSession()
-			const session = await authorize(DEFAULT_API_URL, { again: true })
-			if (!session) return false
 			await writeSession(session)
 			signedIn(session)
 			// The sign-in before is replaced, not kept alongside.
 			if (before?.refreshToken) await revoke(before)
-			return true
 		},
 		async signOut() {
 			const session = await readSession()
@@ -198,7 +194,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 			state,
 			apiUrl: DEFAULT_API_URL,
 			signIn: actions.signIn,
-			signInAgain: actions.signInAgain,
+			signedInAgain: actions.signedInAgain,
 			signOut: actions.signOut,
 			accountDeleted: actions.accountDeleted,
 			imageHeaders: actions.imageHeaders,

@@ -38,6 +38,8 @@ export function pendingLinkSignup(): LinkSignup | undefined {
 export interface ProviderSignup {
 	/** Already checked by /signup. It travels in the OAuth state and is consumed at the callback. */
 	inviteCode: string | null
+	/** A sign-in from the app's sheet, which creates no account whatever the sign-up mode. */
+	app?: true
 }
 
 const providerSignup = new AsyncLocalStorage<ProviderSignup>()

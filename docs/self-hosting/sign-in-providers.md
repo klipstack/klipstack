@@ -4,7 +4,9 @@ All are optional. A provider's button appears on `/login`, `/signup` and in Sett
 client ID and secret are both set (Apple: see [Sign in with Apple](#sign-in-with-apple)).
 
 Klipstack asks each provider who signed in (name, email, whether the email is verified). It calls
-no other provider API and does not keep provider tokens. A provider verifies the email address
+no other provider API and does not keep provider tokens, except Apple's refresh token: Apple
+requires the server to revoke a person's Sign in with Apple when their account is deleted, and
+that takes the token. It is stored encrypted with `BETTER_AUTH_SECRET` and used for nothing else. A provider verifies the email address
 itself, so on a server without email delivery it is the way to get a verified account.
 
 In this page, `YOUR_DOMAIN` is the host of `APP_URL`, for example `klipstack.example.com`.
@@ -127,11 +129,15 @@ welcome email never reach those people.
 | `APPLE_KEY_ID` | The key ID of step 3 |
 | `APPLE_PRIVATE_KEY` | The `.p8` file on one line, its line breaks written as `\n` |
 
-This prints the `.p8` file as that one line:
+This prints the `.p8` file as that one line (`\x5c` is the backslash, so nothing is lost when the
+command is copied):
 
 ```sh
-awk 'NF {sub(/\r$/, ""); printf "%s\\n", $0}' AuthKey_KEYID.p8
+perl -pe 's/\r?\n/\x5cn/' AuthKey_KEYID.p8
 ```
+
+On a Mac, add `| pbcopy` to put it straight on the clipboard; `pbpaste | wc -l` should then print
+`0`.
 
 Set all four, or the server refuses to start rather than hide the button without a word. The
 server signs Apple's client secret with the key itself and renews it daily, so nothing expires.
@@ -154,6 +160,12 @@ What differs from Google and GitHub:
   together. Keep `APPLE_TEAM_ID` if your own build of the iPhone app uses it.
 - To use another key, create it, replace `APPLE_KEY_ID` and `APPLE_PRIVATE_KEY`, recreate the web
   container, then revoke the old key at Apple.
+- The Apple tokens the server keeps for revoking are encrypted with `BETTER_AUTH_SECRET`: keep it
+  as you keep the database. With another secret they can't be read, and deleting an account no
+  longer revokes its Sign in with Apple until that person signs in with Apple again.
+- With `APPLE_BUNDLE_ID` set, the iPhone app offers Sign in with Apple through Apple's own sheet,
+  which signs in as the app's App ID: the key of step 3 must belong to that App ID, as it does when
+  step 1 used the app's App ID.
 
 ## Turn a provider off, or rotate its secret
 

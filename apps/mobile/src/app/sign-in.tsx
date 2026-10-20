@@ -1,6 +1,6 @@
-import { useState } from "react"
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native"
+import { Image, StyleSheet, Text, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
+import { SignInForm } from "@/components/sign-in-form"
 import { useAuth } from "@/lib/auth"
 import { useColors } from "@/lib/theme"
 
@@ -10,47 +10,26 @@ const logo = require("../../assets/logo.png")
 export default function SignIn() {
 	const { signIn, apiUrl } = useAuth()
 	const colors = useColors()
-	const [busy, setBusy] = useState(false)
-	const [error, setError] = useState<string | null>(null)
-
-	async function onPress() {
-		setBusy(true)
-		setError(null)
-		try {
-			await signIn()
-		} catch (e) {
-			setError(e instanceof Error ? e.message : String(e))
-		} finally {
-			setBusy(false)
-		}
-	}
 
 	return (
 		<SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]}>
-			<View style={styles.body}>
-				<Image
-					source={logo}
-					accessibilityRole="image"
-					accessibilityLabel="Klipstack"
-					style={[styles.logo, { tintColor: colors.fg }]}
-				/>
-				<Text style={[styles.subtitle, { color: colors.mutedFg }]}>
-					What did you read this week?
-				</Text>
-				<Pressable
-					accessibilityRole="button"
-					disabled={busy}
-					onPress={onPress}
-					style={[styles.button, { backgroundColor: colors.accent, opacity: busy ? 0.6 : 1 }]}
-				>
-					{busy ? (
-						<ActivityIndicator color={colors.accentFg} />
-					) : (
-						<Text style={[styles.buttonText, { color: colors.accentFg }]}>Sign in</Text>
-					)}
-				</Pressable>
-				{error ? <Text style={styles.error}>{error}</Text> : null}
-			</View>
+			<SignInForm
+				apiUrl={apiUrl}
+				onSession={signIn}
+				header={
+					<View style={styles.header}>
+						<Image
+							source={logo}
+							accessibilityRole="image"
+							accessibilityLabel="Klipstack"
+							style={[styles.logo, { tintColor: colors.fg }]}
+						/>
+						<Text style={[styles.subtitle, { color: colors.mutedFg }]}>
+							What did you read this week?
+						</Text>
+					</View>
+				}
+			/>
 			<Text style={[styles.server, { color: colors.mutedFg }]}>{apiUrl}</Text>
 		</SafeAreaView>
 	)
@@ -58,12 +37,9 @@ export default function SignIn() {
 
 const styles = StyleSheet.create({
 	screen: { flex: 1 },
-	body: { flex: 1, justifyContent: "center", paddingHorizontal: 32, gap: 16 },
+	header: { gap: 16, marginBottom: 20 },
 	// 702×192 px: 3x of 234×64 pt.
 	logo: { width: 234, height: 64, marginBottom: 8 },
 	subtitle: { fontSize: 17, lineHeight: 24 },
-	button: { marginTop: 16, borderRadius: 10, paddingVertical: 14, alignItems: "center" },
-	buttonText: { fontSize: 17, fontWeight: "600" },
-	error: { color: "#c0392b", fontSize: 15 },
 	server: { textAlign: "center", fontSize: 12, paddingBottom: 8 },
 })

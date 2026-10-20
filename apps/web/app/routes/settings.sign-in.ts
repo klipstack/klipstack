@@ -1,6 +1,7 @@
 import { account, and, db, eq } from "@klipstack/db"
 import { APIError } from "better-auth/api"
 import { data, redirect } from "react-router"
+import { revokeAppleSignIn } from "~/lib/apple-tokens.server"
 import { checkAuthLimit, withAuthLimitChecked } from "~/lib/auth-limits.server"
 import { auth } from "~/lib/auth.server"
 import { emailEnabled } from "~/lib/email.server"
@@ -27,6 +28,7 @@ export async function action({ context, request }: Route.ActionArgs) {
 		const others =
 			methods.linked.length - 1 + (methods.hasPassword ? 1 : 0) + (emailEnabled ? 1 : 0)
 		if (others === 0) return data({ result: "last-method" as const }, { status: 409 })
+		if (provider === "apple") await revokeAppleSignIn(user.id)
 		await db
 			.delete(account)
 			.where(and(eq(account.userId, user.id), eq(account.providerId, provider)))

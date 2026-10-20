@@ -129,8 +129,8 @@ or to switch accounts, issue a new one. Run `pnpm dev` with `AI_FAKE=1` to answe
 instead of calling the AI provider.
 
 - The token is for the dev server at `APP_URL`: not with `EXPO_PUBLIC_API_URL` set elsewhere.
-- Deleting the account needs a sign-in from the last 30 minutes. Later, the app asks for the
-  password again: the throwaway's is `local-throwaway-only`.
+- Deleting the account needs a sign-in from the last 30 minutes. Later, the app asks to sign in
+  again, on its sign-in screen in a sheet: the throwaway's password is `local-throwaway-only`.
 
 ## Testing on a throwaway account
 
@@ -164,16 +164,26 @@ database), not only the screenshot.
 
 ## Sign-in and the share extension
 
-- The app signs in with OAuth (authorization code + PKCE) as the first-party client
-  `klipstack-mobile`, like the CLI does. On an https server the sign-in comes back through the
+- The app signs in on its own screen (`src/components/sign-in-form.tsx`, `src/lib/oauth.ts`):
+  Sign in with Apple in iOS's sheet (`expo-apple-authentication`), Google and GitHub, the email
+  with a password or an emailed code. It shows only what `GET /app/sign-in` lists. Each way ends
+  in an OAuth authorization code (+ PKCE) for the first-party client `klipstack-mobile`, which has
+  no consent screen: the password, the code and Apple's tokens through `POST /app/sign-in`, Google
+  and GitHub in a private sign-in sheet at `/app/sign-in/<provider>`, which goes straight to the
+  provider and back to the app. The server's side is `apps/web/app/lib/app-sign-in.server.ts`.
+  Emailed codes print in the dev server's output. The app creates no account. On an https server
+  the code from the sign-in sheet comes back through the
   universal link `<server>/app/oauth/callback`, which needs the paid team's signature, the
   Associated Domains in `app.json`, and iOS 17.4 (the app's minimum). Against the http dev server
   it comes back through the custom scheme `com.klipstack.app:` (`mobileRedirectUri`). Associated
   Domains name klipstack.com only: a build pointed at another https server can't finish signing in.
-- In its sign-in (`/login` and `/signup` carrying the app's signed authorization request), the web
+- Builds from before that screen sign in on the web's pages in a browser sheet; there the web
   offers no provider button (Apple, Google, GitHub): a trip to a provider would leave the app's
-  request behind (`APPLE_PLATFORM_CLIENTS` in `packages/api-contract/src/auth.ts`). The app is to
-  offer them itself, Sign in with Apple among them (App Review 4.8).
+  request behind (`APPLE_PLATFORM_CLIENTS` in `packages/api-contract/src/auth.ts`). The app offers
+  them itself, Sign in with Apple among them (App Review 4.8).
+- A real Sign in with Apple needs a build signed by the paid team (the capability is in `app.json`,
+  `usesAppleSignIn`) and a server with Apple and `APPLE_BUNDLE_ID` set: on the dev server it
+  can't finish. Deleting the account revokes it at Apple (the server keeps Apple's token for that).
 - Every other Klipstack page opens in Safari (`openOnTheWeb`, `src/lib/web-pages.ts`), never in an
   in-app browser: signed out there, the web's own login would show GitHub inside the app. Lint
   refuses `expo-web-browser` in `src/`.
