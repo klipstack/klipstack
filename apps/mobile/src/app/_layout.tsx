@@ -108,6 +108,10 @@ function Screens() {
 			</Stack.Protected>
 			<Stack.Protected guard={state.status === "signed-out"}>
 				<Stack.Screen name="sign-in" options={{ headerShown: false }} />
+				<Stack.Screen
+					name="sign-up"
+					options={{ title: "Create Account", headerBackTitle: "Sign In" }}
+				/>
 			</Stack.Protected>
 		</Stack>
 	)

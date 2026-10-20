@@ -173,17 +173,34 @@ export async function startAppProviderSignIn(
 		return new Response("Not found", { status: 404 })
 	const provider = enabledProvider(providerParam)
 	if (provider !== "google" && provider !== "github") return redirect(backToApp(pending, "failed"))
+	// A sign-up from the app: its invite checked here, behind the sign-up limit, and carried in the
+	// state's server context, as /signup does; the callback consumes it if it creates the account.
+	const signUp = query.get("sign_up") === "1"
+	let invite: string | null = null
+	if (signUp) {
+		await checkAuthLimit("/sign-up/provider", undefined, request.headers)
+		if (invitesRequired) {
+			invite = (await findUsableInvite(query.get("invite") ?? ""))?.code ?? null
+			if (!invite) return redirect(backToApp(pending, "invalid_invite"))
+		}
+	}
 	const authorize = new URLSearchParams()
 	for (const key of AUTHORIZE_PARAMS) {
 		const value = query.get(key)
 		if (value !== null) authorize.set(key, value)
 	}
-	const { headers, response } = await withProviderSignup({ inviteCode: null, app: true }, () =>
+	const sheet = {
+		inviteCode: invite,
+		app: true as const,
+		...(signUp ? { appSignUp: true as const } : {}),
+	}
+	const { headers, response } = await withProviderSignup(sheet, () =>
 		auth.api.signInSocial({
 			body: {
 				provider,
 				callbackURL: `/api/auth/oauth2/authorize?${authorize}`,
 				errorCallbackURL: APP_SIGN_IN_ERROR_PATH,
+				requestSignUp: signUp,
 				disableRedirect: true,
 			},
 			headers: request.headers,

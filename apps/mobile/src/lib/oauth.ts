@@ -2,9 +2,12 @@ import {
 	API_RESOURCE_PATH,
 	APP_SIGN_IN_CODE_PATH,
 	APP_SIGN_IN_PATH,
+	APP_SIGN_UP_CODE_PATH,
+	APP_SIGN_UP_PATH,
 	type AppSignInCredentials,
 	type AppSignInErrorCode,
 	type AppSignInOptions,
+	type AppSignUpCredentials,
 	appProviderSignInPath,
 	MOBILE_CLIENT_ID,
 	MOBILE_SCOPES,
@@ -61,6 +64,26 @@ export function signInWith(apiUrl: string, credentials: Credentials): Promise<Se
 	return signInOnServer(apiUrl, credentials)
 }
 
+/** A sign-up: the invite, unless the server's sign-up is open. */
+export type SignUp = { inviteCode?: string }
+
+/** Creates the account, verified by the code `sendSignUpCode` emailed. */
+export function signUpWith(
+	apiUrl: string,
+	{
+		inviteCode,
+		...credentials
+	}: SignUp & { name: string; email: string; password: string; code: string },
+): Promise<Session> {
+	return signInOnServer(apiUrl, { method: "email", ...credentials }, { inviteCode })
+}
+
+/** Emails a sign-up code, once the invite checks out (an address with an account gets told). */
+export async function sendSignUpCode(apiUrl: string, email: string, signUp: SignUp) {
+	const res = await post(`${apiUrl}${APP_SIGN_UP_CODE_PATH}`, { email, ...signUp })
+	if (!res.ok) throw await refusal(res)
+}
+
 /** Emails a sign-in code; the server answers the same whether the account exists. */
 export async function sendSignInCode(apiUrl: string, email: string): Promise<void> {
 	const res = await post(`${apiUrl}${APP_SIGN_IN_CODE_PATH}`, { email })
@@ -71,7 +94,7 @@ export async function sendSignInCode(apiUrl: string, email: string): Promise<voi
  * Sign in with Apple, in iOS's own sheet. Null when the person closes it. Apple signs the SHA-256
  * of a nonce of ours into its ID token; the server checks it against the nonce itself.
  */
-export async function signInWithApple(apiUrl: string): Promise<Session | null> {
+export async function signInWithApple(apiUrl: string, signUp?: SignUp): Promise<Session | null> {
 	const nonce = Crypto.randomUUID()
 	let credential: AppleAuthentication.AppleAuthenticationCredential
 	try {
@@ -88,14 +111,18 @@ export async function signInWithApple(apiUrl: string): Promise<Session | null> {
 	}
 	if (!credential.identityToken || !credential.authorizationCode)
 		throw new SignInError("Apple's sign-in gave no token. Try again.")
-	return signInOnServer(apiUrl, {
-		method: "apple",
-		idToken: credential.identityToken,
-		nonce,
-		authorizationCode: credential.authorizationCode,
-		givenName: credential.fullName?.givenName ?? undefined,
-		familyName: credential.fullName?.familyName ?? undefined,
-	})
+	return signInOnServer(
+		apiUrl,
+		{
+			method: "apple",
+			idToken: credential.identityToken,
+			nonce,
+			authorizationCode: credential.authorizationCode,
+			givenName: credential.fullName?.givenName ?? undefined,
+			familyName: credential.fullName?.familyName ?? undefined,
+		},
+		signUp,
+	)
 }
 
 const PROVIDER_NAMES = { google: "Google", github: "GitHub" } as const
@@ -107,6 +134,7 @@ const PROVIDER_NAMES = { google: "Google", github: "GitHub" } as const
 export async function signInWithProvider(
 	apiUrl: string,
 	provider: "google" | "github",
+	signUp?: SignUp,
 ): Promise<Session | null> {
 	const redirectUri = mobileRedirectUri(apiUrl)
 	const request = new AuthRequest({
@@ -114,7 +142,11 @@ export async function signInWithProvider(
 		redirectUri,
 		scopes: [...MOBILE_SCOPES],
 		usePKCE: true,
-		extraParams: { resource: resourceOf(apiUrl) },
+		extraParams: {
+			resource: resourceOf(apiUrl),
+			// A sign-up: the server checks the invite before the provider, and creates the account.
+			...(signUp ? { sign_up: "1", invite: signUp.inviteCode ?? "" } : {}),
+		},
 	})
 	const result = await request.promptAsync(
 		{ authorizationEndpoint: `${apiUrl}${appProviderSignInPath(provider)}` },
@@ -128,7 +160,7 @@ export async function signInWithProvider(
 	if (result.type === "cancel" || result.type === "dismiss") return null
 	if (result.type === "error" || result.type !== "success") {
 		const code = result.type === "error" ? (result.params.error ?? result.error?.code) : undefined
-		throw new SignInError(providerMessage(code, PROVIDER_NAMES[provider], apiUrl), code)
+		throw new SignInError(providerMessage(code, PROVIDER_NAMES[provider]), code)
 	}
 	const code = result.params.code
 	if (!code || !request.codeVerifier)
@@ -136,10 +168,12 @@ export async function signInWithProvider(
 	return exchange(apiUrl, code, request.codeVerifier)
 }
 
-function providerMessage(code: string | undefined, name: string, apiUrl: string): string {
+function providerMessage(code: string | undefined, name: string): string {
 	switch (code as AppSignInErrorCode | undefined) {
 		case "no_account":
-			return `No Klipstack account uses this ${name} account. Create one at ${new URL(apiUrl).host}, then sign in here.`
+			return `No Klipstack account uses this ${name} account. Create one with "Create an account".`
+		case "invalid_invite":
+			return "This invite code can't be used. Check it, or ask for another one."
 		case "not_linked":
 			return `An account has this email but isn't connected to ${name}. Sign in another way, then connect ${name} in Settings on the web.`
 		case "no_email":
@@ -149,11 +183,20 @@ function providerMessage(code: string | undefined, name: string, apiUrl: string)
 	}
 }
 
-/** The server signs in and answers a code for this app's PKCE challenge, which is exchanged here. */
-async function signInOnServer(apiUrl: string, credentials: AppSignInCredentials): Promise<Session> {
+/**
+ * The server signs in (or, with `signUp`, creates the account) and answers a code for this app's
+ * PKCE challenge, which is exchanged here.
+ */
+async function signInOnServer(
+	apiUrl: string,
+	credentials: AppSignInCredentials | AppSignUpCredentials,
+	signUp?: SignUp,
+): Promise<Session> {
 	const { verifier, challenge } = await pkce()
-	const res = await post(`${apiUrl}${APP_SIGN_IN_PATH}`, {
+	const path = signUp ? APP_SIGN_UP_PATH : APP_SIGN_IN_PATH
+	const res = await post(`${apiUrl}${path}`, {
 		...credentials,
+		...signUp,
 		codeChallenge: challenge,
 	})
 	if (!res.ok) throw await refusal(res)
@@ -187,7 +230,12 @@ function exchange(apiUrl: string, code: string, verifier: string): Promise<Sessi
 	})
 }
 
-const jsonHeaders = { accept: "application/json", "user-agent": USER_AGENT }
+// The phone's languages, for a new account's (and its emails').
+const jsonHeaders = {
+	accept: "application/json",
+	"accept-language": Intl.DateTimeFormat().resolvedOptions().locale,
+	"user-agent": USER_AGENT,
+}
 
 // No cookies: the app keeps no browser session.
 const post = (url: string, body: unknown) =>

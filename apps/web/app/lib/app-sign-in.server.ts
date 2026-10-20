@@ -28,7 +28,8 @@ import { enabledProviders } from "./provider-sign-in.server"
  * runs the app's authorization request with that session: the app gets an authorization code for
  * `klipstack-mobile`, bound to its PKCE challenge, and exchanges it as after a browser sign-in. Its
  * tokens are the usual ones, so refresh, the recent sign-in for deletion (`sid`) and revocation
- * work unchanged. Nothing here creates an account, in any sign-up mode (auth.server.ts's user hook).
+ * work unchanged. Nothing here creates an account, in any sign-up mode (auth.server.ts's user hook):
+ * the app's sign-up is app-sign-up.server.ts.
  */
 
 export function appSignInOptions(): AppSignInOptions {
@@ -36,14 +37,30 @@ export function appSignInOptions(): AppSignInOptions {
 		// Apple through its own sheet, which needs the app's bundle ID as Apple's client.
 		providers: enabledProviders.filter((provider) => provider !== "apple" || appleApp !== null),
 		emailCode: emailEnabled,
+		signUp: env.SIGNUP_MODE,
 	}
 }
 
-const codeChallenge = z
+export const codeChallenge = z
 	.string()
 	.regex(/^[A-Za-z0-9_-]{43}$/, "codeChallenge must be an S256 challenge")
-const email = z.email("Enter a valid email address.").max(254)
+export const email = z.email("Enter a valid email address.").max(254)
 const name = z.string().trim().max(100).optional()
+
+export const sixDigits = z
+	.string()
+	.regex(new RegExp(`^\\d{${APP_SIGN_IN_CODE_LENGTH}}$`), "Enter the code.")
+
+/** Apple's sheet's answer, for a sign-in or a sign-up. */
+export const appleFields = () => ({
+	codeChallenge,
+	idToken: z.string().min(1).max(8192),
+	nonce: z.string().min(16).max(256),
+	authorizationCode: z.string().min(1).max(1024),
+	givenName: name,
+	familyName: name,
+})
+export type AppleRequest = z.output<z.ZodObject<ReturnType<typeof appleFields>>>
 
 const SignIn = z.discriminatedUnion("method", [
 	z.object({
@@ -56,16 +73,11 @@ const SignIn = z.discriminatedUnion("method", [
 		method: z.literal("code"),
 		codeChallenge,
 		email,
-		code: z.string().regex(new RegExp(`^\\d{${APP_SIGN_IN_CODE_LENGTH}}$`), "Enter the code."),
+		code: sixDigits,
 	}),
 	z.object({
 		method: z.literal("apple"),
-		codeChallenge,
-		idToken: z.string().min(1).max(8192),
-		nonce: z.string().min(16).max(256),
-		authorizationCode: z.string().min(1).max(1024),
-		givenName: name,
-		familyName: name,
+		...appleFields(),
 	}),
 ])
 
@@ -107,9 +119,14 @@ async function signIn(request: z.output<typeof SignIn>, headers: Headers): Promi
 	}
 }
 
-async function signInWithApple(
-	request: Extract<z.output<typeof SignIn>, { method: "apple" }>,
+/**
+ * Signs in with Apple's sheet's answer; a sign-up runs better-auth's part in `asSignUp`, which may
+ * create the account. Answers the session cookie.
+ */
+export async function signInWithApple(
+	request: AppleRequest,
 	headers: Headers,
+	asSignUp?: <T>(create: () => Promise<T>) => Promise<T>,
 ): Promise<string> {
 	await checkAuthLimit("/app/sign-in/apple", undefined, headers)
 	if (!appleApp)
@@ -125,8 +142,8 @@ async function signInWithApple(
 	// works for an hour, wherever it was copied to.
 	if (!exchanged || exchanged.subject !== claimsOf(request.idToken)?.sub) throw appleRefused()
 	const { givenName, familyName } = request
-	const result = await auth.api
-		.signInSocial({
+	const signInSocial = () =>
+		auth.api.signInSocial({
 			body: {
 				provider: "apple",
 				idToken: {
@@ -140,12 +157,15 @@ async function signInWithApple(
 			headers,
 			returnHeaders: true,
 		})
-		.catch(async (error: unknown) => {
-			// No account to sign in, or one not connected to Apple: the Apple ID shouldn't list
-			// Klipstack. (Not on other failures: that would disconnect an account Apple signs in.)
+	const result = await (asSignUp ? asSignUp(signInSocial) : signInSocial()).catch(
+		async (error: unknown) => {
+			// No account to sign in or create (a sign-up without a usable invite), or one not
+			// connected to Apple: the Apple ID shouldn't list Klipstack. (Not on other failures: that
+			// would disconnect an account Apple signs in.)
 			if (signedInNoOne(error)) await revokeAppleAppToken(exchanged.refreshToken)
 			throw error
-		})
+		},
+	)
 	const userId = "user" in result.response ? result.response.user.id : null
 	if (userId) await keepAppleAppToken(userId, exchanged.subject, exchanged.refreshToken)
 	return cookieOf(result.headers)
@@ -166,7 +186,10 @@ const appleRefused = () =>
 	new AppError("unauthorized", "Apple's sign-in couldn't be checked. Try again.")
 
 /** What the app shows for a refused sign-in; other errors stay errors. */
-function refusal(error: unknown, method: z.output<typeof SignIn>["method"]): unknown {
+export function refusal(
+	error: unknown,
+	method: z.output<typeof SignIn>["method"] | "email",
+): unknown {
 	if (error instanceof AppError) return error
 	if (!(error instanceof APIError)) return error
 	if (error.statusCode === 429) {
@@ -177,7 +200,7 @@ function refusal(error: unknown, method: z.output<typeof SignIn>["method"]): unk
 	if (code === "INVITE_REQUIRED" || code === "USER_NOT_FOUND")
 		return new AppError(
 			"not_found",
-			`No Klipstack account uses this Apple ID. Create one at ${new URL(env.APP_URL).host}, then sign in here.`,
+			'No Klipstack account uses this Apple ID. Create one with "Create an account".',
 		)
 	if (method === "password" && error.statusCode === 401)
 		return new AppError("unauthorized", "The email or password is wrong.")
@@ -196,7 +219,7 @@ function refusal(error: unknown, method: z.output<typeof SignIn>["method"]): unk
 	return error
 }
 
-function cookieOf(headers: Headers): string {
+export function cookieOf(headers: Headers): string {
 	const cookie = headers
 		.getSetCookie()
 		.map((c) => c.split(";")[0])
@@ -209,7 +232,7 @@ function cookieOf(headers: Headers): string {
  * The app's authorization request, run with the new session. The app has no consent screen
  * (`skipConsent`): a verified account gets its code at once.
  */
-async function authorizationCode(cookie: string, challenge: string): Promise<string> {
+export async function authorizationCode(cookie: string, challenge: string): Promise<string> {
 	const redirectUri = mobileRedirectUri(env.APP_URL)
 	const query = new URLSearchParams({
 		response_type: "code",

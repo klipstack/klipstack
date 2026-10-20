@@ -30,6 +30,9 @@ const signInRoute = await import("./app.sign-in")
 const codeRoute = await import("./app.sign-in.code")
 const providerRoute = await import("./app.sign-in.provider")
 const errorRoute = await import("./app.sign-in.error")
+const signUpRoute = await import("./app.sign-up")
+const signUpCodeRoute = await import("./app.sign-up.code")
+const { createInvite } = await import("~/lib/invites.server")
 
 const stamp = `${Date.now()}-${randomUUID().slice(0, 8)}`
 const address = (name: string) => `app-sign-in-${name}+${stamp}@example.com`
@@ -96,10 +99,15 @@ function pkce() {
 	return { verifier, challenge: createHash("sha256").update(verifier).digest("base64url") }
 }
 
-async function post(route: { action: (args: never) => unknown }, path: string, body: unknown) {
+async function post(
+	route: { action: (args: never) => unknown },
+	path: string,
+	body: unknown,
+	headers: Record<string, string> = {},
+) {
 	const request = new Request(new URL(path, env.APP_URL), {
 		method: "POST",
-		headers: client({ "content-type": "application/json" }),
+		headers: client({ "content-type": "application/json", ...headers }),
 		body: JSON.stringify(body),
 	})
 	const response = (await route.action(routeArgs(request))) as Response
@@ -147,7 +155,11 @@ describe("the iPhone app's sign-in", () => {
 	it("lists the ways in this server offers", async () => {
 		const response = signInRoute.loader() as Response
 		// No Apple: this server has no Sign in with Apple (apple-sign-in.server.test.ts has one).
-		expect(await response.json()).toEqual({ providers: ["github"], emailCode: true })
+		expect(await response.json()).toEqual({
+			providers: ["github"],
+			emailCode: true,
+			signUp: "invite",
+		})
 	})
 
 	it("signs in with a password and gives the app its usual tokens, without a consent screen", async () => {
@@ -434,5 +446,175 @@ describe("Google and GitHub in the app's sign-in sheet", () => {
 		)) as Response
 		const back = new URL(response.headers.get("location")!)
 		expect(back.searchParams.get("error")).toBe("failed")
+	})
+
+	it("signs up with an invite from the sheet: a new account, its invite used, the app's code", async () => {
+		const invite = await newInvite()
+		const newcomer = newAddress("github-new")
+		profile.email = newcomer
+		const { verifier, challenge } = pkce()
+		const start = (await providerRoute.loader(
+			routeArgs(sheetRequest(challenge, { sign_up: "1", invite }), { provider: "github" }),
+		)) as Response
+		const back = await throughGitHub(start)
+		expect(back.searchParams.get("error")).toBeNull()
+		expect((await exchange(back.searchParams.get("code")!, verifier)).status).toBe(200)
+		const [created] = await db.select().from(user).where(eq(user.email, newcomer))
+		expect(created).toMatchObject({ emailVerified: true })
+		const [used] = await db.select().from(invites).where(eq(invites.code, invite))
+		expect(used!.usedBy).toBe(created!.id)
+	})
+
+	it("goes back to the app with invalid_invite, before the provider, for an invite it can't use", async () => {
+		const response = (await providerRoute.loader(
+			routeArgs(sheetRequest(pkce().challenge, { sign_up: "1", invite: "NOT-AN-INVITE" }), {
+				provider: "github",
+			}),
+		)) as Response
+		const back = new URL(response.headers.get("location")!)
+		expect(back.href.startsWith(`${MOBILE_REDIRECT_URI}?`)).toBe(true)
+		expect(back.searchParams.get("error")).toBe("invalid_invite")
+		expect(back.searchParams.get("state")).toBe("app-state")
+	})
+})
+
+async function newInvite() {
+	const code = await createInvite({ note: "app sign-up test" })
+	inviteCodes.push(code)
+	return code
+}
+
+function newAddress(name: string) {
+	const created = address(`${name}-${randomUUID().slice(0, 8)}`)
+	emails.push(created)
+	return created
+}
+
+describe("the iPhone app's sign-up by email", () => {
+	const signUp = (body: Record<string, unknown>) => post(signUpRoute, "/app/sign-up", body)
+	const sendCode = (body: Record<string, unknown>, headers: Record<string, string> = {}) =>
+		post(signUpCodeRoute, "/app/sign-up/code", body, headers)
+
+	it("creates a verified account with the emailed code and an invite, in the phone's language", async () => {
+		const invite = await newInvite()
+		const newcomer = newAddress("by-email")
+		const sent = await sendCode(
+			{ email: newcomer, inviteCode: invite },
+			{ "accept-language": "es-ES,es;q=0.9,en;q=0.8" },
+		)
+		expect(sent.status).toBe(204)
+		const code = await emailedCode(newcomer)
+		expect(logs.findLast((line) => line.includes(newcomer))).toContain("crear tu cuenta")
+		const { verifier, challenge } = pkce()
+		const answer = await post(
+			signUpRoute,
+			"/app/sign-up",
+			{
+				method: "email",
+				inviteCode: invite,
+				name: "Nueva",
+				email: newcomer,
+				password: PASSWORD,
+				code,
+				codeChallenge: challenge,
+			},
+			{ "accept-language": "es-ES,es;q=0.9" },
+		)
+		expect(answer.status).toBe(200)
+		const tokens = await exchange(answer.body.code, verifier)
+		expect(tokens.status).toBe(200)
+		const principal = await authenticateApiRequest(
+			new Request(`${env.APP_URL}/api/v1/me`, {
+				headers: { authorization: `Bearer ${tokens.body.access_token}` },
+			}),
+		)
+		const [created] = await db.select().from(user).where(eq(user.email, newcomer))
+		expect(principal.userId).toBe(created!.id)
+		expect(created).toMatchObject({ name: "Nueva", emailVerified: true, locale: "es" })
+		// Its password signs in.
+		expect(
+			(
+				await signIn({
+					method: "password",
+					email: newcomer,
+					password: PASSWORD,
+					codeChallenge: challenge,
+				})
+			).status,
+		).toBe(200)
+		const [used] = await db.select().from(invites).where(eq(invites.code, invite))
+		expect(used!.usedBy).toBe(created!.id)
+	})
+
+	it("refuses a wrong code, creates nothing, and keeps the invite; three wrong ones end the code", async () => {
+		const invite = await newInvite()
+		const newcomer = newAddress("wrong-code")
+		await sendCode({ email: newcomer, inviteCode: invite })
+		const code = (await emailedCode(newcomer))!
+		const wrong = code === "000000" ? "111111" : "000000"
+		const attempt = (otp: string) =>
+			signUp({
+				method: "email",
+				inviteCode: invite,
+				name: "Guess",
+				email: newcomer,
+				password: PASSWORD,
+				code: otp,
+				codeChallenge: pkce().challenge,
+			})
+		for (let i = 0; i < 3; i++) expect((await attempt(wrong)).status).toBe(401)
+		expect((await attempt(code)).status).toBe(401)
+		expect(await db.select().from(user).where(eq(user.email, newcomer))).toHaveLength(0)
+		const [kept] = await db.select().from(invites).where(eq(invites.code, invite))
+		expect(kept!.usedBy).toBeNull()
+	})
+
+	it("takes a code only for the address it was emailed to", async () => {
+		const invite = await newInvite()
+		const owner = newAddress("code-owner")
+		const other = newAddress("code-other")
+		await sendCode({ email: owner, inviteCode: invite })
+		const code = await emailedCode(owner)
+		const answer = await signUp({
+			method: "email",
+			inviteCode: invite,
+			name: "Other",
+			email: other,
+			password: PASSWORD,
+			code,
+			codeChallenge: pkce().challenge,
+		})
+		expect(answer.status).toBe(401)
+		expect(await db.select().from(user).where(eq(user.email, other))).toHaveLength(0)
+	})
+
+	it("sends no code without an invite it can use", async () => {
+		const newcomer = newAddress("no-invite")
+		const answer = await sendCode({ email: newcomer, inviteCode: "NOT-AN-INVITE" })
+		expect(answer.status).toBe(403)
+		expect(answer.body.error).toMatchObject({ code: "forbidden" })
+		await new Promise((resolve) => setTimeout(resolve, 50))
+		expect(logs.some((line) => line.includes(newcomer))).toBe(false)
+	})
+
+	it("tells an address with an account to sign in, with the same answer and no code", async () => {
+		const invite = await newInvite()
+		const sent = await sendCode({ email: emails[0], inviteCode: invite })
+		expect(sent.status).toBe(204)
+		await vi.waitFor(() =>
+			expect(logs.findLast((line) => line.includes(emails[0]!))).toContain("already has one"),
+		)
+		const answer = await signUp({
+			method: "email",
+			inviteCode: invite,
+			name: "Squatter",
+			email: emails[0],
+			password: "another-password",
+			code: "123456",
+			codeChallenge: pkce().challenge,
+		})
+		expect(answer.status).toBe(401)
+		const [kept] = await db.select().from(invites).where(eq(invites.code, invite))
+		expect(kept!.usedBy).toBeNull()
 	})
 })

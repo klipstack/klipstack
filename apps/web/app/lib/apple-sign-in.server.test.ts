@@ -39,6 +39,7 @@ const { auth } = await import("./auth.server")
 const { withSignupAllowed } = await import("./signup-gate.server")
 const route = await import("~/routes/api.auth")
 const appSignInRoute = await import("~/routes/app.sign-in")
+const appSignUpRoute = await import("~/routes/app.sign-up")
 const { deleteAccount } = await import("~/services/account.server")
 const { symmetricDecrypt } = await import("better-auth/crypto")
 const { sealAppleToken } = await import("./apple-tokens.server")
@@ -138,12 +139,16 @@ const opened = async (sealed: string | null | undefined) =>
 	sealed ? JSON.parse(await symmetricDecrypt({ key: env.BETTER_AUTH_SECRET, data: sealed })) : null
 
 /** The iPhone app's sign-in with Apple's sheet: its nonce, Apple's token and code, its PKCE challenge. */
-async function appleFromTheApp(claims: Record<string, unknown> = {}, code = "app-code") {
+async function appleFromTheApp(
+	claims: Record<string, unknown> = {},
+	code = "app-code",
+	signUp?: { inviteCode?: string },
+) {
 	const nonce = randomBytes(16).toString("hex")
 	const verifier = randomBytes(32).toString("base64url")
 	const headers = clientHeaders()
 	headers.set("content-type", "application/json")
-	const request = new Request(new URL("/app/sign-in", env.APP_URL), {
+	const request = new Request(new URL(signUp ? "/app/sign-up" : "/app/sign-in", env.APP_URL), {
 		method: "POST",
 		headers,
 		body: JSON.stringify({
@@ -157,9 +162,11 @@ async function appleFromTheApp(claims: Record<string, unknown> = {}, code = "app
 			nonce,
 			authorizationCode: code,
 			codeChallenge: createHash("sha256").update(verifier).digest("base64url"),
+			...signUp,
 		}),
 	})
-	const response = (await appSignInRoute.action(routeArgs(request))) as Response
+	const target = signUp ? appSignUpRoute : appSignInRoute
+	const response = (await target.action(routeArgs(request))) as Response
 	return { status: response.status, body: await response.json(), verifier }
 }
 
@@ -415,6 +422,59 @@ describe("Sign in with Apple", () => {
 		}
 		expect(revoked.map((body) => body.get("token"))).toEqual(["apple-app-refresh"])
 		revoked.length = 0
+	})
+
+	it("signs up with Apple's sheet and an invite: a new account, its invite used, Apple's token kept", async () => {
+		const inviteCode = await createInvite({ note: "unit" })
+		inviteCodes.push(inviteCode)
+		const newcomer = `apple-new-${stamp}@privaterelay.appleid.com`
+		appCodeSubject = `${subject}-signup`
+		try {
+			const answer = await appleFromTheApp({ sub: appCodeSubject, email: newcomer }, "app-code", {
+				inviteCode,
+			})
+			expect(answer.status).toBe(200)
+			const [created] = await db.select().from(userTable).where(eq(userTable.email, newcomer))
+			expect(created).toMatchObject({ emailVerified: true })
+			const [used] = await db.select().from(invites).where(eq(invites.code, inviteCode))
+			expect(used!.usedBy).toBe(created!.id)
+			const [link] = await db.select().from(account).where(eq(account.userId, created!.id))
+			expect(link).toMatchObject({ providerId: "apple", accountId: appCodeSubject })
+			expect(link!.refreshToken).toBeTruthy()
+			await db.delete(userTable).where(eq(userTable.id, created!.id))
+		} finally {
+			appCodeSubject = subject
+		}
+		expect(revoked).toHaveLength(0)
+	})
+
+	it("refuses Apple's sign-up without an invite it can use, and undoes Apple's authorization", async () => {
+		appCodeSubject = `${subject}-no-invite`
+		try {
+			const answer = await appleFromTheApp({ sub: appCodeSubject, email: stranger }, "app-code", {
+				inviteCode: "NOT-AN-INVITE",
+			})
+			expect(answer.status).toBe(403)
+			expect(answer.body.error).toMatchObject({ code: "forbidden" })
+		} finally {
+			appCodeSubject = subject
+		}
+		expect(await db.select().from(userTable).where(eq(userTable.email, stranger))).toHaveLength(0)
+		expect(revoked.map((body) => body.get("token"))).toEqual(["apple-app-refresh"])
+		revoked.length = 0
+	})
+
+	it("signs in the account an Apple ID has already, from the sign-up, and leaves the invite unused", async () => {
+		const inviteCode = await createInvite({ note: "unit" })
+		inviteCodes.push(inviteCode)
+		const answer = await appleFromTheApp({}, "app-code", { inviteCode })
+		expect(answer.status).toBe(200)
+		const [kept] = await db.select().from(invites).where(eq(invites.code, inviteCode))
+		expect(kept!.usedBy).toBeNull()
+		// An invite used up already changes nothing for an account that exists: no refusal, no revoke.
+		const again = await appleFromTheApp({}, "app-code", { inviteCode: "NOT-AN-INVITE" })
+		expect(again.status).toBe(200)
+		expect(revoked).toHaveLength(0)
 	})
 
 	it("revokes the person's Sign in with Apple when the account is deleted", async () => {

@@ -38,8 +38,10 @@ export function pendingLinkSignup(): LinkSignup | undefined {
 export interface ProviderSignup {
 	/** Already checked by /signup. It travels in the OAuth state and is consumed at the callback. */
 	inviteCode: string | null
-	/** A sign-in from the app's sheet, which creates no account whatever the sign-up mode. */
+	/** From the app's sheet: it creates an account only as a sign-up (`appSignUp`). */
 	app?: true
+	/** The app's sign-up, which may create the account (its invite checked as above). */
+	appSignUp?: true
 }
 
 const providerSignup = new AsyncLocalStorage<ProviderSignup>()
@@ -71,4 +73,28 @@ export function withProviderCallback<T>(scope: ProviderCallback, fn: () => Promi
 
 export function currentProviderCallback(): ProviderCallback | undefined {
 	return providerCallback.getStore()
+}
+
+/** What the app's sign-up in process (`withAppSignUp`) leaves for its caller. */
+export interface AppSignUp {
+	/** Proven by the caller already (an emailed code): the account starts verified. */
+	verified?: true
+	/** The phone's language, for the new account. */
+	locale: string
+	/** Whether it created the user: an existing account just signs in. */
+	created?: true
+}
+
+const appSignUp = new AsyncLocalStorage<AppSignUp>()
+
+/**
+ * Runs `fn` as the app's sign-up: only then may Apple's ID token (`/sign-in/social`, in process)
+ * or an emailed-code sign-up create a user. The invite check still applies (`withSignupAllowed`).
+ */
+export function withAppSignUp<T>(scope: AppSignUp, fn: () => Promise<T>): Promise<T> {
+	return appSignUp.run(scope, fn)
+}
+
+export function pendingAppSignUp(): AppSignUp | undefined {
+	return appSignUp.getStore()
 }

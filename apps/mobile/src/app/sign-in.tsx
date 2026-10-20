@@ -1,3 +1,4 @@
+import { useRouter } from "expo-router"
 import { Image, StyleSheet, Text, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { SignInForm } from "@/components/sign-in-form"
@@ -9,6 +10,7 @@ const logo = require("../../assets/logo.png")
 
 export default function SignIn() {
 	const { signIn, apiUrl } = useAuth()
+	const router = useRouter()
 	const colors = useColors()
 
 	return (
@@ -16,6 +18,7 @@ export default function SignIn() {
 			<SignInForm
 				apiUrl={apiUrl}
 				onSession={signIn}
+				onCreateAccount={() => router.push("/sign-up")}
 				header={
 					<View style={styles.header}>
 						<Image

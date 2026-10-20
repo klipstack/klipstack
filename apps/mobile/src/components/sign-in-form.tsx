@@ -37,15 +37,16 @@ export function SignInForm({
 	apiUrl,
 	header,
 	onSession,
+	onCreateAccount,
 }: {
 	apiUrl: string
 	header?: ReactNode
 	onSession: (session: Session) => Promise<void>
+	/** Where "Create an account" goes, when the server takes sign-ups (not shown without it). */
+	onCreateAccount?: () => void
 }) {
 	const colors = useColors()
-	const dark = useColorScheme() === "dark"
-	const [options, setOptions] = useState<AppSignInOptions>(NO_OPTIONS)
-	const [appleAvailable, setAppleAvailable] = useState(false)
+	const options = useSignInOptions(apiUrl)
 	const [email, setEmail] = useState("")
 	const [password, setPassword] = useState("")
 	const [code, setCode] = useState("")
@@ -54,11 +55,6 @@ export function SignInForm({
 	const [busy, setBusy] = useState<Busy>(null)
 	const [error, setError] = useState<string | null>(null)
 	const passwordField = useRef<TextInput>(null)
-
-	useEffect(() => {
-		signInOptions(apiUrl).then(setOptions, () => setOptions(NO_OPTIONS))
-		AppleAuthentication.isAvailableAsync().then(setAppleAvailable, () => setAppleAvailable(false))
-	}, [apiUrl])
 
 	async function run(kind: Exclude<Busy, null>, signIn: () => Promise<Session | null>) {
 		setBusy(kind)
@@ -99,10 +95,6 @@ export function SignInForm({
 		}
 	}
 
-	const showApple = appleAvailable && options.providers.includes("apple")
-	const others = options.providers.filter(
-		(provider): provider is "google" | "github" => provider !== "apple",
-	)
 	const input = [
 		styles.input,
 		{ color: colors.fg, backgroundColor: colors.card, borderColor: colors.border },
@@ -116,55 +108,12 @@ export function SignInForm({
 				contentInsetAdjustmentBehavior="automatic"
 			>
 				{header}
-				{showApple ? (
-					<AppleAuthentication.AppleAuthenticationButton
-						buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-						buttonStyle={
-							dark
-								? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
-								: AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
-						}
-						cornerRadius={10}
-						style={[styles.appleButton, busy !== null && styles.dimmed]}
-						onPress={() => {
-							if (!busy) void run("apple", () => signInWithApple(apiUrl))
-						}}
-					/>
-				) : null}
-				{others.map((provider) => (
-					<Pressable
-						key={provider}
-						accessibilityRole="button"
-						disabled={busy !== null}
-						onPress={() => run(provider, () => signInWithProvider(apiUrl, provider))}
-						style={({ pressed }) => [
-							styles.providerButton,
-							{ borderColor: colors.border, backgroundColor: colors.card },
-							(pressed || (busy !== null && busy !== provider)) && styles.dimmed,
-						]}
-					>
-						{busy === provider ? (
-							<ActivityIndicator color={colors.fg} />
-						) : (
-							<>
-								<Svg width={18} height={18} viewBox="0 0 24 24" fill={colors.fg}>
-									<Path d={MARKS[provider]} />
-								</Svg>
-								<Text style={[styles.providerText, { color: colors.fg }]}>
-									Continue with {provider === "google" ? "Google" : "GitHub"}
-								</Text>
-							</>
-						)}
-					</Pressable>
-				))}
-				{showApple || others.length > 0 ? (
-					<View style={styles.or}>
-						<View style={[styles.rule, { backgroundColor: colors.border }]} />
-						<Text style={[styles.orText, { color: colors.mutedFg }]}>or</Text>
-						<View style={[styles.rule, { backgroundColor: colors.border }]} />
-					</View>
-				) : null}
-
+				<ProviderButtons
+					options={options}
+					busy={busy}
+					onApple={() => run("apple", () => signInWithApple(apiUrl))}
+					onProvider={(provider) => run(provider, () => signInWithProvider(apiUrl, provider))}
+				/>
 				<TextInput
 					accessibilityLabel="Email"
 					value={email}
@@ -205,7 +154,8 @@ export function SignInForm({
 							returnKeyType="go"
 							editable={busy === null}
 							onSubmitEditing={submit}
-							style={[input, styles.code]}
+							// Spaced digits, not a spaced placeholder.
+							style={[input, code ? styles.code : null]}
 						/>
 					</>
 				) : (
@@ -277,8 +227,114 @@ export function SignInForm({
 						{error}
 					</Text>
 				) : null}
+				{onCreateAccount && options.signUp ? (
+					<Pressable
+						accessibilityRole="button"
+						disabled={busy !== null}
+						onPress={onCreateAccount}
+						hitSlop={8}
+						style={styles.footer}
+					>
+						<Text style={[styles.note, { color: colors.mutedFg, textAlign: "center" }]}>
+							New to Klipstack?{" "}
+							<Text style={[styles.link, { color: colors.accent }]}>Create an account</Text>
+						</Text>
+					</Pressable>
+				) : null}
 			</ScrollView>
 		</KeyboardAvoidingView>
+	)
+}
+
+/** The ways in the server at `apiUrl` offers; until it answers, the email and password only. */
+export function useSignInOptions(apiUrl: string): AppSignInOptions & { apple: boolean } {
+	const [options, setOptions] = useState<AppSignInOptions>(NO_OPTIONS)
+	const [appleAvailable, setAppleAvailable] = useState(false)
+	useEffect(() => {
+		signInOptions(apiUrl).then(setOptions, () => setOptions(NO_OPTIONS))
+		AppleAuthentication.isAvailableAsync().then(setAppleAvailable, () => setAppleAvailable(false))
+	}, [apiUrl])
+	return { ...options, apple: appleAvailable && options.providers.includes("apple") }
+}
+
+/**
+ * Apple's button (iOS's own), then Google and GitHub, then "or" before the email: those the server
+ * offers. `signUp` labels Apple's "Sign up with Apple".
+ */
+export function ProviderButtons({
+	options,
+	busy,
+	signUp,
+	onApple,
+	onProvider,
+}: {
+	options: ReturnType<typeof useSignInOptions>
+	busy: string | null
+	signUp?: boolean
+	onApple: () => void
+	onProvider: (provider: "google" | "github") => void
+}) {
+	const colors = useColors()
+	const dark = useColorScheme() === "dark"
+	const showApple = options.apple
+	const others = options.providers.filter(
+		(provider): provider is "google" | "github" => provider !== "apple",
+	)
+	return (
+		<>
+			{showApple ? (
+				<AppleAuthentication.AppleAuthenticationButton
+					buttonType={
+						signUp
+							? AppleAuthentication.AppleAuthenticationButtonType.SIGN_UP
+							: AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN
+					}
+					buttonStyle={
+						dark
+							? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
+							: AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
+					}
+					cornerRadius={10}
+					style={[styles.appleButton, busy !== null && styles.dimmed]}
+					onPress={() => {
+						if (!busy) onApple()
+					}}
+				/>
+			) : null}
+			{others.map((provider) => (
+				<Pressable
+					key={provider}
+					accessibilityRole="button"
+					disabled={busy !== null}
+					onPress={() => onProvider(provider)}
+					style={({ pressed }) => [
+						styles.providerButton,
+						{ borderColor: colors.border, backgroundColor: colors.card },
+						(pressed || (busy !== null && busy !== provider)) && styles.dimmed,
+					]}
+				>
+					{busy === provider ? (
+						<ActivityIndicator color={colors.fg} />
+					) : (
+						<>
+							<Svg width={18} height={18} viewBox="0 0 24 24" fill={colors.fg}>
+								<Path d={MARKS[provider]} />
+							</Svg>
+							<Text style={[styles.providerText, { color: colors.fg }]}>
+								Continue with {provider === "google" ? "Google" : "GitHub"}
+							</Text>
+						</>
+					)}
+				</Pressable>
+			))}
+			{showApple || others.length > 0 ? (
+				<View style={styles.or}>
+					<View style={[styles.rule, { backgroundColor: colors.border }]} />
+					<Text style={[styles.orText, { color: colors.mutedFg }]}>or</Text>
+					<View style={[styles.rule, { backgroundColor: colors.border }]} />
+				</View>
+			) : null}
+		</>
 	)
 }
 
@@ -290,7 +346,7 @@ const MARKS = {
 		"M12 1.5a10.5 10.5 0 0 0-3.32 20.46c.53.1.72-.23.72-.5v-1.78c-2.92.64-3.54-1.4-3.54-1.4-.48-1.22-1.17-1.54-1.17-1.54-.95-.65.08-.64.08-.64 1.05.08 1.6 1.08 1.6 1.08.94 1.6 2.46 1.14 3.06.87.1-.68.37-1.14.67-1.4-2.33-.27-4.78-1.17-4.78-5.19 0-1.15.41-2.08 1.08-2.82-.1-.26-.47-1.33.1-2.78 0 0 .89-.28 2.89 1.08a10 10 0 0 1 5.26 0c2-1.36 2.88-1.08 2.88-1.08.58 1.45.22 2.52.11 2.78.67.74 1.08 1.67 1.08 2.82 0 4.03-2.46 4.92-4.8 5.18.38.33.72.97.72 1.95v2.89c0 .28.19.6.72.5A10.5 10.5 0 0 0 12 1.5Z",
 } as const
 
-const styles = StyleSheet.create({
+export const styles = StyleSheet.create({
 	fill: { flex: 1 },
 	content: {
 		flexGrow: 1,
@@ -327,5 +383,6 @@ const styles = StyleSheet.create({
 	links: { flexDirection: "row", justifyContent: "center", gap: 24, paddingVertical: 4 },
 	link: { fontSize: 15, fontWeight: "500" },
 	error: { fontSize: 15, lineHeight: 21 },
+	footer: { paddingTop: 12 },
 	dimmed: { opacity: 0.5 },
 })
