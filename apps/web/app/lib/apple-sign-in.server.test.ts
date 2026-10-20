@@ -398,6 +398,25 @@ describe("Sign in with Apple", () => {
 		revoked.length = 0
 	})
 
+	it("signs in no account by email that isn't connected to Apple, and undoes Apple's authorization", async () => {
+		// Unverified: better-auth links no provider to it by email.
+		const squatted = `apple-unlinked+${randomUUID()}@example.com`
+		await db
+			.insert(userTable)
+			.values({ id: randomUUID(), name: "Unlinked", email: squatted, emailVerified: false })
+		appCodeSubject = `${subject}-unlinked`
+		try {
+			const answer = await appleFromTheApp({ sub: `${subject}-unlinked`, email: squatted })
+			expect(answer.status).toBe(403)
+			expect(answer.body.error).toMatchObject({ code: "forbidden" })
+		} finally {
+			appCodeSubject = subject
+			await db.delete(userTable).where(eq(userTable.email, squatted))
+		}
+		expect(revoked.map((body) => body.get("token"))).toEqual(["apple-app-refresh"])
+		revoked.length = 0
+	})
+
 	it("revokes the person's Sign in with Apple when the account is deleted", async () => {
 		const [owner] = await db.select().from(userTable).where(eq(userTable.email, email))
 		await deleteAccount(owner!.id)

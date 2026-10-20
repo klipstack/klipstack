@@ -54,7 +54,6 @@ import {
 	SIGN_IN_CODE_MINUTES,
 	VERIFY_EMAIL_MINUTES,
 	VERIFY_TO_CONTINUE_PAGE,
-	CONSENT_PAGE,
 } from "./auth-constants"
 import { authDb } from "./auth-db.server"
 import { checkAuthLimit } from "./auth-limits.server"
@@ -120,14 +119,13 @@ const FIRST_PARTY_CLIENTS = [
 	// The CLI's loopback redirect may use any port (RFC 8252).
 	{ clientId: CLI_CLIENT_ID, name: "Klipstack CLI", redirectUris: [CLI_REDIRECT_URI] },
 	// The mobile app's universal link; on an http server, its reverse-domain URL scheme too.
-	// No consent screen on https: the app signs in on its own screen, and only our signed app opens
-	// the link the code comes back to. Any app can claim a URL scheme, so on http the browser asks
-	// (docs/security.md, "Mobile app sign-in").
+	// No consent screen: the app signs in on its own screen, and on an https server only our signed
+	// app opens the link the code comes back to (docs/security.md, "Mobile app sign-in").
 	{
 		clientId: MOBILE_CLIENT_ID,
 		name: "Klipstack app",
 		redirectUris: mobileRedirectUris(env.APP_URL),
-		skipConsent: env.APP_URL.startsWith("https://"),
+		skipConsent: true,
 	},
 ]
 
@@ -463,7 +461,7 @@ export const auth = betterAuth({
 		// HTTP API's. Clients registered through their metadata document stay linked to /mcp only.
 		mcp({
 			loginPage: "/login",
-			consentPage: CONSENT_PAGE,
+			consentPage: "/oauth/consent",
 			resource: MCP_RESOURCE,
 			resources: [API_RESOURCE],
 			scopes: [...OAUTH_SCOPES],

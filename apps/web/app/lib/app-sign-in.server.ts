@@ -16,12 +16,11 @@ import {
 	keepAppleAppToken,
 	revokeAppleAppToken,
 } from "./apple-tokens.server"
-import { CONSENT_PAGE, VERIFY_TO_CONTINUE_PAGE } from "./auth-constants"
+import { VERIFY_TO_CONTINUE_PAGE } from "./auth-constants"
 import { checkAuthLimit } from "./auth-limits.server"
 import { auth } from "./auth.server"
 import { EmailError, emailEnabled } from "./email.server"
 import { appleApp, env } from "./env.server"
-import { oauthRedirectUrl, signedOAuthQuery } from "./oauth.server"
 import { enabledProviders } from "./provider-sign-in.server"
 
 /**
@@ -144,8 +143,7 @@ async function signInWithApple(
 		.catch(async (error: unknown) => {
 			// No account to sign in, or one not connected to Apple: the Apple ID shouldn't list
 			// Klipstack. (Not on other failures: that would disconnect an account Apple signs in.)
-			const code = error instanceof APIError ? String(error.body?.code ?? "") : ""
-			if (NO_ACCOUNT.includes(code)) await revokeAppleAppToken(exchanged.refreshToken)
+			if (signedInNoOne(error)) await revokeAppleAppToken(exchanged.refreshToken)
 			throw error
 		})
 	const userId = "user" in result.response ? result.response.user.id : null
@@ -153,7 +151,16 @@ async function signInWithApple(
 	return cookieOf(result.headers)
 }
 
-const NO_ACCOUNT = ["INVITE_REQUIRED", "USER_NOT_FOUND", "OAUTH_LINK_ERROR"]
+/** better-auth found no account for the Apple ID, or one by its email not connected to Apple. */
+function signedInNoOne(error: unknown): boolean {
+	if (!(error instanceof APIError)) return false
+	const code = String(error.body?.code ?? "")
+	return (
+		code === "INVITE_REQUIRED" ||
+		code === "USER_NOT_FOUND" ||
+		(code === "OAUTH_LINK_ERROR" && error.body?.message === "account not linked")
+	)
+}
 
 const appleRefused = () =>
 	new AppError("unauthorized", "Apple's sign-in couldn't be checked. Try again.")
@@ -176,7 +183,11 @@ function refusal(error: unknown, method: z.output<typeof SignIn>["method"]): unk
 		return new AppError("unauthorized", "The email or password is wrong.")
 	if (method === "code" && (error.statusCode === 400 || error.statusCode === 403))
 		return new AppError("unauthorized", "The code is wrong or has expired. Ask for a new one.")
-	if (method === "apple" && code === "OAUTH_LINK_ERROR")
+	if (
+		method === "apple" &&
+		code === "OAUTH_LINK_ERROR" &&
+		error.body?.message === "account not linked"
+	)
 		return new AppError(
 			"forbidden",
 			"An account has this Apple ID's email but isn't connected to Apple. Sign in another way, then connect Apple in Settings on the web.",
@@ -195,9 +206,8 @@ function cookieOf(headers: Headers): string {
 }
 
 /**
- * The app's authorization request, run with the new session. On https the app has no consent
- * screen (`skipConsent`): a verified account gets its code at once. On http the consent is given
- * here: this sign-in has just proven who it is, on the app's own screen.
+ * The app's authorization request, run with the new session. The app has no consent screen
+ * (`skipConsent`): a verified account gets its code at once.
  */
 async function authorizationCode(cookie: string, challenge: string): Promise<string> {
 	const redirectUri = mobileRedirectUri(env.APP_URL)
@@ -217,24 +227,7 @@ async function authorizationCode(cookie: string, challenge: string): Promise<str
 		}),
 	)
 	const location = response.headers.get("location")
-	let back = location ? new URL(location, env.APP_URL) : null
-	const consentQuery = back?.pathname === CONSENT_PAGE ? signedOAuthQuery(back) : null
-	if (consentQuery) {
-		const consent = await auth.handler(
-			new Request(`${env.APP_URL}/api/auth/oauth2/consent`, {
-				method: "POST",
-				headers: {
-					cookie,
-					origin: env.APP_URL,
-					accept: "application/json",
-					"content-type": "application/json",
-				},
-				body: JSON.stringify({ accept: true, oauth_query: consentQuery }),
-			}),
-		)
-		const next = oauthRedirectUrl(await consent.json().catch(() => null))
-		back = next ? new URL(next, env.APP_URL) : null
-	}
+	const back = location ? new URL(location, env.APP_URL) : null
 	const code = back?.href.startsWith(`${redirectUri}?`) ? back.searchParams.get("code") : null
 	if (code) return code
 	// An unverified account (a password set before the mailbox was proven): the emailed code

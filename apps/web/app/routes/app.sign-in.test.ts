@@ -32,7 +32,7 @@ const errorRoute = await import("./app.sign-in.error")
 
 const stamp = `${Date.now()}-${randomUUID().slice(0, 8)}`
 const address = (name: string) => `app-sign-in-${name}+${stamp}@example.com`
-const emails = ["reader", "unverified", "github", "browser"].map(address)
+const emails = ["reader", "unverified", "github"].map(address)
 const PASSWORD = "app-sign-in-password"
 const inviteCodes: string[] = []
 
@@ -83,7 +83,6 @@ async function createAccount(email: string, { verified }: { verified: boolean })
 }
 await createAccount(emails[0]!, { verified: true })
 await createAccount(emails[1]!, { verified: false })
-await createAccount(emails[3]!, { verified: true })
 
 const routeArgs = (request: Request, params: Record<string, string> = {}) =>
 	({ request, context: new RouterContextProvider(), params }) as never
@@ -171,36 +170,6 @@ describe("the iPhone app's sign-in", () => {
 		expect(claims.azp ?? claims.client_id).toBe(MOBILE_CLIENT_ID)
 		const [row] = await db.select().from(session).where(eq(session.id, claims.sid))
 		expect(row!.createdAt.getTime()).toBeGreaterThanOrEqual(before - 1000)
-	})
-
-	it("asks a signed-in browser before the app gets a code, on an http server", async () => {
-		// Any app can claim the URL scheme an http server sends codes to.
-		const signedIn = await auth.api.signInEmail({
-			body: { email: emails[3]!, password: PASSWORD },
-			headers: client(),
-			returnHeaders: true,
-		})
-		const cookie = signedIn.headers
-			.getSetCookie()
-			.map((c) => c.split(";")[0])
-			.join("; ")
-		const query = new URLSearchParams({
-			response_type: "code",
-			client_id: MOBILE_CLIENT_ID,
-			redirect_uri: MOBILE_REDIRECT_URI,
-			scope: MOBILE_SCOPES.join(" "),
-			code_challenge: pkce().challenge,
-			code_challenge_method: "S256",
-			resource: `${env.APP_URL}${API_RESOURCE_PATH}`,
-		})
-		const response = await auth.handler(
-			new Request(`${env.APP_URL}/api/auth/oauth2/authorize?${query}`, {
-				headers: { cookie },
-				redirect: "manual",
-			}),
-		)
-		const location = new URL(response.headers.get("location")!, env.APP_URL)
-		expect(location.pathname).toBe("/oauth/consent")
 	})
 
 	it("is a code only the app's verifier redeems", async () => {

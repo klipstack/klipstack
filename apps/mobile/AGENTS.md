@@ -168,8 +168,7 @@ database), not only the screenshot.
   Sign in with Apple in iOS's sheet (`expo-apple-authentication`), Google and GitHub, the email
   with a password or an emailed code. It shows only what `GET /app/sign-in` lists. Each way ends
   in an OAuth authorization code (+ PKCE) for the first-party client `klipstack-mobile`, which has
-  no consent screen on an https server (on the http dev server Google and GitHub's sheet asks to
-  Allow once, as any app can claim its URL scheme): the password, the code and Apple's tokens through `POST /app/sign-in`, Google
+  no consent screen: the password, the code and Apple's tokens through `POST /app/sign-in`, Google
   and GitHub in a private sign-in sheet at `/app/sign-in/<provider>`, which goes straight to the
   provider and back to the app. The server's side is `apps/web/app/lib/app-sign-in.server.ts`.
   Emailed codes print in the dev server's output. The app creates no account. On an https server

@@ -24,10 +24,11 @@ export async function checkAuthLimit(path: string, email: unknown, headers?: Hea
 		"/sign-up/email": { account: 5, ip: 20, seconds: 3600 },
 		"/sign-in/magic-link": { account: 3, ip: 20, seconds: 900 },
 		// The iPhone app's emailed code, a day's: each code allows 3 tries, so at most 30 guesses a
-		// day at 6 digits. Its Sign in with Apple, whose ID token names the account only once Apple's
-		// code is exchanged: the address alone.
+		// day at 6 digits. (Ten requests for someone's address stop their codes for that day.)
 		"/email-otp/send-verification-otp": { account: 10, ip: 100, seconds: 86400 },
 		"/sign-in/email-otp": { account: 10, ip: 60, seconds: 900 },
+		// Its Sign in with Apple, whose ID token names the account only once Apple's code is
+		// exchanged: the address alone.
 		"/app/sign-in/apple": { ip: 30, seconds: 900 },
 		"/request-password-reset": { account: 3, ip: 20, seconds: 900 },
 		"/send-verification-email": { account: 3, ip: 20, seconds: 900 },
