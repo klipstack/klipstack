@@ -54,6 +54,7 @@ import {
 	SIGN_IN_CODE_MINUTES,
 	VERIFY_EMAIL_MINUTES,
 	VERIFY_TO_CONTINUE_PAGE,
+	CONSENT_PAGE,
 } from "./auth-constants"
 import { authDb } from "./auth-db.server"
 import { checkAuthLimit } from "./auth-limits.server"
@@ -118,14 +119,15 @@ const NATIVE_CLIENT = {
 const FIRST_PARTY_CLIENTS = [
 	// The CLI's loopback redirect may use any port (RFC 8252).
 	{ clientId: CLI_CLIENT_ID, name: "Klipstack CLI", redirectUris: [CLI_REDIRECT_URI] },
-	// The mobile app's universal link; on the http dev server, its reverse-domain URL scheme too.
-	// No consent screen: the app signs in on its own screen, and on an https server only our signed
-	// app opens the link the code comes back to (docs/security.md, "Mobile app sign-in").
+	// The mobile app's universal link; on an http server, its reverse-domain URL scheme too.
+	// No consent screen on https: the app signs in on its own screen, and only our signed app opens
+	// the link the code comes back to. Any app can claim a URL scheme, so on http the browser asks
+	// (docs/security.md, "Mobile app sign-in").
 	{
 		clientId: MOBILE_CLIENT_ID,
 		name: "Klipstack app",
 		redirectUris: mobileRedirectUris(env.APP_URL),
-		skipConsent: true,
+		skipConsent: env.APP_URL.startsWith("https://"),
 	},
 ]
 
@@ -140,6 +142,7 @@ export const auth = betterAuth({
 			// part of the state only the server writes. The callback reads it back below.
 			const signup = ctx.path === "/sign-in/social" ? pendingProviderSignup() : undefined
 			if (signup?.inviteCode) await addOAuthServerContext({ invite: signup.inviteCode })
+			if (signup?.app) await addOAuthServerContext({ app: true })
 			// Refuse before the account lookup: failing for existing accounts only would reveal them.
 			if (
 				(ctx.path === "/request-password-reset" ||
@@ -274,6 +277,16 @@ export const auth = betterAuth({
 						locale || welcomeFrom
 							? { data: { ...(locale ? { locale } : {}), ...welcome } }
 							: undefined
+					// The app signs in only, whatever the sign-up mode: Apple's ID token in process
+					// (/sign-in/social, closed over HTTP), Google and GitHub from its sheet.
+					if (
+						ctx?.path === "/sign-in/social" ||
+						(fromProvider && (await getOAuthState())?.serverContext?.app === true)
+					)
+						throw new APIError("FORBIDDEN", {
+							code: "INVITE_REQUIRED",
+							message: "The app creates no account.",
+						})
 					if (!invitesRequired || signupAllowed()) return extra
 					if (fromProvider && (await providerInviteLocked(data.email))) return extra
 					throw new APIError("FORBIDDEN", {
@@ -450,7 +463,7 @@ export const auth = betterAuth({
 		// HTTP API's. Clients registered through their metadata document stay linked to /mcp only.
 		mcp({
 			loginPage: "/login",
-			consentPage: "/oauth/consent",
+			consentPage: CONSENT_PAGE,
 			resource: MCP_RESOURCE,
 			resources: [API_RESOURCE],
 			scopes: [...OAUTH_SCOPES],

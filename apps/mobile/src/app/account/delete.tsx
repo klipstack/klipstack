@@ -68,8 +68,9 @@ export default function DeleteAccount() {
 	}
 
 	async function signedIn(session: Session) {
-		setConfirming(false)
+		// Saved first: if that fails, the sheet stays open with the error.
 		await signedInAgain(session)
+		setConfirming(false)
 		// The sheet lets anyone sign in: deleting goes on only for the same account. The client reads
 		// the new session.
 		const now = await client?.me()

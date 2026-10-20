@@ -4,6 +4,7 @@ import {
 	createPublicKey,
 	generateKeyPairSync,
 	randomBytes,
+	randomUUID,
 	sign,
 	verify,
 } from "node:crypto"
@@ -35,10 +36,12 @@ const { env, oauth } = await import("./env.server")
 const { createInvite } = await import("./invites.server")
 const { startProviderSignIn } = await import("./provider-sign-in.server")
 const { auth } = await import("./auth.server")
+const { withSignupAllowed } = await import("./signup-gate.server")
 const route = await import("~/routes/api.auth")
 const appSignInRoute = await import("~/routes/app.sign-in")
 const { deleteAccount } = await import("~/services/account.server")
 const { symmetricDecrypt } = await import("better-auth/crypto")
+const { sealAppleToken } = await import("./apple-tokens.server")
 
 const stamp = Date.now()
 const email = `apple-${stamp}@privaterelay.appleid.com`
@@ -74,6 +77,8 @@ const sentSecrets: string[] = []
 let appCodeSubject = subject
 /** What the server asked Apple to revoke. */
 const revoked: URLSearchParams[] = []
+/** Apple's revoke endpoint failing. */
+let appleDown = false
 
 vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
 	const url = String(input instanceof Request ? input.url : input)
@@ -102,7 +107,7 @@ vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
 	}
 	if (url === "https://appleid.apple.com/auth/revoke") {
 		revoked.push(new URLSearchParams(String(init?.body)))
-		return new Response(null, { status: 200 })
+		return new Response(null, { status: appleDown ? 503 : 200 })
 	}
 	if (url === "https://appleid.apple.com/auth/keys")
 		return json({
@@ -375,16 +380,22 @@ describe("Sign in with Apple", () => {
 		expect(answer.status).toBe(401)
 	})
 
-	it("creates no account for an unknown Apple ID: not_found", async () => {
+	it("creates no account for an unknown Apple ID, even where sign-up is open: not_found", async () => {
 		appCodeSubject = `${subject}-new`
 		try {
-			const answer = await appleFromTheApp({ sub: `${subject}-new`, email: stranger })
+			// As in SIGNUP_MODE=open: only the app's own refusal stands in the way.
+			const answer = await withSignupAllowed(() =>
+				appleFromTheApp({ sub: `${subject}-new`, email: stranger }),
+			)
 			expect(answer.status).toBe(404)
 			expect(answer.body.error).toMatchObject({ code: "not_found" })
 		} finally {
 			appCodeSubject = subject
 		}
 		expect(await db.select().from(userTable).where(eq(userTable.email, stranger))).toHaveLength(0)
+		// Apple's sheet authorized the app all the same: that is undone.
+		expect(revoked.map((body) => body.get("token"))).toEqual(["apple-app-refresh"])
+		revoked.length = 0
 	})
 
 	it("revokes the person's Sign in with Apple when the account is deleted", async () => {
@@ -400,5 +411,30 @@ describe("Sign in with Apple", () => {
 		const claims = JSON.parse(Buffer.from(secret.split(".")[1]!, "base64url").toString())
 		expect(claims).toMatchObject({ iss: "TEAM123456", sub: "com.example.reader" })
 		expect(await db.select().from(userTable).where(eq(userTable.email, email))).toHaveLength(0)
+	})
+
+	it("deletes the account even when Apple won't revoke", async () => {
+		const other = `apple-down+${randomUUID()}@example.com`
+		const [owner] = await db
+			.insert(userTable)
+			.values({ id: randomUUID(), name: "Apple Down", email: other, emailVerified: true })
+			.returning()
+		await db.insert(account).values({
+			id: randomUUID(),
+			userId: owner!.id,
+			providerId: "apple",
+			accountId: `${subject}-down`,
+			refreshToken: await sealAppleToken("com.example.reader", "apple-down-refresh"),
+			createdAt: new Date(),
+			updatedAt: new Date(),
+		})
+		appleDown = true
+		try {
+			await deleteAccount(owner!.id)
+		} finally {
+			appleDown = false
+		}
+		expect(revoked.map((body) => body.get("token"))).toContain("apple-down-refresh")
+		expect(await db.select().from(userTable).where(eq(userTable.email, other))).toHaveLength(0)
 	})
 })

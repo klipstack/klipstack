@@ -21,6 +21,9 @@ export const MIN_PASSWORD_LENGTH = 8
  */
 export const VERIFY_TO_CONTINUE_PAGE = "/oauth/verify-email"
 
+/** Where the OAuth provider asks a signed-in person to allow an app. */
+export const CONSENT_PAGE = "/oauth/consent"
+
 /** The library scopes (MCP and the HTTP API), named in the contract. */
 export { LIBRARY_READ_SCOPE, LIBRARY_WRITE_SCOPE }
 

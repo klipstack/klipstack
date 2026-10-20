@@ -32,7 +32,7 @@ const errorRoute = await import("./app.sign-in.error")
 
 const stamp = `${Date.now()}-${randomUUID().slice(0, 8)}`
 const address = (name: string) => `app-sign-in-${name}+${stamp}@example.com`
-const emails = ["reader", "unverified", "github"].map(address)
+const emails = ["reader", "unverified", "github", "browser"].map(address)
 const PASSWORD = "app-sign-in-password"
 const inviteCodes: string[] = []
 
@@ -53,7 +53,7 @@ vi.stubGlobal("fetch", async (input: RequestInfo | URL) => {
 })
 
 /** Each test signs in from an address of its own: the limits count per address. */
-let ip = ""
+let ip = `app-sign-in-${randomUUID()}`
 beforeEach(() => {
 	ip = `app-sign-in-${randomUUID()}`
 	profile = { id: Math.floor(Math.random() * 1e9), email: "" }
@@ -74,12 +74,16 @@ afterAll(async () => {
 
 async function createAccount(email: string, { verified }: { verified: boolean }) {
 	await withSignupAllowed(() =>
-		auth.api.signUpEmail({ body: { email, password: PASSWORD, name: "Reader" } }),
+		auth.api.signUpEmail({
+			body: { email, password: PASSWORD, name: "Reader" },
+			headers: client(),
+		}),
 	)
 	await db.update(user).set({ emailVerified: verified }).where(eq(user.email, email))
 }
 await createAccount(emails[0]!, { verified: true })
 await createAccount(emails[1]!, { verified: false })
+await createAccount(emails[3]!, { verified: true })
 
 const routeArgs = (request: Request, params: Record<string, string> = {}) =>
 	({ request, context: new RouterContextProvider(), params }) as never
@@ -167,6 +171,36 @@ describe("the iPhone app's sign-in", () => {
 		expect(claims.azp ?? claims.client_id).toBe(MOBILE_CLIENT_ID)
 		const [row] = await db.select().from(session).where(eq(session.id, claims.sid))
 		expect(row!.createdAt.getTime()).toBeGreaterThanOrEqual(before - 1000)
+	})
+
+	it("asks a signed-in browser before the app gets a code, on an http server", async () => {
+		// Any app can claim the URL scheme an http server sends codes to.
+		const signedIn = await auth.api.signInEmail({
+			body: { email: emails[3]!, password: PASSWORD },
+			headers: client(),
+			returnHeaders: true,
+		})
+		const cookie = signedIn.headers
+			.getSetCookie()
+			.map((c) => c.split(";")[0])
+			.join("; ")
+		const query = new URLSearchParams({
+			response_type: "code",
+			client_id: MOBILE_CLIENT_ID,
+			redirect_uri: MOBILE_REDIRECT_URI,
+			scope: MOBILE_SCOPES.join(" "),
+			code_challenge: pkce().challenge,
+			code_challenge_method: "S256",
+			resource: `${env.APP_URL}${API_RESOURCE_PATH}`,
+		})
+		const response = await auth.handler(
+			new Request(`${env.APP_URL}/api/auth/oauth2/authorize?${query}`, {
+				headers: { cookie },
+				redirect: "manual",
+			}),
+		)
+		const location = new URL(response.headers.get("location")!, env.APP_URL)
+		expect(location.pathname).toBe("/oauth/consent")
 	})
 
 	it("is a code only the app's verifier redeems", async () => {
@@ -287,14 +321,14 @@ describe("the iPhone app's sign-in", () => {
 		expect(await db.select().from(user).where(eq(user.email, stranger))).toHaveLength(0)
 	})
 
-	it("limits the codes sent to one account", async () => {
+	it("limits the codes sent to one account to 10 a day", async () => {
 		const results: number[] = []
-		for (let i = 0; i < 4; i++) {
+		for (let i = 0; i < 11; i++) {
 			ip = `app-sign-in-${randomUUID()}`
 			results.push((await post(codeRoute, "/app/sign-in/code", { email: emails[2] })).status)
 		}
 		// Counted per address typed, an account or not, whatever the client address.
-		expect(results).toEqual([204, 204, 204, 429])
+		expect(results).toEqual([...Array.from({ length: 10 }, () => 204), 429])
 	})
 
 	it("keeps better-auth's own email-code endpoints closed", async () => {
@@ -389,12 +423,13 @@ describe("Google and GitHub in the app's sign-in sheet", () => {
 			.where(and(eq(account.userId, row!.id), eq(account.providerId, "github")))
 	})
 
-	it("comes back to the app with no_account, and creates none", async () => {
+	it("comes back to the app with no_account, and creates none, even where sign-up is open", async () => {
 		profile.email = emails[2]!
 		const start = (await providerRoute.loader(
 			routeArgs(sheetRequest(pkce().challenge), { provider: "github" }),
 		)) as Response
-		const back = await throughGitHub(start)
+		// As in SIGNUP_MODE=open: only the app's own refusal stands in the way.
+		const back = await withSignupAllowed(() => throughGitHub(start))
 		expect(back.href.startsWith(`${MOBILE_REDIRECT_URI}?`)).toBe(true)
 		expect(back.searchParams.get("error")).toBe("no_account")
 		expect(back.searchParams.get("state")).toBe("app-state")

@@ -114,26 +114,36 @@ export async function revokeAppleSignIn(userId: string): Promise<void> {
 			continue
 		}
 		const sealed = await openAppleToken(refreshToken)
-		const secret = sealed && secretFor(sealed.clientId)
-		if (!sealed || !secret) {
-			console.warn("[apple] the kept token can't be used: another secret or client")
-			continue
-		}
-		try {
-			const response = await fetch(REVOKE_URL, {
-				method: "POST",
-				headers: { "content-type": "application/x-www-form-urlencoded" },
-				body: new URLSearchParams({
-					client_id: sealed.clientId,
-					client_secret: secret,
-					token: sealed.refreshToken,
-					token_type_hint: "refresh_token",
-				}),
-				signal: AbortSignal.timeout(TIMEOUT_MS),
-			})
-			if (!response.ok) console.warn(`[apple] revoking failed: ${response.status}`)
-		} catch (error) {
-			logError("[apple] revoking failed", error)
-		}
+		if (sealed) await revoke(sealed)
+		else console.warn("[apple] the kept token can't be used: another secret or client")
+	}
+}
+
+/**
+ * Revokes the token Apple's sheet just gave the app, when it signed no one in: the person's Apple
+ * ID doesn't list Klipstack for an account that doesn't exist. Best effort.
+ */
+export async function revokeAppleAppToken(refreshToken: string): Promise<void> {
+	if (appleApp) await revoke({ clientId: appleApp.clientId, refreshToken })
+}
+
+async function revoke({ clientId, refreshToken }: Sealed): Promise<void> {
+	const secret = secretFor(clientId)
+	if (!secret) return console.warn("[apple] the kept token can't be used: another secret or client")
+	try {
+		const response = await fetch(REVOKE_URL, {
+			method: "POST",
+			headers: { "content-type": "application/x-www-form-urlencoded" },
+			body: new URLSearchParams({
+				client_id: clientId,
+				client_secret: secret,
+				token: refreshToken,
+				token_type_hint: "refresh_token",
+			}),
+			signal: AbortSignal.timeout(TIMEOUT_MS),
+		})
+		if (!response.ok) console.warn(`[apple] revoking failed: ${response.status}`)
+	} catch (error) {
+		logError("[apple] revoking failed", error)
 	}
 }

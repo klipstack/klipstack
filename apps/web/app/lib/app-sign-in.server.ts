@@ -10,12 +10,18 @@ import { logError } from "@klipstack/log"
 import { APIError } from "better-auth/api"
 import { z } from "zod"
 import { AppError, parseInput } from "./app-error"
-import { claimsOf, exchangeAppleAppCode, keepAppleAppToken } from "./apple-tokens.server"
-import { VERIFY_TO_CONTINUE_PAGE } from "./auth-constants"
+import {
+	claimsOf,
+	exchangeAppleAppCode,
+	keepAppleAppToken,
+	revokeAppleAppToken,
+} from "./apple-tokens.server"
+import { CONSENT_PAGE, VERIFY_TO_CONTINUE_PAGE } from "./auth-constants"
 import { checkAuthLimit } from "./auth-limits.server"
 import { auth } from "./auth.server"
 import { EmailError, emailEnabled } from "./email.server"
 import { appleApp, env } from "./env.server"
+import { oauthRedirectUrl, signedOAuthQuery } from "./oauth.server"
 import { enabledProviders } from "./provider-sign-in.server"
 
 /**
@@ -23,7 +29,7 @@ import { enabledProviders } from "./provider-sign-in.server"
  * runs the app's authorization request with that session: the app gets an authorization code for
  * `klipstack-mobile`, bound to its PKCE challenge, and exchanges it as after a browser sign-in. Its
  * tokens are the usual ones, so refresh, the recent sign-in for deletion (`sid`) and revocation
- * work unchanged. Nothing here creates an account: in invite mode better-auth refuses to.
+ * work unchanged. Nothing here creates an account, in any sign-up mode (auth.server.ts's user hook).
  */
 
 export function appSignInOptions(): AppSignInOptions {
@@ -120,24 +126,34 @@ async function signInWithApple(
 	// works for an hour, wherever it was copied to.
 	if (!exchanged || exchanged.subject !== claimsOf(request.idToken)?.sub) throw appleRefused()
 	const { givenName, familyName } = request
-	const result = await auth.api.signInSocial({
-		body: {
-			provider: "apple",
-			idToken: {
-				token: request.idToken,
-				nonce: request.nonce,
-				...(givenName || familyName
-					? { user: { name: { firstName: givenName, lastName: familyName } } }
-					: {}),
+	const result = await auth.api
+		.signInSocial({
+			body: {
+				provider: "apple",
+				idToken: {
+					token: request.idToken,
+					nonce: request.nonce,
+					...(givenName || familyName
+						? { user: { name: { firstName: givenName, lastName: familyName } } }
+						: {}),
+				},
 			},
-		},
-		headers,
-		returnHeaders: true,
-	})
+			headers,
+			returnHeaders: true,
+		})
+		.catch(async (error: unknown) => {
+			// No account to sign in, or one not connected to Apple: the Apple ID shouldn't list
+			// Klipstack. (Not on other failures: that would disconnect an account Apple signs in.)
+			const code = error instanceof APIError ? String(error.body?.code ?? "") : ""
+			if (NO_ACCOUNT.includes(code)) await revokeAppleAppToken(exchanged.refreshToken)
+			throw error
+		})
 	const userId = "user" in result.response ? result.response.user.id : null
 	if (userId) await keepAppleAppToken(userId, exchanged.subject, exchanged.refreshToken)
 	return cookieOf(result.headers)
 }
+
+const NO_ACCOUNT = ["INVITE_REQUIRED", "USER_NOT_FOUND", "OAUTH_LINK_ERROR"]
 
 const appleRefused = () =>
 	new AppError("unauthorized", "Apple's sign-in couldn't be checked. Try again.")
@@ -154,7 +170,7 @@ function refusal(error: unknown, method: z.output<typeof SignIn>["method"]): unk
 	if (code === "INVITE_REQUIRED" || code === "USER_NOT_FOUND")
 		return new AppError(
 			"not_found",
-			`No Klipstack account uses this Apple ID. Create one at ${new URL(env.APP_URL).host} with an invite, then sign in here.`,
+			`No Klipstack account uses this Apple ID. Create one at ${new URL(env.APP_URL).host}, then sign in here.`,
 		)
 	if (method === "password" && error.statusCode === 401)
 		return new AppError("unauthorized", "The email or password is wrong.")
@@ -179,8 +195,9 @@ function cookieOf(headers: Headers): string {
 }
 
 /**
- * The app's authorization request, run with the new session. The app has no consent screen
- * (`skipConsent`): a verified account gets its code at once.
+ * The app's authorization request, run with the new session. On https the app has no consent
+ * screen (`skipConsent`): a verified account gets its code at once. On http the consent is given
+ * here: this sign-in has just proven who it is, on the app's own screen.
  */
 async function authorizationCode(cookie: string, challenge: string): Promise<string> {
 	const redirectUri = mobileRedirectUri(env.APP_URL)
@@ -200,7 +217,24 @@ async function authorizationCode(cookie: string, challenge: string): Promise<str
 		}),
 	)
 	const location = response.headers.get("location")
-	const back = location ? new URL(location, env.APP_URL) : null
+	let back = location ? new URL(location, env.APP_URL) : null
+	const consentQuery = back?.pathname === CONSENT_PAGE ? signedOAuthQuery(back) : null
+	if (consentQuery) {
+		const consent = await auth.handler(
+			new Request(`${env.APP_URL}/api/auth/oauth2/consent`, {
+				method: "POST",
+				headers: {
+					cookie,
+					origin: env.APP_URL,
+					accept: "application/json",
+					"content-type": "application/json",
+				},
+				body: JSON.stringify({ accept: true, oauth_query: consentQuery }),
+			}),
+		)
+		const next = oauthRedirectUrl(await consent.json().catch(() => null))
+		back = next ? new URL(next, env.APP_URL) : null
+	}
 	const code = back?.href.startsWith(`${redirectUri}?`) ? back.searchParams.get("code") : null
 	if (code) return code
 	// An unverified account (a password set before the mailbox was proven): the emailed code

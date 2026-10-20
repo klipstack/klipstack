@@ -139,7 +139,7 @@ export async function signInWithProvider(
 function providerMessage(code: string | undefined, name: string, apiUrl: string): string {
 	switch (code as AppSignInErrorCode | undefined) {
 		case "no_account":
-			return `No Klipstack account uses this ${name} account. Create one at ${new URL(apiUrl).host} with an invite, then sign in here.`
+			return `No Klipstack account uses this ${name} account. Create one at ${new URL(apiUrl).host}, then sign in here.`
 		case "not_linked":
 			return `An account has this email but isn't connected to ${name}. Sign in another way, then connect ${name} in Settings on the web.`
 		case "no_email":

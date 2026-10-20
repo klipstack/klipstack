@@ -123,12 +123,7 @@ export async function handleProviderCallback(request: Request): Promise<Response
 		})
 	} catch (error) {
 		if (error instanceof APIError && error.body?.code === "INVITE_REQUIRED")
-			// The app's sheet goes back to the app, which creates no account.
-			return redirect(
-				(await appSignInPending(request))
-					? `${APP_SIGN_IN_ERROR_PATH}?error=INVITE_REQUIRED`
-					: "/signup?error=INVITE_REQUIRED",
-			)
+			return redirect("/signup?error=INVITE_REQUIRED")
 		throw error
 	}
 }
@@ -183,25 +178,22 @@ export async function startAppProviderSignIn(
 		const value = query.get(key)
 		if (value !== null) authorize.set(key, value)
 	}
-	const { headers, response } = await auth.api.signInSocial({
-		body: {
-			provider,
-			callbackURL: `/api/auth/oauth2/authorize?${authorize}`,
-			errorCallbackURL: APP_SIGN_IN_ERROR_PATH,
-			disableRedirect: true,
-		},
-		headers: request.headers,
-		returnHeaders: true,
-	})
+	const { headers, response } = await withProviderSignup({ inviteCode: null, app: true }, () =>
+		auth.api.signInSocial({
+			body: {
+				provider,
+				callbackURL: `/api/auth/oauth2/authorize?${authorize}`,
+				errorCallbackURL: APP_SIGN_IN_ERROR_PATH,
+				disableRedirect: true,
+			},
+			headers: request.headers,
+			returnHeaders: true,
+		}),
+	)
 	if (!response.url) throw new Error("the provider sign-in returned no URL")
 	const out = cookieHeadersFrom(headers)
 	out.append("set-cookie", await pendingCookie.serialize(pending))
 	return redirect(response.url, { headers: out })
-}
-
-/** Whether a provider sign-in started from the app's sheet is under way in this browser. */
-export async function appSignInPending(request: Request): Promise<boolean> {
-	return (await readPending(request)) !== null
 }
 
 /** `GET /app/sign-in/error?error=…`: back to the app, with why. */
