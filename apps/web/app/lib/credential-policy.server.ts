@@ -96,14 +96,18 @@ export async function consentReference(userId: string, sessionId: string, scopes
 		.from(oauthGrants)
 		.where(and(eq(oauthGrants.userId, userId), eq(oauthGrants.clientId, clientId)))
 	if (!grant) throw new APIError("FORBIDDEN")
-	if (clientId === MOBILE_CLIENT_ID) await keepAppConsent(userId, scopes, ctx.query?.resource)
+	if (clientId === MOBILE_CLIENT_ID) {
+		// The consent page carries the request signed in its body; authorize, in its query.
+		const resource = ctx.body?.oauth_query ? query.getAll("resource") : ctx.query?.resource
+		await keepAppConsent(userId, scopes, resource)
+	}
 	return grant.generation
 }
 
 /**
  * The app skips the consent screen (`skipConsent`), so the provider saves no consent for it. The
  * API asks for one (`liveTokenScopes`) and Settings lists it to disconnect: it is saved here, as
- * the consent screen would. A later sign-in asking for more widens it.
+ * the consent screen would: each sign-in's request replaces what an earlier one allowed.
  */
 async function keepAppConsent(userId: string, scopes: string[], resource: unknown) {
 	const resources = (Array.isArray(resource) ? resource : [resource]).filter(
@@ -122,15 +126,7 @@ async function keepAppConsent(userId: string, scopes: string[], resource: unknow
 			createdAt: now,
 			updatedAt: now,
 		})
-	const wider = (have: string[] | null, want: string[]) => [...new Set([...(have ?? []), ...want])]
-	await db
-		.update(oauthConsent)
-		.set({
-			scopes: wider(kept.scopes, scopes),
-			resources: wider(kept.resources, resources),
-			updatedAt: now,
-		})
-		.where(where)
+	await db.update(oauthConsent).set({ scopes, resources, updatedAt: now }).where(where)
 }
 
 export const credentialClaims: OAuthProviderExtension = {
