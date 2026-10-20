@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto"
 import {
+	accountBilling,
 	aiBriefs,
 	db,
 	documents,
@@ -691,7 +692,19 @@ describe("publishEdition", () => {
 		expect(await snapshotOf(edition.id)).toEqual(before)
 	})
 
-	it("rewrites it on Update", async () => {
+	it("rewrites it on Update, but not for a lapsed account", async () => {
+		// An admin's date in the past, with billing on: lapsed.
+		await db.insert(accountBilling).values({ userId, freeUntil: new Date(Date.now() - 86_400_000) })
+		env.BILLING_STARTS_AT = new Date(Date.now() - 90 * 86_400_000)
+		try {
+			await expect(publishEdition(userId, edition.id)).rejects.toMatchObject({
+				code: "subscription_required",
+			})
+			expect((await snapshotOf(edition.id))!.intro).toBeNull()
+		} finally {
+			env.BILLING_STARTS_AT = undefined
+			await db.delete(accountBilling).where(eq(accountBilling.userId, userId))
+		}
 		const updated = await publishEdition(userId, edition.id)
 		if (!updated.ok) throw new Error("not published")
 		expect(updated.edition.republishedAt).toBeInstanceOf(Date)

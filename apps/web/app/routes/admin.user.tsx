@@ -3,12 +3,16 @@ import { useTranslation } from "react-i18next"
 import { data, Link, useFetcher, useOutletContext } from "react-router"
 import { ActionError, Badge, Card, Mono, PageHeader, useUtcTime } from "~/components/admin/ui"
 import { Button } from "~/components/ui/button"
+import { Input } from "~/components/ui/input"
+import { Label } from "~/components/ui/label"
 import { requireAdmin } from "~/lib/admin.server"
 import { listFeatures } from "~/lib/features.server"
-import { usageOf } from "~/lib/limits.server"
+import { planOf, usageOf } from "~/lib/limits.server"
+import { freeUntilOf } from "~/services/admin-billing.server"
 import { getUserDetail } from "~/services/admin-users.server"
 import type { Route } from "./+types/admin.user"
 import type { AdminOutletContext } from "./admin-layout"
+import type { action as billingAction } from "./admin.user.billing"
 import type { action as featureAction } from "./admin.user.features"
 
 export async function loader({ context, request, params }: Route.LoaderArgs) {
@@ -17,13 +21,23 @@ export async function loader({ context, request, params }: Route.LoaderArgs) {
 	if (!/^[\w-]{1,80}$/.test(params.id)) throw data({ error: "invalid" }, { status: 400 })
 	const account = await getUserDetail(ctx, params.id)
 	if (!account) throw data({ error: "not_found" }, { status: 404 })
-	const [on, usage] = await Promise.all([listFeatures(account.id), usageOf(account.id)])
+	const [on, usage, plan, freeUntil] = await Promise.all([
+		listFeatures(account.id),
+		usageOf(account.id),
+		planOf(account.id),
+		freeUntilOf(account.id),
+	])
 	// Every known flag, on or off: the page lists them all.
 	const features = featureFlags.map((name) => ({ name, on: on.includes(name) }))
 	const mb = (bytes: number) => Math.round(bytes / (1024 * 1024))
 	return {
 		account,
 		features,
+		plan: {
+			state: plan.state,
+			until: plan.until?.toISOString() ?? null,
+			freeUntil: freeUntil?.toISOString().slice(0, 10) ?? null,
+		},
 		usage: {
 			saves: usage.saves,
 			storage: { used: mb(usage.storage.used), max: mb(usage.storage.max) },
@@ -36,7 +50,7 @@ export async function loader({ context, request, params }: Route.LoaderArgs) {
 }
 
 export default function AdminUser({
-	loaderData: { account, features, usage },
+	loaderData: { account, features, plan, usage },
 }: Route.ComponentProps) {
 	const { t } = useTranslation("admin")
 	const time = useUtcTime()
@@ -89,6 +103,9 @@ export default function AdminUser({
 					))}
 				</dl>
 			</Card>
+			<div className="mt-4">
+				<PlanCard userId={account.id} plan={plan} />
+			</div>
 			<div className="mt-4">
 				<Card title={t("users.features.title")}>
 					{features.length ? (
@@ -144,5 +161,86 @@ function FeatureRow({
 			) : null}
 			{fetcher.data && !fetcher.data.ok ? <ActionError code={fetcher.data.error.code} /> : null}
 		</li>
+	)
+}
+
+function PlanCard({
+	userId,
+	plan,
+}: {
+	userId: string
+	plan: Route.ComponentProps["loaderData"]["plan"]
+}) {
+	const { t } = useTranslation("admin")
+	const time = useUtcTime()
+	const { canWrite } = useOutletContext<AdminOutletContext>()
+	const fetcher = useFetcher<typeof billingAction>()
+	const tone = { unbilled: "neutral", trial: "warn", free: "good", lapsed: "bad" } as const
+	const rows: Array<[string, React.ReactNode]> = [
+		[
+			t("users.plan.state"),
+			<Badge key="state" tone={tone[plan.state]}>
+				{t(`users.plan.states.${plan.state}`)}
+			</Badge>,
+		],
+	]
+	if (plan.state !== "unbilled")
+		rows.push([
+			plan.state === "lapsed" ? t("users.plan.ended") : t("users.plan.until"),
+			time(plan.until) ?? t("users.plan.noEnd"),
+		])
+	return (
+		<Card title={t("users.plan.title")}>
+			<dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-[14rem_1fr]">
+				{rows.map(([label, value]) => (
+					<div key={label} className="contents">
+						<dt className="text-muted-fg">{label}</dt>
+						<dd>{value}</dd>
+					</div>
+				))}
+			</dl>
+			{canWrite ? (
+				<fetcher.Form
+					method="post"
+					action={`/admin/users/${userId}/billing`}
+					className="mt-4 flex flex-wrap items-end gap-2"
+				>
+					<div className="grid gap-1">
+						<Label htmlFor="free-until">{t("users.plan.freeUntil")}</Label>
+						<Input
+							id="free-until"
+							key={plan.freeUntil ?? ""}
+							type="date"
+							name="freeUntil"
+							defaultValue={plan.freeUntil ?? ""}
+							aria-describedby="free-until-hint"
+							className="w-44"
+						/>
+					</div>
+					<Button type="submit" variant="secondary" size="sm" disabled={fetcher.state !== "idle"}>
+						{t("users.plan.save")}
+					</Button>
+					{plan.freeUntil ? (
+						<Button
+							variant="ghost"
+							onClick={() =>
+								fetcher.submit(
+									{ freeUntil: "" },
+									{ method: "post", action: `/admin/users/${userId}/billing` },
+								)
+							}
+							size="sm"
+							disabled={fetcher.state !== "idle"}
+						>
+							{t("users.plan.clear")}
+						</Button>
+					) : null}
+					<p id="free-until-hint" className="w-full text-sm text-muted-fg">
+						{t("users.plan.freeUntilHint")}
+					</p>
+				</fetcher.Form>
+			) : null}
+			{fetcher.data && !fetcher.data.ok ? <ActionError code={fetcher.data.error.code} /> : null}
+		</Card>
 	)
 }

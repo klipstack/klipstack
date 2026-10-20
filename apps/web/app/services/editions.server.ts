@@ -57,7 +57,7 @@ import {
 	quoteProblem,
 } from "~/lib/editions"
 import { hasFeature } from "~/lib/features.server"
-import { countMonthly } from "~/lib/limits.server"
+import { checkMayAdd, countMonthly } from "~/lib/limits.server"
 import { extractLinkIds, rewriteNoteLinks } from "~/lib/note-links"
 import { getBrief } from "./ai-threads.server"
 import { getDocumentForReader } from "./documents.server"
@@ -1422,7 +1422,9 @@ export async function publishEdition(userId: string, id: string): Promise<Publis
 			.orderBy(asc(editionItems.position))
 		const problems = publishProblems(items)
 		if (problems.length > 0) return { ok: false, problems }
+		// Only the first time counts; any new text going public needs an account that may add.
 		if (!edition.publishedAt) await countMonthly(tx, userId, "editions")
+		else await checkMayAdd(userId)
 		const [author] = await tx
 			.select({ name: userTable.name })
 			.from(userTable)

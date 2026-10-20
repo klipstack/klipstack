@@ -14,7 +14,7 @@ import {
 import { supportedLanguages } from "@klipstack/i18n"
 import { z } from "zod"
 import { AppError, notFound, parseInput } from "~/lib/app-error"
-import { countMonthly } from "~/lib/limits.server"
+import { checkMayAdd, countMonthly } from "~/lib/limits.server"
 import {
 	getShareState,
 	type ShareSnapshot,
@@ -96,6 +96,8 @@ export async function shareHighlight(
 		if (existing?.removedAt)
 			throw new AppError("share_removed", "This highlight was taken down and cannot be shared.")
 		if (existing && existing.published !== null) {
+			// Updating the page publishes the note as it is now: adding, like a new link.
+			await checkMayAdd(userId)
 			await tx
 				.update(highlightShares)
 				.set({ published: snapshot, updatedAt: sql`now()` })

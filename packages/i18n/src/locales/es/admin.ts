@@ -282,6 +282,24 @@ export default {
 		highlights: "Subrayados",
 		activeSessions: "Sesiones de navegador activas",
 		readOnly: "Los roles solo cambian desde la línea de comandos del operador.",
+		plan: {
+			title: "Plan",
+			state: "Estado",
+			states: {
+				unbilled: "Cobro desactivado",
+				trial: "Prueba",
+				free: "Gratis",
+				lapsed: "Vencida: solo lectura",
+			},
+			until: "Hasta",
+			ended: "Terminó",
+			noEnd: "Sin fecha de fin",
+			freeUntil: "Gratis hasta (UTC)",
+			freeUntilHint:
+				"La cuenta tiene el plan de pago sin costo hasta el inicio de este día, y vence después. Reemplaza la prueba o el año gratis de la cuenta; bórrala para volver a ellos. Solo rige con el cobro activado.",
+			save: "Guardar",
+			clear: "Borrar",
+		},
 		features: {
 			title: "Funciones en prueba",
 			on: "Activada",
@@ -389,6 +407,7 @@ export default {
 			"job.retry.images": "Reintento de imágenes en cola",
 			"role.grant": "Rol de admin concedido",
 			"role.revoke": "Rol de admin revocado",
+			"billing.free_until": "Período gratis cambiado",
 			"feature.enable": "Función activada",
 			"feature.disable": "Función desactivada",
 			"account.delete": "Cuenta borrada",

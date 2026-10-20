@@ -93,5 +93,5 @@ export const saveStarterText = defineEndpoint({
 	retryOnCutoff: true,
 	response: json(z.object({ articleId: Id, created: z.boolean() })),
 	/** `not_found`: no starter text has that slug. */
-	errors: ["not_found", "limit_reached"],
+	errors: ["not_found", "limit_reached", "subscription_required"],
 })

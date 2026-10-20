@@ -1443,3 +1443,33 @@ describe("writes", () => {
 		])
 	})
 })
+
+describe("a lapsed account", () => {
+	it("reads its library and is refused a save with 402 subscription_required", async () => {
+		const me = await users.create("Lapsed")
+		const article = await queuedArticle(me.id)
+		const DAY = 24 * 60 * 60 * 1000
+		await db
+			.update(user)
+			.set({ createdAt: new Date(Date.now() - 45 * DAY) })
+			.where(eq(user.id, me.id))
+		env.BILLING_STARTS_AT = new Date(Date.now() - 60 * DAY)
+		try {
+			const saved = await request("/api/v1/articles", {
+				token: me.key,
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({ url: "https://example.com/lapsed-save" }),
+			})
+			expect(saved.status).toBe(402)
+			expect(await saved.json()).toMatchObject({
+				error: { code: "subscription_required", details: { endedAt: expect.any(String) } },
+			})
+			const library = await request("/api/v1/articles", { token: me.key })
+			expect(library.status).toBe(200)
+			expect(JSON.stringify(await library.json())).toContain(article)
+		} finally {
+			env.BILLING_STARTS_AT = undefined
+		}
+	})
+})

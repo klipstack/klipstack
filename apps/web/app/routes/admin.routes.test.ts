@@ -22,6 +22,7 @@ import * as requestsDismiss from "./admin.requests.dismiss"
 import * as system from "./admin.system"
 import * as usage from "./admin.usage"
 import * as userDetail from "./admin.user"
+import * as userBilling from "./admin.user.billing"
 import * as userFeatures from "./admin.user.features"
 import * as users from "./admin.users"
 
@@ -94,6 +95,12 @@ const actions: Array<[string, Handler, Record<string, string>, Record<string, st
 		userFeatures.action as unknown as Handler,
 		{ id: "';--" },
 		{ feature: "bogus", enabled: "maybe" },
+	],
+	[
+		"/admin/users/%27%3B--/billing",
+		userBilling.action as unknown as Handler,
+		{ id: "';--" },
+		{ freeUntil: "2027-02-30" },
 	],
 	[
 		"/admin/reauthenticate",

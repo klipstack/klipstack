@@ -1,7 +1,16 @@
-import { db, eq, user as userTable } from "@klipstack/db"
-import { afterAll, beforeAll, describe, expect, it } from "vitest"
+import { accountBilling, db, eq, inArray, user as userTable } from "@klipstack/db"
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest"
 import { env } from "./env.server"
-import { aiAllowance, countMonthly, limitsFor, monthOf, usageOf } from "./limits.server"
+import {
+	aiAllowance,
+	checkFeeds,
+	checkStorage,
+	countMonthly,
+	limitsFor,
+	monthOf,
+	planOf,
+	usageOf,
+} from "./limits.server"
 
 const userId = `test-limits-${Date.now()}`
 
@@ -81,5 +90,121 @@ describe("aiAllowance", () => {
 			resetsAt: monthOf().resetsAt,
 		})
 		expect((await aiAllowance(userId)).used).toBe(before.used + 1)
+	})
+})
+
+describe("plans", () => {
+	const DAY = 24 * 60 * 60 * 1000
+	const ago = (days: number) => new Date(Date.now() - days * DAY)
+	const accounts: string[] = []
+	/** An account made `days` ago, with an admin's `freeUntil` when given. */
+	const account = async (
+		days: number,
+		{ role = "user", freeUntil }: { role?: "user" | "admin"; freeUntil?: Date } = {},
+	) => {
+		const id = `${userId}-plan-${accounts.length}`
+		accounts.push(id)
+		await db
+			.insert(userTable)
+			.values({ id, name: "Plan", email: `${id}@example.com`, role, createdAt: ago(days) })
+		if (freeUntil) await db.insert(accountBilling).values({ userId: id, freeUntil })
+		return id
+	}
+	const startsAt = (days: number | null) => {
+		env.BILLING_STARTS_AT = days === null ? undefined : ago(days)
+	}
+	afterEach(() => startsAt(null))
+	afterAll(async () => {
+		await db.delete(userTable).where(inArray(userTable.id, accounts))
+	})
+
+	it("has nothing to do with billing while it is off or has not started", async () => {
+		const id = await account(500)
+		expect(await planOf(id)).toEqual({ state: "unbilled", until: null })
+		startsAt(-3) // three days from now
+		expect(await planOf(id)).toEqual({ state: "unbilled", until: null })
+		expect(await limitsFor(id)).toEqual(await limitsFor(userId))
+		expect((await limitsFor(id)).storage).toBe(env.LIMIT_STORAGE_MB * 1024 * 1024)
+	})
+
+	it("gives accounts older than billing a free year from its start, with the paid caps", async () => {
+		const id = await account(500)
+		startsAt(10)
+		const start = env.BILLING_STARTS_AT!.getTime()
+		expect(await planOf(id)).toEqual({ state: "free", until: new Date(start + 365 * DAY) })
+		expect(await limitsFor(id)).toEqual({
+			saves: 2000,
+			storage: 2048 * 1024 * 1024,
+			feeds: 500,
+			editions: 30,
+			shares: 500,
+			ai: 300,
+		})
+		// The year is over: lapsed since it ended.
+		startsAt(400)
+		const lapsed = await planOf(id)
+		expect(lapsed.state).toBe("lapsed")
+		expect(Math.abs(lapsed.until!.getTime() - ago(35).getTime())).toBeLessThan(5_000)
+	})
+
+	it("gives newer accounts 30 days of trial with the trial's caps, then lapses them", async () => {
+		startsAt(90)
+		const inTrial = await account(30 - 1 / 24) // an hour of trial left
+		const ended = await account(30 + 1 / 24) // an hour since it ended
+		const trial = await planOf(inTrial)
+		expect(trial.state).toBe("trial")
+		expect(Math.abs(trial.until!.getTime() - (Date.now() + DAY / 24))).toBeLessThan(5_000)
+		expect(await limitsFor(inTrial)).toEqual({
+			saves: 300,
+			storage: 500 * 1024 * 1024,
+			feeds: 100,
+			editions: 4,
+			shares: 50,
+			ai: 50,
+		})
+		const lapsed = await planOf(ended)
+		expect(lapsed.state).toBe("lapsed")
+		// It ended 30 days after the account was made: an hour ago.
+		expect(Math.abs(lapsed.until!.getTime() - (Date.now() - DAY / 24))).toBeLessThan(5_000)
+	})
+
+	it("gives the trial to an account made at the very moment billing starts", async () => {
+		startsAt(5)
+		const id = await account(5)
+		await db.update(userTable).set({ createdAt: env.BILLING_STARTS_AT }).where(eq(userTable.id, id))
+		expect((await planOf(id)).state).toBe("trial")
+	})
+
+	it("lets an admin's date replace the free period, longer or shorter; admins never lapse", async () => {
+		startsAt(90)
+		const later = new Date(Date.now() + 200 * DAY)
+		const given = await account(60, { freeUntil: later })
+		expect(await planOf(given)).toEqual({ state: "free", until: later })
+		// An older account whose founding year an admin cut short.
+		const cut = await account(100, { freeUntil: ago(1) })
+		expect((await planOf(cut)).state).toBe("lapsed")
+		// And a trial cut short: it ended on the admin's date.
+		const yesterday = ago(1)
+		const cutTrial = await account(5, { freeUntil: yesterday })
+		expect(await planOf(cutTrial)).toEqual({ state: "lapsed", until: yesterday })
+		startsAt(800)
+		const admin = await account(900, { role: "admin" })
+		expect(await planOf(admin)).toEqual({ state: "free", until: null })
+		expect((await limitsFor(admin)).ai).toBe(env.LIMIT_AI_PER_MONTH_ADMIN)
+	})
+
+	it("refuses a lapsed account anything a cap counts, and counts nothing", async () => {
+		startsAt(90)
+		const id = await account(60)
+		for (const metric of ["saves", "editions", "shares", "ai"] as const)
+			await expect(db.transaction((tx) => countMonthly(tx, id, metric))).rejects.toMatchObject({
+				code: "subscription_required",
+				status: 402,
+				details: { endedAt: expect.any(String) },
+			})
+		await expect(checkStorage(id)).rejects.toMatchObject({ code: "subscription_required" })
+		await expect(checkFeeds(id)).rejects.toMatchObject({ code: "subscription_required" })
+		const usage = await usageOf(id)
+		expect([usage.saves.used, usage.ai.used, usage.refused]).toEqual([0, 0, 0])
 	})
 })

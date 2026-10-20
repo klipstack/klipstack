@@ -63,7 +63,7 @@ export const shareHighlight = defineEndpoint({
 	 * `limit_reached`: a new link past the monthly cap (`details.limit` "shares"); an update is
 	 * not counted. `share_removed`: an admin took it down.
 	 */
-	errors: ["not_found", "limit_reached", "share_removed"],
+	errors: ["not_found", "limit_reached", "subscription_required", "share_removed"],
 })
 
 export const stopSharingHighlight = defineEndpoint({

@@ -277,6 +277,24 @@ export default {
 		highlights: "Highlights",
 		activeSessions: "Active browser sessions",
 		readOnly: "Roles change only through the operator command line.",
+		plan: {
+			title: "Plan",
+			state: "State",
+			states: {
+				unbilled: "Billing off",
+				trial: "Trial",
+				free: "Free",
+				lapsed: "Lapsed: read only",
+			},
+			until: "Until",
+			ended: "Ended",
+			noEnd: "No end",
+			freeUntil: "Free until (UTC)",
+			freeUntilHint:
+				"The account has the paid plan at no charge until this day starts, and lapses after. It replaces the account's trial or free year; clear it to go back to those. Takes effect only while billing is on.",
+			save: "Save",
+			clear: "Clear",
+		},
 		features: {
 			title: "Features in testing",
 			on: "On",
@@ -380,6 +398,7 @@ export default {
 			"job.retry.images": "Image retry queued",
 			"role.grant": "Admin role granted",
 			"role.revoke": "Admin role revoked",
+			"billing.free_until": "Free period changed",
 			"feature.enable": "Feature turned on",
 			"feature.disable": "Feature turned off",
 			"account.delete": "Account deleted",

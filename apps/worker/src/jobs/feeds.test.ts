@@ -194,4 +194,34 @@ describe("handleFeedsTick", () => {
 		await handleFeedsTick()
 		expect(enqueue).not.toHaveBeenCalledWith(expect.any(String), { feedId: followed.id })
 	})
+
+	it("leaves alone the feeds only lapsed accounts follow", async () => {
+		// Made 45 days ago, 15 after billing started: its trial is over.
+		const lapsed = `${userId}-lapsed`
+		const DAY = 24 * 60 * 60 * 1000
+		await db.insert(user).values({
+			id: lapsed,
+			name: "Lapsed",
+			email: `${lapsed}@example.com`,
+			prefs: { feeds: "on" },
+			createdAt: new Date(Date.now() - 45 * DAY),
+		})
+		const theirs = await feed(false)
+		const shared = await feed()
+		await db.insert(subscriptions).values([
+			{ userId: lapsed, feedId: theirs.id },
+			{ userId: lapsed, feedId: shared.id },
+		])
+		process.env.BILLING_STARTS_AT = new Date(Date.now() - 60 * DAY).toISOString()
+		enqueue.mockClear()
+		try {
+			await handleFeedsTick()
+		} finally {
+			delete process.env.BILLING_STARTS_AT
+			await db.delete(user).where(eq(user.id, lapsed))
+		}
+		expect(enqueue).not.toHaveBeenCalledWith(expect.any(String), { feedId: theirs.id })
+		// Someone in a trial follows it too.
+		expect(enqueue).toHaveBeenCalledWith(expect.any(String), { feedId: shared.id })
+	})
 })

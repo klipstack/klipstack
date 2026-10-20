@@ -54,7 +54,13 @@ export const saveArticle = defineEndpoint({
 		source: z.enum(["api", "extension"]).default("api"),
 	}),
 	response: json(z.object({ article: ArticleSummary, created: z.boolean() }), [202, 200]),
-	errors: ["invalid_url", "unsupported_twitter", "unsupported_youtube", "limit_reached"],
+	errors: [
+		"invalid_url",
+		"unsupported_twitter",
+		"unsupported_youtube",
+		"limit_reached",
+		"subscription_required",
+	],
 })
 
 export const updateArticles = defineEndpoint({
@@ -290,7 +296,7 @@ export const setNote = defineEndpoint({
 		expectedUpdatedAt: Time.nullable().optional(),
 	}),
 	response: json(Note),
-	errors: ["not_found", "note_changed"],
+	errors: ["not_found", "note_changed", "subscription_required"],
 })
 
 export const appendNote = defineEndpoint({
@@ -303,7 +309,7 @@ export const appendNote = defineEndpoint({
 	body: z.object({ text: z.string().trim().min(1).max(NOTE_MAX).refine(withoutNul, NUL_REFUSED) }),
 	response: json(Note),
 	/** `note_too_long`: the note would exceed NOTE_MAX characters with the paragraph. */
-	errors: ["not_found", "note_changed", "note_too_long"],
+	errors: ["not_found", "note_changed", "note_too_long", "subscription_required"],
 })
 
 export const setEditionNote = defineEndpoint({
@@ -351,7 +357,7 @@ export const createHighlight = defineEndpoint({
 		color: Color.optional(),
 	}),
 	response: json(z.object({ highlight: Highlight }), [201]),
-	errors: ["not_found", "ambiguous_quote", "no_match", "not_ready"],
+	errors: ["not_found", "ambiguous_quote", "no_match", "not_ready", "subscription_required"],
 })
 
 export const updateHighlight = defineEndpoint({
@@ -564,7 +570,15 @@ export const followFeed = defineEndpoint({
 	body: z.object({ url: Url }),
 	response: json(z.object({ feed: FollowedFeed, alreadyFollowing: z.boolean() }), [201, 200]),
 	/** `forbidden`: feeds are turned off for the account (`GET /me`). */
-	errors: ["choose_feed", "invalid_url", "not_feed", "fetch_failed", "limit_reached", "forbidden"],
+	errors: [
+		"choose_feed",
+		"invalid_url",
+		"not_feed",
+		"fetch_failed",
+		"limit_reached",
+		"subscription_required",
+		"forbidden",
+	],
 })
 
 export const unfollowFeed = defineEndpoint({

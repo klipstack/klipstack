@@ -9,6 +9,11 @@ export const ERROR_STATUS = {
 	/** A highlight's new range is not a passage of the article (its ends, its length). */
 	invalid_range: 400,
 	unauthorized: 401,
+	/**
+	 * The account's trial or free period ended (`details.endedAt`): its library stays readable and
+	 * can be exported, but nothing new can be saved, followed, asked, published, shared or highlighted.
+	 */
+	subscription_required: 402,
 	insufficient_scope: 403,
 	/** Admin pages and changes: the account is not an administrator (any more). */
 	forbidden: 403,

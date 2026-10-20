@@ -2,6 +2,7 @@ import { createHash } from "node:crypto"
 import { NOTE_MAX } from "@klipstack/api-contract"
 import { db, documents, documentVersions, eq, highlights, user as userTable } from "@klipstack/db"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
+import { env } from "~/lib/env.server"
 import { appOrigin } from "~/services/article-summary.server"
 import { setNote } from "~/services/documents.server"
 import {
@@ -172,5 +173,49 @@ describe("the article note", () => {
 		await expect(appendArticleNote(userId, id, "   ")).rejects.toMatchObject({
 			code: "invalid_request",
 		})
+	})
+})
+
+describe("a lapsed account", () => {
+	it("keeps its highlights and notes, and adds none", async () => {
+		const id = await article()
+		const kept = await createHighlight(userId, id, { exact: "Hotel india" })
+		await setArticleNote(userId, id, { note: "Kept.", expectedUpdatedAt: null })
+		// Made 60 days ago, after billing started: the trial is over.
+		const DAY = 24 * 60 * 60 * 1000
+		await db
+			.update(userTable)
+			.set({ createdAt: new Date(Date.now() - 60 * DAY) })
+			.where(eq(userTable.id, userId))
+		env.BILLING_STARTS_AT = new Date(Date.now() - 90 * DAY)
+		try {
+			const refused = { code: "subscription_required", status: 402 }
+			await expect(createHighlight(userId, id, { exact: "Alpha bravo" })).rejects.toMatchObject(
+				refused,
+			)
+			await expect(appendArticleNote(userId, id, "More.")).rejects.toMatchObject(refused)
+			const doc = await db.query.documents.findFirst({ where: eq(documents.id, id) })
+			await expect(
+				setArticleNote(userId, id, {
+					note: "Changed.",
+					expectedUpdatedAt: doc!.noteUpdatedAt!.toISOString(),
+				}),
+			).rejects.toMatchObject(refused)
+			await expect(updateHighlight(userId, kept.id, { note: "New." })).rejects.toMatchObject(
+				refused,
+			)
+			// Tidying up what it has is fine.
+			await updateHighlight(userId, kept.id, { color: 4 })
+			await updateHighlight(userId, kept.id, { note: null })
+			await deleteHighlight(userId, kept.id)
+			expect(
+				await setArticleNote(userId, id, {
+					note: null,
+					expectedUpdatedAt: doc!.noteUpdatedAt!.toISOString(),
+				}),
+			).toMatchObject({ note: null })
+		} finally {
+			env.BILLING_STARTS_AT = undefined
+		}
 	})
 })

@@ -1,5 +1,16 @@
 import { createTopicModels, retryable } from "@klipstack/ai"
-import { and, db, eq, topicLibraries, topicLimits, userFeatures } from "@klipstack/db"
+import {
+	accountBilling,
+	and,
+	billingStartsAt,
+	db,
+	eq,
+	mayAddSql,
+	topicLibraries,
+	topicLimits,
+	user,
+	userFeatures,
+} from "@klipstack/db"
 import { enqueue, type JobPayloads, QUEUES } from "@klipstack/queue"
 import type { JobWithMetadata } from "pg-boss"
 import { log } from "../log"
@@ -37,6 +48,10 @@ export async function handleTopicsMonth() {
 			userFeatures,
 			and(eq(userFeatures.userId, topicLibraries.userId), eq(userFeatures.feature, "topics")),
 		)
+		.innerJoin(user, eq(user.id, topicLibraries.userId))
+		.leftJoin(accountBilling, eq(accountBilling.userId, user.id))
+		// A lapsed account adds nothing to sort, and its topics stay as they are.
+		.where(mayAddSql(billingStartsAt()))
 	for (const { userId } of readers) await queueTopics(userId)
 	return { readers: readers.length }
 }
@@ -50,10 +65,22 @@ export async function queueTopicsAfterSave(userId: string) {
 	if (library) await queueTopics(userId)
 }
 
+/** Whether the reader's account lapsed: its topics stay as they are, and cost nothing more. */
+async function lapsed(userId: string) {
+	const rows = await db
+		.select({ id: user.id })
+		.from(user)
+		.leftJoin(accountBilling, eq(accountBilling.userId, user.id))
+		.where(and(eq(user.id, userId), mayAddSql(billingStartsAt())))
+	return rows.length === 0
+}
+
 export async function handleTopics(
 	job: JobWithMetadata<JobPayloads["topics"]>,
 	deps: TopicsDeps = depsFor(job.data.userId),
 ) {
+	// Whatever queued the run (a save, a restore, turning topics on): a lapsed account gets none.
+	if (await lapsed(job.data.userId)) return
 	try {
 		const outcome = await bringTopicsUpToDate(job.data.userId, deps)
 		if (outcome.done !== "nothing") log.info("topics", { userId: job.data.userId, ...outcome })

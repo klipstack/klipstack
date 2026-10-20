@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto"
 import { AiError, DecisionError } from "@klipstack/ai"
 import {
+	accountBilling,
 	db,
 	documents,
 	documentVersions,
@@ -103,10 +104,23 @@ describe("the topics job", () => {
 		const off = await reader(false)
 		const unflagged = await reader(true)
 		await db.delete(userFeatures).where(eq(userFeatures.userId, unflagged))
-		await handleTopicsMonth()
+		// Its trial ended: billing started 60 days ago, the account 45.
+		const lapsed = await reader(true)
+		const DAY = 24 * 60 * 60 * 1000
+		await db
+			.update(user)
+			.set({ createdAt: new Date(Date.now() - 45 * DAY) })
+			.where(eq(user.id, lapsed))
+		process.env.BILLING_STARTS_AT = new Date(Date.now() - 60 * DAY).toISOString()
+		try {
+			await handleTopicsMonth()
+		} finally {
+			delete process.env.BILLING_STARTS_AT
+		}
 		expect(await queued(on)).toBe(1)
 		expect(await queued(off)).toBe(0)
 		expect(await queued(unflagged)).toBe(0)
+		expect(await queued(lapsed)).toBe(0)
 		// A run for now: nothing waits for a later time and holds the reader's place in the queue.
 		const [row] = (
 			await db.execute<{ late: boolean }>(
@@ -127,5 +141,22 @@ describe("the topics job", () => {
 		const loud = await reader(true)
 		await articles(loud, 25)
 		await expect(handleTopics(job(loud), failing(down))).rejects.toThrow("down")
+	})
+
+	it("runs nothing for a lapsed account, whatever queued the run", async () => {
+		const down = new AiError("provider", "down", { cause: new Error("socket hang up") })
+		const lapsed = await reader(true)
+		await articles(lapsed, 25)
+		// An admin's date in the past, with billing on: lapsed.
+		await db
+			.insert(accountBilling)
+			.values({ userId: lapsed, freeUntil: new Date(Date.now() - 86_400_000) })
+		process.env.BILLING_STARTS_AT = new Date(Date.now() - 90 * 86_400_000).toISOString()
+		try {
+			// A run would reach the provider, and fail.
+			await expect(handleTopics(job(lapsed), failing(down))).resolves.toBeUndefined()
+		} finally {
+			delete process.env.BILLING_STARTS_AT
+		}
 	})
 })
