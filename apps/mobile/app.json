@@ -10,6 +10,7 @@
 		"ios": {
 			"bundleIdentifier": "com.klipstack.mobile",
 			"supportsTablet": false,
+			"usesAppleSignIn": true,
 			"associatedDomains": ["applinks:klipstack.com", "webcredentials:klipstack.com"],
 			"entitlements": {
 				"com.apple.security.application-groups": ["group.com.klipstack"]
@@ -118,6 +119,7 @@
 			"expo-router",
 			"expo-secure-store",
 			"expo-web-browser",
+			"expo-apple-authentication",
 			"@bacons/apple-targets",
 			"./plugins/with-extension-settings",
 			[

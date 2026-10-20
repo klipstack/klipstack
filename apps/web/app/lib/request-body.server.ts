@@ -77,6 +77,16 @@ export async function readJson(request: Request, limit = FORM_BODY, owner?: stri
 	return (await boundedRequest(request, limit, owner)).json()
 }
 
+/** A JSON body within the auth forms' limit; malformed JSON is a refusal (`invalid_request`). */
+export async function readSmallJson(request: Request): Promise<unknown> {
+	const bounded = await boundedRequest(request)
+	try {
+		return await bounded.json()
+	} catch {
+		throw new AppError("invalid_request", "The body is not valid JSON.")
+	}
+}
+
 /**
  * A JSON body, or a form's fields (a page without JavaScript posts a form), as an object. Malformed
  * JSON is a refusal (`invalid_request`); a body past its limit throws its own answer.

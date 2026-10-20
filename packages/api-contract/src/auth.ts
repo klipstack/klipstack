@@ -110,7 +110,10 @@ export type AppSignInOptions = {
 	emailCode: boolean
 }
 
-export type AppSignInRequest = { codeChallenge: string } & (
+export type AppSignInRequest = { codeChallenge: string } & AppSignInCredentials
+
+/** A way in, as the app sends it. */
+export type AppSignInCredentials =
 	| { method: "password"; email: string; password: string }
 	| { method: "code"; email: string; code: string }
 	| {
@@ -124,7 +127,6 @@ export type AppSignInRequest = { codeChallenge: string } & (
 			givenName?: string
 			familyName?: string
 	  }
-)
 
 /**
  * Why a provider sign-in in the sheet came back without a code (`error` on the redirect):
