@@ -1,4 +1,7 @@
 import {
+	accountBilling,
+	billingStartsAt,
+	mayAddSql,
 	and,
 	db,
 	eq,
@@ -48,9 +51,10 @@ export function nextFetchDelay(
 
 /**
  * Queues a fetch for every due feed followed by an account with feeds turned on (Settings →
- * Features), claiming each so the next tick skips it.
+ * Features) that has not lapsed, claiming each so the next tick skips it.
  */
 export async function handleFeedsTick() {
+	const mayAdd = mayAddSql(billingStartsAt())
 	const due = await db
 		.update(feeds)
 		.set({ nextFetchAt: new Date(Date.now() + CLAIM_MS) })
@@ -62,7 +66,10 @@ export async function handleFeedsTick() {
 						.select({ one: sql`1` })
 						.from(subscriptions)
 						.innerJoin(user, eq(user.id, subscriptions.userId))
-						.where(and(eq(subscriptions.feedId, feeds.id), sql`${user.prefs}->>'feeds' = 'on'`)),
+						.leftJoin(accountBilling, eq(accountBilling.userId, user.id))
+						.where(
+							and(eq(subscriptions.feedId, feeds.id), sql`${user.prefs}->>'feeds' = 'on'`, mayAdd),
+						),
 				),
 			),
 		)

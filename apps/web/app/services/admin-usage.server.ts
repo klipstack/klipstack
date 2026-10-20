@@ -1,15 +1,21 @@
 import {
+	accountBilling,
 	type Db,
 	db,
+	eq,
+	inArray,
+	planColumns,
 	sql,
 	type TopicUseMetric,
 	topicLimits,
 	topicUseMetrics,
 	type Tx,
 	type UserRole,
+	user,
 } from "@klipstack/db"
 import { USAGE_TOP, type UsageOrder } from "~/lib/admin-constants"
 import { type AdminContext, assertAdminContext } from "~/lib/admin.server"
+import { env } from "~/lib/env.server"
 import {
 	defaultLimits,
 	type Limits,
@@ -49,7 +55,7 @@ export async function listUsage(
 	tx: Db | Tx = db,
 ): Promise<{
 	rows: AdminUsageRow[]
-	/** The caps every account has today, but for `aiMax`; a plan would make them a column. */
+	/** The caps with billing off, but for `aiMax`, which follows each account's role and plan. */
 	limits: Limits
 	/** The month counted: its first day, UTC. */
 	month: string
@@ -119,6 +125,20 @@ export async function listUsage(
 			from usage_counts where month = ${month}
 		`)
 	).rows
+	// Each listed account's plan, for its AI cap.
+	const plan = planColumns(env.BILLING_STARTS_AT ?? null)
+	const ids = result.rows.map((row) => row.id)
+	const plans = new Map(
+		ids.length
+			? (
+					await tx
+						.select({ id: user.id, state: plan.state })
+						.from(user)
+						.leftJoin(accountBilling, eq(accountBilling.userId, user.id))
+						.where(inArray(user.id, ids))
+				).map((row) => [row.id, row.state])
+			: [],
+	)
 	return {
 		rows: result.rows.map((row) => ({
 			id: row.id,
@@ -127,7 +147,7 @@ export async function listUsage(
 			saves: row.saves,
 			editions: row.editions,
 			ai: row.ai,
-			aiMax: limitsForRole(row.role).ai,
+			aiMax: limitsForRole(row.role, plans.get(row.id)).ai,
 			aiCostUsd: Number(row.ai_spend) / 1_000_000,
 			topicCostUsd: Number(row.topic_spend) / 1_000_000,
 			refused: row.refused,

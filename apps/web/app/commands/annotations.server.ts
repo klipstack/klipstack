@@ -10,6 +10,7 @@ import {
 import type { Highlight } from "@klipstack/db"
 import { z } from "zod"
 import { AppError, notFound, parseInput } from "~/lib/app-error"
+import { checkMayAdd } from "~/lib/limits.server"
 import { internalizeReaderLinks } from "~/lib/note-links"
 import { appOrigin } from "~/services/article-summary.server"
 import { getDocument, type NoteState, setNote } from "~/services/documents.server"
@@ -79,6 +80,7 @@ export async function createHighlight(
 ): Promise<Highlight> {
 	const { occurrence, note, ...passage } = parseInput(NewHighlight, input)
 	const documentId = one(articleId)
+	await checkMayAdd(userId)
 	const fields: Omit<HighlightInput, "exact"> = {
 		prefix: passage.prefix,
 		suffix: passage.suffix,
@@ -251,6 +253,8 @@ export async function setArticleNote(
 	input: z.input<typeof NoteWrite>,
 ): Promise<NoteState> {
 	const { note, expectedUpdatedAt } = parseInput(NoteWrite, input)
+	// Deleting a note is tidying up; writing one is adding.
+	if (note !== null) await checkMayAdd(userId)
 	const saved = await setNote(userId, one(articleId), note === null ? null : noteText(note), {
 		expectedUpdatedAt,
 	})
@@ -276,6 +280,7 @@ export async function appendArticleNote(
 ): Promise<NoteState> {
 	const paragraph = noteText(parseInput(Paragraph, text))
 	const documentId = one(articleId)
+	await checkMayAdd(userId)
 	let current: NoteState = { note: null, noteUpdatedAt: null }
 	for (let attempt = 0; attempt < 3; attempt++) {
 		const doc = await getDocument(userId, documentId)

@@ -1,10 +1,13 @@
 import { estimateCostUsd, type TokenCounts } from "@klipstack/ai"
 import {
+	accountBilling,
 	addUsage,
 	and,
 	db,
 	monthOf,
 	eq,
+	type PlanState,
+	planColumns,
 	type SQL,
 	sql,
 	subscriptions,
@@ -22,8 +25,9 @@ import { env } from "./env.server"
 
 /**
  * Per-account caps. Unlike the rate limits, they are counted in the database, so they hold across
- * deploys and machines. Every account has the same numbers, except admins' AI cap; a plan, or an
- * exception for an import, is `limitsFor` answering other ones.
+ * deploys and machines. They follow the account's plan (`PlanState`): with billing off, every
+ * account has the `LIMIT_*` numbers; with it on, the trial's or the paid plan's. Admins ask the AI
+ * more whatever the plan.
  */
 export interface Limits {
 	/** New articles a calendar month (UTC), however they were saved. */
@@ -42,18 +46,45 @@ export interface Limits {
 
 export type LimitName = keyof Limits
 
-export async function limitsFor(userId: string): Promise<Limits> {
-	const [account] = await db.select({ role: user.role }).from(user).where(eq(user.id, userId))
-	return limitsForRole(account?.role ?? "user")
+/** Where the account stands with billing: its state, and when that ends (or ended). */
+export interface Plan {
+	state: PlanState
+	until: Date | null
 }
 
-/** The caps of an account with that role: admins ask the AI more, everything else is the same. */
-export function limitsForRole(role: UserRole): Limits {
-	const limits = defaultLimits()
+/** The account's plan and caps, read together. An account that is gone has today's caps. */
+async function standing(userId: string): Promise<Plan & { limits: Limits }> {
+	const plan = planColumns(env.BILLING_STARTS_AT ?? null)
+	const [account] = await db
+		.select({ role: user.role, state: plan.state, until: plan.until })
+		.from(user)
+		.leftJoin(accountBilling, eq(accountBilling.userId, user.id))
+		.where(eq(user.id, userId))
+	const state = account?.state ?? "unbilled"
+	return {
+		state,
+		until: account?.until ?? null,
+		limits: limitsForRole(account?.role ?? "user", state),
+	}
+}
+
+export async function limitsFor(userId: string): Promise<Limits> {
+	return (await standing(userId)).limits
+}
+
+export async function planOf(userId: string): Promise<Plan> {
+	const { state, until } = await standing(userId)
+	return { state, until }
+}
+
+/** The caps of an account with that role and plan: admins ask the AI more. */
+export function limitsForRole(role: UserRole, state: PlanState = "unbilled"): Limits {
+	const limits =
+		state === "unbilled" ? defaultLimits() : state === "free" ? paidLimits() : trialLimits()
 	return role === "admin" ? { ...limits, ai: env.LIMIT_AI_PER_MONTH_ADMIN } : limits
 }
 
-/** The caps of an account with nothing special about it: the env's numbers. */
+/** The caps of an account with nothing special about it while billing is off: the env's numbers. */
 export function defaultLimits(): Limits {
 	return {
 		saves: env.LIMIT_SAVES_PER_MONTH,
@@ -63,6 +94,55 @@ export function defaultLimits(): Limits {
 		shares: env.LIMIT_SHARES_PER_MONTH,
 		ai: env.LIMIT_AI_PER_MONTH,
 	}
+}
+
+/** A trial's caps; a lapsed account shows them too, though it can add nothing. */
+function trialLimits(): Limits {
+	return {
+		saves: env.LIMIT_TRIAL_SAVES_PER_MONTH,
+		storage: env.LIMIT_TRIAL_STORAGE_MB * 1024 * 1024,
+		feeds: env.LIMIT_TRIAL_FEEDS,
+		editions: env.LIMIT_TRIAL_EDITIONS_PER_MONTH,
+		shares: env.LIMIT_TRIAL_SHARES_PER_MONTH,
+		ai: env.LIMIT_TRIAL_AI_PER_MONTH,
+	}
+}
+
+/** The paid plan's caps, for the accounts that have it free, too. */
+function paidLimits(): Limits {
+	return {
+		saves: env.LIMIT_PAID_SAVES_PER_MONTH,
+		storage: env.LIMIT_PAID_STORAGE_MB * 1024 * 1024,
+		feeds: env.LIMIT_PAID_FEEDS,
+		editions: env.LIMIT_PAID_EDITIONS_PER_MONTH,
+		shares: env.LIMIT_PAID_SHARES_PER_MONTH,
+		ai: env.LIMIT_PAID_AI_PER_MONTH,
+	}
+}
+
+/** The refusal of anything new to a lapsed account. */
+function subscriptionRequired(endedAt: Date | null): AppError {
+	const since = endedAt ? ` on ${day(endedAt)}` : ""
+	return new AppError(
+		"subscription_required",
+		`This account's trial or free period ended${since}. Its library stays readable and can be exported, but nothing new can be added.`,
+		{ details: endedAt ? { endedAt: endedAt.toISOString() } : {} },
+	)
+}
+
+/** Refuses a lapsed account, and answers the caps of any other. */
+async function limitsToAdd(userId: string): Promise<Limits> {
+	const { state, until, limits } = await standing(userId)
+	if (state === "lapsed") throw subscriptionRequired(until)
+	return limits
+}
+
+/**
+ * Refuses a lapsed account (`subscription_required`). The caps' checks do it themselves; this is
+ * for what adds to the library without a cap: highlights and notes.
+ */
+export async function checkMayAdd(userId: string) {
+	await limitsToAdd(userId)
 }
 
 export { monthOf } from "@klipstack/db"
@@ -140,7 +220,7 @@ export async function countMonthly(
 	userId: string,
 	metric: "saves" | "editions" | "shares" | "ai",
 ): Promise<{ used: number; max: number; resetsAt: Date }> {
-	const max = (await limitsFor(userId))[metric]
+	const max = (await limitsToAdd(userId))[metric]
 	// One month for the count and the date it starts over, even at midnight on the 1st.
 	const { month, resetsAt } = monthOf()
 	const used = await bump(tx, userId, metric, month)
@@ -199,7 +279,7 @@ export async function storageUsed(userId: string): Promise<number> {
 
 /** Refuses when the account stores as much as it may. What is being stored now may go past it. */
 export async function checkStorage(userId: string) {
-	const max = (await limitsFor(userId)).storage
+	const max = (await limitsToAdd(userId)).storage
 	if ((await storageUsed(userId)) >= max) throw await refuse(userId, "storage", max)
 }
 
@@ -211,9 +291,9 @@ async function feedsFollowed(userId: string): Promise<number> {
 	return row?.n ?? 0
 }
 
-/** How many more feeds the account may follow. */
+/** How many more feeds the account may follow. Refuses a lapsed account. */
 export async function feedsLeft(userId: string): Promise<number> {
-	const max = (await limitsFor(userId)).feeds
+	const max = (await limitsToAdd(userId)).feeds
 	return Math.max(0, max - (await feedsFollowed(userId)))
 }
 

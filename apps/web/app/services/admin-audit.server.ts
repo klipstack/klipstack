@@ -6,6 +6,7 @@ export type AuditActor = { kind: "user"; userId: string } | { kind: "operator-cl
 
 export type AuditAction =
 	| "account.delete"
+	| "billing.free_until"
 	| "edition.remove"
 	| "edition.restore"
 	| "edition_reports.dismiss"
@@ -34,7 +35,7 @@ export type AuditTargetKind =
 
 /**
  * The only metadata an event may carry: internal IDs, safe categories, role changes, feature flag
- * names, the CLI reason, and a removal's ground and report count (never a report's text or
+ * names, a free-until date, the CLI reason, and a removal's ground and report count (never a report's text or
  * address, nor the admin's note to the owner). Invite codes, emails, notes, content and error text have no key here, so they cannot be
  * stored by accident.
  */
@@ -51,6 +52,7 @@ const METADATA_KEYS = new Set([
 	"sessionsRevoked",
 	"reason",
 	"feature",
+	"freeUntil",
 	"ground",
 	"reports",
 ])

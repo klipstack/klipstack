@@ -87,6 +87,24 @@ const schema = z.object({
 	/** Except AI questions: they cost money, so admins have a cap of their own. */
 	LIMIT_AI_PER_MONTH: z.coerce.number().int().positive().default(100),
 	LIMIT_AI_PER_MONTH_ADMIN: z.coerce.number().int().positive().default(500),
+	/**
+	 * The day billing starts (`@klipstack/db`'s `plan.ts`). Unset, billing is off: every account has
+	 * the caps above and none lapses. From that day, new accounts have a trial with the `LIMIT_TRIAL_*`
+	 * caps, older ones a free year with the `LIMIT_PAID_*` caps.
+	 */
+	BILLING_STARTS_AT: optional(z.coerce.date()),
+	LIMIT_TRIAL_SAVES_PER_MONTH: z.coerce.number().int().positive().default(300),
+	LIMIT_TRIAL_STORAGE_MB: z.coerce.number().int().positive().default(500),
+	LIMIT_TRIAL_FEEDS: z.coerce.number().int().positive().default(100),
+	LIMIT_TRIAL_EDITIONS_PER_MONTH: z.coerce.number().int().positive().default(4),
+	LIMIT_TRIAL_SHARES_PER_MONTH: z.coerce.number().int().positive().default(50),
+	LIMIT_TRIAL_AI_PER_MONTH: z.coerce.number().int().positive().default(50),
+	LIMIT_PAID_SAVES_PER_MONTH: z.coerce.number().int().positive().default(2000),
+	LIMIT_PAID_STORAGE_MB: z.coerce.number().int().positive().default(2048),
+	LIMIT_PAID_FEEDS: z.coerce.number().int().positive().default(500),
+	LIMIT_PAID_EDITIONS_PER_MONTH: z.coerce.number().int().positive().default(30),
+	LIMIT_PAID_SHARES_PER_MONTH: z.coerce.number().int().positive().default(500),
+	LIMIT_PAID_AI_PER_MONTH: z.coerce.number().int().positive().default(300),
 	/** AI answers in the reader. Unset, the AI buttons stay hidden. */
 	ANTHROPIC_API_KEY: z.string().optional(),
 	/** TypeSafe's key, for Jev: automatic topics need it and Anthropic's. */

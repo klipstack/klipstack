@@ -64,6 +64,7 @@ export default [
 		route("users", "routes/admin.users.tsx"),
 		route("users/:id", "routes/admin.user.tsx"),
 		route("users/:id/features", "routes/admin.user.features.ts"),
+		route("users/:id/billing", "routes/admin.user.billing.ts"),
 		route("activity", "routes/admin.activity.tsx"),
 		route("usage", "routes/admin.usage.tsx"),
 		route("jobs", "routes/admin.jobs.tsx"),

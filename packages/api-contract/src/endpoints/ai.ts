@@ -145,7 +145,13 @@ const Question = z
 	.refine((text) => text.trim().length > 0, "The question is empty.")
 
 /** Before any answer: the feature, the server and the cap (and, as everywhere, `rate_limited`). */
-const ASK_ERRORS = ["forbidden", "unavailable", "limit_reached", "too_large"] as const
+const ASK_ERRORS = [
+	"forbidden",
+	"unavailable",
+	"limit_reached",
+	"subscription_required",
+	"too_large",
+] as const
 
 export const getAi = defineEndpoint({
 	id: "ai.get",

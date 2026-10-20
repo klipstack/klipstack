@@ -103,10 +103,23 @@ describe("the topics job", () => {
 		const off = await reader(false)
 		const unflagged = await reader(true)
 		await db.delete(userFeatures).where(eq(userFeatures.userId, unflagged))
-		await handleTopicsMonth()
+		// Its trial ended: billing started 60 days ago, the account 45.
+		const lapsed = await reader(true)
+		const DAY = 24 * 60 * 60 * 1000
+		await db
+			.update(user)
+			.set({ createdAt: new Date(Date.now() - 45 * DAY) })
+			.where(eq(user.id, lapsed))
+		process.env.BILLING_STARTS_AT = new Date(Date.now() - 60 * DAY).toISOString()
+		try {
+			await handleTopicsMonth()
+		} finally {
+			delete process.env.BILLING_STARTS_AT
+		}
 		expect(await queued(on)).toBe(1)
 		expect(await queued(off)).toBe(0)
 		expect(await queued(unflagged)).toBe(0)
+		expect(await queued(lapsed)).toBe(0)
 		// A run for now: nothing waits for a later time and holds the reader's place in the queue.
 		const [row] = (
 			await db.execute<{ late: boolean }>(

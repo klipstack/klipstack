@@ -13,6 +13,14 @@ export {
 	storeFeedEntries,
 } from "./feeds"
 export { newId, newPublicId } from "./ids"
+export {
+	billingStartsAt,
+	FOUNDING_FREE_DAYS,
+	mayAddSql,
+	type PlanState,
+	planColumns,
+	TRIAL_DAYS,
+} from "./plan"
 export { rewriteSavedQueries } from "./saved-searches"
 export {
 	addUsage,

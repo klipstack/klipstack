@@ -1,5 +1,16 @@
 import { createTopicModels, retryable } from "@klipstack/ai"
-import { and, db, eq, topicLibraries, topicLimits, userFeatures } from "@klipstack/db"
+import {
+	accountBilling,
+	and,
+	billingStartsAt,
+	db,
+	eq,
+	mayAddSql,
+	topicLibraries,
+	topicLimits,
+	user,
+	userFeatures,
+} from "@klipstack/db"
 import { enqueue, type JobPayloads, QUEUES } from "@klipstack/queue"
 import type { JobWithMetadata } from "pg-boss"
 import { log } from "../log"
@@ -37,6 +48,10 @@ export async function handleTopicsMonth() {
 			userFeatures,
 			and(eq(userFeatures.userId, topicLibraries.userId), eq(userFeatures.feature, "topics")),
 		)
+		.innerJoin(user, eq(user.id, topicLibraries.userId))
+		.leftJoin(accountBilling, eq(accountBilling.userId, user.id))
+		// A lapsed account adds nothing to sort, and its topics stay as they are.
+		.where(mayAddSql(billingStartsAt()))
 	for (const { userId } of readers) await queueTopics(userId)
 	return { readers: readers.length }
 }
