@@ -106,8 +106,14 @@ export type AppSignInProvider = "apple" | "google" | "github"
 
 export type AppSignInOptions = {
 	providers: AppSignInProvider[]
-	/** Whether the server can email a sign-in code. */
+	/** Whether the server can email a sign-in code (and a sign-up's). */
 	emailCode: boolean
+	/**
+	 * Who may create an account: anyone (`open`), or with an invite (`invite`, `waitlist`; a
+	 * waitlist server also takes requests for one at `/request-invite`). Absent from servers older
+	 * than the app's sign-up: the app offers none there.
+	 */
+	signUp?: "open" | "invite" | "waitlist"
 }
 
 export type AppSignInRequest = { codeChallenge: string } & AppSignInCredentials
@@ -129,11 +135,48 @@ export type AppSignInCredentials =
 	  }
 
 /**
- * Why a provider sign-in in the sheet came back without a code (`error` on the redirect):
- * `no_account` (nobody has this identity, and the app creates no account), `not_linked` (an account
- * has its email but is not connected to that provider), `no_email`, `failed`.
+ * The mobile app's sign-up, beside its sign-in. Each way ends in an authorization code, as there.
+ *
+ * - `POST /app/sign-up/code` (JSON `{ email, inviteCode? }`): checks the invite, then emails a code
+ *   to an address with no account (one with an account is told to sign in). Answers 204.
+ * - `POST /app/sign-up` (JSON `AppSignUpRequest`): creates the account, or signs in the existing
+ *   one Apple names, and answers `{ code }`.
+ * - Google and GitHub: `appProviderSignInPath` with `sign_up=1` and `invite` added to the query.
  */
-export type AppSignInErrorCode = "no_account" | "not_linked" | "no_email" | "failed"
+export const APP_SIGN_UP_PATH = "/app/sign-up"
+
+export const APP_SIGN_UP_CODE_PATH = "/app/sign-up/code"
+
+export type AppSignUpRequest = {
+	codeChallenge: string
+	/** Needed unless the server's sign-up is open. */
+	inviteCode?: string
+} & AppSignUpCredentials
+
+/** A way to create an account, as the app sends it. */
+export type AppSignUpCredentials =
+	| {
+			method: "email"
+			name: string
+			email: string
+			password: string
+			/** The code `/app/sign-up/code` emailed: the account starts verified. */
+			code: string
+	  }
+	| Extract<AppSignInCredentials, { method: "apple" }>
+
+/**
+ * Why a provider sign-in in the sheet came back without a code (`error` on the redirect):
+ * `no_account` (nobody has this identity, and a sign-in creates no account), `not_linked` (an
+ * account has its email but is not connected to that provider), `no_email`, `invalid_invite` (a
+ * sign-up's invite can't be used), `failed`.
+ */
+export type AppSignInErrorCode =
+	| "no_account"
+	| "not_linked"
+	| "no_email"
+	| "invalid_invite"
+	| "failed"
 
 /** The digits of an emailed sign-in code. */
 export const APP_SIGN_IN_CODE_LENGTH = 6

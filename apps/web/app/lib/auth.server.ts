@@ -65,7 +65,9 @@ import {
 	currentProviderCallback,
 	type LinkSignup,
 	pendingLinkSignup,
+	pendingAppSignUp,
 	pendingProviderSignup,
+	type AppSignUp,
 	signupAllowed,
 } from "./signup-gate.server"
 
@@ -141,6 +143,7 @@ export const auth = betterAuth({
 			const signup = ctx.path === "/sign-in/social" ? pendingProviderSignup() : undefined
 			if (signup?.inviteCode) await addOAuthServerContext({ invite: signup.inviteCode })
 			if (signup?.app) await addOAuthServerContext({ app: true })
+			if (signup?.appSignUp) await addOAuthServerContext({ appSignUp: true })
 			// Refuse before the account lookup: failing for existing accounts only would reveal them.
 			if (
 				(ctx.path === "/request-password-reset" ||
@@ -275,17 +278,20 @@ export const auth = betterAuth({
 						locale || welcomeFrom
 							? { data: { ...(locale ? { locale } : {}), ...welcome } }
 							: undefined
-					// The app signs in only, whatever the sign-up mode: Apple's ID token in process
-					// (/sign-in/social, closed over HTTP), Google and GitHub from its sheet.
+					// The app creates an account only from its sign-up, whatever the sign-up mode: Apple's
+					// ID token in process (/sign-in/social, closed over HTTP), Google and GitHub from
+					// its sheet. Then the invite is checked as for any sign-up.
+					const appSignUp = pendingAppSignUp()
+					const context = fromProvider ? (await getOAuthState())?.serverContext : undefined
 					if (
-						ctx?.path === "/sign-in/social" ||
-						(fromProvider && (await getOAuthState())?.serverContext?.app === true)
+						(ctx?.path === "/sign-in/social" && !appSignUp) ||
+						(context?.app === true && context.appSignUp !== true)
 					)
 						throw new APIError("FORBIDDEN", {
 							code: "INVITE_REQUIRED",
-							message: "The app creates no account.",
+							message: "The app creates an account only from its sign-up.",
 						})
-					if (!invitesRequired || signupAllowed()) return extra
+					if (!invitesRequired || signupAllowed()) return withAppSignUp(extra, appSignUp)
 					if (fromProvider && (await providerInviteLocked(data.email))) return extra
 					throw new APIError("FORBIDDEN", {
 						code: "INVITE_REQUIRED",
@@ -498,6 +504,20 @@ for (const { clientId, ...fields } of FIRST_PARTY_CLIENTS) {
  * connections too), sealed for the Services ID. The app's own Apple sign-in brings none here: its
  * token is kept by /app/sign-in.
  */
+/**
+ * An app sign-up creates its user here: it is marked so, in the phone's language, and verified when
+ * its email was proven.
+ */
+function withAppSignUp(
+	extra: { data: Record<string, unknown> } | undefined,
+	appSignUp: AppSignUp | undefined,
+) {
+	if (!appSignUp) return extra
+	appSignUp.created = true
+	const verified = appSignUp.verified ? { emailVerified: true } : {}
+	return { data: { ...extra?.data, locale: appSignUp.locale, ...verified } }
+}
+
 async function appleToken(
 	data: { providerId?: unknown; refreshToken?: unknown },
 	ctx: GenericEndpointContext | null | undefined,
