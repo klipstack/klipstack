@@ -39,7 +39,9 @@ COPY apps/web/scripts/admin.ts apps/web/scripts/
 COPY apps/web/app/services/admin-roles.server.ts apps/web/app/services/admin-audit.server.ts \
 	apps/web/app/services/admin-accounts.server.ts apps/web/app/services/account.server.ts \
 	apps/web/app/services/
-COPY apps/web/app/lib/app-error.ts apps/web/app/lib/
+# Deleting an account revokes Sign in with Apple (loaded only then: it reads the environment).
+COPY apps/web/app/lib/app-error.ts apps/web/app/lib/apple-tokens.server.ts \
+	apps/web/app/lib/env.server.ts apps/web/app/lib/apple-client-secret.server.ts apps/web/app/lib/
 COPY apps/worker/src apps/worker/src
 COPY apps/worker/scripts apps/worker/scripts
 COPY packages packages

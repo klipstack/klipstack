@@ -1,6 +1,5 @@
 import { assets, db, eq, sql, type Tx, user as userTable } from "@klipstack/db"
 import { getStorage } from "@klipstack/storage"
-import { revokeAppleSignIn } from "~/lib/apple-tokens.server"
 
 /**
  * Delete a user and everything they own. Rows cascade from `user`; stored objects are removed
@@ -18,7 +17,9 @@ export async function deleteAccount(
 		.where(eq(assets.userId, userId))
 	await Promise.allSettled(owned.map((a) => storage.delete(a.key)))
 	// Apple asks for the person's Sign in with Apple to be revoked with the account; its token goes
-	// with the rows.
+	// with the rows. Loaded here, not at the top: the operator CLI's image check loads this module
+	// without the server's environment, which apple-tokens.server.ts reads (Dockerfile).
+	const { revokeAppleSignIn } = await import("../lib/apple-tokens.server")
 	await revokeAppleSignIn(userId)
 	await db.transaction(async (tx) => {
 		await tx.delete(userTable).where(eq(userTable.id, userId))
