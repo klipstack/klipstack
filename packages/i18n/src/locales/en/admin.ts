@@ -291,7 +291,7 @@ export default {
 			noEnd: "No end",
 			freeUntil: "Free until (UTC)",
 			freeUntilHint:
-				"The paid plan at no charge until this day starts. It replaces the founding year; clear it to go back to the account's own trial or year.",
+				"The account has the paid plan at no charge until this day starts, and lapses after. It replaces the account's trial or free year; clear it to go back to those. Takes effect only while billing is on.",
 			save: "Save",
 			clear: "Clear",
 		},

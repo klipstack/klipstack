@@ -201,8 +201,12 @@ describe("a lapsed account", () => {
 					expectedUpdatedAt: doc!.noteUpdatedAt!.toISOString(),
 				}),
 			).rejects.toMatchObject(refused)
+			await expect(updateHighlight(userId, kept.id, { note: "New." })).rejects.toMatchObject(
+				refused,
+			)
 			// Tidying up what it has is fine.
 			await updateHighlight(userId, kept.id, { color: 4 })
+			await updateHighlight(userId, kept.id, { note: null })
 			await deleteHighlight(userId, kept.id)
 			expect(
 				await setArticleNote(userId, id, {

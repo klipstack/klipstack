@@ -293,10 +293,10 @@ export default {
 			},
 			until: "Hasta",
 			ended: "Terminó",
-			noEnd: "Sin fin",
+			noEnd: "Sin fecha de fin",
 			freeUntil: "Gratis hasta (UTC)",
 			freeUntilHint:
-				"El plan de pago sin costo hasta que empiece este día. Reemplaza el año fundador; bórralo para volver a la prueba o al año propios de la cuenta.",
+				"La cuenta tiene el plan de pago sin costo hasta el inicio de este día, y vence después. Reemplaza la prueba o el año gratis de la cuenta; bórrala para volver a ellos. Solo rige con el cobro activado.",
 			save: "Guardar",
 			clear: "Borrar",
 		},

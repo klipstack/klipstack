@@ -159,6 +159,8 @@ export async function updateHighlight(
 ): Promise<Highlight> {
 	const { note, color } = parseInput(HighlightChange, input)
 	const highlightId = one(id)
+	// A new note is adding; a color or a removed note is tidying up.
+	if (typeof note === "string") await checkMayAdd(userId)
 	if (!(await getHighlightWithArticle(userId, highlightId))) throw notFound(NO_HIGHLIGHT)
 	const changed = await changeHighlight(userId, highlightId, {
 		...(note !== undefined ? { note: note === null ? null : noteText(note) } : {}),

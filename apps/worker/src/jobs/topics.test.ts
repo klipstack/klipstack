@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto"
 import { AiError, DecisionError } from "@klipstack/ai"
 import {
+	accountBilling,
 	db,
 	documents,
 	documentVersions,
@@ -140,5 +141,22 @@ describe("the topics job", () => {
 		const loud = await reader(true)
 		await articles(loud, 25)
 		await expect(handleTopics(job(loud), failing(down))).rejects.toThrow("down")
+	})
+
+	it("runs nothing for a lapsed account, whatever queued the run", async () => {
+		const down = new AiError("provider", "down", { cause: new Error("socket hang up") })
+		const lapsed = await reader(true)
+		await articles(lapsed, 25)
+		// An admin's date in the past, with billing on: lapsed.
+		await db
+			.insert(accountBilling)
+			.values({ userId: lapsed, freeUntil: new Date(Date.now() - 86_400_000) })
+		process.env.BILLING_STARTS_AT = new Date(Date.now() - 90 * 86_400_000).toISOString()
+		try {
+			// A run would reach the provider, and fail.
+			await expect(handleTopics(job(lapsed), failing(down))).resolves.toBeUndefined()
+		} finally {
+			delete process.env.BILLING_STARTS_AT
+		}
 	})
 })

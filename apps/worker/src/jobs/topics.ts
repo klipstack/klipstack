@@ -65,10 +65,22 @@ export async function queueTopicsAfterSave(userId: string) {
 	if (library) await queueTopics(userId)
 }
 
+/** Whether the reader's account lapsed: its topics stay as they are, and cost nothing more. */
+async function lapsed(userId: string) {
+	const rows = await db
+		.select({ id: user.id })
+		.from(user)
+		.leftJoin(accountBilling, eq(accountBilling.userId, user.id))
+		.where(and(eq(user.id, userId), mayAddSql(billingStartsAt())))
+	return rows.length === 0
+}
+
 export async function handleTopics(
 	job: JobWithMetadata<JobPayloads["topics"]>,
 	deps: TopicsDeps = depsFor(job.data.userId),
 ) {
+	// Whatever queued the run (a save, a restore, turning topics on): a lapsed account gets none.
+	if (await lapsed(job.data.userId)) return
 	try {
 		const outcome = await bringTopicsUpToDate(job.data.userId, deps)
 		if (outcome.done !== "nothing") log.info("topics", { userId: job.data.userId, ...outcome })

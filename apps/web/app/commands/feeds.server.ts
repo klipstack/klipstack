@@ -10,6 +10,7 @@ import {
 import { z } from "zod"
 import { AppError, notFound, parseInput, rateLimited } from "~/lib/app-error"
 import { feedsOn } from "~/lib/features.server"
+import { checkMayAdd } from "~/lib/limits.server"
 import { OPML_IMPORT_LIMIT, rateLimit, SAVE_LIMIT } from "~/lib/rate-limit.server"
 import {
 	dismissFeedItem as dismissOne,
@@ -45,6 +46,8 @@ export async function mayUseFeeds(userId: string) {
  */
 export async function followFeed(userId: string, url: string) {
 	await mayUseFeeds(userId)
+	// Before the address is fetched: a lapsed account would only be refused after.
+	await checkMayAdd(userId)
 	const address = parseInput(z.string().trim().min(1).max(URL_MAX), url)
 	const limited = rateLimit(`subscribe:${userId}`, SAVE_LIMIT.limit, SAVE_LIMIT.windowMs)
 	if (!limited.ok) throw rateLimited(limited.retryAfterSeconds, "follows")

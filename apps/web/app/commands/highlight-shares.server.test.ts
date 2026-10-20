@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto"
 import {
+	accountBilling,
 	addUsage,
 	and,
 	db,
@@ -257,3 +258,30 @@ async function sharesThisMonth() {
 		)
 	return row?.count ?? 0
 }
+
+describe("a lapsed account", () => {
+	it("keeps its shared page as it was, and cannot update it or share anew", async () => {
+		const h = await highlight(userId, "First note.")
+		const { publicId } = await shareHighlight(userId, h.id, { includeNote: true, locale: "en" })
+		await setNote(h.id, "A note written later.")
+		const other = await highlight(userId)
+		// An admin's date in the past, with billing on: lapsed.
+		await db.insert(accountBilling).values({ userId, freeUntil: new Date(Date.now() - 86_400_000) })
+		env.BILLING_STARTS_AT = new Date(Date.now() - 90 * 86_400_000)
+		try {
+			const refused = { code: "subscription_required" }
+			await expect(
+				shareHighlight(userId, h.id, { includeNote: true, locale: "en" }),
+			).rejects.toMatchObject(refused)
+			await expect(
+				shareHighlight(userId, other.id, { includeNote: true, locale: "en" }),
+			).rejects.toMatchObject(refused)
+			expect(JSON.stringify(await getPublicShare(publicId))).toContain("First note.")
+			// Taking it down is still the owner's to do.
+			await stopSharingHighlight(userId, h.id)
+		} finally {
+			env.BILLING_STARTS_AT = undefined
+			await db.delete(accountBilling).where(eq(accountBilling.userId, userId))
+		}
+	})
+})
