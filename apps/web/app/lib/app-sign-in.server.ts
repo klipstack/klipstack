@@ -159,11 +159,10 @@ export async function signInWithApple(
 		})
 	const result = await (asSignUp ? asSignUp(signInSocial) : signInSocial()).catch(
 		async (error: unknown) => {
-			// No account to sign in or create (a sign-up's invite refused), or one not connected to
-			// Apple: the Apple ID shouldn't list Klipstack. (Not on other failures: that would
-			// disconnect an account Apple signs in.)
-			if (signedInNoOne(error) || error instanceof AppError)
-				await revokeAppleAppToken(exchanged.refreshToken)
+			// No account to sign in or create (a sign-up without a usable invite), or one not
+			// connected to Apple: the Apple ID shouldn't list Klipstack. (Not on other failures: that
+			// would disconnect an account Apple signs in.)
+			if (signedInNoOne(error)) await revokeAppleAppToken(exchanged.refreshToken)
 			throw error
 		},
 	)

@@ -124,7 +124,7 @@ export default function SignUpScreen() {
 							>
 								<Text style={[styles.note, { color: colors.mutedFg }]}>
 									No invite?{" "}
-									<Text style={[styles.link, { color: colors.accent }]}>Ask for one</Text>
+									<Text style={[styles.link, { color: colors.accent }]}>Request one</Text>
 								</Text>
 							</Pressable>
 						) : (

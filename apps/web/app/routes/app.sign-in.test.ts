@@ -569,6 +569,25 @@ describe("the iPhone app's sign-up by email", () => {
 		expect(kept!.usedBy).toBeNull()
 	})
 
+	it("takes a code only for the address it was emailed to", async () => {
+		const invite = await newInvite()
+		const owner = newAddress("code-owner")
+		const other = newAddress("code-other")
+		await sendCode({ email: owner, inviteCode: invite })
+		const code = await emailedCode(owner)
+		const answer = await signUp({
+			method: "email",
+			inviteCode: invite,
+			name: "Other",
+			email: other,
+			password: PASSWORD,
+			code,
+			codeChallenge: pkce().challenge,
+		})
+		expect(answer.status).toBe(401)
+		expect(await db.select().from(user).where(eq(user.email, other))).toHaveLength(0)
+	})
+
 	it("sends no code without an invite it can use", async () => {
 		const newcomer = newAddress("no-invite")
 		const answer = await sendCode({ email: newcomer, inviteCode: "NOT-AN-INVITE" })

@@ -33,7 +33,7 @@ export async function checkAuthLimit(path: string, email: unknown, headers?: Hea
 		// The app's sign-up: its emailed codes as the sign-in's, a day's (with a valid invite unless
 		// sign-up is open), and the sign-up itself per address typed.
 		"/app/sign-up/code": { account: 10, ip: 100, seconds: 86400 },
-		"/app/sign-up": { account: 10, ip: 60, seconds: 900 },
+		"/app/sign-up": { account: 10, ip: 20, seconds: 3600 },
 		"/request-password-reset": { account: 3, ip: 20, seconds: 900 },
 		"/send-verification-email": { account: 3, ip: 20, seconds: 900 },
 		// The provider names the account only at the callback: the address alone is counted.

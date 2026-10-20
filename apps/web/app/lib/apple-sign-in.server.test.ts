@@ -471,6 +471,10 @@ describe("Sign in with Apple", () => {
 		expect(answer.status).toBe(200)
 		const [kept] = await db.select().from(invites).where(eq(invites.code, inviteCode))
 		expect(kept!.usedBy).toBeNull()
+		// An invite used up already changes nothing for an account that exists: no refusal, no revoke.
+		const again = await appleFromTheApp({}, "app-code", { inviteCode: "NOT-AN-INVITE" })
+		expect(again.status).toBe(200)
+		expect(revoked).toHaveLength(0)
 	})
 
 	it("revokes the person's Sign in with Apple when the account is deleted", async () => {

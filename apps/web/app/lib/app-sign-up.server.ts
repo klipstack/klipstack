@@ -88,6 +88,7 @@ async function signUp(
 		)
 		return cookieOf(result.headers)
 	} catch (error) {
+		if (error instanceof APIError && error.body?.code === "INVITE_REQUIRED") throw invalidInvite()
 		if (
 			error instanceof APIError &&
 			String(error.body?.code ?? "").startsWith("USER_ALREADY_EXISTS")
@@ -104,8 +105,12 @@ async function signUp(
 function asSignUp<T>(code: string | undefined, scope: AppSignUp, create: () => Promise<T>) {
 	return withAuthTransaction(async (tx) => {
 		const invite = invitesRequired ? await findUsableInvite(code ?? "", tx) : null
-		if (invitesRequired && !invite) throw invalidInvite()
-		const result = await withAppSignUp(scope, () => withSignupAllowed(create))
+		// Without a usable invite, better-auth's user hook refuses only a user it would create: an
+		// Apple ID with an account still signs in.
+		const allowed = !invitesRequired || invite !== null
+		const result = await withAppSignUp(scope, () =>
+			allowed ? withSignupAllowed(create) : create(),
+		)
 		const created = (result as { response?: { user?: { id?: string } } }).response?.user?.id
 		if (invite && scope.created && created) await consumeInvite(invite.code, created, tx)
 		return result
