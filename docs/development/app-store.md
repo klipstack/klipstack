@@ -218,8 +218,10 @@ Guideline 4.8: an app whose sign-in offers a third-party or social login (Google
 offer an option with Apple's privacy guarantees, which in practice means Sign in with Apple. Email
 and password, or our own emailed links, don't count as third-party and need nothing extra.
 
-GitHub sign-in is on at klipstack.com, and the app's sign-in opens the same login page. The app's
-sign-in now hides Google and GitHub (done above). The rule in code is generic: in the sign-in of
-one of our apps on Apple's platforms (`APPLE_PLATFORM_CLIENTS`), providers show only when Apple is
-among them (`offeredIn` in `apps/web/app/lib/provider-sign-in.server.ts`). Once Sign in with Apple
-is added, all of them show there together.
+GitHub sign-in is on at klipstack.com, and the app's sign-in opens the same login page. That
+page, and the sign-up it links to, offer the iPhone app no provider at all
+(`APPLE_PLATFORM_CLIENTS`, `offeredIn` in `apps/web/app/lib/provider-sign-in.server.ts`): a trip
+to a provider would leave the app's request behind and end on the web inside the sheet. The server
+now has Sign in with Apple (`docs/self-hosting/sign-in-providers.md`); the app is to offer Apple,
+Google and GitHub as its own buttons, Apple's through Apple's own sheet. The server already
+accepts the ID tokens Apple issues to the app's bundle ID.

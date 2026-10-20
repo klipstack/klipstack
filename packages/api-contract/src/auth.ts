@@ -37,9 +37,9 @@ export const IN_APP_AI_CLIENTS: readonly string[] = [MOBILE_CLIENT_ID]
 export const ACCOUNT_DELETION_CLIENTS: readonly string[] = [MOBILE_CLIENT_ID]
 
 /**
- * Our apps on Apple's platforms. App Review (guideline 4.8) wants Sign in with Apple wherever an app
- * offers another company's sign-in: in their sign-in, the web offers providers only with Apple
- * among them.
+ * Our apps on Apple's platforms. The web's sign-in offers them no provider: a trip to one would
+ * leave the app's request behind. The app offers them itself, with Sign in with Apple, as App
+ * Review wants wherever another company's sign-in is offered (guideline 4.8).
  */
 export const APPLE_PLATFORM_CLIENTS: readonly string[] = [MOBILE_CLIENT_ID]
 

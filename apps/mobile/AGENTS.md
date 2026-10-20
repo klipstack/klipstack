@@ -171,8 +171,9 @@ database), not only the screenshot.
   it comes back through the custom scheme `com.klipstack.app:` (`mobileRedirectUri`). Associated
   Domains name klipstack.com only: a build pointed at another https server can't finish signing in.
 - In its sign-in (`/login` and `/signup` carrying the app's signed authorization request), the web
-  offers no GitHub or Google button unless Sign in with Apple is offered too (App Review 4.8;
-  `APPLE_PLATFORM_CLIENTS` in `packages/api-contract/src/auth.ts`).
+  offers no provider button (Apple, Google, GitHub): a trip to a provider would leave the app's
+  request behind (`APPLE_PLATFORM_CLIENTS` in `packages/api-contract/src/auth.ts`). The app is to
+  offer them itself, Sign in with Apple among them (App Review 4.8).
 - Every other Klipstack page opens in Safari (`openOnTheWeb`, `src/lib/web-pages.ts`), never in an
   in-app browser: signed out there, the web's own login would show GitHub inside the app. Lint
   refuses `expo-web-browser` in `src/`.

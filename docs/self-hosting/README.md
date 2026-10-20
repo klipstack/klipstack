@@ -5,7 +5,7 @@ Compose: the containers, their settings, upgrades and backups.
 
 - [compose.yml](compose.yml): an example Compose file for the web server, the worker and PostgreSQL.
 - [admin.md](admin.md): roles, the operator CLI, stopping an account, release and rollback.
-- [sign-in-providers.md](sign-in-providers.md): Google and GitHub sign-in.
+- [sign-in-providers.md](sign-in-providers.md): Google, GitHub and Apple sign-in.
 - [ai.md](ai.md): AI answers in the reader, with an Anthropic key.
 - [postgres-collation.md](postgres-collation.md): why the database uses the builtin collation
   provider, and how to move an existing database to it.
@@ -113,8 +113,8 @@ the `postgres` service and the `DATABASE_URL` line from `compose.yml`, and set `
 
 Without a key the server sends no email at all; it never prints sign-in links to the log. Password
 login still works, but email links, password resets and email verification do not. Only a verified
-account can become an admin, create API keys or connect apps, so without email you need Google or
-GitHub sign-in ([sign-in-providers.md](sign-in-providers.md)): they verify the address themselves.
+account can become an admin, create API keys or connect apps, so without email you need Google,
+GitHub or Apple sign-in ([sign-in-providers.md](sign-in-providers.md)): they verify the address themselves.
 
 A welcome for new accounts is off unless you turn it on. With `WELCOME_FROM_NAME` and
 `WELCOME_FROM_EMAIL` set in `.env`, each account created from then on
@@ -145,6 +145,7 @@ work. Keep the bucket private: the app serves images itself, after checking who 
 | `SIGNUP_MODE` | `invite` | `invite`: sign-up needs an invite. `waitlist`: the same, plus a public form at `/request-invite`. `open`: anyone can sign up. See [admin.md](admin.md#wait-list). |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | unset | Google sign-in. See [sign-in-providers.md](sign-in-providers.md). |
 | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | unset | GitHub sign-in. |
+| `APPLE_SERVICES_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY` | unset | With `APPLE_TEAM_ID`, Sign in with Apple. All four or none. See [sign-in-providers.md](sign-in-providers.md#sign-in-with-apple). |
 | `ANTHROPIC_API_KEY` | unset | AI answers in the reader. See [ai.md](ai.md). |
 | `TYPESAFE_API_KEY` | unset | With `ANTHROPIC_API_KEY`, automatic topics. See [ai.md](ai.md#automatic-topics). |
 | `LIMIT_TOPICS_PER_MONTH` | `100` | Haiku's work on one account's topics per month. |
@@ -157,7 +158,7 @@ work. Keep the bucket private: the app serves images itself, after checking who 
 | `LIMIT_AI_PER_MONTH` | `100` | AI questions per account per month. |
 | `LIMIT_AI_PER_MONTH_ADMIN` | `500` | AI questions per admin account per month. |
 | `BILLING_STARTS_AT` | unset | Leave it unset. It is for a server that charges for accounts: from that day, new accounts get a 30-day trial and the rest a free year, each with caps of their own (`LIMIT_TRIAL_*`, `LIMIT_PAID_*` in `.env.example`), and an account past both can read and export but add nothing. Unset, every account has the caps above and none lapses. |
-| `APPLE_TEAM_ID`, `APPLE_BUNDLE_ID` | unset | Only with your own build of the iPhone app, signed by your Apple team: its team ID (10 characters) and bundle ID. With both set, `/.well-known/apple-app-site-association` lets that app open its sign-in callback (`/app/oauth/callback`) as a universal link; unset, it answers 404. Klipstack's own app works only with klipstack.com. |
+| `APPLE_TEAM_ID`, `APPLE_BUNDLE_ID` | unset | Your Apple team ID (10 characters), for Sign in with Apple or your own build of the iPhone app, and that build's bundle ID. With both set, `/.well-known/apple-app-site-association` lets that app open its sign-in callback (`/app/oauth/callback`) as a universal link; unset, it answers 404. Klipstack's own app works only with klipstack.com. |
 | `PG_POOL_MAX` | `10` | Database connections per process (web and worker each have a pool). |
 | `OPS_UPTIME_URL`, `OPS_BACKUPS_URL` | unset | Links on `/admin/system` to your uptime and backup dashboards. Plain `https` URLs only: no credentials, no query string. |
 | `SUPPYHQ_TENANT` | unset | A [SuppyHQ](https://suppyhq.com) account's tenant (from its embed snippet). The app's sidebar then offers Contact support to every account but admins: it opens SuppyHQ's contact form in a frame, with the account's name and email. Nothing loads from SuppyHQ before that click. |
