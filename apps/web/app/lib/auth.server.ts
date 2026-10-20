@@ -468,7 +468,8 @@ export const auth = betterAuth({
 			postLogin: {
 				page: VERIFY_TO_CONTINUE_PAGE,
 				shouldRedirect: ({ user }) => !user.emailVerified,
-				consentReferenceId: ({ user, session }) => consentReference(user.id, session.id),
+				consentReferenceId: ({ user, session, scopes }) =>
+					consentReference(user.id, session.id, scopes),
 			},
 			extensions: [credentialClaims],
 		}),

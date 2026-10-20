@@ -190,6 +190,8 @@ export function SignInForm({
 							If {codeSentTo} has an account, a code is on its way. It expires in 10 minutes.
 						</Text>
 						<TextInput
+							// Its own key: a field reused from the other mode keeps iOS's letter spacing.
+							key="code"
 							ref={passwordField}
 							accessibilityLabel="Code from the email"
 							value={code}
@@ -208,6 +210,7 @@ export function SignInForm({
 					</>
 				) : (
 					<TextInput
+						key="password"
 						ref={passwordField}
 						accessibilityLabel="Password"
 						value={password}

@@ -21,7 +21,8 @@ vi.spyOn(console, "log").mockImplementation((...args: unknown[]) => {
 for (const method of ["warn", "error"] as const)
 	vi.spyOn(console, method).mockImplementation(() => {})
 
-const { env } = await import("~/lib/env.server")
+const { env, selfUrl } = await import("~/lib/env.server")
+const { authenticateApiRequest } = await import("~/api/auth.server")
 const { auth } = await import("~/lib/auth.server")
 const { withSignupAllowed } = await import("~/lib/signup-gate.server")
 const { handleProviderCallback } = await import("~/lib/provider-sign-in.server")
@@ -49,6 +50,8 @@ vi.stubGlobal("fetch", async (input: RequestInfo | URL) => {
 		return json({ id: profile.id, login: "octo", name: "Octo Cat", email: profile.email })
 	if (url === "https://api.github.com/user/emails")
 		return json([{ email: profile.email, primary: true, verified: true }])
+	// The API checks tokens against our own key set: answered in process.
+	if (url === `${selfUrl}/api/auth/jwks`) return auth.handler(new Request(url))
 	throw new Error(`unexpected request to ${new URL(url).host}`)
 })
 
@@ -170,6 +173,13 @@ describe("the iPhone app's sign-in", () => {
 		expect(claims.azp ?? claims.client_id).toBe(MOBILE_CLIENT_ID)
 		const [row] = await db.select().from(session).where(eq(session.id, claims.sid))
 		expect(row!.createdAt.getTime()).toBeGreaterThanOrEqual(before - 1000)
+		// The API takes them, for an account that never saw a consent screen.
+		const principal = await authenticateApiRequest(
+			new Request(`${env.APP_URL}/api/v1/me`, {
+				headers: { authorization: `Bearer ${tokens.body.access_token}` },
+			}),
+		)
+		expect(principal).toMatchObject({ userId: row!.userId, access: "write", via: "oauth" })
 	})
 
 	it("is a code only the app's verifier redeems", async () => {

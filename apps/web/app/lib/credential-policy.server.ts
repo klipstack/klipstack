@@ -1,5 +1,6 @@
 import { getCurrentAuthContext } from "@better-auth/core/context"
 import type { OAuthProviderExtension } from "@better-auth/oauth-provider"
+import { MOBILE_CLIENT_ID } from "@klipstack/api-contract/auth"
 import {
 	and,
 	apiKeys,
@@ -76,7 +77,7 @@ export async function revokeCredentials(tx: Tx, userId: string) {
  * an app of its own that outlives a password reset. Whichever endpoint grants consent, it comes
  * through here.
  */
-export async function consentReference(userId: string, sessionId: string) {
+export async function consentReference(userId: string, sessionId: string, scopes: string[] = []) {
 	const signedInAt = await verifiedSession(userId, sessionId)
 	const ctx = await getCurrentAuthContext()
 	const query = new URLSearchParams(
@@ -95,7 +96,37 @@ export async function consentReference(userId: string, sessionId: string) {
 		.from(oauthGrants)
 		.where(and(eq(oauthGrants.userId, userId), eq(oauthGrants.clientId, clientId)))
 	if (!grant) throw new APIError("FORBIDDEN")
+	if (clientId === MOBILE_CLIENT_ID) {
+		// The consent page carries the request signed in its body; authorize, in its query.
+		const resource = ctx.body?.oauth_query ? query.getAll("resource") : ctx.query?.resource
+		await keepAppConsent(userId, scopes, resource)
+	}
 	return grant.generation
+}
+
+/**
+ * The app skips the consent screen (`skipConsent`), so the provider saves no consent for it. The
+ * API asks for one (`liveTokenScopes`) and Settings lists it to disconnect: it is saved here, as
+ * the consent screen would: each sign-in's request replaces what an earlier one allowed.
+ */
+async function keepAppConsent(userId: string, scopes: string[], resource: unknown) {
+	const resources = (Array.isArray(resource) ? resource : [resource]).filter(
+		(r): r is string => typeof r === "string",
+	)
+	const where = and(eq(oauthConsent.userId, userId), eq(oauthConsent.clientId, MOBILE_CLIENT_ID))
+	const [kept] = await db.select().from(oauthConsent).where(where)
+	const now = new Date()
+	if (!kept)
+		return db.insert(oauthConsent).values({
+			id: newId(),
+			clientId: MOBILE_CLIENT_ID,
+			userId,
+			scopes,
+			resources,
+			createdAt: now,
+			updatedAt: now,
+		})
+	await db.update(oauthConsent).set({ scopes, resources, updatedAt: now }).where(where)
 }
 
 export const credentialClaims: OAuthProviderExtension = {
