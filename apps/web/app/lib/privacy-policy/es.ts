@@ -2,7 +2,7 @@ import { CONTROLLER, type Policy, PRIVACY_CONTACT } from "./types"
 
 export default {
 	title: "Política de privacidad",
-	updated: "Última actualización: 19 de octubre de 2026",
+	updated: "Última actualización: 21 de octubre de 2026",
 	summary:
 		"Klipstack guarda lo que guardas para que puedas leerlo. No vende tus datos, no muestra anuncios y no te rastrea. Esta página explica qué recopilamos, para qué, quién nos ayuda a operar el servicio y qué puedes hacer al respecto.",
 	contentsLabel: "En esta página",
@@ -27,7 +27,7 @@ export default {
 				{
 					list: [
 						"Tu cuenta: nombre, correo y tu contraseña como un hash irreversible, nunca la contraseña misma. Tu idioma y tus ajustes de lectura.",
-						"Si inicias sesión con Google o GitHub: el nombre, el correo y la foto de perfil que nos envían. No guardamos sus tokens de acceso.",
+						"Si inicias sesión con Google, GitHub o Apple: el nombre y el correo que nos envían y, de Google y GitHub, tu foto de perfil. Apple puede darnos una dirección de reenvío privada en lugar de la tuya. No guardamos sus tokens de acceso. Solo de Apple guardamos su token de actualización, cifrado, para poder revocar tu inicio de sesión con Apple cuando eliminas tu cuenta o desconectas Apple. No lo usamos para nada más.",
 						"Lo que guardas: cada enlace, el texto y las imágenes de la página, una copia de la página tal como se guardó y la hora en que la guardaste.",
 						"Lo que añades: subrayados, notas, etiquetas, búsquedas guardadas, los feeds que sigues, tu avance de lectura y lo que terminaste.",
 						"Si preguntas sobre lo que lees (Explicar, Definir, Preguntar, Chat, Resumen): el pasaje, tus preguntas, las respuestas y el resumen.",
@@ -49,7 +49,7 @@ export default {
 				{
 					list: [
 						"Para operar Klipstack: guardar, limpiar, almacenar, mostrar y buscar lo que guardas.",
-						"Para enviar correos de tu cuenta: enlaces de inicio de sesión, verificación de correo y cambio de contraseña. No enviamos boletines ni publicidad.",
+						"Para enviar correos de tu cuenta: enlaces y códigos de inicio de sesión, verificación de correo, cambio de contraseña y un correo de bienvenida cuando te unes. No enviamos boletines ni publicidad.",
 						"Para responder a una solicitud de invitación. Solo te escribimos si te enviamos una.",
 						"Para decidir sobre una denuncia de una página pública, y escribirte la decisión si diste un correo. Si retiramos una página, le decimos a quien la publicó por qué, sin decir quién la denunció.",
 						"Para mantener el servicio seguro y frenar el abuso.",
@@ -60,6 +60,21 @@ export default {
 				},
 				"No vendemos tus datos. No los usamos para publicidad ni para entrenar modelos de IA.",
 				"Las personas que operan Klipstack pueden acceder a la base de datos para mantenerla. Miramos tu contenido solo para resolver un problema que nos reportes, para mantener el servicio seguro o cuando la ley lo exige.",
+			],
+		},
+		{
+			id: "basis",
+			title: "Por qué podemos usarlo",
+			blocks: [
+				"La ley de protección de datos nos pide decir con qué fundamento usamos tus datos:",
+				{
+					list: [
+						"Para darte el servicio en que te registraste: tu cuenta, lo que guardas y añades, tus inicios de sesión, los correos de tu cuenta y las respuestas a lo que preguntas sobre lo que lees. Lo mismo vale para responder a una invitación que pediste.",
+						"Tu consentimiento: los temas automáticos, que siguen desactivados hasta que los activas. Puedes desactivarlos cuando quieras.",
+						`Nuestro interés legítimo, sopesado con el tuyo: mantener Klipstack seguro y frenar el abuso, resolver problemas, decidir sobre denuncias de páginas públicas, y los recuentos y totales que aplican los límites y muestran qué mejorar. Puedes oponerte escribiendo a ${PRIVACY_CONTACT}.`,
+						"La ley: cuando nos exige guardar o entregar datos.",
+					],
+				},
 			],
 		},
 		{
@@ -89,13 +104,20 @@ export default {
 						"Resend envía nuestros correos. Recibe tu dirección de correo y el mensaje.",
 						"SuppyHQ hace funcionar el formulario de ayuda de la app. No recibe nada hasta que haces clic en Contactar con soporte; entonces recibe tu nombre y tu dirección de correo, y el mensaje que envíes.",
 						"Better Stack comprueba desde fuera que Klipstack funciona. No ve datos de cuentas.",
-						"Google o GitHub, solo si eliges iniciar sesión con ellos.",
+						"Google, GitHub o Apple, solo si eliges iniciar sesión con ellos.",
 						"FxTwitter, solo cuando guardas una publicación de X.",
 						"Anthropic responde preguntas sobre lo que lees y escribe resúmenes, solo cuando lo pides, y pone nombre a tus temas, solo si activas los temas.",
 						"TypeSafe ordena tus artículos en temas, solo si activas los temas.",
 					],
 				},
 				"No compartimos tus datos con nadie más, salvo que la ley lo exija. Si ocurre, te avisamos, salvo que la ley lo prohíba.",
+			],
+		},
+		{
+			id: "transfers",
+			title: "Datos en otros países",
+			blocks: [
+				"Estamos en Chile, y las empresas de arriba trabajan desde otros países, entre ellos la Unión Europea y Estados Unidos. Por eso tus datos pueden tratarse fuera del país donde vives. Cuando la ley de tu país exige garantías para esto, usamos las que acepta, como las cláusulas contractuales tipo de la Comisión Europea en las condiciones de tratamiento de datos de nuestros proveedores.",
 			],
 		},
 		{
@@ -124,7 +146,8 @@ export default {
 				{
 					list: [
 						"klip.session_token mantiene tu sesión abierta, hasta 30 días.",
-						"klip.state protege un inicio de sesión con Google o GitHub, durante 5 minutos.",
+						"klip.state protege un inicio de sesión con Google, GitHub o Apple, durante 5 minutos.",
+						"klip_app_sign_in recuerda adónde volver cuando inicias sesión en la app para iPhone con Google o GitHub, durante 10 minutos.",
 						"lng guarda tu idioma, durante un año.",
 						"klip_tz, klip_layout, klip_sidebar y klip_hl_view guardan tu zona horaria y cómo prefieres ver las listas, durante un año. Al cerrar sesión se borran las tres últimas.",
 					],
@@ -161,7 +184,7 @@ export default {
 						"Cuando eliminas tu cuenta, borramos tus datos e imágenes de inmediato. Las copias de seguridad cifradas conservan una copia hasta 30 días, y luego desaparece. El servidor además guarda sus propias copias durante 3 días.",
 						"Los registros del servidor se sobrescriben a medida que crecen y empiezan de cero con cada actualización.",
 						"Los recuentos mensuales se guardan mientras exista tu cuenta.",
-						"Los registros de acciones administrativas no guardan contenido. Cuando eliminas tu cuenta dejan de apuntar a ti, y se borran a los 90 días.",
+						"Los registros de acciones administrativas no guardan contenido, y se borran a los 90 días. Cuando eliminas tu cuenta dejan de apuntar a ti.",
 					],
 				},
 			],
@@ -194,6 +217,7 @@ export default {
 			title: "Menores",
 			blocks: [
 				"Klipstack no está pensado para menores de 16 años. No recopilamos sus datos a sabiendas.",
+				`Si sabemos que una cuenta es de alguien menor de 16 años, la borramos. Si eres madre, padre o tutor y crees que tu hijo o hija tiene una cuenta, escribe a ${PRIVACY_CONTACT} y la borraremos.`,
 			],
 		},
 		{

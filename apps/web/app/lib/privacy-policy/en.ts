@@ -2,7 +2,7 @@ import { CONTROLLER, type Policy, PRIVACY_CONTACT } from "./types"
 
 export default {
 	title: "Privacy policy",
-	updated: "Last updated October 19, 2026",
+	updated: "Last updated October 21, 2026",
 	summary:
 		"Klipstack keeps what you save so you can read it. It doesn't sell your data, show ads or track you. This page explains what we collect, why, who helps us run the service, and what you can do about it.",
 	contentsLabel: "On this page",
@@ -27,7 +27,7 @@ export default {
 				{
 					list: [
 						"Your account: name, email address, and your password as a one-way hash, never the password itself. Your language and reading settings.",
-						"If you sign in with Google or GitHub: the name, email address and profile picture they send us. We don't keep their access tokens.",
+						"If you sign in with Google, GitHub or Apple: the name and email address they send us and, from Google and GitHub, your profile picture. Apple may give us a private relay address instead of your own. We don't keep their access tokens. For Apple only, we keep its refresh token, encrypted, so we can revoke your Sign in with Apple when you delete your account or disconnect Apple. It is used for nothing else.",
 						"What you save: each link, the page's text and images, a copy of the page as it was saved, and the time you saved it.",
 						"What you add: highlights, notes, tags, saved searches, the feeds you follow, your reading progress and what you finished.",
 						"If you ask about what you read (Explain, Define, Ask, Chat, Brief): the passage, your questions, the answers and the brief.",
@@ -49,7 +49,7 @@ export default {
 				{
 					list: [
 						"To run Klipstack: save, clean up, store, show and search what you save.",
-						"To send account emails: sign-in links, address checks and password resets. We don't send newsletters or marketing.",
+						"To send account emails: sign-in links and codes, address checks, password resets, and one welcome email when you join. We don't send newsletters or marketing.",
 						"To answer a request for an invite. We email you only if we send you one.",
 						"To decide on a report about a public page, and to email you the decision if you gave an address. If we take a page down, we tell its author why, without saying who reported it.",
 						"To keep the service secure and stop abuse.",
@@ -60,6 +60,21 @@ export default {
 				},
 				"We don't sell your data. We don't use it for ads, and we don't train AI models on it.",
 				"The people who run Klipstack can reach the database to operate it. We look at your content only to fix a problem you report, to keep the service secure, or when the law requires it.",
+			],
+		},
+		{
+			id: "basis",
+			title: "Why we may use it",
+			blocks: [
+				"Data protection law asks us to say on what ground we use your data:",
+				{
+					list: [
+						"To give you the service you signed up for: your account, what you save and add, your sign-ins, account emails, and the answers to questions you ask about what you read. The same goes for answering an invite you asked for.",
+						"Your consent: automatic topics, which stay off until you turn them on. You can turn them off at any time.",
+						`Our legitimate interest, weighed against yours: keeping Klipstack secure and stopping abuse, fixing problems, deciding on reports about public pages, and the counts and totals that apply limits and show what to improve. You can object to these by writing to ${PRIVACY_CONTACT}.`,
+						"The law: when it requires us to keep or hand over data.",
+					],
+				},
 			],
 		},
 		{
@@ -89,13 +104,20 @@ export default {
 						"Resend sends our emails. It receives your email address and the message.",
 						"SuppyHQ runs the support form in the app. Nothing reaches it until you click Contact support; then it receives your name and email address, and the message you send.",
 						"Better Stack checks from outside that Klipstack is up. It sees no account data.",
-						"Google or GitHub, only if you choose to sign in with them.",
+						"Google, GitHub or Apple, only if you choose to sign in with them.",
 						"FxTwitter, only when you save a post from X.",
 						"Anthropic answers questions about what you read and writes briefs, only when you ask, and names your topics, only if you turn topics on.",
 						"TypeSafe sorts your articles into topics, only if you turn topics on.",
 					],
 				},
 				"We don't share your data with anyone else, unless the law requires it. If that happens, we tell you, unless the law forbids it.",
+			],
+		},
+		{
+			id: "transfers",
+			title: "Data in other countries",
+			blocks: [
+				"We are in Chile, and the companies above work from other countries, including the European Union and the United States. So your data may be handled outside the country where you live. When your country's law requires safeguards for this, we rely on the ones it accepts, such as the European Commission's standard contractual clauses in our providers' data processing terms.",
 			],
 		},
 		{
@@ -124,7 +146,8 @@ export default {
 				{
 					list: [
 						"klip.session_token keeps you signed in, for up to 30 days.",
-						"klip.state protects a Google or GitHub sign-in, for 5 minutes.",
+						"klip.state protects a sign-in with Google, GitHub or Apple, for 5 minutes.",
+						"klip_app_sign_in remembers where to go back to when you sign in to the iPhone app with Google or GitHub, for 10 minutes.",
 						"lng keeps your language, for a year.",
 						"klip_tz, klip_layout, klip_sidebar and klip_hl_view keep your time zone and how you like lists shown, for a year. Signing out removes the last three.",
 					],
@@ -161,7 +184,7 @@ export default {
 						"When you delete your account, we delete your data and images at once. Encrypted backups keep a copy for up to 30 days, then it is gone. The server also keeps its own backups for 3 days.",
 						"Server logs are overwritten as they grow, and start over with each update.",
 						"Monthly counts stay as long as your account does.",
-						"Records of administrative actions keep no content. When you delete your account, they no longer point to you, and they are deleted after 90 days.",
+						"Records of administrative actions keep no content, and are deleted after 90 days. When you delete your account, they no longer point to you.",
 					],
 				},
 			],
@@ -194,6 +217,7 @@ export default {
 			title: "Children",
 			blocks: [
 				"Klipstack is not meant for anyone under 16. We don't knowingly collect their data.",
+				`If we learn that an account belongs to someone under 16, we delete it. If you are a parent or guardian and think your child has an account, write to ${PRIVACY_CONTACT} and we will delete it.`,
 			],
 		},
 		{
