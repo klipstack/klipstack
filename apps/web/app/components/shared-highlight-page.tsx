@@ -11,13 +11,6 @@ import { quoteSize } from "./quote-card"
 /** Links out of a public page: no endorsement for search engines, no handle on this window. */
 const OUTBOUND = "nofollow ugc noopener"
 
-/**
- * The page has room the pictures lack: the quote and the note it gets (cut to 100 words or 600
- * characters, `getPublicShare`) show whole; the clamps only guard the layout.
- */
-const PAGE_QUOTE_LINES = "line-clamp-[30]"
-const PAGE_NOTE_LINES = "line-clamp-[40]"
-
 /** A run of a note's line: text, or a link to the original of an article the note links to. */
 export interface NoteRun {
 	text: string
@@ -85,6 +78,8 @@ export function SharedHighlightPage({
 	reportHref: string
 }) {
 	const { article, note } = view
+	// Unclamped: `getPublicShare` already cut the quote and the note to 100 words or 600 characters,
+	// and a clamp would hide lines of a short poem while its text stays in the page.
 	const host = safeHost(article.url)
 	const web = /^https?:\/\//i.test(article.url)
 	return (
@@ -103,7 +98,7 @@ export function SharedHighlightPage({
 						“
 					</span>
 					<blockquote
-						className={`font-serif text-fg whitespace-pre-line break-words ${quoteSize(view.exact).replace("line-clamp-[14]", PAGE_QUOTE_LINES)}`}
+						className={`font-serif text-fg whitespace-pre-line break-words ${quoteSize(view.exact).replace("line-clamp-[14] ", "")}`}
 					>
 						{view.exact}
 					</blockquote>
@@ -115,9 +110,7 @@ export function SharedHighlightPage({
 							aria-label={labels.noteLabel}
 							className="mt-6 -mr-3 ml-auto text-lg leading-snug"
 						>
-							<span className={PAGE_NOTE_LINES}>
-								<NoteWithLinks note={note} />
-							</span>
+							<NoteWithLinks note={note} />
 						</PostIt>
 					) : null}
 					<figcaption className="mt-6 border-t border-border pt-3">

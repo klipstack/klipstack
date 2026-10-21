@@ -195,10 +195,23 @@ describe("a shared highlight's page", () => {
 			// The link's title holds words 96 to 105: the cut falls inside it, so it goes whole.
 			const note = `${words(0, 95)} ${link(words(95, 105))} ${words(105, 110)}`
 			expect((await shown("Short.", note)).note).toEqual([`${words(0, 95)} …`])
-			// A link that ends before the cut stays a link.
-			const kept = await shown("Short.", `${link("Linked")} ${words(1, 120)}`)
-			expect(kept.data.view.note?.[0]?.[0]).toEqual({ text: "Linked", href: null })
+			// A link to a saved article that ends before the cut stays a link to its original.
+			const [target] = await db
+				.select({ documentId: highlights.documentId, url: documents.sourceUrl })
+				.from(highlights)
+				.innerJoin(documents, eq(documents.id, highlights.documentId))
+				.where(eq(highlights.id, await highlight(null)))
+			const real = `[Linked](/read/${target!.documentId})`
+			const kept = await shown("Short.", `${real} ${words(1, 120)}`)
+			expect(kept.data.view.note?.[0]?.[0]).toEqual({ text: "Linked", href: target!.url })
 			expect(kept.note).toEqual([`Linked ${words(1, 100)}…`])
+		})
+
+		it("counts a note's line breaks, cutting in its second paragraph", async () => {
+			// 590 characters on the first line, its break, then 9 more fit; the next word does not.
+			const first = "x".repeat(590)
+			const { note } = await shown("Short.", `${first}\nabcdefgh ijklmnop`)
+			expect(note).toEqual([first, "abcdefgh…"])
 		})
 	})
 
