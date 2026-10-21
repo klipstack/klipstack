@@ -1,12 +1,14 @@
 import { BATCH_MAX } from "@klipstack/api-contract"
-import { db, eq, highlights, newId, user } from "@klipstack/db"
+import { db, eq, highlights, newId, user, userFeatures } from "@klipstack/db"
 import { stopBoss } from "@klipstack/queue"
 import type { Client } from "@modelcontextprotocol/client"
 import sharp from "sharp"
-import { afterAll, describe, expect, it } from "vitest"
+import { afterAll, describe, expect, it, vi } from "vitest"
+import { askAboutPassage, briefArticle } from "~/commands/ai.server"
 import { openArticle } from "~/commands/articles.server"
 import { createSavedSearch } from "~/commands/saved-searches.server"
 import { env } from "~/lib/env.server"
+import { usageOf } from "~/lib/limits.server"
 import { createHighlight } from "~/services/highlights.server"
 import { countBacklinks } from "~/services/links.server"
 import { apiUsers, captured, FIXTURES, mcpClient } from "~/test/api-harness"
@@ -18,13 +20,20 @@ import { action } from "./mcp"
  * and database. OAuth tokens, and discovery through /.well-known, stay in e2e/mcp.spec.ts.
  */
 
+// The fake model, as on a server with a provider set up.
+vi.hoisted(() => {
+	process.env.AI_FAKE = "1"
+})
+
 const origin = new URL(env.APP_URL).origin
+const en = { language: "en" as const }
 const JOEL = FIXTURES.joel
 const JOEL_URL = JOEL.url.replace(/\/$/, "")
 const QUOTE = "Do you use source control?"
 const MISSING = "00000000-0000-4000-8000-000000000000"
 
 const READ_TOOLS = [
+	"get_ai_history",
 	"get_article",
 	"list_feed",
 	"list_article_links",
@@ -695,6 +704,72 @@ describe("MCP with an API key", () => {
 				starred: true,
 			}),
 		).toEqual({ items: [], notFound: [MISSING] })
+	})
+
+	it("reads an article's AI answers and brief, and never asks for one", async () => {
+		const { id: owner, joel, makers, mcp } = await setupLibrary({ second: true })
+		expect(await callError(mcp, "get_ai_history", { article_id: joel })).toContain(
+			"AI answers are not turned on",
+		)
+		await db.insert(userFeatures).values({ userId: owner, feature: "ai" })
+
+		const asked = await askAboutPassage(
+			owner,
+			joel,
+			{ action: "define", exact: "Have you ever heard of SEMA?" },
+			en,
+		)
+		for await (const _ of asked.events);
+		const answer = await asked.answer
+		const brief = await briefArticle(owner, joel, en)
+		if (!("events" in brief)) throw new Error("expected a new brief")
+		for await (const _ of brief.events);
+		const kept = await brief.brief
+
+		const history = await call(mcp, "get_ai_history", { article_id: joel })
+		expect(history).toEqual({
+			brief: {
+				text: kept!.text,
+				citations: kept!.citations.map((c) => c.exact),
+				createdAt: expect.any(String),
+			},
+			threads: [
+				{
+					id: asked.thread.id,
+					action: "define",
+					passage: "Have you ever heard of SEMA?",
+					highlightId: null,
+					orphaned: false,
+					createdAt: expect.any(String),
+					messages: [
+						{
+							role: "user",
+							text: "",
+							status: "done",
+							citations: [],
+							createdAt: expect.any(String),
+						},
+						{
+							role: "assistant",
+							text: answer.text,
+							status: "done",
+							citations: answer.citations.map((c) => c.exact),
+							createdAt: expect.any(String),
+						},
+					],
+				},
+			],
+		})
+		expect(answer.citations.length).toBeGreaterThan(0)
+
+		// An article without a brief stays without one: reading costs nothing.
+		const used = (await usageOf(owner)).ai.used
+		expect(await call(mcp, "get_ai_history", { article_id: makers })).toEqual({
+			brief: null,
+			threads: [],
+		})
+		expect((await usageOf(owner)).ai.used).toBe(used)
+		expect(await callError(mcp, "get_ai_history", { article_id: MISSING })).toContain("No article")
 	})
 
 	it("refuses the feed tools while feeds are turned off", async () => {
