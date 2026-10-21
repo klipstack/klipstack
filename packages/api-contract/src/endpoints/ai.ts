@@ -8,9 +8,10 @@ import { Id, Time } from "../schemas"
  * Questions about an article and its passages, answered by an AI model, and the article's brief.
  * Only for accounts with AI answers turned on, on a server with a provider set up (`GET /ai`).
  * Every question, follow-up, retry and new brief counts against the account's monthly cap,
- * whatever client sends it; answers stream as server-sent events. All but `GET /ai` are for our
- * own apps with in-app AI only (`IN_APP_AI_CLIENTS`): API keys, the CLI and other apps get
- * `403 forbidden`.
+ * whatever client sends it; answers stream as server-sent events. Spending the account's AI, and
+ * changing its threads, is for our own apps with in-app AI only (`IN_APP_AI_CLIENTS`): API keys,
+ * the CLI and other apps get `403 forbidden`. Reading what was answered already costs nothing, so
+ * `GET /ai` and `GET /articles/:id/ai` answer every client.
  */
 
 const params = z.object({ id: Id })
@@ -203,9 +204,8 @@ export const articleAi = defineEndpoint({
 	method: "GET",
 	path: "/articles/:id/ai",
 	scope: "read",
-	clients: inAppAi,
 	summary:
-		"An article's questions and answers, in reading order (its chat among them), and its brief. Threads asked of an older version are moved to the current text. Also while the account has AI answers turned off (`turnedOff` in GET /ai).",
+		"An article's questions and answers, in reading order (its chat among them), and its brief, for every client: reading them costs nothing and never asks the AI. Threads asked of an older version are moved to the current text. Also while the account has AI answers turned off (`turnedOff` in GET /ai).",
 	params,
 	response: json(z.object({ threads: z.array(AiThreadWithMessages), brief: AiBrief.nullable() })),
 	errors: ["not_found", "forbidden", "unavailable"],

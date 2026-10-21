@@ -91,7 +91,7 @@ describe("the reader's AI in the API", () => {
 		expect(Date.parse(allowance!.resetsAt)).toBeGreaterThan(Date.now())
 	})
 
-	it("answers only the iPhone app: API keys, the CLI and other apps bring their own AI", async () => {
+	it("spends only for the iPhone app; what it answered already is anyone's to read", async () => {
 		const [start] = await collect(await me.app.ai.ask(articleId, { action: "define", ...passage }))
 		if (start?.type !== "start") throw new Error("no start event")
 		const threadId = start.thread.id
@@ -100,7 +100,6 @@ describe("the reader's AI in the API", () => {
 			headers: { "content-type": "application/json" },
 		})
 		const calls: [string, string, RequestInit?][] = [
-			["GET", `/articles/${articleId}/ai`],
 			["POST", `/articles/${articleId}/ai/threads`, json({ action: "explain", ...passage })],
 			["POST", `/articles/${articleId}/ai/chat`, json({ question: "What is it about?" })],
 			["POST", `/articles/${articleId}/ai/brief`, json({})],
@@ -127,9 +126,13 @@ describe("the reader's AI in the API", () => {
 					"forbidden",
 				])
 			}
-			// The account's standing against its cap is anyone's to read.
+			// The account's standing against its cap is anyone's to read, and so are the answers.
 			const status = await request("/api/v1/ai", { token })
 			expect([who, status.status]).toEqual([who, 200])
+			const read = await request(`/api/v1/articles/${articleId}/ai`, { token })
+			expect([who, read.status]).toEqual([who, 200])
+			const { threads } = (await read.json()) as { threads: { id: string }[] }
+			expect([who, threads.map((t) => t.id)]).toEqual([who, [threadId]])
 		}
 		expect((await me.app.ai.status()).allowance!.used).toBe(used)
 		// Nothing was deleted either.

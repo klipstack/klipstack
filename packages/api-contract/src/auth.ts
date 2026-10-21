@@ -24,7 +24,8 @@ export const MOBILE_CLIENT_ID = "klipstack-mobile"
 /**
  * The first-party apps with in-app AI: only tokens issued to one of them may spend the account's
  * AI through the API (the endpoints with `clients: IN_APP_AI_CLIENTS`). Whoever connects with an
- * API key, the CLI, MCP or an app of their own brings their own AI. Another app of ours with the
+ * API key, the CLI, MCP or an app of their own brings their own AI, and may read what the account's
+ * AI answered already, which costs nothing. Another app of ours with the
  * reader's AI (iPad, Android) is one more id here.
  */
 export const IN_APP_AI_CLIENTS: readonly string[] = [MOBILE_CLIENT_ID]
