@@ -634,6 +634,25 @@ describe("MCP with an API key", () => {
 		}
 	})
 
+	it("refuses tool arguments with more elements than any tool takes, before validating them", async () => {
+		const me = await users.create("MCP Big Input")
+		const mcp = await connect(me.key)
+		// Each element costs memory to validate: a 1 MiB body holds a few hundred thousand of them.
+		const error = await callError(mcp, "update_articles", {
+			ids: Array.from({ length: 1001 }, () => MISSING),
+			starred: true,
+		})
+		expect(error).toContain("more than the maximum of 1000 elements")
+		// The largest call a tool takes still goes through.
+		expect(
+			await call(mcp, "update_articles", {
+				ids: Array.from({ length: BATCH_MAX }, () => MISSING),
+				addTags: ["a", "b"],
+				starred: true,
+			}),
+		).toEqual({ items: [], notFound: [MISSING] })
+	})
+
 	it("refuses the feed tools while feeds are turned off", async () => {
 		const me = await users.create("MCP Feeds Off", {})
 		const mcp = await connect(me.key)
