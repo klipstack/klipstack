@@ -442,6 +442,8 @@ test("turned off in Settings: answers kept are read and deleted, nothing new is 
 	await expect(card.getByRole("textbox")).toHaveCount(0)
 	await expect(card.getByRole("button", { name: "Answer again" })).toHaveCount(0)
 	await expect(card.getByRole("button", { name: "Delete" })).toBeVisible()
+	// Nor is the reader's own assistant offered: they turned AI off.
+	await expect(card.getByRole("button", { name: "Continue in your assistant" })).toHaveCount(0)
 	await shot(page, "off-1-card")
 	await page.mouse.click(1300, 450)
 	// Nothing new: the toolbar only highlights.
@@ -458,6 +460,7 @@ test("turned off in Settings: answers kept are read and deleted, nothing new is 
 	await expect(chat).toContainText("What is it about?")
 	await expect(chat).toContainText("AI answers are turned off in Settings → Features.")
 	await expect(chat.getByRole("textbox")).toHaveCount(0)
+	await expect(chat.getByRole("button", { name: "Continue in your assistant" })).toHaveCount(0)
 	await shot(page, "off-2-chat")
 	await chat.getByRole("button", { name: "Clear chat" }).click()
 	await expect(sidebar.getByRole("tab", { name: "Ask" })).toHaveCount(0)
@@ -613,6 +616,88 @@ test("at the cap Ask AI is dimmed, and pressing it says why without asking", asy
 		.where(eq(usageCounts.userId, userId))
 	expect(counts.find((c) => c.metric === "ai")?.count).toBe(100)
 	expect(counts.find((c) => c.metric === "refused")).toBeUndefined()
+})
+
+test("the reader's own assistant: a prompt after an answer, in the empty chat and when none are left", async ({
+	page,
+}) => {
+	test.setTimeout(120_000)
+	await page.setViewportSize({ width: 1440, height: 900 })
+	await page.context().grantPermissions(["clipboard-read", "clipboard-write"])
+	const id = await open(page)
+	const clipboard = () => page.evaluate(() => navigator.clipboard.readText())
+
+	// After an answer: the article, the passage and the questions asked, not the answers.
+	await select(page, PASSAGE)
+	await askAi(page, "Explain")
+	const card = page.getByTestId("ai-card")
+	await expect(card).toContainText("Answer 1.")
+	await card.getByRole("textbox", { name: "Ask a follow-up…" }).fill("And managers?")
+	await card.getByRole("textbox", { name: "Ask a follow-up…" }).press("Enter")
+	await expect(card).toContainText("Answer 2.")
+	await card.getByRole("button", { name: "Continue in your assistant" }).click()
+	await expect(page.getByText("Prompt copied. Paste it into your assistant.")).toBeVisible()
+	const prompt = await clipboard()
+	expect(prompt).toContain(`(id ${id})`)
+	expect(prompt).toContain(`> ${PASSAGE}`)
+	expect(prompt).toContain("- Explain this passage\n- And managers?")
+	expect(prompt).toMatch(/remote MCP server at http\S+\/mcp /)
+	expect(prompt).not.toContain("A fixed answer for tests.")
+	await shot(page, "assistant-1-card")
+
+	// The empty chat offers it too, with the article and no passage.
+	await page.keyboard.press("Escape")
+	await page.getByRole("button", { name: "Chat about this article" }).click()
+	const chat = page.getByTestId("chat")
+	const offer = chat.getByTestId("chat-assistant")
+	await expect(offer).toContainText("Or ask your own assistant")
+	await page.evaluate(() => navigator.clipboard.writeText(""))
+	await offer.getByRole("button", { name: "Copy prompt" }).click()
+	await expect.poll(clipboard).toContain(`(id ${id})`)
+	expect(await clipboard()).not.toContain("passage")
+	await shot(page, "assistant-2-chat")
+
+	// None left: the card and the chat say where to keep going, under the day it starts over.
+	const userId = await askedThisMonth(id, 100)
+	await page.reload()
+	await waitForHydration(page)
+	await page.keyboard.press("c")
+	await expect(chat).toContainText(`It starts over on ${nextMonth()}.`)
+	await expect(chat.getByTestId("own-assistant")).toContainText(
+		"Keep going with your own assistant",
+	)
+	await expect(chat.getByTestId("chat-assistant")).toHaveCount(0)
+	await shot(page, "assistant-3-chat-none-left")
+	await page
+		.getByRole("complementary", { name: "Notes and highlights" })
+		.getByRole("button", { name: "Close" })
+		.click()
+	await page
+		.getByRole("region", { name: "Highlight notes" })
+		.getByRole("button", { name: /Explain/ })
+		.click()
+	const own = card.getByTestId("own-assistant")
+	await expect(own).toContainText("Keep going with your own assistant")
+	await page.evaluate(() => navigator.clipboard.writeText(""))
+	await own.getByRole("button", { name: "Copy prompt" }).click()
+	await expect.poll(clipboard).toContain("- And managers?")
+	await shot(page, "assistant-4-card-none-left")
+
+	// Without a verified email nothing offers it: connecting needs one.
+	await db.update(user).set({ emailVerified: false }).where(eq(user.id, userId))
+	await page.reload()
+	await waitForHydration(page)
+	await page
+		.getByRole("region", { name: "Highlight notes" })
+		.getByRole("button", { name: /Explain/ })
+		.click()
+	await expect(card).toContainText("Answer 2.")
+	await expect(card.getByRole("button", { name: "Continue in your assistant" })).toHaveCount(0)
+	await expect(card.getByTestId("own-assistant")).toHaveCount(0)
+	await page.keyboard.press("Escape")
+	await page.keyboard.press("c")
+	await expect(chat).toContainText(`It starts over on ${nextMonth()}.`)
+	await expect(chat.getByTestId("own-assistant")).toHaveCount(0)
 })
 
 test("a question the server refuses at the cap turns the page to none left", async ({ page }) => {

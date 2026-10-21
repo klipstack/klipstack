@@ -296,6 +296,25 @@ export default {
 		copy: "Copiar respuesta",
 		delete: "Eliminar",
 		deleted: "Respuesta eliminada",
+		assistant: {
+			noneLeft:
+				"Sigue con tu propio asistente. ChatGPT, Claude u otro pueden leer este artículo en Klipstack.",
+			chatEmpty: "O pregúntale a tu propio asistente, como ChatGPT o Claude.",
+			copy: "Copiar instrucción",
+			continue: "Seguir en tu asistente",
+			copied: "Instrucción copiada. Pégala en tu asistente.",
+			prompt: {
+				article:
+					"En Klipstack, mi app para leer más tarde, estoy leyendo el artículo «{{title}}» (id {{id}}). Léelo con get_article.",
+				passage: "Pregunto por este fragmento:",
+				asked: "Ya le pregunté a la IA integrada de Klipstack:",
+				explain: "Explica este fragmento",
+				define: "Define esto",
+				next: "Ayúdame a seguir desde ahí.",
+				setup:
+					"Si Klipstack aún no está conectado: es un servidor MCP remoto en {{url}} (HTTP en streaming) que inicia sesión con OAuth. Si puedes añadir servidores MCP tú mismo, añádelo y dame el enlace de inicio de sesión para que lo apruebe. Si no puedes, explícame paso a paso cómo añadirlo como conector personalizado en los ajustes de esta app.",
+			},
+		},
 		errors: {
 			limit_reached: "Ya hiciste todas las preguntas que permite este mes. Se reinicia el día 1.",
 			limit_reached_on:

@@ -297,6 +297,25 @@ export default {
 		copy: "Copy answer",
 		delete: "Delete",
 		deleted: "Answer deleted",
+		assistant: {
+			noneLeft:
+				"Keep going with your own assistant. ChatGPT, Claude or another can read this article in Klipstack.",
+			chatEmpty: "Or ask your own assistant, such as ChatGPT or Claude.",
+			copy: "Copy prompt",
+			continue: "Continue in your assistant",
+			copied: "Prompt copied. Paste it into your assistant.",
+			prompt: {
+				article:
+					"In Klipstack, my read-it-later app, I'm reading the article “{{title}}” (id {{id}}). Read it with get_article.",
+				passage: "I'm asking about this passage:",
+				asked: "I already asked Klipstack's built-in AI:",
+				explain: "Explain this passage",
+				define: "Define this",
+				next: "Help me keep going from there.",
+				setup:
+					"If Klipstack isn't connected yet: it is a remote MCP server at {{url}} (streamable HTTP) that signs in with OAuth. If you can add MCP servers yourself, add it and give me the sign-in link to approve. If you can't, tell me step by step how to add it as a custom connector in this app's settings.",
+			},
+		},
 		errors: {
 			limit_reached:
 				"You've asked as many questions as this month allows. It starts over on the 1st.",

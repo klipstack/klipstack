@@ -38,6 +38,7 @@ import { useMediaQuery } from "~/hooks/use-media-query"
 import { type ArticleNote, useNoteAutosave } from "~/hooks/use-note-autosave"
 import { useAlignForSheet } from "~/hooks/use-reader-bar"
 import { useReadingCursor } from "~/hooks/use-reading-cursor"
+import { assistantPrompt } from "~/lib/assistant-prompt"
 import { copyText } from "~/lib/copy-link"
 import { highlightColor } from "~/lib/highlight-colors"
 import {
@@ -225,6 +226,20 @@ export function ReaderArticle({
 	// The chat has no passage: it lives in the sidebar, not on the text or in the margin.
 	const passageCards = ai.cards.filter((c) => c.action !== "chat")
 	const chatCard = ai.cards.find((c) => c.action === "chat")
+	// A prompt for the reader's own assistant, which reads the article through the MCP server.
+	const assistantUrl = data.ai.assistantUrl
+	const toAssistant = (card?: Card) =>
+		assistantUrl
+			? () =>
+					copyText(
+						assistantPrompt(t, {
+							url: assistantUrl,
+							article: { id: doc.id, title: doc.title || doc.sourceUrl },
+							card,
+						}),
+						t("ai.assistant.copied"),
+					)
+			: undefined
 	const threadPlaces = passageCards
 		.map((c) => `${c.id}:${c.start}:${c.end}:${c.versionId}:${c.orphaned}`)
 		.join()
@@ -504,6 +519,7 @@ export function ReaderArticle({
 			onRetry={asking ? () => ai.retry(card.id) : undefined}
 			onDelete={() => deleteThread(card.id)}
 			onCopy={(text) => copyText(text, t("highlights.popover.copied"))}
+			onAssistant={asking ? toAssistant(card) : undefined}
 			onCite={citeIn(card)}
 			onHover={(on) => setHoveredThread(on ? card.id : null)}
 		/>
@@ -993,6 +1009,7 @@ export function ReaderArticle({
 									onRetry={asking ? () => chatCard && ai.retry(chatCard.id) : undefined}
 									onClear={() => chatCard && clearChat(chatCard.id)}
 									onCopy={(text) => copyText(text, t("highlights.popover.copied"))}
+									onAssistant={asking ? toAssistant(chatCard) : undefined}
 									onCite={chatCard ? citeIn(chatCard) : () => {}}
 								/>
 							) : undefined

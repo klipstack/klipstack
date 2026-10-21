@@ -56,6 +56,7 @@ import {
 	threadView,
 } from "~/lib/ai-threads"
 import { ai as aiModule, topicModels } from "~/lib/ai.server"
+import { MCP_RESOURCE } from "~/lib/auth.server"
 import { warnAboutBacklinks } from "~/lib/backlink-warning.client"
 import { BULK_ACTION } from "~/lib/bulk-actions"
 import { useCommands } from "~/lib/commands"
@@ -149,6 +150,8 @@ export async function loader({ context, request, params }: Route.LoaderArgs) {
 		listContentLinks(user.id, params.id),
 		topicsShown ? readerTopics(user.id, params.id) : noTopics,
 	])
+	// Asking more: not turned off in Settings → Features. Off, the answers kept still show.
+	const asking = aiEnabled && resolvePrefs(user.prefs).ai !== "off"
 	const { publishedAt } = result.document
 	const day = (at: Date) =>
 		formatDay(at, getLocale(context), timeZoneFromCookie(request.headers.get("cookie")))
@@ -164,8 +167,10 @@ export async function loader({ context, request, params }: Route.LoaderArgs) {
 		highlights,
 		ai: {
 			enabled: aiEnabled,
-			// Asking more: not turned off in Settings → Features. Off, the answers kept still show.
-			asking: aiEnabled && resolvePrefs(user.prefs).ai !== "off",
+			asking,
+			// The MCP server's address, for the prompts that carry a question to the reader's own
+			// assistant: while asking, and once the email is verified, which connecting needs.
+			assistantUrl: asking && user.emailVerified ? MCP_RESOURCE : null,
 			threads,
 			brief,
 			allowance,
