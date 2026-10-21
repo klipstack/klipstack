@@ -167,10 +167,10 @@ export function registerReadTools(server: McpServer, userId: string) {
 		"list_library",
 		{
 			title: "List library",
-			description: `Lists saved articles in a view: library (view "inbox", saved articles), archive (done), starred, or all (the library and the archive together), the same lists and filters the app has. Library filters: unread (never opened), progress (opened, not finished), again (finished before and put back unread to read again, not opened since), read (finished, still in the library), quick (articles of at most ${QUICK_MAX_MINUTES} minutes), long (at least ${LONG_MIN_MINUTES} minutes), x (posts from X); quick, long and x leave out what is read. Archive, starred and all filters: unfinished, finished, quick, long, x. Sorts: newest and oldest go by when articles were saved (library, all), archived (archive) or starred (starred); shortest and longest by reading time. Paginate with nextCursor.`,
+			description: `Lists saved articles in a view: library (view "inbox", saved articles), archive (done), starred, all (the library and the archive together), or trash (moved to the trash, each with trashedAt; restore_articles brings them back), the same lists and filters the app has. Library filters: unread (never opened), progress (opened, not finished), again (finished before and put back unread to read again, not opened since), read (finished, still in the library), quick (articles of at most ${QUICK_MAX_MINUTES} minutes), long (at least ${LONG_MIN_MINUTES} minutes), x (posts from X); quick, long and x leave out what is read. Archive, starred and all filters: unfinished, finished, quick, long, x. The trash takes none. Sorts: newest and oldest go by when articles were saved (library, all, trash), archived (archive) or starred (starred); shortest and longest by reading time. Paginate with nextCursor.`,
 			inputSchema: z
 				.object({
-					view: z.enum(["inbox", "archive", "starred", "all"]).default("inbox"),
+					view: z.enum(["inbox", "archive", "starred", "all", "trash"]).default("inbox"),
 					filter: z.enum([...new Set([...INBOX_FILTERS, ...ARCHIVE_FILTERS])]).optional(),
 					topic: z
 						.union([uuid(), z.literal("none")])
@@ -191,9 +191,13 @@ export function registerReadTools(server: McpServer, userId: string) {
 					limit: z.number().int().min(1).max(50).default(20),
 					cursor: z.string().max(500).optional().describe("nextCursor from the previous page"),
 				})
-				.refine((v) => !v.filter || parseFilter(v.filter, filtersOf(v.view)) !== null, {
-					message: `Library filters: ${INBOX_FILTERS.join(", ")}. Archive, starred and all filters: ${ARCHIVE_FILTERS.join(", ")}.`,
-				}),
+				.refine(
+					(v) =>
+						!v.filter || (v.view !== "trash" && parseFilter(v.filter, filtersOf(v.view)) !== null),
+					{
+						message: `Library filters: ${INBOX_FILTERS.join(", ")}. Archive, starred and all filters: ${ARCHIVE_FILTERS.join(", ")}. The trash takes none.`,
+					},
+				),
 			annotations: READ_ONLY,
 		},
 		async ({ view, filter, topic: asked, has_note_links, sort, limit, cursor }) => {
@@ -205,7 +209,7 @@ export function registerReadTools(server: McpServer, userId: string) {
 			const page = await listDocuments({
 				userId,
 				view,
-				filter: filter ? parseFilter(filter, filtersOf(view)) : null,
+				filter: filter && view !== "trash" ? parseFilter(filter, filtersOf(view)) : null,
 				sort,
 				limit,
 				hasNoteLinks: has_note_links,

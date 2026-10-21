@@ -48,6 +48,8 @@ const WRITE_TOOLS = [
 	"mark_feed_viewed",
 	"save_feed_items",
 	"rename_tag",
+	"restore_articles",
+	"restore_highlight",
 	"save_article",
 	"trash_articles",
 	"update_articles",
@@ -376,6 +378,18 @@ describe("MCP with an API key", () => {
 		expect(await callError(mcp, "update_highlight", { id: second.id, color: "blue" })).toContain(
 			"No highlight",
 		)
+		// A deleted highlight comes back, note and color included.
+		expect(await call(mcp, "restore_highlight", { id: second.id })).toEqual({
+			id: second.id,
+			restored: true,
+		})
+		expect(
+			(await call(mcp, "list_highlights", { article_id: id })).items.find(
+				(h: { id: string }) => h.id === second.id,
+			),
+		).toMatchObject({ quote: QUOTE, color: "pink" })
+		expect(await callError(mcp, "restore_highlight", { id: MISSING })).toContain("No highlight")
+		await call(mcp, "delete_highlight", { id: second.id })
 		const article = text(await mcp.callTool({ name: "get_article", arguments: { id } }))
 		expect(article).toContain("From the assistant.")
 		expect(article).toContain("> Have you ever heard of SEMA?")
@@ -403,6 +417,36 @@ describe("MCP with an API key", () => {
 		expect(await call(mcp, "trash_articles", { ids: [id] })).toMatchObject({
 			trashed: [],
 			notFound: [id],
+		})
+
+		// The trash lists them, with when they went there and where they would go back to.
+		const trash = await call(mcp, "list_library", { view: "trash" })
+		expect(trash.items.map((i: { id: string }) => i.id).sort()).toEqual([id, other].sort())
+		expect(trash.items[0]).toMatchObject({ location: "inbox", trashedAt: expect.any(String) })
+		expect(await callError(mcp, "list_library", { view: "trash", filter: "unread" })).toContain(
+			"The trash takes none",
+		)
+		// Restored, with its highlights; ids not in the trash are reported.
+		expect(await call(mcp, "restore_articles", { ids: [id, MISSING] })).toEqual({
+			restored: [id],
+			notFound: [MISSING],
+			alreadySaved: [],
+		})
+		expect((await call(mcp, "list_library")).items).toEqual([
+			expect.not.objectContaining({ trashedAt: expect.anything() }),
+		])
+		expect((await call(mcp, "list_highlights", { article_id: id })).items).toHaveLength(2)
+		expect(await call(mcp, "restore_articles", { ids: [id] })).toMatchObject({
+			restored: [],
+			notFound: [id],
+		})
+		// The same page saved again since: that article stays, and the trashed one is named.
+		const again = await call(mcp, "save_article", { url: FIXTURES.makers.url })
+		expect(again).toMatchObject({ created: true })
+		expect(await call(mcp, "restore_articles", { ids: [other] })).toEqual({
+			restored: [],
+			notFound: [],
+			alreadySaved: [{ id: other, articleId: again.id }],
 		})
 	})
 

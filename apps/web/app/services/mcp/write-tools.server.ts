@@ -13,10 +13,11 @@ import {
 	appendArticleNote,
 	createHighlight,
 	deleteHighlight,
+	restoreHighlight,
 	setArticleNote,
 	updateHighlight,
 } from "~/commands/annotations.server"
-import { trashArticles, updateArticles } from "~/commands/articles.server"
+import { restoreArticles, trashArticles, updateArticles } from "~/commands/articles.server"
 import { setArticleEditionNote } from "~/commands/editions.server"
 import { saveArticle } from "~/commands/saving.server"
 import { createTag, deleteTag, renameTag } from "~/commands/tags.server"
@@ -37,7 +38,9 @@ export const ARTICLE_WRITE_TOOLS: ReadonlySet<string> = new Set([
 	"add_highlight",
 	"update_highlight",
 	"delete_highlight",
+	"restore_highlight",
 	"trash_articles",
+	"restore_articles",
 	"create_tag",
 	"rename_tag",
 	"delete_tag",
@@ -257,10 +260,25 @@ export function registerWriteTools(server: McpServer, userId: string, canWrite: 
 	)
 
 	server.registerTool(
+		"restore_highlight",
+		{
+			title: "Restore highlight",
+			description: `Brings back a highlight deleted with delete_highlight, with its note and color, for ${TRASH_RETENTION_DAYS} days after it was deleted. Its article must be in the library: restore_articles brings back a trashed one first.`,
+			inputSchema: z.object({ id: uuid() }),
+			annotations: { ...WRITE, idempotentHint: true },
+		},
+		async ({ id }) => {
+			if (!canWrite) return toolError(NO_WRITE)
+			await restoreHighlight(userId, id)
+			return json({ id, restored: true })
+		},
+	)
+
+	server.registerTool(
 		"trash_articles",
 		{
 			title: "Move articles to trash",
-			description: `Moves up to ${BATCH_MAX} articles, with their highlights and notes, to the trash. The user can restore them from the trash in Klipstack for ${TRASH_RETENTION_DAYS} days; then they are deleted for good. Confirm with the user first.`,
+			description: `Moves up to ${BATCH_MAX} articles, with their highlights and notes, to the trash. They can be restored for ${TRASH_RETENTION_DAYS} days, with restore_articles or by the user in Klipstack; then they are deleted for good. Confirm with the user first.`,
 			inputSchema: z.object({ ids: articleIds }),
 			annotations: { ...WRITE, destructiveHint: true, idempotentHint: true },
 		},
@@ -268,6 +286,20 @@ export function registerWriteTools(server: McpServer, userId: string, canWrite: 
 			if (!canWrite) return toolError(NO_WRITE)
 			const { trashed, notFound } = await trashArticles(userId, ids)
 			return json({ trashed, notFound, restorableForDays: TRASH_RETENTION_DAYS })
+		},
+	)
+
+	server.registerTool(
+		"restore_articles",
+		{
+			title: "Restore articles from trash",
+			description: `Brings up to ${BATCH_MAX} articles back from the trash, with their highlights and notes, to where they were (location says which). list_library with view "trash" or search_library with in:trash finds them. notFound: not in the trash. The library keeps one article per page: when the same page was saved again since, the trashed article stays there, and alreadySaved names the article in the library (articleId).`,
+			inputSchema: z.object({ ids: articleIds }),
+			annotations: { ...WRITE, idempotentHint: true },
+		},
+		async ({ ids }) => {
+			if (!canWrite) return toolError(NO_WRITE)
+			return json(await restoreArticles(userId, ids))
 		},
 	)
 
