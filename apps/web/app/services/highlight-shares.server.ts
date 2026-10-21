@@ -13,6 +13,7 @@ import {
 	type Tx,
 } from "@klipstack/db"
 import { z } from "zod"
+import { QUOTE_WORDS_MAX } from "~/lib/editions"
 
 /**
  * What a shared highlight's page shows, copied when it was shared or last updated: nothing on the
@@ -116,10 +117,23 @@ export type PublicShare =
 	| { status: "removed" }
 	| { status: "stopped" }
 
+/** The quote's first `max` words, its spacing kept, with "…" where it was cut. */
+function clipQuote(text: string, max: number): string {
+	let words = 0
+	let end = 0
+	for (const word of text.matchAll(/\S+/g)) {
+		if (words === max) return `${text.slice(0, end)}…`
+		words += 1
+		end = word.index + word[0].length
+	}
+	return text
+}
+
 /**
  * A shared highlight's page, for anyone: live, taken down by an admin, or stopped (its owner
  * stopped sharing it, or deleted the highlight). Null for an address that never was, or that a
- * new share of the highlight replaced.
+ * new share of the highlight replaced. A live one quotes at most an edition's words: the snapshot
+ * keeps the whole highlight, which only its owner sees.
  */
 export async function getPublicShare(publicId: string): Promise<PublicShare | null> {
 	if (!PUBLIC_ID.test(publicId)) return null
@@ -138,7 +152,11 @@ export async function getPublicShare(publicId: string): Promise<PublicShare | nu
 	if (row.published === null || row.deletedAt) return { status: "stopped" }
 	const snapshot = parseShareSnapshot(row.published)
 	if (!snapshot) throw new Error(`Share ${publicId}: a snapshot this code cannot read`)
-	return { status: "live", snapshot, updatedAt: row.updatedAt }
+	return {
+		status: "live",
+		snapshot: { ...snapshot, exact: clipQuote(snapshot.exact, QUOTE_WORDS_MAX) },
+		updatedAt: row.updatedAt,
+	}
 }
 
 /** The live shares among these highlights of the user's, for marks in lists. */

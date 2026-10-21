@@ -12,6 +12,7 @@ import sharp from "sharp"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { shareHighlight, stopSharingHighlight } from "~/commands/highlight-shares.server"
 import { env } from "~/lib/env.server"
+import { getShareState } from "~/services/highlight-shares.server"
 import { loader as cardLoader } from "./highlight.og"
 import { headers, loader, meta } from "./highlight.public"
 import { loader as reportLoader } from "./highlight.report"
@@ -154,6 +155,27 @@ describe("a shared highlight's page", () => {
 		const after = await picture()
 		expect(after.url).not.toBe(before.url)
 		expect(after.png.equals(before.png)).toBe(false)
+	})
+
+	it("shows only the first 150 words of a longer quote, keeping the whole one for its owner", async () => {
+		const words = Array.from({ length: 200 }, (_, i) => `w${i + 1}`)
+		// A paragraph break inside the part shown stays; the cut falls between words 150 and 151.
+		const exact = `${words.slice(0, 10).join(" ")}\n\n${words.slice(10).join(" ")}`
+		const id = await highlight(null)
+		await db.update(highlights).set({ exact }).where(eq(highlights.id, id))
+		const { publicId } = await shareHighlight(userId, id, { includeNote: true, locale: "en" })
+
+		const data = await load(publicId)
+		const shown = `${words.slice(0, 10).join(" ")}\n\n${words.slice(10, 150).join(" ")}…`
+		expect(data.view.exact).toBe(shown)
+		expect(JSON.stringify(data)).not.toContain("w151")
+		expect(await getShareState(userId, id)).toMatchObject({ changed: false })
+
+		// Exactly 150 words is shown whole, with no ellipsis.
+		const whole = words.slice(0, 150).join(" ")
+		await db.update(highlights).set({ exact: whole }).where(eq(highlights.id, id))
+		await shareHighlight(userId, id, { includeNote: true, locale: "en" })
+		expect((await load(publicId)).view.exact).toBe(whole)
 	})
 
 	it("points a quote the font cannot draw at the Klipstack card", async () => {
