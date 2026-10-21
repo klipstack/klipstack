@@ -107,7 +107,8 @@ not reach the app.
 
 The reader's AI (the brief, Explain, Define, Ask, the chat) and deleting the account answer only
 tokens the server issued to this app (`IN_APP_AI_CLIENTS` and `ACCOUNT_DELETION_CLIENTS` in
-`packages/api-contract/src/auth.ts`), not API keys: signed in with a key, the reader shows no AI.
+`packages/api-contract/src/auth.ts`), not API keys: signed in with a key, the reader shows the
+answers kept but asks nothing new.
 For those, sign the app in with an app token instead: `dev-account` issues one for a throwaway
 account (below).
 

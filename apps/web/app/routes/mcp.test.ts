@@ -1,12 +1,15 @@
 import { BATCH_MAX } from "@klipstack/api-contract"
-import { db, eq, highlights, newId, user } from "@klipstack/db"
+import { db, eq, highlights, newId, user, userFeatures } from "@klipstack/db"
 import { stopBoss } from "@klipstack/queue"
 import type { Client } from "@modelcontextprotocol/client"
 import sharp from "sharp"
-import { afterAll, describe, expect, it } from "vitest"
+import { afterAll, describe, expect, it, vi } from "vitest"
+import { setPrefs } from "~/commands/account.server"
+import { askAboutPassage, askArticle, briefArticle } from "~/commands/ai.server"
 import { openArticle } from "~/commands/articles.server"
 import { createSavedSearch } from "~/commands/saved-searches.server"
 import { env } from "~/lib/env.server"
+import { usageOf } from "~/lib/limits.server"
 import { createHighlight } from "~/services/highlights.server"
 import { countBacklinks } from "~/services/links.server"
 import { apiUsers, captured, FIXTURES, mcpClient } from "~/test/api-harness"
@@ -18,13 +21,20 @@ import { action } from "./mcp"
  * and database. OAuth tokens, and discovery through /.well-known, stay in e2e/mcp.spec.ts.
  */
 
+// The fake model, as on a server with a provider set up.
+vi.hoisted(() => {
+	process.env.AI_FAKE = "1"
+})
+
 const origin = new URL(env.APP_URL).origin
+const en = { language: "en" as const }
 const JOEL = FIXTURES.joel
 const JOEL_URL = JOEL.url.replace(/\/$/, "")
 const QUOTE = "Do you use source control?"
 const MISSING = "00000000-0000-4000-8000-000000000000"
 
 const READ_TOOLS = [
+	"get_ai_history",
 	"get_article",
 	"list_feed",
 	"list_article_links",
@@ -40,14 +50,19 @@ const READ_TOOLS = [
 ]
 const WRITE_TOOLS = [
 	"add_highlight",
+	"create_saved_search",
 	"create_tag",
 	"delete_highlight",
+	"delete_saved_search",
 	"delete_tag",
 	"dismiss_feed_items",
 	"follow_feed",
 	"mark_feed_viewed",
 	"save_feed_items",
+	"rename_saved_search",
 	"rename_tag",
+	"restore_articles",
+	"restore_highlight",
 	"save_article",
 	"trash_articles",
 	"update_articles",
@@ -268,8 +283,7 @@ describe("MCP with an API key", () => {
 			articles: 0,
 			merged: false,
 		})
-		// Saved searches are the user's to make; an assistant reads them. The query follows the tag
-		// through the merge below.
+		// A saved search names the tag; its query follows the tag through the merge below.
 		expect((await call(mcp, "list_saved_searches")).items).toEqual([])
 		await createSavedSearch(owner, { name: "Weekend", query: 'tag:"long reads" is:unread' })
 		// Onto another tag's name: the two merge, and the articles go with them.
@@ -302,6 +316,30 @@ describe("MCP with an API key", () => {
 			{ name: "Weekend", query: 'tag:"To Review" is:unread' },
 		])
 		expect(await callError(mcp, "delete_tag", { name: "To Review" })).toContain("no tag")
+		// Saved searches, by name: made, renamed and deleted.
+		expect(
+			await call(mcp, "create_saved_search", { name: " Quick  wins ", query: "is:unread" }),
+		).toEqual({ name: "Quick wins", query: "is:unread" })
+		expect(await callError(mcp, "create_saved_search", { name: "WEEKEND", query: "x" })).toContain(
+			"Another saved search has that name",
+		)
+		expect(
+			await call(mcp, "rename_saved_search", { name: "weekend", new_name: "Saturday" }),
+		).toEqual({ name: "Saturday", query: 'tag:"To Review" is:unread' })
+		expect(
+			await callError(mcp, "rename_saved_search", { name: "saturday", new_name: "quick wins" }),
+		).toContain("Another saved search has that name")
+		expect(await call(mcp, "delete_saved_search", { name: "QUICK WINS" })).toEqual({
+			name: "Quick wins",
+			deleted: true,
+		})
+		expect((await call(mcp, "list_saved_searches")).items).toEqual([
+			{ name: "Saturday", query: 'tag:"To Review" is:unread' },
+		])
+		for (const name of ["rename_saved_search", "delete_saved_search"])
+			expect(await callError(mcp, name, { name: "Quick wins", new_name: "Other" })).toContain(
+				"no saved search with that name",
+			)
 		// The articles are still there, without the tag.
 		const bare = await call(mcp, "search_library", { query: "-has:tags" })
 		expect(bare.items.map((i: { id: string }) => i.id).sort()).toEqual([id, other].sort())
@@ -376,6 +414,18 @@ describe("MCP with an API key", () => {
 		expect(await callError(mcp, "update_highlight", { id: second.id, color: "blue" })).toContain(
 			"No highlight",
 		)
+		// A deleted highlight comes back, note and color included.
+		expect(await call(mcp, "restore_highlight", { id: second.id })).toEqual({
+			id: second.id,
+			restored: true,
+		})
+		expect(
+			(await call(mcp, "list_highlights", { article_id: id })).items.find(
+				(h: { id: string }) => h.id === second.id,
+			),
+		).toMatchObject({ quote: QUOTE, color: "pink" })
+		expect(await callError(mcp, "restore_highlight", { id: MISSING })).toContain("No highlight")
+		await call(mcp, "delete_highlight", { id: second.id })
 		const article = text(await mcp.callTool({ name: "get_article", arguments: { id } }))
 		expect(article).toContain("From the assistant.")
 		expect(article).toContain("> Have you ever heard of SEMA?")
@@ -403,6 +453,37 @@ describe("MCP with an API key", () => {
 		expect(await call(mcp, "trash_articles", { ids: [id] })).toMatchObject({
 			trashed: [],
 			notFound: [id],
+		})
+
+		// The trash lists them, with when they went there and where they would go back to.
+		const trash = await call(mcp, "list_library", { view: "trash" })
+		expect(trash.items.map((i: { id: string }) => i.id).sort()).toEqual([id, other].sort())
+		expect(trash.items[0]).toMatchObject({ location: "inbox", trashedAt: expect.any(String) })
+		// long is a filter of every other view: here it is refused, not applied.
+		expect(await callError(mcp, "list_library", { view: "trash", filter: "long" })).toContain(
+			"The trash takes none",
+		)
+		// Restored, with its highlights; ids not in the trash are reported.
+		expect(await call(mcp, "restore_articles", { ids: [id, MISSING] })).toEqual({
+			restored: [id],
+			notFound: [MISSING],
+			alreadySaved: [],
+		})
+		expect((await call(mcp, "list_library")).items).toEqual([
+			expect.not.objectContaining({ trashedAt: expect.anything() }),
+		])
+		expect((await call(mcp, "list_highlights", { article_id: id })).items).toHaveLength(2)
+		expect(await call(mcp, "restore_articles", { ids: [id] })).toMatchObject({
+			restored: [],
+			notFound: [id],
+		})
+		// The same page saved again since: that article stays, and the trashed one is named.
+		const again = await call(mcp, "save_article", { url: FIXTURES.makers.url })
+		expect(again).toMatchObject({ created: true })
+		expect(await call(mcp, "restore_articles", { ids: [other] })).toEqual({
+			restored: [],
+			notFound: [],
+			alreadySaved: [{ id: other, articleId: again.id }],
 		})
 	})
 
@@ -651,6 +732,84 @@ describe("MCP with an API key", () => {
 				starred: true,
 			}),
 		).toEqual({ items: [], notFound: [MISSING] })
+	})
+
+	it("reads an article's AI answers and brief, and never asks for one", async () => {
+		const { id: owner, joel, makers, mcp } = await setupLibrary({ second: true })
+		expect(await callError(mcp, "get_ai_history", { article_id: joel })).toContain(
+			"AI answers are not turned on",
+		)
+		await db.insert(userFeatures).values({ userId: owner, feature: "ai" })
+
+		const asked = await askAboutPassage(
+			owner,
+			joel,
+			{ action: "define", exact: "Have you ever heard of SEMA?" },
+			en,
+		)
+		for await (const _ of asked.events);
+		const answer = await asked.answer
+		const brief = await briefArticle(owner, joel, en)
+		if (!("events" in brief)) throw new Error("expected a new brief")
+		for await (const _ of brief.events);
+		const kept = await brief.brief
+
+		const history = await call(mcp, "get_ai_history", { article_id: joel })
+		expect(history).toEqual({
+			brief: {
+				text: kept!.text,
+				citations: kept!.citations.map((c) => c.exact),
+				createdAt: expect.any(String),
+			},
+			threads: [
+				{
+					id: asked.thread.id,
+					action: "define",
+					passage: "Have you ever heard of SEMA?",
+					highlightId: null,
+					orphaned: false,
+					createdAt: expect.any(String),
+					messages: [
+						{
+							role: "user",
+							text: "",
+							status: "done",
+							citations: [],
+							createdAt: expect.any(String),
+						},
+						{
+							role: "assistant",
+							text: answer.text,
+							status: "done",
+							citations: answer.citations.map((c) => c.exact),
+							createdAt: expect.any(String),
+						},
+					],
+				},
+			],
+		})
+		expect(answer.citations.length).toBeGreaterThan(0)
+
+		// A chat has no passage. An article without a brief stays without one: reading costs nothing.
+		const chat = await askArticle(owner, makers, "What is it about?", en)
+		for await (const _ of chat.events);
+		await chat.answer
+		const used = (await usageOf(owner)).ai.used
+		const makersHistory = await call(mcp, "get_ai_history", { article_id: makers })
+		expect(makersHistory.brief).toBeNull()
+		expect(makersHistory.threads).toEqual([
+			expect.objectContaining({ id: chat.thread.id, action: "chat", passage: null }),
+		])
+		expect(makersHistory.threads[0].messages[0]).toMatchObject({ text: "What is it about?" })
+		expect((await usageOf(owner)).ai.used).toBe(used)
+
+		// Turned off in Settings, the answers kept can still be read.
+		await setPrefs(owner, { ai: "off" })
+		expect((await call(mcp, "get_ai_history", { article_id: joel })).threads).toHaveLength(1)
+		// Not for an article in the trash, nor one that does not exist.
+		await call(mcp, "trash_articles", { ids: [makers] })
+		for (const article_id of [makers, MISSING])
+			expect(await callError(mcp, "get_ai_history", { article_id })).toContain("No article")
 	})
 
 	it("refuses the feed tools while feeds are turned off", async () => {

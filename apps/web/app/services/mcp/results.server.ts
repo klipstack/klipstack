@@ -11,7 +11,10 @@ export { appOrigin, readerUrl } from "../article-summary.server"
 /** How notes link to other articles, for tool descriptions. */
 export const NOTE_LINKS_HINT = `To link another article in the library, use [Title](/read/<article id>) or the absolute Klipstack URL [Title](${appOrigin}/read/<article id>). Use the article's lowercase id. Both formats create the same connection and backlinks. Notes are stored and returned in JSON with relative links; get_article displays absolute links.`
 
-/** The shared summary as tools show it: `klipstackUrl`, and a status only while not ready. */
+/**
+ * The shared summary as tools show it: `klipstackUrl`, a status only while not ready, and `trashedAt`
+ * only in the trash.
+ */
 export function articleSummary(card: LibraryCard) {
 	const {
 		id,
@@ -23,7 +26,7 @@ export function articleSummary(card: LibraryCard) {
 		readerUrl,
 		status,
 		failure: _failure,
-		trashedAt: _trashedAt,
+		trashedAt,
 		// Assistants read text; the picture would only cost tokens.
 		leadImage: _leadImage,
 		...rest
@@ -38,6 +41,7 @@ export function articleSummary(card: LibraryCard) {
 		klipstackUrl: readerUrl,
 		...rest,
 		...(status === "ready" ? {} : { status }),
+		...(trashedAt ? { trashedAt } : {}),
 	}
 }
 

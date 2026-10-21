@@ -1,10 +1,10 @@
-import { cleanTagName, withoutNul } from "@klipstack/api-contract/names"
+import { cleanSavedSearchName, cleanTagName, withoutNul } from "@klipstack/api-contract/names"
 import {
 	parseSearchQuery,
 	QUERY_MAX,
 	renameTagOperator,
 } from "@klipstack/api-contract/search-query"
-import { byName, db, eq, savedSearches, type Tx } from "@klipstack/db"
+import { and, byName, db, eq, savedSearches, sql, type Tx } from "@klipstack/db"
 
 export interface SavedSearchRow {
 	id: string
@@ -29,6 +29,22 @@ export async function listSavedSearches(userId: string): Promise<SavedSearchRow[
 		.from(savedSearches)
 		.where(eq(savedSearches.userId, userId))
 		.orderBy(byName(savedSearches.name), savedSearches.id)
+}
+
+/** One of the user's saved searches by name, whatever its case, as the unique index compares. */
+export async function findSavedSearchByName(
+	userId: string,
+	rawName: string,
+): Promise<SavedSearchRow | null> {
+	const name = cleanSavedSearchName(rawName)
+	if (!name) return null
+	const [row] = await db
+		.select(columns)
+		.from(savedSearches)
+		.where(
+			and(eq(savedSearches.userId, userId), sql`lower(${savedSearches.name}) = lower(${name})`),
+		)
+	return row ?? null
 }
 
 /**

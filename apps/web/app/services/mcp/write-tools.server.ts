@@ -1,4 +1,13 @@
-import { ArticleTitle, BATCH_MAX, Ids, QUOTE_MAX, TagNames, URL_MAX } from "@klipstack/api-contract"
+import {
+	ArticleTitle,
+	BATCH_MAX,
+	Ids,
+	QUOTE_MAX,
+	SavedSearchName,
+	SavedSearchQuery,
+	TagNames,
+	URL_MAX,
+} from "@klipstack/api-contract"
 import {
 	cleanTagName,
 	HIGHLIGHT_NOTE_MAX,
@@ -13,17 +22,23 @@ import {
 	appendArticleNote,
 	createHighlight,
 	deleteHighlight,
+	restoreHighlight,
 	setArticleNote,
 	updateHighlight,
 } from "~/commands/annotations.server"
-import { trashArticles, updateArticles } from "~/commands/articles.server"
+import { restoreArticles, trashArticles, updateArticles } from "~/commands/articles.server"
 import { setArticleEditionNote } from "~/commands/editions.server"
+import {
+	createSavedSearch,
+	deleteSavedSearch,
+	renameSavedSearch,
+} from "~/commands/saved-searches.server"
 import { saveArticle } from "~/commands/saving.server"
 import { createTag, deleteTag, renameTag } from "~/commands/tags.server"
 import { AppError } from "~/lib/app-error"
 import { HIGHLIGHT_COLOR_NAMES } from "~/lib/highlight-colors"
 import { getDocument } from "../documents.server"
-import type { SavedSearchRow } from "../saved-searches.server"
+import { findSavedSearchByName, type SavedSearchRow } from "../saved-searches.server"
 import { findTagByName } from "../tags.server"
 import { uuid } from "./ids"
 import { articleSummary, json, NOTE_LINKS_HINT, readerUrl, toolError } from "./results.server"
@@ -37,10 +52,15 @@ export const ARTICLE_WRITE_TOOLS: ReadonlySet<string> = new Set([
 	"add_highlight",
 	"update_highlight",
 	"delete_highlight",
+	"restore_highlight",
 	"trash_articles",
+	"restore_articles",
 	"create_tag",
 	"rename_tag",
 	"delete_tag",
+	"create_saved_search",
+	"rename_saved_search",
+	"delete_saved_search",
 ])
 
 const WRITE = {
@@ -65,7 +85,11 @@ const NO_TAG = "The user has no tag with that name. list_tags names them."
 
 const NO_WRITE = "This connection may only read the library."
 
+const NO_SAVED_SEARCH =
+	"The user has no saved search with that name. list_saved_searches names them."
+
 export function registerWriteTools(server: McpServer, userId: string, canWrite: boolean) {
+	registerSavedSearchTools(server, userId, canWrite)
 	server.registerTool(
 		"save_article",
 		{
@@ -257,10 +281,25 @@ export function registerWriteTools(server: McpServer, userId: string, canWrite: 
 	)
 
 	server.registerTool(
+		"restore_highlight",
+		{
+			title: "Restore highlight",
+			description: `Brings back a highlight deleted with delete_highlight, with its note and color, for ${TRASH_RETENTION_DAYS} days after it was deleted. Its article must be in the library: restore_articles brings back a trashed one first.`,
+			inputSchema: z.object({ id: uuid() }),
+			annotations: { ...WRITE, idempotentHint: true },
+		},
+		async ({ id }) => {
+			if (!canWrite) return toolError(NO_WRITE)
+			await restoreHighlight(userId, id)
+			return json({ id, restored: true })
+		},
+	)
+
+	server.registerTool(
 		"trash_articles",
 		{
 			title: "Move articles to trash",
-			description: `Moves up to ${BATCH_MAX} articles, with their highlights and notes, to the trash. The user can restore them from the trash in Klipstack for ${TRASH_RETENTION_DAYS} days; then they are deleted for good. Confirm with the user first.`,
+			description: `Moves up to ${BATCH_MAX} articles, with their highlights and notes, to the trash. They can be restored for ${TRASH_RETENTION_DAYS} days, with restore_articles or by the user in Klipstack; then they are deleted for good. Confirm with the user first.`,
 			inputSchema: z.object({ ids: articleIds }),
 			annotations: { ...WRITE, destructiveHint: true, idempotentHint: true },
 		},
@@ -268,6 +307,20 @@ export function registerWriteTools(server: McpServer, userId: string, canWrite: 
 			if (!canWrite) return toolError(NO_WRITE)
 			const { trashed, notFound } = await trashArticles(userId, ids)
 			return json({ trashed, notFound, restorableForDays: TRASH_RETENTION_DAYS })
+		},
+	)
+
+	server.registerTool(
+		"restore_articles",
+		{
+			title: "Restore articles from trash",
+			description: `Brings up to ${BATCH_MAX} articles back from the trash, with their highlights and notes,, to where they were: list_library shows where. list_library with view "trash" or search_library with in:trash finds them. notFound: not in the trash. The library keeps one article per page: when the same page was saved again since, the trashed article stays there, and alreadySaved names the article in the library (articleId).`,
+			inputSchema: z.object({ ids: articleIds }),
+			annotations: { ...WRITE, idempotentHint: true },
+		},
+		async ({ ids }) => {
+			if (!canWrite) return toolError(NO_WRITE)
+			return json(await restoreArticles(userId, ids))
 		},
 	)
 
@@ -341,6 +394,61 @@ export function registerWriteTools(server: McpServer, userId: string, canWrite: 
 					)
 				throw error
 			}
+		},
+	)
+}
+
+/** Saved searches go by name, as list_saved_searches shows them. */
+function registerSavedSearchTools(server: McpServer, userId: string, canWrite: boolean) {
+	server.registerTool(
+		"create_saved_search",
+		{
+			title: "Create saved search",
+			description:
+				"Saves a search_library query under a name, so the user finds it in the app's sidebar. Only when the user asked for one. Names are unique whatever their case; an account holds a limited number of saved searches. Check the query with search_library first: operators it did not understand come back in ignored.",
+			inputSchema: z.object({ name: SavedSearchName, query: SavedSearchQuery }),
+			annotations: WRITE,
+		},
+		async ({ name, query }) => {
+			if (!canWrite) return toolError(NO_WRITE)
+			const saved = await createSavedSearch(userId, { name, query })
+			return json({ name: saved.name, query: saved.query })
+		},
+	)
+
+	server.registerTool(
+		"rename_saved_search",
+		{
+			title: "Rename saved search",
+			description:
+				"Renames one of the user's saved searches; its query stays. name is its current name, whatever its case.",
+			inputSchema: z.object({ name: SavedSearchName, new_name: SavedSearchName }),
+			annotations: { ...WRITE, idempotentHint: true },
+		},
+		async ({ name, new_name }) => {
+			if (!canWrite) return toolError(NO_WRITE)
+			const found = await findSavedSearchByName(userId, name)
+			if (!found) return toolError(NO_SAVED_SEARCH)
+			const renamed = await renameSavedSearch(userId, found.id, new_name)
+			return json({ name: renamed.name, query: renamed.query })
+		},
+	)
+
+	server.registerTool(
+		"delete_saved_search",
+		{
+			title: "Delete saved search",
+			description:
+				"Deletes one of the user's saved searches; the articles it found stay. This cannot be undone: confirm with the user first.",
+			inputSchema: z.object({ name: SavedSearchName }),
+			annotations: { ...WRITE, destructiveHint: true, idempotentHint: true },
+		},
+		async ({ name }) => {
+			if (!canWrite) return toolError(NO_WRITE)
+			const found = await findSavedSearchByName(userId, name)
+			if (!found) return toolError(NO_SAVED_SEARCH)
+			await deleteSavedSearch(userId, found.id)
+			return json({ name: found.name, deleted: true })
 		},
 	)
 }
