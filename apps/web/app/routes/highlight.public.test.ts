@@ -12,6 +12,7 @@ import sharp from "sharp"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { shareHighlight, stopSharingHighlight } from "~/commands/highlight-shares.server"
 import { env } from "~/lib/env.server"
+import { getShareState } from "~/services/highlight-shares.server"
 import { loader as cardLoader } from "./highlight.og"
 import { headers, loader, meta } from "./highlight.public"
 import { loader as reportLoader } from "./highlight.report"
@@ -154,6 +155,64 @@ describe("a shared highlight's page", () => {
 		const after = await picture()
 		expect(after.url).not.toBe(before.url)
 		expect(after.png.equals(before.png)).toBe(false)
+	})
+
+	describe("shows at most 100 words or 600 characters of the quote and the note", () => {
+		const words = (from: number, to: number) =>
+			Array.from({ length: to - from }, (_, i) => `w${from + i + 1}`).join(" ")
+
+		/** The public page's quote and note for a highlight with this text and note. */
+		async function shown(exact: string, note: string | null = null) {
+			const id = await highlight(note)
+			await db.update(highlights).set({ exact }).where(eq(highlights.id, id))
+			const { publicId } = await shareHighlight(userId, id, { includeNote: true, locale: "en" })
+			const data = await load(publicId)
+			return { id, data, note: data.view.note?.map((l) => l.map((r) => r.text).join("")) }
+		}
+
+		it("cuts after word 100, keeping paragraph breaks, and keeps the whole quote for its owner", async () => {
+			const { id, data } = await shown(`${words(0, 10)}\n\n${words(10, 130)}`)
+			expect(data.view.exact).toBe(`${words(0, 10)}\n\n${words(10, 100)}…`)
+			expect(JSON.stringify(data)).not.toContain("w101")
+			expect(await getShareState(userId, id)).toMatchObject({ changed: false })
+			// Exactly 100 words is shown whole, with no ellipsis.
+			expect((await shown(words(0, 100))).data.view.exact).toBe(words(0, 100))
+		})
+
+		it("cuts long words at the last word that ends within 600 characters", async () => {
+			// 59 words of 10 characters, a space apart: the 55th ends at 604, the 54th at 593.
+			const long = Array.from({ length: 59 }, (_, i) => `word${String(i).padStart(6, "0")}`)
+			expect((await shown(long.join(" "))).data.view.exact).toBe(`${long.slice(0, 54).join(" ")}…`)
+		})
+
+		it("cuts text without spaces at 600 characters", async () => {
+			const exact = "あ".repeat(700)
+			expect((await shown(exact)).data.view.exact).toBe(`${"あ".repeat(600)}…`)
+		})
+
+		it("cuts the note by what it shows, never inside a link", async () => {
+			const link = (title: string) => `[${title}](/read/00000000-0000-4000-8000-000000000000)`
+			// The link's title holds words 96 to 105: the cut falls inside it, so it goes whole.
+			const note = `${words(0, 95)} ${link(words(95, 105))} ${words(105, 110)}`
+			expect((await shown("Short.", note)).note).toEqual([`${words(0, 95)} …`])
+			// A link to a saved article that ends before the cut stays a link to its original.
+			const [target] = await db
+				.select({ documentId: highlights.documentId, url: documents.sourceUrl })
+				.from(highlights)
+				.innerJoin(documents, eq(documents.id, highlights.documentId))
+				.where(eq(highlights.id, await highlight(null)))
+			const real = `[Linked](/read/${target!.documentId})`
+			const kept = await shown("Short.", `${real} ${words(1, 120)}`)
+			expect(kept.data.view.note?.[0]?.[0]).toEqual({ text: "Linked", href: target!.url })
+			expect(kept.note).toEqual([`Linked ${words(1, 100)}…`])
+		})
+
+		it("counts a note's line breaks, cutting in its second paragraph", async () => {
+			// 590 characters on the first line, its break, then 9 more fit; the next word does not.
+			const first = "x".repeat(590)
+			const { note } = await shown("Short.", `${first}\nabcdefgh ijklmnop`)
+			expect(note).toEqual([first, "abcdefgh…"])
+		})
 	})
 
 	it("points a quote the font cannot draw at the Klipstack card", async () => {
