@@ -4,7 +4,8 @@ import { stopBoss } from "@klipstack/queue"
 import type { Client } from "@modelcontextprotocol/client"
 import sharp from "sharp"
 import { afterAll, describe, expect, it, vi } from "vitest"
-import { askAboutPassage, briefArticle } from "~/commands/ai.server"
+import { setPrefs } from "~/commands/account.server"
+import { askAboutPassage, askArticle, briefArticle } from "~/commands/ai.server"
 import { openArticle } from "~/commands/articles.server"
 import { createSavedSearch } from "~/commands/saved-searches.server"
 import { env } from "~/lib/env.server"
@@ -458,7 +459,8 @@ describe("MCP with an API key", () => {
 		const trash = await call(mcp, "list_library", { view: "trash" })
 		expect(trash.items.map((i: { id: string }) => i.id).sort()).toEqual([id, other].sort())
 		expect(trash.items[0]).toMatchObject({ location: "inbox", trashedAt: expect.any(String) })
-		expect(await callError(mcp, "list_library", { view: "trash", filter: "unread" })).toContain(
+		// long is a filter of every other view: here it is refused, not applied.
+		expect(await callError(mcp, "list_library", { view: "trash", filter: "long" })).toContain(
 			"The trash takes none",
 		)
 		// Restored, with its highlights; ids not in the trash are reported.
@@ -788,14 +790,26 @@ describe("MCP with an API key", () => {
 		})
 		expect(answer.citations.length).toBeGreaterThan(0)
 
-		// An article without a brief stays without one: reading costs nothing.
+		// A chat has no passage. An article without a brief stays without one: reading costs nothing.
+		const chat = await askArticle(owner, makers, "What is it about?", en)
+		for await (const _ of chat.events);
+		await chat.answer
 		const used = (await usageOf(owner)).ai.used
-		expect(await call(mcp, "get_ai_history", { article_id: makers })).toEqual({
-			brief: null,
-			threads: [],
-		})
+		const makersHistory = await call(mcp, "get_ai_history", { article_id: makers })
+		expect(makersHistory.brief).toBeNull()
+		expect(makersHistory.threads).toEqual([
+			expect.objectContaining({ id: chat.thread.id, action: "chat", passage: null }),
+		])
+		expect(makersHistory.threads[0].messages[0]).toMatchObject({ text: "What is it about?" })
 		expect((await usageOf(owner)).ai.used).toBe(used)
-		expect(await callError(mcp, "get_ai_history", { article_id: MISSING })).toContain("No article")
+
+		// Turned off in Settings, the answers kept can still be read.
+		await setPrefs(owner, { ai: "off" })
+		expect((await call(mcp, "get_ai_history", { article_id: joel })).threads).toHaveLength(1)
+		// Not for an article in the trash, nor one that does not exist.
+		await call(mcp, "trash_articles", { ids: [makers] })
+		for (const article_id of [makers, MISSING])
+			expect(await callError(mcp, "get_ai_history", { article_id })).toContain("No article")
 	})
 
 	it("refuses the feed tools while feeds are turned off", async () => {

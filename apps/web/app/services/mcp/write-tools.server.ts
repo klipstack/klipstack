@@ -9,7 +9,6 @@ import {
 	URL_MAX,
 } from "@klipstack/api-contract"
 import {
-	cleanSavedSearchName,
 	cleanTagName,
 	HIGHLIGHT_NOTE_MAX,
 	NUL_REFUSED,
@@ -39,7 +38,7 @@ import { createTag, deleteTag, renameTag } from "~/commands/tags.server"
 import { AppError } from "~/lib/app-error"
 import { HIGHLIGHT_COLOR_NAMES } from "~/lib/highlight-colors"
 import { getDocument } from "../documents.server"
-import { listSavedSearches, type SavedSearchRow } from "../saved-searches.server"
+import { findSavedSearchByName, type SavedSearchRow } from "../saved-searches.server"
 import { findTagByName } from "../tags.server"
 import { uuid } from "./ids"
 import { articleSummary, json, NOTE_LINKS_HINT, readerUrl, toolError } from "./results.server"
@@ -88,12 +87,6 @@ const NO_WRITE = "This connection may only read the library."
 
 const NO_SAVED_SEARCH =
 	"The user has no saved search with that name. list_saved_searches names them."
-
-/** One of the user's saved searches by name, whatever its case, as the app tells names apart. */
-async function findSavedSearch(userId: string, name: string) {
-	const wanted = cleanSavedSearchName(name)?.toLowerCase()
-	return (await listSavedSearches(userId)).find((s) => s.name.toLowerCase() === wanted) ?? null
-}
 
 export function registerWriteTools(server: McpServer, userId: string, canWrite: boolean) {
 	registerSavedSearchTools(server, userId, canWrite)
@@ -321,7 +314,7 @@ export function registerWriteTools(server: McpServer, userId: string, canWrite: 
 		"restore_articles",
 		{
 			title: "Restore articles from trash",
-			description: `Brings up to ${BATCH_MAX} articles back from the trash, with their highlights and notes, to where they were (location says which). list_library with view "trash" or search_library with in:trash finds them. notFound: not in the trash. The library keeps one article per page: when the same page was saved again since, the trashed article stays there, and alreadySaved names the article in the library (articleId).`,
+			description: `Brings up to ${BATCH_MAX} articles back from the trash, with their highlights and notes,, to where they were: list_library shows where. list_library with view "trash" or search_library with in:trash finds them. notFound: not in the trash. The library keeps one article per page: when the same page was saved again since, the trashed article stays there, and alreadySaved names the article in the library (articleId).`,
 			inputSchema: z.object({ ids: articleIds }),
 			annotations: { ...WRITE, idempotentHint: true },
 		},
@@ -434,7 +427,7 @@ function registerSavedSearchTools(server: McpServer, userId: string, canWrite: b
 		},
 		async ({ name, new_name }) => {
 			if (!canWrite) return toolError(NO_WRITE)
-			const found = await findSavedSearch(userId, name)
+			const found = await findSavedSearchByName(userId, name)
 			if (!found) return toolError(NO_SAVED_SEARCH)
 			const renamed = await renameSavedSearch(userId, found.id, new_name)
 			return json({ name: renamed.name, query: renamed.query })
@@ -452,7 +445,7 @@ function registerSavedSearchTools(server: McpServer, userId: string, canWrite: b
 		},
 		async ({ name }) => {
 			if (!canWrite) return toolError(NO_WRITE)
-			const found = await findSavedSearch(userId, name)
+			const found = await findSavedSearchByName(userId, name)
 			if (!found) return toolError(NO_SAVED_SEARCH)
 			await deleteSavedSearch(userId, found.id)
 			return json({ name: found.name, deleted: true })
