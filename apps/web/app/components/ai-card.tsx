@@ -2,6 +2,7 @@ import type { AiCitation } from "@klipstack/db"
 import {
 	ArrowUp,
 	BookOpen,
+	BotMessageSquare,
 	ChevronUp,
 	Copy,
 	Lightbulb,
@@ -62,6 +63,8 @@ interface Props {
 	onRetry?: () => void
 	onDelete: () => void
 	onCopy: (text: string) => void
+	/** Copies a prompt that carries the card to the reader's own assistant. Missing without one. */
+	onAssistant?: () => void
 	onCite: (citation: AiCitation) => void
 	onHover?: (hovered: boolean) => void
 }
@@ -130,6 +133,7 @@ function OpenCard({
 	onRetry,
 	onDelete,
 	onCopy,
+	onAssistant,
 	onCite,
 	onHover,
 }: Props) {
@@ -323,6 +327,7 @@ function OpenCard({
 									<Copy className="size-3.5" aria-hidden />
 								</button>
 							) : null}
+							{lastAnswer && onAssistant ? <ContinueInAssistant onClick={onAssistant} /> : null}
 							<button
 								type="button"
 								onClick={onDelete}
@@ -348,7 +353,10 @@ function OpenCard({
 						/>
 					)}
 					{!onSend || card.orphaned || busy ? null : (
-						<QuestionsLeft failed={card.failure?.code === "limit_reached"} />
+						<>
+							<QuestionsLeft failed={card.failure?.code === "limit_reached"} />
+							{none && onAssistant ? <OwnAssistant onCopy={onAssistant} /> : null}
+						</>
 					)}
 				</>
 			)}
@@ -404,6 +412,43 @@ export function QuestionsLeft({ failed }: { failed?: boolean }) {
 		<p className="mt-2 text-xs text-muted-fg" data-testid="questions-left">
 			{t("ai.left", { count: left })}
 		</p>
+	)
+}
+
+/** After an answer: the same question, carried on in the reader's own assistant. */
+export function ContinueInAssistant({ onClick }: { onClick: () => void }) {
+	const { t } = useTranslation("reader")
+	return (
+		<button
+			type="button"
+			onClick={onClick}
+			aria-label={t("ai.assistant.continue")}
+			{...tooltip(t("ai.assistant.continue"))}
+			className="rounded-md p-1.5 text-muted-fg hover:bg-hover hover:text-fg"
+		>
+			<BotMessageSquare className="size-3.5" aria-hidden />
+		</button>
+	)
+}
+
+/** None left this month: the reader's own assistant can keep going, with a prompt to start it. */
+export function OwnAssistant({ onCopy }: { onCopy: () => void }) {
+	const { t } = useTranslation("reader")
+	return (
+		<div
+			className="mt-2 rounded-lg bg-muted p-2.5 text-xs text-muted-fg"
+			data-testid="own-assistant"
+		>
+			<p>{t("ai.assistant.noneLeft")}</p>
+			<button
+				type="button"
+				onClick={onCopy}
+				className="mt-1.5 inline-flex items-center gap-1 rounded-md font-medium text-link hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+			>
+				<Copy className="size-3.5" aria-hidden />
+				{t("ai.assistant.copy")}
+			</button>
+		</div>
 	)
 }
 

@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next"
 import { useQuestionsLeft } from "~/hooks/use-ai-allowance"
 import { type AiCard, type AnswerStore, useWritten } from "~/hooks/use-ai-threads"
 import { AiAnswer, plainAnswer } from "./ai-answer"
-import { Failure, QuestionField, QuestionsLeft } from "./ai-card"
+import { ContinueInAssistant, Failure, OwnAssistant, QuestionField, QuestionsLeft } from "./ai-card"
 import { InkThinking } from "./ink-thinking"
 import { tooltip } from "./tooltip-host"
 
@@ -22,6 +22,8 @@ interface Props {
 	onRetry?: () => void
 	onClear: () => void
 	onCopy: (text: string) => void
+	/** Copies a prompt that carries the chat to the reader's own assistant. Missing without one. */
+	onAssistant?: () => void
 	onCite: (citation: AiCitation) => void
 }
 
@@ -38,6 +40,7 @@ export function ChatPanel({
 	onRetry,
 	onClear,
 	onCopy,
+	onAssistant,
 	onCite,
 }: Props) {
 	const { t } = useTranslation("reader")
@@ -73,7 +76,22 @@ export function ChatPanel({
 				aria-live="polite"
 			>
 				{!chat || chat.messages.length === 0 ? (
-					<p className="font-serif text-base italic text-muted-fg">{t("ai.chat.empty")}</p>
+					<div>
+						<p className="font-serif text-base italic text-muted-fg">{t("ai.chat.empty")}</p>
+						{/* None left says it below, with the same prompt. */}
+						{onAssistant && !none ? (
+							<p className="mt-2 text-xs text-muted-fg" data-testid="chat-assistant">
+								{t("ai.assistant.chatEmpty")}{" "}
+								<button
+									type="button"
+									onClick={onAssistant}
+									className="rounded-sm font-medium text-link hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+								>
+									{t("ai.assistant.copy")}
+								</button>
+							</p>
+						) : null}
+					</div>
 				) : null}
 				{chat?.messages.map((message) =>
 					message.role === "user" ? (
@@ -145,6 +163,7 @@ export function ChatPanel({
 								<Copy className="size-3.5" aria-hidden />
 							</button>
 						) : null}
+						{lastAnswer && onAssistant ? <ContinueInAssistant onClick={onAssistant} /> : null}
 						<button
 							type="button"
 							onClick={onClear}
@@ -168,7 +187,12 @@ export function ChatPanel({
 						autoFocus={active}
 					/>
 				)}
-				{busy || !onAsk ? null : <QuestionsLeft failed={chat?.failure?.code === "limit_reached"} />}
+				{busy || !onAsk ? null : (
+					<>
+						<QuestionsLeft failed={chat?.failure?.code === "limit_reached"} />
+						{none && onAssistant ? <OwnAssistant onCopy={onAssistant} /> : null}
+					</>
+				)}
 			</div>
 		</div>
 	)
