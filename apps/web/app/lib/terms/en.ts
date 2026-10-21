@@ -2,7 +2,7 @@ import { CONTROLLER, type Policy, SUPPORT_CONTACT } from "../privacy-policy/type
 
 export default {
 	title: "Terms of use",
-	updated: "Last updated October 17, 2026",
+	updated: "Last updated October 21, 2026",
 	summary:
 		"These are the rules for using Klipstack. In short: what you save is yours and stays private, what you publish must be legal and fair to others, every account has limits, and we can take down what breaks these rules.",
 	contentsLabel: "On this page",
@@ -24,7 +24,7 @@ export default {
 			blocks: [
 				{
 					list: [
-						"You must be 16 or older.",
+						"You must be 16 or older. If we learn an account belongs to someone younger, we delete it.",
 						"One person per account. Keep your sign-in safe; what happens in your account is your responsibility.",
 						"Use an email address you can read: we send sign-in links and important notices there.",
 					],
@@ -37,6 +37,13 @@ export default {
 			blocks: [
 				"What you save, highlight and write stays yours. You let us store and process it only to run Klipstack for you. Your library is private: only you see it.",
 				"Saving a page keeps a personal copy for your reading. Respect the rights of the sites you save: don't republish their content through Klipstack.",
+			],
+		},
+		{
+			id: "ai",
+			title: "Answers written by AI",
+			blocks: [
+				"In the reader, Explain, Define, Ask, Chat and Brief are answered by AI (Anthropic's models), not by a person. So are the names and descriptions of automatic topics. AI can be wrong, miss things or cite the wrong passage: check what matters against the article.",
 			],
 		},
 		{
@@ -82,10 +89,30 @@ export default {
 			id: "reports",
 			title: "Reports and removals",
 			blocks: [
-				'Anyone can report a public edition with "Report this page". A person reads every report; a report alone takes nothing down.',
-				"If an edition breaks these terms, we may remove it. We email you why. A removed edition cannot be published again unless we restore it.",
+				'Anyone can report a public edition or a shared highlight with "Report this page". A person reads every report; a report alone takes nothing down.',
+				"If an edition or a shared highlight breaks these terms, we may remove it. We email you why. A removed page cannot be published again unless we restore it.",
 				`If you think we made a mistake, write to ${SUPPORT_CONTACT}. We will look again.`,
 				"For serious or repeated breaches, we may close the account. When it is reasonable, we warn you first.",
+			],
+		},
+		{
+			id: "copyright",
+			title: "Copyright",
+			blocks: [
+				// TODO: before relying on the US safe harbor (17 U.S.C. § 512), register a designated agent
+				// with the US Copyright Office and name it here, with its postal address.
+				`If you own the copyright in something on a public edition or a shared highlight and didn't allow it, report the page, or write to ${SUPPORT_CONTACT} with:`,
+				{
+					list: [
+						"The work you say is copied, and the address of the page that copies it.",
+						"Your name, postal address, telephone number and email address.",
+						"A statement that you believe in good faith the use is not authorized by the owner, its agent or the law.",
+						"A statement that what you say is accurate and, under penalty of perjury, that you own the right or may act for its owner.",
+						"Your signature, which may be your typed full name.",
+					],
+				},
+				`If we remove your page because of such a notice and you think it was a mistake or you had the right to publish it, you can send a counter-notice to ${SUPPORT_CONTACT}. Name the page, say under penalty of perjury that you believe in good faith it was removed by mistake or misidentification, give your name, address and telephone number, accept the jurisdiction of the courts where the law says (for the United States, a federal district court), and sign it. We pass it to the person who sent the notice, and restore the page 10 to 14 business days later, unless they tell us they have gone to court.`,
+				"We close the accounts of people who infringe others' copyright again and again.",
 			],
 		},
 		{

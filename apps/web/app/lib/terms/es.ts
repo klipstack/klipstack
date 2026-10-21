@@ -2,7 +2,7 @@ import { CONTROLLER, type Policy, SUPPORT_CONTACT } from "../privacy-policy/type
 
 export default {
 	title: "Términos de uso",
-	updated: "Última actualización: 17 de octubre de 2026",
+	updated: "Última actualización: 21 de octubre de 2026",
 	summary:
 		"Estas son las reglas para usar Klipstack. En resumen: lo que guardas es tuyo y es privado, lo que publicas debe ser legal y justo con los demás, cada cuenta tiene límites, y podemos retirar lo que no cumpla estas reglas.",
 	contentsLabel: "En esta página",
@@ -24,7 +24,7 @@ export default {
 			blocks: [
 				{
 					list: [
-						"Debes tener 16 años o más.",
+						"Debes tener 16 años o más. Si sabemos que una cuenta es de alguien menor, la borramos.",
 						"Una persona por cuenta. Cuida tu acceso; lo que pase en tu cuenta es tu responsabilidad.",
 						"Usa un correo que leas: ahí enviamos enlaces de inicio de sesión y avisos importantes.",
 					],
@@ -37,6 +37,13 @@ export default {
 			blocks: [
 				"Lo que guardas, subrayas y escribes sigue siendo tuyo. Nos permites guardarlo y procesarlo solo para hacer funcionar Klipstack para ti. Tu biblioteca es privada: solo tú la ves.",
 				"Guardar una página guarda una copia personal para tu lectura. Respeta los derechos de los sitios que guardas: no republiques su contenido a través de Klipstack.",
+			],
+		},
+		{
+			id: "ai",
+			title: "Respuestas escritas por IA",
+			blocks: [
+				"En el lector, Explicar, Definir, Preguntar, Chat y Resumen los responde una IA (los modelos de Anthropic), no una persona. También los nombres y las descripciones de los temas automáticos. La IA puede equivocarse, omitir cosas o citar el pasaje equivocado: comprueba lo importante en el artículo.",
 			],
 		},
 		{
@@ -82,10 +89,30 @@ export default {
 			id: "reports",
 			title: "Denuncias y retiros",
 			blocks: [
-				'Cualquiera puede denunciar una edición pública con "Denunciar esta página". Una persona lee cada denuncia; una denuncia sola no retira nada.',
-				"Si una edición incumple estos términos, podemos retirarla. Te escribimos por qué. Una edición retirada no se puede volver a publicar, salvo que la restauremos.",
+				'Cualquiera puede denunciar una edición pública o un subrayado compartido con "Denunciar esta página". Una persona lee cada denuncia; una denuncia sola no retira nada.',
+				"Si una edición o un subrayado compartido incumple estos términos, podemos retirarlo. Te escribimos por qué. Una página retirada no se puede volver a publicar, salvo que la restauremos.",
 				`Si crees que nos equivocamos, escribe a ${SUPPORT_CONTACT}. La revisaremos de nuevo.`,
 				"Ante incumplimientos graves o repetidos, podemos cerrar la cuenta. Cuando sea razonable, te avisamos antes.",
+			],
+		},
+		{
+			id: "copyright",
+			title: "Derechos de autor",
+			blocks: [
+				// TODO: before relying on the US safe harbor (17 U.S.C. § 512), register a designated agent
+				// with the US Copyright Office and name it here, with its postal address.
+				`Si tienes los derechos de autor de algo que aparece en una edición pública o un subrayado compartido y no lo autorizaste, denuncia la página o escribe a ${SUPPORT_CONTACT} con:`,
+				{
+					list: [
+						"La obra que dices que se copia, y la dirección de la página que la copia.",
+						"Tu nombre, dirección postal, teléfono y correo.",
+						"Una declaración de que crees de buena fe que el uso no está autorizado por el titular, su representante ni la ley.",
+						"Una declaración de que lo que dices es exacto y, bajo pena de perjurio, de que eres el titular del derecho o puedes actuar por él.",
+						"Tu firma, que puede ser tu nombre completo escrito.",
+					],
+				},
+				`Si retiramos tu página por un aviso así y crees que fue un error o que tenías derecho a publicarla, puedes enviar un contraaviso a ${SUPPORT_CONTACT}. Indica la página, declara bajo pena de perjurio que crees de buena fe que se retiró por error o confusión, da tu nombre, dirección y teléfono, acepta la jurisdicción de los tribunales que indica la ley (en Estados Unidos, un tribunal federal de distrito) y fírmalo. Se lo pasamos a quien envió el aviso, y restauramos la página entre 10 y 14 días hábiles después, salvo que nos diga que acudió a los tribunales.`,
+				"Cerramos las cuentas de quienes infringen una y otra vez los derechos de autor de otros.",
 			],
 		},
 		{
