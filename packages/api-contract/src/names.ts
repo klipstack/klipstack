@@ -29,8 +29,8 @@ export const QUESTION_MAX = 2000
 
 /** Longest article note, in characters. */
 export const NOTE_MAX = 100_000
-/** Longest highlight note, in characters. */
-export const HIGHLIGHT_NOTE_MAX = 10_000
+/** Longest highlight note, in characters: a short note, not a place to paste an article. */
+export const HIGHLIGHT_NOTE_MAX = 2000
 
 export function slugify(s: string): string {
 	return (

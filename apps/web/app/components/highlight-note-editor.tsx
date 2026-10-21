@@ -1,3 +1,4 @@
+import { HIGHLIGHT_NOTE_MAX } from "@klipstack/api-contract/names"
 import { Check, X } from "lucide-react"
 import { useEffect, useInsertionEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -138,6 +139,7 @@ export function HighlightNoteEditor({
 					documentId={documentId}
 					linkTargets={linkTargets}
 					placeholder={t("highlights.popover.notePlaceholder")}
+					maxLength={HIGHLIGHT_NOTE_MAX}
 					aria-label={t("highlights.popover.note")}
 					className="max-h-[40vh] min-h-[2lh] overflow-y-auto outline-none"
 					onApi={setNoteApi}

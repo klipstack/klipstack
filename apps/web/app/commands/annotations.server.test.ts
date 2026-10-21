@@ -129,6 +129,23 @@ describe("changing a highlight", () => {
 		const [kept] = await db.select().from(highlights).where(eq(highlights.id, gone.id))
 		expect(kept!.deletedAt).not.toBeNull()
 	})
+
+	// Characters as PostgreSQL counts them (code points), so the migration that cut longer notes
+	// agrees: an emoji is one, though it is two in a JavaScript string's length.
+	it("takes a note of up to 2,000 characters, an emoji counting as one", async () => {
+		const id = await article()
+		const longest = "a".repeat(2000)
+		const h = await createHighlight(userId, id, { exact: "Alpha bravo", note: longest })
+		expect(h.note).toBe(longest)
+		await expect(
+			createHighlight(userId, id, { exact: "Foxtrot", note: `${longest}a` }),
+		).rejects.toMatchObject({ code: "invalid_request" })
+		const emoji = "😀".repeat(2000)
+		expect(await updateHighlight(userId, h.id, { note: emoji })).toMatchObject({ note: emoji })
+		await expect(updateHighlight(userId, h.id, { note: `${emoji}a` })).rejects.toMatchObject({
+			code: "invalid_request",
+		})
+	})
 })
 
 describe("the article note", () => {

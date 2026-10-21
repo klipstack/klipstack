@@ -147,7 +147,10 @@ const DocLink = Node.create({
 	},
 })
 
-/** Drops any edit that would push the note past the length the server accepts. */
+/**
+ * Drops any edit that would push the note past the length the server accepts. The server counts
+ * code points (an emoji is one), so a note it accepted always stays editable here.
+ */
 const MaxLength = Extension.create<{ max: number }>({
 	name: "noteMaxLength",
 	addOptions() {
@@ -157,7 +160,7 @@ const MaxLength = Extension.create<{ max: number }>({
 		const { max } = this.options
 		return [
 			new Plugin({
-				filterTransaction: (tr) => !tr.docChanged || toText(tr.doc).length <= max,
+				filterTransaction: (tr) => !tr.docChanged || [...toText(tr.doc)].length <= max,
 			}),
 		]
 	},
