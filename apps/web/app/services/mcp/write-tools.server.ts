@@ -1,5 +1,15 @@
-import { ArticleTitle, BATCH_MAX, Ids, QUOTE_MAX, TagNames, URL_MAX } from "@klipstack/api-contract"
 import {
+	ArticleTitle,
+	BATCH_MAX,
+	Ids,
+	QUOTE_MAX,
+	SavedSearchName,
+	SavedSearchQuery,
+	TagNames,
+	URL_MAX,
+} from "@klipstack/api-contract"
+import {
+	cleanSavedSearchName,
 	cleanTagName,
 	HIGHLIGHT_NOTE_MAX,
 	NUL_REFUSED,
@@ -19,12 +29,17 @@ import {
 } from "~/commands/annotations.server"
 import { restoreArticles, trashArticles, updateArticles } from "~/commands/articles.server"
 import { setArticleEditionNote } from "~/commands/editions.server"
+import {
+	createSavedSearch,
+	deleteSavedSearch,
+	renameSavedSearch,
+} from "~/commands/saved-searches.server"
 import { saveArticle } from "~/commands/saving.server"
 import { createTag, deleteTag, renameTag } from "~/commands/tags.server"
 import { AppError } from "~/lib/app-error"
 import { HIGHLIGHT_COLOR_NAMES } from "~/lib/highlight-colors"
 import { getDocument } from "../documents.server"
-import type { SavedSearchRow } from "../saved-searches.server"
+import { listSavedSearches, type SavedSearchRow } from "../saved-searches.server"
 import { findTagByName } from "../tags.server"
 import { uuid } from "./ids"
 import { articleSummary, json, NOTE_LINKS_HINT, readerUrl, toolError } from "./results.server"
@@ -44,6 +59,9 @@ export const ARTICLE_WRITE_TOOLS: ReadonlySet<string> = new Set([
 	"create_tag",
 	"rename_tag",
 	"delete_tag",
+	"create_saved_search",
+	"rename_saved_search",
+	"delete_saved_search",
 ])
 
 const WRITE = {
@@ -68,7 +86,17 @@ const NO_TAG = "The user has no tag with that name. list_tags names them."
 
 const NO_WRITE = "This connection may only read the library."
 
+const NO_SAVED_SEARCH =
+	"The user has no saved search with that name. list_saved_searches names them."
+
+/** One of the user's saved searches by name, whatever its case, as the app tells names apart. */
+async function findSavedSearch(userId: string, name: string) {
+	const wanted = cleanSavedSearchName(name)?.toLowerCase()
+	return (await listSavedSearches(userId)).find((s) => s.name.toLowerCase() === wanted) ?? null
+}
+
 export function registerWriteTools(server: McpServer, userId: string, canWrite: boolean) {
+	registerSavedSearchTools(server, userId, canWrite)
 	server.registerTool(
 		"save_article",
 		{
@@ -373,6 +401,61 @@ export function registerWriteTools(server: McpServer, userId: string, canWrite: 
 					)
 				throw error
 			}
+		},
+	)
+}
+
+/** Saved searches go by name, as list_saved_searches shows them. */
+function registerSavedSearchTools(server: McpServer, userId: string, canWrite: boolean) {
+	server.registerTool(
+		"create_saved_search",
+		{
+			title: "Create saved search",
+			description:
+				"Saves a search_library query under a name, so the user finds it in the app's sidebar. Only when the user asked for one. Names are unique whatever their case; an account holds a limited number of saved searches. Check the query with search_library first: operators it did not understand come back in ignored.",
+			inputSchema: z.object({ name: SavedSearchName, query: SavedSearchQuery }),
+			annotations: WRITE,
+		},
+		async ({ name, query }) => {
+			if (!canWrite) return toolError(NO_WRITE)
+			const saved = await createSavedSearch(userId, { name, query })
+			return json({ name: saved.name, query: saved.query })
+		},
+	)
+
+	server.registerTool(
+		"rename_saved_search",
+		{
+			title: "Rename saved search",
+			description:
+				"Renames one of the user's saved searches; its query stays. name is its current name, whatever its case.",
+			inputSchema: z.object({ name: SavedSearchName, new_name: SavedSearchName }),
+			annotations: { ...WRITE, idempotentHint: true },
+		},
+		async ({ name, new_name }) => {
+			if (!canWrite) return toolError(NO_WRITE)
+			const found = await findSavedSearch(userId, name)
+			if (!found) return toolError(NO_SAVED_SEARCH)
+			const renamed = await renameSavedSearch(userId, found.id, new_name)
+			return json({ name: renamed.name, query: renamed.query })
+		},
+	)
+
+	server.registerTool(
+		"delete_saved_search",
+		{
+			title: "Delete saved search",
+			description:
+				"Deletes one of the user's saved searches; the articles it found stay. This cannot be undone: confirm with the user first.",
+			inputSchema: z.object({ name: SavedSearchName }),
+			annotations: { ...WRITE, destructiveHint: true, idempotentHint: true },
+		},
+		async ({ name }) => {
+			if (!canWrite) return toolError(NO_WRITE)
+			const found = await findSavedSearch(userId, name)
+			if (!found) return toolError(NO_SAVED_SEARCH)
+			await deleteSavedSearch(userId, found.id)
+			return json({ name: found.name, deleted: true })
 		},
 	)
 }

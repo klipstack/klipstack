@@ -49,13 +49,16 @@ const READ_TOOLS = [
 ]
 const WRITE_TOOLS = [
 	"add_highlight",
+	"create_saved_search",
 	"create_tag",
 	"delete_highlight",
+	"delete_saved_search",
 	"delete_tag",
 	"dismiss_feed_items",
 	"follow_feed",
 	"mark_feed_viewed",
 	"save_feed_items",
+	"rename_saved_search",
 	"rename_tag",
 	"restore_articles",
 	"restore_highlight",
@@ -279,8 +282,7 @@ describe("MCP with an API key", () => {
 			articles: 0,
 			merged: false,
 		})
-		// Saved searches are the user's to make; an assistant reads them. The query follows the tag
-		// through the merge below.
+		// A saved search names the tag; its query follows the tag through the merge below.
 		expect((await call(mcp, "list_saved_searches")).items).toEqual([])
 		await createSavedSearch(owner, { name: "Weekend", query: 'tag:"long reads" is:unread' })
 		// Onto another tag's name: the two merge, and the articles go with them.
@@ -313,6 +315,30 @@ describe("MCP with an API key", () => {
 			{ name: "Weekend", query: 'tag:"To Review" is:unread' },
 		])
 		expect(await callError(mcp, "delete_tag", { name: "To Review" })).toContain("no tag")
+		// Saved searches, by name: made, renamed and deleted.
+		expect(
+			await call(mcp, "create_saved_search", { name: " Quick  wins ", query: "is:unread" }),
+		).toEqual({ name: "Quick wins", query: "is:unread" })
+		expect(await callError(mcp, "create_saved_search", { name: "WEEKEND", query: "x" })).toContain(
+			"Another saved search has that name",
+		)
+		expect(
+			await call(mcp, "rename_saved_search", { name: "weekend", new_name: "Saturday" }),
+		).toEqual({ name: "Saturday", query: 'tag:"To Review" is:unread' })
+		expect(
+			await callError(mcp, "rename_saved_search", { name: "saturday", new_name: "quick wins" }),
+		).toContain("Another saved search has that name")
+		expect(await call(mcp, "delete_saved_search", { name: "QUICK WINS" })).toEqual({
+			name: "Quick wins",
+			deleted: true,
+		})
+		expect((await call(mcp, "list_saved_searches")).items).toEqual([
+			{ name: "Saturday", query: 'tag:"To Review" is:unread' },
+		])
+		for (const name of ["rename_saved_search", "delete_saved_search"])
+			expect(await callError(mcp, name, { name: "Quick wins", new_name: "Other" })).toContain(
+				"no saved search with that name",
+			)
 		// The articles are still there, without the tag.
 		const bare = await call(mcp, "search_library", { query: "-has:tags" })
 		expect(bare.items.map((i: { id: string }) => i.id).sort()).toEqual([id, other].sort())
