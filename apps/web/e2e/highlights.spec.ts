@@ -389,6 +389,47 @@ test("Highlight and add a note: one press, and the note is being written", async
 	await Promise.all([highlightSaved(page), editor.getByRole("button", { name: "Save" }).click()])
 	const margin = page.getByRole("region", { name: "Highlight notes" })
 	await expect(margin.getByRole("button", { name: "Two kinds of day." })).toBeVisible()
+
+	// Further down the article, the editor takes the keyboard next to its highlight. Until the margin
+	// has measured it, it waits at the article's top, and focused up there the browser may scroll the
+	// page to its caret. A few notes: the measuring came first now and then.
+	await page.evaluate(() => {
+		const w = window as unknown as { focusedAt: number[] }
+		w.focusedAt = []
+		document.addEventListener("focusin", (e) => {
+			const el = e.target as Element
+			if (el.closest('[role="dialog"][aria-label="Highlight note"]'))
+				w.focusedAt.push(el.getBoundingClientRect().top)
+		})
+	})
+	const further = [
+		"By using the classic device",
+		"Everyone assumes that, like other investors",
+		"How do we manage to advise so many startups",
+	]
+	for (const quote of further) {
+		await page.evaluate((needle) => {
+			const root = document.querySelector(".reader-content") as HTMLElement
+			const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+			for (let node = walker.nextNode(); node; node = walker.nextNode())
+				if (node.textContent?.includes(needle))
+					return node.parentElement?.scrollIntoView({ block: "center" })
+		}, quote)
+		await selectText(page, quote)
+		await Promise.all([
+			highlightSaved(page),
+			selected.getByRole("button", { name: "Highlight and add a note" }).click(),
+		])
+		await expect(editor.getByRole("textbox")).toBeFocused()
+		await page.keyboard.press("Escape")
+		await expect(editor).toHaveCount(0)
+	}
+	const focusedAt = await page.evaluate(
+		() => (window as unknown as { focusedAt: number[] }).focusedAt,
+	)
+	const height = page.viewportSize()!.height
+	expect(focusedAt).toHaveLength(further.length)
+	for (const top of focusedAt) expect(top > 0 && top < height, `editor at ${top}`).toBe(true)
 })
 
 test("a highlight's color: picked in its toolbar, shown on the text, its note and in lists", async ({
