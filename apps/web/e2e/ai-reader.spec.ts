@@ -442,6 +442,8 @@ test("turned off in Settings: answers kept are read and deleted, nothing new is 
 	await expect(card.getByRole("textbox")).toHaveCount(0)
 	await expect(card.getByRole("button", { name: "Answer again" })).toHaveCount(0)
 	await expect(card.getByRole("button", { name: "Delete" })).toBeVisible()
+	// Nor is the reader's own assistant offered: they turned AI off.
+	await expect(card.getByRole("button", { name: "Continue in your assistant" })).toHaveCount(0)
 	await shot(page, "off-1-card")
 	await page.mouse.click(1300, 450)
 	// Nothing new: the toolbar only highlights.
@@ -458,6 +460,7 @@ test("turned off in Settings: answers kept are read and deleted, nothing new is 
 	await expect(chat).toContainText("What is it about?")
 	await expect(chat).toContainText("AI answers are turned off in Settings → Features.")
 	await expect(chat.getByRole("textbox")).toHaveCount(0)
+	await expect(chat.getByRole("button", { name: "Continue in your assistant" })).toHaveCount(0)
 	await shot(page, "off-2-chat")
 	await chat.getByRole("button", { name: "Clear chat" }).click()
 	await expect(sidebar.getByRole("tab", { name: "Ask" })).toHaveCount(0)
@@ -691,6 +694,10 @@ test("the reader's own assistant: a prompt after an answer, in the empty chat an
 	await expect(card).toContainText("Answer 2.")
 	await expect(card.getByRole("button", { name: "Continue in your assistant" })).toHaveCount(0)
 	await expect(card.getByTestId("own-assistant")).toHaveCount(0)
+	await page.keyboard.press("Escape")
+	await page.keyboard.press("c")
+	await expect(chat).toContainText(`It starts over on ${nextMonth()}.`)
+	await expect(chat.getByTestId("own-assistant")).toHaveCount(0)
 })
 
 test("a question the server refuses at the cap turns the page to none left", async ({ page }) => {

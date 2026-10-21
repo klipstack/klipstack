@@ -234,7 +234,7 @@ export function ReaderArticle({
 					copyText(
 						assistantPrompt(t, {
 							url: assistantUrl,
-							article: { id: doc.id, title: doc.title ?? doc.sourceUrl },
+							article: { id: doc.id, title: doc.title || doc.sourceUrl },
 							card,
 						}),
 						t("ai.assistant.copied"),

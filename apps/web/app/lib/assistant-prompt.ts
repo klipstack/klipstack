@@ -27,18 +27,21 @@ export function assistantPrompt(
 				.map((line) => `> ${line}`)
 				.join("\n")}`,
 		)
+	// The questions answered, not the answers; a question refused or failed was never asked.
 	// Explain and Define ask with the passage alone: their first question has no words.
-	const asked = (card?.messages ?? []).flatMap((m, i) =>
-		m.role !== "user"
-			? []
-			: m.text
-				? [m.text]
-				: i === 0 && (card?.action === "explain" || card?.action === "define")
-					? [t(`${p}.${card.action}`)]
-					: [],
-	)
-	if (asked.length) parts.push(`${t(`${p}.asked`)}\n${asked.map((q) => `- ${q}`).join("\n")}`)
-	if (card) parts.push(t(`${p}.next`))
+	const messages = card?.messages ?? []
+	const asked = messages.flatMap((m, i) => {
+		const answer = messages[i + 1]
+		if (m.role !== "user" || answer?.role !== "assistant" || answer.status !== "done") return []
+		if (m.text) return [m.text]
+		return i === 0 && (card?.action === "explain" || card?.action === "define")
+			? [t(`${p}.${card.action}`)]
+			: []
+	})
+	if (asked.length) {
+		parts.push(`${t(`${p}.asked`)}\n${asked.map((q) => `- ${q}`).join("\n")}`)
+		parts.push(t(`${p}.next`))
+	}
 	parts.push(t(`${p}.setup`, { url }))
 	return parts.join("\n\n")
 }
