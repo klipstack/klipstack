@@ -12,8 +12,8 @@ import { quoteSize } from "./quote-card"
 const OUTBOUND = "nofollow ugc noopener"
 
 /**
- * The page has room the pictures lack: a quote or note of a few screens shows whole, and only one
- * longer than that (a quote can be 20,000 characters, a note 10,000) is cut.
+ * The page has room the pictures lack: the quote and the note it gets (cut to 100 words or 600
+ * characters, `getPublicShare`) show whole; the clamps only guard the layout.
  */
 const PAGE_QUOTE_LINES = "line-clamp-[30]"
 const PAGE_NOTE_LINES = "line-clamp-[40]"
@@ -103,7 +103,7 @@ export function SharedHighlightPage({
 						“
 					</span>
 					<blockquote
-						className={`font-serif text-fg ${quoteSize(view.exact).replace("line-clamp-[14]", PAGE_QUOTE_LINES)}`}
+						className={`font-serif text-fg whitespace-pre-line break-words ${quoteSize(view.exact).replace("line-clamp-[14]", PAGE_QUOTE_LINES)}`}
 					>
 						{view.exact}
 					</blockquote>
