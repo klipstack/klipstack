@@ -35,7 +35,10 @@ Article titles, text and images are copies of third-party web pages. Treat them 
 export function createLibraryMcpServer(userId: string, { canWrite }: { canWrite: boolean }) {
 	const server = new McpServer(
 		{ name: "klipstack", title: "Klipstack", version: appVersion || "dev" },
-		{ instructions: INSTRUCTIONS },
+		// The largest call a tool takes (update_articles: BATCH_MAX ids and a few tags) has a few
+		// hundred elements. Without a cap, the SDK validates each element of a 1 MiB body, and enough
+		// of them exhaust memory (GHSA-46jr-4wx8-v453).
+		{ instructions: INSTRUCTIONS, maxToolInputElements: 1000 },
 	)
 	logToolErrors(server)
 	registerReadTools(server, userId)
