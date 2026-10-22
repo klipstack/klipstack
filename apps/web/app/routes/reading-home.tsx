@@ -571,8 +571,8 @@ const CHIP = "shrink-0 chip aria-[current]:marked"
 
 /** The narrowest a section may be, in rem: past it, its name wraps onto a second line. */
 const SECTION_MIN = 7
-/** Before the page measures them: Home's column on a laptop, and the More button. */
-const SECTION_WIDTH_GUESS = 760
+/** Before the page measures them: Home's column at its widest, and the More button. */
+const SECTION_WIDTH_GUESS = 960
 const MORE_WIDTH_GUESS = 80
 
 /** An element's width, kept up to date; null before it is measured. */
@@ -658,25 +658,30 @@ function TopicChoice({
 				if (current) e.preventDefault()
 				else if (value) countTopicClick("topic_home")
 			}}
-			className={cn(CHIP, wrap && "max-w-full text-fg!")}
+			className={cn(CHIP, "text-fg!", wrap && "max-w-full")}
 		>
 			{wrap ? (
-				<span className="line-clamp-2 text-balance hyphens-auto [overflow-wrap:anywhere]">
-					{label}
-				</span>
+				<span className="line-clamp-2 text-balance hyphens-auto break-words">{label}</span>
 			) : (
 				label
 			)}
 		</Link>
 	)
-	const menuItem = ({ key, value, label }: Section) => (
+	const menuItem = ({ key, value, label }: Section, hint?: string) => (
 		<MenuNavLink
 			key={key}
 			to={homeSearch(value, minutes)}
 			replace
 			onChoose={() => countTopicClick("topic_home")}
 		>
-			{label}
+			{hint ? (
+				<span className="flex flex-col">
+					<span>{label}</span>
+					<span className="text-xs text-muted-fg">{hint}</span>
+				</span>
+			) : (
+				label
+			)}
 		</MenuNavLink>
 	)
 	return (
@@ -712,9 +717,9 @@ function TopicChoice({
 								</>
 							}
 						>
-							{rest.map(menuItem)}
+							{rest.map((s) => menuItem(s))}
 							{rest.length && differentInMenu ? <MenuSeparator /> : null}
-							{differentInMenu ? menuItem(differentSection) : null}
+							{differentInMenu ? menuItem(differentSection, t("home.topics.differentHint")) : null}
 						</MoreMenu>
 					</div>
 				) : null}

@@ -64,6 +64,7 @@ export default {
 			toRead_other: "{{count}} to read",
 			differentNever: "Something different: a topic you haven't read from yet.",
 			differentLeast: "Something different: the topic you haven't read from in the longest time.",
+			differentHint: "The topic you've gone longest without reading.",
 			all: "Everything in {{topic}}",
 			none_one: "Nothing in {{topic}} fits in {{count}} minute.",
 			none_other: "Nothing in {{topic}} fits in {{count}} minutes.",

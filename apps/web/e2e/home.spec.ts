@@ -692,9 +692,14 @@ test("home narrows to a topic: as many as fit in even slots, the rest and someth
 	const sections = async () => {
 		const row = await choice.getByRole("link").allTextContents()
 		await more.click()
-		const menu = await page.getByRole("menuitem").allTextContents()
+		await expect(page.getByRole("menu")).toBeVisible()
+		// Each item's name, its first line: Something different says under it what it is.
+		const lines = await page
+			.getByRole("menuitem")
+			.evaluateAll((items) => items.map((i) => (i as HTMLElement).innerText.split("\n")))
 		await page.keyboard.press("Escape")
-		return { row, menu }
+		await expect(page.getByRole("menu")).toHaveCount(0)
+		return { row, menu: lines.map((l) => l[0]!), hints: lines.map((l) => l.slice(1).join(" ")) }
 	}
 	const wide = await sections()
 	expect(wide.row[0]).toBe("Anything")
@@ -707,10 +712,16 @@ test("home narrows to a topic: as many as fit in even slots, the rest and someth
 		"Minor",
 		"Something different",
 	])
+	// Only Something different, in the menu, says what it is.
+	expect(wide.hints).toEqual([
+		...wide.menu.slice(0, -1).map(() => ""),
+		"The topic you've gone longest without reading.",
+	])
 	// The slots are as wide as each other, whatever their names.
 	const widths = await choice
 		.getByRole("link")
 		.evaluateAll((links) => links.map((l) => Math.round(l.parentElement!.offsetWidth)))
+	expect(widths.length).toBeGreaterThan(1)
 	expect(new Set(widths).size).toBe(1)
 	// A narrower window fits fewer, and More takes the rest.
 	await page.setViewportSize({ width: 1024, height: 800 })
@@ -719,6 +730,11 @@ test("home narrows to a topic: as many as fit in even slots, the rest and someth
 		.toBe(true)
 	const narrow = await sections()
 	expect([...narrow.row.slice(1), ...narrow.menu]).toEqual([...wide.row.slice(1), ...wide.menu])
+	expect(narrow.menu.length).toBeGreaterThan(1)
+	expect(narrow.hints).toEqual([
+		...narrow.menu.slice(0, -1).map(() => ""),
+		"The topic you've gone longest without reading.",
+	])
 	await expect(choice.getByRole("link", { name: "Anything" })).toHaveAttribute(
 		"aria-current",
 		"true",
@@ -753,9 +769,10 @@ test("home narrows to a topic: as many as fit in even slots, the rest and someth
 		.click()
 	await expect(heading).toContainText("30 minutes of Aeon")
 	// Chosen from More, a topic takes the row's last slot.
-	await choice.getByRole("button", { name: "More topics" }).click()
+	await more.click()
 	await page.getByRole("menuitem", { name: "Minor" }).click()
 	await expect(choice.getByRole("link", { name: "Minor" })).toHaveAttribute("aria-current", "true")
+	await expect(choice.getByRole("link")).toHaveText([...narrow.row.slice(0, -1), "Minor"])
 	await expect(heading).toContainText("30 minutes of Minor")
 	await expect(heading).toContainText("1 to read")
 
@@ -766,6 +783,10 @@ test("home narrows to a topic: as many as fit in even slots, the rest and someth
 		"aria-current",
 		"true",
 	)
+	await expect(choice.getByRole("link")).toHaveText([
+		...narrow.row.slice(0, -1),
+		"Something different",
+	])
 	await expect(page).toHaveURL(/time=30/)
 	await expect(heading).toContainText("Craft")
 	await expect(heading).toContainText("a topic you haven't read from yet")
@@ -773,4 +794,18 @@ test("home narrows to a topic: as many as fit in even slots, the rest and someth
 
 	await choice.getByRole("link", { name: "Anything" }).click()
 	await expect(page.getByTestId("home-topic")).toHaveCount(0)
+
+	// On a phone: every choice on one line, scrolled sideways, with nothing under More.
+	await page.setViewportSize({ width: 390, height: 844 })
+	await expect(choice.getByRole("link")).toHaveText([
+		"Anything",
+		"Psyche",
+		"Aeon",
+		"Ideas",
+		"Notes",
+		"Craft",
+		"Minor",
+		"Something different",
+	])
+	await expect(more).toBeHidden()
 })
