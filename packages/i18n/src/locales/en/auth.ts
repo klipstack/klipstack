@@ -16,8 +16,10 @@ export default {
 	signup: {
 		title: "Create your account",
 		submit: "Create account",
-		agree: "By creating an account, you accept the",
+		agree: "By creating an account, you confirm you are 16 or older and accept the",
 		terms: "terms of use",
+		and: "and the",
+		privacy: "privacy policy",
 		haveAccount: "Already have an account?",
 		login: "Log in",
 		inviteRequired: "Klipstack is invite-only for now. Enter the code you received.",

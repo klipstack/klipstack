@@ -238,6 +238,11 @@ test("the iPhone app's sign-in keeps its request on the policy pages it links to
 
 	await page.getByRole("link", { name: "Sign up" }).click()
 	await expect(page).toHaveURL(/\/signup\?.*sig=/)
+	await expect(page.getByText("confirm you are 16 or older")).toBeVisible()
+	await expect(page.getByRole("link", { name: "privacy policy" })).toHaveAttribute(
+		"href",
+		/\/privacy\?.*sig=/,
+	)
 	await page.getByRole("link", { name: "terms of use" }).click()
 	await expect(page).toHaveURL(/\/terms\?.*sig=/)
 })

@@ -379,6 +379,13 @@ export default function Signup({ loaderData, actionData }: Route.ComponentProps)
 						className="text-link hover:underline"
 					>
 						{t("signup.terms")}
+					</Link>{" "}
+					{t("signup.and")}{" "}
+					<Link
+						to={loaderData.appQuery ? `/privacy?${loaderData.appQuery}` : "/privacy"}
+						className="text-link hover:underline"
+					>
+						{t("signup.privacy")}
 					</Link>
 					.
 				</p>

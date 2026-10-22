@@ -9,7 +9,7 @@ import type { AiBriefView } from "~/lib/ai-threads"
 import { briefSection, briefSummary } from "~/lib/brief"
 import { cn } from "~/lib/utils"
 import { AiAnswer, plainAnswer } from "./ai-answer"
-import { Failure, QuestionsLeft } from "./ai-card"
+import { AiNotice, Failure, QuestionsLeft } from "./ai-card"
 import { InkThinking } from "./ink-thinking"
 import { tooltip } from "./tooltip-host"
 
@@ -159,6 +159,7 @@ export function BriefCard({
 					)}
 				</div>
 			)}
+			{brief || writing ? <AiNotice /> : null}
 		</section>
 	)
 }
