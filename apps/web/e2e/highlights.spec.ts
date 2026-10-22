@@ -242,6 +242,23 @@ test("highlight → persists → note → sidebar → highlights page → delete
 	await editor.getByRole("button", { name: "Cancel" }).click()
 	await expect(marginNote).toBeVisible()
 
+	// a note takes 2,000 characters, counted as the server counts them (an emoji is one), no more
+	const scrolled = await page.evaluate(() => window.scrollY)
+	await marginNote.click()
+	const field = editor.getByRole("textbox")
+	await expect(field).toBeFocused()
+	const codePoints = async () => [...((await field.textContent()) ?? "")].length
+	await page.keyboard.insertText("😀".repeat(2000 - (await codePoints())))
+	expect(await codePoints()).toBe(2000)
+	await page.keyboard.insertText("a")
+	expect(await codePoints()).toBe(2000)
+	await page.keyboard.press("Escape")
+	await expect(
+		margin.getByRole("button", { name: "Makers need long blocks.", exact: true }),
+	).toBeVisible()
+	// The long draft scrolled the page; back to where the highlight was.
+	await page.evaluate((y) => window.scrollTo(0, y), scrolled)
+
 	// no room for the margin: the note opens in a floating editor
 	await page.setViewportSize({ width: 1000, height: 720 })
 	await expect(margin).toHaveCount(0)
