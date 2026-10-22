@@ -39,6 +39,7 @@ import { ChatSheet } from "@/components/chat-sheet"
 import { ContentsSheet } from "@/components/contents-sheet"
 import { EditionNoteSheet } from "@/components/edition-note-sheet"
 import { HighlightCard } from "@/components/highlight-card"
+import { LinkArticleSheet } from "@/components/link-article-sheet"
 import { LinkCard, type TappedLink } from "@/components/link-card"
 import { ListenBar } from "@/components/listen-bar"
 import type { NoteLinking } from "@/components/note-field"
@@ -159,6 +160,8 @@ export default function Reader() {
 	const [noteRev, setNoteRev] = useState(0)
 	// The post-it at the end is being written in: the page's text menu is the system's then.
 	const [noteFocused, setNoteFocused] = useState(false)
+	// The post-it asked for an article to link (`[[`, `@` or its Link Article).
+	const [pickingNoteLink, setPickingNoteLink] = useState(false)
 	const askingNote = useRef(false)
 	const mounted = useRef(true)
 	// The note for the next edition's readers, from the end block: saved the same way.
@@ -743,6 +746,9 @@ export default function Reader() {
 				break
 			case "note-link":
 				openLink({ href: `${apiUrl}/read/${message.id}`, text: "" })
+				break
+			case "note-pick":
+				setPickingNoteLink(true)
 				break
 			case "highlight":
 				aiCards.close()
@@ -1379,6 +1385,22 @@ export default function Reader() {
 					)}
 				</View>
 			)}
+			<LinkArticleSheet
+				visible={pickingNoteLink}
+				onClose={() => setPickingNoteLink(false)}
+				onPick={(picked) => {
+					setPickingNoteLink(false)
+					const linked = JSON.stringify({ id: picked.id, title: picked.title ?? picked.url })
+					web.current?.injectJavaScript(
+						`window.klipNoteLink && window.klipNoteLink(${linked}); true;`,
+					)
+				}}
+				onDismissed={() => {}}
+				search={searchLinks}
+				recent={recentLinks}
+				exclude={id}
+				colors={colors}
+			/>
 			{article ? (
 				<NotesSheet
 					visible={notesOpen}

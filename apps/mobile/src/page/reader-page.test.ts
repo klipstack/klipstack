@@ -668,6 +668,7 @@ describe("the reader page: reading and links", () => {
 
 describe("the reader page: the note at the end", () => {
 	const LINKED = "0190a3c4-1111-7000-8000-000000000002"
+	const OTHER = "0190a3c4-1111-7000-8000-000000000003"
 	const base = {
 		state: "kept",
 		archived: false,
@@ -754,6 +755,48 @@ describe("the reader page: the note at the end", () => {
 			{ type: "note-link", id: LINKED },
 			{ type: "end", action: "note-retry" },
 		])
+	})
+
+	it("asks for an article on [[ or @ typed, and links it in their place", () => {
+		const { window, page, field, messages } = openEnd()
+		const linker = page as unknown as { klipNoteLink: (a: { id: string; title: string }) => void }
+		page.klipNote(note(`[The other](/read/${LINKED}) and [[ more`))
+		const type = (text: string, data: string) => {
+			field.lastChild!.textContent = text
+			window.getSelection()!.collapse(field.lastChild!, text.lastIndexOf(data) + data.length)
+			messages.length = 0
+			field.dispatchEvent(new window.InputEvent("input", { inputType: "insertText", data }))
+		}
+		// A single bracket asks for nothing; the second one does.
+		type(" and [ more", "[")
+		expect(messages.filter((m) => m.type === "note-pick")).toEqual([])
+		type(" and [[ more", "[")
+		expect(messages).toContainEqual({ type: "note-pick" })
+		messages.length = 0
+		linker.klipNoteLink({ id: OTHER, title: "Third" })
+		const linked = `[The other](/read/${LINKED}) and [Third](/read/${OTHER}) more`
+		expect(messages.filter((m) => m.type === "note")).toEqual([{ type: "note", text: linked }])
+		expect(fieldText(field)).toBe(linked)
+		// The caret is back in the note, after the link and its space.
+		const selection = window.getSelection()!
+		expect(window.document.activeElement).toBe(field)
+		expect([selection.anchorNode?.textContent, selection.anchorOffset]).toEqual([" more", 1])
+
+		type(" and Third more @", "@")
+		expect(messages).toContainEqual({ type: "note-pick" })
+	})
+
+	it("asks for an article from its Link Article button, linked at the end without a caret", () => {
+		const { window, page, end, field, messages } = openEnd()
+		const linker = page as unknown as { klipNoteLink: (a: { id: string; title: string }) => void }
+		page.klipNote(note("See"))
+		messages.length = 0
+		const button = end.querySelector<HTMLElement>(".takeaway-link-article")!
+		expect(button.textContent).toBe("Link Article")
+		button.dispatchEvent(new window.MouseEvent("click", { bubbles: true }))
+		expect(messages).toEqual([{ type: "note-pick" }])
+		linker.klipNoteLink({ id: OTHER, title: "Third" })
+		expect(fieldText(field)).toBe(`See [Third](/read/${OTHER}) `)
 	})
 
 	it("reads WebKit's line breaks as the note's lines", () => {

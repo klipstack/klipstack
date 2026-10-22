@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { applyEdit, fromStored, insertLink, runs, toStored } from "./note-field"
+import { applyEdit, fromStored, insertLink, runs, toStored, typedTrigger } from "./note-field"
 
 const A = "0b1c2d3e-0000-4000-8000-000000000001"
 const B = "0b1c2d3e-0000-4000-8000-000000000002"
@@ -102,6 +102,31 @@ describe("insertLink", () => {
 	it("keeps the other links in place", () => {
 		const { state } = insertLink(fromStored(stored), { start: 0, end: 0 }, { id: B, title: "Z" })
 		expect(toStored(state)).toBe(`[Z](/read/${B}) See [One](/read/${A}) and\n[Two](/read/${B}).`)
+	})
+})
+
+describe("typedTrigger", () => {
+	it("finds [[ completed by the second bracket, and @, wherever they are typed", () => {
+		expect(typedTrigger("See [", "See [[")).toEqual({ start: 4, end: 6 })
+		expect(typedTrigger("a  b", "a @ b")).toEqual({ start: 2, end: 3 })
+		expect(typedTrigger("see", "see@")).toEqual({ start: 3, end: 4 })
+	})
+
+	it("ignores a single bracket, a deletion, a paste and other typing", () => {
+		expect(typedTrigger("See ", "See [")).toBeNull()
+		expect(typedTrigger("See [[x", "See [[")).toBeNull()
+		expect(typedTrigger("See ", "See a@b")).toBeNull()
+		expect(typedTrigger("See [", "See [a")).toBeNull()
+	})
+
+	it("replaced by a picked link, leaves no trigger behind", () => {
+		const prev = fromStored("Compare ")
+		const range = typedTrigger("Compare [", "Compare [[")!
+		const { state } = insertLink({ text: "Compare [[", links: prev.links }, range, {
+			id: A,
+			title: "One",
+		})
+		expect(toStored(state)).toBe(`Compare [One](/read/${A}) `)
 	})
 })
 

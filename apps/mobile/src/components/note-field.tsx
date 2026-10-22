@@ -1,5 +1,6 @@
 import type { ArticleSummary, KlipstackClient } from "@klipstack/sdk"
 import { router } from "expo-router"
+import { SymbolView } from "expo-symbols"
 import { type Ref, useEffect, useImperativeHandle, useRef, useState } from "react"
 import {
 	Pressable,
@@ -11,7 +12,15 @@ import {
 	type ViewStyle,
 } from "react-native"
 import { LinkArticleSheet } from "@/components/link-article-sheet"
-import { applyEdit, fromStored, insertLink, type NoteState, runs, toStored } from "@/lib/note-field"
+import {
+	applyEdit,
+	fromStored,
+	insertLink,
+	type NoteState,
+	runs,
+	toStored,
+	typedTrigger,
+} from "@/lib/note-field"
 import type { Colors } from "@/lib/theme"
 
 /** What a note field needs for links to other articles; the reader provides it. */
@@ -55,8 +64,10 @@ export type NoteFieldHandle = {
  * A note's text field that shows links to other articles as their titles (the stored form is
  * `[Title](/read/<id>)`, `src/lib/note-field.ts`). Words in a text field can't be tapped, so while
  * it isn't being edited a note with links shows as text whose titles open their articles; a tap
- * elsewhere edits it. The screen's Link Article button (`ref.linkArticle`) inserts a link. It
- * can't sit above the keyboard: a button there gets no touches while the field is in a sheet.
+ * elsewhere edits it. Typing `[[` or `@` opens the article picker, as on the web, and the link
+ * picked takes their place; closed without one, they stay as typed. The screen's Link Article
+ * button (`ref.linkArticle`) opens it too. It can't sit above the keyboard: a button there gets
+ * no touches while the field is in a sheet.
  */
 export function NoteField({
 	value,
@@ -106,7 +117,18 @@ export function NoteField({
 	// Where the cursor must go once the field shows the text it was just given.
 	const cursor = useRef<number | null>(null)
 	const [picking, setPicking] = useState(false)
-	useImperativeHandle(ref, () => ({ linkArticle: () => setPicking(true) }), [])
+	// The `[[` or `@` that opened the picker: the link replaces it.
+	const trigger = useRef<{ start: number; end: number } | null>(null)
+	useImperativeHandle(
+		ref,
+		() => ({
+			linkArticle: () => {
+				trigger.current = null
+				setPicking(true)
+			},
+		}),
+		[],
+	)
 
 	// A deletion that took a whole link: the cursor goes where the link was.
 	useEffect(() => {
@@ -125,12 +147,11 @@ export function NoteField({
 
 	function pick(article: ArticleSummary) {
 		setPicking(false)
-		// The selection as last reported; a note loaded since may be shorter.
+		// The trigger typed, or the selection as last reported; a note loaded since may be shorter.
+		const range = trigger.current ?? selection.current
+		trigger.current = null
 		const length = current.current.text.length
-		const within = {
-			start: Math.min(selection.current.start, length),
-			end: Math.min(selection.current.end, length),
-		}
+		const within = { start: Math.min(range.start, length), end: Math.min(range.end, length) }
 		const { state: next, cursor: at } = insertLink(current.current, within, {
 			id: article.id,
 			title: article.title ?? article.url,
@@ -153,7 +174,10 @@ export function NoteField({
 	const sheet = (
 		<LinkArticleSheet
 			visible={picking}
-			onClose={() => setPicking(false)}
+			onClose={() => {
+				trigger.current = null
+				setPicking(false)
+			}}
 			onPick={pick}
 			// Back to the note, with the cursor after the new link.
 			onDismissed={() => {
@@ -210,13 +234,19 @@ export function NoteField({
 					cursor.current = null
 					input.current?.setSelection(at, at)
 				}}
+				// The picker's sheet takes the focus: still writing, back in the note once it closes.
 				onBlur={() => {
-					if (!picking) setEditing(false)
+					if (picking) return
+					setEditing(false)
 					onBlur()
 				}}
 				onChangeText={(text) => {
+					const typed = typedTrigger(current.current.text, text)
 					const { state: next, cursor: at } = applyEdit(current.current, text)
 					update(next, at)
+					if (!typed) return
+					trigger.current = typed
+					setPicking(true)
 				}}
 				onSelectionChange={(event) => {
 					selection.current = event.nativeEvent.selection
@@ -244,6 +274,41 @@ export function NoteField({
 		</>
 	)
 }
+
+/**
+ * Opens a note field's article picker (`ref.linkArticle`): under an article note, with its name;
+ * `compact`, the icon alone, under a highlight's small note. The screen's list must let taps
+ * through while the keyboard is up (`keyboardShouldPersistTaps="handled"`).
+ */
+export function LinkArticleButton({
+	field,
+	compact = false,
+	colors,
+}: {
+	field: { current: NoteFieldHandle | null }
+	compact?: boolean
+	colors: Colors
+}) {
+	return (
+		<Pressable
+			accessibilityRole="button"
+			accessibilityLabel="Link Article"
+			onPress={() => field.current?.linkArticle()}
+			hitSlop={8}
+			style={styles.linkArticle}
+		>
+			<SymbolView name="link" tintColor={colors.accent} size={17} />
+			{compact ? null : (
+				<Text style={[styles.linkArticleText, { color: colors.accent }]}>Link Article</Text>
+			)}
+		</Pressable>
+	)
+}
+
+const styles = StyleSheet.create({
+	linkArticle: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start" },
+	linkArticleText: { fontSize: 15 },
+})
 
 const TEXT_KEYS = new Set([
 	"color",

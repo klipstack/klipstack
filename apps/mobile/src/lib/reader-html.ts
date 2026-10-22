@@ -424,6 +424,12 @@ html.hl-dragging, html.hl-dragging * { -webkit-user-select: none; user-select: n
 .takeaway-link { text-decoration: underline; text-underline-offset: 3px; }
 .takeaway-link.trash { text-decoration: line-through; opacity: 0.6; }
 .takeaway-link.missing { opacity: 0.6; }
+/* As the notes sheet's Link Article: the accent, an icon and its name. */
+#klip-end .takeaway-link-article {
+	display: inline-flex; align-items: center; gap: 6px; margin-top: 2px; padding: 0; border: 0;
+	background: none; color: var(--accent); font: inherit; font-size: 0.9375rem;
+}
+#klip-end .takeaway-link-article svg { width: 17px; height: 17px; }
 .takeaway-status { min-height: 1.2em; font-size: 0.8125rem; color: var(--muted-fg); }
 /* The topics above the title, and the shelf after the end block: as the web reader's. */
 .kicker {

@@ -100,6 +100,28 @@ export function insertLink(
 }
 
 /**
+ * What typed in the field opens the article picker, as the web's `[[` menu: `[[` (the Obsidian
+ * habit) or `@`, one keyboard layer away where `[` is two.
+ */
+const TRIGGERS = ["[[", "@"]
+
+/**
+ * Where the trigger just typed sits in `next`, when the change from `prev` was one character typed
+ * that completes `[[` or is `@`: the picker's link replaces that range. A paste never opens it.
+ */
+export function typedTrigger(prev: string, next: string): { start: number; end: number } | null {
+	if (next.length !== prev.length + 1) return null
+	let at = 0
+	while (at < prev.length && prev[at] === next[at]) at++
+	if (prev.slice(at) !== next.slice(at + 1)) return null
+	const end = at + 1
+	for (const trigger of TRIGGERS)
+		if (next.slice(end - trigger.length, end) === trigger)
+			return { start: end - trigger.length, end }
+	return null
+}
+
+/**
  * Links after `[from, to)` is replaced by `length` characters: those before stay, those after
  * move, and those it overlaps (or an insertion splits) are dropped.
  */
