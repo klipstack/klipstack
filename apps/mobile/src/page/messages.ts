@@ -108,6 +108,8 @@ export type PageMessage =
 	| { type: "note-focus"; focused: boolean }
 	/** A link in the post-it, tapped while not writing: open that article. */
 	| { type: "note-link"; id: string }
+	/** `[[` or `@` typed in the post-it, or its Link Article button: pick an article to link. */
+	| { type: "note-pick" }
 	| { type: "highlight"; id: string }
 	/** A tap on an AI thread's underlined passage. */
 	| { type: "thread"; id: string }
@@ -150,6 +152,8 @@ export type PageApi = {
 	klipAsset(id: string, name: string): void
 	klipEnd(end: PageEnd): void
 	klipNote(note: PageNote): void
+	/** The article picked after `note-pick`, linked where the pick began; null: none was picked. */
+	klipNoteLink(article: { id: string; title: string } | null): void
 	/** Scrolls to a heading in the contents (its index), and reads aloud from it while reading. */
 	klipSection(index: number): void
 }

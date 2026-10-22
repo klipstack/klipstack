@@ -392,6 +392,8 @@ export default function Home() {
 		<ScrollView
 			contentInsetAdjustmentBehavior="automatic"
 			contentContainerStyle={styles.page}
+			// A highlight's note being written keeps its keyboard for its Link Article button.
+			keyboardShouldPersistTaps="handled"
 			refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
 		>
 			{client ? (

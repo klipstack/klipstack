@@ -668,6 +668,7 @@ describe("the reader page: reading and links", () => {
 
 describe("the reader page: the note at the end", () => {
 	const LINKED = "0190a3c4-1111-7000-8000-000000000002"
+	const OTHER = "0190a3c4-1111-7000-8000-000000000003"
 	const base = {
 		state: "kept",
 		archived: false,
@@ -754,6 +755,103 @@ describe("the reader page: the note at the end", () => {
 			{ type: "note-link", id: LINKED },
 			{ type: "end", action: "note-retry" },
 		])
+	})
+
+	it("asks for an article on [[ or @ typed, and links it in their place", () => {
+		const { window, page, field, messages } = openEnd()
+		const linker = page as unknown as { klipNoteLink: (a: { id: string; title: string }) => void }
+		page.klipNote(note(`[The other](/read/${LINKED}) and [[ more`))
+		const type = (text: string, data: string) => {
+			field.lastChild!.textContent = text
+			window.getSelection()!.collapse(field.lastChild!, text.lastIndexOf(data) + data.length)
+			messages.length = 0
+			field.dispatchEvent(new window.InputEvent("input", { inputType: "insertText", data }))
+		}
+		// A single bracket asks for nothing; the second one does.
+		type(" and [ more", "[")
+		expect(messages.filter((m) => m.type === "note-pick")).toEqual([])
+		type(" and [[ more", "[")
+		expect(messages).toContainEqual({ type: "note-pick" })
+		messages.length = 0
+		linker.klipNoteLink({ id: OTHER, title: "Third" })
+		const linked = `[The other](/read/${LINKED}) and [Third](/read/${OTHER}) more`
+		expect(messages.filter((m) => m.type === "note")).toEqual([{ type: "note", text: linked }])
+		expect(fieldText(field)).toBe(linked)
+		// The caret is back in the note, after the link and its space.
+		const selection = window.getSelection()!
+		expect(window.document.activeElement).toBe(field)
+		expect([selection.anchorNode?.textContent, selection.anchorOffset]).toEqual([" more", 1])
+
+		type(" and Third more @", "@")
+		expect(messages).toContainEqual({ type: "note-pick" })
+	})
+
+	it("asks for an article from its Link Article button, linked at the end without a caret", () => {
+		const { window, page, end, field, messages } = openEnd()
+		const linker = page as unknown as { klipNoteLink: (a: { id: string; title: string }) => void }
+		page.klipNote(note("See"))
+		messages.length = 0
+		const button = end.querySelector<HTMLElement>(".takeaway-link-article")!
+		expect(button.textContent).toBe("Link Article")
+		button.dispatchEvent(new window.MouseEvent("click", { bubbles: true }))
+		expect(messages).toEqual([{ type: "note-pick" }])
+		linker.klipNoteLink({ id: OTHER, title: "Third" })
+		expect(fieldText(field)).toBe(`See [Third](/read/${OTHER}) `)
+	})
+
+	it("links from its button at the caret, wherever it was in the note", () => {
+		const { window, page, end, field } = openEnd()
+		const linker = page as unknown as { klipNoteLink: (a: { id: string; title: string }) => void }
+		page.klipNote(note("Before after"))
+		field.focus()
+		window.getSelection()!.collapse(field.firstChild!, 7)
+		window.document.dispatchEvent(new window.Event("selectionchange"))
+		end
+			.querySelector(".takeaway-link-article")!
+			.dispatchEvent(new window.MouseEvent("click", { bubbles: true }))
+		linker.klipNoteLink({ id: OTHER, title: "Third" })
+		expect(fieldText(field)).toBe(`Before [Third](/read/${OTHER}) after`)
+	})
+
+	it("links at the end when the note was replaced while picking, and takes no words", () => {
+		const { window, page, field } = openEnd()
+		const linker = page as unknown as { klipNoteLink: (a: { id: string; title: string }) => void }
+		page.klipNote(note("Hello [["))
+		field.focus()
+		window.getSelection()!.collapse(field.firstChild!, 8)
+		field.dispatchEvent(new window.InputEvent("input", { inputType: "insertText", data: "[" }))
+		page.klipNote(note("Replaced from the web, longer", { rev: 1 }))
+		linker.klipNoteLink({ id: OTHER, title: "Third" })
+		expect(fieldText(field)).toBe(`Replaced from the web, longer [Third](/read/${OTHER}) `)
+	})
+
+	it("closed without a pick, keeps what was typed and goes back to writing", () => {
+		const { window, page, field, messages } = openEnd()
+		const linker = page as unknown as { klipNoteLink: (a: null) => void }
+		page.klipNote(note("mail ana@"))
+		field.focus()
+		window.getSelection()!.collapse(field.firstChild!, 9)
+		messages.length = 0
+		// An @ inside a word asks for nothing.
+		field.dispatchEvent(new window.InputEvent("input", { inputType: "insertText", data: "@" }))
+		expect(messages.filter((m) => m.type === "note-pick")).toEqual([])
+		field.blur()
+		linker.klipNoteLink(null)
+		expect(fieldText(field)).toBe("mail ana@")
+		expect(window.document.activeElement).toBe(field)
+	})
+
+	it("adds no link that would take the note past the longest the server keeps", () => {
+		const { window, page, end, field, messages } = openEnd()
+		const linker = page as unknown as { klipNoteLink: (a: { id: string; title: string }) => void }
+		page.klipNote(note("a".repeat(NOTE_MAX - 10)))
+		end
+			.querySelector(".takeaway-link-article")!
+			.dispatchEvent(new window.MouseEvent("click", { bubbles: true }))
+		messages.length = 0
+		linker.klipNoteLink({ id: OTHER, title: "Third" })
+		expect(fieldText(field)).toBe("a".repeat(NOTE_MAX - 10))
+		expect(messages.filter((m) => m.type === "note")).toEqual([])
 	})
 
 	it("reads WebKit's line breaks as the note's lines", () => {

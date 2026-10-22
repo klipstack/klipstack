@@ -5,7 +5,12 @@ import { SymbolView } from "expo-symbols"
 import { useRef } from "react"
 import { Keyboard, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
 import { MarkerText } from "@/components/marker-text"
-import { NoteField, type NoteFieldHandle, type NoteLinking } from "@/components/note-field"
+import {
+	LinkArticleButton,
+	NoteField,
+	type NoteFieldHandle,
+	type NoteLinking,
+} from "@/components/note-field"
 import { PostIt, postItText } from "@/components/post-it"
 import { withDictated } from "@/lib/dictated-note"
 import { useDictation } from "@/lib/dictation"
@@ -147,16 +152,7 @@ export function NotesSheet({
 						/>
 					</PostIt>
 					<View style={styles.tools}>
-						<Pressable
-							accessibilityRole="button"
-							accessibilityLabel="Link Article"
-							onPress={() => field.current?.linkArticle()}
-							hitSlop={8}
-							style={styles.linkArticle}
-						>
-							<SymbolView name="link" tintColor={colors.accent} size={17} />
-							<Text style={[styles.linkArticleText, { color: colors.accent }]}>Link Article</Text>
-						</Pressable>
+						<LinkArticleButton field={field} colors={colors} />
 						{dictation.available ? (
 							<Pressable
 								accessibilityRole="button"

@@ -11,7 +11,12 @@ import {
 	type TextStyle,
 	View,
 } from "react-native"
-import { type NoteLinking, NoteField } from "@/components/note-field"
+import {
+	LinkArticleButton,
+	NoteField,
+	type NoteFieldHandle,
+	type NoteLinking,
+} from "@/components/note-field"
 import { notePaper, PostIt, postItText, useGrowingFit } from "@/components/post-it"
 import { fromStored, runs } from "@/lib/note-field"
 import { guardNoteSaves, type SavedNote } from "@/lib/note-guard"
@@ -167,6 +172,7 @@ function ArticleNoteEditor({
 	onChanged: (now: SavedNote, keepMine: () => void, dropMine: () => void) => void
 }) {
 	const [value, setValue] = useState(initial)
+	const field = useRef<NoteFieldHandle>(null)
 	const [{ autosave, dropped }] = useState(() => {
 		// Set when the reader takes the saved note: this editor's text is not to be saved anymore.
 		const dropped = { current: false }
@@ -212,6 +218,7 @@ function ArticleNoteEditor({
 			>
 				{editing ? (
 					<NoteField
+						ref={field}
 						accessibilityLabel="Article note"
 						value={value}
 						onChange={(text) => {
@@ -251,6 +258,11 @@ function ArticleNoteEditor({
 					</Pressable>
 				)}
 			</PostIt>
+			{editing ? (
+				<View style={styles.tools}>
+					<LinkArticleButton field={field} colors={colors} />
+				</View>
+			) : null}
 			<SaveStatus status={status} retry={() => void autosave.flush()} colors={colors} />
 		</View>
 	)
@@ -279,6 +291,7 @@ export function HighlightNote({
 	onSaved: (note: string | null) => void
 }) {
 	const [value, setValue] = useState(highlight.note ?? "")
+	const field = useRef<NoteFieldHandle>(null)
 	const [status, setStatus] = useState<NoteSaveStatus>("idle")
 	const [autosave] = useState(() =>
 		createNoteAutosave({
@@ -319,6 +332,7 @@ export function HighlightNote({
 			>
 				{editing ? (
 					<NoteField
+						ref={field}
 						accessibilityLabel="Highlight note"
 						value={value}
 						onChange={(text) => {
@@ -351,6 +365,11 @@ export function HighlightNote({
 					</Pressable>
 				)}
 			</PostIt>
+			{editing ? (
+				<View style={styles.tools}>
+					<LinkArticleButton field={field} compact colors={colors} />
+				</View>
+			) : null}
 			<SaveStatus status={status} retry={() => void autosave.flush()} colors={colors} />
 		</View>
 	)
@@ -440,5 +459,6 @@ const styles = StyleSheet.create({
 	// A text field's own padding off: the words stay where the text's were.
 	field: { padding: 0, paddingTop: 0 },
 	tap: { flexGrow: 1 },
+	tools: { marginTop: 10 },
 	status: { fontSize: 13, marginTop: 8 },
 })

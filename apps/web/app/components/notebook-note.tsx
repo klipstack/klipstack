@@ -5,6 +5,8 @@ import { useAutosaveText } from "~/hooks/use-autosave-text"
 import { fitsKeepalive } from "~/lib/keepalive"
 import type { LinkTargets } from "~/lib/note-links"
 import { cn } from "~/lib/utils"
+import { LinkArticleButton } from "./link-article-button"
+import type { NoteEditorApi } from "./note-editor"
 import { NoteField } from "./note-field"
 import { NoteStatus } from "./note-status"
 import { PostIt, useGrowingFit } from "./post-it"
@@ -155,6 +157,7 @@ function Editor({
 	const { t } = useTranslation("reader")
 	const { value, status, change, flush } = useAutosaveText(initial, save)
 	const fit = useGrowingFit(value, id)
+	const [noteApi, setNoteApi] = useState<NoteEditorApi | null>(null)
 	return (
 		<div>
 			<PostIt
@@ -179,8 +182,10 @@ function Editor({
 					documentId={documentId}
 					linkTargets={linkTargets}
 					className="block max-h-96 min-h-12 overflow-y-auto"
+					onApi={setNoteApi}
 				/>
 			</PostIt>
+			<LinkArticleButton api={noteApi} className="-ml-2 mt-1" />
 			<div className="mt-2 min-h-5 text-xs">
 				{conflict ? (
 					<span role="alert" className="text-danger">

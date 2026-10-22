@@ -1,5 +1,6 @@
 import { NOTE_MAX } from "@klipstack/api-contract/names"
 import { parse } from "@klipstack/api-contract/note-links"
+import { fromStored, insertLink, linkRange, toStored } from "../lib/note-field"
 import { LEAST_HEIGHT, postItChars } from "../lib/post-it"
 import type { PageMessage, PageNote } from "./messages"
 
@@ -13,17 +14,23 @@ export const TAKEAWAY_PLACEHOLDER = "What will you take from this?"
  * (`klipNote`). Links show as their titles and can't be typed into; a deletion takes the whole
  * link, as in the sheet. While the post-it is written in, it keeps its own text, unless the app
  * replaced the note (`rev`). Its paper grows with the text and doesn't shrink under the caret.
+ *
+ * `[[` or `@` typed in it, or its Link Article button, asks the app for an article
+ * (`{ type: "note-pick" }`), as the app's own note fields do. The article picked (`link`) takes
+ * the place of what was typed, or goes where the caret last was.
  */
 export function createTakeaway(post: (message: PageMessage) => void): {
 	element: HTMLElement
 	update: (note: PageNote) => void
+	link: (article: { id: string; title: string } | null) => void
 } {
 	const element = document.createElement("div")
 	element.className = "takeaway"
-	element.innerHTML = `<div class="takeaway-label">Your note <span>· only you</span></div><div class="post-it"><span class="tape" aria-hidden="true"></span><div class="takeaway-field" contenteditable="plaintext-only" role="textbox" aria-multiline="true" aria-label="Your note" aria-placeholder="${TAKEAWAY_PLACEHOLDER}" autocapitalize="sentences" data-placeholder="${TAKEAWAY_PLACEHOLDER}"></div></div><div class="takeaway-status"></div>`
+	element.innerHTML = `<div class="takeaway-label">Your note <span>· only you</span></div><div class="post-it"><span class="tape" aria-hidden="true"></span><div class="takeaway-field" contenteditable="plaintext-only" role="textbox" aria-multiline="true" aria-label="Your note" aria-placeholder="${TAKEAWAY_PLACEHOLDER}" autocapitalize="sentences" data-placeholder="${TAKEAWAY_PLACEHOLDER}"></div></div><button type="button" class="takeaway-link-article">${LINK_ICON}Link Article</button><div class="takeaway-status"></div>`
 	const paper = element.querySelector<HTMLElement>(".post-it")!
 	const field = element.querySelector<HTMLElement>(".takeaway-field")!
 	const status = element.querySelector<HTMLElement>(".takeaway-status")!
+	const linkButton = element.querySelector<HTMLElement>(".takeaway-link-article")!
 
 	// The app's note, and the text the paper is sized for (the longest since writing began).
 	let latest: PageNote | null = null
@@ -67,11 +74,42 @@ export function createTakeaway(post: (message: PageMessage) => void): {
 		const selected = window.getSelection()?.toString().length ?? 0
 		if (fieldText(field).length + adding - selected > NOTE_MAX) event.preventDefault()
 	})
-	field.addEventListener("input", () => {
+	// Where the caret last was in the note's text (links as their titles): the button takes focus
+	// from the field before its tap, and the picker is a sheet over the page.
+	let caret: { start: number; end: number } | null = null
+	// The `[[` or `@` that asked for the article: the link takes its place.
+	let trigger: { start: number; end: number } | null = null
+	document.addEventListener("selectionchange", () => {
+		const selection = window.getSelection()
+		if (!focused() || !selection?.rangeCount) return
+		const range = selection.getRangeAt(0)
+		caret = {
+			start: offsetOf(field, range.startContainer, range.startOffset),
+			end: offsetOf(field, range.endContainer, range.endOffset),
+		}
+	})
+
+	field.addEventListener("input", (event) => {
 		const text = fieldText(field)
 		changed(text)
 		post({ type: "note", text })
 		keepInView()
+		const typed = (event as InputEvent).data
+		const selection = window.getSelection()
+		if ((typed !== "@" && typed !== "[") || !selection?.rangeCount) return
+		const range = selection.getRangeAt(0)
+		const end = offsetOf(field, range.endContainer, range.endOffset)
+		const before = fromStored(text).text.slice(0, end)
+		// `@` only starts a word, as in the app's own note fields.
+		const typedAt = typed === "@" && (end < 2 || /\s/.test(before[end - 2]!))
+		const chars = typedAt ? "@" : typed === "[" && before.endsWith("[[") ? "[[" : null
+		if (!chars) return
+		trigger = { start: end - chars.length, end }
+		post({ type: "note-pick" })
+	})
+	linkButton.addEventListener("click", () => {
+		trigger = null
+		post({ type: "note-pick" })
 	})
 	field.addEventListener("focus", () => post({ type: "note-focus", focused: true }))
 	field.addEventListener("blur", () => {
@@ -120,8 +158,61 @@ export function createTakeaway(post: (message: PageMessage) => void): {
 		keepInView()
 	}
 
-	return { element, update }
+	/** The article picked, or null when the picker closed without one: back to writing either way. */
+	function link(article: { id: string; title: string } | null) {
+		const state = fromStored(fieldText(field))
+		const length = state.text.length
+		const end = { start: length, end: length }
+		// A trigger no longer in its place (the note was replaced meanwhile): at the end.
+		const within = linkRange(state.text, trigger, trigger ? end : (caret ?? end))
+		trigger = null
+		const next = article ? insertLink(state, within, article) : null
+		// Past the longest note the server keeps, the link would only be refused on save.
+		if (next && toStored(next.state).length <= NOTE_MAX) {
+			const text = toStored(next.state)
+			show(text, latest?.links ?? {})
+			post({ type: "note", text })
+			caret = { start: next.cursor, end: next.cursor }
+		}
+		field.focus()
+		placeCaret(field, caret?.end ?? length)
+	}
+
+	return { element, update, link }
 }
+
+/**
+ * Where a point in the post-it falls in the note's text as the app's note fields hold it: links
+ * as their titles (`fromStored` in `src/lib/note-field.ts`).
+ */
+function offsetOf(field: HTMLElement, node: Node, offset: number): number {
+	const range = document.createRange()
+	range.setStart(field, 0)
+	range.setEnd(node, offset)
+	const before = document.createElement("div")
+	before.append(range.cloneContents())
+	return fromStored(fieldText(before)).text.length
+}
+
+/** The caret at `offset` in the note's text (links as their titles), as `offsetOf` counts it. */
+function placeCaret(field: HTMLElement, offset: number) {
+	let left = offset
+	const selection = window.getSelection()
+	if (!selection) return
+	for (const child of Array.from(field.childNodes)) {
+		const length = child.nodeType === 3 ? (child as Text).length : (child.textContent ?? "").length
+		if (left <= length && child.nodeType === 3) {
+			selection.collapse(child, left)
+			return
+		}
+		if (left < length) break
+		left -= length
+	}
+	selection.collapse(field, field.childNodes.length)
+}
+
+const LINK_ICON =
+	'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3.2-3.2a4.5 4.5 0 0 0-6.4-6.4l-1.1 1.1M14 10a4.5 4.5 0 0 0-6.4 0l-3.2 3.2a4.5 4.5 0 0 0 6.4 6.4l1.1-1.1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
 
 /**
  * The note as stored, from the post-it's text: links back to `[Title](/read/<id>)`. WebKit may

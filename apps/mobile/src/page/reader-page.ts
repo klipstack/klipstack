@@ -526,6 +526,7 @@ export function startReaderPage(): void {
 		card?.scrollIntoView({ block: "nearest", behavior: still ? "auto" : "smooth" })
 	}
 	page.klipNote = takeaway.update
+	page.klipNoteLink = takeaway.link
 	endBlock?.addEventListener("click", (event) => {
 		const button =
 			event.target instanceof Element ? event.target.closest<HTMLElement>("[data-end]") : null

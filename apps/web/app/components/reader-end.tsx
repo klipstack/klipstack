@@ -5,6 +5,8 @@ import { useEffect, useId, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link, useNavigate } from "react-router"
 import { EditionTextField } from "~/components/edition-text-field"
+import { LinkArticleButton } from "~/components/link-article-button"
+import type { NoteEditorApi } from "~/components/note-editor"
 import { NoteField } from "~/components/note-field"
 import { ArticleNoteLabel, NoteStatus } from "~/components/note-status"
 import { PostIt, tiltFor, useGrowingFit } from "~/components/post-it"
@@ -86,6 +88,7 @@ export function ReaderEnd({
 
 	// An empty note is as wide as its question.
 	const noteFit = useGrowingFit(note.value || t("end.notePlaceholder"), documentId)
+	const [noteApi, setNoteApi] = useState<NoteEditorApi | null>(null)
 
 	// Kept while unmarked, so marking again shows what was typed.
 	const edition = useAutosaveText(editionNote ?? "", async (text, { keepalive }) => {
@@ -201,8 +204,10 @@ export function ReaderEnd({
 						linkTargets={linkTargets}
 						placeholder={t("end.notePlaceholder")}
 						className="block max-h-[60vh] min-h-16 w-full overflow-y-auto"
+						onApi={setNoteApi}
 					/>
 				</PostIt>
+				<LinkArticleButton api={noteApi} className="-ml-2 justify-self-start" />
 			</div>
 			<div className="grid max-w-sm grid-cols-2 gap-2">
 				<button

@@ -100,6 +100,45 @@ export function insertLink(
 }
 
 /**
+ * What typed in the field opens the article picker, as the web's `[[` menu: `[[` (the Obsidian
+ * habit) or `@`, one keyboard layer away where `[` is two. `@` only starts a word: the picker is a
+ * sheet over the note, so one opened in the middle of an email address would stop the typing.
+ */
+const TRIGGERS = ["[[", "@"]
+
+type Range = { start: number; end: number }
+
+/**
+ * Where the trigger just typed sits in `next`, when the change from `prev` was one character typed
+ * that completes `[[` or is `@`: the picker's link replaces that range. A paste never opens it.
+ */
+export function typedTrigger(prev: string, next: string): Range | null {
+	if (next.length !== prev.length + 1) return null
+	let at = 0
+	while (at < prev.length && prev[at] === next[at]) at++
+	if (prev.slice(at) !== next.slice(at + 1)) return null
+	const end = at + 1
+	for (const trigger of TRIGGERS) {
+		const start = end - trigger.length
+		if (next.slice(start, end) !== trigger) continue
+		if (trigger === "@" && start > 0 && !/\s/.test(next[start - 1]!)) return null
+		return { start, end }
+	}
+	return null
+}
+
+/**
+ * Where the picked link goes in `text`: in place of the trigger typed, if it is still there, or
+ * at `fallback`. The note may have changed while the picker was open (replaced from elsewhere):
+ * the trigger's place then no longer holds it, and replacing it would take other words.
+ */
+export function linkRange(text: string, trigger: Range | null, fallback: Range): Range {
+	const at =
+		trigger && TRIGGERS.includes(text.slice(trigger.start, trigger.end)) ? trigger : fallback
+	return { start: Math.min(at.start, text.length), end: Math.min(at.end, text.length) }
+}
+
+/**
  * Links after `[from, to)` is replaced by `length` characters: those before stay, those after
  * move, and those it overlaps (or an insertion splits) are dropped.
  */
