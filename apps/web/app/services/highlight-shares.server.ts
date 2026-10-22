@@ -1,4 +1,4 @@
-import { parse, type Segment, serialize } from "@klipstack/api-contract/note-links"
+import { parse, serialize } from "@klipstack/api-contract/note-links"
 import {
 	and,
 	type Db,
@@ -14,6 +14,7 @@ import {
 	type Tx,
 } from "@klipstack/db"
 import { z } from "zod"
+import { clipLines, clipText, type Piece } from "~/lib/public-cut"
 
 /**
  * What a shared highlight's page shows, copied when it was shared or last updated: nothing on the
@@ -117,78 +118,23 @@ export type PublicShare =
 	| { status: "removed" }
 	| { status: "stopped" }
 
-/** Most words of a quote, or of its note, that a shared highlight's page shows: a little over a post. */
-const SHARE_WORDS_MAX = 100
-/** Most characters, for long words and for scripts written without spaces. */
-const SHARE_CHARS_MAX = 600
-
 /**
- * Where a public page cuts this text, or null when it shows whole: after the last word within both
- * limits. When that word ends before half the characters (a word longer than the rest, or text
- * without spaces), the cut falls at the character limit instead, never inside a surrogate pair.
- */
-function cutAt(text: string): number | null {
-	let words = 0
-	let end = 0
-	for (const word of text.matchAll(/\S+/g)) {
-		const wordEnd = word.index + word[0].length
-		if (words === SHARE_WORDS_MAX) return end
-		if (wordEnd > SHARE_CHARS_MAX) {
-			if (end >= SHARE_CHARS_MAX / 2) return end
-			const low = text.charCodeAt(SHARE_CHARS_MAX)
-			return low >= 0xdc00 && low <= 0xdfff ? SHARE_CHARS_MAX - 1 : SHARE_CHARS_MAX
-		}
-		words += 1
-		end = wordEnd
-	}
-	return null
-}
-
-/** The quote as its public page shows it, with "…" where it was cut. */
-function clipQuote(text: string): string {
-	const cut = cutAt(text)
-	return cut === null ? text : `${text.slice(0, cut)}…`
-}
-
-const shownText = (segment: Segment) => (segment.kind === "text" ? segment.text : segment.title)
-
-/**
- * The note as its public page shows it, measured as it reads (a link by its title). A link the
- * cut falls inside is left out whole, so no half link is ever shown.
+ * The note as its public page shows it (`clipLines`): a link to a saved article reads as its title.
  */
 function clipNote(note: string): string {
-	const lines = parse(note)
-	let left = cutAt(lines.map((line) => line.map(shownText).join("")).join("\n"))
-	if (left === null) return note
-	const kept: Segment[][] = []
-	for (const line of lines) {
-		const segments: Segment[] = []
-		kept.push(segments)
-		for (const segment of line) {
-			const length = shownText(segment).length
-			if (length <= left) {
-				segments.push(segment)
-				left -= length
-				continue
-			}
-			const text = segment.kind === "text" ? segment.text.slice(0, left) : ""
-			segments.push({ kind: "text", text: `${text}…` })
-			return serialize(kept)
-		}
-		if (left === 0) {
-			segments.push({ kind: "text", text: "…" })
-			return serialize(kept)
-		}
-		left -= 1
-	}
-	return note
+	const lines = parse(note).map((line) =>
+		line.map((s): Piece =>
+			s.kind === "text" ? { text: s.text } : { source: serialize([[s]]), shown: s.title },
+		),
+	)
+	return clipLines(lines) ?? note
 }
 
 /**
  * A shared highlight's page, for anyone: live, taken down by an admin, or stopped (its owner
  * stopped sharing it, or deleted the highlight). Null for an address that never was, or that a
  * new share of the highlight replaced. A live one shows the quote and the note cut to the limits
- * above, so it never republishes an article: the snapshot keeps the whole highlight, which only
+ * of `lib/public-cut.ts`, so it never republishes an article: the snapshot keeps the whole highlight, which only
  * its owner sees.
  */
 export async function getPublicShare(publicId: string): Promise<PublicShare | null> {
@@ -212,7 +158,7 @@ export async function getPublicShare(publicId: string): Promise<PublicShare | nu
 		status: "live",
 		snapshot: {
 			...snapshot,
-			exact: clipQuote(snapshot.exact),
+			exact: clipText(snapshot.exact),
 			note: snapshot.note === null ? null : clipNote(snapshot.note),
 		},
 		updatedAt: row.updatedAt,
