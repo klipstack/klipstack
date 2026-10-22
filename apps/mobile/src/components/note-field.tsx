@@ -16,6 +16,7 @@ import {
 	applyEdit,
 	fromStored,
 	insertLink,
+	linkRange,
 	type NoteState,
 	runs,
 	toStored,
@@ -147,15 +148,15 @@ export function NoteField({
 
 	function pick(article: ArticleSummary) {
 		setPicking(false)
-		// The trigger typed, or the selection as last reported; a note loaded since may be shorter.
-		const range = trigger.current ?? selection.current
+		// The trigger typed, or the selection as last reported; a note loaded since may differ.
+		const within = linkRange(current.current.text, trigger.current, selection.current)
 		trigger.current = null
-		const length = current.current.text.length
-		const within = { start: Math.min(range.start, length), end: Math.min(range.end, length) }
 		const { state: next, cursor: at } = insertLink(current.current, within, {
 			id: article.id,
 			title: article.title ?? article.url,
 		})
+		// Past the longest note the server keeps, the link would only be refused on save.
+		if (toStored(next).length > maxLength) return
 		update(next, at)
 	}
 

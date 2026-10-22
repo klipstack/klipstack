@@ -81,6 +81,12 @@ test("Home asks about articles finished without a note, gently", async ({ page }
 	await expect
 		.poll(async () => (await db.select().from(documents).where(eq(documents.id, heard)))[0]?.note)
 		.toBe("Tides are a conversation with the moon.")
+	// Its Link article button opens the article menu, as every note's does.
+	await first.getByTestId("link-article").click()
+	await expect(page.getByTestId("note-link-menu")).toBeVisible()
+	await page.keyboard.press("Escape")
+	for (let i = 0; i < 2; i++) await page.keyboard.press("Backspace")
+	await expect(field).toHaveText("Tides are a conversation with the moon.")
 
 	// Nothing to add takes one away, with undo.
 	const second = items.filter({ hasText: "Slow gardens" })

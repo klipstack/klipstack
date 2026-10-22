@@ -298,6 +298,12 @@ test("notebook: each article beside its note, written in place, found and narrow
 		alert.getByRole("button", { name: "Keep mine" }).click(),
 	])
 	expect(await stored(harbors)).toBe("Fishing boats at dawn.")
+	// Its Link article button opens the article menu, as every note's does.
+	await articles.nth(2).getByTestId("link-article").click()
+	await expect(page.getByTestId("note-link-menu")).toBeVisible()
+	await page.keyboard.press("Escape")
+	for (let i = 0; i < 2; i++) await page.keyboard.press("Backspace")
+	await expect(harborsNote).toHaveText("Fishing boats at dawn.")
 	// Written on, it is paper like the others.
 	await expect(blank.getByTestId("post-it-tape")).toHaveCount(1)
 

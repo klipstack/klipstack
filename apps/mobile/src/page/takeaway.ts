@@ -1,6 +1,6 @@
 import { NOTE_MAX } from "@klipstack/api-contract/names"
 import { parse } from "@klipstack/api-contract/note-links"
-import { fromStored, insertLink, toStored } from "../lib/note-field"
+import { fromStored, insertLink, linkRange, toStored } from "../lib/note-field"
 import { LEAST_HEIGHT, postItChars } from "../lib/post-it"
 import type { PageMessage, PageNote } from "./messages"
 
@@ -22,7 +22,7 @@ export const TAKEAWAY_PLACEHOLDER = "What will you take from this?"
 export function createTakeaway(post: (message: PageMessage) => void): {
 	element: HTMLElement
 	update: (note: PageNote) => void
-	link: (article: { id: string; title: string }) => void
+	link: (article: { id: string; title: string } | null) => void
 } {
 	const element = document.createElement("div")
 	element.className = "takeaway"
@@ -77,8 +77,8 @@ export function createTakeaway(post: (message: PageMessage) => void): {
 	// Where the caret last was in the note's text (links as their titles): the button takes focus
 	// from the field before its tap, and the picker is a sheet over the page.
 	let caret: { start: number; end: number } | null = null
-	// Where the picked article goes: the trigger typed, or the caret.
-	let pending: { start: number; end: number } | null = null
+	// The `[[` or `@` that asked for the article: the link takes its place.
+	let trigger: { start: number; end: number } | null = null
 	document.addEventListener("selectionchange", () => {
 		const selection = window.getSelection()
 		if (!focused() || !selection?.rangeCount) return
@@ -100,14 +100,15 @@ export function createTakeaway(post: (message: PageMessage) => void): {
 		const range = selection.getRangeAt(0)
 		const end = offsetOf(field, range.endContainer, range.endOffset)
 		const before = fromStored(text).text.slice(0, end)
-		const trigger = typed === "@" ? "@" : before.endsWith("[[") ? "[[" : null
-		if (!trigger) return
-		pending = { start: end - trigger.length, end }
+		// `@` only starts a word, as in the app's own note fields.
+		const typedAt = typed === "@" && (end < 2 || /\s/.test(before[end - 2]!))
+		const chars = typedAt ? "@" : typed === "[" && before.endsWith("[[") ? "[[" : null
+		if (!chars) return
+		trigger = { start: end - chars.length, end }
 		post({ type: "note-pick" })
 	})
 	linkButton.addEventListener("click", () => {
-		const length = fromStored(fieldText(field)).text.length
-		pending = caret ?? { start: length, end: length }
+		trigger = null
 		post({ type: "note-pick" })
 	})
 	field.addEventListener("focus", () => post({ type: "note-focus", focused: true }))
@@ -157,20 +158,24 @@ export function createTakeaway(post: (message: PageMessage) => void): {
 		keepInView()
 	}
 
-	function link(article: { id: string; title: string }) {
+	/** The article picked, or null when the picker closed without one: back to writing either way. */
+	function link(article: { id: string; title: string } | null) {
 		const state = fromStored(fieldText(field))
 		const length = state.text.length
-		const at = pending ?? { start: length, end: length }
-		pending = null
-		const within = { start: Math.min(at.start, length), end: Math.min(at.end, length) }
-		const { state: next, cursor } = insertLink(state, within, article)
-		const text = toStored(next)
-		show(text, latest?.links ?? {})
-		post({ type: "note", text })
-		caret = { start: cursor, end: cursor }
-		// Back to writing, after the link and its space.
+		const end = { start: length, end: length }
+		// A trigger no longer in its place (the note was replaced meanwhile): at the end.
+		const within = linkRange(state.text, trigger, trigger ? end : (caret ?? end))
+		trigger = null
+		const next = article ? insertLink(state, within, article) : null
+		// Past the longest note the server keeps, the link would only be refused on save.
+		if (next && toStored(next.state).length <= NOTE_MAX) {
+			const text = toStored(next.state)
+			show(text, latest?.links ?? {})
+			post({ type: "note", text })
+			caret = { start: next.cursor, end: next.cursor }
+		}
 		field.focus()
-		placeCaret(field, cursor)
+		placeCaret(field, caret?.end ?? length)
 	}
 
 	return { element, update, link }

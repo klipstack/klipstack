@@ -152,8 +152,8 @@ export type PageApi = {
 	klipAsset(id: string, name: string): void
 	klipEnd(end: PageEnd): void
 	klipNote(note: PageNote): void
-	/** The article picked after `note-pick`: linked in the post-it where the pick began. */
-	klipNoteLink(article: { id: string; title: string }): void
+	/** The article picked after `note-pick`, linked where the pick began; null: none was picked. */
+	klipNoteLink(article: { id: string; title: string } | null): void
 	/** Scrolls to a heading in the contents (its index), and reads aloud from it while reading. */
 	klipSection(index: number): void
 }

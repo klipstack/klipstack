@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest"
-import { applyEdit, fromStored, insertLink, runs, toStored, typedTrigger } from "./note-field"
+import {
+	applyEdit,
+	fromStored,
+	insertLink,
+	linkRange,
+	runs,
+	toStored,
+	typedTrigger,
+} from "./note-field"
 
 const A = "0b1c2d3e-0000-4000-8000-000000000001"
 const B = "0b1c2d3e-0000-4000-8000-000000000002"
@@ -109,7 +117,12 @@ describe("typedTrigger", () => {
 	it("finds [[ completed by the second bracket, and @, wherever they are typed", () => {
 		expect(typedTrigger("See [", "See [[")).toEqual({ start: 4, end: 6 })
 		expect(typedTrigger("a  b", "a @ b")).toEqual({ start: 2, end: 3 })
-		expect(typedTrigger("see", "see@")).toEqual({ start: 3, end: 4 })
+		expect(typedTrigger("", "@")).toEqual({ start: 0, end: 1 })
+		expect(typedTrigger("a\n", "a\n@")).toEqual({ start: 2, end: 3 })
+	})
+
+	it("doesn't open on an @ inside a word, such as an email address", () => {
+		expect(typedTrigger("mail ana", "mail ana@")).toBeNull()
 	})
 
 	it("ignores a single bracket, a deletion, a paste and other typing", () => {
@@ -127,6 +140,21 @@ describe("typedTrigger", () => {
 			title: "One",
 		})
 		expect(toStored(state)).toBe(`Compare [One](/read/${A}) `)
+	})
+})
+
+describe("linkRange", () => {
+	it("replaces the trigger while it is still in its place", () => {
+		expect(linkRange("See [[ x", { start: 4, end: 6 }, { start: 8, end: 8 })).toEqual({
+			start: 4,
+			end: 6,
+		})
+	})
+
+	it("falls back when the note changed under the trigger, and stays within the text", () => {
+		const fallback = { start: 5, end: 5 }
+		expect(linkRange("Replaced from the web", { start: 6, end: 8 }, fallback)).toEqual(fallback)
+		expect(linkRange("Hi", null, { start: 9, end: 9 })).toEqual({ start: 2, end: 2 })
 	})
 })
 

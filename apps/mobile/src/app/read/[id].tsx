@@ -1387,7 +1387,11 @@ export default function Reader() {
 			)}
 			<LinkArticleSheet
 				visible={pickingNoteLink}
-				onClose={() => setPickingNoteLink(false)}
+				onClose={() => {
+					setPickingNoteLink(false)
+					// Back to the post-it, with what was typed.
+					web.current?.injectJavaScript("window.klipNoteLink && window.klipNoteLink(null); true;")
+				}}
 				onPick={(picked) => {
 					setPickingNoteLink(false)
 					const linked = JSON.stringify({ id: picked.id, title: picked.title ?? picked.url })
