@@ -1,7 +1,7 @@
 import type { UserPrefs } from "@klipstack/db"
 import { fallbackLanguage, isLocale, type Locale } from "@klipstack/i18n/languages"
 import { ChevronDown, CircleAlert, Clock3 } from "lucide-react"
-import { type ReactNode, useEffect, useMemo } from "react"
+import { type ReactNode, useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
 	Form,
@@ -20,7 +20,7 @@ import { FinishedLately } from "~/components/home-finished"
 import { HomeHighlights } from "~/components/home-highlights"
 import { HomeMasthead } from "~/components/home-masthead"
 import { HomeNotes } from "~/components/home-notes"
-import { MenuNavLink, MoreMenu } from "~/components/more-menu"
+import { MenuNavLink, MenuSeparator, MoreMenu } from "~/components/more-menu"
 import { openSaveLink } from "~/components/save-link-dialog"
 import { StarterOffer } from "~/components/starter-texts"
 import { Button, buttonVariants } from "~/components/ui/button"
@@ -210,9 +210,6 @@ export const handle: PageBarHandle = {
 	},
 }
 
-/** Topics Home offers as chips, most to read first: the rest are under More. */
-const TOPIC_CHIPS = 4
-
 /** A topic chosen on Home: its id, and whether it was offered as something different. */
 type TopicPick = { id: string; different: boolean } | null
 
@@ -286,10 +283,12 @@ export default function ReadingHome({
 
 	return (
 		<main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-5 pb-12 md:px-8 md:pt-4 md:pb-8">
-			<HomeMasthead {...masthead} deck={finished ? <FinishedLately {...finished} /> : null}>
-				{timeChoice ? <TimeChoice minutes={minutes} topic={pick} /> : null}
-				{topics ? <TopicChoice topics={topics} minutes={minutes} pick={pick} /> : null}
-			</HomeMasthead>
+			<HomeMasthead
+				{...masthead}
+				deck={finished ? <FinishedLately {...finished} /> : null}
+				sections={topics ? <TopicChoice topics={topics} minutes={minutes} pick={pick} /> : null}
+				strip={timeChoice ? <TimeChoice minutes={minutes} topic={pick} /> : null}
+			/>
 			{welcome ? <WelcomeNote welcome={welcome} /> : null}
 			{topicsReady ? <TopicsCard /> : null}
 			{/* With a time chosen, the reader came to read. */}
@@ -570,9 +569,29 @@ function TimeChoice({ minutes, topic }: { minutes: number | null; topic: TopicPi
 
 const CHIP = "shrink-0 chip aria-[current]:marked"
 
+/** The narrowest a section may be, in rem: past it, its name wraps onto a second line. */
+const SECTION_MIN = 7
+/** Before the page measures them: Home's column at its widest, and the More button. */
+const SECTION_WIDTH_GUESS = 960
+const MORE_WIDTH_GUESS = 80
+
+/** An element's width, kept up to date; null before it is measured. */
+function useWidth<T extends HTMLElement>() {
+	const [element, ref] = useState<T | null>(null)
+	const [width, setWidth] = useState<number | null>(null)
+	useEffect(() => {
+		if (!element) return
+		const observer = new ResizeObserver(() => setWidth(element.getBoundingClientRect().width))
+		observer.observe(element)
+		return () => observer.disconnect()
+	}, [element])
+	return [ref, width] as const
+}
+
 /**
- * What to read about: anything, the topics with most to read, something different (the topic read
- * from least lately), and the rest under More. A topic chosen from More shows as a chip of its own.
+ * What to read about, as a paper's sections under its nameplate: anything, then the topics with
+ * most to read, in one row of even slots, as many as fit. The rest, then Something different, are
+ * under More. A choice from More takes the row's last slot. On phones, one line scrolled sideways.
  * Each choice loads Home for it, keeping the time chosen.
  */
 function TopicChoice({
@@ -585,74 +604,124 @@ function TopicChoice({
 	pick: TopicPick
 }) {
 	const { t } = useTranslation("library")
+	const [rowRef, rowWidth] = useWidth<HTMLDivElement>()
+	const [moreRef, moreWidth] = useWidth<HTMLDivElement>()
 	const chosenId = pick && !pick.different ? pick.id : null
-	const chips = topics.list.slice(0, TOPIC_CHIPS)
-	const extra = topics.list.find((topic) => topic.id === chosenId && !chips.includes(topic))
-	if (extra) chips.push(extra)
-	const rest = topics.list.filter((topic) => !chips.includes(topic))
 	// Something different stays chosen, and stays the same topic, when the reader reads from it.
 	const different = pick?.different
 		? pick
 		: topics.different
 			? { id: topics.different, different: true }
 			: null
-	const choice = (key: string, value: TopicPick, current: boolean, label: string) => (
+
+	type Section = { key: string; value: TopicPick; current: boolean; label: string }
+	const sections: Section[] = [
+		{ key: "any", value: null, current: !pick, label: t("home.topics.any") },
+		...topics.list.map((topic) => ({
+			key: topic.id,
+			value: { id: topic.id, different: false },
+			current: topic.id === chosenId,
+			label: topic.name,
+		})),
+	]
+	const differentSection: Section | null = different
+		? {
+				key: "different",
+				value: different,
+				current: !!pick?.different,
+				label: t("home.topics.different"),
+			}
+		: null
+	// As many even slots as the row has room for, beside More, which takes only its own width.
+	const slotWidth = SECTION_MIN * 16
+	const width = rowWidth ?? SECTION_WIDTH_GUESS
+	const allFit = !differentSection && sections.length * slotWidth <= width
+	const room = allFit
+		? sections.length
+		: Math.max(1, Math.floor((width - (moreWidth ?? MORE_WIDTH_GUESS)) / slotWidth))
+	let shown = sections.slice(0, room)
+	// What the reader chose from More takes the last slot.
+	const chosen = [...sections, differentSection].find((s) => s?.current)
+	if (chosen && !shown.includes(chosen)) shown = [...shown.slice(0, -1), chosen]
+	const rest = sections.filter((s) => !shown.includes(s))
+	const differentInMenu = differentSection && !shown.includes(differentSection)
+
+	const choice = ({ key, value, current, label }: Section, wrap?: boolean) => (
 		<Link
 			key={key}
 			to={{ search: homeSearch(value, minutes) }}
 			replace
 			preventScrollReset
 			aria-current={current ? "true" : undefined}
+			title={wrap ? label : undefined}
 			onClick={(e) => {
 				if (current) e.preventDefault()
 				else if (value) countTopicClick("topic_home")
 			}}
-			className={CHIP}
+			className={cn(CHIP, "text-fg!", wrap && "max-w-full")}
 		>
-			{label}
+			{wrap ? (
+				<span className="line-clamp-2 text-balance hyphens-auto break-words">{label}</span>
+			) : (
+				label
+			)}
 		</Link>
 	)
-	return (
-		<div
-			role="group"
-			aria-labelledby="home-topic-choice"
-			data-testid="home-topic-choice"
-			className="flex flex-wrap items-center gap-x-3 gap-y-2 md:flex-nowrap md:items-start md:justify-center"
+	const menuItem = ({ key, value, label }: Section, hint?: string) => (
+		<MenuNavLink
+			key={key}
+			to={homeSearch(value, minutes)}
+			replace
+			onChoose={() => countTopicClick("topic_home")}
 		>
-			<h2 id="home-topic-choice" className="shrink-0 text-sm text-muted-fg md:py-1">
+			{hint ? (
+				<span className="flex flex-col">
+					<span>{label}</span>
+					<span className="text-xs text-muted-fg">{hint}</span>
+				</span>
+			) : (
+				label
+			)}
+		</MenuNavLink>
+	)
+	return (
+		<div role="group" aria-labelledby="home-topic-choice" data-testid="home-topic-choice">
+			<h2 id="home-topic-choice" className="sr-only">
 				{t("home.topics.title")}
 			</h2>
 			{/* One line on phones, scrolled sideways, so Home's sections stay in view. */}
-			<div className="-mx-4 flex w-[calc(100%+2rem)] gap-2 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:w-auto md:min-w-0 md:flex-initial md:flex-wrap md:overflow-visible md:px-0">
-				{choice("any", null, !pick, t("home.topics.any"))}
-				{chips.map((topic) =>
-					choice(topic.id, { id: topic.id, different: false }, topic.id === chosenId, topic.name),
-				)}
-				{different
-					? choice("different", different, !!pick?.different, t("home.topics.different"))
-					: null}
-				{rest.length ? (
-					<MoreMenu
-						label={t("home.topics.moreLabel")}
-						className={cn(CHIP, "flex items-center gap-1")}
-						icon={
-							<>
-								{t("home.topics.more")}
-								<ChevronDown className="size-3.5" aria-hidden />
-							</>
-						}
-					>
-						{rest.map((topic) => (
-							<MenuNavLink
-								key={topic.id}
-								to={homeSearch({ id: topic.id, different: false }, minutes)}
-								replace
-								onChoose={() => countTopicClick("topic_home")}
-							>
-								{topic.name}
-							</MenuNavLink>
-						))}
-					</MoreMenu>
+			<div className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] md:hidden">
+				{[...sections, ...(differentSection ? [differentSection] : [])].map((s) => choice(s))}
+			</div>
+			<div ref={rowRef} className="hidden items-center md:flex">
+				<div
+					className="grid min-w-0 flex-1 items-center"
+					style={{ gridTemplateColumns: `repeat(${shown.length}, minmax(0, 1fr))` }}
+				>
+					{shown.map((s) => (
+						<div key={s.key} className="flex min-w-0 justify-center px-1 text-center">
+							{choice(s, true)}
+						</div>
+					))}
+				</div>
+				{rest.length || differentInMenu ? (
+					<div ref={moreRef} className="shrink-0 pl-1">
+						<MoreMenu
+							label={t("home.topics.moreLabel")}
+							align="start"
+							className={cn(CHIP, "flex items-center gap-1 text-fg!")}
+							icon={
+								<>
+									{t("home.topics.more")}
+									<ChevronDown className="size-3.5" aria-hidden />
+								</>
+							}
+						>
+							{rest.map((s) => menuItem(s))}
+							{rest.length && differentInMenu ? <MenuSeparator /> : null}
+							{differentInMenu ? menuItem(differentSection, t("home.topics.differentHint")) : null}
+						</MoreMenu>
+					</div>
 				) : null}
 			</div>
 		</div>
