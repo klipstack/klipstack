@@ -36,6 +36,14 @@ export function toStored({ text, links }: NoteState): string {
 }
 
 /**
+ * The field's own `maxLength` for a note limited to `max` stored characters: the field shows each
+ * link by its title alone, so the room its stored form takes (`[`, `](/read/<id>)`) comes off.
+ */
+export function fieldMaxLength(state: NoteState, max: number): number {
+	return max - (toStored(state).length - state.text.length)
+}
+
+/**
  * The note after the field's text changed to `next`. The change is found by what the old and new
  * text share at both ends. `cursor` is set when the note differs from `next`: a deletion that
  * touched a link took the whole link, and the field must show it.

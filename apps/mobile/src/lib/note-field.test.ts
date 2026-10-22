@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
 	applyEdit,
+	fieldMaxLength,
 	fromStored,
 	insertLink,
 	linkRange,
@@ -27,6 +28,15 @@ describe("fromStored and toStored", () => {
 	it("leaves text without links and malformed links as they are", () => {
 		for (const text of ["", "plain\n\nlines", "[x](/read/not-a-uuid)", "[[ [a]"])
 			expect(toStored(fromStored(text))).toBe(text)
+	})
+
+	it("leaves the field room for what its links take when stored", () => {
+		// Each link stores `[`, `](/read/`, its id and `)` beyond its title: 46 characters.
+		const state = fromStored(stored)
+		expect(fieldMaxLength(state, 2000)).toBe(2000 - 2 * 46)
+		const full = { ...state, text: state.text.padEnd(fieldMaxLength(state, 2000), "a") }
+		expect(toStored(full)).toHaveLength(2000)
+		expect(fieldMaxLength(fromStored("plain"), 2000)).toBe(2000)
 	})
 })
 

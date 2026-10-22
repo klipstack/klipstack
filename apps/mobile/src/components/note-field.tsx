@@ -14,6 +14,7 @@ import {
 import { LinkArticleSheet } from "@/components/link-article-sheet"
 import {
 	applyEdit,
+	fieldMaxLength,
 	fromStored,
 	insertLink,
 	linkRange,
@@ -94,6 +95,7 @@ export function NoteField({
 	placeholder: string
 	/** The placeholder's color, on paper of another color (a post-it); muted by default. */
 	placeholderColor?: string
+	/** The longest stored note, links in their stored form. */
 	maxLength: number
 	scrollEnabled?: boolean
 	/** Editing from the start, with the caret at the end: the field took the place of the note's text. */
@@ -254,7 +256,7 @@ export function NoteField({
 				}}
 				multiline
 				scrollEnabled={scrollEnabled}
-				maxLength={maxLength}
+				maxLength={fieldMaxLength(state, maxLength)}
 				placeholder={placeholder}
 				placeholderTextColor={placeholderColor ?? colors.mutedFg}
 				style={style}
