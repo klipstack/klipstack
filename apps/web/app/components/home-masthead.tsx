@@ -3,6 +3,7 @@ import type { ReactNode } from "react"
 import { Trans, useTranslation } from "react-i18next"
 import { Link } from "react-router"
 import type { EditionEar, PartOfDay } from "~/lib/home-masthead"
+import { cn } from "~/lib/utils"
 import { HomeGreeting } from "./home-greeting"
 import { SaveLinkButton } from "./save-link-dialog"
 
@@ -16,7 +17,8 @@ export function HomeMasthead({
 	part,
 	edition,
 	deck,
-	children,
+	sections,
+	strip,
 }: {
 	/** Today, as `mastheadDate` prints it on the server; null before it knows the reader's zone. */
 	date: string | null
@@ -24,7 +26,10 @@ export function HomeMasthead({
 	edition: EditionEar
 	/** The line under the greeting: what was finished lately, if anything. */
 	deck: ReactNode
-	children?: ReactNode
+	/** The sections, as a paper sets them under its nameplate: a row between the rules. */
+	sections?: ReactNode
+	/** A thin line under the masthead's double rule, as a paper runs its live strip. */
+	strip?: ReactNode
 }) {
 	const { t } = useTranslation("library")
 	return (
@@ -52,7 +57,11 @@ export function HomeMasthead({
 			</div>
 			<header
 				data-testid="home-masthead"
-				className="mb-8 border-b-[3px] border-double border-fg pt-5 pb-5"
+				className={cn(
+					"border-b-[3px] border-double border-fg pt-5",
+					sections ? "pb-2" : "pb-5",
+					!strip && "mb-8",
+				)}
 			>
 				<div className="space-y-2 md:text-center">
 					{/* Phones name the page in the top bar's heading: there, the greeting is a line of text. */}
@@ -64,8 +73,9 @@ export function HomeMasthead({
 					</p>
 					{deck}
 				</div>
-				{children ? <div className="mt-5 space-y-3">{children}</div> : null}
+				{sections ? <div className="mt-5 border-t border-border pt-2">{sections}</div> : null}
 			</header>
+			{strip ? <div className="mb-8 border-b border-border py-2.5">{strip}</div> : null}
 		</>
 	)
 }
