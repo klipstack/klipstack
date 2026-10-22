@@ -242,9 +242,8 @@ test("note links: @ and the Link article button open the same menu", async ({ pa
 	await open(page, joel, JOEL.quote)
 	await open(page, makers, MAKERS.quote)
 	await openSidebar(page)
-	const note = page
-		.getByRole("complementary", { name: "Notes and highlights" })
-		.getByLabel("Your note", { exact: true })
+	const sidebar = page.getByRole("complementary", { name: "Notes and highlights" })
+	const note = sidebar.getByLabel("Your note", { exact: true })
 	const menu = page.getByTestId("note-link-menu")
 
 	// `@` costs one keyboard layer on a phone, where `[` costs two.
@@ -262,7 +261,7 @@ test("note links: @ and the Link article button open the same menu", async ({ pa
 	// click in the middle of the note can land on the link, which selects it instead of a caret.
 	await note.click()
 	await caretToEnd(page)
-	await page.getByTestId("link-article").click()
+	await sidebar.getByTestId("link-article").click()
 	await expect(menu).toBeVisible()
 	await expect(menu.getByText("Recent")).toBeVisible()
 	await page.keyboard.press("Escape")

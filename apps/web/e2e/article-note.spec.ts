@@ -130,6 +130,12 @@ test("the end of the article asks for the note, the sidebar's, and can start the
 	// Escape closed the menu and left the caret in place: Backspace takes back what was typed.
 	for (let i = 0; i < 3; i++) await page.keyboard.press("Backspace")
 	await expect(inSidebar).toHaveText("Meetings cost a maker the afternoon.")
+	// Its own Link article button opens the same menu, without typing `[[`.
+	await endNote.getByTestId("link-article").click()
+	await expect(page.getByTestId("note-link-menu")).toHaveCount(1)
+	await page.keyboard.press("Escape")
+	for (let i = 0; i < 2; i++) await page.keyboard.press("Backspace")
+	await expect(inSidebar).toHaveText("Meetings cost a maker the afternoon.")
 	await Promise.all([noteSaved(page, id), inSidebar.click()])
 	await caretToEnd(page)
 	await page.keyboard.type(" Guard mornings.")

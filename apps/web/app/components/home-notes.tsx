@@ -3,6 +3,8 @@ import { Headphones, NotebookPen, RotateCcw, X } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link, useFetcher, useFetchers } from "react-router"
+import { LinkArticleButton } from "~/components/link-article-button"
+import type { NoteEditorApi } from "~/components/note-editor"
 import { NoteField } from "~/components/note-field"
 import { ArticleNoteLabel, NoteStatus } from "~/components/note-status"
 import { PostIt, tiltFor, useGrowingFit } from "~/components/post-it"
@@ -139,6 +141,7 @@ function NoteReminderItem({
 	const note = useNoteAutosave(item.id, null)
 	const placeholder = t("reader:end.notePlaceholder")
 	const fit = useGrowingFit(note.value || placeholder, item.id)
+	const [noteApi, setNoteApi] = useState<NoteEditorApi | null>(null)
 	const title = item.title || item.siteName || item.sourceUrl
 	const when = relativeTime(item.finishedAt, i18n.language)
 	return (
@@ -188,8 +191,10 @@ function NoteReminderItem({
 							placeholder={placeholder}
 							autoFocus
 							className="block max-h-[50vh] min-h-16 w-full overflow-y-auto"
+							onApi={setNoteApi}
 						/>
 					</PostIt>
+					<LinkArticleButton api={noteApi} className="-ml-2 justify-self-start" />
 				</div>
 			) : null}
 			<div className="-ml-1.5 flex flex-wrap items-center gap-1">
