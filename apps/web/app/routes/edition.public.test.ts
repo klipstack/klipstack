@@ -1,10 +1,11 @@
-import { db, documents, inArray, user as userTable } from "@klipstack/db"
+import { db, documents, editions, eq, inArray, user as userTable } from "@klipstack/db"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { env } from "~/lib/env.server"
 import {
 	addItem,
 	createEdition,
 	type EditionRow,
+	type EditionSnapshot,
 	publishEdition,
 	unpublishEdition,
 	updateEdition,
@@ -140,6 +141,46 @@ describe("the public edition page", () => {
 		expect((await failure(`/e/${live.publicId}/renamed`)).status).toBe(410)
 		await publishEdition(userId, live.id)
 		expect((await load(`/e/${live.publicId}/renamed`)).view.title).toBe("Renamed")
+	})
+
+	it("shows at most 100 words or 600 characters of each note, and keeps the whole for its owner", async () => {
+		const words = (from: number, to: number) =>
+			Array.from({ length: to - from }, (_, i) => `w${from + i + 1}`).join(" ")
+		const link = (text: string) => `[${text}](https://b.example/(x))`
+		// The link's text holds words 96 to 105: the cut falls inside it, so it goes whole.
+		const long = `${words(0, 10)}\n\n${words(10, 95)} ${link(words(95, 105))} ${words(105, 130)}`
+		const short = `${words(0, 3)} ${link("kept")}\n\n${words(3, 6)}`
+		const edition = await createEdition(userId, input)
+		await addItem(userId, edition.id, documentOf)
+		expect((await publishEdition(userId, edition.id)).ok).toBe(true)
+		// Written as an edition published before the cut was: it is cut on the way out.
+		const [row] = await db
+			.select({ published: editions.published })
+			.from(editions)
+			.where(eq(editions.id, edition.id))
+		const published = row!.published as EditionSnapshot
+		const item = published.items[0]!
+		const snapshot = {
+			...published,
+			items: [
+				{ ...item, note: long, highlights: [{ exact: "A quote.", note: "あ".repeat(700) }] },
+				{ ...item, note: short, highlights: [{ exact: "Another.", note: null }] },
+			],
+		}
+		await db.update(editions).set({ published: snapshot }).where(eq(editions.id, edition.id))
+
+		const { view } = await load(`/e/${edition.publicId}`).catch(async (thrown: Response) =>
+			load(thrown.headers.get("Location")!),
+		)
+		expect(view.items[0]!.note).toBe(`${words(0, 10)}\n\n${words(10, 95)} …`)
+		expect(view.items[0]!.highlights[0]!.note).toBe(`${"あ".repeat(600)}…`)
+		expect(view.items[1]!.note).toBe(short)
+		expect(view.items[1]!.highlights[0]!.note).toBeNull()
+		const [stored] = await db
+			.select({ published: editions.published })
+			.from(editions)
+			.where(eq(editions.id, edition.id))
+		expect(stored!.published).toEqual(snapshot)
 	})
 
 	it("keeps out of search results and keeps its address from the sites it links to", () => {

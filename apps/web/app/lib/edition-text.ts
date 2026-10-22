@@ -5,6 +5,7 @@
  */
 import { isHttpUrl } from "./editions"
 import { parse } from "./note-links"
+import { clipLines, type Piece } from "./public-cut"
 
 export type TextSegment =
 	| { kind: "text"; text: string }
@@ -26,15 +27,36 @@ export function parseEditionText(text: string): TextSegment[][] {
 function parseParagraph(text: string): TextSegment[] {
 	const segments: TextSegment[] = []
 	let at = 0
-	for (const match of text.matchAll(LINK)) {
-		const url = match[2]!
-		if (!isHttpUrl(url)) continue
-		if (match.index > at) segments.push({ kind: "text", text: text.slice(at, match.index) })
-		segments.push({ kind: "link", text: match[1] || url, url })
-		at = match.index + match[0].length
+	for (const link of linksIn(text)) {
+		if (link.index > at) segments.push({ kind: "text", text: text.slice(at, link.index) })
+		segments.push({ kind: "link", text: link.text, url: link.url })
+		at = link.index + link.source.length
 	}
 	if (at < text.length) segments.push({ kind: "text", text: text.slice(at) })
 	return segments
+}
+
+/** The links in this text, where each starts, as written and as they read. */
+function* linksIn(text: string) {
+	for (const match of text.matchAll(LINK)) {
+		const url = match[2]!
+		if (isHttpUrl(url)) yield { index: match.index, source: match[0], text: match[1] || url, url }
+	}
+}
+
+/** A note as a public edition page shows it, cut to `clipLines`' limits, its paragraphs kept. */
+export function clipEditionText(text: string): string {
+	const lines = text.split("\n").map((line) => {
+		const pieces: Piece[] = []
+		let at = 0
+		for (const link of linksIn(line)) {
+			pieces.push({ text: line.slice(at, link.index) }, { source: link.source, shown: link.text })
+			at = link.index + link.source.length
+		}
+		pieces.push({ text: line.slice(at) })
+		return pieces
+	})
+	return clipLines(lines) ?? text
 }
 
 /** The text as it reads, links as their text, on one line. For meta descriptions. */

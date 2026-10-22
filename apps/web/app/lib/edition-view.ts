@@ -4,7 +4,7 @@
  */
 import type { TFunction } from "i18next"
 import type { EditionSnapshot } from "~/services/editions.server"
-import { plainEditionText } from "./edition-text"
+import { clipEditionText, plainEditionText } from "./edition-text"
 import { countWords, dayIn, formatEditionDate, markdownUrl } from "./editions"
 
 type Translate = TFunction<"editions">
@@ -134,8 +134,10 @@ export function editionView(
 				meta,
 				description: item.description,
 				leadImageUrl: item.leadImageUrl,
-				note: item.note,
-				highlights: item.highlights,
+				// The page shows a post's worth of each note, so it never republishes an article. The
+				// snapshot keeps the whole, which only the author sees.
+				note: clipNote(item.note),
+				highlights: item.highlights.map(({ exact, note }) => ({ exact, note: clipNote(note) })),
 			}
 		}),
 		anchors,
@@ -155,6 +157,8 @@ export function editionView(
 		privacy: t("public.privacy"),
 	}
 }
+
+const clipNote = (note: string | null) => (note === null ? null : clipEditionText(note))
 
 /** Where an item comes from, as the page and the card name it: its site, else its address's host. */
 export function siteOf(item: { siteName: string | null; url: string }): string | null {
