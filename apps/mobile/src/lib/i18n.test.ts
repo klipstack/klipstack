@@ -23,7 +23,7 @@ describe("the app's language", () => {
 	})
 
 	it("is English when the phone has none the app speaks", async () => {
-		const i18n = await onPhone("fr-FR", "de-DE")
+		const i18n = await onPhone("fr-FR", "en-GB")
 		expect(i18n.language).toBe("en")
 		expect(i18n.t("common.tabs.library")).toBe("Library")
 		expect(i18n.dateLocale).toBe("en-US")
@@ -41,9 +41,12 @@ describe("errorMessage", () => {
 
 	it("in Spanish, says the failures that need no detail in Spanish and keeps the rest", async () => {
 		const { errorMessage } = await onPhone("es-ES")
-		expect(errorMessage(new TypeError("Network request failed"))).toBe(
-			"No se puede conectar con Klipstack. Revisa tu conexión.",
-		)
+		// Expo's fetch, then React Native's.
+		for (const failure of [
+			new Error("fetch failed: Could not connect to the server."),
+			new TypeError("Network request failed"),
+		])
+			expect(errorMessage(failure)).toBe("No se puede conectar con Klipstack. Revisa tu conexión.")
 		expect(errorMessage(new KlipstackApiError(429, "rate_limited", "Slow down."))).toBe(
 			"Demasiadas solicitudes. Espera un momento e inténtalo de nuevo.",
 		)

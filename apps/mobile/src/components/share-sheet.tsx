@@ -21,7 +21,7 @@ import { ClippingPaper, CLIP_TOP } from "@/components/clipping"
 import { hostOf } from "@/components/link-card"
 import { PostIt, postItText } from "@/components/post-it"
 import { copyRich, copyText } from "@/lib/clipboard"
-import { t } from "@/lib/i18n"
+import { language, t } from "@/lib/i18n"
 import { fromStored } from "@/lib/note-field"
 import { tiltFor } from "@/lib/post-it"
 import { loadShareTab, saveShareTab, writeShareImage } from "@/lib/reader-files"
@@ -31,7 +31,6 @@ import {
 	REMOVED,
 	SHARE_TABS,
 	type ShareTab,
-	shareLocale,
 	shownTab,
 	TAB_LABELS,
 } from "@/lib/share-highlight"
@@ -188,17 +187,13 @@ function ShareSheet({
 						link={link}
 						withNote={withNote}
 						hasNote={note !== null}
-						locale={deviceLocale()}
+						locale={language}
 						colors={colors}
 					/>
 				) : null}
 			</ScrollView>
 		</View>
 	)
-}
-
-function deviceLocale(): "en" | "es" {
-	return shareLocale(Intl.DateTimeFormat().resolvedOptions().locale)
 }
 
 /** A segmented control: one choice among a few, as iOS draws it. */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { linkStale, parseShareTab, shareLocale, shownTab } from "./share-highlight"
+import { linkStale, parseShareTab, shownTab } from "./share-highlight"
 
 const live = {
 	removed: false,
@@ -33,11 +33,5 @@ describe("the Share sheet", () => {
 		expect(linkStale({ ...live, changed: true }, true)).toBe(true)
 		expect(linkStale({ removed: true }, false)).toBe(false)
 		expect(linkStale(null, true)).toBe(false)
-	})
-
-	it("writes the page in Spanish for a phone in Spanish, else in English", () => {
-		expect(shareLocale("es-MX")).toBe("es")
-		expect(shareLocale("en-US")).toBe("en")
-		expect(shareLocale("fr-FR")).toBe("en")
 	})
 })

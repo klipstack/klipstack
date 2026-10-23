@@ -30,12 +30,14 @@ void i18n.init({
 export const t = i18n.t.bind(i18n)
 
 /**
- * For dates and numbers (`Intl`, `toLocaleDateString`): the phone's own locale when it is in the
- * app's language ("es-CL"), so the region's formats come along; else the language.
+ * For dates and numbers (`Intl`, `toLocaleDateString`). In English, "en-US", as the app always
+ * formatted them. In Spanish, the phone's own locale when it is Spanish ("es-CL"), so the
+ * region's formats come along; else "es".
  */
 export const dateLocale: string =
-	getLocales().find((locale) => locale.languageCode === language)?.languageTag ??
-	(language === "en" ? "en-US" : language)
+	language === "en"
+		? "en-US"
+		: (getLocales().find((locale) => locale.languageCode === language)?.languageTag ?? language)
 
 /**
  * What to tell the person about a failure. The server explains in English: in English that is
@@ -46,7 +48,9 @@ export const dateLocale: string =
 export function errorMessage(error: unknown): string {
 	const message = error instanceof Error ? error.message : String(error)
 	if (language === "en") return message
-	if (error instanceof TypeError && /network request failed/i.test(message))
+	// Expo's fetch fails with "fetch failed: …" when the server can't be reached; React Native's
+	// own fetch with "Network request failed".
+	if (error instanceof Error && /^fetch failed|network request failed/i.test(message))
 		return t("common.errors.offline")
 	const code = (error as { code?: unknown } | null)?.code
 	switch (code) {

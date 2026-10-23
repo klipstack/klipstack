@@ -40,11 +40,6 @@ export function linkStale(share: HighlightShare | undefined, withNote: boolean):
 	return share.changed || share.includeNote !== withNote
 }
 
-/** The page's language: Spanish on a phone set to Spanish, else English. */
-export function shareLocale(deviceLocale: string): "en" | "es" {
-	return deviceLocale.toLowerCase().startsWith("es") ? "es" : "en"
-}
-
 /** What the Link tab says when a change was refused, by the error's code. */
 export function linkErrorMessage(code: string | null): string {
 	if (code === "limit_reached") return t("reader.share.limit")
