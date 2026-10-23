@@ -14,9 +14,21 @@
     "%lld min left": {
       "localizations": {
         "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld min restantes"
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld min restante"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld min restantes"
+                }
+              }
+            }
           }
         }
       }

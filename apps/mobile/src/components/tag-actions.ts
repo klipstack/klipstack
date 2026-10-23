@@ -66,7 +66,7 @@ export function deleteTag(client: KlipstackClient, tag: Tag, done: () => void) {
 				const names = used.map((s) => t("library.tags.quoted", { name: s.name })).join(", ")
 				Alert.alert(
 					t("library.tags.usedTitle", { count: used.length }),
-					t("library.tags.usedMessage", { names, tag: tag.name }),
+					t("library.tags.usedMessage", { count: used.length, names, tag: tag.name }),
 					[
 						{ text: t("common.actions.cancel"), style: "cancel" },
 						{

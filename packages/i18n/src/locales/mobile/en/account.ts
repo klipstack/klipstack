@@ -69,7 +69,8 @@ export default {
 		feeds: "Feeds followed",
 		amount: "{{used}} of {{max}}",
 		megabytes: "{{used}} of {{max}} MB",
-		left: "{{left}} left",
+		left_one: "{{left}} left",
+		left_other: "{{left}} left",
 	},
 	delete: {
 		loadFailed: "Couldn't load your account. Go back and try again.",

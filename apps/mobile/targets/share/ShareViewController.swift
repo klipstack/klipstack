@@ -151,6 +151,10 @@ enum Klipstack {
     case 200: return false
     case 401: throw SaveError.signedOut
     case 426: throw SaveError.outdated
+    case 429:
+      throw SaveError.failed(String(localized: "Too many requests. Wait a moment and try again."))
+    case 500...599:
+      throw SaveError.failed(String(localized: "Klipstack had a problem. Try again in a moment."))
     default: throw SaveError.failed(errorMessage(body) ?? String(localized: "Klipstack could not save this (\(status))."))
     }
   }

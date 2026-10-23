@@ -40,7 +40,12 @@ function row(
 			used: show(used),
 			max: show(max),
 		}),
-		left: left ? t("account.usage.left", { left: count(Math.max(0, max - used)) }) : null,
+		left: left
+			? t("account.usage.left", {
+					count: Math.max(0, max - used),
+					left: count(Math.max(0, max - used)),
+				})
+			: null,
 		share,
 		level: share >= 1 ? "full" : share >= 0.8 ? "near" : "ok",
 	}

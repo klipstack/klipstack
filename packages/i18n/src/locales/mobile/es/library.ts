@@ -130,7 +130,7 @@ export default {
 	readStampLabel: "Terminado",
 	select: {
 		hint: "Toca artículos para seleccionarlos",
-		mixed: "Papelera y otros no se pueden mezclar",
+		mixed: "No se pueden mezclar artículos de la papelera con otros",
 		count_one: "{{count}} seleccionado",
 		count_other: "{{count}} seleccionados",
 		toolbar: "Artículos seleccionados",
@@ -194,7 +194,8 @@ export default {
 		quoted: "«{{name}}»",
 		usedTitle_one: "Una búsqueda guardada usa esta etiqueta",
 		usedTitle_other: "Hay búsquedas guardadas que usan esta etiqueta",
-		usedMessage: "{{names}} no encontrarán nada cuando «{{tag}}» ya no exista.",
+		usedMessage_one: "{{names}} no encontrará nada cuando «{{tag}}» ya no exista.",
+		usedMessage_other: "{{names}} no encontrarán nada cuando «{{tag}}» ya no exista.",
 		deleteAnyway: "Eliminar de todos modos",
 		deleteTitle: "¿Eliminar «{{name}}»?",
 		deleteMessage_one: "Su artículo lo conserva todo menos la etiqueta. No se puede deshacer.",

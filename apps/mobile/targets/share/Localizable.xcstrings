@@ -41,6 +41,16 @@
         }
       }
     },
+    "Klipstack had a problem. Try again in a moment.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klipstack tuvo un problema. Inténtalo de nuevo en un momento."
+          }
+        }
+      }
+    },
     "Klipstack is not reachable. Check your connection.": {
       "localizations": {
         "es": {
@@ -137,6 +147,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Esta versión de la app ya no funciona. Instala la última versión."
+          }
+        }
+      }
+    },
+    "Too many requests. Wait a moment and try again.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Demasiadas solicitudes. Espera un momento e inténtalo de nuevo."
           }
         }
       }

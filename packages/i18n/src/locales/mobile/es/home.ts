@@ -17,7 +17,7 @@ export default {
 		marked_one: "{{count}} marcado",
 		marked_other: "{{count}} marcados",
 		continueEditing: "Seguir editando",
-		putTogether: "Prepárala",
+		putTogether: "Prepararla",
 		notNow: "Ahora no",
 		nudge: {
 			draft: "La empezaste {{ago}}. ¿La publicas?",
@@ -71,14 +71,14 @@ export default {
 		upNext: "A continuación",
 		minutesLeft_one: "{{count}} min restante",
 		minutesLeft_other: "{{count}} min restantes",
-		recent: "Guardado recientemente",
+		recent: "Guardados recientemente",
 		again: {
 			title: "Para releer",
 			note: "Artículos que terminaste y devolviste a tu biblioteca para leerlos otra vez.",
 		},
 		highlights: {
 			title: "De tus subrayados",
-			note: "Pasajes que marcaste, de vuelta para otra mirada. Unos pocos cada día.",
+			note: "Pasajes que marcaste, para volver a mirarlos. Unos pocos cada día.",
 		},
 		rediscover: {
 			title: "De hace un tiempo",

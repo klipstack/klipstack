@@ -34,7 +34,7 @@ export default {
 		empty: "Pregunta lo que quieras sobre este artículo. Las respuestas citan las partes que usan.",
 		placeholder: "Pregunta sobre este artículo…",
 		clear: "Borrar chat",
-		turnedOff: "Las respuestas de IA están desactivadas en Ajustes → Funciones, en la web.",
+		turnedOff: "Las respuestas con IA están desactivadas en Ajustes → Funciones, en la web.",
 	},
 	brief: {
 		title: "Resumen",

@@ -1,3 +1,4 @@
+import { dateLocale } from "./i18n"
 /** Reading aloud: the pure parts. The voices and the player are in `modules/klip-speech`. */
 
 export type SpeechLanguage = "en" | "es"
@@ -11,7 +12,7 @@ export function nextSpeed(current: number): number {
 }
 
 export function speedLabel(speed: number): string {
-	return `${speed}×`
+	return `${speed.toLocaleString(dateLocale)}×`
 }
 
 const STOPWORDS: Record<SpeechLanguage, Set<string>> = {
