@@ -12,7 +12,7 @@ import {
 } from "react-native"
 import { ProviderButtons, styles, useSignInOptions } from "@/components/sign-in-form"
 import { useAuth } from "@/lib/auth"
-import { errorMessage } from "@/lib/i18n"
+import { errorMessage, t } from "@/lib/i18n"
 import {
 	type SignUp as Invite,
 	sendSignUpCode,
@@ -55,7 +55,7 @@ export default function SignUpScreen() {
 	const invite: Invite = needsInvite ? { inviteCode: inviteCode.trim() } : {}
 
 	async function run(kind: Exclude<Busy, null>, step: () => Promise<Session | null | undefined>) {
-		if (needsInvite && !inviteCode.trim()) return setError("Enter your invite code first.")
+		if (needsInvite && !inviteCode.trim()) return setError(t("account.signUp.enterInvite"))
 		setBusy(kind)
 		setError(null)
 		try {
@@ -74,7 +74,7 @@ export default function SignUpScreen() {
 	function sendCode() {
 		if (!details || busy) return
 		if (password.length < MIN_PASSWORD_LENGTH)
-			return setError(`Use at least ${MIN_PASSWORD_LENGTH} characters for the password.`)
+			return setError(t("account.signUp.passwordShort", { min: MIN_PASSWORD_LENGTH }))
 		void run("send", async () => {
 			await sendSignUpCode(apiUrl, trimmedEmail, invite)
 			setCodeSentTo(trimmedEmail)
@@ -107,10 +107,10 @@ export default function SignUpScreen() {
 				{needsInvite ? (
 					<>
 						<TextInput
-							accessibilityLabel="Invite code"
+							accessibilityLabel={t("account.signUp.inviteCode")}
 							value={inviteCode}
 							onChangeText={setInviteCode}
-							placeholder="Invite code"
+							placeholder={t("account.signUp.inviteCode")}
 							placeholderTextColor={colors.mutedFg}
 							autoCapitalize="characters"
 							autoCorrect={false}
@@ -124,13 +124,15 @@ export default function SignUpScreen() {
 								hitSlop={8}
 							>
 								<Text style={[styles.note, { color: colors.mutedFg }]}>
-									No invite?{" "}
-									<Text style={[styles.link, { color: colors.accent }]}>Request one</Text>
+									{t("account.signUp.noInvite")}{" "}
+									<Text style={[styles.link, { color: colors.accent }]}>
+										{t("account.signUp.requestOne")}
+									</Text>
 								</Text>
 							</Pressable>
 						) : (
 							<Text style={[styles.note, { color: colors.mutedFg }]}>
-								Creating an account needs an invite.
+								{t("account.signUp.inviteNeeded")}
 							</Text>
 						)}
 					</>
@@ -149,10 +151,10 @@ export default function SignUpScreen() {
 				{options.emailCode ? (
 					<>
 						<TextInput
-							accessibilityLabel="Name"
+							accessibilityLabel={t("account.signUp.name")}
 							value={name}
 							onChangeText={setName}
-							placeholder="Name"
+							placeholder={t("account.signUp.name")}
 							placeholderTextColor={colors.mutedFg}
 							autoComplete="name"
 							textContentType="name"
@@ -163,13 +165,13 @@ export default function SignUpScreen() {
 						/>
 						<TextInput
 							ref={emailField}
-							accessibilityLabel="Email"
+							accessibilityLabel={t("account.signIn.email")}
 							value={email}
 							onChangeText={(text) => {
 								setEmail(text)
 								if (codeSentTo && text.trim() !== codeSentTo) setCodeSentTo(null)
 							}}
-							placeholder="Email"
+							placeholder={t("account.signIn.email")}
 							placeholderTextColor={colors.mutedFg}
 							autoCapitalize="none"
 							autoCorrect={false}
@@ -183,10 +185,10 @@ export default function SignUpScreen() {
 						/>
 						<TextInput
 							ref={passwordField}
-							accessibilityLabel="Password"
+							accessibilityLabel={t("account.signIn.password")}
 							value={password}
 							onChangeText={setPassword}
-							placeholder="Password (8 characters or more)"
+							placeholder={t("account.signUp.passwordPlaceholder")}
 							placeholderTextColor={colors.mutedFg}
 							secureTextEntry
 							autoCapitalize="none"
@@ -201,13 +203,13 @@ export default function SignUpScreen() {
 						{codeSentTo !== null ? (
 							<>
 								<Text style={[styles.note, { color: colors.mutedFg }]}>
-									We emailed a code to {codeSentTo}. It expires in 10 minutes.
+									{t("account.signUp.codeSent", { email: codeSentTo })}
 								</Text>
 								<TextInput
-									accessibilityLabel="Code from the email"
+									accessibilityLabel={t("account.signIn.codeLabel")}
 									value={code}
 									onChangeText={(text) => setCode(text.replace(/\D/g, ""))}
-									placeholder="Code"
+									placeholder={t("account.signIn.code")}
 									placeholderTextColor={colors.mutedFg}
 									keyboardType="number-pad"
 									textContentType="oneTimeCode"
@@ -236,7 +238,7 @@ export default function SignUpScreen() {
 								<ActivityIndicator color={colors.accentFg} />
 							) : (
 								<Text style={[styles.buttonText, { color: colors.accentFg }]}>
-									{codeSentTo === null ? "Email me a code" : "Create account"}
+									{codeSentTo === null ? t("account.signUp.emailCode") : t("account.signUp.create")}
 								</Text>
 							)}
 						</Pressable>
@@ -248,7 +250,9 @@ export default function SignUpScreen() {
 									onPress={sendCode}
 									hitSlop={8}
 								>
-									<Text style={[styles.link, { color: colors.accent }]}>Send a new code</Text>
+									<Text style={[styles.link, { color: colors.accent }]}>
+										{t("account.signIn.newCode")}
+									</Text>
 								</Pressable>
 							</View>
 						) : null}
@@ -261,23 +265,23 @@ export default function SignUpScreen() {
 					</Text>
 				) : null}
 				<Text style={[styles.note, { color: colors.mutedFg }]}>
-					By creating an account you confirm you are 16 or older and agree to the{" "}
+					{t("account.signUp.agreeBefore")}{" "}
 					<Text
 						accessibilityRole="link"
 						onPress={() => open("/terms")}
 						style={[styles.link, { color: colors.accent }]}
 					>
-						Terms
+						{t("account.signUp.terms")}
 					</Text>{" "}
-					and the{" "}
+					{t("account.signUp.and")}{" "}
 					<Text
 						accessibilityRole="link"
 						onPress={() => open("/privacy")}
 						style={[styles.link, { color: colors.accent }]}
 					>
-						Privacy Policy
+						{t("account.signUp.privacy")}
 					</Text>
-					.
+					{t("account.signUp.agreeAfter")}
 				</Text>
 				<Pressable
 					accessibilityRole="button"
@@ -287,7 +291,10 @@ export default function SignUpScreen() {
 					style={styles.footer}
 				>
 					<Text style={[styles.note, { color: colors.mutedFg, textAlign: "center" }]}>
-						Have an account? <Text style={[styles.link, { color: colors.accent }]}>Sign in</Text>
+						{t("account.signUp.haveAccount")}{" "}
+						<Text style={[styles.link, { color: colors.accent }]}>
+							{t("account.signUp.signIn")}
+						</Text>
 					</Text>
 				</Pressable>
 			</ScrollView>

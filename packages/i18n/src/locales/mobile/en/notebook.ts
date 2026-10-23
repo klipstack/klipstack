@@ -1,1 +1,89 @@
-export default {}
+/** The Notebook tab: its list, its cards and notes, and the wall zoomed out. */
+export default {
+	views: {
+		label: "View",
+		articles: "By Article",
+		stream: "Stream",
+		topics: "By Topic",
+		shuffle: "Shuffle",
+		zoomOut: "Zoom Out",
+	},
+	filters: {
+		label: "Filter",
+		all: "All",
+		notes: "Notes",
+		highlights: "Highlights",
+		shared: "Shared",
+		tag: "Tag",
+		tagChosen: "Tag: {{tag}}",
+		everyTag: "Every Tag",
+		topic: "Topic",
+		topicChosen: "Topic: {{topic}}",
+		everyTopic: "Every Topic",
+		noTopic: "No Topic",
+		showAll: "Show All",
+	},
+	colors: {
+		yellow: "Yellow",
+		green: "Green",
+		blue: "Blue",
+		pink: "Pink",
+		orange: "Orange",
+	},
+	count: {
+		highlights_one: "{{count}} highlight",
+		highlights_other: "{{count}} highlights",
+		notes_one: "{{count}} note",
+		notes_other: "{{count}} notes",
+	},
+	search: {
+		placeholder: "Search quotes and notes",
+		empty: "Nothing matches that search.",
+	},
+	list: {
+		loading: "Loading…",
+		empty: "Nothing here.",
+	},
+	shuffle: {
+		title: "A random handful",
+		again: "Deal Again",
+	},
+	blank: {
+		title: "Your notebook is empty",
+		description:
+			"Everything you keep from what you read lands here, by article: the passages you highlight, and the notes you write on them and on whole articles.",
+		action: "Open Your Library",
+	},
+	sections: {
+		open: "Open {{title}}",
+		showLess: "Show Less",
+		showAll: "Show All {{count}}",
+		other: "Other",
+		seeAll: "See All {{count}}",
+	},
+	card: {
+		copy: "Copy",
+		copyNote: "Copy Note",
+		addNote: "Add Note",
+		notUseful: "Not Useful Anymore",
+		shared: "Shared",
+		sharedHint: "Opens the Share sheet, with the link",
+		addANote: "Add a note",
+		notUsefulTool: "Not useful anymore",
+	},
+	note: {
+		addYourNote: "Add your note",
+		articleNote: "Article note",
+		highlightNote: "Highlight note",
+		editsHint: "Edits the note",
+		placeholder: "Add a note",
+		notSaved: "Note not saved · Retry",
+		saving: "Saving…",
+		changed: {
+			title: "Note Changed Elsewhere",
+			message: "This note changed somewhere else while you were writing.",
+			theirs: "Use the Saved Note",
+			mine: "Keep Mine",
+		},
+	},
+}

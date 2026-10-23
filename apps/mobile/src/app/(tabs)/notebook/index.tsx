@@ -30,7 +30,7 @@ import { usePagedList } from "@/components/paged-list"
 import { useShareSheet } from "@/components/share-sheet"
 import { useAuth } from "@/lib/auth"
 import { offerHighlightUndo } from "@/lib/highlight-undo"
-import { errorMessage } from "@/lib/i18n"
+import { errorMessage, t } from "@/lib/i18n"
 import {
 	filterLabel,
 	newSeed,
@@ -54,10 +54,10 @@ const VIEWS: {
 	label: string
 	icon: "rectangle.stack" | "list.bullet" | "square.grid.2x2" | "shuffle"
 }[] = [
-	{ view: "articles", label: "By Article", icon: "rectangle.stack" },
-	{ view: "stream", label: "Stream", icon: "list.bullet" },
-	{ view: "topics", label: "By Topic", icon: "square.grid.2x2" },
-	{ view: "shuffle", label: "Shuffle", icon: "shuffle" },
+	{ view: "articles", label: t("notebook.views.articles"), icon: "rectangle.stack" },
+	{ view: "stream", label: t("notebook.views.stream"), icon: "list.bullet" },
+	{ view: "topics", label: t("notebook.views.topics"), icon: "square.grid.2x2" },
+	{ view: "shuffle", label: t("notebook.views.shuffle"), icon: "shuffle" },
 ]
 
 /** What the answer says besides its rows: the filters' counts, the tags, links' targets. */
@@ -179,7 +179,7 @@ export default function Notebook() {
 			edit((shown) => withoutHighlight(shown, highlight.id))
 			const deleting = client.highlights.delete(highlight.id)
 			deleting.catch((e: unknown) => {
-				Alert.alert("Not deleted", errorMessage(e))
+				Alert.alert(t("common.failed.notDeleted"), errorMessage(e))
 				void load()
 			})
 			offerHighlightUndo(client, highlight, deleting, () => void load())
@@ -230,11 +230,11 @@ export default function Notebook() {
 	const narrowed = filter !== null || tag !== null || narrowTopic !== null || q !== ""
 	// Nothing kept at all yet: no search or narrowing could find anything.
 	const blank = !narrowed && counts?.all === 0
-	const tagName = meta?.tags.find((t) => t.id === tag)?.name ?? null
+	const tagName = meta?.tags.find((x) => x.id === tag)?.name ?? null
 	const topicName =
 		topic === "none"
-			? "No Topic"
-			: (meta?.topic?.name ?? topics.find((t) => t.id === topic)?.name ?? null)
+			? t("notebook.filters.noTopic")
+			: (meta?.topic?.name ?? topics.find((x) => x.id === topic)?.name ?? null)
 
 	const header = (
 		<View style={styles.header}>
@@ -246,8 +246,10 @@ export default function Notebook() {
 					<Text style={[styles.narrowedText, { color: colors.mutedFg }]} numberOfLines={1}>
 						{[
 							filter !== null ? filterLabel(filter) : null,
-							tagName ? `Tag: ${tagName}` : null,
-							narrowTopic !== null && topicName ? `Topic: ${topicName}` : null,
+							tagName ? t("notebook.filters.tagChosen", { tag: tagName }) : null,
+							narrowTopic !== null && topicName
+								? t("notebook.filters.topicChosen", { topic: topicName })
+								: null,
 						]
 							.filter(Boolean)
 							.join(" · ")}
@@ -261,22 +263,30 @@ export default function Notebook() {
 							setTopic(null)
 						}}
 					>
-						<Text style={[styles.action, { color: colors.accent }]}>Show All</Text>
+						<Text style={[styles.action, { color: colors.accent }]}>
+							{t("notebook.filters.showAll")}
+						</Text>
 					</Pressable>
 				</View>
 			) : null}
 			{shownView === "shuffle" && items?.length ? (
 				<View style={styles.shuffle}>
-					<Text style={[styles.shuffleTitle, { color: colors.fg }]}>A random handful</Text>
+					<Text style={[styles.shuffleTitle, { color: colors.fg }]}>
+						{t("notebook.shuffle.title")}
+					</Text>
 					<Pressable
 						accessibilityRole="button"
 						onPress={() => setSeed(newSeed())}
 						style={[styles.deal, { backgroundColor: colors.accent }]}
 					>
-						<Text style={[styles.dealText, { color: colors.accentFg }]}>Deal Again</Text>
+						<Text style={[styles.dealText, { color: colors.accentFg }]}>
+							{t("notebook.shuffle.again")}
+						</Text>
 					</Pressable>
 					<Pressable accessibilityRole="button" hitSlop={8} onPress={() => setView("articles")}>
-						<Text style={[styles.action, { color: colors.mutedFg }]}>Done</Text>
+						<Text style={[styles.action, { color: colors.mutedFg }]}>
+							{t("common.actions.done")}
+						</Text>
 					</Pressable>
 				</View>
 			) : null}
@@ -292,22 +302,28 @@ export default function Notebook() {
 	const empty = blank ? (
 		<View style={styles.blank}>
 			<BlankPostIt colors={colors} />
-			<Text style={[styles.blankTitle, { color: colors.fg }]}>Your notebook is empty</Text>
+			<Text style={[styles.blankTitle, { color: colors.fg }]}>{t("notebook.blank.title")}</Text>
 			<Text style={[styles.blankText, { color: colors.mutedFg }]}>
-				Everything you keep from what you read lands here, by article: the passages you highlight,
-				and the notes you write on them and on whole articles.
+				{t("notebook.blank.description")}
 			</Text>
 			<Pressable
 				accessibilityRole="button"
 				onPress={() => router.navigate("/library")}
 				style={[styles.deal, styles.open, { backgroundColor: colors.accent }]}
 			>
-				<Text style={[styles.dealText, { color: colors.accentFg }]}>Open Your Library</Text>
+				<Text style={[styles.dealText, { color: colors.accentFg }]}>
+					{t("notebook.blank.action")}
+				</Text>
 			</Pressable>
 		</View>
 	) : (
 		<Text style={[styles.empty, { color: colors.mutedFg }]}>
-			{error ?? (!items ? "Loading…" : q ? "Nothing matches that search." : "Nothing here.")}
+			{error ??
+				(!items
+					? t("notebook.list.loading")
+					: q
+						? t("notebook.search.empty")
+						: t("notebook.list.empty"))}
 		</Text>
 	)
 
@@ -324,7 +340,7 @@ export default function Notebook() {
 			<Stack.Screen
 				options={{
 					headerSearchBarOptions: {
-						placeholder: "Search quotes and notes",
+						placeholder: t("notebook.search.placeholder"),
 						autoCapitalize: "none",
 						hideNavigationBar: false,
 						onChangeText: (event) => setTyped(event.nativeEvent.text),
@@ -335,7 +351,7 @@ export default function Notebook() {
 				<Stack.Toolbar placement="right">
 					<Stack.Toolbar.Menu
 						icon={VIEWS.find((v) => v.view === shownView)?.icon ?? "rectangle.stack"}
-						accessibilityLabel="View"
+						accessibilityLabel={t("notebook.views.label")}
 						tintColor={colors.accent}
 					>
 						{VIEWS.filter((v) => v.view !== "topics" || topicsInUse).map((v) => (
@@ -354,7 +370,7 @@ export default function Notebook() {
 								isOn={zoomed}
 								onPress={() => zoom(!zoomed)}
 							>
-								Zoom Out
+								{t("notebook.views.zoomOut")}
 							</Stack.Toolbar.MenuAction>
 						</Stack.Toolbar.Menu>
 					</Stack.Toolbar.Menu>
@@ -364,7 +380,7 @@ export default function Notebook() {
 								? "line.3.horizontal.decrease.circle.fill"
 								: "line.3.horizontal.decrease.circle"
 						}
-						accessibilityLabel="Filter"
+						accessibilityLabel={t("notebook.filters.label")}
 						tintColor={colors.accent}
 					>
 						{([null, "notes", "highlights", "shared"] as const)
@@ -394,44 +410,55 @@ export default function Notebook() {
 						</Stack.Toolbar.Menu>
 						<Stack.Toolbar.Menu inline>
 							{meta?.tags.length || tag ? (
-								<Stack.Toolbar.Menu title={tagName ? `Tag: ${tagName}` : "Tag"} icon="tag">
+								<Stack.Toolbar.Menu
+									title={
+										tagName
+											? t("notebook.filters.tagChosen", { tag: tagName })
+											: t("notebook.filters.tag")
+									}
+									icon="tag"
+								>
 									<Stack.Toolbar.MenuAction isOn={tag === null} onPress={() => setTag(null)}>
-										Every Tag
+										{t("notebook.filters.everyTag")}
 									</Stack.Toolbar.MenuAction>
-									{(meta?.tags ?? []).map((t) => (
+									{(meta?.tags ?? []).map((tg) => (
 										<Stack.Toolbar.MenuAction
-											key={t.id}
-											isOn={tag === t.id}
-											subtitle={String(t.count)}
-											onPress={() => setTag(t.id)}
+											key={tg.id}
+											isOn={tag === tg.id}
+											subtitle={String(tg.count)}
+											onPress={() => setTag(tg.id)}
 										>
-											{t.name}
+											{tg.name}
 										</Stack.Toolbar.MenuAction>
 									))}
 								</Stack.Toolbar.Menu>
 							) : null}
 							{topicsInUse && view !== "topics" ? (
 								<Stack.Toolbar.Menu
-									title={topicName ? `Topic: ${topicName}` : "Topic"}
+									title={
+										topicName
+											? t("notebook.filters.topicChosen", { topic: topicName })
+											: t("notebook.filters.topic")
+									}
 									icon="square.grid.2x2"
 								>
 									<Stack.Toolbar.MenuAction isOn={topic === null} onPress={() => setTopic(null)}>
-										Every Topic
+										{t("notebook.filters.everyTopic")}
 									</Stack.Toolbar.MenuAction>
-									{topics.map((t) => (
+									{topics.map((tp) => (
 										<Stack.Toolbar.MenuAction
-											key={t.id}
-											isOn={topic === t.id}
-											onPress={() => setTopic(t.id)}
+											key={tp.id}
+											isOn={topic === tp.id}
+											onPress={() => setTopic(tp.id)}
 										>
-											{t.name}
+											{tp.name}
 										</Stack.Toolbar.MenuAction>
 									))}
 									<Stack.Toolbar.MenuAction
 										isOn={topic === "none"}
 										onPress={() => setTopic("none")}
 									>
-										No Topic
+										{t("notebook.filters.noTopic")}
 									</Stack.Toolbar.MenuAction>
 								</Stack.Toolbar.Menu>
 							) : null}

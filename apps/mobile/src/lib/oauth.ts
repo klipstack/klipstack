@@ -17,6 +17,7 @@ import * as AppleAuthentication from "expo-apple-authentication"
 import { AuthRequest } from "expo-auth-session"
 import * as Crypto from "expo-crypto"
 import { USER_AGENT } from "./config"
+import { language, t } from "./i18n"
 import type { Session } from "./session-store"
 
 /** The refresh token no longer works (revoked, expired, or the app was disconnected). */
@@ -110,7 +111,7 @@ export async function signInWithApple(apiUrl: string, signUp?: SignUp): Promise<
 		throw e
 	}
 	if (!credential.identityToken || !credential.authorizationCode)
-		throw new SignInError("Apple's sign-in gave no token. Try again.")
+		throw new SignInError(t("account.oauth.appleNoToken"))
 	return signInOnServer(
 		apiUrl,
 		{
@@ -163,23 +164,22 @@ export async function signInWithProvider(
 		throw new SignInError(providerMessage(code, PROVIDER_NAMES[provider]), code)
 	}
 	const code = result.params.code
-	if (!code || !request.codeVerifier)
-		throw new SignInError("Sign-in failed: no authorization code.")
+	if (!code || !request.codeVerifier) throw new SignInError(t("account.oauth.noCode"))
 	return exchange(apiUrl, code, request.codeVerifier)
 }
 
 function providerMessage(code: string | undefined, name: string): string {
 	switch (code as AppSignInErrorCode | undefined) {
 		case "no_account":
-			return `No Klipstack account uses this ${name} account. Create one with "Create an account".`
+			return t("account.oauth.noAccount", { name })
 		case "invalid_invite":
-			return "This invite code can't be used. Check it, or ask for another one."
+			return t("account.oauth.invalidInvite")
 		case "not_linked":
-			return `An account has this email but isn't connected to ${name}. Sign in another way, then connect ${name} in Settings on the web.`
+			return t("account.oauth.notLinked", { name })
 		case "no_email":
-			return `${name} didn't share an email address, so it can't sign you in.`
+			return t("account.oauth.noEmail", { name })
 		default:
-			return `Signing in with ${name} didn't work. Try again.`
+			return t("account.oauth.failed", { name })
 	}
 }
 
@@ -201,7 +201,7 @@ async function signInOnServer(
 	})
 	if (!res.ok) throw await refusal(res)
 	const { code } = (await res.json()) as { code?: unknown }
-	if (typeof code !== "string") throw new Error("Sign-in failed: no authorization code.")
+	if (typeof code !== "string") throw new Error(t("account.oauth.noCode"))
 	return exchange(apiUrl, code, verifier)
 }
 
@@ -230,10 +230,10 @@ function exchange(apiUrl: string, code: string, verifier: string): Promise<Sessi
 	})
 }
 
-// The phone's languages, for a new account's (and its emails').
+// The app's language, for a new account's (and its emails'): the account speaks as the app does.
 const jsonHeaders = {
 	accept: "application/json",
-	"accept-language": Intl.DateTimeFormat().resolvedOptions().locale,
+	"accept-language": language,
 	"user-agent": USER_AGENT,
 }
 
@@ -251,7 +251,7 @@ async function refusal(res: Response): Promise<Error> {
 		error?: { code?: string; message?: string }
 	}
 	if (body.error?.message) return new SignInError(body.error.message, body.error.code)
-	return new Error(`The server answered ${res.status}. Try again.`)
+	return new Error(t("account.oauth.serverAnswered", { status: res.status }))
 }
 
 /** A new access token (and, with rotation, a new refresh token). */

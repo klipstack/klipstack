@@ -80,6 +80,28 @@ pnpm dlx expo-doctor         # Diagnose dependency and config problems
   device builds, from `APPLE_TEAM_ID` in `apps/mobile/.env.local` (ignored). Simulator builds
   need none.
 
+## Languages
+
+The app speaks the iPhone's language, English or Spanish, not the account's (that one is the
+web's, and the server's emails and guide): the first of the phone's languages it knows, else
+English, read once at launch (`src/lib/i18n.ts`); iOS restarts the app when it changes. Settings ›
+Apps › Klipstack › Language picks another for the app alone (`supportedLocales` of the
+`expo-localization` plugin in `app.json`). Requests then carry it in `Accept-Language`, which
+gives an account made in the app its language.
+
+- Every string a person sees or hears goes through `t("<area>.…")` from `@/lib/i18n`, with its
+  English and Spanish in `packages/i18n/src/locales/mobile/{en,es}/<area>.ts` (not the web's
+  files). The package's test fails when Spanish lacks a key. Dates and numbers format with
+  `dateLocale`; failures show `errorMessage(e)`.
+- The reader page (`src/page/`) gets its strings from the app with its settings; it can't import
+  `t`.
+- The share extension and the widget translate in Swift: `String(localized:)` (or a literal in
+  `Text`/`Button`), with the Spanish in the target's `Localizable.xcstrings`.
+- The permission prompts' Spanish is in `locales/es.json`.
+- Vitest runs in English (`test/expo-localization.ts`). To see Spanish, use a simulator whose
+  language is Spanish (`xcrun simctl spawn <udid> defaults write "Apple Global Domain"
+  AppleLanguages -array es-CL en`, then reboot it), not one another agent is using.
+
 ## Which server
 
 - **Development builds** (`pnpm ios`) talk to the local dev server, `http://localhost:5180`, and
