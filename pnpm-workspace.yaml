@@ -4,7 +4,9 @@ packages:
 # Resolve only versions published at least 7 days ago (in minutes): most compromised releases are
 # found and pulled within days. To take an urgent security fix sooner, list the package below.
 minimumReleaseAge: 10080
-minimumReleaseAgeExclude: []
+minimumReleaseAgeExclude:
+  # GHSA-27r3-jxmh-p828 (published 2026-10-22). Remove once 2.4.0 is a week old (2026-10-29).
+  - body-parser@2.4.0
 overrides:
   "@esbuild-kit/core-utils>esbuild": "0.25.12"
   "@jimp/core>phin": "3.7.1"
