@@ -2,6 +2,7 @@ import { defaultSavedSearchName } from "@klipstack/api-contract/search-query"
 import { type KlipstackClient, KlipstackApiError, type SavedSearch } from "@klipstack/sdk"
 import { ActionSheetIOS, Alert } from "react-native"
 import { showToast } from "@/lib/article-changes"
+import { errorMessage } from "@/lib/i18n"
 
 /**
  * Saving a search, renaming and deleting one: the web's saved-search dialog and menu, as iOS's own
@@ -108,8 +109,5 @@ export function deleteSavedSearch(
 
 function refused(title: string, e: unknown) {
 	const taken = e instanceof KlipstackApiError && e.code === "name_taken"
-	Alert.alert(
-		title,
-		taken ? "A saved search already has that name." : e instanceof Error ? e.message : String(e),
-	)
+	Alert.alert(title, taken ? "A saved search already has that name." : errorMessage(e))
 }

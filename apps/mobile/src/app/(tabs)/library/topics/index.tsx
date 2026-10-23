@@ -16,6 +16,7 @@ import { EmptyDrawing } from "@/components/empty-drawing"
 import { removeTopic, renameTopic } from "@/components/topic-actions"
 import { Proposal, TurnOff, TurnOn } from "@/components/topic-stages"
 import { useAuth } from "@/lib/auth"
+import { errorMessage } from "@/lib/i18n"
 import { type Colors, useColors, useScheme } from "@/lib/theme"
 import {
 	articles,
@@ -56,7 +57,7 @@ export default function Topics() {
 			setLoaded({ answer: next, at: new Date() })
 			setError(null)
 		} catch (e) {
-			if (mine === asked.current) setError(e instanceof Error ? e.message : String(e))
+			if (mine === asked.current) setError(errorMessage(e))
 		}
 	}, [client])
 	const reload = useCallback(() => void load(), [load])

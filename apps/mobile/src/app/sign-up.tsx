@@ -12,6 +12,7 @@ import {
 } from "react-native"
 import { ProviderButtons, styles, useSignInOptions } from "@/components/sign-in-form"
 import { useAuth } from "@/lib/auth"
+import { errorMessage } from "@/lib/i18n"
 import {
 	type SignUp as Invite,
 	sendSignUpCode,
@@ -61,7 +62,7 @@ export default function SignUpScreen() {
 			const session = await step()
 			if (session) await signIn(session)
 		} catch (e) {
-			setError(e instanceof Error ? e.message : String(e))
+			setError(errorMessage(e))
 		} finally {
 			setBusy(null)
 		}

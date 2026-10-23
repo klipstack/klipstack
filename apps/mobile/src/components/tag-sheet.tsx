@@ -13,6 +13,7 @@ import {
 	View,
 } from "react-native"
 import { type Tagged, tagChange, tagChoices, tagState, withChange } from "@/lib/article-tags"
+import { errorMessage } from "@/lib/i18n"
 import { type Colors, useColors } from "@/lib/theme"
 
 /**
@@ -81,7 +82,7 @@ function TagSheet({
 				if (live) setNames(answer.items.map((t) => t.name))
 			})
 			.catch((e: unknown) => {
-				if (live) setError(e instanceof Error ? e.message : String(e))
+				if (live) setError(errorMessage(e))
 			})
 		return () => {
 			live = false
@@ -109,7 +110,7 @@ function TagSheet({
 			onTags(new Map(answer.items.map((a) => [a.id, a.tags])))
 		} catch (e) {
 			onTags(before)
-			Alert.alert("Not saved", e instanceof Error ? e.message : String(e))
+			Alert.alert("Not saved", errorMessage(e))
 		}
 	}
 

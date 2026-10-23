@@ -7,6 +7,7 @@ import { Alert } from "react-native"
 import { LibraryList } from "@/components/library-list"
 import { deleteTag, renameTag } from "@/components/tag-actions"
 import { useAuth } from "@/lib/auth"
+import { errorMessage } from "@/lib/i18n"
 import { useColors } from "@/lib/theme"
 
 /**
@@ -25,9 +26,7 @@ export default function TagArticles() {
 			client.tags
 				.list()
 				.then(({ items }) => then(items))
-				.catch((e: unknown) =>
-					Alert.alert("Not loaded", e instanceof Error ? e.message : String(e)),
-				)
+				.catch((e: unknown) => Alert.alert("Not loaded", errorMessage(e)))
 		return {
 			type: "menu",
 			label: "More",

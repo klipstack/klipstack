@@ -1,4 +1,5 @@
 import type { StarterLanguage, StarterText, StarterTopic } from "@klipstack/sdk"
+import { errorMessage } from "./i18n"
 import { lostConnection } from "./offline"
 import { bookColor, hash } from "./topic-shelves"
 
@@ -85,5 +86,5 @@ export function starterLabel(item: StarterText): string {
 /** Why a text could not be added, in the reader's words. */
 export function starterRefusal(error: unknown): string {
 	if (lostConnection(error)) return "Can't reach Klipstack. Connect to the internet to add it."
-	return error instanceof Error ? error.message : String(error)
+	return errorMessage(error)
 }

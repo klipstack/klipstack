@@ -14,6 +14,7 @@ import {
 import { listStyles } from "@/components/grouped-list"
 import { SignInForm } from "@/components/sign-in-form"
 import { useAuth } from "@/lib/auth"
+import { errorMessage } from "@/lib/i18n"
 import type { Session } from "@/lib/session-store"
 import { fonts, useColors } from "@/lib/theme"
 import { openOnTheWeb } from "@/lib/web-pages"
@@ -58,7 +59,7 @@ export default function DeleteAccount() {
 			if (e instanceof KlipstackApiError && e.code === "reauthentication_required" && !again)
 				return setConfirming(true)
 			setError({
-				message: e instanceof Error ? e.message : String(e),
+				message: errorMessage(e),
 				web: e instanceof KlipstackApiError && e.code === "forbidden",
 			})
 			return

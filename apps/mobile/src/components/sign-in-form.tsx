@@ -13,6 +13,7 @@ import {
 	View,
 } from "react-native"
 import Svg, { Path } from "react-native-svg"
+import { errorMessage } from "@/lib/i18n"
 import {
 	sendSignInCode,
 	signInOptions,
@@ -63,7 +64,7 @@ export function SignInForm({
 			const session = await signIn()
 			if (session) await onSession(session)
 		} catch (e) {
-			setError(e instanceof Error ? e.message : String(e))
+			setError(errorMessage(e))
 		} finally {
 			setBusy(null)
 		}
@@ -89,7 +90,7 @@ export function SignInForm({
 			setCodeSentTo(trimmed)
 			setCode("")
 		} catch (e) {
-			setError(e instanceof Error ? e.message : String(e))
+			setError(errorMessage(e))
 		} finally {
 			setBusy(null)
 		}

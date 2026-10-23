@@ -66,6 +66,7 @@ import {
 	type TopicPick,
 	topicHeading,
 } from "@/lib/home-topics"
+import { errorMessage } from "@/lib/i18n"
 import { topicEnded } from "@/lib/library-topics"
 import {
 	canUseOffline,
@@ -310,7 +311,7 @@ export default function Home() {
 				setError(OFFLINE_NOTE)
 				return
 			}
-			setError(e instanceof Error ? e.message : String(e))
+			setError(errorMessage(e))
 		}
 	}, [client, topic])
 

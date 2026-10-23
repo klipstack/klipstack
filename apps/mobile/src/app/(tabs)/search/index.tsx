@@ -19,6 +19,7 @@ import { useTagSheet } from "@/components/tag-sheet"
 import { retagged } from "@/lib/article-tags"
 import { useAuth } from "@/lib/auth"
 import { actedOn, bulkActions, bulkNotice } from "@/lib/bulk-actions"
+import { errorMessage } from "@/lib/i18n"
 import { searchHint, topicQuery } from "@/lib/library-topics"
 import { useColors } from "@/lib/theme"
 
@@ -66,7 +67,7 @@ export default function Search() {
 				const page = await client.articles.search(q, { limit: 50 })
 				if (live) setAnswer({ q, items: page.items, error: null })
 			} catch (e) {
-				if (live) setAnswer({ q, items: null, error: e instanceof Error ? e.message : String(e) })
+				if (live) setAnswer({ q, items: null, error: errorMessage(e) })
 			}
 		}, DEBOUNCE_MS)
 		return () => {

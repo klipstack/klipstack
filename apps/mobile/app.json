@@ -7,6 +7,9 @@
 		"orientation": "portrait",
 		"icon": "./assets/icon.png",
 		"userInterfaceStyle": "automatic",
+		"locales": {
+			"es": "./locales/es.json"
+		},
 		"ios": {
 			"bundleIdentifier": "com.klipstack.mobile",
 			"supportsTablet": false,
@@ -122,6 +125,7 @@
 			"expo-apple-authentication",
 			"@bacons/apple-targets",
 			"./plugins/with-extension-settings",
+			["expo-localization", { "supportedLocales": { "ios": ["en", "es"] } }],
 			[
 				"expo-font",
 				{

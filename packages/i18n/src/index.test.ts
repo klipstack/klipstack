@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { namespaces, resources, supportedLanguages } from "./index"
+import { mobileResources } from "./mobile"
 
 function flatten(obj: Record<string, unknown>, prefix = ""): string[] {
 	return Object.entries(obj).flatMap(([k, v]) =>
@@ -9,10 +10,10 @@ function flatten(obj: Record<string, unknown>, prefix = ""): string[] {
 	)
 }
 
-describe("locales", () => {
-	it("namespaces lists the english namespaces", () => {
-		expect(namespaces).toEqual(Object.keys(resources.en))
-	})
+describe.each([
+	["web", resources],
+	["iPhone app", mobileResources],
+] as const)("%s locales", (_, resources) => {
 	it("every locale has the same keys as english", () => {
 		const enKeys = flatten(resources.en).sort()
 		for (const lng of supportedLanguages) {
@@ -31,4 +32,8 @@ describe("locales", () => {
 		}
 		for (const lng of supportedLanguages) walk(resources.en, resources[lng], lng)
 	})
+})
+
+it("namespaces lists the web's english namespaces", () => {
+	expect(namespaces).toEqual(Object.keys(resources.en))
 })

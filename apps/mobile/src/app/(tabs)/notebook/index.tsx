@@ -30,6 +30,7 @@ import { usePagedList } from "@/components/paged-list"
 import { useShareSheet } from "@/components/share-sheet"
 import { useAuth } from "@/lib/auth"
 import { offerHighlightUndo } from "@/lib/highlight-undo"
+import { errorMessage } from "@/lib/i18n"
 import {
 	filterLabel,
 	newSeed,
@@ -178,7 +179,7 @@ export default function Notebook() {
 			edit((shown) => withoutHighlight(shown, highlight.id))
 			const deleting = client.highlights.delete(highlight.id)
 			deleting.catch((e: unknown) => {
-				Alert.alert("Not deleted", e instanceof Error ? e.message : String(e))
+				Alert.alert("Not deleted", errorMessage(e))
 				void load()
 			})
 			offerHighlightUndo(client, highlight, deleting, () => void load())

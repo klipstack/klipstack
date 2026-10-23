@@ -4,6 +4,7 @@ import { Alert } from "react-native"
 import type { ListenStatus } from "@/components/listen-bar"
 import type { PageMessage } from "@/page/messages"
 import { speech } from "../../modules/klip-speech"
+import { errorMessage } from "./i18n"
 import { loadSpeechPrefs, saveSpeechPrefs } from "./reader-files"
 import {
 	formatBytes,
@@ -143,7 +144,7 @@ export function useReadAloud({
 		} catch (e) {
 			// Closing the player cancels the download: nothing to say then.
 			if (ownsSpeech(me)) {
-				Alert.alert("Download stopped", e instanceof Error ? e.message : String(e))
+				Alert.alert("Download stopped", errorMessage(e))
 				close()
 			}
 			return
@@ -184,7 +185,7 @@ export function useReadAloud({
 			})
 			.catch((e: unknown) => {
 				if (!ownsSpeech(me)) return
-				Alert.alert("Couldn't read aloud", e instanceof Error ? e.message : String(e))
+				Alert.alert("Couldn't read aloud", errorMessage(e))
 				close()
 			})
 		return true

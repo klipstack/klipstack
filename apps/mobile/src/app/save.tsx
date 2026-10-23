@@ -5,6 +5,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, View } from
 import { PasteButton } from "@/components/paste-button"
 import { useAuth } from "@/lib/auth"
 import { markClipboardSeen } from "@/lib/clipboard"
+import { errorMessage } from "@/lib/i18n"
 import { linkIn } from "@/lib/save-link"
 import { useColors } from "@/lib/theme"
 
@@ -44,7 +45,7 @@ export default function SaveLink() {
 			if (pasted.current) markClipboardSeen()
 			setStatus({ state: "saved", created })
 		} catch (e) {
-			setStatus({ state: "failed", message: e instanceof Error ? e.message : String(e) })
+			setStatus({ state: "failed", message: errorMessage(e) })
 		}
 	}
 

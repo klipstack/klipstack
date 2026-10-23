@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { ActivityIndicator, AppState, Pressable, StyleSheet, Text, View } from "react-native"
 import { PasteButton } from "@/components/paste-button"
 import { lookAtClipboard } from "@/lib/clipboard"
+import { errorMessage } from "@/lib/i18n"
 import { linkIn } from "@/lib/save-link"
 import type { Colors } from "@/lib/theme"
 
@@ -89,7 +90,7 @@ export function ClipboardOffer({
 			setOffer({ state: "saved", created, count })
 			onSaved()
 		} catch (e) {
-			setOffer({ state: "failed", message: e instanceof Error ? e.message : String(e), count })
+			setOffer({ state: "failed", message: errorMessage(e), count })
 		}
 	}
 

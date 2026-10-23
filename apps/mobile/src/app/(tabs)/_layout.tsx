@@ -1,5 +1,6 @@
 import { NativeTabs } from "expo-router/unstable-native-tabs"
 import { DynamicColorIOS } from "react-native"
+import { t } from "@/lib/i18n"
 import { useTabBarHidden } from "@/lib/tab-bar"
 
 // The accent (src/lib/theme.ts) for the selected tab, in light and dark.
@@ -20,25 +21,25 @@ export default function TabsLayout() {
 			hidden={useTabBarHidden()}
 		>
 			<NativeTabs.Trigger name="(home)">
-				<NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
+				<NativeTabs.Trigger.Label>{t("common.tabs.home")}</NativeTabs.Trigger.Label>
 				<NativeTabs.Trigger.Icon sf={{ default: "house", selected: "house.fill" }} md="home" />
 			</NativeTabs.Trigger>
 			<NativeTabs.Trigger name="library">
-				<NativeTabs.Trigger.Label>Library</NativeTabs.Trigger.Label>
+				<NativeTabs.Trigger.Label>{t("common.tabs.library")}</NativeTabs.Trigger.Label>
 				<NativeTabs.Trigger.Icon
 					sf={{ default: "books.vertical", selected: "books.vertical.fill" }}
 					md="library_books"
 				/>
 			</NativeTabs.Trigger>
 			<NativeTabs.Trigger name="notebook">
-				<NativeTabs.Trigger.Label>Notebook</NativeTabs.Trigger.Label>
+				<NativeTabs.Trigger.Label>{t("common.tabs.notebook")}</NativeTabs.Trigger.Label>
 				<NativeTabs.Trigger.Icon
 					sf={{ default: "book.closed", selected: "book.closed.fill" }}
 					md="menu_book"
 				/>
 			</NativeTabs.Trigger>
 			<NativeTabs.Trigger name="search" role="search">
-				<NativeTabs.Trigger.Label>Search</NativeTabs.Trigger.Label>
+				<NativeTabs.Trigger.Label>{t("common.tabs.search")}</NativeTabs.Trigger.Label>
 			</NativeTabs.Trigger>
 		</NativeTabs>
 	)

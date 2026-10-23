@@ -5,6 +5,7 @@ import {
 	KlipstackApiError,
 	type Topic,
 } from "@klipstack/sdk"
+import { errorMessage } from "./i18n"
 
 /**
  * The Topics screen's pure parts, as the web's Topics page draws them (apps/web/app/routes/
@@ -208,7 +209,7 @@ export function topicRefusal(e: unknown): string {
 		case "unavailable":
 			return "Topics are not set up on this server."
 		default:
-			return e instanceof Error ? e.message : String(e)
+			return errorMessage(e)
 	}
 }
 

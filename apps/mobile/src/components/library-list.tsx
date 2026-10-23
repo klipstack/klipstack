@@ -28,6 +28,7 @@ import { onChange, showToast, track } from "@/lib/article-changes"
 import { retagged } from "@/lib/article-tags"
 import { useAuth } from "@/lib/auth"
 import { actedOn, bulkActions, bulkNotice, type LibraryView, stillShown } from "@/lib/bulk-actions"
+import { errorMessage } from "@/lib/i18n"
 import {
 	archivedReadNotice,
 	type FilterChoice,
@@ -313,7 +314,7 @@ export function LibraryList({
 					: undefined,
 			})
 		} catch (e) {
-			showToast({ message: `Not archived: ${e instanceof Error ? e.message : String(e)}` })
+			showToast({ message: `Not archived: ${errorMessage(e)}` })
 		} finally {
 			setArchiving(false)
 		}

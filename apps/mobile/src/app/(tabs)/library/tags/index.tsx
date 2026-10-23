@@ -6,6 +6,7 @@ import { EmptyDrawing } from "@/components/empty-drawing"
 import { PlaceGroup, PlaceRow } from "@/components/place-list"
 import { deleteTag, renameTag } from "@/components/tag-actions"
 import { useAuth } from "@/lib/auth"
+import { errorMessage } from "@/lib/i18n"
 import { useColors } from "@/lib/theme"
 
 /**
@@ -26,7 +27,7 @@ export default function Tags() {
 				setTags(answer.items)
 				setError(null)
 			})
-			.catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)))
+			.catch((e: unknown) => setError(errorMessage(e)))
 	}, [client])
 	useFocusEffect(load)
 

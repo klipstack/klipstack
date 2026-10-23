@@ -10,6 +10,7 @@ import {
 	Text,
 	View,
 } from "react-native"
+import { errorMessage } from "@/lib/i18n"
 import { claimSpeech, ownsSpeech, releaseSpeech } from "@/lib/read-aloud"
 import { loadSpeechPrefs, saveSpeechPrefs } from "@/lib/reader-files"
 import { formatBytes, LANGUAGE_NAMES } from "@/lib/speech"
@@ -64,7 +65,7 @@ export default function Voices() {
 		try {
 			await speech.download(pack.language)
 		} catch (e) {
-			Alert.alert("Download stopped", e instanceof Error ? e.message : String(e))
+			Alert.alert("Download stopped", errorMessage(e))
 		} finally {
 			active.current = false
 			setDownloading(null)
@@ -103,9 +104,7 @@ export default function Voices() {
 				title: "Voice sample",
 				artist: "Klipstack",
 			})
-			.catch((e: unknown) =>
-				Alert.alert("Couldn't play", e instanceof Error ? e.message : String(e)),
-			)
+			.catch((e: unknown) => Alert.alert("Couldn't play", errorMessage(e)))
 	}
 
 	return (

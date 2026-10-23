@@ -60,6 +60,7 @@ import { waitForExtraction } from "@/lib/extraction"
 import { finishOnLeave, showFinished } from "@/lib/finish-on-leave"
 import { offerHighlightUndo } from "@/lib/highlight-undo"
 import { minutesLeft } from "@/lib/home"
+import { errorMessage } from "@/lib/i18n"
 import { inTime } from "@/lib/in-time"
 import { guardNoteSaves, type SavedNote } from "@/lib/note-guard"
 import {
@@ -497,7 +498,7 @@ export default function Reader() {
 				}
 				await Promise.all([worker(), worker(), worker(), worker()])
 			} catch (e) {
-				if (live) setError(e instanceof Error ? e.message : String(e))
+				if (live) setError(errorMessage(e))
 			}
 		})()
 		return () => {
@@ -517,7 +518,7 @@ export default function Reader() {
 			setPage(null)
 			await waitForExtraction(client, id)
 		} catch (e) {
-			Alert.alert("Couldn't switch to the post", e instanceof Error ? e.message : String(e))
+			Alert.alert("Couldn't switch to the post", errorMessage(e))
 		}
 		setGeneration((n) => n + 1)
 	}
@@ -530,7 +531,7 @@ export default function Reader() {
 			const { queued } = await client.articles.retry(id)
 			if (queued) await waitForExtraction(client, id)
 		} catch (e) {
-			Alert.alert("Couldn't try again", e instanceof Error ? e.message : String(e))
+			Alert.alert("Couldn't try again", errorMessage(e))
 		}
 		setRetrying(false)
 		setGeneration((n) => n + 1)
@@ -629,7 +630,7 @@ export default function Reader() {
 			if (changes.location === "archive" || changes.finished !== undefined) router.back()
 		} catch (e) {
 			setArticle(before)
-			Alert.alert("Not saved", e instanceof Error ? e.message : String(e))
+			Alert.alert("Not saved", errorMessage(e))
 		}
 	}
 
@@ -648,7 +649,7 @@ export default function Reader() {
 			await track(client.articles.rename(article.id, title))
 		} catch (e) {
 			show(before)
-			Alert.alert("Not renamed", e instanceof Error ? e.message : String(e))
+			Alert.alert("Not renamed", errorMessage(e))
 		}
 	}
 
@@ -662,7 +663,7 @@ export default function Reader() {
 			if (trashed.length) offerRestore(client, trashed, () => {})
 			router.back()
 		} catch (e) {
-			Alert.alert("Not deleted", e instanceof Error ? e.message : String(e))
+			Alert.alert("Not deleted", errorMessage(e))
 		}
 	}
 
@@ -674,7 +675,7 @@ export default function Reader() {
 			if (restored.length) setArticle({ ...article, trashedAt: null })
 			else showToast({ message: "Saved again since, so it stays in the trash." })
 		} catch (e) {
-			Alert.alert("Not restored", e instanceof Error ? e.message : String(e))
+			Alert.alert("Not restored", errorMessage(e))
 		}
 	}
 
@@ -694,8 +695,7 @@ export default function Reader() {
 					onPress: () =>
 						void track(c.articles.purge([gone])).then(
 							() => router.back(),
-							(e: unknown) =>
-								Alert.alert("Not deleted", e instanceof Error ? e.message : String(e)),
+							(e: unknown) => Alert.alert("Not deleted", errorMessage(e)),
 						),
 				},
 			],
@@ -842,7 +842,7 @@ export default function Reader() {
 			void reloadHighlights()
 			reading.current?.engage()
 		} catch (e) {
-			Alert.alert("Not highlighted", e instanceof Error ? e.message : String(e))
+			Alert.alert("Not highlighted", errorMessage(e))
 		} finally {
 			setSaving(false)
 		}
@@ -974,7 +974,7 @@ export default function Reader() {
 			await send()
 		} catch (e) {
 			setArticle((current) => (current ? { ...current, highlights: before } : current))
-			Alert.alert(failure, e instanceof Error ? e.message : String(e))
+			Alert.alert(failure, errorMessage(e))
 		}
 	}
 

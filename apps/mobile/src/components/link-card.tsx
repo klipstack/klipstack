@@ -15,6 +15,7 @@ import {
 } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { copyText } from "@/lib/clipboard"
+import { errorMessage } from "@/lib/i18n"
 import type { Colors } from "@/lib/theme"
 
 /** A link tapped in an article: its URL and its text. */
@@ -206,7 +207,7 @@ function SaveRow({
 			const { article } = await client.articles.save({ url: link.href })
 			setSaved({ state: "saved", id: article.id, justSaved: true })
 		} catch (e) {
-			setSaved({ state: "failed", message: e instanceof Error ? e.message : String(e) })
+			setSaved({ state: "failed", message: errorMessage(e) })
 		}
 	}
 

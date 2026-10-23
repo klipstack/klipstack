@@ -6,6 +6,7 @@ import { newTitle } from "@/lib/article-title"
 import { actedOn, afterAction, BULK_CHANGES, type BulkAction, bulkNotice } from "@/lib/bulk-actions"
 import { afterMarking } from "@/lib/draft-undo"
 import { waitForExtraction } from "@/lib/extraction"
+import { errorMessage } from "@/lib/i18n"
 
 /**
  * What the actions change themselves: Tags opens the tag sheet instead (`useTagSheet`). Three are
@@ -70,7 +71,7 @@ export function useArticleActions(options: {
 			latest.current.apply(new Map([[article.id, answer.article]]))
 		} catch (e) {
 			latest.current.apply(new Map([[article.id, article]]))
-			Alert.alert("Not renamed", e instanceof Error ? e.message : String(e))
+			Alert.alert("Not renamed", errorMessage(e))
 		}
 	}, [])
 
@@ -117,7 +118,7 @@ export function useArticleActions(options: {
 					)
 				}
 			} catch (e) {
-				Alert.alert("Not saved", e instanceof Error ? e.message : String(e))
+				Alert.alert("Not saved", errorMessage(e))
 				latest.current.reload()
 			}
 		},

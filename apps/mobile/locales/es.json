@@ -1,0 +1,8 @@
+{
+	"ios": {
+		"NSMicrophoneUsageDescription": "Klipstack te escucha mientras dictas una nota.",
+		"NSSpeechRecognitionUsageDescription": "Klipstack convierte lo que dictas en tu nota, en este iPhone.",
+		"NSPhotoLibraryUsageDescription": "Klipstack no lee tu fototeca. Solo guarda las imágenes de subrayados que tú decides guardar.",
+		"NSPhotoLibraryAddUsageDescription": "Klipstack guarda en tus fotos las imágenes de subrayados que compartes."
+	}
+}

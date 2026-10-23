@@ -6,6 +6,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-nat
 import { Paper } from "@/components/paper"
 import { StarterGuide, StarterShelf, useAddStarter } from "@/components/starter-texts"
 import { useAuth } from "@/lib/auth"
+import { errorMessage } from "@/lib/i18n"
 import { canUseOffline, keepStarter, keptStarter, OFFLINE_NOTE } from "@/lib/offline"
 import {
 	keptShelves,
@@ -53,7 +54,7 @@ export default function Discover() {
 					if (kept) setAnswer(kept)
 					return setError(OFFLINE_NOTE)
 				}
-				setError(e instanceof Error ? e.message : String(e))
+				setError(errorMessage(e))
 			}
 		},
 		[client],

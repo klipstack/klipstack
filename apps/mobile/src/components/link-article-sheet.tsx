@@ -2,6 +2,7 @@ import type { ArticleSummary } from "@klipstack/sdk"
 import { SymbolView } from "expo-symbols"
 import { useEffect, useState } from "react"
 import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native"
+import { errorMessage } from "@/lib/i18n"
 import type { Colors } from "@/lib/theme"
 
 /** Waits this long after the last keystroke before searching, as the web's link menu does. */
@@ -50,7 +51,7 @@ export function LinkArticleSheet({
 					const items = await (q ? search(q) : recent())
 					if (live) setAnswer({ q, items, error: null })
 				} catch (e) {
-					if (live) setAnswer({ q, items: null, error: e instanceof Error ? e.message : String(e) })
+					if (live) setAnswer({ q, items: null, error: errorMessage(e) })
 				}
 			},
 			q ? DEBOUNCE_MS : 0,

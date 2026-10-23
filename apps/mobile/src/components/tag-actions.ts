@@ -1,5 +1,6 @@
 import { errorDetails, type KlipstackClient, type Tag } from "@klipstack/sdk"
 import { Alert } from "react-native"
+import { errorMessage } from "@/lib/i18n"
 
 /** Renaming and deleting a tag, as iOS's own prompts: from the Tags list and a tag's own page. */
 
@@ -31,9 +32,7 @@ export function renameTag(
 						client.tags
 							.rename(tag.id, name)
 							.then(() => done(name, other?.id ?? tag.id))
-							.catch((e: unknown) =>
-								Alert.alert("Not renamed", e instanceof Error ? e.message : String(e)),
-							)
+							.catch((e: unknown) => Alert.alert("Not renamed", errorMessage(e)))
 					if (!other) return void rename()
 					Alert.alert(
 						`Merge into “${other.name}”?`,
@@ -63,7 +62,7 @@ export function deleteTag(client: KlipstackClient, tag: Tag, done: () => void) {
 			.then(done)
 			.catch((e: unknown) => {
 				const used = errorDetails(e, "tag_in_saved_searches")?.savedSearches
-				if (!used) return Alert.alert("Not deleted", e instanceof Error ? e.message : String(e))
+				if (!used) return Alert.alert("Not deleted", errorMessage(e))
 				const names = used.map((s) => `“${s.name}”`).join(", ")
 				Alert.alert(
 					used.length === 1 ? "A saved search uses this tag" : "Saved searches use this tag",
