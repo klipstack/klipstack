@@ -28,8 +28,8 @@ install or run, with backups and upgrades taken care of. It's invite-only for no
 ## What it does
 
 - **Save from anywhere.** The browser extension (Chrome, Firefox) saves the page as you see it, so
-  paywalled and signed-in pages work too. Or share to the installed app, use the bookmarklet or an
-  iOS Shortcut, or save from a script through the API.
+  paywalled and signed-in pages work too. Or share to the installed app, use the bookmarklet, or save
+  from a script through the API.
 - **Read without clutter.** Articles are extracted from their pages, images included, and Klipstack
   remembers where you left off. Posts and threads from X become readable articles too.
 - **Highlight and annotate.** Mark passages, write notes in the margin, link notes to each other,
@@ -111,7 +111,7 @@ In development, emails print to the console unless `RESEND_API_KEY` is set. Prod
 - **Browser extension** (`apps/extension`, WXT): `pnpm --filter @klipstack/extension build`, then load `apps/extension/dist/chrome-mv3` as an unpacked extension (Firefox: `build:firefox` → `dist/firefox-mv2`). It saves to https://klipstack.com, the only site it may reach; to save to another server, such as a dev server, build it for that one: `WXT_APP_URL=http://localhost:5180 pnpm --filter @klipstack/extension build`. It saves to the account you are signed in to in the same browser (no token). One click captures the rendered DOM, so paywalled and logged-in pages work.
 - **HTTP API** (alpha): `/api/v1`, with `Authorization: Bearer <token>`, an OAuth access token for the `/api` resource (the CLI signs in with `klip auth login`). The OpenAPI document is at `/api/v1/openapi.json`; programs use the typed client in `packages/sdk`.
 - **Save from a script**: `POST /api/v1/articles` with `Authorization: Bearer <token>` and JSON `{ "url": "…", "html": "<optional captured DOM>" }`. The browser's own `POST /api/documents` takes the session cookie only.
-- **Bookmarklet / iOS Shortcut**: recipes on the Settings page.
+- **Bookmarklet**: on the Settings page.
 - **Export**: Settings → Your data (zip of Markdown + JSON, or JSON).
 - **Trash**: deleted articles sit in `/trash` for 30 days (restore, or delete forever). The worker purges older ones daily at 04:10 UTC and removes image files nothing references; `pnpm --filter @klipstack/worker purge` runs it now.
 

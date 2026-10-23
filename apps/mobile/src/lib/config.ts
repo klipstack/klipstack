@@ -13,9 +13,9 @@ export const DEFAULT_API_URL =
 
 /**
  * Development builds only: a refresh token the dev server issued to this app
- * (`EXPO_PUBLIC_APP_REFRESH_TOKEN`, from `pnpm --filter @klipstack/web dev-account create
- * --app-token`), so the simulator and agents need no password. The app signs in with it once; the
- * server rotates it at the first refresh. Release builds drop the branch, token and all.
+ * (`EXPO_PUBLIC_APP_REFRESH_TOKEN`, from `pnpm --filter @klipstack/web dev-account create`), so
+ * the simulator and agents need no password. The app signs in with it once; the server rotates it
+ * at the first refresh. Release builds drop the branch, token and all.
  */
 export const DEV_APP_REFRESH_TOKEN = __DEV__
 	? process.env.EXPO_PUBLIC_APP_REFRESH_TOKEN || null
