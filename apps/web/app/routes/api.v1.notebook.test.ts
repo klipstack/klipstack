@@ -211,7 +211,7 @@ describe("the Notebook in the API", () => {
 		expect(second.articles.map((a) => a.article.title)).toEqual(["Kitchen"])
 		expect(second.nextCursor).toBeNull()
 
-		const bad = await request("/api/v1/notebook?cursor=bm9wZQ", { token: me.key })
+		const bad = await request("/api/v1/notebook?cursor=bm9wZQ", { token: me.token })
 		expect(bad.status).toBe(400)
 		expect(await bad.json()).toMatchObject({ error: { code: "invalid_request" } })
 	})
@@ -315,9 +315,9 @@ describe("the Notebook in the API", () => {
 			expect(dealt(page.items)).toEqual(hand(seed))
 		}
 
-		const noSeed = await request("/api/v1/notebook?view=shuffle", { token: me.key })
+		const noSeed = await request("/api/v1/notebook?view=shuffle", { token: me.token })
 		expect(noSeed.status).toBe(400)
-		const strayCursor = await request("/api/v1/notebook?view=topics&cursor=x", { token: me.key })
+		const strayCursor = await request("/api/v1/notebook?view=topics&cursor=x", { token: me.token })
 		expect(strayCursor.status).toBe(400)
 	})
 
@@ -409,7 +409,7 @@ describe("By topic in the API", () => {
 		expect(inDesign.topic).toEqual({ id: design, name: "Design" })
 		if (inDesign.view !== "stream") throw new Error("stream")
 		expect(inDesign.items).toHaveLength(2)
-		const stray = await request(`/api/v1/notebook?view=topics&topic=${design}`, { token: me.key })
+		const stray = await request(`/api/v1/notebook?view=topics&topic=${design}`, { token: me.token })
 		expect(stray.status).toBe(400)
 	})
 })

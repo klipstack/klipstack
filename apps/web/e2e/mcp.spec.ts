@@ -17,8 +17,8 @@ test.use(ownClientAddress)
 
 /**
  * MCP where it needs a real server: discovery through /.well-known, and OAuth tokens (a browser
- * consent, and our key set fetched over HTTP). The tools themselves are tested with an API key in
- * app/routes/mcp.test.ts, answered in process.
+ * consent, and our key set fetched over HTTP). The tools themselves are tested in app/routes/mcp.test.ts,
+ * answered in process.
  */
 
 type TextResult = { content: { type: string; text?: string }[]; isError?: boolean }

@@ -5,7 +5,6 @@ import {
 	Download,
 	Gauge,
 	Info,
-	KeyRound,
 	Keyboard,
 	Menu,
 	Palette,
@@ -38,7 +37,6 @@ const GROUPS = [
 		key: "connections",
 		sections: [
 			{ slug: "capture", key: "capture.title", icon: BookmarkPlus },
-			{ slug: "api-keys", key: "apiKeys.title", icon: KeyRound },
 			{ slug: "connected-apps", key: "connectedApps.title", icon: Plug },
 		],
 	},

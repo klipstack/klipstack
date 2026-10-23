@@ -19,7 +19,7 @@ export const MIN_CLIENT_VERSIONS: Record<ClientPlatform, Version> = {
 
 /**
  * Refuses a mobile app older than its platform's minimum. Requests without the header (the web
- * app, the extension, the CLI, API keys) and with one it cannot read pass.
+ * app, the extension, the CLI, other apps) and with one it cannot read pass.
  */
 export function checkClientVersion(
 	request: Request,

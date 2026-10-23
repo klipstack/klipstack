@@ -19,7 +19,6 @@ export const PAGE_TITLES = [
 	"library:starter.title",
 	"settings:about.title",
 	"settings:account.title",
-	"settings:apiKeys.title",
 	"settings:appearance.title",
 	"settings:capture.title",
 	"settings:connectedApps.title",

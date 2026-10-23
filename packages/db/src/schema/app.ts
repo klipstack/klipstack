@@ -474,7 +474,10 @@ export const inviteRequests = pgTable(
 	(t) => [index("invite_requests_created_idx").on(t.createdAt.desc(), t.id.desc())],
 )
 
-/** Personal API keys (extension, iOS Shortcut, scripts). Only the sha256 of the key is stored. */
+/**
+ * Personal API keys, retired: nothing creates or accepts them now. The table and its rows are kept
+ * (only the sha256 of each key) until a later migration drops them.
+ */
 export const apiKeys = pgTable(
 	"api_keys",
 	{

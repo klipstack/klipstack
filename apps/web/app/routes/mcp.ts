@@ -16,7 +16,6 @@ import {
 } from "~/lib/rate-limit.server"
 import { boundedRequest } from "~/lib/request-body.server"
 import { namesKnownSigningKey } from "~/lib/signing-keys.server"
-import { API_KEY_PREFIX, userForApiKey } from "~/services/api-keys.server"
 import { createLibraryMcpServer, WRITE_TOOLS } from "~/services/mcp/index.server"
 import type { Route } from "./+types/mcp"
 
@@ -24,8 +23,8 @@ import type { Route } from "./+types/mcp"
  * POST /mcp — the MCP server (stateless; 2026-07-28 and 2025-era clients).
  *
  * Callers authenticate with an OAuth access token issued for this resource with the library:read
- * scope, or with a Klipstack API key (`klip_…`) for clients without OAuth. Without either, the
- * 401 points clients at the protected resource metadata so they can start the OAuth flow.
+ * scope. Without one, the 401 points clients at the protected resource metadata so they can start
+ * the OAuth flow.
  *
  * Connecting asks for reading only. Calling a write tool without library:write gets a 403
  * `insufficient_scope` challenge, so the client asks the user for that scope when it needs it.
@@ -141,14 +140,6 @@ async function handle(request: Request) {
 }
 
 async function authenticate(request: Request, bearer: string | undefined) {
-	if (bearer?.startsWith(API_KEY_PREFIX)) {
-		const user = await userForApiKey(bearer)
-		if (!user) return unauthorized("Invalid API key")
-		const body = await readBody(request, user.id)
-		if (body instanceof Response) return body
-		// API keys can already do everything in the account.
-		return serve(body, authInfo("api-key", [...REQUIRED_SCOPES, ...WRITE_SCOPES], user.id))
-	}
 	// A made-up key id would make the verifier fetch our key set on every request.
 	if (bearer && !(await namesKnownSigningKey(bearer))) return unauthorized("Invalid access token")
 	return withOAuth(request)

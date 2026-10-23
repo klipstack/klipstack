@@ -162,7 +162,7 @@ describe("sharing a highlight in the API", () => {
 		const refused = await errorOf(me.client.highlights.image(bad.id))
 		expect([refused.status, refused.code]).toEqual([422, "cannot_draw"])
 		const square = await request(`/api/v1/highlights/${h.id}/image.png?shape=square`, {
-			token: me.key,
+			token: me.token,
 		})
 		expect(square.status).toBe(400)
 	})
@@ -176,7 +176,7 @@ describe("sharing a highlight in the API", () => {
 		// The server refuses too many, whatever the client checked.
 		const tooMany = await request("/api/v1/note-links/lookup", {
 			method: "POST",
-			token: me.key,
+			token: me.token,
 			headers: { "content-type": "application/json" },
 			body: JSON.stringify({ ids: Array.from({ length: NOTE_LINKS_MAX + 1 }, () => mine.docId) }),
 		})

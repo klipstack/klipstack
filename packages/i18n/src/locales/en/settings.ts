@@ -101,38 +101,11 @@ export default {
 				"Drag this to your bookmarks bar. It opens a confirmation form in Klipstack with the current page's address (open web only).",
 			label: "Save to Klipstack",
 		},
-		shortcut: {
-			title: "iOS / macOS Shortcut",
-			description:
-				"iOS has no share target for web apps, so a Shortcut is how the share sheet reaches Klipstack. Build one that accepts Safari web pages and URLs:",
-			step1:
-				"Run JavaScript on Web Page (Safari share sheet only): completion(document.documentElement.outerHTML)",
-			step2: "Get contents of URL: POST {{url}}",
-			step3: "Headers: Authorization = Bearer <your API key>, Content-Type = application/json",
-			step4: "Request body (JSON): url = Shortcut Input, html = result of step 1",
-			note: "Step 1 captures the page as you see it, so articles behind a login or paywall work. When sharing from other apps, skip it and send only the url.",
-		},
-	},
-	apiKeys: {
-		verificationRequired: "Verify your email address before you create API keys or connect apps.",
-		verifyLink: "Go to Account",
-		requestFailed: "The request failed. Wait a moment and try again.",
-		title: "API keys",
-		description:
-			"Keys give Shortcuts and scripts full access to your account through the API. Each key is shown only once.",
-		namePlaceholder: "Name (e.g. MacBook Chrome)",
-		create: "Create key",
-		created: "Copy your new key now. It will not be shown again.",
-		copy: "Copy",
-		copied: "Copied",
-		revoke: "Revoke",
-		revokeConfirm: "Revoke this key? Anything using it will stop working.",
-		empty: "No keys yet.",
-		lastUsed: "Last used {{date}}",
-		neverUsed: "Never used",
 	},
 	connectedApps: {
 		title: "Connected apps",
+		copy: "Copy",
+		copied: "Copied",
 		description: "Apps you allowed to access your account, such as AI assistants.",
 		mcpHint:
 			"To connect an AI assistant, add Klipstack to it as a remote MCP server with this URL:",

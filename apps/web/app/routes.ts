@@ -42,7 +42,8 @@ export default [
 		route("shortcuts", "routes/settings.shortcuts.tsx"),
 		route("features", "routes/settings.features.tsx"),
 		route("capture", "routes/settings.capture.tsx"),
-		route("api-keys", "routes/settings.api-keys.tsx"),
+		// Where API keys were: older iPhone builds still link here.
+		route("api-keys", "routes/settings.api-keys.ts"),
 		route("connected-apps", "routes/settings.connected-apps.tsx"),
 		route("usage", "routes/settings.usage.tsx"),
 		route("data", "routes/settings.data.tsx"),

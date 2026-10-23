@@ -140,8 +140,7 @@ export default {
 	},
 	verification: {
 		title: "Verifica tu correo electrónico",
-		description:
-			"{{email}} aún no está verificado. Verifícalo para crear claves de API y conectar apps.",
+		description: "{{email}} aún no está verificado. Verifícalo para conectar apps.",
 		instructions:
 			"Abre el enlace en un navegador donde tengas la sesión iniciada. Tu contraseña y tus sesiones no cambian.",
 		loginNote:

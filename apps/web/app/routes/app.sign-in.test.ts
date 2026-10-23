@@ -191,7 +191,7 @@ describe("the iPhone app's sign-in", () => {
 				headers: { authorization: `Bearer ${tokens.body.access_token}` },
 			}),
 		)
-		expect(principal).toMatchObject({ userId: row!.userId, access: "write", via: "oauth" })
+		expect(principal).toMatchObject({ userId: row!.userId, access: "write" })
 	})
 
 	it("is a code only the app's verifier redeems", async () => {

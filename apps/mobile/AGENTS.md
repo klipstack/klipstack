@@ -91,43 +91,27 @@ pnpm dlx expo-doctor         # Diagnose dependency and config problems
 
 ## Signing in without a password (development)
 
-A development build can skip the OAuth sign-in: put an API key for a dev-server account in
-`.env.local` as `EXPO_PUBLIC_API_TOKEN`, then restart Metro.
+A development build can skip the sign-in screen: put a refresh token the dev server issued to this
+app in `.env.local` as `EXPO_PUBLIC_APP_REFRESH_TOKEN`, then restart Metro with `pnpm start
+--clear`. Agents need this to use the simulator: they can't type passwords.
 
 ```sh
-pnpm --filter @klipstack/web api-key <email> mobile-simulator   # prints klip_…
-```
-
-The app stores it as the session (so the share extension has it too) and never refreshes it.
-Release builds ignore it. Agents need this to use the simulator: they can't type passwords.
-
-Restart Metro with `pnpm start --clear` after changing the key: without `--clear` the app can keep
-the old one. Setting `EXPO_PUBLIC_API_TOKEN` on the command line instead of in `.env.local` does
-not reach the app.
-
-The reader's AI (the brief, Explain, Define, Ask, the chat) and deleting the account answer only
-tokens the server issued to this app (`IN_APP_AI_CLIENTS` and `ACCOUNT_DELETION_CLIENTS` in
-`packages/api-contract/src/auth.ts`), not API keys: signed in with a key, the reader shows the
-answers kept but asks nothing new.
-For those, sign the app in with an app token instead: `dev-account` issues one for a throwaway
-account (below).
-
-Before the account's first question, the reader asks whether its questions may go to Anthropic
-(`AiConsentSheet`). The answer is kept on the account (`PUT /ai/consent`, `consentedAt` in
-`GET /ai`) and changed in Account. A throwaway account starts without it.
-
-```sh
-pnpm --filter @klipstack/web dev-account create --feature ai --app-token
+pnpm --filter @klipstack/web dev-account create --feature ai
 # … app token EXPO_PUBLIC_APP_REFRESH_TOKEN=…
 pnpm --filter @klipstack/web dev-account app-token <email>   # a new one, for an existing account
 ```
 
 It runs the app's real OAuth sign-in (consent and all) in process, so the token is a
-`klipstack-mobile` refresh token. Put the line in `.env.local` and restart Metro with `pnpm start
---clear`. It wins over `EXPO_PUBLIC_API_TOKEN`. The app starts its session from it once: the server
-rotates it at the first refresh, and the app keeps the new one across launches. After signing out,
-or to switch accounts, issue a new one. Run `pnpm dev` with `AI_FAKE=1` to answer with fixed text
-instead of calling the AI provider.
+`klipstack-mobile` refresh token, and the reader's AI and deleting the account work as on a phone.
+The app starts its session from it once: the server rotates it at the first refresh, and the app
+keeps the new one across launches (the share extension shares it). After signing out, or to switch
+accounts, issue a new one. Release builds ignore it. Without `--clear` the app can keep the old
+token; setting it on the command line instead of in `.env.local` does not reach the app. Run
+`pnpm dev` with `AI_FAKE=1` to answer with fixed text instead of calling the AI provider.
+
+Before the account's first question, the reader asks whether its questions may go to Anthropic
+(`AiConsentSheet`). The answer is kept on the account (`PUT /ai/consent`, `consentedAt` in
+`GET /ai`) and changed in Account. A throwaway account starts without it.
 
 - The token is for the dev server at `APP_URL`: not with `EXPO_PUBLIC_API_URL` set elsewhere.
 - Deleting the account needs a sign-in from the last 30 minutes. Later, the app asks to sign in
@@ -140,16 +124,15 @@ orb:app` rely on what it holds. Make a throwaway account on the local dev databa
 
 ```sh
 pnpm --filter @klipstack/web dev-account create --articles 20 --feature topics
-# prints the address, the password (for the web), and an API key (klip_…);
-# with --app-token, also a refresh token for the app (see above)
+# prints the address, the password (for the web), and a refresh token for the app (see above)
 pnpm --filter @klipstack/web dev-account list
 pnpm --filter @klipstack/web dev-account delete <email>   # or: delete --all
 ```
 
 It copies the demo account's newest ready articles, unread and in the Inbox, with their own copies
 of the images, so deleting it never touches the demo's. It refuses any database but a local one,
-and `delete` only touches `@throwaway.klipstack.test` accounts it made. Put the key in `.env.local`
-as above, restart Metro with `--clear`, and put your own key back when done. Delete the account
+and `delete` only touches `@throwaway.klipstack.test` accounts it made. Put the token in `.env.local`
+as above, restart Metro with `--clear`, and put your own back when done. Delete the account
 before you finish. Images are copied within `STORAGE_FS_ROOT`, one per checkout, so in a new worktree
 the articles come without them. To have them, set `STORAGE_FS_ROOT` to the storage of the checkout
 that seeded the demo for both the script and `pnpm dev`: the server reads images from its own root.

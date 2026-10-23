@@ -189,8 +189,8 @@ export function createClient(options: ClientOptions) {
 	 * The AI about an article. Each question, follow-up, retry and new brief counts against the
 	 * account's monthly cap. Answers arrive as events, as they are written: iterate them to the end.
 	 * Only `status` and `article`, which read and cost nothing, are for every client: the rest answer
-	 * only tokens issued to Klipstack's own apps with in-app AI (`IN_APP_AI_CLIENTS`); an API key,
-	 * the CLI or another app gets `forbidden`.
+	 * only tokens issued to Klipstack's own apps with in-app AI (`IN_APP_AI_CLIENTS`); the CLI or
+	 * another app gets `forbidden`.
 	 */
 	const ai = {
 		/** Whether the account can ask, and this month's questions used against its cap. */

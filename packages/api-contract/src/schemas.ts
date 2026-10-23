@@ -56,11 +56,12 @@ export const Me = z
 		id: z.string(),
 		name: z.string(),
 		email: z.string(),
-		/** What the token may do: API keys always write; OAuth tokens need library:write. */
+		/** What the token may do: writing needs library:write. */
 		access: z.enum(["read", "write"]),
-		via: z.enum(["api_key", "oauth"]),
-		/** The OAuth client, or null for an API key. */
-		client: z.object({ id: z.string(), name: z.string() }).nullable(),
+		/** How the caller signed in: always an OAuth token, now that API keys are retired. */
+		via: z.enum(["oauth"]),
+		/** The OAuth client the token was issued to. */
+		client: z.object({ id: z.string(), name: z.string() }),
 		/**
 		 * Editions are turned on for the account, in Settings → Features on the web. Off (the default),
 		 * marking articles for the next edition and writing edition notes are refused (`forbidden`),

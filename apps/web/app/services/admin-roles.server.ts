@@ -20,7 +20,7 @@ export interface RoleChangeResult {
  * One transaction: the role, the end of every browser session of that account (a fresh login is
  * required after a grant as well as a revoke), and the audit event. The row lock (FOR UPDATE) is
  * what an admin's own mutation waits on, or makes this wait: see `adminMutation`. The account's
- * API keys and OAuth grants are left alone, since they never carry admin authority.
+ * OAuth grants are left alone, since they never carry admin authority.
  */
 export async function changeRole(
 	target: RoleTarget,

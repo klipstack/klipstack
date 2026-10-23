@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { expect, test } from "@playwright/test"
-import { signupUser, waitForHydration } from "./helpers"
+import { connectApp, signupUser, waitForHydration } from "./helpers"
 
 const FIXTURE = join(
 	import.meta.dirname,
@@ -11,23 +11,18 @@ const FIXTURE_URL =
 	"https://www.joelonsoftware.com/2000/08/09/the-joel-test-12-steps-to-better-code/"
 const TITLE = "The Joel Test: 12 Steps to Better Code"
 
-test("api key → API save with captured html → search → palette → export → delete account", async ({
+test("connected app → API save with captured html → search → palette → export → delete account", async ({
 	page,
 	request,
+	baseURL,
 }) => {
 	test.setTimeout(150_000)
 	const email = await signupUser(page, "Settings")
 
-	// create an API key
-	await page.goto("/settings/api-keys")
-	await waitForHydration(page)
-	await page.getByLabel("Name (e.g. MacBook Chrome)").fill("Playwright")
-	await page.getByRole("button", { name: "Create key" }).click()
-	const key = (await page.getByTestId("new-api-key").textContent())?.trim() ?? ""
-	expect(key).toMatch(/^klip_/)
-	await expect(page.getByText("Playwright", { exact: true })).toBeVisible()
+	// connect an app through OAuth
+	const token = await connectApp(page, request, baseURL ?? "", "Playwright")
 
-	// bearer auth without cookies, through the API (the browser's save endpoint takes no keys)
+	// bearer auth without cookies, through the API (the browser's save endpoint takes no tokens)
 	const anon = await request.post("/api/v1/articles", { data: { url: FIXTURE_URL } })
 	expect(anon.status()).toBe(401)
 	const bad = await request.post("/api/v1/articles", {
@@ -36,7 +31,7 @@ test("api key → API save with captured html → search → palette → export 
 	})
 	expect(bad.status()).toBe(401)
 	const saved = await request.post("/api/v1/articles", {
-		headers: { authorization: `Bearer ${key}` },
+		headers: { authorization: `Bearer ${token}` },
 		data: { url: FIXTURE_URL, html: readFileSync(FIXTURE, "utf8") },
 	})
 	expect(saved.status()).toBe(202)
@@ -120,14 +115,15 @@ test("api key → API save with captured html → search → palette → export 
 	expect(bundle.documents.map((d) => d.title)).toContain(TITLE)
 	expect(bundle.documents[0]?.markdown).toContain("source control")
 
-	// revoke key → bearer stops working
-	await page.getByRole("link", { name: "API keys" }).click()
-	await expect(page).toHaveURL(/\/settings\/api-keys$/)
+	// disconnect the app → bearer stops working
+	await page.getByRole("link", { name: "Connected apps" }).click()
+	await expect(page).toHaveURL(/\/settings\/connected-apps$/)
+	await waitForHydration(page)
 	page.once("dialog", (d) => d.accept())
-	await page.getByRole("button", { name: "Revoke Playwright" }).click()
-	await expect(page.getByText("No keys yet.")).toBeVisible()
+	await page.getByRole("button", { name: "Disconnect Playwright" }).click()
+	await expect(page.getByText("No connected apps.")).toBeVisible()
 	const revoked = await request.get("/api/v1/me", {
-		headers: { authorization: `Bearer ${key}` },
+		headers: { authorization: `Bearer ${token}` },
 	})
 	expect(revoked.status()).toBe(401)
 

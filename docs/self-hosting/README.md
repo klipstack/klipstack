@@ -113,7 +113,7 @@ the `postgres` service and the `DATABASE_URL` line from `compose.yml`, and set `
 
 Without a key the server sends no email at all; it never prints sign-in links to the log. Password
 login still works, but email links, password resets and email verification do not. Only a verified
-account can become an admin, create API keys or connect apps, so without email you need Google,
+account can become an admin, or connect apps, so without email you need Google,
 GitHub or Apple sign-in ([sign-in-providers.md](sign-in-providers.md)): they verify the address themselves.
 
 A welcome for new accounts is off unless you turn it on. With `WELCOME_FROM_NAME` and

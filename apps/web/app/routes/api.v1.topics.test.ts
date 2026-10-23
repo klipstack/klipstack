@@ -289,7 +289,7 @@ describe("correcting topics in the API", () => {
 		// The server's own check, past the SDK's.
 		const blank = await request(`/api/v1/topics/${writing}`, {
 			method: "PATCH",
-			token: me.key,
+			token: me.token,
 			headers: { "content-type": "application/json" },
 			body: JSON.stringify({ name: " " }),
 		})
@@ -387,7 +387,7 @@ describe("correcting topics in the API", () => {
 		expect(row?.count).toBe(2)
 		const unknown = await request("/api/v1/topics/use", {
 			method: "POST",
-			token: me.key,
+			token: me.token,
 			headers: { "content-type": "application/json" },
 			body: JSON.stringify({ use: "topic_sorts" }),
 		})

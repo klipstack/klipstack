@@ -2,7 +2,7 @@ import { CONTROLLER, type Policy, PRIVACY_CONTACT } from "./types"
 
 export default {
 	title: "Política de privacidad",
-	updated: "Última actualización: 21 de octubre de 2026",
+	updated: "Última actualización: 23 de octubre de 2026",
 	summary:
 		"Klipstack guarda lo que guardas para que puedas leerlo. No vende tus datos, no muestra anuncios y no te rastrea. Esta página explica qué recopilamos, para qué, quién nos ayuda a operar el servicio y qué puedes hacer al respecto.",
 	contentsLabel: "En esta página",
@@ -166,7 +166,7 @@ export default {
 						"En la app para iPhone, la IA del lector funciona como en la web y envía lo mismo: mira «Preguntas sobre lo que lees».",
 						"La extensión de compartir (Klipstack en el menú Compartir del iPhone) lee solo el enlace que compartes, o el primer enlace web de un texto, y envía ese enlace a Klipstack, que lo guarda como cualquier otro.",
 						"El widget «Next up» le pide a Klipstack los próximos artículos de tu bandeja de entrada (Inbox): título, sitio, tiempo de lectura, cuánto leíste y la imagen. Guarda los últimos en el teléfono para mostrarlos sin conexión. Una imagen que Klipstack no guardó se carga desde el sitio web del artículo.",
-						"Puedes conectar otras apps y asistentes de IA a tu biblioteca (claves de API, MCP). Solo acceden a lo que permites, y puedes quitarlos en Ajustes cuando quieras. Lo que hagan con los datos depende de ellos y de sus propias políticas de privacidad.",
+						"Puedes conectar otras apps y asistentes de IA a tu biblioteca (MCP). Solo acceden a lo que permites, y puedes quitarlos en Ajustes cuando quieras. Lo que hagan con los datos depende de ellos y de sus propias políticas de privacidad.",
 					],
 				},
 			],

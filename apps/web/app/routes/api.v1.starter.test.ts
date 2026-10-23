@@ -99,7 +99,7 @@ describe("GET /starter-texts", () => {
 
 	it("refuses a language it doesn't have", async () => {
 		const reader = await users.create("Reader")
-		const answer = await request("/api/v1/starter-texts?language=fr", { token: reader.key })
+		const answer = await request("/api/v1/starter-texts?language=fr", { token: reader.token })
 		expect(answer.status).toBe(400)
 		expect(await answer.json()).toMatchObject({ error: { code: "invalid_request" } })
 	})

@@ -34,7 +34,7 @@ Docker: `pnpm --filter @klipstack/web admin list`.
   `operator-cli`. The reason is context, not proof of who ran the command.
 - Repeating a command reports "no change needed" and exits 0. A missing account, an unverified or
   passwordless grant, bad arguments or a failed transaction exit nonzero and change nothing.
-- API keys and OAuth grants are not touched: they never carry admin authority.
+- OAuth grants are not touched: they never carry admin authority.
 - To switch admin access off, revoke every admin. Revoking the last one is allowed.
 - The image ships this CLI only, and its build fails if the CLI cannot load. The invite CLI
   (`pnpm --filter @klipstack/web invite`) is not in the image: create invites on `/admin/invites`.

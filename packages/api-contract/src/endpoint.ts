@@ -46,8 +46,8 @@ export interface EndpointShape {
 	path: `/${string}`
 	scope: Scope
 	/**
-	 * Only OAuth tokens issued to one of these clients may call it; API keys and other clients get
-	 * `403 forbidden`. A rule of ours (who spends the account's AI, who deletes the account), not a
+	 * Only OAuth tokens issued to one of these clients may call it; other clients get `403 forbidden`.
+	 * A rule of ours (who spends the account's AI, who deletes the account), not a
 	 * scope: no consent grants it.
 	 */
 	clients?: OnlyClients

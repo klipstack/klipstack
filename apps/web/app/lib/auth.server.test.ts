@@ -1,7 +1,6 @@
 import { createHmac, randomUUID } from "node:crypto"
 import {
 	account,
-	apiKeys,
 	db,
 	eq,
 	invites,
@@ -14,7 +13,6 @@ import {
 } from "@klipstack/db"
 import { APIError } from "better-auth/api"
 import { afterAll, describe, expect, it, vi } from "vitest"
-import { createApiKey, hashApiKey, userForApiKey } from "~/services/api-keys.server"
 import { env } from "./env.server"
 import { listFeatures } from "./features.server"
 
@@ -119,16 +117,6 @@ describe("auth", () => {
 		expect(row!.prefs).toEqual({})
 		// A new account starts with AI and topics turned on; an admin can still turn them off.
 		expect(await listFeatures(signup.response.user.id)).toEqual(["ai", "topics"])
-		await expect(createApiKey(signup.response.user.id, "Unverified")).rejects.toMatchObject({
-			code: "verification_required",
-		})
-		const legacyKey = `klip_${crypto.randomUUID()}`
-		await db.insert(apiKeys).values({
-			userId: signup.response.user.id,
-			name: "Legacy attacker key",
-			prefix: legacyKey.slice(0, 11),
-			keyHash: hashApiKey(legacyKey),
-		})
 		expect(signup.headers.getSetCookie().some((c) => c.startsWith("klip.session_token="))).toBe(
 			true,
 		)
@@ -158,9 +146,6 @@ describe("auth", () => {
 				.join("; "),
 		})
 		expect(await auth.api.getSession({ headers: previous })).toBeNull()
-		expect(await userForApiKey(legacyKey)).toBeNull()
-		const fresh = await createApiKey(signup.response.user.id, "Verified owner")
-		expect((await userForApiKey(fresh.raw))?.id).toBe(signup.response.user.id)
 		await expect(
 			auth.api.signInEmail({ body: { email, password: "password123" } }),
 		).rejects.toMatchObject({ statusCode: 401 })
@@ -192,7 +177,7 @@ describe("auth", () => {
 		).rejects.toMatchObject({ statusCode: 401 })
 	})
 
-	it("ends a verified account's API keys and connected apps with a reset", async () => {
+	it("ends a verified account's connected apps with a reset", async () => {
 		const signup = await withSignupAllowed(() =>
 			auth.api.signUpEmail({
 				headers: testHeaders,
@@ -202,19 +187,16 @@ describe("auth", () => {
 		const userId = signup.user.id
 		await db.update(userTable).set({ emailVerified: true }).where(eq(userTable.id, userId))
 		// What someone with a stolen session could have left behind.
-		const key = await createApiKey(userId, "left behind")
 		const clientId = `recovery-client-${Date.now()}`
 		await db
 			.insert(oauthClient)
 			.values({ id: newId(), clientId, name: "Theirs", redirectUris: ["http://127.0.0.1/cb"] })
 		await db.insert(oauthConsent).values({ id: newId(), clientId, userId, scopes: ["openid"] })
 		await db.insert(oauthGrants).values({ userId, clientId, generation: newId() })
-		expect(await userForApiKey(key.raw)).not.toBeNull()
 
 		const token = await emailedResetToken(recoveredEmail)
 		await auth.api.resetPassword({ body: { token, newPassword: "recovered-password-1" } })
 
-		expect(await userForApiKey(key.raw)).toBeNull()
 		expect(await db.select().from(oauthConsent).where(eq(oauthConsent.userId, userId))).toEqual([])
 		expect(await db.select().from(oauthGrants).where(eq(oauthGrants.userId, userId))).toEqual([])
 		const [owner] = await db.select().from(userTable).where(eq(userTable.id, userId))

@@ -16,7 +16,13 @@ import {
 	user,
 	userFeatures,
 } from "@klipstack/db"
-import { expect, type Locator, type Page, type TestInfo } from "@playwright/test"
+import {
+	type APIRequestContext,
+	expect,
+	type Locator,
+	type Page,
+	type TestInfo,
+} from "@playwright/test"
 import { changeRole } from "../app/services/admin-roles.server"
 
 /**
@@ -83,15 +89,40 @@ export async function waitForSidebarPrefetch(page: Page) {
 	)
 }
 
-/** Creates an API key in Settings for the signed-in user and returns it. */
-export async function createApiKey(page: Page, name = "MCP") {
-	await page.goto("/settings/api-keys")
+/**
+ * Connects a new app (`name`) to the signed-in user's account through OAuth, consent screen and
+ * all, and returns its access token for the HTTP API, able to read and write. `api` has no
+ * cookies, like an app.
+ */
+export async function connectApp(
+	page: Page,
+	api: APIRequestContext,
+	baseURL: string,
+	name: string,
+) {
+	const resource = `${baseURL}/api`
+	const client = await createOAuthClient(name, { resources: [resource] })
+	const { challenge, verifier } = pkce()
+	const callback = catchCallback(page, client.redirectUri)
+	await page.goto(
+		authorizeUrl(client, { challenge, scope: "library:read library:write", resource }),
+	)
+	await expect(page).toHaveURL(/\/oauth\/consent\?/)
 	await waitForHydration(page)
-	await page.getByLabel("Name (e.g. MacBook Chrome)").fill(name)
-	await page.getByRole("button", { name: "Create key" }).click()
-	const apiKey = (await page.getByTestId("new-api-key").textContent())?.trim() ?? ""
-	expect(apiKey).toMatch(/^klip_/)
-	return apiKey
+	await page.getByRole("button", { name: "Allow" }).click()
+	const code = (await callback).searchParams.get("code") ?? ""
+	const res = await api.post("/api/auth/oauth2/token", {
+		form: {
+			grant_type: "authorization_code",
+			code,
+			redirect_uri: client.redirectUri,
+			client_id: client.clientId,
+			code_verifier: verifier,
+			resource,
+		},
+	})
+	expect(res.status(), await res.text()).toBe(200)
+	return ((await res.json()) as { access_token: string }).access_token
 }
 
 /** A public OAuth client (PKCE, no secret), registered the way an admin would. */

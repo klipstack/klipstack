@@ -15,7 +15,7 @@ import { KlipstackApiError, KlipstackContractError, KlipstackInputError } from "
 import { sseData } from "./events"
 
 /**
- * Returns the current API key or access token. The SDK asks with `refresh: true` once after a 401,
+ * Returns the current access token. The SDK asks with `refresh: true` once after a 401,
  * so an OAuth caller can refresh its access token; the caller owns the refresh flow.
  */
 export type TokenProvider = (ctx: { refresh: boolean }) => string | Promise<string>

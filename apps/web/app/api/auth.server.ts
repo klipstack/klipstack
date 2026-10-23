@@ -8,30 +8,28 @@ import { env, selfUrl } from "~/lib/env.server"
 import { liveTokenScopes } from "~/lib/live-token.server"
 import { countRefusedBearer, refusedBearerWait } from "~/lib/rate-limit.server"
 import { namesKnownSigningKey } from "~/lib/signing-keys.server"
-import { API_KEY_PREFIX, userForApiKey } from "~/services/api-keys.server"
 import { ApiError, insufficientScope, rateLimited, unauthorized } from "./errors.server"
 
 /**
- * Who is calling the API. Bearer tokens only: an API key (`klip_…`, full access) or an OAuth access
- * token issued for the `/api` resource with `library:read` and, for writes, `library:write`.
- * Cookies are ignored, so browser sessions cannot call the API and there is no CSRF surface.
+ * Who is calling the API. Bearer tokens only: an OAuth access token issued for the `/api` resource
+ * with `library:read` and, for writes, `library:write`. Cookies are ignored, so browser sessions
+ * cannot call the API and there is no CSRF surface.
  */
 export interface ApiPrincipal {
 	userId: string
 	access: "read" | "write"
-	via: "api_key" | "oauth"
-	/** The OAuth client id; null for an API key. */
-	clientId: string | null
+	/** The OAuth client the token was issued to. */
+	clientId: string
 	/**
 	 * The browser session the OAuth sign-in went through (the token's `sid`, which refreshes keep):
-	 * when it was created is when the user signed in. Null for an API key.
+	 * when it was created is when the user signed in. Null when the token names none.
 	 */
 	sessionId: string | null
 }
 
 export async function authenticateApiRequest(request: Request): Promise<ApiPrincipal> {
 	const bearer = /^Bearer\s+(\S+)$/i.exec(request.headers.get("authorization") ?? "")?.[1]
-	if (!bearer) throw unauthorized("Send an API key or an access token as a bearer token.", false)
+	if (!bearer) throw unauthorized("Send an access token as a bearer token.", false)
 	// Past too many refused tokens, an address is refused before the lookup.
 	const address = trustedAuthAddress(request.headers)
 	const wait = refusedBearerWait(address)
@@ -45,13 +43,6 @@ export async function authenticateApiRequest(request: Request): Promise<ApiPrinc
 }
 
 async function principalFor(bearer: string, request: Request): Promise<ApiPrincipal> {
-	if (bearer.startsWith(API_KEY_PREFIX)) {
-		const user = await userForApiKey(bearer)
-		if (!user) throw unauthorized("Invalid API key.", true)
-		// API keys can already do everything in the account.
-		return { userId: user.id, access: "write", via: "api_key", clientId: null, sessionId: null }
-	}
-
 	const invalid = () => unauthorized("Invalid or expired access token.", true)
 	// A made-up key id would make the verifier fetch our key set on every request.
 	if (!(await namesKnownSigningKey(bearer))) throw invalid()
@@ -75,7 +66,6 @@ async function principalFor(bearer: string, request: Request): Promise<ApiPrinci
 	return {
 		userId,
 		access: scopes.has(LIBRARY_WRITE_SCOPE) ? "write" : "read",
-		via: "oauth",
 		clientId,
 		sessionId: typeof claims.sid === "string" ? claims.sid : null,
 	}

@@ -9,13 +9,6 @@ import {
 	type Written,
 	written,
 } from "./ai"
-import { DEV_API_TOKEN, DEV_APP_REFRESH_TOKEN } from "./config"
-
-/**
- * Signed in with the development API key (`DEV_API_TOKEN`): it may read the answers kept, but only
- * a token the server issued to this app may ask. The app token wins over the key, as at sign-in.
- */
-const SIGNED_IN_WITH_KEY = !!DEV_API_TOKEN && !DEV_APP_REFRESH_TOKEN
 
 /**
  * The reader's AI for one article: whether the account may ask (the `ai` feature, on a server set
@@ -55,7 +48,7 @@ export function useReaderAi(client: KlipstackClient | null, articleId: string, r
 				setThreads(article.threads)
 				setBrief(article.brief)
 				setEnabled(true)
-				setAsking(status.enabled && !SIGNED_IN_WITH_KEY)
+				setAsking(status.enabled)
 			} catch {
 				// No AI here: offline, an older server, or the feature off meanwhile.
 			}

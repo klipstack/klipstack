@@ -1,7 +1,9 @@
+import { createHash, randomBytes } from "node:crypto"
 import { readFileSync } from "node:fs"
 import { describeRange } from "@klipstack/anchor"
 import { BATCH_MAX } from "@klipstack/api-contract"
 import {
+	apiKeys,
 	db,
 	documentRaw,
 	documents,
@@ -73,15 +75,15 @@ function queuedArticle(userId: string) {
 }
 
 describe("the API's door", () => {
-	it("an API key reads the account; anything else is challenged", async () => {
+	it("an app's token reads the account; anything else is challenged", async () => {
 		const me = await users.create("API Person")
 		expect(await me.client.me()).toEqual({
 			id: me.id,
 			name: "API Person",
 			email: me.email,
 			access: "write",
-			via: "api_key",
-			client: null,
+			via: "oauth",
+			client: { id: `${me.id}-script`, name: "Someone's app" },
 			editions: true,
 			feeds: true,
 		})
@@ -104,6 +106,25 @@ describe("the API's door", () => {
 		expect(bad.headers.get("www-authenticate")).toBe(
 			'Bearer realm="klipstack", error="invalid_token"',
 		)
+		// API keys are retired: one still in the table, never revoked, opens neither the API nor MCP.
+		const legacyKey = `klip_${randomBytes(24).toString("base64url")}`
+		await db.insert(apiKeys).values({
+			userId: me.id,
+			name: "from before",
+			prefix: legacyKey.slice(0, 11),
+			keyHash: createHash("sha256").update(legacyKey).digest("hex"),
+		})
+		expect((await request("/api/v1/me", { token: legacyKey })).status).toBe(401)
+		const mcpWithKey = await request("/mcp", {
+			method: "POST",
+			token: legacyKey,
+			headers: {
+				"content-type": "application/json",
+				accept: "application/json, text/event-stream",
+			},
+			body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
+		})
+		expect(mcpWithKey.status).toBe(401)
 		const cookie = await request("/api/v1/me", { headers: { cookie: "klip.session_token=any" } })
 		expect(cookie.status).toBe(401)
 		// A well-formed JWT naming a key we do not have: refused like any bad token, on both resources.
@@ -124,10 +145,10 @@ describe("the API's door", () => {
 		expect(forgedMcp.headers.get("www-authenticate")).toContain("resource_metadata=")
 
 		// Unknown endpoints and methods have the same body shape.
-		const missing = await request("/api/v1/nothing", { token: me.key })
+		const missing = await request("/api/v1/nothing", { token: me.token })
 		expect(missing.status).toBe(404)
 		expect((await missing.json()).error.code).toBe("not_found")
-		const wrongMethod = await request("/api/v1/me", { method: "DELETE", token: me.key })
+		const wrongMethod = await request("/api/v1/me", { method: "DELETE", token: me.token })
 		expect(wrongMethod.status).toBe(405)
 		expect(wrongMethod.headers.get("allow")).toBe("GET")
 		expect((await wrongMethod.json()).error.code).toBe("method_not_allowed")
@@ -138,7 +159,7 @@ describe("the API's door", () => {
 		const urls = Array.from({ length: 50 }, () => `https://example.com/${"x".repeat(30_000)}`)
 		const res = await request("/api/v1/articles/lookup", {
 			method: "POST",
-			token: me.key,
+			token: me.token,
 			headers: { "content-type": "application/json" },
 			body: JSON.stringify({ urls }),
 		})
@@ -197,7 +218,7 @@ describe("reads", () => {
 		"lists, search, lookup, details, Markdown, highlights and export",
 		{ timeout: 30_000 },
 		async () => {
-			const { key, client, joel, colors, wide, small, id: owner } = await readsLibrary()
+			const { token, client, joel, colors, wide, small, id: owner } = await readsLibrary()
 
 			// Lists: views, filters, sorts and pages.
 			const inbox = await client.articles.list()
@@ -234,7 +255,7 @@ describe("reads", () => {
 				client.articles.list({ view: "trash", filter: "unread" }),
 			).rejects.toBeInstanceOf(KlipstackInputError)
 			const wrongFilter = await request("/api/v1/articles?view=archive&filter=unread", {
-				token: key,
+				token,
 			})
 			expect(wrongFilter.status).toBe(400)
 			expect(await wrongFilter.json()).toMatchObject({
@@ -243,7 +264,7 @@ describe("reads", () => {
 					details: { where: "query", issues: [expect.objectContaining({ path: ["filter"] })] },
 				},
 			})
-			expect((await request("/api/v1/articles?cursor=nope", { token: key })).status).toBe(400)
+			expect((await request("/api/v1/articles?cursor=nope", { token })).status).toBe(400)
 
 			// Search and lookup.
 			expect((await client.articles.search("source control")).items[0]?.id).toBe(joel)
@@ -356,7 +377,7 @@ describe("reads", () => {
 			expect(original).toContain("![A red band](https://example.com/red.png)")
 			expect(original).toContain("![A blue square](https://example.com/blue.png)")
 			expect(original).not.toContain("/assets/")
-			const rawMarkdown = await request(`/api/v1/articles/${colors}/markdown`, { token: key })
+			const rawMarkdown = await request(`/api/v1/articles/${colors}/markdown`, { token })
 			expect(rawMarkdown.headers.get("content-type")).toBe("text/markdown; charset=utf-8")
 			const queued = await queuedArticle(owner)
 			expect(await errorOf(client.articles.markdown(queued))).toMatchObject({
@@ -371,7 +392,7 @@ describe("reads", () => {
 			const etag = image.headers.get("etag") ?? ""
 			expect(Buffer.from(await image.arrayBuffer()).equals(wide.data)).toBe(true)
 			const cached = await request(`/api/v1/assets/${wide.id}`, {
-				token: key,
+				token,
 				headers: { "if-none-match": etag },
 			})
 			expect(cached.status).toBe(304)
@@ -402,9 +423,7 @@ describe("reads", () => {
 			const impossible = Buffer.from(
 				JSON.stringify({ createdAt: "2026-13-01T00:00:00Z", id: MISSING }),
 			).toString("base64url")
-			expect(
-				(await request(`/api/v1/highlights?cursor=${impossible}`, { token: key })).status,
-			).toBe(400)
+			expect((await request(`/api/v1/highlights?cursor=${impossible}`, { token })).status).toBe(400)
 
 			// Export, as Settings makes it.
 			const zip = await client.export()
@@ -633,13 +652,13 @@ describe("writes", () => {
 		"save, triage, tags, saved searches, rename, trash and restore",
 		{ timeout: 30_000 },
 		async () => {
-			const { key, client } = await users.create("API Writer")
+			const { token, client } = await users.create("API Writer")
 			const html = readFileSync(JOEL.file, "utf8")
 
 			// Saving: 202 when new, 200 when the URL is already there; the capture is stored and extracted.
 			const created = await request("/api/v1/articles", {
 				method: "POST",
-				token: key,
+				token,
 				...json({ url: JOEL.url, html, source: "extension" }),
 			})
 			expect(created.status).toBe(202)
@@ -656,7 +675,7 @@ describe("writes", () => {
 			expect(await captures()).toEqual([{ source: "extension" }])
 			const again = await request("/api/v1/articles", {
 				method: "POST",
-				token: key,
+				token,
 				...json({ url: JOEL.url }),
 			})
 			expect(again.status).toBe(200)
@@ -780,7 +799,7 @@ describe("writes", () => {
 			]) {
 				const res = await request("/api/v1/saved-searches", {
 					method: "POST",
-					token: key,
+					token,
 					...json(data),
 				})
 				expect(res.status, JSON.stringify(data)).toBe(400)
@@ -819,7 +838,7 @@ describe("writes", () => {
 			// Deleting a tag leaves its articles, without it.
 			expect((await client.articles.get(makers)).tags).toEqual([])
 			for (const data of [{ name: "a,b" }, { name: "" }, {}]) {
-				const res = await request("/api/v1/tags", { method: "POST", token: key, ...json(data) })
+				const res = await request("/api/v1/tags", { method: "POST", token, ...json(data) })
 				expect(res.status, JSON.stringify(data)).toBe(400)
 			}
 			// Contradictions and empty changes are refused, by the SDK and by the server.
@@ -836,7 +855,7 @@ describe("writes", () => {
 			]) {
 				const res = await request("/api/v1/articles", {
 					method: "PATCH",
-					token: key,
+					token,
 					...json(data),
 				})
 				expect(res.status, JSON.stringify(data)).toBe(400)
@@ -982,7 +1001,7 @@ describe("writes", () => {
 	})
 
 	it("the note for the next edition, apart from the private note", async () => {
-		const { id: owner, key, client } = await users.create("API Edition Note")
+		const { id: owner, token, client } = await users.create("API Edition Note")
 		const article = await insertArticle(owner, "Shared", "<p>Worth reading.</p>")
 		expect((await client.articles.get(article)).editionNote).toBeNull()
 		expect(await client.articles.setEditionNote(article, "  Read the second half.  ")).toEqual({
@@ -998,14 +1017,14 @@ describe("writes", () => {
 		})
 		const long = await request(`/api/v1/articles/${article}/edition-note`, {
 			method: "PUT",
-			token: key,
+			token,
 			...json({ note: "x".repeat(100_001) }),
 		})
 		expect(long.status).toBe(400)
 	})
 
 	it("notes with conflict checks, and highlights by quote", { timeout: 30_000 }, async () => {
-		const { id: owner, key, client } = await users.create("API Notes")
+		const { id: owner, token, client } = await users.create("API Notes")
 		const joel = await captured(owner, JOEL)
 		const colors = await insertArticle(owner, "Colors", "<p>Red and blue.</p>")
 
@@ -1035,7 +1054,7 @@ describe("writes", () => {
 		for (const expectedUpdatedAt of ["0000-01-01T00:00:00Z", "2026-01-01T00:00:00+16:00"]) {
 			const res = await request(`/api/v1/articles/${joel}/note`, {
 				method: "PUT",
-				token: key,
+				token,
 				...json({ note: "Private words", expectedUpdatedAt }),
 			})
 			expect(res.status, expectedUpdatedAt).toBe(400)
@@ -1054,7 +1073,7 @@ describe("writes", () => {
 		const append = (text: string) =>
 			request(`/api/v1/articles/${joel}/note/append`, {
 				method: "POST",
-				token: key,
+				token,
 				...json({ text }),
 			})
 		expect((await append("x".repeat(100_000))).status).toBe(200)
@@ -1117,7 +1136,7 @@ describe("writes", () => {
 		})
 		const raw = await request(`/api/v1/articles/${joel}/highlights`, {
 			method: "POST",
-			token: key,
+			token,
 			...json({ quote: "for measuring how good a software team is" }),
 		})
 		expect(raw.status).toBe(201)
@@ -1180,7 +1199,7 @@ describe("writes", () => {
 		expect((await client.highlights.list({ article: joel })).items).toHaveLength(3)
 		const removed = await request(`/api/v1/highlights/${created.highlight.id}`, {
 			method: "DELETE",
-			token: key,
+			token,
 		})
 		expect(removed.status).toBe(204)
 		expect(await client.highlights.delete(linked.highlight.id)).toBeUndefined()
@@ -1313,7 +1332,7 @@ describe("writes", () => {
 	})
 
 	it("opening an article and saving where the reader is", async () => {
-		const { id: owner, key, client } = await users.create("API Reading")
+		const { id: owner, token, client } = await users.create("API Reading")
 		const id = await insertArticle(owner, "Long read", "<p>Words.</p>")
 		expect(await client.articles.get(id)).toMatchObject({
 			opened: false,
@@ -1344,7 +1363,7 @@ describe("writes", () => {
 
 		const outOfRange = await request(`/api/v1/articles/${id}/position`, {
 			method: "PUT",
-			token: key,
+			token,
 			...json({ position: 1.5 }),
 		})
 		expect(outOfRange.status).toBe(400)
@@ -1353,7 +1372,7 @@ describe("writes", () => {
 	})
 
 	it("the feed and followed feeds", async () => {
-		const { email, key, client } = await users.create("API Feed Writer")
+		const { email, token, client } = await users.create("API Feed Writer")
 		const { otherUrl } = await seedFeeds(email)
 		const listed = await client.feed.get()
 		const [post3, post2, post1] = listed.feeds[0]!.items.map((i) => i.id)
@@ -1381,14 +1400,14 @@ describe("writes", () => {
 		expect(Date.parse(future.viewedAt)).toBeLessThanOrEqual(Date.now())
 		const yearZero = await request("/api/v1/feed/viewed", {
 			method: "POST",
-			token: key,
+			token,
 			...json({ asOf: "0000-01-01T00:00:00Z" }),
 		})
 		expect(yearZero.status).toBe(400)
 
 		// Follow a known feed (no fetch): 201, then 200 when already followed.
 		const follow = () =>
-			request("/api/v1/feeds", { method: "POST", token: key, ...json({ url: otherUrl }) })
+			request("/api/v1/feeds", { method: "POST", token, ...json({ url: otherUrl }) })
 		const followed = await follow()
 		expect(followed.status).toBe(201)
 		const body = (await followed.json()) as { feed: { id: string } }
@@ -1456,7 +1475,7 @@ describe("a lapsed account", () => {
 		env.BILLING_STARTS_AT = new Date(Date.now() - 60 * DAY)
 		try {
 			const saved = await request("/api/v1/articles", {
-				token: me.key,
+				token: me.token,
 				method: "POST",
 				headers: { "content-type": "application/json" },
 				body: JSON.stringify({ url: "https://example.com/lapsed-save" }),
@@ -1465,7 +1484,7 @@ describe("a lapsed account", () => {
 			expect(await saved.json()).toMatchObject({
 				error: { code: "subscription_required", details: { endedAt: expect.any(String) } },
 			})
-			const library = await request("/api/v1/articles", { token: me.key })
+			const library = await request("/api/v1/articles", { token: me.token })
 			expect(library.status).toBe(200)
 			expect(JSON.stringify(await library.json())).toContain(article)
 		} finally {

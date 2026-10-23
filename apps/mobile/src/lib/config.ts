@@ -12,18 +12,10 @@ export const DEFAULT_API_URL =
 	process.env.EXPO_PUBLIC_API_URL || (__DEV__ ? "http://localhost:5180" : "https://klipstack.com")
 
 /**
- * Development builds only: an API key for the dev server (`EXPO_PUBLIC_API_TOKEN` in
- * apps/mobile/.env.local, made with `pnpm --filter @klipstack/web api-key <email>`) that stands in
- * for signing in, so the simulator and agents need no password. Like the CLI's `KLIPSTACK_TOKEN`.
- * Release builds drop the branch, key and all.
- */
-export const DEV_API_TOKEN = __DEV__ ? process.env.EXPO_PUBLIC_API_TOKEN || null : null
-
-/**
  * Development builds only: a refresh token the dev server issued to this app
- * (`EXPO_PUBLIC_APP_REFRESH_TOKEN`, from `pnpm --filter @klipstack/web dev-account create
- * --app-token`), for what an API key can't do: the reader's AI and deleting the account. The app
- * signs in with it once; the server rotates it at the first refresh.
+ * (`EXPO_PUBLIC_APP_REFRESH_TOKEN`, from `pnpm --filter @klipstack/web dev-account create`), so
+ * the simulator and agents need no password. The app signs in with it once; the server rotates it
+ * at the first refresh. Release builds drop the branch, token and all.
  */
 export const DEV_APP_REFRESH_TOKEN = __DEV__
 	? process.env.EXPO_PUBLIC_APP_REFRESH_TOKEN || null

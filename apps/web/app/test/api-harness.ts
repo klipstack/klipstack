@@ -17,11 +17,10 @@ import {
 import { QUEUES } from "@klipstack/queue"
 import { createClient } from "@klipstack/sdk"
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client"
-import { API_RESOURCE, auth } from "~/lib/auth.server"
+import { API_RESOURCE, auth, MCP_RESOURCE } from "~/lib/auth.server"
 import { env, selfUrl } from "~/lib/env.server"
 import { action as apiAction, loader as apiLoader } from "~/routes/api.v1"
 import { action as mcpAction, loader as mcpLoader } from "~/routes/mcp"
-import { createApiKey } from "~/services/api-keys.server"
 import { saveDocument } from "~/services/documents.server"
 import { handleExtract } from "../../../worker/src/jobs/extract"
 
@@ -75,8 +74,9 @@ export async function mcpClient(token: string, { legacy = false } = {}) {
 }
 
 /**
- * Test accounts with an API key; `cleanup` deletes them and what they own. Editions and feeds are
- * on for them unless `prefs` says otherwise.
+ * Test accounts, each signed in to an app of its own: `token` and `client` for the API, `mcpToken`
+ * for MCP, both able to read and write. `cleanup` deletes them and what they own. Editions and feeds
+ * are on for them unless `prefs` says otherwise.
  */
 export function apiUsers(tag: string) {
 	const ids: string[] = []
@@ -85,8 +85,9 @@ export function apiUsers(tag: string) {
 		const email = `${id}@example.com`
 		await db.insert(user).values({ id, name, email, emailVerified: true, prefs })
 		ids.push(id)
-		const key = (await createApiKey(id, "tests")).raw
-		return { id, name, email, key, client: sdk(key) }
+		const token = await oauthToken(id, `${id}-script`)
+		const mcpToken = await oauthToken(id, `${id}-assistant`, undefined, { resource: MCP_RESOURCE })
+		return { id, name, email, token, mcpToken, client: sdk(token) }
 	}
 	async function cleanup() {
 		for (const id of ids) await db.delete(user).where(eq(user.id, id))
@@ -112,13 +113,13 @@ export async function browserSession(
  * An access token for the API as `clientId` gets one when the user signs in to it: their consent
  * and grant rows, and a token signed with our real key. A client that is not registered (not one
  * of ours) becomes an app the user registered, deleted with them. `sid`: the browser session the
- * sign-in went through (`browserSession`).
+ * sign-in went through (`browserSession`); `resource`: what the token is for, the API by default.
  */
 export async function oauthToken(
 	userId: string,
 	clientId: string,
 	scopes: string[] = [LIBRARY_READ_SCOPE, LIBRARY_WRITE_SCOPE],
-	{ sid }: { sid?: string } = {},
+	{ sid, resource = API_RESOURCE }: { sid?: string; resource?: string } = {},
 ) {
 	serveKeySet()
 	await db
@@ -142,7 +143,7 @@ export async function oauthToken(
 			payload: {
 				sub: userId,
 				iss: `${env.APP_URL}/api/auth`,
-				aud: API_RESOURCE,
+				aud: resource,
 				azp: clientId,
 				scope: scopes.join(" "),
 				klip_grant: generation,

@@ -103,10 +103,10 @@ describe("POST /account/delete", () => {
 		return { ...u, sid, token, app: sdk(token) }
 	}
 
-	it("refuses API keys and other apps, whatever their sign-in", async () => {
-		const me = await appUser("Keyholder")
-		const byKey = await errorOf(me.client.account.delete(me.email))
-		expect([byKey.status, byKey.code]).toEqual([403, "forbidden"])
+	it("refuses other apps, whatever their sign-in", async () => {
+		const me = await appUser("Someone else's app")
+		const byApp = await errorOf(me.client.account.delete(me.email))
+		expect([byApp.status, byApp.code]).toEqual([403, "forbidden"])
 		const cli = await oauthToken(me.id, CLI_CLIENT_ID, undefined, { sid: me.sid })
 		const byCli = await errorOf(sdk(cli).account.delete(me.email))
 		expect([byCli.status, byCli.code]).toEqual([403, "forbidden"])
