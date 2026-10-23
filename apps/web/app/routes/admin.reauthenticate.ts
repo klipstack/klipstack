@@ -1,10 +1,9 @@
-import { APIError } from "better-auth/api"
 import { data, redirect } from "react-router"
 import { requireAdminAction, safeAdminPath } from "~/lib/admin.server"
 import { confirmPassword, getSession } from "~/lib/session.server"
 import type { Route } from "./+types/admin.reauthenticate"
 
-const NO_STORE = { "Cache-Control": "private, no-store" }
+const NO_STORE = "private, no-store"
 
 /**
  * POST /admin/reauthenticate  password=…&returnTo=…: the signed-in admin's own password renews
@@ -15,25 +14,22 @@ const NO_STORE = { "Cache-Control": "private, no-store" }
  */
 export async function action({ request, context }: Route.ActionArgs) {
 	const { form } = await requireAdminAction(context, request, { recentSignIn: false })
-	let headers: Headers
-	try {
-		// requireAdminAction has authorized this session.
-		headers = await confirmPassword(
-			request,
-			getSession(context)!,
-			String(form.get("password") ?? ""),
-		)
-	} catch (error) {
-		if (!(error instanceof APIError)) throw error
-		const limited = error.statusCode === 429
+	// requireAdminAction has authorized this session.
+	const confirmed = await confirmPassword(
+		request,
+		getSession(context)!,
+		String(form.get("password") ?? ""),
+	)
+	if ("error" in confirmed)
 		return data(
-			{ ok: false as const, error: limited ? ("limited" as const) : ("wrong-password" as const) },
-			{ status: limited ? 429 : 400, headers: NO_STORE },
+			{ ok: false as const, error: confirmed.error },
+			{ status: confirmed.error === "limited" ? 429 : 400, headers: { "Cache-Control": NO_STORE } },
 		)
-	}
-	headers.set("Cache-Control", NO_STORE["Cache-Control"])
+	confirmed.headers.set("Cache-Control", NO_STORE)
 	const returnTo = form.get("returnTo")
-	throw redirect(safeAdminPath(typeof returnTo === "string" ? returnTo : null), { headers })
+	throw redirect(safeAdminPath(typeof returnTo === "string" ? returnTo : null), {
+		headers: confirmed.headers,
+	})
 }
 
 export function loader() {

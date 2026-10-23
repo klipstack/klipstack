@@ -181,5 +181,12 @@ export default {
 		message:
 			"Iniciaste sesión hace más de 30 minutos. Vuelve a iniciar sesión para hacer esto: una sesión abierta en otro sitio no puede.",
 		button: "Volver a iniciar sesión",
+		passwordMessage:
+			"Iniciaste sesión hace más de 30 minutos. Confirma que eres tú con tu contraseña para hacer esto: una sesión abierta en otro sitio no puede.",
+		password: "Contraseña",
+		confirm: "Confirmar",
+		confirmed: "Confirmado. Inténtalo de nuevo ahora.",
+		wrongPassword: "Esa contraseña no es correcta.",
+		limited: "Demasiados intentos. Inténtalo más tarde.",
 	},
 } satisfies typeof import("../en/settings").default

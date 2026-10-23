@@ -81,7 +81,7 @@ export default function AccountSettings({ loaderData, actionData }: Route.Compon
 					emailEnabled={loaderData.emailEnabled}
 				/>
 			</SettingsCard>
-			<DeleteAccount />
+			<DeleteAccount hasPassword={loaderData.signIn.hasPassword} />
 		</SettingsPage>
 	)
 }
@@ -138,7 +138,7 @@ function Profile({
 }
 
 /** At the foot of Account rather than in the sidebar: rare, and not to be stumbled on. */
-function DeleteAccount() {
+function DeleteAccount({ hasPassword }: { hasPassword: boolean }) {
 	const { t } = useTranslation("settings")
 	const fetcher = useFetcher<WebResult>()
 	const refusal = fetcher.data?.ok === false ? fetcher.data.error.code : null
@@ -163,7 +163,7 @@ function DeleteAccount() {
 					{t("danger.submit")}
 				</Button>
 			</fetcher.Form>
-			{refusal === "reauthentication_required" ? <SignInAgain /> : null}
+			{refusal === "reauthentication_required" ? <SignInAgain hasPassword={hasPassword} /> : null}
 		</SettingsCard>
 	)
 }
