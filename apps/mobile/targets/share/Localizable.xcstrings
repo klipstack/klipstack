@@ -1,0 +1,156 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "Already in Klipstack": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya está en Klipstack"
+          }
+        }
+      }
+    },
+    "Done": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listo"
+          }
+        }
+      }
+    },
+    "Klipstack could not refresh your sign-in (%lld).": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klipstack no pudo renovar tu sesión (%lld)."
+          }
+        }
+      }
+    },
+    "Klipstack could not save this (%lld).": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klipstack no pudo guardar esto (%lld)."
+          }
+        }
+      }
+    },
+    "Klipstack is not reachable. Check your connection.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se puede conectar con Klipstack. Revisa tu conexión."
+          }
+        }
+      }
+    },
+    "Klipstack sent an unexpected answer.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klipstack envió una respuesta inesperada."
+          }
+        }
+      }
+    },
+    "Not saved": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se guardó"
+          }
+        }
+      }
+    },
+    "Open the Klipstack app and sign in, then share again.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abre la app de Klipstack e inicia sesión. Luego vuelve a compartir."
+          }
+        }
+      }
+    },
+    "Saved to Klipstack": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardado en Klipstack"
+          }
+        }
+      }
+    },
+    "Saving to Klipstack…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardando en Klipstack…"
+          }
+        }
+      }
+    },
+    "Sign in to Klipstack": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inicia sesión en Klipstack"
+          }
+        }
+      }
+    },
+    "The server address is not valid.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La dirección del servidor no es válida."
+          }
+        }
+      }
+    },
+    "There is no link to save here.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aquí no hay ningún enlace que guardar."
+          }
+        }
+      }
+    },
+    "This version of the app no longer works. Install the latest version.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta versión de la app ya no funciona. Instala la última versión."
+          }
+        }
+      }
+    },
+    "Update Klipstack": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actualiza Klipstack"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

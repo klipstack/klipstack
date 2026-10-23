@@ -95,20 +95,20 @@ struct NextUpView: View {
       }
     case .nothing:
       Message(
-        symbol: "square.and.arrow.up", title: "Your next read starts here",
+        symbol: "square.and.arrow.up", title: String(localized: "Your next read starts here"),
         detail: family == .systemSmall
-          ? "Share an article to Klipstack."
-          : "Share an article to Klipstack. It will be here when you're ready.")
+          ? String(localized: "Share an article to Klipstack.")
+          : String(localized: "Share an article to Klipstack. It will be here when you're ready."))
     case .signedOut:
       Message(
-        symbol: "person.crop.circle", title: "Sign in to Klipstack",
-        detail: "Your next read shows here.")
+        symbol: "person.crop.circle", title: String(localized: "Sign in to Klipstack"),
+        detail: String(localized: "Your next read shows here."))
     case .outdated:
       Message(
-        symbol: "arrow.down.app", title: "Update Klipstack",
-        detail: "This version of the app no longer works.")
+        symbol: "arrow.down.app", title: String(localized: "Update Klipstack"),
+        detail: String(localized: "This version of the app no longer works."))
     case .unavailable:
-      Message(symbol: "book", title: "Open Klipstack", detail: "Your next read shows here.")
+      Message(symbol: "book", title: String(localized: "Open Klipstack"), detail: String(localized: "Your next read shows here."))
     }
   }
 
@@ -126,13 +126,15 @@ private func reader(_ article: Article) -> URL? {
 
 /// The words over Home's big card.
 private func label(_ article: Article) -> String {
-  article.started ? "Continue reading" : "Up next"
+  article.started ? String(localized: "Continue reading") : String(localized: "Up next")
 }
 
 /// "12 min left", or "18 min" before reading started.
 private func time(_ article: Article) -> String? {
   let minutes = article.started ? article.minutesLeft : article.readingMinutes
-  return minutes.map { "\($0) min\(article.started ? " left" : "")" }
+  return minutes.map {
+    article.started ? String(localized: "\($0) min left") : String(localized: "\($0) min")
+  }
 }
 
 /// "The Atlantic · 12 min left".

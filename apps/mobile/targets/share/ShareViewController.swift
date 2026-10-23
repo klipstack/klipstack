@@ -28,7 +28,7 @@ final class ShareViewController: UIViewController {
 
   private func save() async {
     guard let url = await sharedLink() else {
-      model.state = .failed("There is no link to save here.")
+      model.state = .failed(String(localized: "There is no link to save here."))
       return
     }
     do {
@@ -151,13 +151,13 @@ enum Klipstack {
     case 200: return false
     case 401: throw SaveError.signedOut
     case 426: throw SaveError.outdated
-    default: throw SaveError.failed(errorMessage(body) ?? "Klipstack could not save this (\(status)).")
+    default: throw SaveError.failed(errorMessage(body) ?? String(localized: "Klipstack could not save this (\(status))."))
     }
   }
 
   private static func post(_ link: URL, _ session: Session) async throws -> (Int, Data) {
     guard let endpoint = URL(string: "\(session.apiUrl)/api/v1/articles") else {
-      throw SaveError.failed("The server address is not valid.")
+      throw SaveError.failed(String(localized: "The server address is not valid."))
     }
     var request = URLRequest(url: endpoint)
     request.httpMethod = "POST"
@@ -173,7 +173,7 @@ enum Klipstack {
   /// Trades the refresh token for new tokens and stores them for the app too.
   private static func refresh(_ session: Session) async throws -> Session {
     guard let endpoint = URL(string: "\(session.apiUrl)/api/auth/oauth2/token") else {
-      throw SaveError.failed("The server address is not valid.")
+      throw SaveError.failed(String(localized: "The server address is not valid."))
     }
     var request = URLRequest(url: endpoint)
     request.httpMethod = "POST"
@@ -197,11 +197,11 @@ enum Klipstack {
         Keychain.delete()
         throw SaveError.signedOut
       }
-      throw SaveError.failed("Klipstack could not refresh your sign-in (\(status)).")
+      throw SaveError.failed(String(localized: "Klipstack could not refresh your sign-in (\(status))."))
     }
     guard let access = json["access_token"] as? String,
       let expiresIn = json["expires_in"] as? Double
-    else { throw SaveError.failed("Klipstack sent an unexpected answer.") }
+    else { throw SaveError.failed(String(localized: "Klipstack sent an unexpected answer.")) }
     let next = Session(
       apiUrl: session.apiUrl,
       accessToken: access,
@@ -217,7 +217,7 @@ enum Klipstack {
       let (data, response) = try await http.data(for: request)
       return ((response as? HTTPURLResponse)?.statusCode ?? 0, data)
     } catch {
-      throw SaveError.failed("Klipstack is not reachable. Check your connection.")
+      throw SaveError.failed(String(localized: "Klipstack is not reachable. Check your connection."))
     }
   }
 
@@ -314,19 +314,19 @@ struct SaveView: View {
 
   private var title: String {
     switch model.state {
-    case .saving: return "Saving to Klipstack…"
-    case .saved: return "Saved to Klipstack"
-    case .alreadySaved: return "Already in Klipstack"
-    case .signedOut: return "Sign in to Klipstack"
-    case .outdated: return "Update Klipstack"
-    case .failed: return "Not saved"
+    case .saving: return String(localized: "Saving to Klipstack…")
+    case .saved: return String(localized: "Saved to Klipstack")
+    case .alreadySaved: return String(localized: "Already in Klipstack")
+    case .signedOut: return String(localized: "Sign in to Klipstack")
+    case .outdated: return String(localized: "Update Klipstack")
+    case .failed: return String(localized: "Not saved")
     }
   }
 
   private var detail: String? {
     switch model.state {
-    case .signedOut: return "Open the Klipstack app and sign in, then share again."
-    case .outdated: return "This version of the app no longer works. Install the latest version."
+    case .signedOut: return String(localized: "Open the Klipstack app and sign in, then share again.")
+    case .outdated: return String(localized: "This version of the app no longer works. Install the latest version.")
     case .failed(let message): return message
     default: return nil
     }
