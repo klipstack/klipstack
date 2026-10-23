@@ -19,6 +19,7 @@ import {
 	tempQuestion,
 	withQuestion,
 } from "./ai-threads"
+import { language } from "./i18n"
 import type { ReaderAi } from "./reader-ai"
 
 export type AiAction = "explain" | "define" | "ask"
@@ -26,7 +27,8 @@ export type AiAction = "explain" | "define" | "ask"
 /**
  * The article's threads in the reader: the ones it loaded with, and the questions asked since, each
  * answer streamed into its card as it is written. One card is open at a time. With no questions
- * left this month, a question is refused here, as the server would. The web's `useAiThreads`.
+ * left this month, a question is refused here, as the server would. Answers come in the app's
+ * language, as the web's in the reader's. The web's `useAiThreads`.
  */
 export function useAiCards(client: KlipstackClient | null, articleId: string, ai: ReaderAi) {
 	const [cards, setCards] = useState<AiCard[]>(ai.threads)
@@ -122,6 +124,7 @@ export function useAiCards(client: KlipstackClient | null, articleId: string, ai
 					end: passage.end,
 					highlightId: passage.highlightId,
 					question,
+					language,
 				})
 			}),
 		[client, articleId, run],
@@ -162,7 +165,8 @@ export function useAiCards(client: KlipstackClient | null, articleId: string, ai
 					messages: [tempQuestion(text)],
 					streaming: true,
 				}))
-				if (card.action === "chat") void run(id, () => client.ai.chat(articleId, text))
+				if (card.action === "chat")
+					void run(id, () => client.ai.chat(articleId, text, { language }))
 				else void askPassage(id, passageOf(card), card.action as AiAction, text)
 				return
 			}
@@ -172,7 +176,7 @@ export function useAiCards(client: KlipstackClient | null, articleId: string, ai
 				messages: followingUp(c.messages, text),
 				streaming: true,
 			}))
-			void run(id, () => client.ai.followUp(id, text))
+			void run(id, () => client.ai.followUp(id, text, { language }))
 		},
 		[client, articleId, run, askPassage, update],
 	)
@@ -196,7 +200,7 @@ export function useAiCards(client: KlipstackClient | null, articleId: string, ai
 			}
 			// The old answer stays until the server takes the retry (`start`): a refusal keeps it.
 			update(id, (c) => ({ ...c, failure: undefined, streaming: true }))
-			void run(id, () => client.ai.retry(id))
+			void run(id, () => client.ai.retry(id, { language }))
 		},
 		[client, run, send, askPassage, update],
 	)
@@ -224,7 +228,7 @@ export function useAiCards(client: KlipstackClient | null, articleId: string, ai
 					streaming: true,
 				},
 			])
-			void run(id, () => client.ai.chat(articleId, text))
+			void run(id, () => client.ai.chat(articleId, text, { language }))
 		},
 		[client, articleId, run, send],
 	)

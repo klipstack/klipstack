@@ -2,6 +2,7 @@ import type { AiCitation } from "@klipstack/sdk"
 import { Fragment, useMemo } from "react"
 import { StyleSheet, Text, View } from "react-native"
 import { answerBlocks, type Run } from "@/lib/ai-answer"
+import { t } from "@/lib/i18n"
 import type { Colors } from "@/lib/theme"
 
 /**
@@ -38,7 +39,7 @@ export function AiAnswer({
 					{after}
 					<Text
 						accessibilityRole="button"
-						accessibilityLabel={`Passage ${run.n + 1} of the article`}
+						accessibilityLabel={t("ai.answer.citation", { n: run.n + 1 })}
 						onPress={onCite ? () => onCite(citation) : undefined}
 						suppressHighlighting={false}
 						style={[styles.cite, { backgroundColor: colors.highlight.yellow, color: colors.fg }]}

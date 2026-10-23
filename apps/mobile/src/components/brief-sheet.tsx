@@ -5,6 +5,7 @@ import { AiAnswer } from "@/components/ai-answer"
 import { InkThinking } from "@/components/ink-thinking"
 import { allowanceMessage, failureMessage, questionsLeft } from "@/lib/ai"
 import { briefHeading, plainAnswer } from "@/lib/ai-answer"
+import { t } from "@/lib/i18n"
 import type { ReaderAi } from "@/lib/reader-ai"
 import { type Colors, fonts } from "@/lib/theme"
 
@@ -48,13 +49,15 @@ export function BriefSheet({
 		>
 			<View style={[styles.sheet, { backgroundColor: colors.bg }]}>
 				<View style={[styles.bar, { borderColor: colors.border }]}>
-					<Text style={[styles.barTitle, { color: colors.fg }]}>Brief</Text>
+					<Text style={[styles.barTitle, { color: colors.fg }]}>{t("ai.brief.title")}</Text>
 					<Pressable accessibilityRole="button" onPress={onClose} hitSlop={12} style={styles.done}>
-						<Text style={[styles.doneText, { color: colors.accent }]}>Done</Text>
+						<Text style={[styles.doneText, { color: colors.accent }]}>
+							{t("common.actions.done")}
+						</Text>
 					</Pressable>
 				</View>
 				<ScrollView contentContainerStyle={styles.content}>
-					<Text style={[styles.label, { color: colors.mutedFg }]}>SUM UP</Text>
+					<Text style={[styles.label, { color: colors.mutedFg }]}>{t("ai.brief.sumUp")}</Text>
 					<Text style={[styles.title, { color: colors.fg }]} numberOfLines={3}>
 						{title}
 					</Text>
@@ -70,7 +73,11 @@ export function BriefSheet({
 									colors={colors}
 								/>
 							) : (
-								<InkThinking label="Writing the brief…" colors={colors} style={styles.thinking} />
+								<InkThinking
+									label={t("ai.brief.writing")}
+									colors={colors}
+									style={styles.thinking}
+								/>
 							)
 						) : brief ? (
 							<AiAnswer
@@ -84,7 +91,7 @@ export function BriefSheet({
 						{failure && !writing ? (
 							<Text accessibilityRole="alert" style={[styles.failure, { color: colors.danger }]}>
 								{failure.code === "failed"
-									? "Couldn't write the brief. Try again."
+									? t("ai.brief.failed")
 									: failureMessage(failure, allowance)}
 							</Text>
 						) : null}
@@ -93,14 +100,14 @@ export function BriefSheet({
 						<View style={styles.actions}>
 							{brief ? (
 								<Tool
-									label="Copy"
+									label={t("ai.card.copy")}
 									symbol="doc.on.doc"
 									color={colors.accent}
 									onPress={() => onCopy(plainAnswer(brief.text))}
 								/>
 							) : failure && !none ? (
 								<Tool
-									label="Try Again"
+									label={t("common.actions.retry")}
 									symbol="arrow.clockwise"
 									color={colors.accent}
 									onPress={() => void make()}
