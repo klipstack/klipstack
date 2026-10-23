@@ -91,6 +91,12 @@ describe("changeRole", () => {
 			code: "invalid_request",
 		})
 		expect(await roleOf(passwordless.id)).toBe("user")
+		// An admin left without one can still be demoted.
+		await db.update(user).set({ role: "admin" }).where(eq(user.id, passwordless.id))
+		await expect(changeRole({ userId: passwordless.id }, "user", "x")).resolves.toMatchObject({
+			changed: true,
+			role: "user",
+		})
 		await expect(changeRole({ email: "nobody@example.com" }, "admin", "x")).rejects.toMatchObject({
 			code: "not_found",
 		})

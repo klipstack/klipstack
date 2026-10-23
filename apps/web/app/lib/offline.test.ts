@@ -310,12 +310,19 @@ describe("private offline partitions", () => {
 			// This version's own caches stay.
 			expect(cached(w).some((url) => url.endsWith("/library.data"))).toBe(true)
 		})
-		it("clears private caches when an admin signs in again", async () => {
+		it("keeps private caches through a password confirmation, until its new session answers", async () => {
 			const w = worker()
 			await w.read("/library.data")
-			w.state.owner = "none"
+			// A wrong password changes no one: the same session answers.
 			await w.read("/admin/reauthenticate.data", "POST")
-			expect([...w.stores.keys()].some((n) => n.startsWith("private-"))).toBe(false)
+			await w.read("/settings/confirm-password.data", "POST")
+			const stores = () => [...w.stores.keys()].filter((n) => n.startsWith("private-"))
+			expect(stores().some((n) => n.includes("a".repeat(64)))).toBe(true)
+			// A right one makes a new session, and its first answer replaces the caches.
+			w.state.owner = "b".repeat(64)
+			await w.read("/library.data")
+			expect(stores().some((n) => n.includes("a".repeat(64)))).toBe(false)
+			expect(stores().some((n) => n.includes("b".repeat(64)))).toBe(true)
 		})
 		it("answers the capabilities ping that tells it from an older worker", async () => {
 			const w = worker()

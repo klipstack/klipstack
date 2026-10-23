@@ -137,6 +137,9 @@ export async function confirmPassword(
 		return { headers: cookieHeadersFrom(headers) }
 	} catch (error) {
 		if (!(error instanceof APIError)) throw error
-		return { error: error.statusCode === 429 ? "limited" : "wrong-password" }
+		if (error.statusCode === 429) return { error: "limited" }
+		// Anything else (a failure on our side) is not the person's mistake.
+		if (error.statusCode === 401) return { error: "wrong-password" }
+		throw error
 	}
 }

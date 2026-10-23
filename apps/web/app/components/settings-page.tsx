@@ -48,7 +48,7 @@ export function SettingsCard({
 export function SignInAgain({ hasPassword }: { hasPassword: boolean }) {
 	const { t } = useTranslation("settings")
 	const { pathname } = useLocation()
-	const fetcher = useFetcher<typeof import("~/routes/settings.reauthenticate").action>()
+	const fetcher = useFetcher<typeof import("~/routes/settings.confirm-password").action>()
 	const result = fetcher.data
 	if (result?.ok)
 		return (
@@ -71,7 +71,7 @@ export function SignInAgain({ hasPassword }: { hasPassword: boolean }) {
 	return (
 		<fetcher.Form
 			method="post"
-			action="/settings/reauthenticate"
+			action="/settings/confirm-password"
 			className="mt-3 flex flex-col items-start gap-3"
 		>
 			<p className="text-sm" role="alert">

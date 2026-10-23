@@ -251,6 +251,28 @@ test("Settings asks an old sign-in for its own password before it makes a key", 
 	await expect(page.getByText("Copy your new key now")).toBeVisible()
 })
 
+test("Settings sends an old sign-in without a password to log in again", async ({ page }) => {
+	const email = await signup(page)
+	await db.execute(sql`
+		delete from account where provider_id = 'credential'
+			and user_id = (select id from "user" where email = ${email})
+	`)
+	await db.execute(sql`
+		update session set created_at = now() - interval '31 minutes'
+		where user_id = (select id from "user" where email = ${email})
+	`)
+	await page.goto("/settings/api-keys")
+	await waitForHydration(page)
+	await page.getByPlaceholder("Name (e.g. MacBook Chrome)").fill("Late")
+	await page.getByRole("button", { name: "Create key" }).click()
+	await expect(page.getByText("You signed in more than 30 minutes ago")).toBeVisible()
+	await expect(page.getByLabel("Password")).toHaveCount(0)
+	await page.getByRole("button", { name: "Log in again" }).click()
+	await expect(page).toHaveURL(/\/login\?redirectTo=%2Fsettings%2Fapi-keys$/)
+	const [row] = await db.select({ id: user.id }).from(user).where(eq(user.email, email))
+	expect(await db.select().from(session).where(eq(session.userId, row!.id))).toHaveLength(0)
+})
+
 test("app asks → login → consent → code → tokens → settings disconnect", async ({
 	page,
 	request,
