@@ -183,7 +183,10 @@ test("feeds are off for a new account until turned on in Settings → Features",
 
 	await page.goto("/settings/features")
 	await waitForHydration(page)
-	const done = page.waitForResponse((r) => r.url().includes("/prefs") && r.ok())
+	// The save itself: a GET of the `prefs-*.js` chunk matches /prefs too.
+	const done = page.waitForResponse(
+		(r) => r.request().method() === "POST" && r.url().includes("/prefs") && r.ok(),
+	)
 	await page.getByTestId("feature-feeds").check()
 	await done
 	await page.goto("/home")
