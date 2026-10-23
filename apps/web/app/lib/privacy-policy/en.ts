@@ -2,7 +2,7 @@ import { CONTROLLER, type Policy, PRIVACY_CONTACT } from "./types"
 
 export default {
 	title: "Privacy policy",
-	updated: "Last updated October 21, 2026",
+	updated: "Last updated October 23, 2026",
 	summary:
 		"Klipstack keeps what you save so you can read it. It doesn't sell your data, show ads or track you. This page explains what we collect, why, who helps us run the service, and what you can do about it.",
 	contentsLabel: "On this page",
@@ -166,7 +166,7 @@ export default {
 						"In the iPhone app, the AI in the reader works as on the web, and sends the same things: see “Questions about what you read”.",
 						"The share extension (Klipstack in the iPhone's share sheet) reads only the link you share, or the first web link in shared text, and sends that link to Klipstack, which saves it as any other link.",
 						"The Next up widget asks Klipstack for the next articles in your Inbox: title, site, reading time, how far you read and the picture. It keeps the latest on the phone to show offline. A picture Klipstack didn't store loads from the article's website.",
-						"You can connect other apps and AI assistants to your library (API keys, MCP). They can reach only what you allow, and you can remove them in Settings at any time. What they do with the data is up to them and their own privacy policies.",
+						"You can connect other apps and AI assistants to your library (MCP). They can reach only what you allow, and you can remove them in Settings at any time. What they do with the data is up to them and their own privacy policies.",
 					],
 				},
 			],
