@@ -657,6 +657,7 @@ export function ReaderArticle({
 	const noteEditor = (
 		item: { id: string; note?: string | null; color?: number },
 		placement: NoteEditorPlacement,
+		autoFocus?: boolean,
 	) => (
 		<HighlightNoteEditor
 			key={item.id}
@@ -664,6 +665,7 @@ export function ReaderArticle({
 			color={item.color}
 			tilt={tiltFor(item.id)}
 			placement={placement}
+			autoFocus={autoFocus}
 			// In the margin, against the article, as the note it edits.
 			className={placement.kind === "margin" ? "mr-auto" : undefined}
 			documentId={doc.id}
@@ -881,7 +883,7 @@ export function ReaderArticle({
 							from={location.pathname}
 							onOpen={openNote}
 							onHover={hoverNote}
-							renderEditor={(item) => noteEditor(item, { kind: "margin" })}
+							renderEditor={(item, placed) => noteEditor(item, { kind: "margin" }, placed)}
 							cards={marginCards}
 							cardRangesRef={threadRangesRef}
 						/>

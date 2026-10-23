@@ -452,9 +452,9 @@ export default function NoteEditor({
 
 	// Take the keyboard on open (a new highlight note), caret at the end. The page stays put: on
 	// phones Tiptap's own focus lets the browser scroll, and the reader has already placed the
-	// highlight above the sheet.
+	// highlight above the sheet. Already being typed in, the caret stays where it is.
 	useEffect(() => {
-		if (!autoFocus || !editor) return
+		if (!autoFocus || !editor || editor.isFocused) return
 		editor.view.dom.focus({ preventScroll: true })
 		editor.commands.focus("end", { scrollIntoView: false })
 	}, [autoFocus, editor])

@@ -28,6 +28,11 @@ interface Props {
 	/** On the paper: where it stands in its place, such as against the article. */
 	className?: string
 	placement: NoteEditorPlacement
+	/**
+	 * Take the keyboard (the default). Off while the editor is not yet where it will stay: the
+	 * browser may scroll the page to the caret, wherever the editor stands.
+	 */
+	autoFocus?: boolean
 	/** The article being read: the link menu never offers it. */
 	documentId: string
 	linkTargets: LinkTargets
@@ -53,6 +58,7 @@ export function HighlightNoteEditor({
 	variant = "compact",
 	className,
 	placement,
+	autoFocus = true,
 	documentId,
 	linkTargets,
 	onSave,
@@ -135,7 +141,7 @@ export function HighlightNoteEditor({
 					onChange={setNote}
 					onSubmit={() => (dirty ? onSave(note) : onCancel())}
 					onEscape={onCancel}
-					autoFocus
+					autoFocus={autoFocus}
 					documentId={documentId}
 					linkTargets={linkTargets}
 					placeholder={t("highlights.popover.notePlaceholder")}

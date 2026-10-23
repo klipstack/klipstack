@@ -74,7 +74,8 @@ interface Props {
 	from: string
 	onOpen: (id: string) => void
 	onHover: (id: string | null) => void
-	renderEditor: (item: RenderableHighlight) => React.ReactNode
+	/** `placed`: the editor stands next to its highlight, measured; until then it is at the top. */
+	renderEditor: (item: RenderableHighlight, placed: boolean) => React.ReactNode
 	/** AI threads' cards, stacked with the notes. */
 	cards?: MarginCard[]
 	cardRangesRef?: React.RefObject<Map<string, Range>>
@@ -187,11 +188,12 @@ export function MarginNotes({
 						data-note-id={item.id}
 						data-start={item.startOffset}
 						className={cn("absolute inset-x-0", editing ? "z-30" : "z-10")}
-						// Not yet measured: invisible but still focusable, so a new note's editor takes the keyboard.
+						// Not yet measured: invisible, at the top of the article. A new note's editor takes the
+						// keyboard once placed: focused up there, the page could scroll to it.
 						style={{ top: top ?? 0, opacity: top === undefined ? 0 : undefined }}
 					>
 						{editing ? (
-							renderEditor(item)
+							renderEditor(item, top !== undefined)
 						) : (
 							// Not a <button>: a note holds links, and a link inside a button is invalid HTML.
 							<PostIt

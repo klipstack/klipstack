@@ -1,4 +1,4 @@
-import { Component, lazy, type ReactNode, Suspense } from "react"
+import { Component, lazy, type ReactNode, Suspense, useEffect, useRef } from "react"
 import { cn } from "~/lib/utils"
 import type { NoteEditorProps } from "./note-editor"
 import { NoteText } from "./note-text"
@@ -53,14 +53,21 @@ function NoteTextarea({
 	"aria-label": ariaLabel,
 	className,
 }: NoteEditorProps) {
+	// As the editor does: when asked, which may be after it appeared, and without scrolling.
+	const ref = useRef<HTMLTextAreaElement>(null)
+	useEffect(() => {
+		const field = ref.current
+		if (!autoFocus || !field || document.activeElement === field) return
+		field.focus({ preventScroll: true })
+		field.setSelectionRange(field.value.length, field.value.length)
+	}, [autoFocus])
 	return (
 		<textarea
+			ref={ref}
 			id={id}
 			aria-label={ariaLabel}
 			value={value}
 			maxLength={maxLength}
-			// oxlint-disable-next-line jsx-a11y/no-autofocus -- the note editor opens ready to type
-			autoFocus={autoFocus}
 			onChange={(e) => onChange(e.target.value)}
 			onBlur={onBlur}
 			onKeyDown={(e) => {

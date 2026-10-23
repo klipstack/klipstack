@@ -389,6 +389,59 @@ test("Highlight and add a note: one press, and the note is being written", async
 	await Promise.all([highlightSaved(page), editor.getByRole("button", { name: "Save" }).click()])
 	const margin = page.getByRole("region", { name: "Highlight notes" })
 	await expect(margin.getByRole("button", { name: "Two kinds of day." })).toBeVisible()
+
+	// Further down the article, the editor takes the keyboard next to its highlight, and the page
+	// stays put. Until the margin has measured it, it waits at the article's top, and focused up
+	// there the browser may scroll the page to its caret. A few notes: the measuring came first now
+	// and then. Where it stood is recorded at each focus: the dev server's StrictMode focuses twice.
+	await page.evaluate(() => {
+		const w = window as unknown as { focusedAt: number[] }
+		w.focusedAt = []
+		document.addEventListener("focusin", (e) => {
+			const el = e.target as Element
+			if (el.closest('[role="dialog"][aria-label="Highlight note"]'))
+				w.focusedAt.push(el.getBoundingClientRect().top)
+		})
+	})
+	const height = page.viewportSize()!.height
+	for (const quote of [
+		"Don't your spirits rise",
+		"How do we manage to advise so many startups",
+		"By using the classic device",
+		"Several times a week I set aside",
+		"So they introduce us to someone",
+	]) {
+		await page.evaluate((needle) => {
+			const w = window as unknown as { focusedAt: number[] }
+			w.focusedAt = []
+			const root = document.querySelector(".reader-content") as HTMLElement
+			const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+			for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+				const at = node.textContent?.indexOf(needle) ?? -1
+				if (at < 0) continue
+				const range = document.createRange()
+				range.setStart(node, at)
+				range.setEnd(node, at + needle.length)
+				return window.scrollBy(0, range.getBoundingClientRect().top - window.innerHeight / 2)
+			}
+		}, quote)
+		await selectText(page, quote)
+		const scrolled = await page.evaluate(() => window.scrollY)
+		await Promise.all([
+			highlightSaved(page),
+			selected.getByRole("button", { name: "Highlight and add a note" }).click(),
+		])
+		await expect(editor.getByRole("textbox")).toBeFocused()
+		const focusedAt = await page.evaluate(
+			() => (window as unknown as { focusedAt: number[] }).focusedAt,
+		)
+		expect(focusedAt.length, quote).toBeGreaterThan(0)
+		for (const top of focusedAt)
+			expect(top > 0 && top < height, `${quote}: editor at ${top}`).toBe(true)
+		expect(await page.evaluate(() => window.scrollY), quote).toBe(scrolled)
+		await page.keyboard.press("Escape")
+		await expect(editor).toHaveCount(0)
+	}
 })
 
 test("a highlight's color: picked in its toolbar, shown on the text, its note and in lists", async ({
