@@ -34,11 +34,13 @@ export default {
 		utc: "UTC",
 	},
 	reauth: {
-		title: "Sign in again to make changes",
-		description:
-			"You can read these pages, but changes need a sign-in from the last 30 minutes. Signing in again does not repeat anything you tried before.",
-		submit: "Sign in again",
-		required: "That change was not made. Sign in again, then repeat it yourself.",
+		title: "Confirm it's you",
+		description: "Enter your password to make changes for the next 30 minutes.",
+		password: "Password",
+		submit: "Confirm",
+		wrongPassword: "That password is not right.",
+		limited: "Too many attempts. Try again later.",
+		required: "That change was not made. Confirm it's you, then repeat it yourself.",
 	},
 	errors: {
 		forbidden: "This area is for administrators.",

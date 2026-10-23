@@ -11,7 +11,7 @@ import {
 	user,
 } from "@klipstack/db"
 import { devices, expect, type Page, test } from "@playwright/test"
-import { lastEmailTo, login, PASSWORD, signupAdmin, signupUser, waitForHydration } from "./helpers"
+import { PASSWORD, signupAdmin, signupUser, waitForHydration } from "./helpers"
 import { insertArticle } from "./seed"
 
 const userByEmail = async (email: string) =>
@@ -264,7 +264,7 @@ test("the system page shows a live worker, the build and the storage mode", asyn
 	await expect(page.getByText("Klipstack does not know when the last backup ran.")).toBeVisible()
 })
 
-test("an older session reads but cannot write; signing in again with a password returns to admin", async ({
+test("an older session reads but cannot write; its own password renews it in place", async ({
 	page,
 	baseURL,
 }) => {
@@ -283,16 +283,22 @@ test("an older session reads but cannot write; signing in again with a password 
 	expect(refused.status()).toBe(403)
 	expect(await refused.text()).toContain("reauthentication_required")
 
-	await page.getByRole("button", { name: "Sign in again" }).click()
-	await expect(page).toHaveURL(/\/login\?redirectTo=%2Fadmin%2Finvites$/)
-	await login(page, email, /\/admin\/invites$/)
-	await waitForHydration(page)
+	// No email is asked for: only this account's password renews it.
+	await expect(page.getByTestId("reauth-banner").getByLabel("Email")).toHaveCount(0)
+	await page.getByLabel("Password").fill("not-the-password")
+	await page.getByRole("button", { name: "Confirm" }).click()
+	await expect(page.getByText("That password is not right.")).toBeVisible()
+	await expect(page.getByTestId("reauth-banner")).toBeVisible()
+
+	await page.getByLabel("Password").fill(PASSWORD)
+	await page.getByRole("button", { name: "Confirm" }).click()
 	await expect(page.getByTestId("reauth-banner")).toHaveCount(0)
+	await expect(page).toHaveURL(/\/admin\/invites$/)
 	// Nothing was replayed: the refused invite does not exist, and a new one can be made now.
 	await expect(page.getByRole("main")).not.toContainText("must not exist")
-	await createInvite(page, "after signing in again")
+	await createInvite(page, "after confirming")
 
-	// Ordinary logout still goes to the plain login page.
+	// Still the same account, and ordinary logout still goes to the plain login page.
 	await page.goto("/library")
 	await waitForHydration(page)
 	await page.getByRole("button", { name: "Account: Window Admin" }).click()
@@ -300,31 +306,7 @@ test("an older session reads but cannot write; signing in again with a password 
 	await expect(page).toHaveURL(/\/login$/)
 })
 
-test("an admin who signs in with email links can sign in again and lands inside admin", async ({
-	page,
-}) => {
-	const email = await signupAdmin(page, "Link Admin")
-	await expireWriteWindow(email)
-	await page.goto("/admin/audit")
-	await waitForHydration(page)
-	await page.getByRole("button", { name: "Sign in again" }).click()
-	await expect(page).toHaveURL(/\/login\?redirectTo=%2Fadmin%2Faudit$/)
-	await page.getByRole("link", { name: "Email me a login link instead" }).click()
-	await expect(page).toHaveURL(/\/magic-link\?redirectTo=%2Fadmin%2Faudit$/)
-	await page.getByLabel("Email").fill(email)
-	await page.getByRole("button", { name: "Send me a link" }).click()
-	await expect(page.getByRole("heading", { name: "Check your inbox" })).toBeVisible()
-	const link = /href="([^"]*magic-link\/verify[^"]*)"/.exec((await lastEmailTo(email)).html)?.[1]
-	expect(link).toBeTruthy()
-	await page.goto(link!.replaceAll("&amp;", "&"))
-	await expect(page).toHaveURL(/\/admin\/audit$/)
-	await expect(page.getByTestId("reauth-banner")).toHaveCount(0)
-})
-
-test("the sign-in return path never leaves /admin, and foreign-origin posts are refused", async ({
-	page,
-	baseURL,
-}) => {
+test("foreign-origin, oversized and bearer requests are refused", async ({ page, baseURL }) => {
 	await signupAdmin(page, "Origin Admin")
 	for (const origin of ["https://evil.example", undefined]) {
 		const response = await page.request.post("/admin/invites/create", {
@@ -345,14 +327,6 @@ test("the sign-in return path never leaves /admin, and foreign-origin posts are 
 	})
 	expect(bearer.status()).not.toBe(200)
 	expect(await bearer.text()).not.toContain("accounts")
-
-	const out = await page.request.post("/admin/reauthenticate", {
-		headers: { origin: baseURL! },
-		form: { returnTo: "https://evil.example/admin" },
-		maxRedirects: 0,
-	})
-	expect(out.status()).toBe(302)
-	expect(out.headers().location).toBe("/login?redirectTo=%2Fadmin")
 })
 
 test("admin pages work in Spanish", async ({ page }) => {

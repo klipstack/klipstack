@@ -1,5 +1,6 @@
-import { db, sql } from "@klipstack/db"
+import { db, eq, session, sql } from "@klipstack/db"
 import { afterAll, describe, expect, it } from "vitest"
+import { auth } from "~/lib/auth.server"
 import { adminFixtures, statusOf, thrownBy } from "~/test/admin-fixtures"
 import routes from "../routes"
 import * as layout from "./admin-layout"
@@ -106,7 +107,7 @@ const actions: Array<[string, Handler, Record<string, string>, Record<string, st
 		"/admin/reauthenticate",
 		reauthenticate.action as unknown as Handler,
 		{},
-		{ returnTo: "//evil.example" },
+		{ password: "password123" },
 	],
 ]
 
@@ -217,19 +218,57 @@ describe("admin actions", () => {
 		).toBe(404)
 	})
 
-	it("sign-in-again ends the session and returns only inside /admin", async () => {
+	it("confirming the password renews this account's sign-in in place, and only with its password", async () => {
 		const admin = await fx.account({ role: "admin" })
-		const context = await fx.routerContext(admin)
-		const request = fx.post(
-			"/admin/reauthenticate",
-			{ returnTo: "https://evil.example/admin" },
-			{ cookie: admin.headers().get("cookie") ?? "" },
-		)
-		const response = (await thrownBy(() =>
-			Promise.resolve(reauthenticate.action({ request, context, params: {} } as never)),
-		)) as Response
-		expect(response.status).toBe(302)
-		expect(response.headers.get("location")).toBe("/login?redirectTo=%2Fadmin")
+		const hourAgo = new Date(Date.now() - 60 * 60 * 1000)
+		await db.update(session).set({ createdAt: hourAgo }).where(eq(session.userId, admin.id))
+		const confirm = async (password: string) => {
+			const request = fx.post(
+				"/admin/reauthenticate",
+				{ password, returnTo: "https://evil.example/admin" },
+				{ ...Object.fromEntries(fx.signedHeaders), cookie: admin.headers().get("cookie") ?? "" },
+			)
+			const context = await fx.routerContext(admin)
+			return thrownBy(async () => {
+				throw await reauthenticate.action({ request, context, params: {} } as never)
+			})
+		}
+
+		const wrong = (await confirm("not-the-password")) as { data: unknown }
+		expect(statusOf(wrong)).toBe(400)
+		expect(wrong.data).toEqual({ ok: false, error: "wrong-password" })
+		expect((await admin.session())?.session.createdAt).toEqual(hourAgo)
+
+		const right = (await confirm("password123")) as Response
+		expect(right.status).toBe(302)
+		expect(right.headers.get("location")).toBe("/admin")
+		const cookie = right.headers
+			.getSetCookie()
+			.map((c) => c.split(";")[0])
+			.join("; ")
+		const renewed = await auth.api.getSession({ headers: new Headers({ cookie }) })
+		expect(renewed?.user.id).toBe(admin.id)
+		expect(Date.now() - new Date(renewed!.session.createdAt).getTime()).toBeLessThan(60_000)
+		// The old session is gone, so no session older than the window stays signed in.
 		expect(await admin.session()).toBeNull()
+	})
+
+	it("counts wrong passwords against the login's limit", async () => {
+		const admin = await fx.account({ role: "admin" })
+		const statuses: Array<number | undefined> = []
+		for (let i = 0; i < 11; i++) {
+			const request = fx.post(
+				"/admin/reauthenticate",
+				{ password: `wrong-${i}` },
+				{ ...Object.fromEntries(fx.signedHeaders), cookie: admin.headers().get("cookie") ?? "" },
+			)
+			const context = await fx.routerContext(admin)
+			const result = (await reauthenticate.action({ request, context, params: {} } as never)) as {
+				init: { status?: number } | null
+			}
+			statuses.push(result.init?.status)
+		}
+		expect(statuses.slice(0, 10).every((status) => status === 400)).toBe(true)
+		expect(statuses[10]).toBe(429)
 	})
 })
