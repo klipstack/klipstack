@@ -1,4 +1,4 @@
-import { db, eq, session, sql, user } from "@klipstack/db"
+import { account, and, db, eq, session, sql, user } from "@klipstack/db"
 import { afterAll, describe, expect, it } from "vitest"
 import { AppError } from "~/lib/app-error"
 import { changeRole } from "~/services/admin-roles.server"
@@ -29,6 +29,14 @@ describe("authorizeAdmin", () => {
 		expect(statusOf(await thrownBy(async () => authorizeAdmin(await unverified.session())))).toBe(
 			403,
 		)
+	})
+
+	it("denies an admin account without a password: there is no way to confirm its sign-in", async () => {
+		const admin = await fx.account({ role: "admin" })
+		await db
+			.delete(account)
+			.where(and(eq(account.userId, admin.id), eq(account.providerId, "credential")))
+		expect(statusOf(await thrownBy(async () => authorizeAdmin(await admin.session())))).toBe(403)
 	})
 
 	it("reads the role from the database, not from the session object it was handed", async () => {
