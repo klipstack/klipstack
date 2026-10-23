@@ -18,7 +18,7 @@
 		"@mozilla/readability": "^0.6.0",
 		"@rowanmanning/feed-parser": "2.1.5",
 		"defuddle": "^0.19.4",
-		"dompurify": "^3.4.16",
+		"dompurify": "^3.4.17",
 		"fast-xml-parser": "^5.11.2",
 		"jsdom": "^30.0.1",
 		"turndown": "^7.2.1",
