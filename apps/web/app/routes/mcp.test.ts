@@ -18,7 +18,7 @@ import { action } from "./mcp"
 
 /**
  * MCP at /mcp with an app's token, through the MCP client, answered in this process by the real route
- * and database. OAuth tokens, and discovery through /.well-known, stay in e2e/mcp.spec.ts.
+ * and database. A browser consent, and discovery through /.well-known, stay in e2e/mcp.spec.ts.
  */
 
 // The fake model, as on a server with a provider set up.
