@@ -5,7 +5,8 @@ owner. Each item says what it is, why Apple checks it, and where it stands. Appl
 [App Review Guidelines](https://developer.apple.com/app-store/review/guidelines/); the numbers
 below (4.8, 5.1.1, …) are theirs.
 
-Status as of October 19, 2026: enrolled as Klipstack SpA; the app exists in App Store Connect.
+Status as of October 20, 2026: enrolled as Klipstack SpA; the app is in App Store Connect, with
+builds uploaded. External testing hasn't started.
 
 ## Needed the paid team
 
@@ -31,15 +32,15 @@ can't do any of them.
   server it keeps the custom scheme. An https server accepts only the universal link
   (`mobileRedirectUris`), so builds from before it can't sign in to klipstack.com again: install a
   new one.
-- **Sign in with Apple.** Required by guideline 4.8 while Google or GitHub sign-in is offered
-  (see "The rule", below). It needs a Services ID and a key from the developer portal, a provider
-  on the server (better-auth has one), and the button on the login page. Two things Apple adds:
-  - Readers can hide their address behind `…@privaterelay.appleid.com`. Apple forwards mail to
-    those only from senders registered under "Sign in with Apple for Email Communication" in the
-    developer portal: register Klipstack's sending domain, or sign-in links and resets never
-    arrive.
-  - Deleting an account that signed in with Apple must also revoke its Apple tokens (Apple's
-    REST API), not only delete our rows.
+- **Sign in with Apple.** Done, on the web ([#145](https://github.com/klipstack/klipstack/pull/145))
+  and in the app's own sign-in ([#146](https://github.com/klipstack/klipstack/pull/146)). Required
+  by guideline 4.8 while Google or GitHub sign-in is offered (see "The rule", below). The server's
+  setup is in `docs/self-hosting/sign-in-providers.md`.
+  - Deleting an account that signed in with Apple also revokes its Apple tokens, not only our rows.
+  - To check: readers can hide their address behind `…@privaterelay.appleid.com`. Apple forwards
+    mail to those only from senders registered under "Sign in with Apple for Email Communication"
+    in the developer portal. Register Klipstack's sending address there, or emailed codes and
+    resets never arrive.
 - **The TestFlight build and upload.** `pnpm ios:testflight` (in `apps/mobile`) archives a
   release build and uploads it to App Store Connect, signed in with the Xcode account of the team.
   The build number is the upload's time, so each upload is higher; the version is `app.json`'s.
@@ -56,11 +57,11 @@ can't do any of them.
 
 - **Account deletion in the app** ([#99](https://github.com/klipstack/klipstack/pull/99)):
   Account → Delete account. *Why:* guideline 5.1.1(v): an app that lets people have an account
-  must let them delete it from inside the app. It asks to sign in again when the last sign-in is
-  older than 30 minutes. An account without a password (Google, GitHub or emailed links only)
-  is sent to Settings on the web to delete it; Apple accepts a link that leads straight to the
-  deletion, but it is a point a reviewer could raise. Hiding Google and GitHub in the app's
-  sign-in (below) makes it rarer.
+  must let them delete it from inside the app. The reader types the account's email to confirm.
+  When the last sign-in is older than 30 minutes, it asks to sign in again, in a sheet with the
+  sign-in screen's ways in (Apple, Google, GitHub, password, emailed code), so every account can
+  delete itself in the app. Only a session the app didn't sign in itself (a development API key)
+  gets a link to Settings on the web instead.
 - **AI only through the app's own sign-in** ([#96](https://github.com/klipstack/klipstack/pull/96)):
   the API's AI endpoints answer only tokens issued to the iPhone app. *Why:* it keeps the AI's
   cost tied to Klipstack's own apps, and it means the AI a reviewer sees is the only way the app
@@ -94,38 +95,27 @@ can't do any of them.
   APIs without declaring why.
 - **No local networking in release builds** (this branch): the share extension and the widget reach the
   local dev server only in development builds (`plugins/with-extension-settings.js`).
-- **Google and GitHub hidden in the app's sign-in** ([#105](https://github.com/klipstack/klipstack/pull/105)):
-  `/login` and `/signup` reached from the app's sign-in (they carry its signed authorization
-  request) offer no provider button unless Sign in with Apple is among them. The web's own sign-in
-  is unchanged. People whose account has only Google or GitHub can't sign in in the app until they
-  set a password in Settings on the web. *Why:* guideline 4.8, below.
-- **No way from the app to the web's own sign-in** (this branch): the sign-in sheet is the only
-  Klipstack page inside the app.
-  - Account's "On the web" rows, "Use the web" in Delete account and the privacy link of the AI
-    consent sheet open Safari, outside the app. A lint rule refuses `expo-web-browser` in
-    `apps/mobile/src`, so an in-app browser can't come back unnoticed. In Safari the reader has their
-    web session, or signs in their own way: an account without a password signs in with Google or
-    GitHub there, and can delete itself. Apple accepts a link to the website for deletion
-    (5.1.1(v)).
-  - Inside the sign-in sheet, the Terms, Privacy and Support links (and the request-invite page)
-    carry the app's signed request. Those pages then show no brand link to the landing page, and
-    their "Log in" goes back to the app's `/login`. The consent page's brand is not a link either.
-    Without the request, these pages are as before.
-  - The signed request expires after 10 minutes. From then on, the sheet's `/login` shows only
-    "start again from the app": no form, no email-link pages, no way into the web library. Sign-up
-    and the consent page's "Use another account" end there too.
+- **The app's own sign-in and sign-up** ([#146](https://github.com/klipstack/klipstack/pull/146),
+  [#148](https://github.com/klipstack/klipstack/pull/148)): Sign in with Apple in iOS's sheet,
+  Google and GitHub on the provider's page in a sign-in sheet, and the email with a password or
+  an emailed code. "Create an account" asks for an invite code first, unless the server's sign-up
+  is open ("Request one" opens the wait list in Safari), then offers the same ways; the email one
+  is confirmed by an emailed code. An unverified account signs in to the app only with an emailed
+  code, which verifies it. *Why:* guideline 4.8, below.
+- **No Klipstack web page inside the app**: the Google and GitHub sheet (expo-auth-session's) goes
+  from `/app/sign-in/<provider>` straight to the provider and back to the app.
+  - Account's "On the web" rows, the sign-up's Terms and "Request one", and the privacy link of
+    the AI consent sheet open Safari, outside the app. A lint rule refuses `expo-web-browser` in
+    `apps/mobile/src`, so an in-app browser can't come back unnoticed.
   - *Why:* guideline 4.8. A reviewer who tapped Terms, then Log in, or a web row in Account, saw
     "Continue with GitHub" inside the app.
-- **Signing up in the app's sign-in comes back to the app** (this branch): `/signup` keeps the
-  app's request and needs a password there (an emailed sign-up link would open in Mail's browser,
-  outside the sheet). After the account is made, the request goes on: the email isn't verified
-  yet, so the provider stops at `/oauth/verify-email`, which sends the verification link. The
-  reader opens it in Safari, logs in there with the new password if Safari asks (the link verifies
-  only a signed-in account; in the simulator Safari did not have the sheet's session), comes back
-  to the app and taps
-  Continue: the consent screen, then the app, signed in. The request expires 10 minutes after the
-  page was last shown; then the page says to start again from the app. An existing unverified
-  account that logs in from an app stops on the same page, instead of Settings.
+- **Older builds sign in on the web** ([#105](https://github.com/klipstack/klipstack/pull/105)):
+  builds from before #146 open the web's `/login` and `/signup` in a browser sheet. Reached from
+  there (they carry the app's signed authorization request), those pages offer no provider
+  button, show no brand link to the landing page, and their "Log in" goes back to the app's
+  `/login`. The request expires after 10 minutes; from then on, the sheet's `/login` shows only
+  "start again from the app". Signing up there needs a password, and the email is verified in
+  Safari before the app connects.
 
 ## What the owner does in App Store Connect
 
@@ -174,7 +164,18 @@ demo account's articles, not someone's real library. With iPad off, no iPad scre
 
 App Review reads these before testing. Say:
 
-- The review account's email and password (in App Store Connect only; see below).
+- The review account's email and password (in App Store Connect only; see below). On the app's
+  first screen, type them and tap Sign in.
+- **Signing in:** the first screen is the app's own. It offers Sign in with Apple (iOS's sheet),
+  Continue with Google and Continue with GitHub (the provider's page in a sign-in sheet), and the
+  email with a password or with a code sent by email. No Klipstack web page opens inside the app.
+- **Creating an account:** "Create an account" on that screen. Klipstack takes new accounts by
+  invite for now, so it asks for an invite code first ("Request one" joins the wait list in
+  Safari). Give an unused code for the reviewer (in App Store Connect only; see below). Then: Sign
+  up with Apple, Google or GitHub, or a name, email and password confirmed by an emailed code.
+- **Deleting the account:** Account (the header's account button) → Delete account, then type the
+  account's email. When the last sign-in is older than 30 minutes, it asks to sign in again, with
+  the same ways in.
 - **Background audio:** the app declares the `audio` background mode to keep reading an article
   aloud with the screen locked. To see it: open an article, tap the headphones (Read aloud), lock the phone.
 - **Dictation:** the microphone and speech recognition are asked for only when dictating a note,
@@ -184,7 +185,6 @@ App Review reads these before testing. Say:
   About This Article", or select text for Explain, Define and Ask. Answers come from Anthropic's
   Claude, only when asked.
 - The share extension (Share → Klipstack in Safari) and the "Next up" widget.
-- Sign-in opens Klipstack's sign-in page in a system sheet; the account is created on the web.
 - The first AI request asks first: a sheet says what is sent to Anthropic. The choice can be
   changed in Account → AI answers.
 
@@ -199,16 +199,19 @@ Apple needs an account to sign in with. Never put its credentials in this reposi
 public) or in a pull request: they go only in App Store Connect's review notes.
 
 1. Pick an address you can read and that is only for this, such as an alias of your own mailbox.
-2. On klipstack.com, create an invite for it in `/admin/invites` and sign up with a password
-   (not Google or GitHub: the reviewer types an email and a password). Verify the email (Settings
-   → Account sends the link): an unverified account can't connect an app, so the app's sign-in
-   would fail at the consent step.
+2. On klipstack.com, create an invite in `/admin/invites`. In the app, tap "Create an account",
+   enter the invite code, and sign up with a name, the address and a password (not Apple, Google
+   or GitHub: the reviewer types an email and a password). The emailed code verifies the address.
+   An unverified account can't sign in to the app until it uses an emailed code.
 3. Save a dozen varied articles to it, so the library, Home and search have something to show.
 4. In `/admin/users`, open the account, and check that "Features in testing" has `ai` and `topics`
    on (a new account starts with both).
 5. Sign in to it on the web, open Topics and turn topics on, then confirm the proposed topics.
 6. Sign in to it in the app once and check: an AI answer, the brief, reading aloud, the widget.
-7. Put the email and password in the review notes. After the review, change the password.
+7. Create a second invite in `/admin/invites`, for the reviewer to try "Create an account". Invite
+   codes are single-use and not tied to an address.
+8. Put the email, the password and the second invite code in the review notes. After the review,
+   change the password and revoke the invite if it is unused.
 
 The reviewer may test account deletion on it. If they do, repeat these steps before the next
 submission. Its AI questions count against the monthly cap like anyone's.
@@ -219,10 +222,9 @@ Guideline 4.8: an app whose sign-in offers a third-party or social login (Google
 offer an option with Apple's privacy guarantees, which in practice means Sign in with Apple. Email
 and password, or our own emailed links, don't count as third-party and need nothing extra.
 
-GitHub sign-in is on at klipstack.com, and the app's sign-in opens the same login page. That
-page, and the sign-up it links to, offer the iPhone app no provider at all
-(`APPLE_PLATFORM_CLIENTS`, `offeredIn` in `apps/web/app/lib/provider-sign-in.server.ts`): a trip
-to a provider would leave the app's request behind and end on the web inside the sheet. The server
-now has Sign in with Apple (`docs/self-hosting/sign-in-providers.md`); the app is to offer Apple,
-Google and GitHub as its own buttons, Apple's through Apple's own sheet. The server already
-accepts the ID tokens Apple issues to the app's bundle ID.
+GitHub sign-in is on at klipstack.com, and the app's own sign-in screen offers the providers the
+server lists, with Sign in with Apple first, in Apple's own sheet. The server accepts the ID tokens
+Apple issues to the app's bundle ID. The web's login page, which builds from before that screen
+open, offers the iPhone app no provider at all (`APPLE_PLATFORM_CLIENTS`, `offeredIn` in
+`apps/web/app/lib/provider-sign-in.server.ts`): a trip to a provider would leave the app's request
+behind and end on the web inside the sheet.
