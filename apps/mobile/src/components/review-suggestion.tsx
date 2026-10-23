@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from "react-native"
+import { t } from "@/lib/i18n"
 import type { Colors } from "@/lib/theme"
 
 /**
@@ -16,10 +17,9 @@ export function ReviewSuggestion({
 }) {
 	return (
 		<View style={[styles.card, { backgroundColor: colors.muted }]}>
-			<Text style={[styles.title, { color: colors.fg }]}>Still want to read these?</Text>
+			<Text style={[styles.title, { color: colors.fg }]}>{t("home.review.card.title")}</Text>
 			<Text style={[styles.description, { color: colors.mutedFg }]}>
-				Some articles you saved more than a month ago haven't been opened. Keep the ones you still
-				want and archive the rest. Archived articles stay in your archive and in search.
+				{t("home.review.card.description")}
 			</Text>
 			<View style={styles.actions}>
 				<Pressable
@@ -31,7 +31,9 @@ export function ReviewSuggestion({
 						pressed && styles.pressed,
 					]}
 				>
-					<Text style={[styles.openText, { color: colors.accentFg }]}>Go Through Them</Text>
+					<Text style={[styles.openText, { color: colors.accentFg }]}>
+						{t("home.review.card.open")}
+					</Text>
 				</Pressable>
 				<Pressable
 					accessibilityRole="button"
@@ -39,7 +41,9 @@ export function ReviewSuggestion({
 					hitSlop={8}
 					style={({ pressed }) => pressed && styles.pressed}
 				>
-					<Text style={[styles.later, { color: colors.mutedFg }]}>Not now</Text>
+					<Text style={[styles.later, { color: colors.mutedFg }]}>
+						{t("home.review.card.notNow")}
+					</Text>
 				</Pressable>
 			</View>
 		</View>

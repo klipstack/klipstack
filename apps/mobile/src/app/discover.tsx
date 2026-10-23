@@ -6,7 +6,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-nat
 import { Paper } from "@/components/paper"
 import { StarterGuide, StarterShelf, useAddStarter } from "@/components/starter-texts"
 import { useAuth } from "@/lib/auth"
-import { errorMessage } from "@/lib/i18n"
+import { errorMessage, t } from "@/lib/i18n"
 import { canUseOffline, keepStarter, keptStarter, OFFLINE_NOTE } from "@/lib/offline"
 import {
 	keptShelves,
@@ -142,14 +142,14 @@ function languageMenu(
 ): NativeStackHeaderItem {
 	return {
 		type: "menu",
-		label: "Language",
+		label: t("home.discover.language"),
 		accessibilityLabel: shown
-			? `Language of the texts: ${LANGUAGE_NAMES[shown]}`
-			: "Language of the texts",
+			? t("home.discover.languageLabel", { language: LANGUAGE_NAMES[shown] })
+			: t("home.discover.languageMenu"),
 		tintColor: tint,
 		icon: { type: "sfSymbol", name: "globe" },
 		menu: {
-			title: "Language of the texts",
+			title: t("home.discover.languageMenu"),
 			items: LANGUAGES.map((language) => ({
 				type: "action" as const,
 				label: LANGUAGE_NAMES[language],

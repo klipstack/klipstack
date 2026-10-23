@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { ActivityIndicator, AppState, Pressable, StyleSheet, Text, View } from "react-native"
 import { PasteButton } from "@/components/paste-button"
 import { lookAtClipboard } from "@/lib/clipboard"
-import { errorMessage } from "@/lib/i18n"
+import { errorMessage, t } from "@/lib/i18n"
 import { linkIn } from "@/lib/save-link"
 import type { Colors } from "@/lib/theme"
 
@@ -81,7 +81,7 @@ export function ClipboardOffer({
 		const { count } = now
 		const link = text && linkIn(text)
 		if (!link) {
-			const message = text?.trim() ? "The clipboard holds no link." : "There's nothing to paste."
+			const message = text?.trim() ? t("home.clipboard.noLink") : t("home.save.nothingToPaste")
 			return setOffer({ state: "failed", message, count })
 		}
 		setOffer({ state: "saving", count })
@@ -108,14 +108,16 @@ export function ClipboardOffer({
 				<Text style={[styles.title, { color: colors.fg }]}>
 					{offer.state === "saved"
 						? offer.created
-							? "Saved to Klipstack"
-							: "Already in Klipstack"
+							? t("home.save.saved")
+							: t("home.save.already")
 						: offer.state === "saving"
-							? "Saving…"
-							: "You copied a link"}
+							? t("home.save.saving")
+							: t("home.clipboard.copied")}
 				</Text>
 				{offer.state === "offered" ? (
-					<Text style={[styles.note, { color: colors.mutedFg }]}>Paste it here to save it.</Text>
+					<Text style={[styles.note, { color: colors.mutedFg }]}>
+						{t("home.clipboard.pasteHere")}
+					</Text>
 				) : offer.state === "failed" ? (
 					<Text style={[styles.note, { color: colors.danger }]}>{offer.message}</Text>
 				) : null}
@@ -125,7 +127,7 @@ export function ClipboardOffer({
 			{open ? (
 				<Pressable
 					accessibilityRole="button"
-					accessibilityLabel="Dismiss"
+					accessibilityLabel={t("home.clipboard.dismiss")}
 					hitSlop={10}
 					onPress={() => setOffer(null)}
 				>

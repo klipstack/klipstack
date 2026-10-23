@@ -1,4 +1,5 @@
 import type { FinishedLately, NextEdition } from "@klipstack/sdk"
+import { dateLocale, t } from "./i18n"
 
 /**
  * What Home says above its sections, as the web's masthead does
@@ -19,16 +20,16 @@ export function finishedLine(
 	if (finished.count < 1) return null
 	if (finished.count > 1)
 		return {
-			before: `You finished ${finished.count} articles this past week.`,
+			before: t("home.masthead.finished", { count: finished.count }),
 			title: null,
 			after: "",
 		}
 	if (!finished.title)
-		return { before: "You finished an article this past week.", title: null, after: "" }
+		return { before: t("home.masthead.finishedUntitled"), title: null, after: "" }
 	return {
-		before: "You finished ",
+		before: t("home.masthead.finishedBefore"),
 		title: shortTitle(finished.title, FINISHED_TITLE_MAX),
-		after: " this past week.",
+		after: t("home.masthead.finishedAfter"),
 	}
 }
 
@@ -40,14 +41,15 @@ export function editionEar(next: NextEdition): { count: string; action: string }
 	if (next.draft) {
 		const { items } = next.draft
 		return {
-			count: items
-				? `${items} ${items === 1 ? "article" : "articles"} in the draft`
-				: "a draft started",
-			action: "Continue editing",
+			count: items ? t("home.masthead.draft", { count: items }) : t("home.masthead.draftEmpty"),
+			action: t("home.masthead.continueEditing"),
 		}
 	}
 	if (next.marked < 1) return null
-	return { count: `${next.marked} marked`, action: "Put it together" }
+	return {
+		count: t("home.masthead.marked", { count: next.marked }),
+		action: t("home.masthead.putTogether"),
+	}
 }
 
 /** Why an edition is due, as the web's Editions page says it; null when none is. */
@@ -55,24 +57,22 @@ export function editionNudge(next: NextEdition): string | null {
 	const { nudge } = next
 	if (!nudge) return null
 	if (nudge.reason === "draft")
-		return `You started it ${ago(next.draft?.days ?? 0)}. Ready to publish it?`
+		return t("home.masthead.nudge.draft", { ago: ago(next.draft?.days ?? 0) })
 	const last =
-		nudge.daysSince === null ? null : `Your last edition came out ${ago(nudge.daysSince)}.`
+		nudge.daysSince === null ? null : t("home.masthead.nudge.last", { ago: ago(nudge.daysSince) })
 	const why =
 		next.marked > 0
-			? next.marked === 1
-				? "1 article is marked for the next one."
-				: `${next.marked} articles are marked for the next one.`
-			: `You finished ${nudge.readSince} ${nudge.readSince === 1 ? "article" : "articles"} since.`
+			? t("home.masthead.nudge.marked", { count: next.marked })
+			: t("home.masthead.nudge.read", { count: nudge.readSince })
 	return last ? `${last} ${why}` : why
 }
 
 /** "today", "yesterday", "5 days ago", "3 weeks ago" from two weeks on: the web's `ago`. */
 function ago(days: number): string {
-	if (days >= 14) return `${Math.floor(days / 7)} weeks ago`
-	if (days === 0) return "today"
-	if (days === 1) return "yesterday"
-	return `${days} days ago`
+	if (days >= 14) return t("home.masthead.ago.weeks", { count: Math.floor(days / 7) })
+	if (days === 0) return t("home.masthead.ago.today")
+	if (days === 1) return t("home.masthead.ago.yesterday")
+	return t("home.masthead.ago.days", { count: days })
 }
 
 /** A title for a sentence: at most `max` characters, cut after a word and ended with "…". */
@@ -100,9 +100,9 @@ export function partOfDay(now: Date, timeZone?: string): PartOfDay {
 	return "evening"
 }
 
-/** The date as a newspaper prints it: "Saturday, October 17, 2026". */
+/** The date as a newspaper prints it: "Saturday, October 17, 2026", in the app's language. */
 export function mastheadDate(now: Date, timeZone?: string): string {
-	return new Intl.DateTimeFormat("en-US", { dateStyle: "full", timeZone }).format(now)
+	return new Intl.DateTimeFormat(dateLocale, { dateStyle: "full", timeZone }).format(now)
 }
 
 /**
@@ -111,6 +111,6 @@ export function mastheadDate(now: Date, timeZone?: string): string {
  */
 export function greeting(part: PartOfDay, name: string | null | undefined) {
 	const first = name?.trim().split(/\s+/)[0] || null
-	const words = `Good ${part}`
+	const words = t(`home.masthead.greeting.${part}`)
 	return first ? { before: `${words}, `, name: first } : { before: words, name: null }
 }

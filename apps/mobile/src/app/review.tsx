@@ -9,6 +9,7 @@ import { Grain } from "@/components/paper"
 import { ReviewDeck, type ReviewDeckHandle } from "@/components/review-deck"
 import { settled, showToast, track } from "@/lib/article-changes"
 import { useAuth } from "@/lib/auth"
+import { errorMessage, t } from "@/lib/i18n"
 import {
 	endsPage,
 	leftText,
@@ -63,10 +64,8 @@ export default function Review() {
 			setError(
 				// A server before the review.
 				e instanceof KlipstackApiError && e.status === 404
-					? "Your Klipstack server doesn't have this yet."
-					: e instanceof Error
-						? e.message
-						: String(e),
+					? t("home.review.notYet")
+					: errorMessage(e),
 			)
 		}
 	}, [client])
@@ -109,11 +108,11 @@ export default function Review() {
 				// The same page was saved again since: it stays in the trash, out of the review.
 				if (!conflicts.length) return
 				decide(true, conflicts)
-				showToast({ message: "Saved again since, so it stays in the trash." })
+				showToast({ message: t("home.review.savedAgain") })
 			},
 			() => {
 				decide(true, ids)
-				showToast({ message: "Couldn't undo it: it's been too long, or you're offline." })
+				showToast({ message: t("home.review.undoFailed") })
 			},
 		)
 	}
@@ -149,11 +148,13 @@ export default function Review() {
 			if (count === 0) return
 			showToast({
 				message: reviewNotice(action, articles.length === 1 ? 1 : count),
-				action: back ? { label: "Undo", run: () => undo(articles, back) } : undefined,
+				action: back
+					? { label: t("common.actions.undo"), run: () => undo(articles, back) }
+					: undefined,
 			})
 		} catch {
 			decide(false, ids)
-			showToast({ message: "Nothing changed. Try again." })
+			showToast({ message: t("home.review.failed") })
 		}
 	}
 
@@ -161,27 +162,33 @@ export default function Review() {
 	return (
 		<View style={[styles.page, { backgroundColor: colors.bg }]}>
 			<Grain />
-			<Stack.Screen options={{ title: "Old Saves" }} />
+			<Stack.Screen options={{ title: t("home.review.title") }} />
 			{all > 1 ? (
 				<Stack.Toolbar placement="right">
 					<Stack.Toolbar.Menu
 						icon="ellipsis.circle"
-						accessibilityLabel="All of them"
+						accessibilityLabel={t("home.review.allMenu")}
 						tintColor={colors.accent}
 					>
 						<Stack.Toolbar.MenuAction icon="archivebox" onPress={() => void act("archive", left)}>
-							{page?.more ? `Archive the Next ${all}` : `Archive All ${all}`}
+							{page?.more
+								? t("home.review.archiveNext", { count: all })
+								: t("home.review.archiveAll", { count: all })}
 						</Stack.Toolbar.MenuAction>
 						<Stack.Toolbar.MenuAction icon="checkmark" onPress={() => void act("keep", left)}>
-							{page?.more ? `Keep the Next ${all}` : `Keep All ${all}`}
+							{page?.more
+								? t("home.review.keepNext", { count: all })
+								: t("home.review.keepAll", { count: all })}
 						</Stack.Toolbar.MenuAction>
 					</Stack.Toolbar.Menu>
 				</Stack.Toolbar>
 			) : null}
 			{page ? (
 				<Text style={[styles.intro, { color: colors.mutedFg }]}>
-					Saved more than {spanText(page.afterDays)} ago, never opened. Archived articles stay in
-					your archive and in search. Kept ones won't come back here for {spanText(page.keepDays)}.
+					{t("home.review.intro", {
+						after: spanText(page.afterDays),
+						keep: spanText(page.keepDays),
+					})}
 				</Text>
 			) : null}
 			{current ? (
@@ -201,13 +208,13 @@ export default function Review() {
 					</View>
 					<View style={[styles.buttons, { marginBottom: insets.bottom + TOAST_ROOM }]}>
 						<RoundButton
-							label="Archive"
+							label={t("common.actions.archive")}
 							icon="archivebox"
 							onPress={() => deck.current?.decide("archive")}
 							colors={colors}
 						/>
 						<RoundButton
-							label="Delete"
+							label={t("common.actions.delete")}
 							icon="trash"
 							small
 							danger
@@ -215,7 +222,7 @@ export default function Review() {
 							colors={colors}
 						/>
 						<RoundButton
-							label="Keep"
+							label={t("home.review.keep")}
 							icon="checkmark"
 							onPress={() => deck.current?.decide("keep")}
 							colors={colors}
@@ -234,7 +241,7 @@ export default function Review() {
 							pressed && styles.pressed,
 						]}
 					>
-						<Text style={[styles.chipText, { color: colors.fg }]}>Try Again</Text>
+						<Text style={[styles.chipText, { color: colors.fg }]}>{t("common.actions.retry")}</Text>
 					</Pressable>
 				</View>
 			) : !page || exhausted ? (
@@ -247,9 +254,11 @@ export default function Review() {
 						size={40}
 						accessibilityElementsHidden
 					/>
-					<Text style={[styles.emptyTitle, { color: colors.fg }]}>Nothing left to go through</Text>
+					<Text style={[styles.emptyTitle, { color: colors.fg }]}>
+						{t("home.review.empty.title")}
+					</Text>
 					<Text style={[styles.message, { color: colors.mutedFg }]}>
-						You've decided on every save from long ago.
+						{t("home.review.empty.description")}
 					</Text>
 					<Pressable
 						accessibilityRole="button"
@@ -260,7 +269,7 @@ export default function Review() {
 							pressed && styles.pressed,
 						]}
 					>
-						<Text style={[styles.chipText, { color: colors.fg }]}>Done</Text>
+						<Text style={[styles.chipText, { color: colors.fg }]}>{t("common.actions.done")}</Text>
 					</Pressable>
 				</View>
 			)}

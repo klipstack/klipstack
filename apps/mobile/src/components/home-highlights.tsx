@@ -6,6 +6,7 @@ import { QuoteCard, type QuoteContext } from "@/components/notebook-cards"
 import { useShareSheet } from "@/components/share-sheet"
 import { showToast } from "@/lib/article-changes"
 import { offerHighlightUndo } from "@/lib/highlight-undo"
+import { t } from "@/lib/i18n"
 import type { Colors } from "@/lib/theme"
 
 /**
@@ -49,7 +50,7 @@ export function HomeHighlights({
 				const deleting = client.highlights.delete(highlight.id)
 				deleting.catch(() => {
 					onShow(highlight.id)
-					showToast({ message: "Couldn't delete it. Try again." })
+					showToast({ message: t("home.highlights.deleteFailed") })
 				})
 				offerHighlightUndo(client, highlight, deleting, () => onShow(highlight.id))
 			},
@@ -62,21 +63,21 @@ export function HomeHighlights({
 		client.dailyHighlights.dismiss(id).then(
 			() =>
 				showToast({
-					message: "It won't come back here. The highlight stays.",
+					message: t("home.highlights.dismissed"),
 					action: {
-						label: "Undo",
+						label: t("common.actions.undo"),
 						run: () => {
 							onShow(id)
 							client.dailyHighlights.restore(id).catch(() => {
 								onHide(id)
-								showToast({ message: "Couldn't save that. Try again." })
+								showToast({ message: t("home.saveFailed") })
 							})
 						},
 					},
 				}),
 			() => {
 				onShow(id)
-				showToast({ message: "Couldn't save that. Try again." })
+				showToast({ message: t("home.saveFailed") })
 			},
 		)
 	}
