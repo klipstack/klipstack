@@ -1,5 +1,6 @@
 import { Animated, StyleSheet, Text, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
+import { t } from "@/lib/i18n"
 import type { Colors } from "@/lib/theme"
 
 /**
@@ -23,7 +24,7 @@ export function ReaderStatus({
 	colors: Colors
 }) {
 	const insets = useSafeAreaInsets()
-	const left = minutesLeft ? `${minutesLeft} min left` : null
+	const left = minutesLeft ? t("reader.listenBar.minutesLeft", { count: minutesLeft }) : null
 	return (
 		<View
 			pointerEvents="none"

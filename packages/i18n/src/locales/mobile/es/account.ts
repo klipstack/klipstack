@@ -28,7 +28,7 @@ export default {
 				"Cuando preguntas sobre un artículo, Klipstack envía a Anthropic su texto, el pasaje y tu pregunta. Tu elección vale en la app en todos tus dispositivos.",
 			send: "Enviar preguntas a Anthropic",
 			allowed: "Permitido",
-			askFirst: "Preguntar antes",
+			askFirst: "Preguntar",
 			stopTitle: "¿Dejar de enviar preguntas a Anthropic?",
 			stopMessage: "Klipstack te preguntará antes de la próxima.",
 			stop: "Dejar de enviar",
