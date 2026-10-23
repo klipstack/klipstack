@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { Alert, Linking } from "react-native"
 import { dictation } from "../../modules/klip-dictation"
+import { t } from "./i18n"
 
 /** The device's language, for the recognizer: what the reader speaks, whatever they read. */
 function deviceLanguage(): string {
@@ -35,7 +36,7 @@ export function useDictation(onHeard: (heard: string) => void) {
 				if (!active.current) return
 				active.current = false
 				setListening(false)
-				if (error) Alert.alert("Dictation stopped", error)
+				if (error) Alert.alert(t("reader.dictation.stopped"), error)
 			}),
 		]
 		return () => {
@@ -54,21 +55,14 @@ export function useDictation(onHeard: (heard: string) => void) {
 		active.current = false
 		setListening(false)
 		if (problem === "denied")
-			Alert.alert(
-				"Allow dictation",
-				"Klipstack needs the microphone and speech recognition to write down what you say. What you say stays on this iPhone.",
-				[
-					{ text: "Not now", style: "cancel" },
-					{ text: "Settings", onPress: () => void Linking.openSettings() },
-				],
-			)
+			Alert.alert(t("reader.dictation.allowTitle"), t("reader.dictation.allowMessage"), [
+				{ text: t("reader.dictation.notNow"), style: "cancel" },
+				{ text: t("reader.dictation.settings"), onPress: () => void Linking.openSettings() },
+			])
 		else if (problem === "busy")
-			Alert.alert("The microphone is busy", "Try again once the call or recording has ended.")
+			Alert.alert(t("reader.dictation.busyTitle"), t("reader.dictation.busyMessage"))
 		else
-			Alert.alert(
-				"Can't dictate here",
-				"This iPhone can't recognize your language offline. The keyboard's microphone still works in the note.",
-			)
+			Alert.alert(t("reader.dictation.unsupportedTitle"), t("reader.dictation.unsupportedMessage"))
 	}
 
 	function stop() {

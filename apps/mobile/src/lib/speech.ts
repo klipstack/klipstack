@@ -52,8 +52,6 @@ export function speechLanguage(
 	return null
 }
 
-export const LANGUAGE_NAMES: Record<SpeechLanguage, string> = { en: "English", es: "Spanish" }
-
 export type SpeechPrefs = {
 	/** Chosen voice per language; the first offered when unset. */
 	voices: Partial<Record<SpeechLanguage, string>>

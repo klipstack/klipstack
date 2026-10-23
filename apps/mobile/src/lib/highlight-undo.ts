@@ -1,5 +1,6 @@
 import type { Highlight, KlipstackClient } from "@klipstack/sdk"
 import { dismissToast, showToast, TOAST_MS } from "./article-changes"
+import { t } from "./i18n"
 
 /** A note took writing: its toast stays longer, as on the web (`LONG_UNDO_MS`). */
 export const NOTE_UNDO_MS = 15_000
@@ -17,15 +18,17 @@ export function offerHighlightUndo(
 ): void {
 	const toast = showToast(
 		{
-			message: highlight.note ? "Highlight and its note deleted" : "Highlight deleted",
+			message: highlight.note
+				? t("reader.highlightUndo.deletedWithNote")
+				: t("reader.highlightUndo.deleted"),
 			action: {
-				label: "Undo",
+				label: t("common.actions.undo"),
 				run: () => {
 					deleting.then(
 						() =>
 							client.highlights.restore(highlight.id).then(
 								(answer) => restored(answer.highlight),
-								() => showToast({ message: "Couldn't bring the highlight back." }),
+								() => showToast({ message: t("reader.highlightUndo.lost") }),
 							),
 						() => undefined,
 					)

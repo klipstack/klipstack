@@ -1,10 +1,12 @@
 /** The reader's type settings, kept on the device. Pure: storage is in `reader-files.ts`. */
+import { t } from "./i18n"
+
 export const TEXT_SIZES = [
-	{ id: "small", label: "Small", factor: 0.875 },
-	{ id: "default", label: "Default", factor: 1 },
-	{ id: "large", label: "Large", factor: 1.15 },
-	{ id: "larger", label: "Larger", factor: 1.3 },
-	{ id: "largest", label: "Largest", factor: 1.5 },
+	{ id: "small", label: t("reader.textSizes.small"), factor: 0.875 },
+	{ id: "default", label: t("reader.textSizes.default"), factor: 1 },
+	{ id: "large", label: t("reader.textSizes.large"), factor: 1.15 },
+	{ id: "larger", label: t("reader.textSizes.larger"), factor: 1.3 },
+	{ id: "largest", label: t("reader.textSizes.largest"), factor: 1.5 },
 ] as const
 
 export type TextSizeId = (typeof TEXT_SIZES)[number]["id"]

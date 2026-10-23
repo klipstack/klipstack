@@ -1,4 +1,5 @@
 import type { HighlightShare } from "@klipstack/api-contract"
+import { t } from "./i18n"
 
 /**
  * The Share sheet's pure parts: which way out it opens on, whether the link shows an older
@@ -8,7 +9,11 @@ import type { HighlightShare } from "@klipstack/api-contract"
 
 export type ShareTab = "text" | "link" | "image"
 export const SHARE_TABS: readonly ShareTab[] = ["text", "link", "image"]
-export const TAB_LABELS: Record<ShareTab, string> = { text: "Text", link: "Link", image: "Image" }
+export const TAB_LABELS: Record<ShareTab, string> = {
+	text: t("reader.share.tabs.text"),
+	link: t("reader.share.tabs.link"),
+	image: t("reader.share.tabs.image"),
+}
 
 /** A tab saved on the device, or text for anything else (none yet, an older file). */
 export function parseShareTab(raw: string | null): ShareTab {
@@ -42,9 +47,9 @@ export function shareLocale(deviceLocale: string): "en" | "es" {
 
 /** What the Link tab says when a change was refused, by the error's code. */
 export function linkErrorMessage(code: string | null): string {
-	if (code === "limit_reached") return "You shared as many highlights as you can this month."
+	if (code === "limit_reached") return t("reader.share.limit")
 	if (code === "share_removed") return REMOVED
-	return "The link didn't change. Try again."
+	return t("reader.share.linkFailed")
 }
 
-export const REMOVED = "This highlight was taken down after a report, and can't be shared."
+export const REMOVED = t("reader.share.removed")

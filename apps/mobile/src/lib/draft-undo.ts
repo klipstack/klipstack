@@ -1,5 +1,6 @@
 import type { ArticleSummary, KlipstackClient } from "@klipstack/sdk"
 import { dismissToast, showToast, track } from "./article-changes"
+import { t } from "./i18n"
 
 /** The toast offering to undo an unmark, and the articles it would mark again. */
 let offered: { toast: number; ids: Set<string> } | null = null
@@ -26,13 +27,13 @@ export function afterMarking(
 	const token = answer.undo?.[0]
 	if (changes.shortlisted !== false || !token || !answer.removedFromDraft?.length) return
 	const toast = showToast({
-		message: "Removed from your next edition",
+		message: t("reader.draftUndo.removed"),
 		action: {
-			label: "Undo",
+			label: t("common.actions.undo"),
 			run: () => {
 				track(client.articles.undo(token)).then(
 					(result) => undone?.(result.items),
-					() => showToast({ message: "Couldn't put it back in your next edition." }),
+					() => showToast({ message: t("reader.draftUndo.lost") }),
 				)
 			},
 		},

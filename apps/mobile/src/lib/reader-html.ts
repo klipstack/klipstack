@@ -1,6 +1,7 @@
 import { HIGHLIGHT_COLORS, type HighlightColor } from "@klipstack/api-contract/enums"
 import type { ArticleTopics } from "@klipstack/sdk"
 import type { PageConfig, PageHighlight } from "@/page/messages"
+import { t } from "./i18n"
 import { pageScript, pageScriptHash } from "./reader-page.generated"
 
 /** A highlight as the API gives it: where it is, and its quote with the text around it. */
@@ -60,6 +61,7 @@ export function readerHtml(page: ReaderPage): string {
 		highlights: pageHighlights(page.highlights),
 		position: restorable(page.position),
 		highlight: page.highlight ?? null,
+		strings: t("reader.page", { returnObjects: true }),
 	}
 	return `<!doctype html>
 <html${page.sans ? ' class="sans"' : ""}>
@@ -101,11 +103,11 @@ function shelfHtml(topics: ReaderPage["topics"]): string {
 	const cards = shelf.items.map((item) => {
 		const site = escapeHtml(item.siteName ?? hostOf(item.url))
 		const minutes = item.readingMinutes
-			? `<span class="shelf-minutes">${item.readingMinutes} min</span>`
+			? `<span class="shelf-minutes">${escapeHtml(t("reader.html.minutes", { count: item.readingMinutes }))}</span>`
 			: ""
 		return `<a class="shelf-card" href="${escapeHtml(item.readerUrl)}"><span class="shelf-site">${site}</span><span class="shelf-title">${escapeHtml(item.title ?? hostOf(item.url))}</span>${minutes}</a>`
 	})
-	return `<section id="klip-shelf" data-after-reading><div class="shelf-head"><h2>More in ${escapeHtml(shelf.topic.name)}</h2><span class="shelf-count">${shelf.unread} unread</span></div><div class="shelf-cards">${cards.join("")}</div></section>
+	return `<section id="klip-shelf" data-after-reading><div class="shelf-head"><h2>${escapeHtml(t("reader.html.moreIn", { topic: shelf.topic.name }))}</h2><span class="shelf-count">${escapeHtml(t("reader.html.unread", { count: shelf.unread }))}</span></div><div class="shelf-cards">${cards.join("")}</div></section>
 `
 }
 
@@ -119,7 +121,9 @@ function hostOf(url: string): string {
 
 /** A post the article was saved through, as the web reader shows it above the article. */
 function viaHtml(via: NonNullable<ReaderPage["via"]>[number]): string {
-	const who = via.author ? `Shared by ${via.author}` : "Shared in a post"
+	const who = via.author
+		? t("reader.html.sharedBy", { author: via.author })
+		: t("reader.html.sharedInPost")
 	const line = [who, via.siteName].filter(Boolean).join(" · ")
 	return `<aside class="via"><p class="via-by">${escapeHtml(line)}</p>${via.html}</aside>`
 }

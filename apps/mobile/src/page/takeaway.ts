@@ -2,10 +2,7 @@ import { NOTE_MAX } from "@klipstack/api-contract/names"
 import { parse } from "@klipstack/api-contract/note-links"
 import { fromStored, insertLink, linkRange, toStored } from "../lib/note-field"
 import { LEAST_HEIGHT, postItChars } from "../lib/post-it"
-import type { PageMessage, PageNote } from "./messages"
-
-/** What the post-it asks while the note is empty. */
-export const TAKEAWAY_PLACEHOLDER = "What will you take from this?"
+import type { PageMessage, PageNote, PageStrings } from "./messages"
 
 /**
  * The article note on a post-it at the end of the article, written on in place: the web reader's
@@ -19,14 +16,20 @@ export const TAKEAWAY_PLACEHOLDER = "What will you take from this?"
  * (`{ type: "note-pick" }`), as the app's own note fields do. The article picked (`link`) takes
  * the place of what was typed, or goes where the caret last was.
  */
-export function createTakeaway(post: (message: PageMessage) => void): {
+export function createTakeaway(
+	post: (message: PageMessage) => void,
+	strings: PageStrings,
+): {
 	element: HTMLElement
 	update: (note: PageNote) => void
 	link: (article: { id: string; title: string } | null) => void
 } {
 	const element = document.createElement("div")
 	element.className = "takeaway"
-	element.innerHTML = `<div class="takeaway-label">Your note <span>· only you</span></div><div class="post-it"><span class="tape" aria-hidden="true"></span><div class="takeaway-field" contenteditable="plaintext-only" role="textbox" aria-multiline="true" aria-label="Your note" aria-placeholder="${TAKEAWAY_PLACEHOLDER}" autocapitalize="sentences" data-placeholder="${TAKEAWAY_PLACEHOLDER}"></div></div><button type="button" class="takeaway-link-article">${LINK_ICON}Link Article</button><div class="takeaway-status"></div>`
+	// What the post-it asks while the note is empty.
+	const placeholder = strings.notePlaceholder
+	const say = (key: keyof PageStrings) => escapeHtml(strings[key])
+	element.innerHTML = `<div class="takeaway-label">${say("yourNote")} <span>${say("onlyYou")}</span></div><div class="post-it"><span class="tape" aria-hidden="true"></span><div class="takeaway-field" contenteditable="plaintext-only" role="textbox" aria-multiline="true" aria-label="${say("yourNote")}" aria-placeholder="${say("notePlaceholder")}" autocapitalize="sentences" data-placeholder="${say("notePlaceholder")}"></div></div><button type="button" class="takeaway-link-article">${LINK_ICON}${say("linkArticle")}</button><div class="takeaway-status"></div>`
 	const paper = element.querySelector<HTMLElement>(".post-it")!
 	const field = element.querySelector<HTMLElement>(".takeaway-field")!
 	const status = element.querySelector<HTMLElement>(".takeaway-status")!
@@ -62,7 +65,7 @@ export function createTakeaway(post: (message: PageMessage) => void): {
 	function changed(text: string) {
 		field.classList.toggle("empty", text === "")
 		if (text.length > fit.length) fit = text
-		Object.assign(paper.style, postItSize(fit || TAKEAWAY_PLACEHOLDER))
+		Object.assign(paper.style, postItSize(fit || placeholder))
 	}
 
 	changed("")
@@ -151,7 +154,7 @@ export function createTakeaway(post: (message: PageMessage) => void): {
 		// Drawn when it changes: a failure is announced once.
 		if (status.dataset.state !== note.status) {
 			status.dataset.state = note.status
-			status.innerHTML = statusHtml(note.status)
+			status.innerHTML = statusHtml(note.status, strings)
 		}
 		if (focused() && !replaced) return
 		if (fieldText(field) !== note.text || !focused()) show(note.text, note.links)
@@ -251,10 +254,14 @@ export function postItSize(text: string): { width: string; minHeight: string } {
 	return { width: `min(100%, ${width})`, minHeight: `calc(${width} * ${LEAST_HEIGHT.full})` }
 }
 
-function statusHtml(status: PageNote["status"]): string {
-	if (status === "saving") return "Saving…"
-	if (status === "saved") return "Saved"
+function statusHtml(status: PageNote["status"], strings: PageStrings): string {
+	if (status === "saving") return escapeHtml(strings.saving)
+	if (status === "saved") return escapeHtml(strings.saved)
 	if (status === "error")
-		return '<span role="alert">Not saved · <button type="button" class="end-link" data-end="note-retry">Retry</button></span>'
+		return `<span role="alert">${escapeHtml(strings.notSaved)}<button type="button" class="end-link" data-end="note-retry">${escapeHtml(strings.retry)}</button></span>`
 	return ""
 }
+
+/** The page's words in HTML: never markup. */
+const escapeHtml = (text: string) =>
+	text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")

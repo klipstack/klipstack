@@ -10,10 +10,10 @@ import {
 	Text,
 	View,
 } from "react-native"
-import { errorMessage } from "@/lib/i18n"
+import { errorMessage, t } from "@/lib/i18n"
 import { claimSpeech, ownsSpeech, releaseSpeech } from "@/lib/read-aloud"
 import { loadSpeechPrefs, saveSpeechPrefs } from "@/lib/reader-files"
-import { formatBytes, LANGUAGE_NAMES } from "@/lib/speech"
+import { formatBytes } from "@/lib/speech"
 import { type Colors, useColors } from "@/lib/theme"
 import { type LanguagePack, type SpeechLanguage, speech } from "../../modules/klip-speech"
 
@@ -65,7 +65,7 @@ export default function Voices() {
 		try {
 			await speech.download(pack.language)
 		} catch (e) {
-			Alert.alert("Download stopped", errorMessage(e))
+			Alert.alert(t("reader.voices.downloadStopped"), errorMessage(e))
 		} finally {
 			active.current = false
 			setDownloading(null)
@@ -75,12 +75,12 @@ export default function Voices() {
 
 	function remove(pack: LanguagePack) {
 		Alert.alert(
-			`Delete the ${LANGUAGE_NAMES[pack.language]} voices?`,
-			"You can download them again later.",
+			t("reader.voices.deleteTitle", { language: t(`reader.inLanguage.${pack.language}`) }),
+			t("reader.voices.deleteMessage"),
 			[
-				{ text: "Cancel", style: "cancel" },
+				{ text: t("common.actions.cancel"), style: "cancel" },
 				{
-					text: "Delete",
+					text: t("common.actions.delete"),
 					style: "destructive",
 					onPress: () => void speech?.remove(pack.language).then(refresh),
 				},
@@ -101,10 +101,10 @@ export default function Voices() {
 				language,
 				voice,
 				rate: prefs.speed,
-				title: "Voice sample",
+				title: t("reader.voices.sample"),
 				artist: "Klipstack",
 			})
-			.catch((e: unknown) => Alert.alert("Couldn't play", errorMessage(e)))
+			.catch((e: unknown) => Alert.alert(t("reader.voices.playFailed"), errorMessage(e)))
 	}
 
 	return (
@@ -113,9 +113,11 @@ export default function Voices() {
 			contentContainerStyle={styles.content}
 			contentInsetAdjustmentBehavior="automatic"
 		>
-			<Stack.Screen options={{ title: "Voices" }} />
+			<Stack.Screen options={{ title: t("reader.voices.title") }} />
 			{!speech ? (
-				<Text style={[styles.note, { color: colors.mutedFg }]}>This build can't read aloud.</Text>
+				<Text style={[styles.note, { color: colors.mutedFg }]}>
+					{t("reader.voices.unavailable")}
+				</Text>
 			) : !packs ? (
 				<ActivityIndicator color={colors.mutedFg} />
 			) : (
@@ -134,10 +136,7 @@ export default function Voices() {
 					/>
 				))
 			)}
-			<Text style={[styles.note, { color: colors.mutedFg }]}>
-				Klipstack reads aloud on this iPhone, with Kokoro, an open voice model. Nothing leaves the
-				phone, and it works offline. English and Spanish share most of the download.
-			</Text>
+			<Text style={[styles.note, { color: colors.mutedFg }]}>{t("reader.voices.about")}</Text>
 		</ScrollView>
 	)
 }
@@ -167,7 +166,7 @@ function Language({
 	return (
 		<View style={styles.section}>
 			<Text style={[styles.heading, { color: colors.mutedFg }]}>
-				{LANGUAGE_NAMES[pack.language].toUpperCase()}
+				{t(`reader.languages.${pack.language}`).toUpperCase()}
 			</Text>
 			<View style={[styles.card, { backgroundColor: colors.muted }]}>
 				{pack.installed ? (
@@ -208,14 +207,16 @@ function Language({
 								pressed && styles.pressed,
 							]}
 						>
-							<Text style={[styles.label, { color: colors.danger }]}>Delete voices</Text>
+							<Text style={[styles.label, { color: colors.danger }]}>
+								{t("reader.voices.deleteVoices")}
+							</Text>
 						</Pressable>
 					</>
 				) : downloading ? (
 					<View style={styles.row}>
 						<View style={styles.grow}>
 							<Text style={[styles.label, { color: colors.fg }]}>
-								Downloading… {Math.floor(share * 100)}%
+								{t("reader.voices.downloading", { percent: Math.floor(share * 100) })}
 							</Text>
 							<View style={[styles.track, { backgroundColor: colors.border }]}>
 								<View
@@ -227,7 +228,9 @@ function Language({
 							</View>
 						</View>
 						<Pressable accessibilityRole="button" onPress={onCancel} hitSlop={8}>
-							<Text style={[styles.label, { color: colors.accent }]}>Cancel</Text>
+							<Text style={[styles.label, { color: colors.accent }]}>
+								{t("common.actions.cancel")}
+							</Text>
 						</Pressable>
 					</View>
 				) : (
@@ -237,7 +240,9 @@ function Language({
 						onPress={onDownload}
 						style={({ pressed }) => [styles.row, (pressed || busy) && styles.pressed]}
 					>
-						<Text style={[styles.label, { color: colors.accent }]}>Download</Text>
+						<Text style={[styles.label, { color: colors.accent }]}>
+							{t("reader.voices.download")}
+						</Text>
 						<Text style={[styles.label, { color: colors.mutedFg }]}>
 							{formatBytes(pack.missingBytes)}
 						</Text>
@@ -246,8 +251,7 @@ function Language({
 			</View>
 			{pack.installed ? (
 				<Text style={[styles.footnote, { color: colors.mutedFg }]}>
-					Tap a voice to hear it. The one checked reads your {LANGUAGE_NAMES[pack.language]}{" "}
-					articles.
+					{t("reader.voices.footnote", { language: t(`reader.inLanguage.${pack.language}`) })}
 				</Text>
 			) : null}
 		</View>
