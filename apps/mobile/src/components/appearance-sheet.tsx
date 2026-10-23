@@ -5,6 +5,7 @@ import { useEffect, useState } from "react"
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { COLOR_SCHEMES, type ColorSchemePref } from "@/lib/color-scheme"
+import { t } from "@/lib/i18n"
 import { stepTextSize, TEXT_SIZES, type TypePrefs } from "@/lib/reader-type"
 import { type Colors, fonts } from "@/lib/theme"
 
@@ -54,7 +55,11 @@ export function AppearanceSheet({
 	}, [visible])
 	return (
 		<Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-			<Pressable accessibilityLabel="Close" style={styles.fill} onPress={onClose} />
+			<Pressable
+				accessibilityLabel={t("common.actions.close")}
+				style={styles.fill}
+				onPress={onClose}
+			/>
 			<View
 				style={[
 					styles.card,
@@ -66,15 +71,15 @@ export function AppearanceSheet({
 				]}
 			>
 				<View style={styles.heading}>
-					<Text style={[styles.title, { color: colors.fg }]}>Appearance</Text>
+					<Text style={[styles.title, { color: colors.fg }]}>{t("reader.appearance.title")}</Text>
 					<Pressable accessibilityRole="button" onPress={onClose} hitSlop={12}>
-						<Text style={[styles.done, { color: colors.accent }]}>Done</Text>
+						<Text style={[styles.done, { color: colors.accent }]}>{t("common.actions.done")}</Text>
 					</Pressable>
 				</View>
 				<View
 					accessible
 					accessibilityRole="adjustable"
-					accessibilityLabel="Text size"
+					accessibilityLabel={t("reader.appearance.textSize")}
 					accessibilityValue={{ text: size.label }}
 					accessibilityActions={[{ name: "increment" }, { name: "decrement" }]}
 					onAccessibilityAction={(event) =>
@@ -86,7 +91,7 @@ export function AppearanceSheet({
 					style={[styles.sizes, { borderColor: colors.border }]}
 				>
 					<SizeButton
-						label="Smaller"
+						label={t("reader.appearance.smaller")}
 						glyph={15}
 						disabled={at === 0}
 						onPress={() => onChange({ ...type, size: stepTextSize(type.size, -1) })}
@@ -101,7 +106,7 @@ export function AppearanceSheet({
 						))}
 					</View>
 					<SizeButton
-						label="Larger"
+						label={t("reader.appearance.larger")}
 						glyph={24}
 						disabled={at === TEXT_SIZES.length - 1}
 						onPress={() => onChange({ ...type, size: stepTextSize(type.size, 1) })}
@@ -118,7 +123,7 @@ export function AppearanceSheet({
 					{/* Once the current level is known, so the thumb doesn't jump to it. */}
 					{brightness !== null ? (
 						<Slider
-							accessibilityLabel="Brightness"
+							accessibilityLabel={t("reader.appearance.brightness")}
 							style={styles.grow}
 							value={brightness}
 							minimumValue={0}
@@ -151,14 +156,14 @@ export function AppearanceSheet({
 				</View>
 				<View accessibilityRole="radiogroup" style={styles.choices}>
 					<Choice
-						label="Serif"
+						label={t("reader.appearance.serif")}
 						family="Iowan Old Style"
 						selected={!type.sans}
 						onPress={() => onChange({ ...type, sans: false })}
 						colors={colors}
 					/>
 					<Choice
-						label="Sans Serif"
+						label={t("reader.appearance.sans")}
 						selected={type.sans}
 						onPress={() => onChange({ ...type, sans: true })}
 						colors={colors}

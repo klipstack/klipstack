@@ -7,7 +7,7 @@ import { Alert } from "react-native"
 import { LibraryList } from "@/components/library-list"
 import { deleteTag, renameTag } from "@/components/tag-actions"
 import { useAuth } from "@/lib/auth"
-import { errorMessage } from "@/lib/i18n"
+import { errorMessage, t } from "@/lib/i18n"
 import { useColors } from "@/lib/theme"
 
 /**
@@ -26,18 +26,18 @@ export default function TagArticles() {
 			client.tags
 				.list()
 				.then(({ items }) => then(items))
-				.catch((e: unknown) => Alert.alert("Not loaded", errorMessage(e)))
+				.catch((e: unknown) => Alert.alert(t("common.failed.notLoaded"), errorMessage(e)))
 		return {
 			type: "menu",
-			label: "More",
-			accessibilityLabel: `More for ${name}`,
+			label: t("common.actions.more"),
+			accessibilityLabel: t("library.moreFor", { name }),
 			tintColor: colors.accent,
 			icon: { type: "sfSymbol", name: "ellipsis.circle" },
 			menu: {
 				items: [
 					{
 						type: "action",
-						label: "Rename…",
+						label: t("common.actions.renameMore"),
 						icon: { type: "sfSymbol", name: "pencil" },
 						onPress: () =>
 							void withTags((tags) => {
@@ -50,7 +50,7 @@ export default function TagArticles() {
 					},
 					{
 						type: "action",
-						label: "Delete",
+						label: t("common.actions.delete"),
 						icon: { type: "sfSymbol", name: "trash" },
 						destructive: true,
 						onPress: () =>
@@ -66,7 +66,7 @@ export default function TagArticles() {
 	return (
 		<LibraryList
 			query={addOperator("", "tag", name)}
-			empty="No articles with this tag."
+			empty={t("library.empty.tag")}
 			headerMenu={menu}
 		/>
 	)

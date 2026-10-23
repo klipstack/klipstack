@@ -1,14 +1,15 @@
 import { HIGHLIGHT_COLORS, type HighlightColor } from "@klipstack/api-contract/enums"
 import { useEffect, useState } from "react"
 import { AccessibilityInfo, Animated, Easing, Pressable, StyleSheet, View } from "react-native"
+import { t } from "@/lib/i18n"
 import type { Colors } from "@/lib/theme"
 
 export const COLOR_NAMES: Record<HighlightColor, string> = {
-	yellow: "Yellow",
-	green: "Green",
-	blue: "Blue",
-	pink: "Pink",
-	orange: "Orange",
+	yellow: t("reader.highlightColors.yellow"),
+	green: t("reader.highlightColors.green"),
+	blue: t("reader.highlightColors.blue"),
+	pink: t("reader.highlightColors.pink"),
+	orange: t("reader.highlightColors.orange"),
 }
 
 // The tip's width; it is a little taller than wide, its top cut on a slant (a third of its height).
@@ -33,7 +34,11 @@ export function HighlighterNibs({
 	colors: Colors
 }) {
 	return (
-		<View accessibilityRole="radiogroup" accessibilityLabel="Highlight color" style={styles.nibs}>
+		<View
+			accessibilityRole="radiogroup"
+			accessibilityLabel={t("reader.highlightColors.label")}
+			style={styles.nibs}
+		>
 			{HIGHLIGHT_COLORS.map((color) => (
 				<Nib
 					key={color}

@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { HighlighterNibs } from "@/components/highlighter-nibs"
 import { NoteField, type NoteFieldHandle, type NoteLinking } from "@/components/note-field"
 import { notePaper, PostIt, postItText, useGrowingFit } from "@/components/post-it"
+import { t } from "@/lib/i18n"
 import { tiltFor } from "@/lib/post-it"
 import type { Colors } from "@/lib/theme"
 
@@ -127,7 +128,9 @@ export function HighlightCard({
 					<View style={styles.top}>
 						<HighlighterNibs value={shown.color} onChange={onColor} colors={colors} />
 						<Pressable accessibilityRole="button" onPress={onClose} hitSlop={8}>
-							<Text style={[styles.done, { color: colors.accent }]}>Done</Text>
+							<Text style={[styles.done, { color: colors.accent }]}>
+								{t("common.actions.done")}
+							</Text>
 						</Pressable>
 					</View>
 					{/* A new highlight's autosave: the key resets it. */}
@@ -144,29 +147,41 @@ export function HighlightCard({
 						{onAsk ? (
 							<Pressable
 								accessibilityRole="button"
-								accessibilityLabel="Ask"
+								accessibilityLabel={t("reader.highlightCard.ask")}
 								onPress={onAsk}
 								hitSlop={8}
 								style={styles.ask}
 							>
 								<SymbolView name="sparkles" tintColor={colors.accent} size={18} />
-								<Text style={[styles.askText, { color: colors.accent }]}>Ask</Text>
+								<Text style={[styles.askText, { color: colors.accent }]}>
+									{t("reader.highlightCard.ask")}
+								</Text>
 							</Pressable>
 						) : null}
-						<Tool label="Copy" symbol="doc.on.doc" color={colors.accent} onPress={onCopy} />
 						<Tool
-							label="Share"
+							label={t("reader.highlightCard.copy")}
+							symbol="doc.on.doc"
+							color={colors.accent}
+							onPress={onCopy}
+						/>
+						<Tool
+							label={t("common.actions.share")}
 							symbol="square.and.arrow.up"
 							color={colors.accent}
 							onPress={onShare}
 						/>
 						<Tool
-							label="Link"
+							label={t("reader.highlightCard.link")}
 							symbol="link"
 							color={colors.accent}
 							onPress={() => note.current?.linkArticle()}
 						/>
-						<Tool label="Delete" symbol="trash" color={colors.danger} onPress={onDelete} />
+						<Tool
+							label={t("common.actions.delete")}
+							symbol="trash"
+							color={colors.danger}
+							onPress={onDelete}
+						/>
 					</View>
 				</Animated.View>
 			</KeyboardAvoidingView>
@@ -222,7 +237,7 @@ function HighlightNote({
 			>
 				<NoteField
 					ref={field}
-					accessibilityLabel="Highlight note"
+					accessibilityLabel={t("reader.highlightCard.noteLabel")}
 					autoFocus={autoFocus}
 					value={value}
 					onChange={(text) => {
@@ -240,16 +255,20 @@ function HighlightNote({
 			</PostIt>
 			{status === "error" ? (
 				<Pressable accessibilityRole="button" onPress={() => void autosave.flush()}>
-					<Text style={[styles.status, { color: colors.danger }]}>Note not saved · Retry</Text>
+					<Text style={[styles.status, { color: colors.danger }]}>
+						{t("reader.highlightCard.noteFailed")}
+					</Text>
 				</Pressable>
 			) : status === "saving" ? (
-				<Text style={[styles.status, { color: colors.mutedFg }]}>Saving…</Text>
+				<Text style={[styles.status, { color: colors.mutedFg }]}>
+					{t("reader.highlightCard.saving")}
+				</Text>
 			) : null}
 		</View>
 	)
 }
 
-const NOTE_PLACEHOLDER = "Add a note"
+const NOTE_PLACEHOLDER = t("reader.highlightCard.notePlaceholder")
 
 function Tool({
 	label,

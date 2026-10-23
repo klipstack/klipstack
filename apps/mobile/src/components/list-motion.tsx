@@ -10,6 +10,7 @@ import {
 	View,
 } from "react-native"
 import Svg, { Path } from "react-native-svg"
+import { dateLocale, t } from "@/lib/i18n"
 import { type Act, advance, LEAVE_MS, type Motion, motionState, settle } from "@/lib/list-motion"
 import type { Colors } from "@/lib/theme"
 
@@ -34,7 +35,7 @@ const SHOW_MS = 1600
 /** How long a stamp where the article stays waits for the context menu to close, in ms. */
 const STAMP_DELAY = 400
 
-const STAMP_DATE = new Intl.DateTimeFormat("en-US", {
+const STAMP_DATE = new Intl.DateTimeFormat(dateLocale, {
 	day: "numeric",
 	month: "short",
 	year: "numeric",
@@ -109,6 +110,9 @@ const NONE: ReadonlyMap<string, Act> = new Map()
  * and fading those in would blink the whole list.
  */
 const SETTLE = { duration: 240, update: { type: LayoutAnimation.Types.easeInEaseOut } }
+
+/** The archive stamp's word. */
+const ARCHIVED = t("library.archivedStamp")
 
 /** Never quite straight, as a stamp by hand. Degrees. */
 const TILTS = [-7, -4, 3, -9, 5]
@@ -260,7 +264,7 @@ function Played({
 						]}
 					>
 						<Text allowFontScaling={false} style={[styles.stampWord, { color: colors.stamp }]}>
-							ARCHIVED
+							{ARCHIVED}
 						</Text>
 						<Text allowFontScaling={false} style={[styles.stampDate, { color: colors.stamp }]}>
 							{date}

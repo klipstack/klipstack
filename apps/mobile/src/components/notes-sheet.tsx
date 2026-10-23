@@ -14,6 +14,7 @@ import {
 import { PostIt, postItText } from "@/components/post-it"
 import { withDictated } from "@/lib/dictated-note"
 import { useDictation } from "@/lib/dictation"
+import { t } from "@/lib/i18n"
 import { fromStored } from "@/lib/note-field"
 import { tiltFor } from "@/lib/post-it"
 import { type Colors, fonts } from "@/lib/theme"
@@ -95,9 +96,11 @@ export function NotesSheet({
 		>
 			<View style={[styles.sheet, { backgroundColor: colors.bg }]}>
 				<View style={[styles.bar, { borderColor: colors.border }]}>
-					<Text style={[styles.title, { color: colors.fg }]}>Notes</Text>
+					<Text style={[styles.title, { color: colors.fg }]}>{t("reader.notes.title")}</Text>
 					<Pressable accessibilityRole="button" onPress={close} hitSlop={12} style={styles.done}>
-						<Text style={[styles.doneText, { color: colors.accent }]}>Done</Text>
+						<Text style={[styles.doneText, { color: colors.accent }]}>
+							{t("common.actions.done")}
+						</Text>
 					</Pressable>
 				</View>
 				<ScrollView
@@ -125,7 +128,8 @@ export function NotesSheet({
 					<View style={styles.heading}>
 						{/* The same note as the post-it at the end of the article, and as private. */}
 						<Text style={[styles.label, { color: colors.mutedFg }]}>
-							Your note<Text style={styles.onlyYou}> · only you</Text>
+							{t("reader.notes.yourNote")}
+							<Text style={styles.onlyYou}>{t("reader.notes.onlyYou")}</Text>
 						</Text>
 						<NoteStatus status={note.status} onRetry={note.onFlush} colors={colors} />
 					</View>
@@ -134,7 +138,7 @@ export function NotesSheet({
 					<PostIt colors={colors} style={styles.paper}>
 						<NoteField
 							ref={field}
-							accessibilityLabel="Your note"
+							accessibilityLabel={t("reader.notes.yourNote")}
 							value={note.value}
 							onChange={(text) => {
 								// Typed while listening: what is heard next would write over it.
@@ -156,7 +160,9 @@ export function NotesSheet({
 						{dictation.available ? (
 							<Pressable
 								accessibilityRole="button"
-								accessibilityLabel={dictation.listening ? "Stop dictating" : "Dictate"}
+								accessibilityLabel={
+									dictation.listening ? t("reader.notes.stopDictating") : t("reader.notes.dictate")
+								}
 								onPress={dictation.listening ? dictation.stop : startDictation}
 								hitSlop={8}
 								style={styles.linkArticle}
@@ -172,24 +178,24 @@ export function NotesSheet({
 										{ color: dictation.listening ? colors.danger : colors.accent },
 									]}
 								>
-									{dictation.listening ? "Listening… Tap to stop" : "Dictate"}
+									{dictation.listening ? t("reader.notes.listening") : t("reader.notes.dictate")}
 								</Text>
 							</Pressable>
 						) : null}
 					</View>
 					<Text style={[styles.label, styles.highlightsLabel, { color: colors.mutedFg }]}>
-						{highlights.length ? `Highlights (${highlights.length})` : "Highlights"}
+						{highlights.length
+							? t("reader.notes.highlightsCount", { number: highlights.length })
+							: t("reader.notes.highlights")}
 					</Text>
 					{highlights.length === 0 ? (
-						<Text style={[styles.empty, { color: colors.mutedFg }]}>
-							Select text in the article, then tap Highlight.
-						</Text>
+						<Text style={[styles.empty, { color: colors.mutedFg }]}>{t("reader.notes.empty")}</Text>
 					) : (
 						highlights.map((h) => (
 							<Pressable
 								key={h.id}
 								accessibilityRole="button"
-								accessibilityHint="Shows it in the article"
+								accessibilityHint={t("reader.notes.showInArticle")}
 								onPress={() => onSelect(h.id)}
 								style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.muted }]}
 							>
@@ -225,7 +231,7 @@ export function NotesSheet({
 					{backlinks.length ? (
 						<>
 							<Text style={[styles.label, styles.highlightsLabel, { color: colors.mutedFg }]}>
-								Linked from your notes
+								{t("reader.notes.linkedFrom")}
 							</Text>
 							{backlinks.map((link) => (
 								<Pressable
@@ -270,19 +276,21 @@ function NoteStatus({
 	colors: Colors
 }) {
 	if (status === "saving")
-		return <Text style={[styles.status, { color: colors.mutedFg }]}>Saving…</Text>
+		return (
+			<Text style={[styles.status, { color: colors.mutedFg }]}>{t("reader.notes.saving")}</Text>
+		)
 	if (status === "saved")
-		return <Text style={[styles.status, { color: colors.mutedFg }]}>Saved</Text>
+		return <Text style={[styles.status, { color: colors.mutedFg }]}>{t("reader.notes.saved")}</Text>
 	if (status === "error")
 		return (
 			<Pressable accessibilityRole="button" onPress={onRetry} hitSlop={8}>
-				<Text style={[styles.status, { color: colors.danger }]}>Not saved · Retry</Text>
+				<Text style={[styles.status, { color: colors.danger }]}>{t("reader.notes.failed")}</Text>
 			</Pressable>
 		)
 	return null
 }
 
-const ARTICLE_NOTE_PLACEHOLDER = "Your thoughts on this article"
+const ARTICLE_NOTE_PLACEHOLDER = t("reader.notes.placeholder")
 
 /** Runs of spaces and line breaks as one space, as the web shows a quote. */
 const oneLine = (text: string) => text.replace(/\s+/g, " ").trim()

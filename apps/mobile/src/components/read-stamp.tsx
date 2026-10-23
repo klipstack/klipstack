@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View } from "react-native"
+import { t } from "@/lib/i18n"
 import { tiltFor } from "@/lib/post-it"
 import type { Colors } from "@/lib/theme"
 
@@ -22,7 +23,7 @@ export function ReadStamp({
 	return (
 		<View
 			accessible
-			accessibilityLabel="Finished"
+			accessibilityLabel={t("library.readStampLabel")}
 			style={[
 				styles.stamp,
 				{ transform: [{ rotate: `${TILTS[tiltFor(id) % TILTS.length]}deg` }] },
@@ -35,7 +36,7 @@ export function ReadStamp({
 					maxFontSizeMultiplier={1.5}
 					style={[styles.word, { color: colors.stamp }]}
 				>
-					READ
+					{t("library.readStamp")}
 				</Text>
 			</View>
 		</View>

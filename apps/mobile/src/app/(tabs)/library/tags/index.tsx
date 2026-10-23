@@ -6,7 +6,7 @@ import { EmptyDrawing } from "@/components/empty-drawing"
 import { PlaceGroup, PlaceRow } from "@/components/place-list"
 import { deleteTag, renameTag } from "@/components/tag-actions"
 import { useAuth } from "@/lib/auth"
-import { errorMessage } from "@/lib/i18n"
+import { errorMessage, t } from "@/lib/i18n"
 import { useColors } from "@/lib/theme"
 
 /**
@@ -40,9 +40,7 @@ export default function Tags() {
 			) : tags.length === 0 ? (
 				<View style={styles.empty}>
 					<EmptyDrawing name="tags" />
-					<Text style={[styles.message, { color: colors.mutedFg }]}>
-						No tags yet. Long-press an article and choose Tags to add one.
-					</Text>
+					<Text style={[styles.message, { color: colors.mutedFg }]}>{t("library.tags.empty")}</Text>
 				</View>
 			) : (
 				<PlaceGroup colors={colors}>
@@ -52,7 +50,7 @@ export default function Tags() {
 							title={tag.name}
 							icon="tag"
 							detail={String(tag.articles)}
-							detailLabel={tag.articles === 1 ? "1 article" : `${tag.articles} articles`}
+							detailLabel={t("library.articles", { count: tag.articles })}
 							href={{ pathname: "/library/tags/[id]", params: { id: tag.id, name: tag.name } }}
 							menu={
 								client
@@ -62,7 +60,7 @@ export default function Tags() {
 												icon="pencil"
 												onPress={() => renameTag(client, tag, tags, load)}
 											>
-												Rename…
+												{t("common.actions.renameMore")}
 											</Link.MenuAction>,
 											<Link.MenuAction
 												key="delete"
@@ -70,7 +68,7 @@ export default function Tags() {
 												destructive
 												onPress={() => deleteTag(client, tag, load)}
 											>
-												Delete
+												{t("common.actions.delete")}
 											</Link.MenuAction>,
 										]
 									: undefined

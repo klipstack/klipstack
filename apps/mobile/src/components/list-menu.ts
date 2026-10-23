@@ -1,5 +1,6 @@
 import type { NativeStackHeaderItem } from "expo-router/native-stack"
 import { useCallback, useSyncExternalStore } from "react"
+import { t } from "@/lib/i18n"
 import {
 	defaultSort,
 	type FilterableView,
@@ -108,8 +109,8 @@ export function listMenuItem(options: {
 	const on = filter !== null || topic !== null
 	return {
 		type: "menu",
-		label: "Show",
-		accessibilityLabel: on ? "Show, filtered" : "Show",
+		label: t("library.menu.show"),
+		accessibilityLabel: on ? t("library.menu.showFiltered") : t("library.menu.show"),
 		tintColor: options.tint,
 		icon: {
 			type: "sfSymbol",
@@ -120,7 +121,7 @@ export function listMenuItem(options: {
 			// in the whole menu.
 			multiselectable: true,
 			items: [
-				{ type: "submenu", label: "Show", inline: true, items: show },
+				{ type: "submenu", label: t("library.menu.show"), inline: true, items: show },
 				...(sorts.length || topicChoices.length
 					? [
 							{
@@ -133,7 +134,7 @@ export function listMenuItem(options: {
 										? [
 												{
 													type: "submenu" as const,
-													label: "Sort",
+													label: t("library.menu.sort"),
 													icon: { type: "sfSymbol" as const, name: "arrow.up.arrow.down" as const },
 													items: sorts,
 												},
@@ -143,7 +144,7 @@ export function listMenuItem(options: {
 										? [
 												{
 													type: "submenu" as const,
-													label: "Topic",
+													label: t("library.menu.topic"),
 													icon: { type: "sfSymbol" as const, name: "square.stack" as const },
 													items: topicChoices,
 												},

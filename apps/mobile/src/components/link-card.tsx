@@ -15,7 +15,7 @@ import {
 } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { copyText } from "@/lib/clipboard"
-import { errorMessage } from "@/lib/i18n"
+import { errorMessage, t } from "@/lib/i18n"
 import type { Colors } from "@/lib/theme"
 
 /** A link tapped in an article: its URL and its text. */
@@ -44,7 +44,11 @@ export function LinkCard({
 	const insets = useSafeAreaInsets()
 	return (
 		<Modal visible={link !== null} transparent animationType="slide" onRequestClose={onClose}>
-			<Pressable accessibilityLabel="Close" style={styles.fill} onPress={onClose} />
+			<Pressable
+				accessibilityLabel={t("common.actions.close")}
+				style={styles.fill}
+				onPress={onClose}
+			/>
 			{link ? (
 				<View
 					style={[
@@ -60,7 +64,7 @@ export function LinkCard({
 					<About key={`about:${link.href}`} link={link} client={client} colors={colors} />
 					<SaveRow key={link.href} link={link} client={client} onRead={onRead} colors={colors} />
 					<Row
-						label="Open Original"
+						label={t("library.actions.openOriginal")}
 						symbol="safari"
 						colors={colors}
 						onPress={() => {
@@ -69,7 +73,7 @@ export function LinkCard({
 						}}
 					/>
 					<Row
-						label="Copy Link"
+						label={t("library.actions.copyLink")}
 						symbol="link"
 						colors={colors}
 						onPress={() => {
@@ -78,7 +82,7 @@ export function LinkCard({
 						}}
 					/>
 					<Row
-						label="Share…"
+						label={t("library.link.share")}
 						symbol="square.and.arrow.up"
 						colors={colors}
 						onPress={() => {
@@ -160,7 +164,7 @@ function About({
 				</Text>
 			) : null}
 			{preview === undefined ? (
-				<View accessibilityLabel="Loading the preview" style={styles.placeholder}>
+				<View accessibilityLabel={t("library.link.loadingPreview")} style={styles.placeholder}>
 					<View style={[styles.bar, { backgroundColor: colors.muted }]} />
 					<View style={[styles.bar, styles.shortBar, { backgroundColor: colors.muted }]} />
 				</View>
@@ -216,7 +220,7 @@ function SaveRow({
 			<View style={styles.row}>
 				<ActivityIndicator color={colors.mutedFg} style={styles.icon} />
 				<Text style={[styles.label, { color: colors.mutedFg }]}>
-					{saved.state === "saving" ? "Saving…" : "Save to Klipstack"}
+					{saved.state === "saving" ? t("library.link.saving") : t("library.link.save")}
 				</Text>
 			</View>
 		)
@@ -232,11 +236,11 @@ function SaveRow({
 							style={styles.icon}
 							accessibilityElementsHidden
 						/>
-						<Text style={[styles.label, { color: colors.fg }]}>Saved to Klipstack</Text>
+						<Text style={[styles.label, { color: colors.fg }]}>{t("library.link.saved")}</Text>
 					</View>
 				) : null}
 				<Row
-					label="Read in Klipstack"
+					label={t("library.link.read")}
 					symbol="book"
 					colors={colors}
 					onPress={() => onRead(saved.id)}
@@ -245,7 +249,7 @@ function SaveRow({
 		)
 	return (
 		<>
-			<Row label="Save to Klipstack" symbol="plus.circle" colors={colors} onPress={save} />
+			<Row label={t("library.link.save")} symbol="plus.circle" colors={colors} onPress={save} />
 			{saved.state === "failed" ? (
 				<Text style={[styles.error, { color: colors.danger }]}>{saved.message}</Text>
 			) : null}

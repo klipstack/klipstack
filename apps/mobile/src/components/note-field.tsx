@@ -12,6 +12,7 @@ import {
 	type ViewStyle,
 } from "react-native"
 import { LinkArticleSheet } from "@/components/link-article-sheet"
+import { t } from "@/lib/i18n"
 import {
 	applyEdit,
 	fieldMaxLength,
@@ -199,7 +200,7 @@ export function NoteField({
 			<>
 				<Pressable
 					accessibilityLabel={accessibilityLabel}
-					accessibilityHint="Edits the note"
+					accessibilityHint={t("reader.noteField.editHint")}
 					onPress={() => setEditing(true)}
 					style={box}
 				>
@@ -295,14 +296,16 @@ export function LinkArticleButton({
 	return (
 		<Pressable
 			accessibilityRole="button"
-			accessibilityLabel="Link Article"
+			accessibilityLabel={t("reader.noteField.linkArticle")}
 			onPress={() => field.current?.linkArticle()}
 			hitSlop={8}
 			style={styles.linkArticle}
 		>
 			<SymbolView name="link" tintColor={colors.accent} size={17} />
 			{compact ? null : (
-				<Text style={[styles.linkArticleText, { color: colors.accent }]}>Link Article</Text>
+				<Text style={[styles.linkArticleText, { color: colors.accent }]}>
+					{t("reader.noteField.linkArticle")}
+				</Text>
 			)}
 		</Pressable>
 	)

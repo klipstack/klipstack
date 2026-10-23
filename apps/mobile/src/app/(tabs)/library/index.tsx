@@ -6,6 +6,7 @@ import { ScrollView, StyleSheet } from "react-native"
 import { PlaceGroup, PlaceRow } from "@/components/place-list"
 import { deleteSavedSearch, renameSavedSearch } from "@/components/saved-search-actions"
 import { useAuth } from "@/lib/auth"
+import { t } from "@/lib/i18n"
 import { useColors } from "@/lib/theme"
 
 /**
@@ -61,17 +62,42 @@ export default function Places() {
 	return (
 		<ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.page}>
 			<PlaceGroup colors={colors}>
-				<PlaceRow title="Inbox" icon="tray" href="/library/inbox" colors={colors} />
-				<PlaceRow title="Starred" icon="star" href="/library/starred" colors={colors} />
-				<PlaceRow title="Archive" icon="archivebox" href="/library/archive" colors={colors} />
+				<PlaceRow
+					title={t("library.places.inbox")}
+					icon="tray"
+					href="/library/inbox"
+					colors={colors}
+				/>
+				<PlaceRow
+					title={t("library.places.starred")}
+					icon="star"
+					href="/library/starred"
+					colors={colors}
+				/>
+				<PlaceRow
+					title={t("library.places.archive")}
+					icon="archivebox"
+					href="/library/archive"
+					colors={colors}
+				/>
 			</PlaceGroup>
 			<PlaceGroup colors={colors}>
-				<PlaceRow title="Tags" icon="tag" href="/library/tags" colors={colors} />
+				<PlaceRow
+					title={t("library.places.tags")}
+					icon="tag"
+					href="/library/tags"
+					colors={colors}
+				/>
 				{topics ? (
-					<PlaceRow title="Topics" icon="books.vertical" href="/library/topics" colors={colors} />
+					<PlaceRow
+						title={t("library.places.topics")}
+						icon="books.vertical"
+						href="/library/topics"
+						colors={colors}
+					/>
 				) : null}
 			</PlaceGroup>
-			<PlaceGroup title="Saved Searches" colors={colors}>
+			<PlaceGroup title={t("library.places.savedSearches")} colors={colors}>
 				{saved.map((search) => (
 					<PlaceRow
 						key={search.id}
@@ -89,7 +115,7 @@ export default function Places() {
 											icon="pencil"
 											onPress={() => renameSavedSearch(client, search, loadSaved)}
 										>
-											Rename…
+											{t("common.actions.renameMore")}
 										</Link.MenuAction>,
 										<Link.MenuAction
 											key="delete"
@@ -97,7 +123,7 @@ export default function Places() {
 											destructive
 											onPress={() => deleteSavedSearch(client, search, loadSaved)}
 										>
-											Delete
+											{t("common.actions.delete")}
 										</Link.MenuAction>,
 									]
 								: undefined
@@ -108,15 +134,25 @@ export default function Places() {
 			</PlaceGroup>
 			<PlaceGroup colors={colors}>
 				{/* The guide and texts to start with, as the web's sidebar's Discover. */}
-				<PlaceRow title="Discover" icon="safari" href="/discover" colors={colors} />
+				<PlaceRow
+					title={t("library.places.discover")}
+					icon="safari"
+					href="/discover"
+					colors={colors}
+				/>
 				{/* Always here, as in the web's Library menu: Home's card is only an occasional reminder. */}
 				<PlaceRow
-					title="Review Old Saves"
+					title={t("library.places.review")}
 					icon="clock.arrow.circlepath"
 					href="/review"
 					colors={colors}
 				/>
-				<PlaceRow title="Trash" icon="trash" href="/library/trash" colors={colors} />
+				<PlaceRow
+					title={t("library.places.trash")}
+					icon="trash"
+					href="/library/trash"
+					colors={colors}
+				/>
 			</PlaceGroup>
 		</ScrollView>
 	)

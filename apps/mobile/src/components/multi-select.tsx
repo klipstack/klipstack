@@ -4,6 +4,7 @@ import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react
 import { Keyboard } from "react-native"
 import type { Selection } from "@/components/article-card"
 import { HeaderTextButton } from "@/components/tab-stack"
+import { t } from "@/lib/i18n"
 import { setTabBarHidden } from "@/lib/tab-bar"
 
 const NONE: ReadonlySet<string> = new Set()
@@ -76,11 +77,13 @@ export function useMultiSelect(items: ArticleSummary[] | null) {
 				headerLeft: () =>
 					items?.length ? (
 						<HeaderTextButton
-							label={allChecked ? "Deselect All" : "Select All"}
+							label={allChecked ? t("library.select.none") : t("library.select.all")}
 							onPress={() => setChecked(allChecked ? NONE : new Set(items.map((a) => a.id)))}
 						/>
 					) : null,
-				headerRight: () => <HeaderTextButton label="Done" strong onPress={stop} />,
+				headerRight: () => (
+					<HeaderTextButton label={t("common.actions.done")} strong onPress={stop} />
+				),
 			}
 		: null
 

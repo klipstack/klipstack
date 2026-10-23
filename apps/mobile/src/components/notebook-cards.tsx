@@ -11,10 +11,11 @@ import { ArticleNote, HighlightNote } from "@/components/notebook-note"
 import { siteName } from "@/lib/article-meta"
 import { useAuth } from "@/lib/auth"
 import { copyText } from "@/lib/clipboard"
+import { t } from "@/lib/i18n"
 import { leadImageSource } from "@/lib/lead-image"
 import { fromStored } from "@/lib/note-field"
 import type { SavedNote } from "@/lib/note-guard"
-import { countLine, type NotebookEntry, type NotebookGroup, plural } from "@/lib/notebook"
+import { countLine, highlightCount, type NotebookEntry, type NotebookGroup } from "@/lib/notebook"
 import type { Colors } from "@/lib/theme"
 
 /** What a highlight's card needs from the screen: the client, the pictures' headers, note links. */
@@ -65,11 +66,14 @@ export function ArticleSection({ entry, ctx }: { entry: NotebookEntry; ctx: Card
 	return (
 		<View style={styles.section}>
 			<Link href={{ pathname: "/read/[id]", params: { id: article.id } }} push asChild>
-				<Pressable accessibilityRole="link" accessibilityLabel={`Open ${title}`}>
+				<Pressable
+					accessibilityRole="link"
+					accessibilityLabel={t("notebook.sections.open", { title })}
+				>
 					<Cover article={article} colors={colors} headers={ctx.headers} />
 					<Text style={[styles.sectionTitle, { color: colors.fg }]}>{title}</Text>
 					<Text style={[styles.meta, { color: colors.mutedFg }]} numberOfLines={1}>
-						{[siteName(article), authorOf(article), count ? plural(count, "highlight") : null]
+						{[siteName(article), authorOf(article), count ? highlightCount(count) : null]
 							.filter(Boolean)
 							.join(" · ")}
 					</Text>
@@ -96,7 +100,7 @@ export function ArticleSection({ entry, ctx }: { entry: NotebookEntry; ctx: Card
 					style={styles.more}
 				>
 					<Text style={[styles.moreText, { color: colors.accent }]}>
-						{open ? "Show Less" : `Show All ${count}`}
+						{open ? t("notebook.sections.showLess") : t("notebook.sections.showAll", { count })}
 					</Text>
 				</Pressable>
 			) : null}
@@ -121,7 +125,7 @@ export function TopicSection({
 			<View style={styles.topicHead}>
 				<View style={styles.topicName}>
 					<Text style={[styles.topicTitle, { color: colors.fg }]}>
-						{group.topic?.name ?? "Other"}
+						{group.topic?.name ?? t("notebook.sections.other")}
 					</Text>
 					<Text style={[styles.meta, { color: colors.mutedFg }]}>
 						{countLine(group.highlights, group.notes)}
@@ -133,7 +137,9 @@ export function TopicSection({
 						hitSlop={8}
 						onPress={() => onSeeAll(group.topic?.id ?? "none")}
 					>
-						<Text style={[styles.moreText, { color: colors.accent }]}>See All {total}</Text>
+						<Text style={[styles.moreText, { color: colors.accent }]}>
+							{t("notebook.sections.seeAll", { count: total })}
+						</Text>
 					</Pressable>
 				) : null}
 			</View>
@@ -195,33 +201,33 @@ export function QuoteCard({
 	const quote = oneLine(highlight.quote)
 	const actions: ReactElement[] = [
 		<Link.MenuAction key="copy" icon="doc.on.doc" onPress={() => void copyText(highlight.quote)}>
-			Copy
+			{t("notebook.card.copy")}
 		</Link.MenuAction>,
 		<Link.MenuAction
 			key="share"
 			icon="square.and.arrow.up"
 			onPress={() => ctx.onShare(highlight, article)}
 		>
-			Share
+			{t("common.actions.share")}
 		</Link.MenuAction>,
 	]
 	if (!highlight.note)
 		actions.push(
 			<Link.MenuAction key="note" icon="note.text.badge.plus" onPress={() => setWriting(true)}>
-				Add Note
+				{t("notebook.card.addNote")}
 			</Link.MenuAction>,
 		)
 	if (onDismiss)
 		actions.push(
 			<Link.MenuAction key="dismiss" icon="eye.slash" onPress={onDismiss}>
-				Not Useful Anymore
+				{t("notebook.card.notUseful")}
 			</Link.MenuAction>,
 		)
 	const { onDelete } = ctx
 	if (onDelete)
 		actions.push(
 			<Link.MenuAction key="delete" icon="trash" destructive onPress={() => onDelete(highlight)}>
-				Delete
+				{t("common.actions.delete")}
 			</Link.MenuAction>,
 		)
 	return (
@@ -276,9 +282,9 @@ export function QuoteCard({
 			{highlight.shared ? (
 				<View style={styles.tools}>
 					<CardTool
-						label="Shared"
+						label={t("notebook.card.shared")}
 						symbol="link"
-						hint="Opens the Share sheet, with the link"
+						hint={t("notebook.card.sharedHint")}
 						onPress={() => ctx.onShare(highlight, article)}
 						colors={colors}
 					/>
@@ -288,14 +294,14 @@ export function QuoteCard({
 				<View style={styles.tools}>
 					{highlight.note || writing ? null : (
 						<CardTool
-							label="Add a note"
+							label={t("notebook.card.addANote")}
 							symbol="note.text.badge.plus"
 							onPress={() => setWriting(true)}
 							colors={colors}
 						/>
 					)}
 					<CardTool
-						label="Not useful anymore"
+						label={t("notebook.card.notUsefulTool")}
 						symbol="eye.slash"
 						onPress={onDismiss}
 						colors={colors}
@@ -362,7 +368,7 @@ export function NoteCard({
 				<Link.Trigger>
 					<Pressable
 						accessibilityRole="link"
-						accessibilityLabel={`Open ${title}`}
+						accessibilityLabel={t("notebook.sections.open", { title })}
 						style={StyleSheet.flatten([
 							styles.noteHead,
 							{ backgroundColor: cardSurface(colors).backgroundColor },
@@ -386,7 +392,7 @@ export function NoteCard({
 						icon="doc.on.doc"
 						onPress={() => void copyText(fromStored(item.note).text)}
 					>
-						Copy Note
+						{t("notebook.card.copyNote")}
 					</Link.MenuAction>
 					<Link.MenuAction
 						icon="square.and.arrow.up"
@@ -397,7 +403,7 @@ export function NoteCard({
 							})
 						}
 					>
-						Share
+						{t("common.actions.share")}
 					</Link.MenuAction>
 				</Link.Menu>
 			</Link>

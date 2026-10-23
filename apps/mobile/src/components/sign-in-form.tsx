@@ -13,7 +13,7 @@ import {
 	View,
 } from "react-native"
 import Svg, { Path } from "react-native-svg"
-import { errorMessage } from "@/lib/i18n"
+import { errorMessage, t } from "@/lib/i18n"
 import {
 	sendSignInCode,
 	signInOptions,
@@ -82,7 +82,7 @@ export function SignInForm({
 	}
 
 	async function emailCode() {
-		if (!trimmed.includes("@")) return setError("Enter your email first.")
+		if (!trimmed.includes("@")) return setError(t("account.signIn.enterEmail"))
 		setBusy("code")
 		setError(null)
 		try {
@@ -116,13 +116,13 @@ export function SignInForm({
 					onProvider={(provider) => run(provider, () => signInWithProvider(apiUrl, provider))}
 				/>
 				<TextInput
-					accessibilityLabel="Email"
+					accessibilityLabel={t("account.signIn.email")}
 					value={email}
 					onChangeText={(text) => {
 						setEmail(text)
 						if (codeSentTo && text.trim() !== codeSentTo) setCodeSentTo(null)
 					}}
-					placeholder="Email"
+					placeholder={t("account.signIn.email")}
 					placeholderTextColor={colors.mutedFg}
 					autoCapitalize="none"
 					autoCorrect={false}
@@ -137,16 +137,16 @@ export function SignInForm({
 				{withCode ? (
 					<>
 						<Text style={[styles.note, { color: colors.mutedFg }]}>
-							If {codeSentTo} has an account, a code is on its way. It expires in 10 minutes.
+							{t("account.signIn.codeSent", { email: codeSentTo })}
 						</Text>
 						<TextInput
 							// Its own key: a field reused from the other mode keeps iOS's letter spacing.
 							key="code"
 							ref={passwordField}
-							accessibilityLabel="Code from the email"
+							accessibilityLabel={t("account.signIn.codeLabel")}
 							value={code}
 							onChangeText={(text) => setCode(text.replace(/\D/g, ""))}
-							placeholder="Code"
+							placeholder={t("account.signIn.code")}
 							placeholderTextColor={colors.mutedFg}
 							keyboardType="number-pad"
 							textContentType="oneTimeCode"
@@ -163,10 +163,10 @@ export function SignInForm({
 					<TextInput
 						key="password"
 						ref={passwordField}
-						accessibilityLabel="Password"
+						accessibilityLabel={t("account.signIn.password")}
 						value={password}
 						onChangeText={setPassword}
-						placeholder="Password"
+						placeholder={t("account.signIn.password")}
 						placeholderTextColor={colors.mutedFg}
 						secureTextEntry
 						autoCapitalize="none"
@@ -192,7 +192,9 @@ export function SignInForm({
 					{busy === "email" ? (
 						<ActivityIndicator color={colors.accentFg} />
 					) : (
-						<Text style={[styles.buttonText, { color: colors.accentFg }]}>Sign in</Text>
+						<Text style={[styles.buttonText, { color: colors.accentFg }]}>
+							{t("account.signIn.submit")}
+						</Text>
 					)}
 				</Pressable>
 				{options.emailCode ? (
@@ -205,10 +207,10 @@ export function SignInForm({
 						>
 							<Text style={[styles.link, { color: colors.accent }]}>
 								{busy === "code"
-									? "Sending…"
+									? t("account.signIn.sending")
 									: withCode
-										? "Send a new code"
-										: "Email me a code instead"}
+										? t("account.signIn.newCode")
+										: t("account.signIn.emailCode")}
 							</Text>
 						</Pressable>
 						{withCode ? (
@@ -218,7 +220,9 @@ export function SignInForm({
 								onPress={() => setCodeSentTo(null)}
 								hitSlop={8}
 							>
-								<Text style={[styles.link, { color: colors.accent }]}>Use a password</Text>
+								<Text style={[styles.link, { color: colors.accent }]}>
+									{t("account.signIn.usePassword")}
+								</Text>
 							</Pressable>
 						) : null}
 					</View>
@@ -237,8 +241,10 @@ export function SignInForm({
 						style={styles.footer}
 					>
 						<Text style={[styles.note, { color: colors.mutedFg, textAlign: "center" }]}>
-							New to Klipstack?{" "}
-							<Text style={[styles.link, { color: colors.accent }]}>Create an account</Text>
+							{t("account.signIn.newHere")}{" "}
+							<Text style={[styles.link, { color: colors.accent }]}>
+								{t("account.signIn.createAccount")}
+							</Text>
 						</Text>
 					</Pressable>
 				) : null}
@@ -322,7 +328,9 @@ export function ProviderButtons({
 								<Path d={MARKS[provider]} />
 							</Svg>
 							<Text style={[styles.providerText, { color: colors.fg }]}>
-								Continue with {provider === "google" ? "Google" : "GitHub"}
+								{t("account.signIn.continueWith", {
+									provider: provider === "google" ? "Google" : "GitHub",
+								})}
 							</Text>
 						</>
 					)}
@@ -331,7 +339,7 @@ export function ProviderButtons({
 			{showApple || others.length > 0 ? (
 				<View style={styles.or}>
 					<View style={[styles.rule, { backgroundColor: colors.border }]} />
-					<Text style={[styles.orText, { color: colors.mutedFg }]}>or</Text>
+					<Text style={[styles.orText, { color: colors.mutedFg }]}>{t("account.signIn.or")}</Text>
 					<View style={[styles.rule, { backgroundColor: colors.border }]} />
 				</View>
 			) : null}

@@ -1,5 +1,6 @@
 import { useRef } from "react"
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
+import { t } from "@/lib/i18n"
 import { type Colors, fonts } from "@/lib/theme"
 import type { ContentsEntry } from "@/page/messages"
 
@@ -51,9 +52,11 @@ export function ContentsSheet({
 		>
 			<View style={[styles.sheet, { backgroundColor: colors.bg }]}>
 				<View style={[styles.bar, { borderColor: colors.border }]}>
-					<Text style={[styles.barTitle, { color: colors.fg }]}>Contents</Text>
+					<Text style={[styles.barTitle, { color: colors.fg }]}>{t("reader.contents.title")}</Text>
 					<Pressable accessibilityRole="button" onPress={onClose} hitSlop={12} style={styles.done}>
-						<Text style={[styles.doneText, { color: colors.accent }]}>Done</Text>
+						<Text style={[styles.doneText, { color: colors.accent }]}>
+							{t("common.actions.done")}
+						</Text>
 					</Pressable>
 				</View>
 				<ScrollView
@@ -74,7 +77,7 @@ export function ContentsSheet({
 								key={entry.key}
 								accessibilityRole="button"
 								accessibilityState={{ selected: here }}
-								accessibilityHint={here ? "The section you're reading" : undefined}
+								accessibilityHint={here ? t("reader.contents.current") : undefined}
 								onPress={() => onSelect(i)}
 								onLayout={
 									here

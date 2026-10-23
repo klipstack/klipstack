@@ -18,12 +18,13 @@ import {
 	type NoteLinking,
 } from "@/components/note-field"
 import { notePaper, PostIt, postItText, useGrowingFit } from "@/components/post-it"
+import { t } from "@/lib/i18n"
 import { fromStored, runs } from "@/lib/note-field"
 import { guardNoteSaves, type SavedNote } from "@/lib/note-guard"
 import { tiltFor } from "@/lib/post-it"
 import type { Colors } from "@/lib/theme"
 
-const ADD_NOTE = "Add your note"
+const ADD_NOTE = t("notebook.note.addYourNote")
 
 /**
  * An article's note in the Notebook, on a large post-it, written on in place: a tap gives the
@@ -82,11 +83,11 @@ export function ArticleNote({
 		if (asking.current || !mounted.current) return
 		asking.current = true
 		Alert.alert(
-			"Note Changed Elsewhere",
-			"This note changed somewhere else while you were writing.",
+			t("notebook.note.changed.title"),
+			t("notebook.note.changed.message"),
 			[
 				{
-					text: "Use the Saved Note",
+					text: t("notebook.note.changed.theirs"),
 					onPress: () => {
 						asking.current = false
 						dropMine()
@@ -97,7 +98,7 @@ export function ArticleNote({
 					},
 				},
 				{
-					text: "Keep Mine",
+					text: t("notebook.note.changed.mine"),
 					onPress: () => {
 						asking.current = false
 						keepMine()
@@ -219,7 +220,7 @@ function ArticleNoteEditor({
 				{editing ? (
 					<NoteField
 						ref={field}
-						accessibilityLabel="Article note"
+						accessibilityLabel={t("notebook.note.articleNote")}
 						value={value}
 						onChange={(text) => {
 							setValue(text)
@@ -241,8 +242,8 @@ function ArticleNoteEditor({
 				) : (
 					<Pressable
 						accessibilityRole="button"
-						accessibilityLabel={value ? "Article note" : ADD_NOTE}
-						accessibilityHint={value ? "Edits the note" : undefined}
+						accessibilityLabel={value ? t("notebook.note.articleNote") : ADD_NOTE}
+						accessibilityHint={value ? t("notebook.note.editsHint") : undefined}
 						onPress={() => setEditing(true)}
 						style={styles.tap}
 					>
@@ -333,7 +334,7 @@ export function HighlightNote({
 				{editing ? (
 					<NoteField
 						ref={field}
-						accessibilityLabel="Highlight note"
+						accessibilityLabel={t("notebook.note.highlightNote")}
 						value={value}
 						onChange={(text) => {
 							setValue(text)
@@ -345,7 +346,7 @@ export function HighlightNote({
 						}}
 						linking={linking}
 						maxLength={HIGHLIGHT_NOTE_MAX}
-						placeholder="Add a note"
+						placeholder={t("notebook.note.placeholder")}
 						placeholderColor={notePaper(colors, highlight.color).placeholder}
 						autoFocus
 						scrollEnabled={false}
@@ -355,8 +356,8 @@ export function HighlightNote({
 				) : (
 					<Pressable
 						accessibilityRole="button"
-						accessibilityLabel="Highlight note"
-						accessibilityHint="Edits the note"
+						accessibilityLabel={t("notebook.note.highlightNote")}
+						accessibilityHint={t("notebook.note.editsHint")}
 						onPress={() => setEditing(true)}
 					>
 						<Text style={postItText(colors, "compact", highlight.color)}>
@@ -443,11 +444,13 @@ function SaveStatus({
 	if (status === "error")
 		return (
 			<Pressable accessibilityRole="button" onPress={retry}>
-				<Text style={[styles.status, { color: colors.danger }]}>Note not saved · Retry</Text>
+				<Text style={[styles.status, { color: colors.danger }]}>{t("notebook.note.notSaved")}</Text>
 			</Pressable>
 		)
 	if (status === "saving")
-		return <Text style={[styles.status, { color: colors.mutedFg }]}>Saving…</Text>
+		return (
+			<Text style={[styles.status, { color: colors.mutedFg }]}>{t("notebook.note.saving")}</Text>
+		)
 	return null
 }
 

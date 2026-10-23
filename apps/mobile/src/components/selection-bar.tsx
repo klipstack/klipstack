@@ -2,21 +2,22 @@ import { SymbolView, type SymbolViewProps } from "expo-symbols"
 import { Pressable, StyleSheet, Text, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import type { BulkAction, BulkChoice } from "@/lib/bulk-actions"
+import { t } from "@/lib/i18n"
 import type { Colors } from "@/lib/theme"
 
 const BUTTONS: Record<BulkAction, { icon: SymbolViewProps["name"]; label: string }> = {
-	star: { icon: "star", label: "Star" },
-	unstar: { icon: "star.slash", label: "Unstar" },
-	shortlist: { icon: "newspaper", label: "Add to Next Edition" },
-	unshortlist: { icon: "newspaper", label: "Remove from Next Edition" },
-	archive: { icon: "archivebox", label: "Archive" },
-	unarchive: { icon: "tray.and.arrow.up", label: "Move to Inbox" },
-	finish: { icon: "checkmark.circle", label: "Mark as Finished" },
-	unread: { icon: "eye.slash", label: "Mark as Unread" },
-	tag: { icon: "tag", label: "Tags" },
-	delete: { icon: "trash", label: "Delete" },
-	restore: { icon: "arrow.uturn.backward", label: "Restore" },
-	purge: { icon: "trash", label: "Delete Forever" },
+	star: { icon: "star", label: t("library.actions.star") },
+	unstar: { icon: "star.slash", label: t("library.actions.unstar") },
+	shortlist: { icon: "newspaper", label: t("library.actions.shortlist") },
+	unshortlist: { icon: "newspaper", label: t("library.actions.unshortlist") },
+	archive: { icon: "archivebox", label: t("common.actions.archive") },
+	unarchive: { icon: "tray.and.arrow.up", label: t("library.actions.unarchive") },
+	finish: { icon: "checkmark.circle", label: t("library.actions.finish") },
+	unread: { icon: "eye.slash", label: t("library.actions.unread") },
+	tag: { icon: "tag", label: t("library.actions.tags") },
+	delete: { icon: "trash", label: t("common.actions.delete") },
+	restore: { icon: "arrow.uturn.backward", label: t("library.actions.restore") },
+	purge: { icon: "trash", label: t("common.actions.deleteForever") },
 }
 
 /** How much of the list's end the bar covers: the list leaves that much room below its last item. */
@@ -44,10 +45,10 @@ export function SelectionBar({
 	const text =
 		notice ??
 		(count === 0
-			? "Tap articles to select them"
+			? t("library.select.hint")
 			: choice.kind === "mixed"
-				? "Trashed and other articles can't mix"
-				: `${count} selected`)
+				? t("library.select.mixed")
+				: t("library.select.count", { count }))
 	const quiet = notice !== null || count === 0 || choice.kind === "mixed"
 	const bar = colors.floating
 	const insets = useSafeAreaInsets()
@@ -55,7 +56,7 @@ export function SelectionBar({
 		<View pointerEvents="box-none" style={[styles.wrap, { bottom: Math.max(insets.bottom, 16) }]}>
 			<View
 				accessibilityRole="toolbar"
-				accessibilityLabel="Selected articles"
+				accessibilityLabel={t("library.select.toolbar")}
 				style={[styles.pill, { backgroundColor: bar.bg, borderColor: bar.border }]}
 			>
 				<Text

@@ -2,7 +2,7 @@ import type { ArticleSummary } from "@klipstack/sdk"
 import { SymbolView } from "expo-symbols"
 import { useEffect, useState } from "react"
 import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native"
-import { errorMessage } from "@/lib/i18n"
+import { errorMessage, t } from "@/lib/i18n"
 import type { Colors } from "@/lib/theme"
 
 /** Waits this long after the last keystroke before searching, as the web's link menu does. */
@@ -63,7 +63,9 @@ export function LinkArticleSheet({
 	}, [visible, q, search, recent])
 
 	const items = (current?.items ?? []).filter((a) => a.id !== exclude).slice(0, q ? 20 : 8)
-	const hint = current?.error ?? (current ? (q ? "No articles match." : null) : "Searching…")
+	const hint =
+		current?.error ??
+		(current ? (q ? t("reader.linkArticle.noMatch") : null) : t("reader.linkArticle.searching"))
 
 	return (
 		<Modal
@@ -84,9 +86,11 @@ export function LinkArticleSheet({
 						hitSlop={12}
 						style={styles.cancel}
 					>
-						<Text style={[styles.cancelText, { color: colors.accent }]}>Cancel</Text>
+						<Text style={[styles.cancelText, { color: colors.accent }]}>
+							{t("common.actions.cancel")}
+						</Text>
 					</Pressable>
-					<Text style={[styles.title, { color: colors.fg }]}>Link Article</Text>
+					<Text style={[styles.title, { color: colors.fg }]}>{t("reader.linkArticle.title")}</Text>
 				</View>
 				<View style={[styles.field, { backgroundColor: colors.muted }]}>
 					<SymbolView
@@ -96,7 +100,7 @@ export function LinkArticleSheet({
 						accessibilityElementsHidden
 					/>
 					<TextInput
-						accessibilityLabel="Search your library"
+						accessibilityLabel={t("reader.linkArticle.search")}
 						value={query}
 						onChangeText={setQuery}
 						autoFocus
@@ -104,7 +108,7 @@ export function LinkArticleSheet({
 						autoCorrect={false}
 						clearButtonMode="while-editing"
 						returnKeyType="search"
-						placeholder="Search your library"
+						placeholder={t("reader.linkArticle.search")}
 						placeholderTextColor={colors.mutedFg}
 						style={[styles.input, { color: colors.fg }]}
 					/>
@@ -117,7 +121,9 @@ export function LinkArticleSheet({
 					automaticallyAdjustKeyboardInsets
 					ListHeaderComponent={
 						!q && items.length ? (
-							<Text style={[styles.label, { color: colors.mutedFg }]}>RECENT</Text>
+							<Text style={[styles.label, { color: colors.mutedFg }]}>
+								{t("reader.linkArticle.recent")}
+							</Text>
 						) : null
 					}
 					ListEmptyComponent={
@@ -133,7 +139,10 @@ export function LinkArticleSheet({
 								{item.title ?? item.url}
 							</Text>
 							<Text style={[styles.rowMeta, { color: colors.mutedFg }]} numberOfLines={1}>
-								{[item.site ?? hostOf(item.url), item.location === "archive" ? "Archived" : null]
+								{[
+									item.site ?? hostOf(item.url),
+									item.location === "archive" ? t("reader.linkArticle.archived") : null,
+								]
 									.filter(Boolean)
 									.join(" · ")}
 							</Text>

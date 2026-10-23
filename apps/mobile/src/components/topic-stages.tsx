@@ -5,6 +5,7 @@ import { useEffect, useState } from "react"
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native"
 import { turnOffTopics } from "@/components/topic-actions"
 import { showToast } from "@/lib/article-changes"
+import { t } from "@/lib/i18n"
 import type { Colors } from "@/lib/theme"
 import {
 	confirmation,
@@ -41,7 +42,9 @@ export function TurnOn({
 		client.topics
 			.enable()
 			.then(onDone)
-			.catch((e: unknown) => showToast({ message: `Not turned on: ${topicRefusal(e)}` }))
+			.catch((e: unknown) =>
+				showToast({ message: t("library.topics.turnOn.failed", { reason: topicRefusal(e) }) }),
+			)
 			.finally(() => setBusy(false))
 	}
 	return (
@@ -53,19 +56,20 @@ export function TurnOn({
 					size={18}
 					accessibilityElementsHidden
 				/>
-				<Text style={[styles.title, { color: colors.fg }]}>Let your library sort itself</Text>
+				<Text style={[styles.title, { color: colors.fg }]}>{t("library.topics.turnOn.title")}</Text>
 			</View>
 			<Text style={[styles.body, { color: colors.fg }]}>
-				Once you have saved {needed} articles, Klipstack proposes topics from what you read: the
-				sections your library would have in a bookstore, like Software Engineering, Startups or
-				Writing. You look them over once. After that, each article you save lands in its topics on
-				its own, and new topics appear as your reading changes.
+				{t("library.topics.turnOn.body", { needed })}
 			</Text>
 			<Text style={[styles.body, { color: colors.mutedFg }]}>
-				To sort your articles, their text is sent to TypeSafe and to Anthropic. Turning topics off
-				deletes them.
+				{t("library.topics.turnOn.privacy")}
 			</Text>
-			<PrimaryButton label="Turn On Topics" busy={busy} onPress={enable} colors={colors} />
+			<PrimaryButton
+				label={t("library.topics.turnOn.button")}
+				busy={busy}
+				onPress={enable}
+				colors={colors}
+			/>
 		</View>
 	)
 }
@@ -91,8 +95,7 @@ export function Proposal({
 	if (!proposed.length)
 		return (
 			<Text style={[styles.body, { color: colors.mutedFg }]} testID="topics-none">
-				No topics came out of your library this time. More will be proposed as you save more
-				articles.
+				{t("library.topics.proposal.none")}
 			</Text>
 		)
 	const edit = (id: string, change: Partial<ProposalEdits[string]>, name: string) =>
@@ -102,15 +105,16 @@ export function Proposal({
 		client.topics
 			.confirm(confirmation(proposed, edits))
 			.then(onDone)
-			.catch((e: unknown) => showToast({ message: `Not confirmed: ${topicRefusal(e)}` }))
+			.catch((e: unknown) =>
+				showToast({ message: t("library.topics.proposal.failed", { reason: topicRefusal(e) }) }),
+			)
 			.finally(() => setBusy(false))
 	}
 	return (
 		<View style={styles.proposal} testID="topics-proposal">
-			<Text style={[styles.title, { color: colors.fg }]}>Your first topics</Text>
+			<Text style={[styles.title, { color: colors.fg }]}>{t("library.topics.proposal.title")}</Text>
 			<Text style={[styles.body, { color: colors.mutedFg }]}>
-				Proposed from your library. Rename any of them, uncheck the ones you don't want, and
-				confirm. From then on, topics keep themselves up to date.
+				{t("library.topics.proposal.body")}
 			</Text>
 			{proposed.map((topic) => {
 				const kept = edits[topic.id]?.kept ?? true
@@ -126,7 +130,7 @@ export function Proposal({
 						<Pressable
 							accessibilityRole="checkbox"
 							accessibilityState={{ checked: kept }}
-							accessibilityLabel={`Keep ${topic.name}`}
+							accessibilityLabel={t("library.topics.proposal.keep", { name: topic.name })}
 							hitSlop={10}
 							onPress={() => edit(topic.id, { kept: !kept }, topic.name)}
 						>
@@ -138,7 +142,7 @@ export function Proposal({
 						</Pressable>
 						<View style={styles.proposedText}>
 							<TextInput
-								accessibilityLabel={`Name of the topic ${topic.name}`}
+								accessibilityLabel={t("library.topics.proposal.nameLabel", { name: topic.name })}
 								defaultValue={topic.name}
 								editable={kept}
 								maxLength={TOPIC_NAME_MAX}
@@ -154,7 +158,12 @@ export function Proposal({
 					</View>
 				)
 			})}
-			<PrimaryButton label="Confirm Topics" busy={busy} onPress={confirm} colors={colors} />
+			<PrimaryButton
+				label={t("library.topics.proposal.confirm")}
+				busy={busy}
+				onPress={confirm}
+				colors={colors}
+			/>
 		</View>
 	)
 }
@@ -178,7 +187,7 @@ export function TurnOff({
 			>
 				{({ pressed }) => (
 					<Text style={[styles.turnOffText, { color: colors.danger }, pressed && styles.pressed]}>
-						Turn Off Topics
+						{t("library.topics.turnOffButton")}
 					</Text>
 				)}
 			</Pressable>

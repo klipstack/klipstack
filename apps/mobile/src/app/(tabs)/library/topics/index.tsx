@@ -16,7 +16,7 @@ import { EmptyDrawing } from "@/components/empty-drawing"
 import { removeTopic, renameTopic } from "@/components/topic-actions"
 import { Proposal, TurnOff, TurnOn } from "@/components/topic-stages"
 import { useAuth } from "@/lib/auth"
-import { errorMessage } from "@/lib/i18n"
+import { errorMessage, t } from "@/lib/i18n"
 import { type Colors, useColors, useScheme } from "@/lib/theme"
 import {
 	articles,
@@ -98,15 +98,14 @@ export default function Topics() {
 				<ActivityIndicator style={styles.loading} color={colors.mutedFg} />
 			) : stage === "unavailable" ? (
 				<Text style={[styles.message, { color: colors.mutedFg }]}>
-					Topics are not turned on for your account.
+					{t("home.topicShelves.refusal.forbidden")}
 				</Text>
 			) : (
 				<>
 					{/* No shelves yet: one, empty, waiting for them. */}
 					{answer.items.length === 0 && stage !== "proposed" ? <EmptyDrawing name="shelf" /> : null}
 					<Text style={[styles.noticeBody, { color: colors.mutedFg }]}>
-						Topics sort what you save into shelves on their own: proposed from your library, kept up
-						to date as you read.
+						{t("library.topics.intro")}
 					</Text>
 					{stage === "off" ? (
 						<TurnOn client={client} answer={answer} colors={colors} onDone={reload} />
@@ -155,7 +154,7 @@ export default function Topics() {
 					))}
 					{answer.items.length ? (
 						<Text style={[styles.legend, { color: colors.mutedFg }]}>
-							One book per article, thicker for a longer read. A blue top: saved this week.
+							{t("library.topics.legend")}
 						</Text>
 					) : null}
 					{stage === "off" ? null : <TurnOff client={client} colors={colors} onDone={reload} />}
@@ -170,7 +169,11 @@ function topicMenu(client: KlipstackClient, topic: Topic, done: () => void) {
 	ActionSheetIOS.showActionSheetWithOptions(
 		{
 			title: topic.name,
-			options: ["Rename…", "Remove Topic…", "Cancel"],
+			options: [
+				t("common.actions.renameMore"),
+				t("library.topics.removeMore"),
+				t("common.actions.cancel"),
+			],
 			destructiveButtonIndex: 1,
 			cancelButtonIndex: 2,
 		},
@@ -208,10 +211,10 @@ function Shelf({
 		<Pressable
 			accessibilityRole="button"
 			accessibilityLabel={`${topic.name}, ${articles(topic.articles)}${
-				topic.savedThisWeek ? `, ${topic.savedThisWeek} new` : ""
+				topic.savedThisWeek ? `, ${t("library.topics.new", { count: topic.savedThisWeek })}` : ""
 			}`}
-			accessibilityHint="Opens the topic's articles"
-			accessibilityActions={[{ name: "menu", label: "Rename or remove" }]}
+			accessibilityHint={t("library.topics.openHint")}
+			accessibilityActions={[{ name: "menu", label: t("library.topics.menuAction") }]}
 			onAccessibilityAction={(e) => {
 				if (e.nativeEvent.actionName === "menu") onMenu()
 			}}
@@ -231,13 +234,13 @@ function Shelf({
 							<View style={styles.recentBadge}>
 								<View style={[styles.dot, { backgroundColor: colors.shelf.recent }]} />
 								<Text style={[styles.recentText, { color: colors.shelf.recent }]}>
-									{topic.savedThisWeek} new
+									{t("library.topics.new", { count: topic.savedThisWeek })}
 								</Text>
 							</View>
 						) : null}
 						<Pressable
 							accessibilityRole="button"
-							accessibilityLabel={`More for ${topic.name}`}
+							accessibilityLabel={t("library.moreFor", { name: topic.name })}
 							hitSlop={12}
 							onPress={onMenu}
 							style={({ pressed }) => [styles.menuButton, pressed && styles.pressed]}

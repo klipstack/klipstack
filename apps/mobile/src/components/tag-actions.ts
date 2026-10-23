@@ -1,6 +1,6 @@
 import { errorDetails, type KlipstackClient, type Tag } from "@klipstack/sdk"
 import { Alert } from "react-native"
-import { errorMessage } from "@/lib/i18n"
+import { errorMessage, t } from "@/lib/i18n"
 
 /** Renaming and deleting a tag, as iOS's own prompts: from the Tags list and a tag's own page. */
 
@@ -16,12 +16,12 @@ export function renameTag(
 	done: (name: string, id: string) => void,
 ) {
 	Alert.prompt(
-		"Rename Tag",
+		t("library.tags.renameTitle"),
 		undefined,
 		[
-			{ text: "Cancel", style: "cancel" },
+			{ text: t("common.actions.cancel"), style: "cancel" },
 			{
-				text: "Rename",
+				text: t("common.actions.rename"),
 				onPress: (value?: string) => {
 					const name = value?.trim() ?? ""
 					if (!name || name === tag.name) return
@@ -32,14 +32,14 @@ export function renameTag(
 						client.tags
 							.rename(tag.id, name)
 							.then(() => done(name, other?.id ?? tag.id))
-							.catch((e: unknown) => Alert.alert("Not renamed", errorMessage(e)))
+							.catch((e: unknown) => Alert.alert(t("common.failed.notRenamed"), errorMessage(e)))
 					if (!other) return void rename()
 					Alert.alert(
-						`Merge into “${other.name}”?`,
-						`Articles tagged “${tag.name}” get “${other.name}”, and “${tag.name}” goes.`,
+						t("library.tags.mergeTitle", { name: other.name }),
+						t("library.tags.mergeMessage", { tag: tag.name, other: other.name }),
 						[
-							{ text: "Cancel", style: "cancel" },
-							{ text: "Merge", onPress: () => void rename() },
+							{ text: t("common.actions.cancel"), style: "cancel" },
+							{ text: t("library.tags.merge"), onPress: () => void rename() },
 						],
 					)
 				},
@@ -62,24 +62,29 @@ export function deleteTag(client: KlipstackClient, tag: Tag, done: () => void) {
 			.then(done)
 			.catch((e: unknown) => {
 				const used = errorDetails(e, "tag_in_saved_searches")?.savedSearches
-				if (!used) return Alert.alert("Not deleted", errorMessage(e))
-				const names = used.map((s) => `“${s.name}”`).join(", ")
+				if (!used) return Alert.alert(t("common.failed.notDeleted"), errorMessage(e))
+				const names = used.map((s) => t("library.tags.quoted", { name: s.name })).join(", ")
 				Alert.alert(
-					used.length === 1 ? "A saved search uses this tag" : "Saved searches use this tag",
-					`${names} will find nothing once “${tag.name}” is gone.`,
+					t("library.tags.usedTitle", { count: used.length }),
+					t("library.tags.usedMessage", { names, tag: tag.name }),
 					[
-						{ text: "Cancel", style: "cancel" },
-						{ text: "Delete Anyway", style: "destructive", onPress: () => void remove(true) },
+						{ text: t("common.actions.cancel"), style: "cancel" },
+						{
+							text: t("library.tags.deleteAnyway"),
+							style: "destructive",
+							onPress: () => void remove(true),
+						},
 					],
 				)
 			})
-	const count = tag.articles === 1 ? "Its article keeps" : `Its ${tag.articles} articles keep`
 	Alert.alert(
-		`Delete “${tag.name}”?`,
-		tag.articles ? `${count} everything but the tag. There is no undo.` : "There is no undo.",
+		t("library.tags.deleteTitle", { name: tag.name }),
+		tag.articles
+			? t("library.tags.deleteMessage", { count: tag.articles })
+			: t("library.tags.noUndo"),
 		[
-			{ text: "Cancel", style: "cancel" },
-			{ text: "Delete", style: "destructive", onPress: () => void remove(false) },
+			{ text: t("common.actions.cancel"), style: "cancel" },
+			{ text: t("common.actions.delete"), style: "destructive", onPress: () => void remove(false) },
 		],
 	)
 }

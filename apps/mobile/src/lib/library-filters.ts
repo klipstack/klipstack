@@ -6,6 +6,7 @@ import {
 	type ListSort,
 } from "@klipstack/api-contract/enums"
 import type { ArticleSummary } from "@klipstack/sdk"
+import { t } from "./i18n"
 
 /**
  * The library's filters and sort orders, as the web's (`apps/web/app/lib/inbox-filters.ts`): Inbox
@@ -25,26 +26,27 @@ export type FilterCounts = Partial<Record<ListFilter, number>>
 export type FilterChoice = ListFilter | null
 
 const FILTER_LABELS: Record<ListFilter, string> = {
-	unread: "Unread",
-	progress: "Continue reading",
-	again: "Read again",
-	read: "Read",
-	quick: "Quick reads",
-	long: "Long reads",
-	x: "From X",
-	unfinished: "Not finished",
-	finished: "Finished",
+	unread: t("library.filters.unread"),
+	progress: t("library.filters.progress"),
+	again: t("library.filters.again"),
+	read: t("library.filters.read"),
+	quick: t("library.filters.quick"),
+	long: t("library.filters.long"),
+	x: t("library.filters.x"),
+	unfinished: t("library.filters.unfinished"),
+	finished: t("library.filters.finished"),
 }
 
 const SORT_LABELS: Record<ListSort, string> = {
-	recent: "Recently read",
-	newest: "Newest first",
-	oldest: "Oldest first",
-	shortest: "Shortest first",
-	longest: "Longest first",
+	recent: t("library.sorts.recent"),
+	newest: t("library.sorts.newest"),
+	oldest: t("library.sorts.oldest"),
+	shortest: t("library.sorts.shortest"),
+	longest: t("library.sorts.longest"),
 }
 
-export const filterLabel = (filter: FilterChoice) => (filter ? FILTER_LABELS[filter] : "All")
+export const filterLabel = (filter: FilterChoice) =>
+	filter ? FILTER_LABELS[filter] : t("library.filters.all")
 export const sortLabel = (sort: ListSort) => SORT_LABELS[sort]
 
 export function filtersFor(view: FilterableView): readonly ListFilter[] {
@@ -73,7 +75,7 @@ export function filterMenu(
 ): { value: FilterChoice; label: string; count: number | null; on: boolean }[] {
 	const shown = filtersFor(view).filter((f) => !counts || (counts[f] ?? 0) > 0 || f === chosen)
 	return [
-		{ value: null, label: "All", count: null, on: chosen === null },
+		{ value: null, label: t("library.filters.all"), count: null, on: chosen === null },
 		...shown.map((f) => ({
 			value: f,
 			label: FILTER_LABELS[f],
@@ -202,12 +204,12 @@ function sorted(items: ArticleSummary[], sort: ListSort): ArticleSummary[] {
 
 /** What the toast says once "Archive all read" is done, as the web's. */
 export function archivedReadNotice(count: number): string {
-	if (count === 0) return "Nothing to archive: no read articles in Inbox."
-	return count === 1 ? "1 article archived" : `${count} articles archived`
+	if (count === 0) return t("library.filters.archivedNone")
+	return t("library.filters.archivedRead", { count })
 }
 
 /** The line above a filtered list: what it shows, and how many. */
 export function filterLine(filter: ListFilter, count: number | undefined): string {
 	if (count === undefined) return FILTER_LABELS[filter]
-	return `${FILTER_LABELS[filter]} · ${count === 1 ? "1 article" : `${count} articles`}`
+	return `${FILTER_LABELS[filter]} · ${t("library.articles", { count })}`
 }
