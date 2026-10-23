@@ -336,6 +336,10 @@ test("the chat: questions about the whole article in the sidebar, kept, and clea
 	await expect(sidebar.getByRole("tab", { name: "Ask" })).toHaveAttribute("aria-selected", "true")
 	const chat = sidebar.getByTestId("chat")
 	await expect(chat).toContainText("Ask anything about this article")
+	// Before the first question, the chat says who answers.
+	await expect(chat.getByTestId("ai-notice")).toHaveText(
+		"Answers are written by AI (Anthropic) and can be wrong.",
+	)
 	const field = chat.getByRole("textbox", { name: "Ask about this article…" })
 	await expect(field).toBeFocused()
 	await field.fill("What is it about?")

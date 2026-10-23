@@ -360,6 +360,7 @@ function OpenCard({
 					)}
 				</>
 			)}
+			<AiNotice />
 		</div>
 	)
 }
@@ -411,6 +412,16 @@ export function QuestionsLeft({ failed }: { failed?: boolean }) {
 	return (
 		<p className="mt-2 text-xs text-muted-fg" data-testid="questions-left">
 			{t("ai.left", { count: left })}
+		</p>
+	)
+}
+
+/** Who wrote the answers, and that they can be wrong: said wherever AI answers. */
+export function AiNotice() {
+	const { t } = useTranslation("reader")
+	return (
+		<p className="mt-2 text-xs text-muted-fg" data-testid="ai-notice">
+			{t("ai.notice")}
 		</p>
 	)
 }

@@ -259,12 +259,25 @@ export default function SignUpScreen() {
 						{error}
 					</Text>
 				) : null}
-				<Pressable accessibilityRole="link" onPress={() => open("/terms")} hitSlop={8}>
-					<Text style={[styles.note, { color: colors.mutedFg }]}>
-						By creating an account you agree to the{" "}
-						<Text style={[styles.link, { color: colors.accent }]}>Terms</Text>.
+				<Text style={[styles.note, { color: colors.mutedFg }]}>
+					By creating an account you confirm you are 16 or older and agree to the{" "}
+					<Text
+						accessibilityRole="link"
+						onPress={() => open("/terms")}
+						style={[styles.link, { color: colors.accent }]}
+					>
+						Terms
+					</Text>{" "}
+					and the{" "}
+					<Text
+						accessibilityRole="link"
+						onPress={() => open("/privacy")}
+						style={[styles.link, { color: colors.accent }]}
+					>
+						Privacy Policy
 					</Text>
-				</Pressable>
+					.
+				</Text>
 				<Pressable
 					accessibilityRole="button"
 					disabled={busy !== null}

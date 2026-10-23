@@ -283,6 +283,7 @@ export default {
 		failed: "No se pudo responder. Inténtalo de nuevo.",
 		refused: "No se pudo responder esta pregunta.",
 		turnedOff: "Las respuestas de IA están desactivadas en Ajustes → Funciones.",
+		notice: "Las respuestas las escribe una IA (de Anthropic) y pueden equivocarse.",
 		citation: "Pasaje {{n}} del artículo",
 		askPlaceholder: "Pregunta sobre este pasaje…",
 		suggestions: {

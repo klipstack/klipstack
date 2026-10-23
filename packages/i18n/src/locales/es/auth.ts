@@ -16,8 +16,10 @@ export default {
 	signup: {
 		title: "Crea tu cuenta",
 		submit: "Crear cuenta",
-		agree: "Al crear una cuenta, aceptas los",
+		agree: "Al crear una cuenta, confirmas que tienes 16 años o más y aceptas los",
 		terms: "términos de uso",
+		and: "y la",
+		privacy: "política de privacidad",
 		haveAccount: "¿Ya tienes cuenta?",
 		login: "Inicia sesión",
 		inviteRequired:

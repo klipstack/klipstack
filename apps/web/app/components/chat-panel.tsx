@@ -5,7 +5,14 @@ import { useTranslation } from "react-i18next"
 import { useQuestionsLeft } from "~/hooks/use-ai-allowance"
 import { type AiCard, type AnswerStore, useWritten } from "~/hooks/use-ai-threads"
 import { AiAnswer, plainAnswer } from "./ai-answer"
-import { ContinueInAssistant, Failure, OwnAssistant, QuestionField, QuestionsLeft } from "./ai-card"
+import {
+	AiNotice,
+	ContinueInAssistant,
+	Failure,
+	OwnAssistant,
+	QuestionField,
+	QuestionsLeft,
+} from "./ai-card"
 import { InkThinking } from "./ink-thinking"
 import { tooltip } from "./tooltip-host"
 
@@ -193,6 +200,7 @@ export function ChatPanel({
 						{none && onAssistant ? <OwnAssistant onCopy={onAssistant} /> : null}
 					</>
 				)}
+				<AiNotice />
 			</div>
 		</div>
 	)
