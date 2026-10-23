@@ -1,3 +1,5 @@
+import { db, eq, session as sessions } from "@klipstack/db"
+import { APIError } from "better-auth/api"
 import {
 	createContext,
 	type MiddlewareFunction,
@@ -112,4 +114,32 @@ export async function signOutHeaders(request: Request): Promise<Headers> {
 	for (const name of [LAYOUT_COOKIE, SIDEBAR_COOKIE, NOTEBOOK_VIEW_COOKIE])
 		headers.append("Set-Cookie", `${name}=; Path=/; Max-Age=0; SameSite=Lax`)
 	return headers
+}
+
+/**
+ * Confirms the signed-in person by their password, without signing out: a new session for the same
+ * account replaces this one, and counts as a recent sign-in (`./recent-sign-in.server`). The email
+ * is the session's own, so no one else can sign in here, and guesses count against the login's
+ * limit (`/sign-in/email`). Answers the new session's cookie, or why not.
+ */
+export async function confirmPassword(
+	request: Request,
+	current: SessionData,
+	password: string,
+): Promise<{ headers: Headers } | { error: "wrong-password" | "limited" }> {
+	try {
+		const { headers } = await auth.api.signInEmail({
+			body: { email: current.user.email, password },
+			headers: request.headers,
+			returnHeaders: true,
+		})
+		await db.delete(sessions).where(eq(sessions.id, current.session.id))
+		return { headers: cookieHeadersFrom(headers) }
+	} catch (error) {
+		if (!(error instanceof APIError)) throw error
+		if (error.statusCode === 429) return { error: "limited" }
+		// Anything else (a failure on our side) is not the person's mistake.
+		if (error.statusCode === 401) return { error: "wrong-password" }
+		throw error
+	}
 }

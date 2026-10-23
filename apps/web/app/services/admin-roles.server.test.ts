@@ -1,7 +1,16 @@
 import { execFile } from "node:child_process"
 import { fileURLToPath } from "node:url"
 import { promisify } from "node:util"
-import { adminAuditEvents, apiKeys, db, eq, session, user } from "@klipstack/db"
+import {
+	account as accounts,
+	adminAuditEvents,
+	and,
+	apiKeys,
+	db,
+	eq,
+	session,
+	user,
+} from "@klipstack/db"
 import { afterAll, describe, expect, it, vi } from "vitest"
 import { adminFixtures } from "~/test/admin-fixtures"
 
@@ -73,6 +82,21 @@ describe("changeRole", () => {
 			code: "verification_required",
 		})
 		expect(await roleOf(unverified.id)).toBe("user")
+		// Admins confirm a sign-in with their password: an account without one cannot be one.
+		const passwordless = await fx.account()
+		await db
+			.delete(accounts)
+			.where(and(eq(accounts.userId, passwordless.id), eq(accounts.providerId, "credential")))
+		await expect(changeRole({ userId: passwordless.id }, "admin", "x")).rejects.toMatchObject({
+			code: "invalid_request",
+		})
+		expect(await roleOf(passwordless.id)).toBe("user")
+		// An admin left without one can still be demoted.
+		await db.update(user).set({ role: "admin" }).where(eq(user.id, passwordless.id))
+		await expect(changeRole({ userId: passwordless.id }, "user", "x")).resolves.toMatchObject({
+			changed: true,
+			role: "user",
+		})
 		await expect(changeRole({ email: "nobody@example.com" }, "admin", "x")).rejects.toMatchObject({
 			code: "not_found",
 		})

@@ -225,7 +225,9 @@ test("an old sign-in makes no key and connects no new app until it signs in agai
 	await expect(page.getByText("Copy your new key now")).toBeVisible()
 })
 
-test("Settings asks an old sign-in to log in again before it makes a key", async ({ page }) => {
+test("Settings asks an old sign-in for its own password before it makes a key", async ({
+	page,
+}) => {
 	const email = await signup(page)
 	await db.execute(sql`
 		update session set created_at = now() - interval '31 minutes'
@@ -236,8 +238,39 @@ test("Settings asks an old sign-in to log in again before it makes a key", async
 	await page.getByPlaceholder("Name (e.g. MacBook Chrome)").fill("Late")
 	await page.getByRole("button", { name: "Create key" }).click()
 	await expect(page.getByText("You signed in more than 30 minutes ago")).toBeVisible()
+	// No email and no login page: only this account's password renews the sign-in.
+	await expect(page.getByRole("button", { name: "Log in again" })).toHaveCount(0)
+	await page.getByLabel("Password").fill("not-the-password")
+	await page.getByRole("button", { name: "Confirm" }).click()
+	await expect(page.getByText("That password is not right.")).toBeVisible()
+	await page.getByLabel("Password").fill(PASSWORD)
+	await page.getByRole("button", { name: "Confirm" }).click()
+	await expect(page.getByText("Confirmed. Try it again now.")).toBeVisible()
+	await expect(page).toHaveURL(/\/settings\/api-keys$/)
+	await page.getByRole("button", { name: "Create key" }).click()
+	await expect(page.getByText("Copy your new key now")).toBeVisible()
+})
+
+test("Settings sends an old sign-in without a password to log in again", async ({ page }) => {
+	const email = await signup(page)
+	await db.execute(sql`
+		delete from account where provider_id = 'credential'
+			and user_id = (select id from "user" where email = ${email})
+	`)
+	await db.execute(sql`
+		update session set created_at = now() - interval '31 minutes'
+		where user_id = (select id from "user" where email = ${email})
+	`)
+	await page.goto("/settings/api-keys")
+	await waitForHydration(page)
+	await page.getByPlaceholder("Name (e.g. MacBook Chrome)").fill("Late")
+	await page.getByRole("button", { name: "Create key" }).click()
+	await expect(page.getByText("You signed in more than 30 minutes ago")).toBeVisible()
+	await expect(page.getByLabel("Password")).toHaveCount(0)
 	await page.getByRole("button", { name: "Log in again" }).click()
 	await expect(page).toHaveURL(/\/login\?redirectTo=%2Fsettings%2Fapi-keys$/)
+	const [row] = await db.select({ id: user.id }).from(user).where(eq(user.email, email))
+	expect(await db.select().from(session).where(eq(session.userId, row!.id))).toHaveLength(0)
 })
 
 test("app asks → login → consent → code → tokens → settings disconnect", async ({

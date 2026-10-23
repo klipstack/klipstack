@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto"
-import { db, eq, sql, type Tx, user } from "@klipstack/db"
+import { account, and, db, eq, exists, sql, type Tx, user } from "@klipstack/db"
 import { errorLabel } from "@klipstack/log"
 import { data, type RouterContextProvider, redirect } from "react-router"
 import type { AuditActor } from "~/services/admin-audit.server"
@@ -51,23 +51,34 @@ export function looksLikeAdmin(sessionUser: SessionData["user"] | null | undefin
 
 /**
  * The policy every admin loader, action and resource route runs first: a browser session (bearer
- * credentials never produce one), then the role and the verified email as the database has them
- * now. Anonymous callers get 401, everyone else without both gets 403. A database error denies.
+ * credentials never produce one), then the role, the verified email and a password as the database
+ * has them now. Anonymous callers get 401, everyone else without all three gets 403. A database
+ * error denies. The password is how an admin confirms a recent sign-in without signing out
+ * (`admin.reauthenticate.ts`), so an account without one is no admin.
  */
 export async function authorizeAdmin(session: SessionData | null): Promise<AdminContext> {
 	const correlationId = randomUUID()
 	if (!session) deny(401, "unauthenticated", { correlationId })
-	let row: { role: string; emailVerified: boolean } | undefined
+	let row: { role: string; emailVerified: boolean; hasPassword: boolean } | undefined
 	try {
 		;[row] = await db
-			.select({ role: user.role, emailVerified: user.emailVerified })
+			.select({
+				role: user.role,
+				emailVerified: user.emailVerified,
+				hasPassword: exists(
+					db
+						.select({ one: sql`1` })
+						.from(account)
+						.where(and(eq(account.userId, user.id), eq(account.providerId, "credential"))),
+				).mapWith(Boolean),
+			})
 			.from(user)
 			.where(eq(user.id, session.user.id))
 	} catch (error) {
 		console.error(`[admin] authorization check failed: ${errorLabel(error)}`, { correlationId })
 		throw data({ error: "unavailable" }, { status: 503, headers: NO_STORE })
 	}
-	if (row?.role !== "admin" || !row.emailVerified)
+	if (row?.role !== "admin" || !row.emailVerified || !row.hasPassword)
 		deny(403, "forbidden", { userId: session.user.id, correlationId })
 	const ctx: AdminContext = Object.freeze({
 		userId: session.user.id,

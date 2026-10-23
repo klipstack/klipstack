@@ -178,5 +178,12 @@ export default {
 		message:
 			"You signed in more than 30 minutes ago. Log in again to do this: a session left open elsewhere cannot.",
 		button: "Log in again",
+		passwordMessage:
+			"You signed in more than 30 minutes ago. Confirm it's you with your password to do this: a session left open elsewhere cannot.",
+		password: "Password",
+		confirm: "Confirm",
+		confirmed: "Confirmed. Try it again now.",
+		wrongPassword: "That password is not right.",
+		limited: "Too many attempts. Try again later.",
 	},
 }

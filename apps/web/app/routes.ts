@@ -115,6 +115,7 @@ export default [
 	route("settings/sign-in", "routes/settings.sign-in.ts"),
 	route("settings/delete", "routes/settings.delete.ts"),
 	route("settings/reauthenticate", "routes/settings.reauthenticate.ts"),
+	route("settings/confirm-password", "routes/settings.confirm-password.ts"),
 	route("api/auth/*", "routes/api.auth.ts"),
 	route("oauth/consent", "routes/oauth.consent.tsx"),
 	// The iPhone app's own sign-in and sign-up (lib/app-sign-in.server.ts, app-sign-up.server.ts).

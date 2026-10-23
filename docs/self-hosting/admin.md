@@ -28,11 +28,12 @@ From a checkout of this repository with `DATABASE_URL` in `.env`, the same comma
 Docker: `pnpm --filter @klipstack/web admin list`.
 
 - Look the account up first (`admin list` shows current admins; account IDs are on `/admin/users`
-  once one admin exists, or in the `user` table). A grant needs an existing, verified account.
+  once one admin exists, or in the `user` table). A grant needs an existing, verified account
+  with a password (set one in Settings, Account): the admin pages confirm a sign-in with it.
 - Every change ends that account's browser sessions and writes an audit event with the actor
   `operator-cli`. The reason is context, not proof of who ran the command.
-- Repeating a command reports "no change needed" and exits 0. A missing account, an unverified
-  grant, bad arguments or a failed transaction exit nonzero and change nothing.
+- Repeating a command reports "no change needed" and exits 0. A missing account, an unverified or
+  passwordless grant, bad arguments or a failed transaction exit nonzero and change nothing.
 - API keys and OAuth grants are not touched: they never carry admin authority.
 - To switch admin access off, revoke every admin. Revoking the last one is allowed.
 - The image ships this CLI only, and its build fails if the CLI cannot load. The invite CLI
@@ -40,9 +41,10 @@ Docker: `pnpm --filter @klipstack/web admin list`.
 
 ## Using /admin
 
-- Reading needs the role and a verified email. Changes also need a sign-in from the last 30
-  minutes; **Sign in again** ends the session and returns to the same admin page after login
-  (password or email link). A refused change is never replayed.
+- Reading needs the role, a verified email and a password on the account (an admin whose password
+  was removed in the database is refused). Changes also need a sign-in from the last 30 minutes;
+  after that, **Confirm it's you** asks for the signed-in account's password and renews the
+  sign-in in place, without the login page. A refused change is never replayed.
 - Limits per admin and hour: 20 invites, 60 revocations, 30 retries (60 retries across admins).
 - `/admin/system` links to your uptime and backup dashboards when `OPS_UPTIME_URL` and
   `OPS_BACKUPS_URL` name them in `.env`. Only plain https dashboard URLs pass the environment
@@ -120,7 +122,8 @@ must always run the same image.
 
 On a new server, or the first time with an image that has the admin pages:
 
-1. `admin list` (expect none), then grant your verified account by explicit email or ID.
+1. `admin list` (expect none), then grant your verified account, which has a password, by
+   explicit email or ID.
 2. Sign in afresh, open `/admin`, and check: overview counts, the worker shows "Seen recently",
    create and revoke a test invite, the audit page lists both and the grant.
 3. With an ordinary account: no Admin menu entry, and `/admin` answers 403.

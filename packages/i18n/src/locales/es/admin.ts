@@ -34,11 +34,13 @@ export default {
 		utc: "UTC",
 	},
 	reauth: {
-		title: "Inicia sesión de nuevo para hacer cambios",
-		description:
-			"Puedes leer estas páginas, pero los cambios requieren un inicio de sesión de los últimos 30 minutos. Iniciar sesión de nuevo no repite nada de lo que intentaste antes.",
-		submit: "Iniciar sesión de nuevo",
-		required: "Ese cambio no se hizo. Inicia sesión de nuevo y repítelo tú.",
+		title: "Confirma que eres tú",
+		description: "Escribe tu contraseña para hacer cambios durante los próximos 30 minutos.",
+		password: "Contraseña",
+		submit: "Confirmar",
+		wrongPassword: "Esa contraseña no es correcta.",
+		limited: "Demasiados intentos. Inténtalo más tarde.",
+		required: "Ese cambio no se hizo. Confirma que eres tú y repítelo tú.",
 	},
 	errors: {
 		forbidden: "Esta área es para administradores.",

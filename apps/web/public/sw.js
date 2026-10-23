@@ -58,7 +58,7 @@ async function changeIdentity(next, source, force = false, notify = true) {
 
 function authChange(path, method) {
 	if (path.startsWith("/api/auth/") && /\/(?:magic-link\/verify|callback\/|oauth2\/end-session)/.test(path)) return true
-	return method !== "GET" && (path.startsWith("/api/auth/") || ["/login", "/signup", "/logout", "/reset-password", "/settings/delete", "/oauth/consent", "/admin/reauthenticate", "/settings/reauthenticate"].includes(path.replace(/\.data$/, "")))
+	return method !== "GET" && (path.startsWith("/api/auth/") || ["/login", "/signup", "/logout", "/reset-password", "/settings/delete", "/oauth/consent", "/settings/reauthenticate"].includes(path.replace(/\.data$/, "")))
 }
 
 self.addEventListener("fetch", (event) => {

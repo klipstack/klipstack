@@ -1,4 +1,4 @@
-import { db, eq, session, sql, type UserRole, user } from "@klipstack/db"
+import { account as accounts, and, db, eq, session, sql, type UserRole, user } from "@klipstack/db"
 // Relative, not "~/": the role CLI runs in the image without the web app's tsconfig (Dockerfile).
 import { AppError, notFound } from "../lib/app-error"
 import { AUDIT_REASON_MAX, newCorrelationId, recordAudit } from "./admin-audit.server"
@@ -49,6 +49,18 @@ export async function changeRole(
 				"verification_required",
 				"The account's email is not verified; admins must be verified.",
 			)
+		if (role === "admin") {
+			const [password] = await tx
+				.select({ id: accounts.id })
+				.from(accounts)
+				.where(and(eq(accounts.userId, account.id), eq(accounts.providerId, "credential")))
+			// Admins confirm a recent sign-in with their password (admin.reauthenticate.ts).
+			if (!password)
+				throw new AppError(
+					"invalid_request",
+					"The account has no password; admins must have one. Set it in Settings, Account first.",
+				)
+		}
 		if (account.role === role)
 			return { userId: account.id, role, changed: false, sessionsRevoked: 0 }
 

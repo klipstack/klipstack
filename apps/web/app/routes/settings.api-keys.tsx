@@ -14,6 +14,7 @@ import type { PageBarHandle } from "~/lib/page-bar"
 import { pageTitle } from "~/lib/page-title"
 import { readForm } from "~/lib/request-body.server"
 import { getSession, requireUser } from "~/lib/session.server"
+import { signInMethods } from "~/lib/sign-in-methods.server"
 import { answer } from "~/lib/web-action.server"
 import type { WebResult } from "~/lib/web-result"
 import { listApiKeys } from "~/services/api-keys.server"
@@ -32,6 +33,7 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 	const keys = await listApiKeys(user.id)
 	return {
 		emailVerified: user.emailVerified,
+		hasPassword: (await signInMethods(user.id)).hasPassword,
 		keys: keys.map((k) => ({
 			...k,
 			lastUsed: k.lastUsedAt ? formatDay(k.lastUsedAt, locale, zone) : null,
@@ -100,7 +102,9 @@ export default function ApiKeysSettings({ loaderData }: Route.ComponentProps) {
 				) : null}
 				{keysError ? (
 					keysError === "reauthentication_required" ? (
-						<SignInAgain />
+						<div className="mb-4">
+							<SignInAgain hasPassword={loaderData.hasPassword} />
+						</div>
 					) : (
 						<p role="alert">{t("apiKeys.requestFailed")}</p>
 					)

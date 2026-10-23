@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next"
-import { Form, useLocation } from "react-router"
+import { Form, useFetcher, useLocation } from "react-router"
 import { Button } from "~/components/ui/button"
+import { Field } from "~/components/ui/field"
 
 /** A section of Settings: its title (in the phone bar instead, below `md`), and what it holds. */
 export function SettingsPage({
@@ -41,21 +42,58 @@ export function SettingsCard({
 }
 
 /**
- * What an action refused for an old sign-in shows: why, and the way back in, which returns to this
- * section.
+ * What an action refused for an old sign-in shows: why, and the way back. An account with a
+ * password confirms it here and stays signed in; one without logs in again, back to this section.
  */
-export function SignInAgain() {
+export function SignInAgain({ hasPassword }: { hasPassword: boolean }) {
 	const { t } = useTranslation("settings")
 	const { pathname } = useLocation()
+	const fetcher = useFetcher<typeof import("~/routes/settings.confirm-password").action>()
+	const result = fetcher.data
+	if (result?.ok)
+		return (
+			<p className="mt-3 text-sm" role="status">
+				{t("reauth.confirmed")}
+			</p>
+		)
+	if (!hasPassword)
+		return (
+			<div className="mt-3 flex flex-col items-start gap-2" role="alert">
+				<p className="text-sm">{t("reauth.message")}</p>
+				<Form method="post" action="/settings/reauthenticate">
+					<input type="hidden" name="returnTo" value={pathname} />
+					<Button type="submit" variant="secondary">
+						{t("reauth.button")}
+					</Button>
+				</Form>
+			</div>
+		)
 	return (
-		<div className="mt-3 flex flex-col items-start gap-2" role="alert">
-			<p className="text-sm">{t("reauth.message")}</p>
-			<Form method="post" action="/settings/reauthenticate">
-				<input type="hidden" name="returnTo" value={pathname} />
-				<Button type="submit" variant="secondary">
-					{t("reauth.button")}
-				</Button>
-			</Form>
-		</div>
+		<fetcher.Form
+			method="post"
+			action="/settings/confirm-password"
+			className="mt-3 flex flex-col items-start gap-3"
+		>
+			<p className="text-sm" role="alert">
+				{t("reauth.passwordMessage")}
+			</p>
+			<div className="w-full sm:w-72">
+				<Field
+					label={t("reauth.password")}
+					name="password"
+					type="password"
+					autoComplete="current-password"
+					required
+					error={
+						result
+							? t(result.error === "limited" ? "reauth.limited" : "reauth.wrongPassword")
+							: undefined
+					}
+				/>
+			</div>
+			<Button type="submit" variant="secondary" disabled={fetcher.state !== "idle"}>
+				{t("reauth.confirm")}
+			</Button>
+		</fetcher.Form>
 	)
 }

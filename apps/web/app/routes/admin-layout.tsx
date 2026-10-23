@@ -1,9 +1,10 @@
 import { ArrowLeft } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { Form, isRouteErrorResponse, Link, NavLink, Outlet, useLocation } from "react-router"
+import { isRouteErrorResponse, Link, NavLink, Outlet, useFetcher, useLocation } from "react-router"
 import { ErrorContent } from "~/components/error-content"
 import { Button } from "~/components/ui/button"
+import { Field } from "~/components/ui/field"
 import { useClientValue } from "~/hooks/use-client-value"
 import { ensureAdminSafeWorker } from "~/lib/admin-freshness.client"
 import { requireAdmin, signedInRecently } from "~/lib/admin.server"
@@ -39,16 +40,37 @@ const SECTIONS = [
 	{ to: "/admin/audit", key: "audit", end: false },
 ] as const
 
+/** The signed-in admin's own password renews the sign-in in place (admin.reauthenticate.ts). */
 function SignInAgain() {
 	const { t } = useTranslation("admin")
 	const { pathname, search } = useLocation()
+	const fetcher = useFetcher<typeof import("./admin.reauthenticate").action>()
+	const result = fetcher.data
 	return (
-		<Form method="post" action="/admin/reauthenticate" reloadDocument>
+		<fetcher.Form
+			method="post"
+			action="/admin/reauthenticate"
+			className="flex flex-col items-start gap-3"
+		>
 			<input type="hidden" name="returnTo" value={pathname + search} />
-			<Button type="submit" size="sm">
+			<div className="w-full sm:w-72">
+				<Field
+					label={t("reauth.password")}
+					name="password"
+					type="password"
+					autoComplete="current-password"
+					required
+					error={
+						result
+							? t(result.error === "limited" ? "reauth.limited" : "reauth.wrongPassword")
+							: undefined
+					}
+				/>
+			</div>
+			<Button type="submit" size="sm" disabled={fetcher.state !== "idle"}>
 				{t("reauth.submit")}
 			</Button>
-		</Form>
+		</fetcher.Form>
 	)
 }
 
