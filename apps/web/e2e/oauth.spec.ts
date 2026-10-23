@@ -144,15 +144,8 @@ test("an API token names the browser sign-in behind it, and a refresh keeps it",
 	expect(sidOf(refreshed.access_token)).toBe(signedIn!.id)
 })
 
-test("unverified users cannot issue API keys or bypass the OAuth consent screen", async ({
-	page,
-	baseURL,
-}) => {
+test("unverified users cannot bypass the OAuth consent screen", async ({ page, baseURL }) => {
 	await signupUser(page, "Unverified", { verified: false })
-	const key = await page.request.post("/settings/api-keys", {
-		form: { intent: "create", name: "Blocked" },
-	})
-	expect(key.status()).toBe(403)
 	const client = await createOAuthClient("Unverified App", { resources: [`${baseURL}/api`] })
 	const response = await page.request.get(
 		authorizeUrl(client, {
@@ -168,14 +161,9 @@ test("unverified users cannot issue API keys or bypass the OAuth consent screen"
 		data: { accept: true, oauth_query: location.search.slice(1) },
 	})
 	expect(consent.status()).toBe(403)
-	await page.goto("/settings/api-keys")
-	await expect(page.getByRole("button", { name: "Create key" })).toBeDisabled()
 })
 
-test("an old sign-in makes no key and connects no new app until it signs in again", async ({
-	page,
-	baseURL,
-}) => {
+test("an old sign-in connects no new app until it signs in again", async ({ page, baseURL }) => {
 	test.setTimeout(60_000)
 	const email = await signup(page)
 	// Signed in 31 minutes ago, by the database's clock: a forgotten or stolen session.
@@ -183,11 +171,6 @@ test("an old sign-in makes no key and connects no new app until it signs in agai
 		update session set created_at = now() - interval '31 minutes'
 		where user_id = (select id from "user" where email = ${email})
 	`)
-	const key = await page.request.post("/settings/api-keys", {
-		form: { intent: "create", name: "Late" },
-	})
-	expect(key.status()).toBe(403)
-
 	// better-auth's own consent endpoint refuses a new app too, not only our page.
 	const client = await createOAuthClient("Late App", { resources: [`${baseURL}/api`] })
 	const ask = authorizeUrl(client, {
@@ -216,16 +199,9 @@ test("an old sign-in makes no key and connects no new app until it signs in agai
 	await page.getByRole("button", { name: "Log in" }).click()
 	await expect(page).toHaveURL(/\/oauth\/consent\?/)
 	await expect(page.getByRole("button", { name: "Allow", exact: true })).toBeVisible()
-
-	// Signed in just now: Settings makes the key.
-	await page.goto("/settings/api-keys")
-	await waitForHydration(page)
-	await page.getByPlaceholder("Name (e.g. MacBook Chrome)").fill("Fresh")
-	await page.getByRole("button", { name: "Create key" }).click()
-	await expect(page.getByText("Copy your new key now")).toBeVisible()
 })
 
-test("Settings asks an old sign-in for its own password before it makes a key", async ({
+test("Settings asks an old sign-in for its own password before it deletes the account", async ({
 	page,
 }) => {
 	const email = await signup(page)
@@ -233,10 +209,10 @@ test("Settings asks an old sign-in for its own password before it makes a key", 
 		update session set created_at = now() - interval '31 minutes'
 		where user_id = (select id from "user" where email = ${email})
 	`)
-	await page.goto("/settings/api-keys")
+	await page.goto("/settings/account")
 	await waitForHydration(page)
-	await page.getByPlaceholder("Name (e.g. MacBook Chrome)").fill("Late")
-	await page.getByRole("button", { name: "Create key" }).click()
+	await page.getByLabel("Type your email to confirm").fill(email)
+	await page.getByRole("button", { name: "Delete my account" }).click()
 	await expect(page.getByText("You signed in more than 30 minutes ago")).toBeVisible()
 	// No email and no login page: only this account's password renews the sign-in.
 	await expect(page.getByRole("button", { name: "Log in again" })).toHaveCount(0)
@@ -246,9 +222,9 @@ test("Settings asks an old sign-in for its own password before it makes a key", 
 	await page.getByLabel("Password").fill(PASSWORD)
 	await page.getByRole("button", { name: "Confirm" }).click()
 	await expect(page.getByText("Confirmed. Try it again now.")).toBeVisible()
-	await expect(page).toHaveURL(/\/settings\/api-keys$/)
-	await page.getByRole("button", { name: "Create key" }).click()
-	await expect(page.getByText("Copy your new key now")).toBeVisible()
+	await expect(page).toHaveURL(/\/settings\/account$/)
+	await page.getByRole("button", { name: "Delete my account" }).click()
+	await expect(page).toHaveURL(/\/login\?deleted=1$/)
 })
 
 test("Settings sends an old sign-in without a password to log in again", async ({ page }) => {
@@ -261,14 +237,14 @@ test("Settings sends an old sign-in without a password to log in again", async (
 		update session set created_at = now() - interval '31 minutes'
 		where user_id = (select id from "user" where email = ${email})
 	`)
-	await page.goto("/settings/api-keys")
+	await page.goto("/settings/account")
 	await waitForHydration(page)
-	await page.getByPlaceholder("Name (e.g. MacBook Chrome)").fill("Late")
-	await page.getByRole("button", { name: "Create key" }).click()
+	await page.getByLabel("Type your email to confirm").fill(email)
+	await page.getByRole("button", { name: "Delete my account" }).click()
 	await expect(page.getByText("You signed in more than 30 minutes ago")).toBeVisible()
 	await expect(page.getByLabel("Password")).toHaveCount(0)
 	await page.getByRole("button", { name: "Log in again" }).click()
-	await expect(page).toHaveURL(/\/login\?redirectTo=%2Fsettings%2Fapi-keys$/)
+	await expect(page).toHaveURL(/\/login\?redirectTo=%2Fsettings%2Faccount$/)
 	const [row] = await db.select({ id: user.id }).from(user).where(eq(user.email, email))
 	expect(await db.select().from(session).where(eq(session.userId, row!.id))).toHaveLength(0)
 })

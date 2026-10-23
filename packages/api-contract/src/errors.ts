@@ -17,7 +17,7 @@ export const ERROR_STATUS = {
 	insufficient_scope: 403,
 	/** Admin pages and changes: the account is not an administrator (any more). */
 	forbidden: 403,
-	/** The account's email is not verified yet: needed for API keys and connected apps. */
+	/** The account's email is not verified yet: needed to connect apps. */
 	verification_required: 403,
 	/** The session is too old for this: sign in again. */
 	reauthentication_required: 403,

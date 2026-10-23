@@ -149,7 +149,6 @@ describe("authenticateApiRequest", () => {
 		expect(await authenticateApiRequest(request(token))).toEqual({
 			userId,
 			access: "write",
-			via: "oauth",
 			clientId,
 			sessionId: null,
 		})

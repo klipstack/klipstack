@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto"
 import {
-	apiKeys,
 	db,
 	documents,
 	documentVersions,
@@ -23,7 +22,6 @@ import {
 	updateArticles,
 } from "~/commands/articles.server"
 import { saveFeedItem } from "~/commands/saving.server"
-import { revokeApiKey } from "./api-keys.server"
 import { getDocument, restoreDocument, setNote } from "./documents.server"
 import { dismissFeedItem, renameSubscription, restoreFeedItem, unsubscribe } from "./feeds.server"
 import {
@@ -37,7 +35,7 @@ import {
 // One user's rows, and another user who calls every service with their ids.
 const owner = `test-owner-${randomUUID()}`
 const other = `${owner}-other`
-const ids = {} as Record<"doc" | "highlight" | "key" | "feed" | "item" | "subscription", string>
+const ids = {} as Record<"doc" | "highlight" | "feed" | "item" | "subscription", string>
 
 const row = async <T>(query: Promise<T[]>) => (await query)[0]
 
@@ -86,12 +84,6 @@ beforeAll(async () => {
 			})
 			.returning(),
 	)
-	const key = await row(
-		db
-			.insert(apiKeys)
-			.values({ userId: owner, name: "k", prefix: "klip_o", keyHash: owner })
-			.returning(),
-	)
 	const feed = await row(
 		db
 			.insert(feeds)
@@ -116,7 +108,6 @@ beforeAll(async () => {
 	Object.assign(ids, {
 		doc: doc!.id,
 		highlight: highlight!.id,
-		key: key!.id,
 		feed: feed!.id,
 		item: item!.id,
 		subscription: subscription!.id,
@@ -132,7 +123,6 @@ afterAll(async () => {
 const snapshot = async () => ({
 	doc: await db.query.documents.findFirst({ where: eq(documents.id, ids.doc) }),
 	highlight: await db.query.highlights.findFirst({ where: eq(highlights.id, ids.highlight) }),
-	key: await db.query.apiKeys.findFirst({ where: eq(apiKeys.id, ids.key) }),
 	subscription: await db.query.subscriptions.findFirst({
 		where: eq(subscriptions.id, ids.subscription),
 	}),
@@ -181,7 +171,6 @@ describe("another user's ids", () => {
 		})
 		await renameSubscription(other, ids.subscription, "Mine now")
 		await restoreFeedItem(other, ids.item)
-		await revokeApiKey(other, ids.key)
 		expect((await purgeArticles(other, [ids.doc])).notFound).toEqual([ids.doc])
 
 		expect(await snapshot()).toEqual(before)

@@ -101,38 +101,11 @@ export default {
 				"Arrástralo a tu barra de marcadores. Abre un formulario de confirmación en Klipstack con la dirección de la página actual (solo web abierta).",
 			label: "Guardar en Klipstack",
 		},
-		shortcut: {
-			title: "Atajo de iOS / macOS",
-			description:
-				"iOS no ofrece destinos de compartir para apps web, así que un Atajo es la forma de que la hoja de compartir llegue a Klipstack. Crea uno que acepte páginas web de Safari y URLs:",
-			step1:
-				"Ejecutar JavaScript en página web (solo desde la hoja de compartir de Safari): completion(document.documentElement.outerHTML)",
-			step2: "Obtener contenido de URL: POST {{url}}",
-			step3: "Cabeceras: Authorization = Bearer <tu clave API>, Content-Type = application/json",
-			step4: "Cuerpo de la petición (JSON): url = Entrada del atajo, html = resultado del paso 1",
-			note: "El paso 1 captura la página tal como la ves, así que funcionan los artículos tras un inicio de sesión o muro de pago. Al compartir desde otras apps, omítelo y envía solo la url.",
-		},
-	},
-	apiKeys: {
-		verificationRequired: "Verifica tu correo antes de crear claves de API o conectar apps.",
-		verifyLink: "Ir a Cuenta",
-		requestFailed: "La solicitud falló. Espera un momento e inténtalo de nuevo.",
-		title: "Claves API",
-		description:
-			"Las claves dan a los Atajos y a tus scripts acceso completo a tu cuenta a través de la API. Cada clave se muestra una sola vez.",
-		namePlaceholder: "Nombre (p. ej. Chrome del MacBook)",
-		create: "Crear clave",
-		created: "Copia tu nueva clave ahora. No se volverá a mostrar.",
-		copy: "Copiar",
-		copied: "Copiada",
-		revoke: "Revocar",
-		revokeConfirm: "¿Revocar esta clave? Todo lo que la use dejará de funcionar.",
-		empty: "Aún no hay claves.",
-		lastUsed: "Usada por última vez {{date}}",
-		neverUsed: "Nunca usada",
 	},
 	connectedApps: {
 		title: "Apps conectadas",
+		copy: "Copiar",
+		copied: "Copiada",
 		description: "Apps a las que diste acceso a tu cuenta, como asistentes de IA.",
 		mcpHint:
 			"Para conectar un asistente de IA, añade Klipstack como servidor MCP remoto con esta URL:",

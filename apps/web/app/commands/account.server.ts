@@ -1,46 +1,18 @@
-import { Id, NUL_REFUSED, withoutNul } from "@klipstack/api-contract"
+import { NUL_REFUSED, withoutNul } from "@klipstack/api-contract"
 import { db, eq, type UserPrefs, user as userTable } from "@klipstack/db"
 import { supportedLanguages } from "@klipstack/i18n"
 import { z } from "zod"
 import { AppError, notFound, parseInput } from "~/lib/app-error"
 import { signedInRecently } from "~/lib/recent-sign-in.server"
 import { deleteAccount as deleteEverything } from "~/services/account.server"
-import { createApiKey as insertApiKey, revokeApiKey as revokeKey } from "~/services/api-keys.server"
 import { disconnectApp as removeConsent } from "~/services/oauth-apps.server"
 
 /**
- * The account's settings and access: API keys, connected apps, the profile, reading preferences,
- * and deleting the account. Access that outlives the session (a key) and deleting the account need
- * a recent sign-in: `signedInAt` is the session's.
+ * The account's settings and access: connected apps, the profile, reading preferences, and
+ * deleting the account. Deleting the account needs a recent sign-in: `signedInAt` is the session's.
  */
 
 const reauthenticate = () => new AppError("reauthentication_required", "Sign in again to continue.")
-
-/** A new API key for the user, returned once; it needs a verified email and a recent sign-in. */
-export async function createApiKey(
-	userId: string,
-	input: { name: string; signedInAt: Date | string | null | undefined },
-) {
-	const name = parseInput(
-		z.string().trim().min(1).max(60).refine(withoutNul, NUL_REFUSED),
-		input.name,
-	)
-	const [owner] = await db
-		.select({ verified: userTable.emailVerified })
-		.from(userTable)
-		.where(eq(userTable.id, userId))
-	if (!owner?.verified)
-		throw new AppError(
-			"verification_required",
-			"Verify your email before creating an API key or connecting an app.",
-		)
-	if (!signedInRecently(input.signedInAt)) throw reauthenticate()
-	return insertApiKey(userId, name)
-}
-
-export async function revokeApiKey(userId: string, id: string) {
-	if (!(await revokeKey(userId, parseInput(Id, id)))) throw notFound("No API key with that id.")
-}
 
 /** Removes an app's access (`consentId`: any of its consents, as Settings lists them). */
 export async function disconnectApp(userId: string, consentId: string) {

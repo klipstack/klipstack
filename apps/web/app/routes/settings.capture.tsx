@@ -47,24 +47,6 @@ export default function CaptureSettings({ loaderData }: Route.ComponentProps) {
 				{/* oxlint-disable-next-line react/no-danger -- javascript: href for a bookmarklet, built from our own origin */}
 				<p className="mt-2" dangerouslySetInnerHTML={{ __html: bookmarkletHtml }} />
 			</SettingsCard>
-			<SettingsCard
-				title={t("capture.shortcut.title")}
-				description={t("capture.shortcut.description")}
-			>
-				<ol className="mt-2 list-decimal space-y-1 pl-5 text-sm">
-					<li>
-						<code className="[overflow-wrap:anywhere]">{t("capture.shortcut.step1")}</code>
-					</li>
-					<li>
-						<code className="[overflow-wrap:anywhere]">
-							{t("capture.shortcut.step2", { url: `${loaderData.appUrl}/api/v1/articles` })}
-						</code>
-					</li>
-					<li>{t("capture.shortcut.step3")}</li>
-					<li>{t("capture.shortcut.step4")}</li>
-				</ol>
-				<p className="mt-2 text-sm text-muted-fg">{t("capture.shortcut.note")}</p>
-			</SettingsCard>
 		</SettingsPage>
 	)
 }

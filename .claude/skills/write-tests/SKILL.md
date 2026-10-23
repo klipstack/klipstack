@@ -14,7 +14,7 @@ that.
 | --- | --- | --- |
 | Command | Call it with a user ID against the real database. Assert the result, or the refusal (`rejects.toMatchObject({ code: "not_found" })`). | `apps/web/app/commands/annotations.server.test.ts` |
 | Route loader or action | Import `loader` or `action`, call it with a `new Request(...)`. Usually only the session stands in: `vi.mock("~/lib/session.server", …)`, or real sessions from `app/test/admin-fixtures.ts`. | `app/routes/add.test.ts`, `app/routes/admin.routes.test.ts` |
-| HTTP API, MCP | `app/test/api-harness.ts`: `apiUsers(tag)` makes users with API keys; `sdk`, `request` and `mcpClient` run the real routes in-process. `captured()` saves and extracts a fixture page. | `app/routes/api.v1.test.ts`, `app/routes/mcp.test.ts` |
+| HTTP API, MCP | `app/test/api-harness.ts`: `apiUsers(tag)` makes users signed in to an app of their own (`token`, `mcpToken`); `sdk`, `request` and `mcpClient` run the real routes in-process. `captured()` saves and extracts a fixture page. | `app/routes/api.v1.test.ts`, `app/routes/mcp.test.ts` |
 | Worker job | Call the handler against the database. Mock only `notifyDocumentEvent`, partially. | `apps/worker/src/jobs/extract.test.ts` |
 | Extraction | A captured page in `packages/extract/test/fixtures/pages/` and its entry in `manifest.ts`. | `packages/extract/test/fixtures.test.ts` |
 | Browser | `apps/web/e2e/*.spec.ts`, using `signupUser`, `login`, `uniqueEmail` and `waitForHydration` from `e2e/helpers.ts`, and `insertArticle` from `e2e/seed.ts`. | `e2e/highlights.spec.ts` |

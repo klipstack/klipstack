@@ -17,8 +17,8 @@ export const sessionContext = createContext<SessionData | null>(null)
 
 /**
  * Resolves the caller from the browser session cookie. A request with a bearer token is signed
- * out here, whatever cookies it has: API keys and OAuth tokens work only where they are checked
- * (`/api/v1/*`, `/mcp`, the OAuth endpoints), so a leaked key can't act as the user in the app.
+ * out here, whatever cookies it has: OAuth tokens work only where they are checked (`/api/v1/*`,
+ * `/mcp`, the OAuth endpoints), so a leaked token can't act as the user in the app.
  */
 export const sessionMiddleware: MiddlewareFunction<Response> = async (
 	{ request, context },

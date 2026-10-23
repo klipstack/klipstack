@@ -162,7 +162,7 @@ export function buildOpenApiDocument({
 				? {
 						description: [
 							`Only for ${endpoint.clients.audience}: an OAuth access token issued to ${endpoint.clients.ids.map((id) => `\`${id}\``).join(" or ")}.`,
-							"API keys, the CLI and other OAuth clients get `403 forbidden`, whatever their scopes.",
+							"The CLI and other OAuth clients get `403 forbidden`, whatever their scopes.",
 							...(endpoint.clients.note ? [endpoint.clients.note] : []),
 						].join(" "),
 					}
@@ -191,7 +191,7 @@ export function buildOpenApiDocument({
 			title: "Klipstack API",
 			version,
 			description:
-				"Klipstack's HTTP API for programs: the CLI, the browser extension and scripts. Alpha: endpoints, fields and error codes may change without notice. Authenticate with `Authorization: Bearer <token>`: an API key from Settings, or an OAuth access token for the `/api` resource with the `library:read` scope (`library:write` for changes; `x-scope` says which each operation needs). Operations with `x-clients` answer only tokens issued to those OAuth clients: the reader's AI is for Klipstack's own apps.",
+				"Klipstack's HTTP API for programs: the CLI, the browser extension and scripts. Alpha: endpoints, fields and error codes may change without notice. Authenticate with `Authorization: Bearer <token>`: an OAuth access token for the `/api` resource with the `library:read` scope (`library:write` for changes; `x-scope` says which each operation needs). Operations with `x-clients` answer only tokens issued to those OAuth clients: the reader's AI is for Klipstack's own apps.",
 		},
 		servers: [{ url: serverUrl }],
 		tags: [...tags].map((name) => ({ name })),
@@ -202,7 +202,7 @@ export function buildOpenApiDocument({
 				bearerAuth: {
 					type: "http",
 					scheme: "bearer",
-					description: "An API key (`klip_…`) or an OAuth access token issued for `<origin>/api`.",
+					description: "An OAuth access token issued for `<origin>/api`.",
 				},
 			},
 		},

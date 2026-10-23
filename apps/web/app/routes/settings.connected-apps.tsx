@@ -74,7 +74,7 @@ export default function ConnectedAppsSettings({ loaderData }: Route.ComponentPro
 						}}
 					>
 						<Copy className="size-4" aria-hidden />
-						{copied ? t("apiKeys.copied") : t("apiKeys.copy")}
+						{copied ? t("connectedApps.copied") : t("connectedApps.copy")}
 					</Button>
 				</div>
 				{/* The same prompt as the Save link dialog's: the assistant sets itself up, or says how. */}

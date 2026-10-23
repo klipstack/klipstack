@@ -32,10 +32,8 @@ export const me: Handler<typeof getMe> = async ({ principal }) => {
 		editions: resolvePrefs(prefs).editions === "on",
 		feeds: resolvePrefs(prefs).feeds === "on",
 		access: principal.access,
-		via: principal.via,
-		client: principal.clientId
-			? { id: principal.clientId, name: await oauthClientName(principal.clientId) }
-			: null,
+		via: "oauth" as const,
+		client: { id: principal.clientId, name: await oauthClientName(principal.clientId) },
 	}
 }
 

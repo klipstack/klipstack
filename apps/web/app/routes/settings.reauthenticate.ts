@@ -6,7 +6,7 @@ import type { Route } from "./+types/settings.reauthenticate"
 /**
  * POST /settings/reauthenticate  returnTo=<a Settings section>: ends this browser session and goes
  * to login, which returns to that section. For what needs a recent sign-in
- * (`~/lib/recent-sign-in.server`): an API key, deleting the account. Nothing refused is carried
+ * (`~/lib/recent-sign-in.server`): deleting the account. Nothing refused is carried
  * over: the user repeats it once signed in again.
  */
 export async function action({ request, context }: Route.ActionArgs) {

@@ -209,7 +209,7 @@ export const auth = betterAuth({
 		// no provider link from before that proof, and counts as verified from here: a later
 		// verification would otherwise remove the password just set (and its trigger revokes
 		// credentials). A verified account's reset is a recovery: whoever had a session may have
-		// made an API key or connected an app of their own, so those end with the sessions.
+		// connected an app of their own, so those end with the sessions.
 		async onPasswordReset({ user: owner }) {
 			if (owner.emailVerified) {
 				await db.transaction((tx) => revokeCredentials(tx, owner.id))

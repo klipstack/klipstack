@@ -2,7 +2,7 @@ import { CLIENT_HEADER } from "@klipstack/api-contract/client"
 import { createClient, type KlipstackClient } from "@klipstack/sdk"
 import { Image } from "expo-image"
 import { createContext, type ReactNode, use, useEffect, useMemo, useState } from "react"
-import { CLIENT, DEFAULT_API_URL, DEV_API_TOKEN, DEV_APP_REFRESH_TOKEN, USER_AGENT } from "./config"
+import { CLIENT, DEFAULT_API_URL, DEV_APP_REFRESH_TOKEN, USER_AGENT } from "./config"
 import { refresh, revoke, SignedOutError } from "./oauth"
 import { forgetOffline } from "./offline-download"
 import {
@@ -124,14 +124,6 @@ function createAuth(setState: (state: AuthState) => void) {
 					await markSeeded(DEV_APP_REFRESH_TOKEN)
 				}
 			}
-			// The development key, as a session that never expires, so the share extension has it too.
-			else if (DEV_API_TOKEN)
-				await writeSession({
-					apiUrl: DEFAULT_API_URL,
-					accessToken: DEV_API_TOKEN,
-					refreshToken: "",
-					expiresAt: 253402300799,
-				})
 			let session: Session | null
 			try {
 				session = await readSession()

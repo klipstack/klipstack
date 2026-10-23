@@ -15,7 +15,6 @@ import { type APIRequestContext, expect, type Page, test } from "@playwright/tes
 import {
 	authorizeUrl,
 	catchCallback,
-	createApiKey,
 	createOAuthClient,
 	pkce,
 	signupUser,
@@ -323,12 +322,13 @@ async function waitUntilReady(client: KlipstackClient, id: string) {
 // broken connection is up to the socket buffers.
 test("large bodies refused early still get their answer through Node's fetch", async ({
 	page,
+	request,
 	baseURL,
 }) => {
 	test.setTimeout(120_000)
 	const base = baseURL ?? ""
 	await signupUser(page, "Big Uploader")
-	const apiKey = await createApiKey(page, "Big")
+	const token = (await cliLogin(page, request, base)).access_token
 	// Bodies with a URL the server refuses after reading them: nothing is saved or extracted.
 	const notAUrl = "not a url"
 	const big = JSON.stringify({ url: notAUrl, html: "a".repeat(9 * 1024 * 1024) })
@@ -348,7 +348,7 @@ test("large bodies refused early still get their answer through Node's fetch", a
 		baseUrl: base,
 		token: ({ refresh }) => {
 			tokens.push(refresh)
-			return refresh ? apiKey : "klip_expired-key-expired-key-xx"
+			return refresh ? token : "klip_expired-key-expired-key-xx"
 		},
 	})
 	expect(
@@ -361,7 +361,7 @@ test("large bodies refused early still get their answer through Node's fetch", a
 	const stall = () =>
 		openUpload(base, "/api/v1/articles", {
 			"content-type": "application/json",
-			authorization: `Bearer ${apiKey}`,
+			authorization: `Bearer ${token}`,
 			"content-length": String(5 * 1024 * 1024),
 		})
 	const stalled = [stall(), stall()]
@@ -375,17 +375,17 @@ test("large bodies refused early still get their answer through Node's fetch", a
 			if (socket.destroyed) stalled[i] = stall()
 		})
 		await new Promise((resolve) => setTimeout(resolve, 500))
-		return (await upload(apiKey, probe)).status
+		return (await upload(token, probe)).status
 	}
 	await expect.poll(probeHeld, { timeout: 50_000 }).toBe(429)
-	const busy = await upload(apiKey)
+	const busy = await upload(token)
 	expect(busy.status).toBe(429)
 	expect(busy.headers.get("retry-after")).toBe("2")
 	expect((await busy.json()).error.code).toBe("rate_limited")
 
 	// Abandoned uploads free their slots.
 	for (const socket of stalled) socket.destroy()
-	await expect.poll(async () => (await upload(apiKey, probe)).status, { timeout: 20_000 }).toBe(422)
+	await expect.poll(async () => (await upload(token, probe)).status, { timeout: 20_000 }).toBe(422)
 })
 
 test("large uploads refused after sign-in get their 403 or 429 through Node's fetch", async ({
@@ -396,7 +396,6 @@ test("large uploads refused after sign-in get their 403 or 429 through Node's fe
 	test.setTimeout(90_000)
 	const base = baseURL ?? ""
 	await signupUser(page, "Refused Uploader")
-	const apiKey = await createApiKey(page, "Refused")
 	const body = JSON.stringify({ url: "not a url", html: "a".repeat(3 * 1024 * 1024) })
 	const upload = (token: string) =>
 		fetch(`${base}/api/v1/articles`, {
@@ -429,21 +428,24 @@ test("large uploads refused after sign-in get their 403 or 429 through Node's fe
 	expect(staged.response).toMatch(/^HTTP\/1\.1 403/)
 	expect(staged.response.toLowerCase()).not.toContain("connection: close")
 
-	// Over the per-minute limit: 429 with its Retry-After, several times over.
-	const client = sdk(base, apiKey)
+	// Over the per-minute limit: 429 with its Retry-After, several times over. A full login after
+	// the read-only one: the latest consent is what counts.
+	const token = (await cliLogin(page, request, base)).access_token
+	const client = sdk(base, token)
 	for (let i = 0; i < 12; i++) await Promise.all(Array.from({ length: 25 }, () => client.me()))
 	for (let i = 0; i < 5; i++) {
-		const res = await upload(apiKey)
+		const res = await upload(token)
 		expect(res.status).toBe(429)
 		expect(Number(res.headers.get("retry-after"))).toBeGreaterThan(0)
 		expect((await res.json()).error.retryAfter).toBeGreaterThan(0)
 	}
 })
 
-test("a multi-megabyte capture is saved and extracted", async ({ page, baseURL }) => {
+test("a multi-megabyte capture is saved and extracted", async ({ page, request, baseURL }) => {
 	test.setTimeout(120_000)
+	const base = baseURL ?? ""
 	await signupUser(page, "Big Saver")
-	const client = sdk(baseURL ?? "", await createApiKey(page, "Big save"))
+	const client = sdk(base, (await cliLogin(page, request, base)).access_token)
 	const marker = `big-${Date.now()}`
 	// About 2 MB, nearly all of it in a comment the extractor drops: cheap to extract.
 	const html = `<!doctype html><html><head><title>A big capture ${marker}</title></head><body><!-- ${"padding ".repeat(256 * 1024)} --><article><h1>A big capture ${marker}</h1>${"<p>The part worth reading, again and again.</p>".repeat(40)}</article></body></html>`
@@ -563,11 +565,12 @@ function rawUpload(
 
 test("uploads refused before their body is read get an answer, and the connection closes", async ({
 	page,
+	request,
 	baseURL,
 }) => {
 	const base = baseURL ?? ""
 	await signupUser(page, "Raw Uploader")
-	const apiKey = await createApiKey(page, "Raw")
+	const token = (await cliLogin(page, request, base)).access_token
 	const json = { "content-type": "application/json" }
 	const start = `{"url":"https://example.com/raw","html":"${"a".repeat(4096)}`
 
@@ -592,7 +595,7 @@ test("uploads refused before their body is read get an answer, and the connectio
 		"/api/v1/articles",
 		{
 			...json,
-			authorization: `Bearer ${apiKey}`,
+			authorization: `Bearer ${token}`,
 			"content-length": String(20 * 1024 * 1024),
 		},
 		start,

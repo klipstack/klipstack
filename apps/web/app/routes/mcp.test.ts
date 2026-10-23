@@ -17,7 +17,7 @@ import { insertArticle, seedFeeds, storeImage } from "../../e2e/seed"
 import { action } from "./mcp"
 
 /**
- * MCP at /mcp with an API key, through the MCP client, answered in this process by the real route
+ * MCP at /mcp with an app's token, through the MCP client, answered in this process by the real route
  * and database. OAuth tokens, and discovery through /.well-known, stay in e2e/mcp.spec.ts.
  */
 
@@ -115,7 +115,7 @@ function noteSection(markdown: string) {
 
 /**
  * A user with the Joel Test extracted (and the Maker's Schedule with `second`), a highlight with a
- * note on the first occurrence of a repeated question, and an MCP client over an API key.
+ * note on the first occurrence of a repeated question, and an MCP client over an app's token.
  */
 async function setupLibrary({ second = false } = {}) {
 	const me = await users.create("MCP Reader")
@@ -129,7 +129,7 @@ async function setupLibrary({ second = false } = {}) {
 		documentId: joel,
 		input: { ...input, ...first.candidates[0] },
 	})
-	return { ...me, joel, makers, mcp: await connect(me.key) }
+	return { ...me, joel, makers, mcp: await connect(me.mcpToken) }
 }
 
 describe("POST /mcp", () => {
@@ -147,9 +147,9 @@ describe("POST /mcp", () => {
 	})
 })
 
-describe("MCP with an API key", () => {
+describe("MCP with an app's token", () => {
 	it("reads the library through the read-only tools", { timeout: 30_000 }, async () => {
-		const { id: owner, key, joel, mcp } = await setupLibrary()
+		const { id: owner, mcpToken, joel, mcp } = await setupLibrary()
 
 		const { tools } = await mcp.listTools()
 		expect(tools.map((t) => t.name).sort()).toEqual([...READ_TOOLS, ...WRITE_TOOLS].sort())
@@ -208,7 +208,7 @@ describe("MCP with an API key", () => {
 		})
 
 		// 2025-era clients are served statelessly with the same tools.
-		const legacy = await connect(key, { legacy: true })
+		const legacy = await connect(mcpToken, { legacy: true })
 		expect((await legacy.listTools()).tools).toHaveLength(READ_TOOLS.length + WRITE_TOOLS.length)
 	})
 
@@ -642,7 +642,7 @@ describe("MCP with an API key", () => {
 		const me = await users.create("Annotation reader")
 		const first = await insertArticle(me.id, "First article", "<p>First article</p>")
 		const second = await insertArticle(me.id, "Second article", "<p>Second article</p>")
-		const mcp = await connect(me.key)
+		const mcp = await connect(me.mcpToken)
 		const saved = await call(mcp, "update_article_note", {
 			id: first,
 			text: `orbital compass [Related](/read/${second})`,
@@ -717,7 +717,7 @@ describe("MCP with an API key", () => {
 
 	it("refuses tool arguments with more elements than any tool takes, before validating them", async () => {
 		const me = await users.create("MCP Big Input")
-		const mcp = await connect(me.key)
+		const mcp = await connect(me.mcpToken)
 		// Each element costs memory to validate: a 1 MiB body holds a few hundred thousand of them.
 		const error = await callError(mcp, "update_articles", {
 			ids: Array.from({ length: 1001 }, () => MISSING),
@@ -814,7 +814,7 @@ describe("MCP with an API key", () => {
 
 	it("refuses the feed tools while feeds are turned off", async () => {
 		const me = await users.create("MCP Feeds Off", {})
-		const mcp = await connect(me.key)
+		const mcp = await connect(me.mcpToken)
 		for (const name of ["list_feed", "mark_feed_viewed"])
 			expect(
 				await callError(mcp, name, name === "list_feed" ? {} : { as_of: new Date().toISOString() }),
@@ -824,7 +824,7 @@ describe("MCP with an API key", () => {
 	it("goes through the feed: list, save, dismiss, mark viewed, follow, unfollow", async () => {
 		const me = await users.create("MCP Feeds")
 		const { otherUrl } = await seedFeeds(me.email)
-		const mcp = await connect(me.key)
+		const mcp = await connect(me.mcpToken)
 
 		const listed = await call(mcp, "list_feed")
 		expect(listed.feeds).toHaveLength(1)
@@ -913,7 +913,7 @@ describe("MCP with an API key", () => {
 			"Colors",
 			`<p>A post about colors.</p><figure><img src="/assets/${wide.id}" data-original-src="https://example.com/red.png" alt="A red band"><figcaption>Figure 1: red</figcaption></figure><p>More <img src="https://example.com/remote.png" alt="Remote"> text.</p><p><img src="/assets/${small.id}" alt="A blue square"></p>`,
 		)
-		const mcp = await connect(me.key)
+		const mcp = await connect(me.mcpToken)
 
 		const markdown = text(await mcp.callTool({ name: "get_article", arguments: { id: articleId } }))
 		expect(markdown).toContain(`![Image 1: A red band](${origin}/assets/${wide.id})`)
@@ -997,7 +997,7 @@ describe("MCP with an API key", () => {
 
 	it("offers ready-made prompts that only use existing tools", async () => {
 		const me = await users.create("MCP Prompts")
-		const mcp = await connect(me.key)
+		const mcp = await connect(me.mcpToken)
 		const { prompts } = await mcp.listPrompts()
 		expect(prompts.map((p) => p.name).sort()).toEqual([
 			"connections",

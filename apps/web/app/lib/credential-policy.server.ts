@@ -3,11 +3,9 @@ import type { OAuthProviderExtension } from "@better-auth/oauth-provider"
 import { MOBILE_CLIENT_ID } from "@klipstack/api-contract/auth"
 import {
 	and,
-	apiKeys,
 	db,
 	eq,
 	gt,
-	isNull,
 	newId,
 	oauthAccessToken,
 	oauthConsent,
@@ -23,7 +21,7 @@ import { reauthenticationRequired, signedInRecently } from "./recent-sign-in.ser
 export function verificationRequired(): APIError {
 	return new APIError("FORBIDDEN", {
 		code: "EMAIL_VERIFICATION_REQUIRED",
-		message: "Verify your email before creating an API key or connecting an app.",
+		message: "Verify your email before connecting an app.",
 	})
 }
 
@@ -56,15 +54,10 @@ export async function hasGrant(userId: string, clientId: string): Promise<boolea
 }
 
 /**
- * Ends every durable credential of the account: its API keys, and each connected app's consent,
- * grant and tokens. The same set as the first verification's trigger (migration 0013). Browser
- * sessions are the caller's: a password reset already ends them.
+ * Ends every durable credential of the account: each connected app's consent, grant and tokens.
+ * Browser sessions are the caller's: a password reset already ends them.
  */
 export async function revokeCredentials(tx: Tx, userId: string) {
-	await tx
-		.update(apiKeys)
-		.set({ revokedAt: new Date() })
-		.where(and(eq(apiKeys.userId, userId), isNull(apiKeys.revokedAt)))
 	await tx.delete(oauthGrants).where(eq(oauthGrants.userId, userId))
 	await tx.delete(oauthConsent).where(eq(oauthConsent.userId, userId))
 	await tx.delete(oauthRefreshToken).where(eq(oauthRefreshToken.userId, userId))

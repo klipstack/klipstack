@@ -103,7 +103,7 @@ describe("GET /topics and GET /articles?topic=", () => {
 	})
 
 	it("answers each topic's summary only, as the contract has it", async () => {
-		const response = await request("/api/v1/topics", { token: reader.key })
+		const response = await request("/api/v1/topics", { token: reader.token })
 		const body = (await response.json()) as { items: Record<string, unknown>[] }
 		expect(body.items.map((t) => Object.keys(t).sort())).toEqual([
 			["articles", "description", "id", "lastReadAt", "name", "savedThisWeek", "toRead"],
@@ -155,7 +155,7 @@ describe("GET /topics and GET /articles?topic=", () => {
 				stage: "unavailable",
 				items: [],
 			})
-			const trash = await request("/api/v1/topics?view=trash", { token: reader.key })
+			const trash = await request("/api/v1/topics?view=trash", { token: reader.token })
 			expect(trash.status).toBe(400)
 		} finally {
 			await db.update(documents).set({ archivedAt: null }).where(eq(documents.id, atoms!.id))
@@ -238,7 +238,7 @@ describe("GET /topics and GET /articles?topic=", () => {
 			expect(science).toMatchObject({ articles: 2, savedThisWeek: 1 })
 			expect(science.latest!.map((a) => a.title)).toEqual(["Atoms", "Old atoms"])
 			const unread = await request("/api/v1/articles?view=all&filter=unread", {
-				token: reader.key,
+				token: reader.token,
 			})
 			expect(unread.status).toBe(400)
 		} finally {
@@ -264,7 +264,7 @@ describe("GET /topics and GET /articles?topic=", () => {
 				code: "not_found",
 			})
 		}
-		const trash = await request("/api/v1/articles?view=trash&topic=none", { token: reader.key })
+		const trash = await request("/api/v1/articles?view=trash&topic=none", { token: reader.token })
 		expect(trash.status).toBe(400)
 		expect(await trash.json()).toMatchObject({ error: { code: "invalid_request" } })
 	})
@@ -468,7 +468,7 @@ describe("GET /topics: the stage, and each topic's latest articles", () => {
 		expect(two.items[0]!.latest!.map((a) => a.title)).toEqual(["Draft two", "Draft one"])
 		expect((await reader.client.topics.list()).items[0]).not.toHaveProperty("latest")
 		for (const latest of [0, 17]) {
-			const refused = await request(`/api/v1/topics?latest=${latest}`, { token: reader.key })
+			const refused = await request(`/api/v1/topics?latest=${latest}`, { token: reader.token })
 			expect(refused.status).toBe(400)
 		}
 	})
@@ -480,7 +480,7 @@ describe("MCP list_topics and list_library's topic", () => {
 		JSON.parse((result as Result).content.map((c) => c.text ?? "").join(""))
 
 	it("lists the topics, and a topic's articles", async () => {
-		const mcp = await mcpClient(reader.key)
+		const mcp = await mcpClient(reader.mcpToken)
 		clients.push(mcp)
 		const listed = json(await mcp.callTool({ name: "list_topics", arguments: {} }))
 		expect(listed.items).toEqual([

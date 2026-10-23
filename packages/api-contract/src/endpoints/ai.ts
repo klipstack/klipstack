@@ -9,8 +9,8 @@ import { Id, Time } from "../schemas"
  * Only for accounts with AI answers turned on, on a server with a provider set up (`GET /ai`).
  * Every question, follow-up, retry and new brief counts against the account's monthly cap,
  * whatever client sends it; answers stream as server-sent events. Spending the account's AI, and
- * changing its threads, is for our own apps with in-app AI only (`IN_APP_AI_CLIENTS`): API keys,
- * the CLI and other apps get `403 forbidden`. Reading what was answered already costs nothing, so
+ * changing its threads, is for our own apps with in-app AI only (`IN_APP_AI_CLIENTS`): the CLI
+ * and other apps get `403 forbidden`. Reading what was answered already costs nothing, so
  * `GET /ai` and `GET /articles/:id/ai` answer every client.
  */
 
@@ -19,8 +19,7 @@ const params = z.object({ id: Id })
 /** Who may spend the account's AI through the API. */
 const inAppAi: OnlyClients = {
 	ids: IN_APP_AI_CLIENTS,
-	refusal:
-		"Only Klipstack's own apps can use the account's AI. API keys, the CLI and other apps cannot.",
+	refusal: "Only Klipstack's own apps can use the account's AI. The CLI and other apps cannot.",
 	audience: "Klipstack's own apps with in-app AI",
 	note: "Whoever connects through the API brings their own AI.",
 }

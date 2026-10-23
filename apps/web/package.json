@@ -6,7 +6,6 @@
 	"type": "module",
 	"scripts": {
 		"admin": "tsx scripts/admin.ts",
-		"api-key": "tsx scripts/api-key.ts",
 		"dev-account": "tsx scripts/dev-account.ts",
 		"auth:generate": "pnpm dlx auth@1.7.5 generate --config app/lib/auth.server.ts --output ../../packages/db/src/schema/auth.generated.ts --yes",
 		"build": "react-router build",

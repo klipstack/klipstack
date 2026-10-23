@@ -12,8 +12,8 @@ config({ path: resolve(root, ".env"), quiet: true })
 
 const usage = `Usage: pnpm --filter @klipstack/web dev-account <command> [options]
   create            A throwaway account on the local database, with copies of demo articles.
-                    Prints its address, password and an API key (klip_…).
-    --app-token     Also sign the iPhone app in: print a refresh token for apps/mobile/.env.local
+                    Prints its address, password and a refresh token that signs the iPhone app
+                    in (EXPO_PUBLIC_APP_REFRESH_TOKEN, for apps/mobile/.env.local).
     --articles N    How many of the demo account's newest articles to copy (default 20)
     --feature NAME  Turn on a feature in testing (repeatable): ai, topics
     --name LABEL    The address's local part (default dev-<timestamp>)
@@ -33,7 +33,6 @@ const { values, positionals } = parseArgs({
 		feature: { type: "string", multiple: true, default: [] },
 		name: { type: "string" },
 		all: { type: "boolean" },
-		"app-token": { type: "boolean" },
 		help: { type: "boolean", short: "h" },
 	},
 })
@@ -49,7 +48,6 @@ const { account, and, assets, db, desc, documents, documentVersions, eq, isNotNu
 const { isFeatureFlag, pool, user, userFeatures } = await import("@klipstack/db")
 const { assetKey, getStorage } = await import("@klipstack/storage")
 const { hashPassword } = await import("better-auth/crypto")
-const { createApiKey } = await import("../app/services/api-keys.server")
 const { deleteAccount } = await import("../app/services/account.server")
 const { appToken } = await import("./dev-account/app-token")
 
@@ -172,21 +170,19 @@ async function create() {
 			await Promise.allSettled(newAssets.map((asset) => storage.delete(asset.storageKey)))
 			throw error
 		})
-	const key = await createApiKey(id, "dev-account")
 	console.log(`email     ${email}`)
 	console.log(`password  ${PASSWORD}`)
 	console.log(`articles  ${sources.length}`)
 	// Images live in STORAGE_FS_ROOT, one per checkout: a new worktree has none of the demo's.
 	console.log(`images    ${newAssets.length} of ${assetIds.size}`)
 	if (features.length) console.log(`features  ${features.join(", ")}`)
-	console.log(`api key   ${key.raw}`)
 	console.log(`delete    pnpm --filter @klipstack/web dev-account delete ${email}`)
-	if (values["app-token"]) await printAppToken(email)
+	await printAppToken(email)
 }
 
 /**
- * The iPhone app's AI and account deletion answer only the app's own OAuth tokens, never an API
- * key. A development build signs in with this refresh token instead of the sign-in sheet.
+ * A development build signs in with this refresh token instead of the sign-in sheet: a real token
+ * of the iPhone app's, so its AI and deleting the account work too.
  */
 async function printAppToken(email: string) {
 	const { refreshToken } = await appToken(email, PASSWORD)

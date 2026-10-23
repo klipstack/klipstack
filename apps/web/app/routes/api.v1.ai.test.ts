@@ -39,7 +39,7 @@ async function collect<T>(events: AsyncIterable<T>): Promise<T[]> {
 	return out
 }
 
-/** A test account signed in to the iPhone app (`app`, `token`), and with an API key (`client`, `key`). */
+/** A test account signed in to the iPhone app (`app`, `token`), and to an app of its own (`client`). */
 async function appUser(name: string) {
 	const user = await users.create(name)
 	const token = await oauthToken(user.id, MOBILE_CLIENT_ID)
@@ -109,7 +109,6 @@ describe("the reader's AI in the API", () => {
 			["POST", `/ai/threads/${threadId}/restore`],
 		]
 		const refused = {
-			"an API key": me.key,
 			"the CLI": await oauthToken(me.id, CLI_CLIENT_ID),
 			"someone's app": await oauthToken(me.id, `test-app-${randomUUID()}`),
 		}
@@ -153,7 +152,10 @@ describe("the reader's AI in the API", () => {
 		expect((await phone.ai.consent(true)).consentedAt).toBe(consentedAt)
 
 		// Only our apps record it; anyone may read it.
-		for (const token of [asker.key, await oauthToken(asker.id, CLI_CLIENT_ID)]) {
+		for (const token of [
+			await oauthToken(asker.id, CLI_CLIENT_ID),
+			await oauthToken(asker.id, `test-app-${randomUUID()}`),
+		]) {
 			const response = await request("/api/v1/ai/consent", {
 				method: "PUT",
 				token,
