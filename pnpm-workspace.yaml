@@ -26,6 +26,10 @@ auditConfig:
     # postcss-selector-parser through @tailwindcss/typography, which pins 6.0.10 even in its latest
     # release: a quadratic parse of a long flat selector. Only our own CSS reaches it, at build time.
     - GHSA-rj75-hqrm-r3gf
+    # zod 3 through @expo/cli: a huge array that fails validation exhausts memory. Our own zod is
+    # 4.6.7, which is fixed; the Expo CLI, even its latest, pins zod 3, for which no fixed version
+    # exists. It parses only the developer's own project files, on their machine; it never ships.
+    - GHSA-mrhx-c7xc-m3w5
 onlyBuiltDependencies:
   - sharp
   - esbuild
