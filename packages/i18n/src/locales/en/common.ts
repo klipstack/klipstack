@@ -112,9 +112,12 @@ export default {
 			},
 		},
 		phone: {
-			eyebrow: "Coming soon · iPhone",
-			title: "Klipstack is coming to your iPhone.",
-			body: "The iPhone app is built and in testing now, on its way to the App Store. It brings the same reading with you: Home's next reads, the clean reader, your highlights, and the note at the end of every article.",
+			eyebrow: "Public beta · iPhone",
+			title: "Klipstack on your iPhone.",
+			body: "The iPhone app is in public beta on TestFlight, on its way to the App Store. It brings the same reading with you: Home's next reads, the clean reader, your highlights, and the note at the end of every article.",
+			// The landing's button to the TestFlight beta, and the line under it.
+			beta: "Join the beta on TestFlight",
+			betaNote: "TestFlight is Apple's app for trying apps before they reach the App Store.",
 			account:
 				"One account, one library: what you save on your phone is waiting on your computer, and the other way around.",
 			save: {
@@ -236,7 +239,7 @@ export default {
 			apps: {
 				question: "Is there an app?",
 				answer:
-					"Klipstack runs in the browser on your computer and your phone, and unread and starred articles stay available offline. An iPhone app is in testing; it saves from the share sheet and reads articles aloud. There's no Android app.",
+					"Klipstack runs in the browser on your computer and your phone, and unread and starred articles stay available offline. An iPhone app is in public beta on TestFlight; it saves from the share sheet and reads articles aloud. There's no Android app.",
 			},
 			extension: {
 				question: "Is there a browser extension?",
