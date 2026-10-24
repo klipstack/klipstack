@@ -12,6 +12,7 @@ import { BASE_POLICY } from "./csp.server"
 import { LAYOUT_COOKIE } from "./list-layout"
 import { NOTEBOOK_VIEW_COOKIE } from "./notebook-filters"
 import { SIDEBAR_COOKIE } from "./sidebar"
+import { completeSignIn, needsSecondStep, pendingSignInSet } from "./two-factor.server"
 
 export const sessionContext = createContext<SessionData | null>(null)
 
@@ -126,15 +127,28 @@ export async function confirmPassword(
 	request: Request,
 	current: SessionData,
 	password: string,
-): Promise<{ headers: Headers } | { error: "wrong-password" | "limited" }> {
+	/** With two-factor authentication on, the authenticator's code (or a backup code) as well. */
+	code?: string,
+): Promise<
+	{ headers: Headers } | { error: "wrong-password" | "limited" | "code-required" | "wrong-code" }
+> {
 	try {
-		const { headers } = await auth.api.signInEmail({
+		const { headers, response } = await auth.api.signInEmail({
 			body: { email: current.user.email, password },
 			headers: request.headers,
 			returnHeaders: true,
 		})
+		let signedIn = headers
+		// A sign-in like any other: with two-factor authentication it waits for the code.
+		if (needsSecondStep(response)) {
+			const pending = pendingSignInSet(headers)
+			if (!code?.trim() || !pending) return { error: "code-required" }
+			const done = await completeSignIn(request, pending, code)
+			if ("error" in done) return { error: done.error === "limited" ? "limited" : "wrong-code" }
+			signedIn = done.headers
+		}
 		await db.delete(sessions).where(eq(sessions.id, current.session.id))
-		return { headers: cookieHeadersFrom(headers) }
+		return { headers: cookieHeadersFrom(signedIn) }
 	} catch (error) {
 		if (!(error instanceof APIError)) throw error
 		if (error.statusCode === 429) return { error: "limited" }

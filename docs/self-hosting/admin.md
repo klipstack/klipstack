@@ -114,6 +114,32 @@ docker compose exec web pnpm --filter @klipstack/web admin delete-account \
 - Prints `<id>: deleted, with everything in it`. Exit code 1 with a message: nothing was deleted.
 - Afterwards the address can sign up again only with a new invite. Don't send one.
 
+## Two-factor authentication
+
+Readers turn it on themselves, in Settings, Account: an authenticator app on their phone, and 10
+backup codes shown once. Every new sign-in then asks for a code, whatever the way in (password,
+emailed link, Google, GitHub, Apple, the iPhone app). While it is being tried out, only accounts
+with the `two-factor` feature (`/admin/users/<id>`, Features in testing) can set it up; an account
+that has it keeps it if the feature is turned off.
+
+A reader who lost both the phone and the backup codes cannot sign in, and a password reset does
+not help: it does not remove the second step. The operator CLI does.
+
+**Before.** Make sure the request comes from the account's owner: a reply from the account's own
+address, from a message you sent it, at least. Anyone can write claiming to have lost a phone, and
+this command is what an attacker who stole the password would need.
+
+```sh
+docker compose exec web pnpm --filter @klipstack/web admin reset-two-factor \
+  --email <email> --reason "Lost phone and backup codes; confirmed by reply from the address"
+```
+
+- It deletes the account's authenticator secret and backup codes, ends every session it has, and
+  records an audit event (`/admin/audit`, "Two-factor authentication removed") in the same
+  transaction. Connected apps keep their access.
+- The reader then signs in without a code, and can set it up again.
+- Prints `<id>: two-factor authentication removed; N session(s) ended`, or that it was not on.
+
 ## Release
 
 A release is the upgrade in [README.md](README.md#upgrades-and-migrations): back up the database,

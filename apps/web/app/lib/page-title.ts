@@ -27,6 +27,7 @@ export const PAGE_TITLES = [
 	"settings:shortcuts.title",
 	"settings:usage.title",
 	"auth:login.title",
+	"auth:twoFactor.title",
 	"auth:magicLink.title",
 	"auth:oauth.title",
 	"auth:resetPassword.requestTitle",

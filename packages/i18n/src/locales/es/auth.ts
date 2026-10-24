@@ -13,6 +13,19 @@ export default {
 		invalid: "Correo o contraseña incorrectos.",
 		oauthNote: "Inicia sesión para seguir conectando una app a tu cuenta de Klipstack.",
 	},
+	twoFactor: {
+		title: "Escribe tu código",
+		description:
+			"Abre tu app de autenticación y escribe el código de 6 dígitos que muestra para Klipstack.",
+		code: "Código",
+		hint: "¿No tienes el teléfono a mano? Escribe uno de tus códigos de respaldo.",
+		submit: "Continuar",
+		wrongCode: "Ese código no es correcto. Revisa la app y vuelve a intentarlo.",
+		expired:
+			"Este inicio de sesión terminó: estuvo abierto demasiado tiempo o tuvo demasiados intentos. Vuelve a iniciar sesión.",
+		limited: "Demasiados intentos. Espera unos minutos y vuelve a iniciar sesión.",
+		startOver: "Volver a iniciar sesión",
+	},
 	signup: {
 		title: "Crea tu cuenta",
 		submit: "Crear cuenta",

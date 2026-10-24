@@ -22,6 +22,12 @@ import { auth } from "./auth.server"
 import { EmailError, emailEnabled } from "./email.server"
 import { appleApp, env } from "./env.server"
 import { enabledProviders } from "./provider-sign-in.server"
+import {
+	completeSignIn,
+	needsSecondStep,
+	pendingSignInSent,
+	pendingSignInSet,
+} from "./two-factor.server"
 
 /**
  * The iPhone app's own sign-in screen. Every way in signs in through better-auth, in process, then
@@ -103,7 +109,7 @@ async function signIn(request: z.output<typeof SignIn>, headers: Headers): Promi
 				headers,
 				returnHeaders: true,
 			})
-			return cookieOf(result.headers)
+			return sessionOrSecondStep(result)
 		}
 		if (request.method === "code") {
 			const result = await auth.api.signInEmailOTP({
@@ -111,7 +117,7 @@ async function signIn(request: z.output<typeof SignIn>, headers: Headers): Promi
 				headers,
 				returnHeaders: true,
 			})
-			return cookieOf(result.headers)
+			return sessionOrSecondStep(result)
 		}
 		return await signInWithApple(request, headers)
 	} catch (error) {
@@ -168,8 +174,69 @@ export async function signInWithApple(
 	)
 	const userId = "user" in result.response ? result.response.user.id : null
 	if (userId) await keepAppleAppToken(userId, exchanged.subject, exchanged.refreshToken)
-	return cookieOf(result.headers)
+	return sessionOrSecondStep(result)
 }
+
+/**
+ * The session cookie of a first step, or, for an account with two-factor authentication, the
+ * `two_factor_required` refusal that carries its pending sign-in (lib/two-factor.server.ts) for
+ * `appSignInTwoFactor`. The pending sign-in travels whole, cookie name and all, as an opaque token.
+ */
+function sessionOrSecondStep(result: { headers: Headers; response: unknown }): string {
+	if (!needsSecondStep(result.response)) return cookieOf(result.headers)
+	const pending = pendingSignInSet(result.headers)
+	if (!pending) throw new Error("the two-factor sign-in left no pending sign-in")
+	throw new AppError("two_factor_required", "Enter the code from your authenticator app.", {
+		details: { twoFactorToken: Buffer.from(pending).toString("base64url") },
+	})
+}
+
+const TwoFactorStep = z.object({
+	codeChallenge,
+	twoFactorToken: z.string().min(1).max(1024),
+	code: z.string().trim().min(1, "Enter the code.").max(20),
+})
+
+/**
+ * `POST /app/sign-in/two-factor`: a sign-in's second step. The token is the pending sign-in a
+ * first step answered; with the authenticator's code (or a backup code) it becomes a session, and
+ * the app's authorization code, as `appSignIn` answers. 5 codes per sign-in, under the auth limits.
+ */
+export async function appSignInTwoFactor(
+	input: unknown,
+	headers: Headers,
+): Promise<{ code: string }> {
+	const request = parseInput(TwoFactorStep, input)
+	const pending = Buffer.from(request.twoFactorToken, "base64url").toString("utf8")
+	// Only a pending sign-in: the token is no way to send the server other cookies.
+	// (Printable characters first: a line break would make the header itself throw.)
+	if (
+		/[^\x20-\x7e]/.test(pending) ||
+		pendingSignInSent(new Headers({ cookie: pending })) !== pending
+	)
+		throw signInEnded()
+	const done = await completeSignIn(new Request(env.APP_URL, { headers }), pending, request.code)
+	if ("error" in done) {
+		if (done.error === "wrong-code")
+			throw new AppError("unauthorized", "The code is wrong. Check the app and try again.")
+		if (done.error === "limited")
+			throw new AppError("rate_limited", "Too many attempts. Try again later.", { retryAfter: 900 })
+		throw signInEnded()
+	}
+	const cookie = cookieOf(done.headers)
+	try {
+		return { code: await authorizationCode(cookie, request.codeChallenge) }
+	} catch (error) {
+		await auth.api.signOut({ headers: new Headers({ cookie }) }).catch(() => undefined)
+		throw error
+	}
+}
+
+const signInEnded = () =>
+	new AppError(
+		"reauthentication_required",
+		"This sign-in has ended: it was open too long, or had too many tries. Sign in again.",
+	)
 
 /** better-auth found no account for the Apple ID, or one by its email not connected to Apple. */
 function signedInNoOne(error: unknown): boolean {
@@ -222,7 +289,9 @@ export function refusal(
 export function cookieOf(headers: Headers): string {
 	const cookie = headers
 		.getSetCookie()
-		.map((c) => c.split(";")[0])
+		.map((c) => c.split(";")[0] ?? "")
+		// Cookies being cleared (the pending sign-in a code just finished) are not sent back.
+		.filter((pair) => !pair.endsWith("="))
 		.join("; ")
 	if (!cookie) throw new Error("the sign-in set no session")
 	return cookie

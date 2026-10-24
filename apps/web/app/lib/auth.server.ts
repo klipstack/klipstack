@@ -29,6 +29,7 @@ import {
 	oauthResource,
 	newAccountFeatures,
 	session,
+	twoFactor as twoFactorTable,
 	user,
 	userFeatures,
 	verification,
@@ -46,7 +47,7 @@ import {
 	getSessionFromCtx,
 	isAPIError,
 } from "better-auth/api"
-import { emailOTP, jwt, magicLink } from "better-auth/plugins"
+import { emailOTP, jwt, magicLink, twoFactor } from "better-auth/plugins"
 import { sealAppleToken } from "./apple-tokens.server"
 import {
 	MAGIC_LINK_MINUTES,
@@ -54,6 +55,7 @@ import {
 	OAUTH_SCOPES,
 	RESET_PASSWORD_MINUTES,
 	SIGN_IN_CODE_MINUTES,
+	TWO_FACTOR_MINUTES,
 	VERIFY_EMAIL_MINUTES,
 	VERIFY_TO_CONTINUE_PAGE,
 } from "./auth-constants"
@@ -72,6 +74,7 @@ import {
 	type AppSignUp,
 	signupAllowed,
 } from "./signup-gate.server"
+import { twoFactorGate } from "./two-factor-gate.server"
 
 /** The MCP server's resource identifier: MCP access tokens carry it as their audience. */
 export const MCP_RESOURCE = new URL("/mcp", env.APP_URL).href
@@ -107,6 +110,23 @@ const EMAIL_OTP_PATHS = [
 	"/email-otp/reset-password",
 	"/email-otp/request-email-change",
 	"/email-otp/change-email",
+]
+
+/**
+ * The two-factor plugin's endpoints, all closed over HTTP: our routes call them in process, with
+ * our limits and checks (two-factor.server.ts). That also leaves out what we do not offer: codes
+ * by email, trusted devices, and reading backup codes again.
+ */
+const TWO_FACTOR_PATHS = [
+	"/two-factor/enable",
+	"/two-factor/disable",
+	"/two-factor/get-totp-uri",
+	"/two-factor/verify-totp",
+	"/two-factor/send-otp",
+	"/two-factor/verify-otp",
+	"/two-factor/verify-backup-code",
+	"/two-factor/generate-backup-codes",
+	"/two-factor/view-backup-codes",
 ]
 
 /** Public native clients: PKCE, no secret, linked to the /api resource only. */
@@ -162,6 +182,8 @@ export const auth = betterAuth({
 			)
 				throw new EmailError("EMAIL_NOT_CONFIGURED", "Email delivery is not configured")
 		}),
+		// Two-factor authentication for the ways in the plugin does not cover (links, providers).
+		after: twoFactorGate,
 	},
 	database: drizzleAdapter(authDb, {
 		provider: "pg",
@@ -178,6 +200,7 @@ export const auth = betterAuth({
 			oauthAccessToken,
 			oauthConsent,
 			oauthClientAssertion,
+			twoFactor: twoFactorTable,
 		},
 	}),
 	user: {
@@ -372,6 +395,7 @@ export const auth = betterAuth({
 		// plugin's endpoints, called in process). Its other uses (verifying, resetting a password,
 		// changing the email) are not offered.
 		...EMAIL_OTP_PATHS,
+		...TWO_FACTOR_PATHS,
 	],
 	// better-auth prints raw errors, and a failed query's message lists its parameters (tokens,
 	// emails): its messages are its own text, but errors and other arguments are reduced.
@@ -471,6 +495,19 @@ export const auth = betterAuth({
 		}),
 		// Signing keys for OAuth access and ID tokens, published at /api/auth/jwks.
 		jwt({ disableSettingJwtHeader: true }),
+		// An authenticator app (TOTP) and 10 backup codes, both stored encrypted. The plugin asks for
+		// the code after a password sign-in; two-factor.server.ts does for the other ways in.
+		// Before `mcp`: hooks run in this order, and the OAuth provider's after-hook resumes an app's
+		// authorization with any session a response sets. This one removes the password's session
+		// first, so no app gets a code before the second step.
+		// An account without a password turns it on with a recent sign-in instead (`allowPasswordless`
+		// skips the password only when there is none).
+		twoFactor({
+			issuer: "Klipstack",
+			allowPasswordless: true,
+			twoFactorCookieMaxAge: TWO_FACTOR_MINUTES * 60,
+			backupCodeOptions: { amount: 10, length: 10, storeBackupCodes: "encrypted" },
+		}),
 		// Klipstack as an OAuth 2.1 authorization server (better-auth's OAuth provider, set up for MCP):
 		// access tokens are bound to the /mcp resource, whose metadata it also serves, or to the
 		// HTTP API's. Clients registered through their metadata document stay linked to /mcp only.

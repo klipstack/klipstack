@@ -22,6 +22,11 @@ export const ERROR_STATUS = {
 	/** The session is too old for this: sign in again. */
 	reauthentication_required: 403,
 	/**
+	 * The iPhone app's sign-in: the account has two-factor authentication. `details.twoFactorToken`
+	 * stands for this sign-in, waiting for the authenticator's code (`APP_SIGN_IN_TWO_FACTOR_PATH`).
+	 */
+	two_factor_required: 403,
+	/**
 	 * The account is at one of its caps (`details.limit`: saves, storage, feeds, editions, shares, ai), with
 	 * `details.max` and, for the monthly ones, `details.resetsAt`. Waiting a moment does not help.
 	 */

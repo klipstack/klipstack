@@ -39,6 +39,18 @@ export async function checkAuthLimit(path: string, email: unknown, headers?: Hea
 		// The provider names the account only at the callback: the address alone is counted.
 		"/sign-up/provider": { ip: 20, seconds: 3600 },
 		"/change-password": { account: 5, ip: 20, seconds: 900 },
+		// A sign-in's second step (lib/two-factor.server.ts): the pending sign-in allows 5 codes and
+		// the plugin locks the account for 15 minutes after 10 wrong ones; this bounds one address
+		// across accounts. The body names no account.
+		"/two-factor/verify-totp": { ip: 30, seconds: 900 },
+		"/two-factor/verify-backup-code": { ip: 30, seconds: 900 },
+		// Codes typed in Settings, by a signed-in account (confirming the app, turning it off): the
+		// plugin counts no tries there, so the account's are counted here.
+		"/two-factor/settings-code": { account: 10, ip: 30, seconds: 900 },
+		// Turning it on or off checks the password, when the account has one: counted as the
+		// password change's.
+		"/two-factor/enable": { account: 5, ip: 20, seconds: 900 },
+		"/two-factor/disable": { account: 5, ip: 20, seconds: 900 },
 		// The public wait list form (lib/invite-requests.server.ts), not a better-auth endpoint.
 		"/request-invite": { account: 3, ip: 10, seconds: 3600 },
 		// The public report form (lib/edition-reports.server.ts). Its "account" is one edition from
@@ -52,7 +64,8 @@ export async function checkAuthLimit(path: string, email: unknown, headers?: Hea
 		["ip", trustedAuthAddress(headers), policy.ip],
 		["account", normalized, policy.account],
 	] as const) {
-		if (limit === undefined) continue
+		// No account named (a body without one): counting "" would pool every account's tries.
+		if (limit === undefined || value === "") continue
 		const key = createHmac("sha256", env.BETTER_AUTH_SECRET)
 			.update(`${path}:${kind}:${value}`)
 			.digest("hex")

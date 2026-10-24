@@ -6,6 +6,7 @@ export type AuditActor = { kind: "user"; userId: string } | { kind: "operator-cl
 
 export type AuditAction =
 	| "account.delete"
+	| "account.reset_two_factor"
 	| "billing.free_until"
 	| "edition.remove"
 	| "edition.restore"

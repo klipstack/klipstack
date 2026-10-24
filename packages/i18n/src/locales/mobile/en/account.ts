@@ -108,6 +108,15 @@ export default {
 		newCode: "Send a new code",
 		emailCode: "Email me a code instead",
 		usePassword: "Use a password",
+		twoFactorTitle: "Enter the code from your authenticator app",
+		twoFactorNote:
+			"Your account has two-factor authentication. No phone at hand? Enter one of your backup codes.",
+		twoFactorLabel: "Code from the authenticator app",
+		twoFactorPlaceholder: "Code",
+		twoFactorSubmit: "Continue",
+		twoFactorCancel: "Back",
+		twoFactorWrong: "That code is not right. Check the app and try again.",
+		twoFactorEnded: "This sign-in has ended. Sign in again.",
 		newHere: "New to Klipstack?",
 		createAccount: "Create an account",
 		continueWith: "Continue with {{provider}}",
@@ -115,6 +124,8 @@ export default {
 	},
 	signUp: {
 		enterInvite: "Enter your invite code first.",
+		twoFactor:
+			"You already have an account, with two-factor authentication. Go back and sign in to enter its code.",
 		passwordShort: "Use at least {{min}} characters for the password.",
 		inviteCode: "Invite code",
 		noInvite: "No invite?",

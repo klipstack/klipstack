@@ -2,6 +2,7 @@ import {
 	API_RESOURCE_PATH,
 	APP_SIGN_IN_CODE_PATH,
 	APP_SIGN_IN_PATH,
+	APP_SIGN_IN_TWO_FACTOR_PATH,
 	APP_SIGN_UP_CODE_PATH,
 	APP_SIGN_UP_PATH,
 	type AppSignInCredentials,
@@ -37,6 +38,30 @@ export class SignInError extends Error {
 		super(message)
 		this.name = "SignInError"
 	}
+}
+
+/** A sign-in waiting for its second step, as `TwoFactorRequired` carries it. */
+export type PendingSignIn = { apiUrl: string; token: string; verifier: string; challenge: string }
+
+/**
+ * The account has two-factor authentication: the first step checked out, and the sign-in waits for
+ * the authenticator's code (or a backup code) for 10 minutes and 5 tries (`completeTwoFactor`).
+ */
+export class TwoFactorRequired extends Error {
+	constructor(readonly pending: PendingSignIn) {
+		super("Two-factor authentication: the code is needed.")
+		this.name = "TwoFactorRequired"
+	}
+}
+
+/** The second step: the code turns the pending sign-in into a session. */
+export async function completeTwoFactor(pending: PendingSignIn, code: string): Promise<Session> {
+	const res = await post(`${pending.apiUrl}${APP_SIGN_IN_TWO_FACTOR_PATH}`, {
+		codeChallenge: pending.challenge,
+		twoFactorToken: pending.token,
+		code: code.trim(),
+	})
+	return sessionFrom(res, pending.apiUrl, pending.verifier)
 }
 
 const endpoints = (apiUrl: string) => ({
@@ -199,6 +224,22 @@ async function signInOnServer(
 		...signUp,
 		codeChallenge: challenge,
 	})
+	if (res.status === 403) {
+		const body = (await res
+			.clone()
+			.json()
+			.catch(() => ({}))) as {
+			error?: { code?: string; details?: { twoFactorToken?: unknown } }
+		}
+		const token = body.error?.details?.twoFactorToken
+		if (body.error?.code === "two_factor_required" && typeof token === "string")
+			throw new TwoFactorRequired({ apiUrl, token, verifier, challenge })
+	}
+	return sessionFrom(res, apiUrl, verifier)
+}
+
+/** The server's `{ code }`, exchanged with the verifier of its challenge; or why not. */
+async function sessionFrom(res: Response, apiUrl: string, verifier: string): Promise<Session> {
 	if (!res.ok) throw await refusal(res)
 	const { code } = (await res.json()) as { code?: unknown }
 	if (typeof code !== "string") throw new Error(t("account.oauth.noCode"))

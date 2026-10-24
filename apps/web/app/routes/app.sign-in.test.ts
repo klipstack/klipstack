@@ -30,13 +30,14 @@ const signInRoute = await import("./app.sign-in")
 const codeRoute = await import("./app.sign-in.code")
 const providerRoute = await import("./app.sign-in.provider")
 const errorRoute = await import("./app.sign-in.error")
+const twoFactorRoute = await import("./app.sign-in.two-factor")
 const signUpRoute = await import("./app.sign-up")
 const signUpCodeRoute = await import("./app.sign-up.code")
 const { createInvite } = await import("~/lib/invites.server")
 
 const stamp = `${Date.now()}-${randomUUID().slice(0, 8)}`
 const address = (name: string) => `app-sign-in-${name}+${stamp}@example.com`
-const emails = ["reader", "unverified", "github"].map(address)
+const emails = ["reader", "unverified", "github", "two-factor"].map(address)
 const PASSWORD = "app-sign-in-password"
 const inviteCodes: string[] = []
 
@@ -333,6 +334,106 @@ describe("the iPhone app's sign-in", () => {
 			)
 			expect(response.status).toBe(404)
 		}
+	})
+})
+
+/** Turns on two-factor authentication for the account: the app's key, raw, to make its codes. */
+async function withTwoFactor(email: string) {
+	const signedIn = await auth.api.signInEmail({
+		body: { email, password: PASSWORD },
+		headers: client(),
+		returnHeaders: true,
+	})
+	const headers = client({
+		cookie: signedIn.headers
+			.getSetCookie()
+			.map((c) => c.split(";")[0])
+			.join("; "),
+	})
+	const enabled = await auth.api.enableTwoFactor({
+		body: { password: PASSWORD, method: "totp" },
+		headers,
+	})
+	if (enabled.method !== "totp") throw new Error("expected an authenticator app")
+	const encoded = new URL(enabled.totpURI).searchParams.get("secret")!
+	const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
+	let bits = ""
+	for (const char of encoded) bits += alphabet.indexOf(char).toString(2).padStart(5, "0")
+	const secret = Buffer.from(bits.match(/.{8}/g)!.map((b) => Number.parseInt(b, 2))).toString()
+	const codeNow = async () => (await auth.api.generateTOTP({ body: { secret } })).code
+	await auth.api.verifyTOTP({ body: { code: await codeNow() }, headers })
+	await db
+		.delete(session)
+		.where(
+			inArray(session.userId, db.select({ id: user.id }).from(user).where(eq(user.email, email))),
+		)
+	return codeNow
+}
+
+describe("the iPhone app's sign-in with two-factor authentication", async () => {
+	const email = emails[3]!
+	await createAccount(email, { verified: true })
+	const codeNow = await withTwoFactor(email)
+	const secondStep = (body: Record<string, unknown>) =>
+		post(twoFactorRoute, "/app/sign-in/two-factor", body)
+
+	it("asks for the code after a password, then gives the app its usual tokens", async () => {
+		const { verifier, challenge } = pkce()
+		const first = await signIn({
+			method: "password",
+			email,
+			password: PASSWORD,
+			codeChallenge: challenge,
+		})
+		expect(first.status).toBe(403)
+		expect(first.body.error).toMatchObject({ code: "two_factor_required" })
+		const twoFactorToken = first.body.error.details.twoFactorToken
+		expect(twoFactorToken).toEqual(expect.any(String))
+		expect(await sessionsOf(email)).toHaveLength(0)
+
+		const wrong = await secondStep({ codeChallenge: challenge, twoFactorToken, code: "000000" })
+		expect(wrong.status).toBe(401)
+		expect(await sessionsOf(email)).toHaveLength(0)
+
+		const done = await secondStep({
+			codeChallenge: challenge,
+			twoFactorToken,
+			code: await codeNow(),
+		})
+		expect(done.status).toBe(200)
+		expect((await exchange(done.body.code, verifier)).status).toBe(200)
+	})
+
+	it("asks for the code after an emailed one too", async () => {
+		logs.length = 0
+		await post(codeRoute, "/app/sign-in/code", { email })
+		const code = await emailedCode(email)
+		const first = await signIn({ method: "code", email, code, codeChallenge: pkce().challenge })
+		expect(first.status).toBe(403)
+		expect(first.body.error).toMatchObject({ code: "two_factor_required" })
+	})
+
+	it("takes nothing but a pending sign-in as the token", async () => {
+		const { challenge } = pkce()
+		const first = await signIn({
+			method: "password",
+			email,
+			password: PASSWORD,
+			codeChallenge: challenge,
+		})
+		const pending = Buffer.from(first.body.error.details.twoFactorToken, "base64url").toString()
+		const before = (await sessionsOf(email)).length
+		// A real pending sign-in with another cookie joined to it, or a header that can't be sent.
+		for (const cookie of [`${pending}; klip.extra=1`, `${pending}\r\nx-extra: 1`]) {
+			const answer = await secondStep({
+				codeChallenge: challenge,
+				twoFactorToken: Buffer.from(cookie).toString("base64url"),
+				code: await codeNow(),
+			})
+			expect(answer.status).toBe(403)
+			expect(answer.body.error).toMatchObject({ code: "reauthentication_required" })
+		}
+		expect(await sessionsOf(email)).toHaveLength(before)
 	})
 })
 

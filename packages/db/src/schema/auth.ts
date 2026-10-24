@@ -1,5 +1,14 @@
 import { sql } from "drizzle-orm"
-import { boolean, check, index, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core"
+import {
+	boolean,
+	check,
+	index,
+	integer,
+	jsonb,
+	pgTable,
+	text,
+	timestamp,
+} from "drizzle-orm/pg-core"
 
 /**
  * better-auth core tables (v1.7). Keep in sync with `auth.server.ts` in apps/web.
@@ -29,6 +38,8 @@ export const user = pgTable(
 		prefs: jsonb("prefs").$type<UserPrefs>().notNull().default({}),
 		/** Granted and revoked only by the operator CLI (`pnpm --filter @klipstack/web admin`). */
 		role: text("role", { enum: userRoles }).notNull().default("user"),
+		/** better-auth's two-factor plugin: every new sign-in asks for a code (`two_factor`). */
+		twoFactorEnabled: boolean("two_factor_enabled").notNull().default(false),
 	},
 	(t) => [check("user_role_check", sql`${t.role} in ('user', 'admin')`)],
 )
@@ -175,6 +186,24 @@ export const verification = pgTable(
 	},
 	(t) => [index("verification_identifier_idx").on(t.identifier)],
 )
+
+/**
+ * An account's authenticator app (better-auth's two-factor plugin): its TOTP secret and backup
+ * codes, both encrypted with `BETTER_AUTH_SECRET`. `verified` is false between setting it up and
+ * the first code; the failure count and lock are the plugin's lockout across challenges.
+ */
+export const twoFactor = pgTable("two_factor", {
+	id: text("id").primaryKey(),
+	secret: text("secret").notNull(),
+	backupCodes: text("backup_codes").notNull(),
+	userId: text("user_id")
+		.notNull()
+		.unique()
+		.references(() => user.id, { onDelete: "cascade" }),
+	verified: boolean("verified").notNull().default(true),
+	failedVerificationCount: integer("failed_verification_count").notNull().default(0),
+	lockedUntil: timestamp("locked_until", { withTimezone: true }),
+})
 
 export type User = typeof user.$inferSelect
 export type Session = typeof session.$inferSelect

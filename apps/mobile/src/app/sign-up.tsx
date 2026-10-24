@@ -19,6 +19,7 @@ import {
 	signInWithApple,
 	signInWithProvider,
 	signUpWith,
+	TwoFactorRequired,
 } from "@/lib/oauth"
 import type { Session } from "@/lib/session-store"
 import { useColors } from "@/lib/theme"
@@ -62,7 +63,8 @@ export default function SignUpScreen() {
 			const session = await step()
 			if (session) await signIn(session)
 		} catch (e) {
-			setError(errorMessage(e))
+			// Apple's ID belongs to an account with two-factor on: its code step is the sign-in's.
+			setError(e instanceof TwoFactorRequired ? t("account.signUp.twoFactor") : errorMessage(e))
 		} finally {
 			setBusy(null)
 		}

@@ -3,6 +3,7 @@ import { index, layout, type RouteConfig, route } from "@react-router/dev/routes
 export default [
 	index("routes/home.tsx"),
 	route("login", "routes/login.tsx"),
+	route("login/code", "routes/login.code.tsx"),
 	route("signup", "routes/signup.tsx"),
 	route("signup/confirm", "routes/signup.confirm.tsx"),
 	route("request-invite", "routes/request-invite.tsx"),
@@ -124,12 +125,14 @@ export default [
 	route("settings/delete", "routes/settings.delete.ts"),
 	route("settings/reauthenticate", "routes/settings.reauthenticate.ts"),
 	route("settings/confirm-password", "routes/settings.confirm-password.ts"),
+	route("settings/two-factor", "routes/settings.two-factor.ts"),
 	route("api/auth/*", "routes/api.auth.ts"),
 	route("oauth/consent", "routes/oauth.consent.tsx"),
 	// The iPhone app's own sign-in and sign-up (lib/app-sign-in.server.ts, app-sign-up.server.ts).
 	route("app/sign-in", "routes/app.sign-in.ts"),
 	route("app/sign-in/code", "routes/app.sign-in.code.ts"),
 	route("app/sign-in/error", "routes/app.sign-in.error.ts"),
+	route("app/sign-in/two-factor", "routes/app.sign-in.two-factor.ts"),
 	route("app/sign-in/:provider", "routes/app.sign-in.provider.ts"),
 	route("app/sign-up", "routes/app.sign-up.ts"),
 	route("app/sign-up/code", "routes/app.sign-up.code.ts"),

@@ -40,6 +40,9 @@ export default {
 		submit: "Confirm",
 		wrongPassword: "That password is not right.",
 		limited: "Too many attempts. Try again later.",
+		code: "Code from your authenticator app",
+		codeHint: "Two-factor authentication is on: enter the 6-digit code, or a backup code.",
+		wrongCode: "That code is not right.",
 		required: "That change was not made. Confirm it's you, then repeat it yourself.",
 	},
 	errors: {
@@ -315,6 +318,11 @@ export default {
 					description:
 						"Explain, Define and Ask on a selection in the reader, answered in the margin.",
 				},
+				"two-factor": {
+					name: "Two-factor authentication",
+					description:
+						"Setting up an authenticator app in Settings, Account. Once on, every new sign-in asks for its code. Turning the flag off keeps 2FA on for an account that set it up.",
+				},
 			},
 		},
 		back: "All accounts",
@@ -404,6 +412,7 @@ export default {
 			"feature.enable": "Feature turned on",
 			"feature.disable": "Feature turned off",
 			"account.delete": "Account deleted",
+			"account.reset_two_factor": "Two-factor authentication removed",
 			"edition.remove": "Edition removed",
 			"edition.restore": "Edition restored",
 			"edition_reports.dismiss": "Reports dismissed",

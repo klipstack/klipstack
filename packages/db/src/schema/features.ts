@@ -6,8 +6,10 @@ import { user } from "./auth"
  * definition: adding one needs no migration. Remove a flag when its feature reaches everyone.
  * `ai`: questions about a passage, answered in the margin.
  * `topics`: automatic topics, proposed from the library and kept up to date.
+ * `two-factor`: setting up two-factor authentication in Settings, until the iPhone app asks for
+ * the code too. An account that already has it keeps it without the flag.
  */
-export const featureFlags = ["ai", "topics"] as const satisfies readonly string[]
+export const featureFlags = ["ai", "topics", "two-factor"] as const satisfies readonly string[]
 export type FeatureFlag = (typeof featureFlags)[number]
 
 /** The flags a new account starts with turned on. An admin can still turn them off for it. */
