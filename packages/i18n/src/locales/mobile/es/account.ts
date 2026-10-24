@@ -106,6 +106,13 @@ export default {
 		newCode: "Enviar un código nuevo",
 		emailCode: "Prefiero recibir un código por correo",
 		usePassword: "Usar una contraseña",
+		twoFactorTitle: "Escribe el código de tu app de autenticación",
+		twoFactorNote:
+			"Tu cuenta tiene verificación en dos pasos. ¿No tienes el teléfono a mano? Escribe uno de tus códigos de respaldo.",
+		twoFactorLabel: "Código de la app de autenticación",
+		twoFactorPlaceholder: "Código",
+		twoFactorSubmit: "Continuar",
+		twoFactorCancel: "Volver",
 		newHere: "¿Nuevo en Klipstack?",
 		createAccount: "Crea una cuenta",
 		continueWith: "Continuar con {{provider}}",

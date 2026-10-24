@@ -95,6 +95,21 @@ export const APP_SIGN_IN_PATH = "/app/sign-in"
 export const APP_SIGN_IN_CODE_PATH = "/app/sign-in/code"
 
 /**
+ * `POST` (JSON `AppSignInTwoFactorRequest`): the second step of a sign-in that answered
+ * `two_factor_required`, for an account with two-factor authentication. Answers `{ code }` as
+ * `APP_SIGN_IN_PATH` does. The token lasts 10 minutes and takes 5 codes; after that, sign in again.
+ */
+export const APP_SIGN_IN_TWO_FACTOR_PATH = "/app/sign-in/two-factor"
+
+export type AppSignInTwoFactorRequest = {
+	codeChallenge: string
+	/** `details.twoFactorToken` of the `two_factor_required` answer. */
+	twoFactorToken: string
+	/** The authenticator app's 6 digits, or one of the account's backup codes. */
+	code: string
+}
+
+/**
  * `GET /app/sign-in/<provider>` with the parameters of an authorization request: the provider's
  * sign-in, in the app's sign-in sheet. It ends at the app's redirect URI with the code, or with an
  * `error` (`AppSignInErrorCode`).

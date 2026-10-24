@@ -15,16 +15,20 @@ import {
 import Svg, { Path } from "react-native-svg"
 import { errorMessage, t } from "@/lib/i18n"
 import {
+	completeTwoFactor,
+	type PendingSignIn,
+	SignInError,
 	sendSignInCode,
 	signInOptions,
 	signInWith,
 	signInWithApple,
 	signInWithProvider,
+	TwoFactorRequired,
 } from "@/lib/oauth"
 import type { Session } from "@/lib/session-store"
 import { useColors } from "@/lib/theme"
 
-type Busy = "apple" | "google" | "github" | "email" | "code" | null
+type Busy = "apple" | "google" | "github" | "email" | "code" | "twoFactor" | null
 
 /** Until the server says, the email and password only. */
 const NO_OPTIONS: AppSignInOptions = { providers: [], emailCode: false }
@@ -56,6 +60,9 @@ export function SignInForm({
 	const [busy, setBusy] = useState<Busy>(null)
 	const [error, setError] = useState<string | null>(null)
 	const passwordField = useRef<TextInput>(null)
+	// Two-factor authentication: a way in checked out, and the sign-in waits for the app's code.
+	const [pending, setPending] = useState<PendingSignIn | null>(null)
+	const [secondCode, setSecondCode] = useState("")
 
 	async function run(kind: Exclude<Busy, null>, signIn: () => Promise<Session | null>) {
 		setBusy(kind)
@@ -64,10 +71,22 @@ export function SignInForm({
 			const session = await signIn()
 			if (session) await onSession(session)
 		} catch (e) {
-			setError(errorMessage(e))
+			if (e instanceof TwoFactorRequired) {
+				setPending(e.pending)
+				setSecondCode("")
+			} else {
+				// Too long, or too many tries: the sign-in is over, and starts again.
+				if (e instanceof SignInError && e.code === "reauthentication_required") setPending(null)
+				setError(errorMessage(e))
+			}
 		} finally {
 			setBusy(null)
 		}
+	}
+
+	function submitSecondCode() {
+		if (!pending || !secondCode.trim() || busy) return
+		void run("twoFactor", () => completeTwoFactor(pending, secondCode))
 	}
 
 	const trimmed = email.trim()
@@ -109,145 +128,221 @@ export function SignInForm({
 				contentInsetAdjustmentBehavior="automatic"
 			>
 				{header}
-				<ProviderButtons
-					options={options}
-					busy={busy}
-					onApple={() => run("apple", () => signInWithApple(apiUrl))}
-					onProvider={(provider) => run(provider, () => signInWithProvider(apiUrl, provider))}
-				/>
-				<TextInput
-					accessibilityLabel={t("account.signIn.email")}
-					value={email}
-					onChangeText={(text) => {
-						setEmail(text)
-						if (codeSentTo && text.trim() !== codeSentTo) setCodeSentTo(null)
-					}}
-					placeholder={t("account.signIn.email")}
-					placeholderTextColor={colors.mutedFg}
-					autoCapitalize="none"
-					autoCorrect={false}
-					autoComplete="email"
-					keyboardType="email-address"
-					textContentType="username"
-					returnKeyType="next"
-					editable={busy === null}
-					onSubmitEditing={() => passwordField.current?.focus()}
-					style={input}
-				/>
-				{withCode ? (
+				{pending ? (
 					<>
+						<Text style={[styles.buttonText, { color: colors.fg }]}>
+							{t("account.signIn.twoFactorTitle")}
+						</Text>
 						<Text style={[styles.note, { color: colors.mutedFg }]}>
-							{t("account.signIn.codeSent", { email: codeSentTo })}
+							{t("account.signIn.twoFactorNote")}
 						</Text>
 						<TextInput
-							// Its own key: a field reused from the other mode keeps iOS's letter spacing.
-							key="code"
-							ref={passwordField}
-							accessibilityLabel={t("account.signIn.codeLabel")}
-							value={code}
-							onChangeText={(text) => setCode(text.replace(/\D/g, ""))}
-							placeholder={t("account.signIn.code")}
+							key="two-factor"
+							accessibilityLabel={t("account.signIn.twoFactorLabel")}
+							value={secondCode}
+							// Six digits, or a backup code (letters, digits and a dash).
+							onChangeText={(text) => setSecondCode(text.replace(/[^A-Za-z0-9-]/g, ""))}
+							placeholder={t("account.signIn.twoFactorPlaceholder")}
 							placeholderTextColor={colors.mutedFg}
-							keyboardType="number-pad"
+							autoCapitalize="none"
+							autoCorrect={false}
 							textContentType="oneTimeCode"
 							autoComplete="one-time-code"
-							maxLength={APP_SIGN_IN_CODE_LENGTH}
+							maxLength={20}
+							autoFocus
 							returnKeyType="go"
 							editable={busy === null}
-							onSubmitEditing={submit}
-							// Spaced digits, not a spaced placeholder.
-							style={[input, code ? styles.code : null]}
+							onSubmitEditing={submitSecondCode}
+							style={[input, secondCode ? styles.code : null]}
 						/>
-					</>
-				) : (
-					<TextInput
-						key="password"
-						ref={passwordField}
-						accessibilityLabel={t("account.signIn.password")}
-						value={password}
-						onChangeText={setPassword}
-						placeholder={t("account.signIn.password")}
-						placeholderTextColor={colors.mutedFg}
-						secureTextEntry
-						autoCapitalize="none"
-						autoCorrect={false}
-						autoComplete="current-password"
-						textContentType="password"
-						returnKeyType="go"
-						editable={busy === null}
-						onSubmitEditing={submit}
-						style={input}
-					/>
-				)}
-				<Pressable
-					accessibilityRole="button"
-					disabled={!ready || busy !== null}
-					onPress={submit}
-					style={[
-						styles.button,
-						{ backgroundColor: colors.accent },
-						(!ready || (busy !== null && busy !== "email")) && styles.dimmed,
-					]}
-				>
-					{busy === "email" ? (
-						<ActivityIndicator color={colors.accentFg} />
-					) : (
-						<Text style={[styles.buttonText, { color: colors.accentFg }]}>
-							{t("account.signIn.submit")}
-						</Text>
-					)}
-				</Pressable>
-				{options.emailCode ? (
-					<View style={styles.links}>
 						<Pressable
 							accessibilityRole="button"
-							disabled={busy !== null}
-							onPress={emailCode}
-							hitSlop={8}
+							disabled={!secondCode.trim() || busy !== null}
+							onPress={submitSecondCode}
+							style={[
+								styles.button,
+								{ backgroundColor: colors.accent },
+								!secondCode.trim() && styles.dimmed,
+							]}
 						>
-							<Text style={[styles.link, { color: colors.accent }]}>
-								{busy === "code"
-									? t("account.signIn.sending")
-									: withCode
-										? t("account.signIn.newCode")
-										: t("account.signIn.emailCode")}
-							</Text>
+							{busy === "twoFactor" ? (
+								<ActivityIndicator color={colors.accentFg} />
+							) : (
+								<Text style={[styles.buttonText, { color: colors.accentFg }]}>
+									{t("account.signIn.twoFactorSubmit")}
+								</Text>
+							)}
 						</Pressable>
-						{withCode ? (
+						<View style={styles.links}>
 							<Pressable
 								accessibilityRole="button"
 								disabled={busy !== null}
-								onPress={() => setCodeSentTo(null)}
+								onPress={() => {
+									setPending(null)
+									setError(null)
+								}}
 								hitSlop={8}
 							>
 								<Text style={[styles.link, { color: colors.accent }]}>
-									{t("account.signIn.usePassword")}
+									{t("account.signIn.twoFactorCancel")}
+								</Text>
+							</Pressable>
+						</View>
+						{error ? (
+							<Text
+								accessibilityLiveRegion="polite"
+								style={[styles.error, { color: colors.danger }]}
+							>
+								{error}
+							</Text>
+						) : null}
+					</>
+				) : (
+					<>
+						<ProviderButtons
+							options={options}
+							busy={busy}
+							onApple={() => run("apple", () => signInWithApple(apiUrl))}
+							onProvider={(provider) => run(provider, () => signInWithProvider(apiUrl, provider))}
+						/>
+						<TextInput
+							accessibilityLabel={t("account.signIn.email")}
+							value={email}
+							onChangeText={(text) => {
+								setEmail(text)
+								if (codeSentTo && text.trim() !== codeSentTo) setCodeSentTo(null)
+							}}
+							placeholder={t("account.signIn.email")}
+							placeholderTextColor={colors.mutedFg}
+							autoCapitalize="none"
+							autoCorrect={false}
+							autoComplete="email"
+							keyboardType="email-address"
+							textContentType="username"
+							returnKeyType="next"
+							editable={busy === null}
+							onSubmitEditing={() => passwordField.current?.focus()}
+							style={input}
+						/>
+						{withCode ? (
+							<>
+								<Text style={[styles.note, { color: colors.mutedFg }]}>
+									{t("account.signIn.codeSent", { email: codeSentTo })}
+								</Text>
+								<TextInput
+									// Its own key: a field reused from the other mode keeps iOS's letter spacing.
+									key="code"
+									ref={passwordField}
+									accessibilityLabel={t("account.signIn.codeLabel")}
+									value={code}
+									onChangeText={(text) => setCode(text.replace(/\D/g, ""))}
+									placeholder={t("account.signIn.code")}
+									placeholderTextColor={colors.mutedFg}
+									keyboardType="number-pad"
+									textContentType="oneTimeCode"
+									autoComplete="one-time-code"
+									maxLength={APP_SIGN_IN_CODE_LENGTH}
+									returnKeyType="go"
+									editable={busy === null}
+									onSubmitEditing={submit}
+									// Spaced digits, not a spaced placeholder.
+									style={[input, code ? styles.code : null]}
+								/>
+							</>
+						) : (
+							<TextInput
+								key="password"
+								ref={passwordField}
+								accessibilityLabel={t("account.signIn.password")}
+								value={password}
+								onChangeText={setPassword}
+								placeholder={t("account.signIn.password")}
+								placeholderTextColor={colors.mutedFg}
+								secureTextEntry
+								autoCapitalize="none"
+								autoCorrect={false}
+								autoComplete="current-password"
+								textContentType="password"
+								returnKeyType="go"
+								editable={busy === null}
+								onSubmitEditing={submit}
+								style={input}
+							/>
+						)}
+						<Pressable
+							accessibilityRole="button"
+							disabled={!ready || busy !== null}
+							onPress={submit}
+							style={[
+								styles.button,
+								{ backgroundColor: colors.accent },
+								(!ready || (busy !== null && busy !== "email")) && styles.dimmed,
+							]}
+						>
+							{busy === "email" ? (
+								<ActivityIndicator color={colors.accentFg} />
+							) : (
+								<Text style={[styles.buttonText, { color: colors.accentFg }]}>
+									{t("account.signIn.submit")}
+								</Text>
+							)}
+						</Pressable>
+						{options.emailCode ? (
+							<View style={styles.links}>
+								<Pressable
+									accessibilityRole="button"
+									disabled={busy !== null}
+									onPress={emailCode}
+									hitSlop={8}
+								>
+									<Text style={[styles.link, { color: colors.accent }]}>
+										{busy === "code"
+											? t("account.signIn.sending")
+											: withCode
+												? t("account.signIn.newCode")
+												: t("account.signIn.emailCode")}
+									</Text>
+								</Pressable>
+								{withCode ? (
+									<Pressable
+										accessibilityRole="button"
+										disabled={busy !== null}
+										onPress={() => setCodeSentTo(null)}
+										hitSlop={8}
+									>
+										<Text style={[styles.link, { color: colors.accent }]}>
+											{t("account.signIn.usePassword")}
+										</Text>
+									</Pressable>
+								) : null}
+							</View>
+						) : null}
+						{error ? (
+							<Text
+								accessibilityLiveRegion="polite"
+								style={[styles.error, { color: colors.danger }]}
+							>
+								{error}
+							</Text>
+						) : null}
+						{onCreateAccount && options.signUp ? (
+							<Pressable
+								accessibilityRole="button"
+								disabled={busy !== null}
+								onPress={onCreateAccount}
+								hitSlop={8}
+								style={styles.footer}
+							>
+								<Text style={[styles.note, { color: colors.mutedFg, textAlign: "center" }]}>
+									{t("account.signIn.newHere")}{" "}
+									<Text style={[styles.link, { color: colors.accent }]}>
+										{t("account.signIn.createAccount")}
+									</Text>
 								</Text>
 							</Pressable>
 						) : null}
-					</View>
-				) : null}
-				{error ? (
-					<Text accessibilityLiveRegion="polite" style={[styles.error, { color: colors.danger }]}>
-						{error}
-					</Text>
-				) : null}
-				{onCreateAccount && options.signUp ? (
-					<Pressable
-						accessibilityRole="button"
-						disabled={busy !== null}
-						onPress={onCreateAccount}
-						hitSlop={8}
-						style={styles.footer}
-					>
-						<Text style={[styles.note, { color: colors.mutedFg, textAlign: "center" }]}>
-							{t("account.signIn.newHere")}{" "}
-							<Text style={[styles.link, { color: colors.accent }]}>
-								{t("account.signIn.createAccount")}
-							</Text>
-						</Text>
-					</Pressable>
-				) : null}
+					</>
+				)}
 			</ScrollView>
 		</KeyboardAvoidingView>
 	)

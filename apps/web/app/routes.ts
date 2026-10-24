@@ -132,6 +132,7 @@ export default [
 	route("app/sign-in", "routes/app.sign-in.ts"),
 	route("app/sign-in/code", "routes/app.sign-in.code.ts"),
 	route("app/sign-in/error", "routes/app.sign-in.error.ts"),
+	route("app/sign-in/two-factor", "routes/app.sign-in.two-factor.ts"),
 	route("app/sign-in/:provider", "routes/app.sign-in.provider.ts"),
 	route("app/sign-up", "routes/app.sign-up.ts"),
 	route("app/sign-up/code", "routes/app.sign-up.code.ts"),
