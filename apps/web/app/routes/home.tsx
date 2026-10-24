@@ -12,6 +12,7 @@ import { INITIAL_MARKS, type Marks, type SentenceId } from "~/components/landing
 import { PostIt } from "~/components/post-it"
 import { PublicPage } from "~/components/public-page"
 import { buttonVariants } from "~/components/ui/button"
+import { IPHONE_BETA_URL } from "~/lib/company"
 import { env, invitesRequired } from "~/lib/env.server"
 import { getInstance } from "~/lib/i18n.server"
 import { formToken, INVITE_REQUEST_NOTE_MAX } from "~/lib/invite-requests.server"
@@ -264,6 +265,22 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 							{t("home.phone.title")}
 						</h2>
 						<p className="mt-5 max-w-xl leading-relaxed">{t("home.phone.body")}</p>
+						<div className="mt-6">
+							<a
+								href={IPHONE_BETA_URL}
+								target="_blank"
+								rel="noopener noreferrer"
+								className={buttonVariants({ size: "lg" })}
+							>
+								{t("home.phone.beta")}
+								<ArrowRight className="size-4" aria-hidden />
+							</a>
+							<p className="mt-2 text-sm text-muted-fg">{t("home.phone.betaNote")}</p>
+							{/* The app signs in to an account: where one needs an invite, say so here. */}
+							{inviteOnly && !loggedIn ? (
+								<p className="mt-1 text-sm text-muted-fg">{t("home.phone.betaInvite")}</p>
+							) : null}
+						</div>
 						<ul className="mt-8 grid max-w-xl gap-5">
 							{phoneFeatures.map((key) => (
 								<li key={key}>

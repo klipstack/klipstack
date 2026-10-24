@@ -112,9 +112,15 @@ export default {
 			},
 		},
 		phone: {
-			eyebrow: "Coming soon · iPhone",
-			title: "Klipstack is coming to your iPhone.",
-			body: "The iPhone app is built and in testing now, on its way to the App Store. It brings the same reading with you: Home's next reads, the clean reader, your highlights, and the note at the end of every article.",
+			eyebrow: "Public beta · iPhone",
+			title: "Klipstack on your iPhone.",
+			body: "The iPhone app is in public beta on TestFlight, on its way to the App Store. It brings the same reading with you: Home's next reads, the clean reader, your highlights, and the note at the end of every article.",
+			// The landing's button to the TestFlight beta, and the line under it.
+			beta: "Join the beta on TestFlight",
+			betaNote: "TestFlight is Apple's app for trying apps before they reach the App Store.",
+			// Under it, where accounts need an invite: the app does not let anyone in without one.
+			betaInvite:
+				"To sign in, you need a Klipstack account, and creating one takes an invite code.",
 			account:
 				"One account, one library: what you save on your phone is waiting on your computer, and the other way around.",
 			save: {
@@ -236,7 +242,7 @@ export default {
 			apps: {
 				question: "Is there an app?",
 				answer:
-					"Klipstack runs in the browser on your computer and your phone, and unread and starred articles stay available offline. An iPhone app is in testing; it saves from the share sheet and reads articles aloud. There's no Android app.",
+					"Klipstack runs in the browser on your computer and your phone, and unread and starred articles stay available offline. An iPhone app is in public beta on TestFlight; it saves from the share sheet and reads articles aloud. There's no Android app.",
 			},
 			extension: {
 				question: "Is there a browser extension?",
@@ -280,6 +286,7 @@ export default {
 			terms: "Terms",
 			privacy: "Privacy",
 			support: "Support",
+			news: "News",
 			copyright: "© {{year}} {{company}}",
 		},
 	},
@@ -420,6 +427,27 @@ export default {
 		},
 		allSet: "All set",
 		allSetText: "You know your way around. Settings has the rest, whenever you want it.",
+	},
+	// What's new in Klipstack: the sidebar's stack of news, and the public pages at /news.
+	news: {
+		// The sidebar's stack, to a screen reader.
+		label: "What's new in Klipstack",
+		// Over a card's title, before how long ago: "New · 2 days ago".
+		kicker: "New",
+		close: "Close",
+		// The button on the stack's edges: how many are behind, and its name.
+		more: "+{{count}}",
+		showAll: "Show all {{count}}",
+		less: "Show less",
+		// The collapsed sidebar's icon: its tooltip and name.
+		rail: "New in Klipstack: {{title}}",
+		title: "News",
+		intro: "What's new in Klipstack, newest first.",
+		all: "All news",
+		feed: "Follow with RSS",
+		// The share image's line over the title.
+		cardKicker: "Klipstack news",
+		empty: "Nothing here yet.",
 	},
 	savedSearches: {
 		heading: "Saved searches",

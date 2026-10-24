@@ -16,6 +16,7 @@ import { isStarterLanguage } from "~/lib/starter-shelves"
 import { starterGuide } from "~/lib/starter-texts.server"
 import { editionNudge } from "~/services/editions.server"
 import { countNewFeedItems } from "~/services/feeds.server"
+import { newsForSidebar } from "~/services/news.server"
 import { extensionOffered, gettingStarted } from "~/services/onboarding.server"
 import { listSavedSearches } from "~/services/saved-searches.server"
 import { firstTopicsNotice, hasTopics, missingTopics } from "~/services/topics.server"
@@ -42,6 +43,8 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 			extension: extensionOffered(request.headers),
 		}),
 	])
+	// No news while Getting started is on: it is a new account's first steps, and all it needs.
+	const news = steps ? [] : await newsForSidebar(user, request.headers)
 	// Topics show for an account with the feature, on a server with both providers' keys; and for
 	// one that has topics still, to turn them off.
 	const topics =
@@ -85,6 +88,8 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 					guide: starterGuide(isStarterLanguage(user.locale) ? user.locale : fallbackLanguage).slug,
 				}
 			: null,
+		// The sidebar's news stack, newest on top.
+		news,
 		// The Save link dialog: its bookmarklet, and the address an AI assistant connects to.
 		appUrl: env.APP_URL,
 		mcpUrl: MCP_RESOURCE,
@@ -115,6 +120,7 @@ export default function AppLayout({ loaderData }: Route.ComponentProps) {
 			editionDue={loaderData.editionDue}
 			topics={loaderData.topics}
 			gettingStarted={loaderData.gettingStarted}
+			news={loaderData.news}
 			savedSearches={loaderData.savedSearches}
 			support={loaderData.support}
 			notice={
@@ -146,6 +152,7 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
 			editionDue={data?.editionDue ?? false}
 			topics={data?.topics ?? null}
 			gettingStarted={data?.gettingStarted ?? null}
+			news={data?.news ?? []}
 			savedSearches={data?.savedSearches ?? []}
 			support={data?.support ?? null}
 		>

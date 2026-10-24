@@ -1,8 +1,19 @@
-import { afterAll, afterEach, describe, expect, it } from "vitest"
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest"
 import { env } from "~/lib/env.server"
 import { adminFixtures } from "~/test/admin-fixtures"
 import { loader } from "./app-layout"
 import { action as onboarding } from "./onboarding"
+
+// The shipped news leaves the sidebar as days pass: this file brings an entry that never does.
+vi.mock("~/news", () => ({
+	NEWS: [{ slug: "far-off", date: "2099-01-01" }],
+	NEWS_PAGES: Object.fromEntries(
+		["en", "es"].map((lang) => [
+			`./far-off/${lang}.html`,
+			`<html><head><title>Far off</title><meta name="description" content="Far off."></head><body><article><p>x</p></article></body></html>`,
+		]),
+	),
+}))
 
 const fx = adminFixtures("app-layout")
 afterAll(fx.cleanup)
@@ -66,5 +77,24 @@ describe("The sidebar's Getting started card", () => {
 			context: await fx.routerContext(reader),
 		} as never)
 		expect(await layout()).toBeNull()
+	})
+})
+
+describe("The sidebar's news", () => {
+	it("waits until Getting started is over", async () => {
+		const reader = await fx.account()
+		const news = async () =>
+			(
+				await loader({
+					request: new Request(new URL("/library", env.APP_URL)),
+					context: await fx.routerContext(reader),
+				} as never)
+			).news.map((item) => item.slug)
+		expect(await news()).toEqual([])
+		await onboarding({
+			request: fx.post("/onboarding", { intent: "end-card" }),
+			context: await fx.routerContext(reader),
+		} as never)
+		expect(await news()).toEqual(["far-off"])
 	})
 })

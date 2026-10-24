@@ -27,6 +27,7 @@ import { awaitsWords, searchOrigin, searchPath } from "~/lib/search-page"
 import { setSidebar, useSidebar } from "~/lib/sidebar"
 import { countTopicSearch } from "~/lib/topic-use"
 import { cn } from "~/lib/utils"
+import type { SidebarNewsItem } from "~/services/news.server"
 import { type AccountUser, AccountMenu } from "./account-menu"
 import { BrandLogoSmall } from "./brand-mark"
 import { CommandPaletteButton } from "./command-palette"
@@ -34,6 +35,7 @@ import { GettingStarted, type GettingStartedNav } from "./getting-started"
 import { LayoutToggle } from "./layout-toggle"
 import { MobileDrawer, useMobileDrawer } from "./mobile-drawer"
 import { MenuNavLink, MoreMenu, type MoreMenuHandle } from "./more-menu"
+import { NewsStack } from "./news-stack"
 import { PullToRefresh } from "./pull-to-refresh"
 import { SaveLinkButton, SaveLinkDialog } from "./save-link-dialog"
 import {
@@ -145,6 +147,7 @@ function SidebarContent({
 	editionDue,
 	topics,
 	gettingStarted,
+	news,
 	savedSearches,
 	support,
 	collapsed = false,
@@ -160,6 +163,7 @@ function SidebarContent({
 	editionDue: boolean
 	topics: TopicsNav
 	gettingStarted: GettingStartedNav
+	news: SidebarNewsItem[]
 	savedSearches: SavedSearchItem[]
 	/** Contact support shows. */
 	support: boolean
@@ -319,7 +323,11 @@ function SidebarContent({
 				onExpand={onToggle}
 				onNavigate={onNavigate}
 			/>
-			<div className="mt-auto flex flex-col gap-1 border-t border-border pt-3">
+			{/* At the foot, above the divider: news, not a place to go. */}
+			<div className="mt-auto">
+				<NewsStack news={news} collapsed={collapsed} onExpand={onToggle} />
+			</div>
+			<div className="flex flex-col gap-1 border-t border-border pt-3">
 				{/* Below the divider: the keyboard is the way in, this is how people find it. */}
 				<CommandPaletteButton onOpen={onNavigate} collapsed={collapsed} />
 				{support ? <SupportButton onOpen={onNavigate} collapsed={collapsed} /> : null}
@@ -452,6 +460,7 @@ export function AppShell({
 	editionDue,
 	topics = null,
 	gettingStarted = null,
+	news = [],
 	savedSearches,
 	support = null,
 }: {
@@ -471,6 +480,8 @@ export function AppShell({
 	topics?: TopicsNav
 	/** The Getting started card (`gettingStarted`), from the layout loader. */
 	gettingStarted?: GettingStartedNav
+	/** The sidebar's news (`newsForSidebar`), from the layout loader. */
+	news?: SidebarNewsItem[]
 	/** By name, from the layout loader. */
 	savedSearches: SavedSearchItem[]
 	/** The SuppyHQ account behind Contact support, from the layout loader. */
@@ -569,6 +580,7 @@ export function AppShell({
 					editionDue={editionDue}
 					topics={topics}
 					gettingStarted={gettingStarted}
+					news={news}
 					savedSearches={savedSearches}
 					support={Boolean(support)}
 					collapsed={collapsed}
@@ -691,6 +703,7 @@ export function AppShell({
 					editionDue={editionDue}
 					topics={topics}
 					gettingStarted={gettingStarted}
+					news={news}
 					savedSearches={savedSearches}
 					support={Boolean(support)}
 					onNavigate={() => setOpen(false)}

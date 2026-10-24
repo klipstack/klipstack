@@ -17,6 +17,11 @@ export default [
 	route("extension", "routes/extension.tsx"),
 	route("extension/connected", "routes/extension.connected.tsx"),
 	route("guide/:language?", "routes/guide.tsx"),
+	route("news", "routes/news.tsx"),
+	route("news/feed.xml", "routes/news.feed.ts"),
+	route("news/:slug", "routes/news.entry.tsx"),
+	route("news/:slug/og.png", "routes/news.og.ts"),
+	route("news/:slug/close", "routes/news.close.ts"),
 	layout("routes/app-layout.tsx", [
 		route("home", "routes/reading-home.tsx"),
 		route("library", "routes/library.tsx"),
