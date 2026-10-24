@@ -32,7 +32,7 @@ export async function action({ request, context }: Route.ActionArgs) {
 	})
 }
 
-/** The form is at the foot of Account. */
+/** The form is Account → Delete account. */
 export function loader() {
-	throw redirect("/settings/account")
+	throw redirect("/settings/account/delete")
 }

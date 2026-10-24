@@ -130,6 +130,8 @@ test("connected app → API save with captured html → search → palette → e
 	// delete account
 	await page.getByRole("link", { name: "Account", exact: true }).click()
 	await expect(page).toHaveURL(/\/settings\/account$/)
+	await page.getByRole("link", { name: "Delete account…" }).click()
+	await expect(page).toHaveURL(/\/settings\/account\/delete$/)
 	await page.getByLabel("Type your email to confirm").fill("wrong@example.com")
 	await page.getByRole("button", { name: "Delete my account" }).click()
 	await expect(page.getByText("The email does not match.")).toBeVisible()

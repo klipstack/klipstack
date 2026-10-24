@@ -178,6 +178,35 @@ describe("Settings → two-factor authentication", () => {
 		expect("user" in again).toBe(true)
 	})
 
+	it("gives new backup codes for the password and a code, and the old ones stop working", async () => {
+		const reader = await signedIn()
+		const started = await post(reader.cookie, { intent: "start", password: PASSWORD })
+		const key = String(started.data!.secret)
+		const old = started.data!.backupCodes as string[]
+		const confirmed = await post(reader.cookie, { intent: "confirm", code: await codeFor(key) })
+		const cookie = cookiesOf(confirmed.headers!)
+
+		expect(
+			(await post(cookie, { intent: "backup-codes", password: "wrong", code: await codeFor(key) }))
+				.result,
+		).toBe("wrong-password")
+		const renewed = await post(cookie, {
+			intent: "backup-codes",
+			password: PASSWORD,
+			code: await codeFor(key),
+		})
+		expect(renewed.result).toBe("new-codes")
+		const fresh = renewed.data!.backupCodes as string[]
+		expect(fresh).toHaveLength(10)
+		expect(fresh).not.toContain(old[0])
+		expect(
+			(await post(cookie, { intent: "disable", password: PASSWORD, code: old[0]! })).result,
+		).toBe("wrong-code")
+		expect(
+			(await post(cookie, { intent: "disable", password: PASSWORD, code: fresh[0]! })).result,
+		).toBe("disabled")
+	})
+
 	it("is offered only once the email is verified", async () => {
 		const reader = await signedIn()
 		await db.update(user).set({ emailVerified: false }).where(eq(user.id, reader.userId))

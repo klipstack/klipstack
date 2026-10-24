@@ -45,8 +45,8 @@ export async function action({ context, request }: Route.ActionArgs) {
 		const { headers, response } = await auth.api.linkSocialAccount({
 			body: {
 				provider,
-				callbackURL: "/settings/account?connected=1",
-				errorCallbackURL: "/settings/account?connect=failed",
+				callbackURL: "/settings/account/sign-in?connected=1",
+				errorCallbackURL: "/settings/account/sign-in?connect=failed",
 				disableRedirect: true,
 			},
 			headers: request.headers,

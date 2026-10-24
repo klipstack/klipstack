@@ -68,7 +68,7 @@ test("settings sets a first password, changes it, and disconnects a provider", a
 		.insert(account)
 		.values({ id: newId(), userId: row!.id, providerId: "github", accountId: `e2e-${row!.id}` })
 
-	await page.goto("/settings/account")
+	await page.goto("/settings/account/sign-in")
 	await waitForHydration(page)
 	const methods = page.getByRole("region", { name: "Ways to log in" })
 	await expect(methods.getByText("You have no password yet.")).toBeVisible()
@@ -116,7 +116,7 @@ test("settings sets a first password, changes it, and disconnects a provider", a
 
 test("an unverified account adds no password or provider", async ({ page }) => {
 	await signupUser(page, "Sign In Unverified", { verified: false })
-	await page.goto("/settings/account")
+	await page.goto("/settings/account/sign-in")
 	const methods = page.getByRole("region", { name: "Ways to log in" })
 	await expect(
 		methods.getByText("Verify your email address before you add a password or connect an account."),
