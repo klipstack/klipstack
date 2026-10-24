@@ -18,38 +18,41 @@ afterAll(async () => {
 })
 
 describe("purgeExpiredSignIns", () => {
-	it("removes expired sessions and one-time tokens, and keeps the live ones", async () => {
-		const [expired, live] = [randomUUID(), randomUUID()]
-		await db.insert(session).values([
-			{
-				id: expired,
-				token: randomUUID(),
-				userId: owner,
-				expiresAt: at(-MINUTE),
-				ipAddress: "203.0.113.7",
-				userAgent: "Old browser",
-			},
-			{ id: live, token: randomUUID(), userId: owner, expiresAt: at(30 * 24 * 60 * MINUTE) },
-		])
-		const [usedUp, pending] = [randomUUID(), randomUUID()]
-		await db.insert(verification).values([
-			{ id: usedUp, identifier: marker, value: "old", expiresAt: at(-MINUTE) },
-			{ id: pending, identifier: marker, value: "new", expiresAt: at(5 * MINUTE) },
-		])
+	// In one transaction: Better Auth deletes every expired token whenever it looks one up, so the
+	// web tests sharing this database would otherwise take ours before the purge counts it.
+	it("removes expired sessions and one-time tokens, and keeps the live ones", () =>
+		db.transaction(async (tx) => {
+			const [expired, live] = [randomUUID(), randomUUID()]
+			await tx.insert(session).values([
+				{
+					id: expired,
+					token: randomUUID(),
+					userId: owner,
+					expiresAt: at(-MINUTE),
+					ipAddress: "203.0.113.7",
+					userAgent: "Old browser",
+				},
+				{ id: live, token: randomUUID(), userId: owner, expiresAt: at(30 * 24 * 60 * MINUTE) },
+			])
+			const [usedUp, pending] = [randomUUID(), randomUUID()]
+			await tx.insert(verification).values([
+				{ id: usedUp, identifier: marker, value: "old", expiresAt: at(-MINUTE) },
+				{ id: pending, identifier: marker, value: "new", expiresAt: at(5 * MINUTE) },
+			])
 
-		const removed = await purgeExpiredSignIns()
+			const removed = await purgeExpiredSignIns(tx)
 
-		expect(removed.sessions).toBeGreaterThanOrEqual(1)
-		expect(removed.verifications).toBeGreaterThanOrEqual(1)
-		const sessions = await db
-			.select({ id: session.id })
-			.from(session)
-			.where(inArray(session.id, [expired, live]))
-		expect(sessions.map((s) => s.id)).toEqual([live])
-		const tokens = await db
-			.select({ id: verification.id })
-			.from(verification)
-			.where(eq(verification.identifier, marker))
-		expect(tokens.map((v) => v.id)).toEqual([pending])
-	})
+			expect(removed.sessions).toBeGreaterThanOrEqual(1)
+			expect(removed.verifications).toBeGreaterThanOrEqual(1)
+			const sessions = await tx
+				.select({ id: session.id })
+				.from(session)
+				.where(inArray(session.id, [expired, live]))
+			expect(sessions.map((s) => s.id)).toEqual([live])
+			const tokens = await tx
+				.select({ id: verification.id })
+				.from(verification)
+				.where(eq(verification.identifier, marker))
+			expect(tokens.map((v) => v.id)).toEqual([pending])
+		}))
 })

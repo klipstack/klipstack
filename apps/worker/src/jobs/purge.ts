@@ -3,6 +3,7 @@ import {
 	aiThreads,
 	and,
 	assets,
+	type Db,
 	db,
 	documents,
 	eq,
@@ -12,6 +13,7 @@ import {
 	lt,
 	or,
 	sql,
+	type Tx,
 } from "@klipstack/db"
 import { FAILED_RETENTION_DAYS } from "@klipstack/queue"
 import { getStorage } from "@klipstack/storage"
@@ -102,9 +104,11 @@ export async function purgeAdminRecords(): Promise<{ auditEvents: number; heartb
  * tokens (sign-in links, email checks, OAuth state), by the database's clock. Better Auth already
  * refuses both; the app answers a missing link as it answers an expired one.
  */
-export async function purgeExpiredSignIns(): Promise<{ sessions: number; verifications: number }> {
-	const sessions = await db.execute(sql`delete from session where expires_at < now()`)
-	const verifications = await db.execute(sql`delete from verification where expires_at < now()`)
+export async function purgeExpiredSignIns(
+	tx: Db | Tx = db,
+): Promise<{ sessions: number; verifications: number }> {
+	const sessions = await tx.execute(sql`delete from session where expires_at < now()`)
+	const verifications = await tx.execute(sql`delete from verification where expires_at < now()`)
 	return { sessions: sessions.rowCount ?? 0, verifications: verifications.rowCount ?? 0 }
 }
 
