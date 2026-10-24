@@ -116,6 +116,9 @@ test("a backup code signs in once, new ones replace them, and turning it off nee
 	// New backup codes: the old unused ones stop working.
 	await page.goto("/settings/account/two-factor")
 	await waitForHydration(page)
+	await page.getByRole("button", { name: "Get new codes…" }).click()
+	// One form at a time: the other change waits behind its own button.
+	await expect(page.getByRole("form", { name: "Turn off" })).toHaveCount(0)
 	const renew = page.getByRole("form", { name: "New backup codes" })
 	await renew.getByLabel("Password").fill(PASSWORD)
 	await renew.getByLabel("Code").fill(totp(key))
@@ -130,6 +133,7 @@ test("a backup code signs in once, new ones replace them, and turning it off nee
 
 	await page.goto("/settings/account/two-factor")
 	await waitForHydration(page)
+	await page.getByRole("button", { name: "Turn off…" }).click()
 	const off = page.getByRole("form", { name: "Turn off" })
 	await off.getByLabel("Password").fill(PASSWORD)
 	await off.getByLabel("Code").fill(backupCodes[1]!)

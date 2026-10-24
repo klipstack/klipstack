@@ -91,11 +91,15 @@ export default {
 		enabled: "La verificación en dos pasos está activada. Se cerraron tus otras sesiones.",
 		newCodesTitle: "Nuevos códigos de respaldo",
 		newCodesHint:
-			"¿Perdiste tus códigos de respaldo? Obtén 10 nuevos: los anteriores dejan de funcionar. Escribe un código de tu app de autenticación.",
+			"¿Perdiste tus códigos de respaldo? Obtén 10 nuevos: los anteriores dejan de funcionar.",
+		newCodesOpen: "Obtener códigos nuevos…",
 		newCodes: "Obtener códigos nuevos",
+		turnOffRowHint: "Los inicios de sesión dejarán de pedir un código.",
+		turnOffOpen: "Desactivar…",
+		proofHint:
+			"Escribe tu contraseña y un código de tu app de autenticación, o un código de respaldo.",
+		proofHintNoPassword: "Escribe un código de tu app de autenticación o un código de respaldo.",
 		turnOffTitle: "Desactivar",
-		turnOffHint:
-			"Para desactivarla, escribe un código de tu app de autenticación o un código de respaldo.",
 		turnOff: "Desactivar",
 		disabled: "La verificación en dos pasos está desactivada.",
 		wrongPassword: "Esa contraseña no es correcta.",

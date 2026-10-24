@@ -34,6 +34,8 @@ export function TwoFactorSettings({
 	const confirm = useFetcher<typeof action>()
 	const disable = useFetcher<typeof action>()
 	const renew = useFetcher<typeof action>()
+	// On: which of its two changes is open; one form at a time, both asking the same proof.
+	const [open, setOpen] = useState<"backup-codes" | "disable" | null>(null)
 	// A setup the reader left (Cancel) stays left, though its answer stays on the fetcher.
 	const [cancelled, setCancelled] = useState<unknown>(null)
 	const started = start.data as Answer | undefined
@@ -57,24 +59,42 @@ export function TwoFactorSettings({
 				<p className="text-sm" role="status">
 					{t("twoFactor.on")}
 				</p>
-				<CodeForm
-					fetcher={renew}
-					intent="backup-codes"
-					title={t("twoFactor.newCodesTitle")}
-					hint={t("twoFactor.newCodesHint")}
-					submit={t("twoFactor.newCodes")}
-					hasPassword={hasPassword}
-					email={email}
-				/>
-				<CodeForm
-					fetcher={disable}
-					intent="disable"
-					title={t("twoFactor.turnOffTitle")}
-					hint={t("twoFactor.turnOffHint")}
-					submit={t("twoFactor.turnOff")}
-					hasPassword={hasPassword}
-					email={email}
-				/>
+				{open === "backup-codes" ? (
+					<CodeForm
+						fetcher={renew}
+						intent="backup-codes"
+						title={t("twoFactor.newCodesTitle")}
+						submit={t("twoFactor.newCodes")}
+						hasPassword={hasPassword}
+						email={email}
+						onCancel={() => setOpen(null)}
+					/>
+				) : open === "disable" ? (
+					<CodeForm
+						fetcher={disable}
+						intent="disable"
+						title={t("twoFactor.turnOffTitle")}
+						submit={t("twoFactor.turnOff")}
+						hasPassword={hasPassword}
+						email={email}
+						onCancel={() => setOpen(null)}
+					/>
+				) : (
+					<ul className="mt-2 divide-y divide-border text-sm">
+						<Choice
+							title={t("twoFactor.newCodesTitle")}
+							hint={t("twoFactor.newCodesHint")}
+							open={t("twoFactor.newCodesOpen")}
+							onOpen={() => setOpen("backup-codes")}
+						/>
+						<Choice
+							title={t("twoFactor.turnOffTitle")}
+							hint={t("twoFactor.turnOffRowHint")}
+							open={t("twoFactor.turnOffOpen")}
+							onOpen={() => setOpen("disable")}
+						/>
+					</ul>
+				)}
 			</>
 		)
 
@@ -164,23 +184,48 @@ export function TwoFactorSettings({
 	)
 }
 
-/** On: a proof (the password, when there is one, and a code) for one intent. */
+/** On: one of its changes, a line with the button that opens its form. */
+function Choice({
+	title,
+	hint,
+	open,
+	onOpen,
+}: {
+	title: string
+	hint: string
+	open: string
+	onOpen: () => void
+}) {
+	return (
+		<li className="flex items-center justify-between gap-4 py-4">
+			<div className="min-w-0">
+				<p className="font-medium">{title}</p>
+				<p className="mt-0.5 text-muted-fg">{hint}</p>
+			</div>
+			<Button size="sm" variant="secondary" className="shrink-0" onClick={onOpen}>
+				{open}
+			</Button>
+		</li>
+	)
+}
+
+/** On: the proof (the password, when there is one, and a code) for one change. */
 function CodeForm({
 	fetcher,
 	intent,
 	title,
-	hint,
 	submit,
 	hasPassword,
 	email,
+	onCancel,
 }: {
 	fetcher: ReturnType<typeof useFetcher<typeof action>>
 	intent: "disable" | "backup-codes"
 	title: string
-	hint: string
 	submit: string
 	hasPassword: boolean
 	email: string
+	onCancel: () => void
 }) {
 	const { t } = useTranslation("settings")
 	const result = resultOf(fetcher.data)
@@ -189,11 +234,13 @@ function CodeForm({
 			method="post"
 			action="/settings/two-factor"
 			aria-label={title}
-			className="mt-6 flex flex-col gap-3 border-t border-border pt-5 text-sm"
+			className="mt-5 flex flex-col gap-3 border-t border-border pt-5 text-sm"
 		>
 			<input type="hidden" name="intent" value={intent} />
 			<h2 className="font-medium">{title}</h2>
-			<p className="-mt-2 text-muted-fg">{hint}</p>
+			<p className="-mt-2 text-muted-fg">
+				{t(hasPassword ? "twoFactor.proofHint" : "twoFactor.proofHintNoPassword")}
+			</p>
 			<div className="flex flex-col gap-3 sm:w-72">
 				{hasPassword ? (
 					<>
@@ -204,15 +251,27 @@ function CodeForm({
 							type="password"
 							autoComplete="current-password"
 							required
+							autoFocus
 							error={result === "wrong-password" ? t("twoFactor.wrongPassword") : undefined}
 						/>
 					</>
 				) : null}
-				<CodeField error={result === "wrong-code" ? t("twoFactor.wrongCode") : undefined} />
+				<CodeField
+					autoFocus={!hasPassword}
+					error={result === "wrong-code" ? t("twoFactor.wrongCode") : undefined}
+				/>
 			</div>
-			<div>
-				<Button type="submit" size="sm" variant="secondary" disabled={fetcher.state !== "idle"}>
+			<div className="flex gap-3">
+				<Button
+					type="submit"
+					size="sm"
+					variant={intent === "disable" ? "danger" : "primary"}
+					disabled={fetcher.state !== "idle"}
+				>
 					{submit}
+				</Button>
+				<Button type="button" size="sm" variant="ghost" onClick={onCancel}>
+					{t("twoFactor.cancel")}
 				</Button>
 			</div>
 			<Failure result={result} />
@@ -298,7 +357,7 @@ function Username({ email }: { email: string }) {
 	)
 }
 
-function CodeField({ error }: { error?: string }) {
+function CodeField({ error, autoFocus }: { error?: string; autoFocus?: boolean }) {
 	const { t } = useTranslation("settings")
 	return (
 		<Field
@@ -309,6 +368,7 @@ function CodeField({ error }: { error?: string }) {
 			spellCheck={false}
 			required
 			maxLength={20}
+			autoFocus={autoFocus}
 			error={error}
 		/>
 	)
