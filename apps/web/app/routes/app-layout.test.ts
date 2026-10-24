@@ -49,9 +49,7 @@ describe("The sidebar's Getting started card", () => {
 		try {
 			Object.assign(env, { APP_URL: "https://klipstack.com" })
 			expect((await layout(chrome))?.steps.extension).toBe(false)
-			expect((await layout(chrome))?.extensionUrl).toMatch(
-				/^https:\/\/chromewebstore\.google\.com\//,
-			)
+			expect((await layout(chrome))?.extensionUrl).toBe("https://klipstack.com/extension")
 			// Firefox and Safari send no client hints; a phone says ?1.
 			expect((await layout())?.steps.extension).toBeNull()
 			expect((await layout({ ...chrome, "sec-ch-ua-mobile": "?1" }))?.steps.extension).toBeNull()

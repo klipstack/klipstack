@@ -324,6 +324,39 @@ export default {
 		},
 		company: "Klipstack es propiedad de {{company}}, una empresa chilena, que también lo opera.",
 	},
+	// La página pública /extension: la extensión de cada navegador, dónde conseguirla y cómo guarda.
+	extensionPage: {
+		title: "Extensión del navegador",
+		description:
+			"Guarda la página que lees con un clic, tal como la ves, aunque esté tras un inicio de sesión.",
+		yourBrowser: "Tu navegador",
+		chrome: {
+			name: "Chrome",
+			body: "En un computador. También Edge, Brave, Opera y los demás navegadores basados en Chromium.",
+			get: "Añadir a Chrome",
+		},
+		safari: {
+			name: "Safari",
+			body: "En un Mac.",
+			get: "Descárgala en la Mac App Store",
+			soon: "Pronto en la Mac App Store.",
+		},
+		use: {
+			title: "Guardar con ella",
+			button:
+				"Haz clic en el botón de Klipstack de la barra de herramientas para guardar la página en la que estás.",
+			menu: "O haz clic derecho en una página o un enlace y elige Guardar página en Klipstack o Guardar enlace en Klipstack.",
+			signIn:
+				"Guarda en la cuenta con la que iniciaste sesión en ese navegador: inicia sesión en Klipstack ahí primero.",
+			safari:
+				"En Safari, actívala en Safari → Ajustes → Extensiones y permítela en klipstack.com: así llega a tu cuenta.",
+		},
+		elsewhere: {
+			title: "En este servidor",
+			body: "Las extensiones de las tiendas guardan solo en klipstack.com. Para guardar en este servidor, compila la extensión desde su código con la dirección de este servidor.",
+			source: "El código de la extensión",
+		},
+	},
 	actions: {
 		save: "Guardar",
 		cancel: "Cancelar",

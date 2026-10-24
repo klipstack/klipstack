@@ -16,7 +16,7 @@ export type GettingStartedNav = {
 		feature: boolean
 		topics: boolean
 	}
-	/** The extension's page in its store. */
+	/** The extension page, which offers each browser its store. */
 	extensionUrl: string
 	/** The guide's slug, in the reader's language: the place to try a highlight. */
 	guide: string
@@ -136,7 +136,7 @@ export function GettingStarted({
 			<span className={cn("min-w-0", isDone && "text-muted-fg line-through")}>{children}</span>
 		</li>
 	)
-	// An open step leads where it is done; the extension's store is a link out, so it looks like one.
+	// An open step leads where it is done; the extension page opens in a new tab, so it looks like a link out.
 	const stepLink = "text-left text-fg underline-offset-2 hover:underline"
 	const outLink = "text-accent underline underline-offset-2 hover:decoration-2"
 	const label = (key: "save" | "extension" | "highlight" | "feature") =>

@@ -77,7 +77,7 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 		// Features in testing turned on for this account: their links show only then.
 		features,
 		topics,
-		// The Getting started card: its steps, the extension's store, and the guide to highlight in.
+		// The Getting started card: its steps, the extension page, and the guide to highlight in.
 		gettingStarted: steps
 			? {
 					steps,
