@@ -349,12 +349,19 @@ export default {
 			signIn:
 				"Guarda en la cuenta con la que iniciaste sesión en ese navegador: inicia sesión en Klipstack ahí primero.",
 			safari:
-				"En Safari, actívala en Safari → Ajustes → Extensiones y permítela en klipstack.com: así llega a tu cuenta.",
+				"En Safari, actívala en Safari → Ajustes → Extensiones y permítela en klipstack.com. El primer clic te pide conectarla a tu cuenta, una sola vez.",
 		},
 		elsewhere: {
 			title: "En este servidor",
 			body: "Las extensiones de las tiendas guardan solo en klipstack.com. Para guardar en este servidor, compila la extensión desde su código con la dirección de este servidor.",
 			source: "El código de la extensión",
+		},
+		// Donde vuelve el inicio de sesión de la extensión de Safari: la extensión cierra la pestaña.
+		connected: {
+			title: "Klipstack para Safari está conectado",
+			body: "Puedes cerrar esta pestaña y guardar páginas con el botón de Klipstack.",
+			failedTitle: "Klipstack para Safari no está conectado",
+			failedBody: "Para conectarlo, vuelve a hacer clic en el botón de Klipstack en Safari.",
 		},
 	},
 	actions: {

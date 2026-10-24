@@ -14,6 +14,9 @@
 		"typecheck": "wxt prepare && tsc -p tsconfig.json",
 		"test": "wxt prepare && vitest run"
 	},
+	"dependencies": {
+		"@klipstack/api-contract": "workspace:*"
+	},
 	"devDependencies": {
 		"@types/node": "^22.20.4",
 		"jsdom": "^30.0.1",

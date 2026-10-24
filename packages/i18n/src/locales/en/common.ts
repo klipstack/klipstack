@@ -339,12 +339,19 @@ export default {
 			signIn:
 				"It saves to the account you're signed in to in that browser: sign in to Klipstack there first.",
 			safari:
-				"In Safari, turn it on in Safari → Settings → Extensions, and allow it on klipstack.com: that's how it reaches your account.",
+				"In Safari, turn it on in Safari → Settings → Extensions and allow it on klipstack.com. The first click asks you to connect it to your account, once.",
 		},
 		elsewhere: {
 			title: "On this server",
 			body: "The extensions in the stores save to klipstack.com only. To save to this server, build the extension from its source with this server's address.",
 			source: "The extension's source",
+		},
+		// Where the Safari extension's sign-in comes back: the extension closes the tab itself.
+		connected: {
+			title: "Klipstack for Safari is connected",
+			body: "You can close this tab, and save pages with the Klipstack button.",
+			failedTitle: "Klipstack for Safari isn't connected",
+			failedBody: "To connect it, click the Klipstack button in Safari again.",
 		},
 	},
 	actions: {

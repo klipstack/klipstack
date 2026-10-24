@@ -50,6 +50,18 @@ export const saveArticle = defineEndpoint({
 				message: `The page may not exceed ${HTML_MAX_BYTES} bytes`,
 			})
 			.optional(),
+		/**
+		 * The page as the site served it, fetched again by the reader's browser (the extension does
+		 * this for articles): some paywalls send the whole article and cut it in the browser. The
+		 * longer article is kept. Same limit as `html`, both within the body's.
+		 */
+		servedHtml: z
+			.string()
+			.max(HTML_MAX_BYTES)
+			.refine((html) => utf8Length(html) <= HTML_MAX_BYTES, {
+				message: `The page may not exceed ${HTML_MAX_BYTES} bytes`,
+			})
+			.optional(),
 		/** The capture-source label. */
 		source: z.enum(["api", "extension"]).default("api"),
 	}),

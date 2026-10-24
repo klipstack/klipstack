@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "node:crypto"
 import { readFileSync } from "node:fs"
+import { gunzipSync } from "node:zlib"
 import { describeRange } from "@klipstack/anchor"
 import { BATCH_MAX } from "@klipstack/api-contract"
 import {
@@ -167,6 +168,23 @@ describe("the API's door", () => {
 		expect(await res.json()).toEqual({
 			error: { code: "too_large", message: "The body may not exceed 1048576 bytes." },
 		})
+	})
+
+	it("keeps the page as the site served it beside the capture, for extraction to compare", async () => {
+		const { client } = await users.create("Served Page")
+		const served = "<html><body><p>The whole article, before the paywall cut it.</p></body></html>"
+		const { article } = await client.articles.save({
+			url: "https://example.com/served",
+			html: "<html><body><p>Cut.</p></body></html>",
+			servedHtml: served,
+			source: "extension",
+		})
+		const [raw] = await db
+			.select({ servedHtml: documentRaw.servedHtml, source: documentRaw.source })
+			.from(documentRaw)
+			.where(eq(documentRaw.documentId, article.id))
+		expect(raw?.source).toBe("extension")
+		expect(gunzipSync(raw!.servedHtml!).toString("utf8")).toBe(served)
 	})
 
 	it("the SDK measures a capture in bytes and refuses an oversized one before sending", async () => {

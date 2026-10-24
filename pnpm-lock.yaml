@@ -31,6 +31,10 @@ importers:
         version: 5.9.3
 
   apps/extension:
+    dependencies:
+      '@klipstack/api-contract':
+        specifier: workspace:*
+        version: link:../../packages/api-contract
     devDependencies:
       '@types/node':
         specifier: ^22.20.4

@@ -15,6 +15,7 @@ export default [
 	route("terms", "routes/terms.tsx"),
 	route("support", "routes/support.tsx"),
 	route("extension", "routes/extension.tsx"),
+	route("extension/connected", "routes/extension.connected.tsx"),
 	route("guide/:language?", "routes/guide.tsx"),
 	layout("routes/app-layout.tsx", [
 		route("home", "routes/reading-home.tsx"),

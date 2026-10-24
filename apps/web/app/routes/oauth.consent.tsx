@@ -1,4 +1,4 @@
-import { CLI_CLIENT_ID, MOBILE_CLIENT_ID } from "@klipstack/api-contract/auth"
+import { CLI_CLIENT_ID, EXTENSION_CLIENT_ID, MOBILE_CLIENT_ID } from "@klipstack/api-contract/auth"
 import { APIError } from "better-auth/api"
 import { Check } from "lucide-react"
 import { useTranslation } from "react-i18next"
@@ -75,6 +75,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 			// say what to check.
 			firstPartyCli: clientId === CLI_CLIENT_ID,
 			firstPartyMobile: clientId === MOBILE_CLIENT_ID,
+			firstPartyExtension: clientId === EXTENSION_CLIENT_ID,
 			optionalScopes: optionalScopesFor(clientId),
 		},
 		account: { name: user.name, email: user.email },
@@ -152,7 +153,7 @@ export default function OAuthConsent({ loaderData, actionData }: Route.Component
 	// Who you are reads as one line; every other scope keeps its own.
 	const identity = identityKey(req.scopes)
 	const lines = identity ? req.scopes.filter((s) => !IDENTITY_SCOPES.includes(s)) : req.scopes
-	const firstParty = req.firstPartyCli || req.firstPartyMobile
+	const firstParty = req.firstPartyCli || req.firstPartyMobile || req.firstPartyExtension
 	return (
 		<AuthCard title={t("oauth.title")} appQuery={req.oauthQuery}>
 			{account ? (
@@ -182,6 +183,8 @@ export default function OAuthConsent({ loaderData, actionData }: Route.Component
 					t("oauth.firstPartyCli", { command: "klip auth login" })
 				) : req.firstPartyMobile ? (
 					t("oauth.firstPartyMobile")
+				) : req.firstPartyExtension ? (
+					t("oauth.firstPartyExtension")
 				) : (
 					<>
 						{req.clientHost ? `${t("oauth.identifiedBy", { host: req.clientHost })} ` : ""}

@@ -44,11 +44,12 @@ A temporary extension needs no Apple account. Safari removes it when it quits, o
 
 What to check, since only a real Safari can tell us:
 
-- **The save reaches your account** after you allow klipstack.com. A "Saved to Klipstack" notice appears on the page, with
-  "Open", and the article is in your Inbox. This is the main risk: the extension saves with
-  Safari's klipstack.com sign-in (its cookie), and Safari's privacy protections could keep that
-  cookie from the extension's request. "Sign in to Klipstack first" while you are signed in means
-  they did. Tell me, with what Settings → Extensions says about klipstack.com.
+- **Connecting.** Safari sends no klipstack.com cookie with an extension's request (a WebKit
+  bug), so the Safari build signs in on its own. The first click opens a klipstack.com tab that
+  asks to let "Klipstack for Safari" access your account: Allow. The tab closes by itself and the
+  page saves: "Saved to Klipstack", with "Open", and the article is in your Inbox. The next clicks
+  save at once. It shows in Settings → Connected apps on the web, where disconnecting it makes
+  the next click ask again.
 - **Right-click** on a page and on a link: "Save page to Klipstack" and "Save link to Klipstack".
 - **A paywalled or signed-in article** saves in full, as in Chrome.
 - **Spanish:** with the Mac in Spanish, the menus say "Guardar página en Klipstack".
@@ -119,8 +120,8 @@ App → App Store tab, in the macOS version (1.0 Prepare for Submission):
 - **App Review information:** sign-up is by invite, so create an account for the reviewer and
   give its email and password. Notes: "Klipstack for Safari only installs a Safari extension.
   Open it, enable Klipstack in Safari → Settings → Extensions, allow it on klipstack.com, sign in
-  at klipstack.com, open any article and click the Klipstack toolbar button. A 'Saved to
-  Klipstack' notice appears, and the article is in the library."
+  at klipstack.com, open any article and click the Klipstack toolbar button. The first click
+  opens klipstack.com to connect the extension: choose Allow. A 'Saved to Klipstack' notice appears, and the article is in the library."
 - **Build:** the TestFlight build that passed your checks.
 
 App Information (left column):

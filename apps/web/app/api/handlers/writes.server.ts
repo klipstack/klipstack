@@ -107,6 +107,7 @@ export const save: Handler<typeof saveArticle> = async ({ userId, body }) => {
 	const { article, created } = await saveArticleCommand(userId, {
 		url: body.url,
 		html: body.html ?? null,
+		servedHtml: body.servedHtml ?? null,
 		source: body.source,
 	})
 	return reply(created ? 202 : 200, { article: articleSummary(article), created })
