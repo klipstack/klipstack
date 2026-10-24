@@ -177,6 +177,7 @@ export default {
 			"Klipstack has not verified this app. Only allow it if you just started connecting it.",
 		firstPartyCli: "Only allow this if you just ran {{command}} on your computer.",
 		firstPartyMobile: "Only allow this if you just tapped Sign in in the Klipstack app.",
+		firstPartyExtension: "Only allow this if you just clicked the Klipstack button in Safari.",
 		scopesTitle: "It will be able to:",
 		redirectsTo: "You will return to {{target}}.",
 		revokeHint: "You can disconnect it at any time in Settings.",

@@ -25,7 +25,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true
 let cleanup: (() => void) | undefined
 afterEach(() => cleanup?.())
 
-const STORE = "https://chromewebstore.google.com/detail/jpaablflkefkjccjgmaibjljcikbemoa"
+const STORE = "https://klipstack.com/extension"
 const card = (steps: Partial<NonNullable<GettingStartedNav>["steps"]>): GettingStartedNav => ({
 	steps: {
 		save: false,

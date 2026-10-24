@@ -51,5 +51,19 @@
 	},
 	"toastNotCapturable": {
 		"message": "This page can't be saved"
+	},
+	"toastNoAccess": {
+		"message": "Klipstack needs access to $HOST$ to save. Allow it in the browser's settings for extensions.",
+		"placeholders": {
+			"host": {
+				"content": "$1"
+			}
+		}
+	},
+	"toastConnect": {
+		"message": "Connect Klipstack for Safari to your account in the new tab"
+	},
+	"toastNotConnected": {
+		"message": "Klipstack for Safari isn't connected. Click the button to try again."
 	}
 }

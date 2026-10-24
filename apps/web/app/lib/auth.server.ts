@@ -7,6 +7,8 @@ import {
 	APP_SIGN_IN_CODE_LENGTH,
 	CLI_CLIENT_ID,
 	CLI_REDIRECT_URI,
+	EXTENSION_CLIENT_ID,
+	extensionRedirectUri,
 	MOBILE_CLIENT_ID,
 	mobileRedirectUris,
 } from "@klipstack/api-contract/auth"
@@ -128,6 +130,13 @@ const FIRST_PARTY_CLIENTS = [
 		name: "Klipstack app",
 		redirectUris: mobileRedirectUris(env.APP_URL),
 		skipConsent: true,
+	},
+	// The Safari extension: the code comes back to a page of this server, which the extension reads
+	// from its tab. The consent screen stays: any page can start this flow under the extension's name.
+	{
+		clientId: EXTENSION_CLIENT_ID,
+		name: "Klipstack for Safari",
+		redirectUris: [extensionRedirectUri(env.APP_URL)],
 	},
 ]
 

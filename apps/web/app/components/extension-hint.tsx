@@ -2,7 +2,7 @@ import { Trans, useTranslation } from "react-i18next"
 
 /**
  * A quiet line on an empty screen, for a new account that has never saved with the browser
- * extension: where to get it (`url`, its store).
+ * extension: where to get it (`url`, the extension page).
  */
 export function ExtensionHint({ url }: { url: string }) {
 	const { t } = useTranslation()

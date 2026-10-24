@@ -104,6 +104,13 @@ describe("body sizes", () => {
 		// Fewer characters than the limit, but three bytes each.
 		expect(saveArticle.body.safeParse(html(HTML_MAX_BYTES / 2, "€")).success).toBe(false)
 		expect(saveArticle.bodyLimit).toBeGreaterThan(HTML_MAX_BYTES)
+		// The page as served has the same limit.
+		const served = (chars: number, char: string) => ({
+			url: "https://x.test",
+			servedHtml: char.repeat(chars),
+		})
+		expect(saveArticle.body.safeParse(served(HTML_MAX_BYTES, "a")).success).toBe(true)
+		expect(saveArticle.body.safeParse(served(HTML_MAX_BYTES / 2, "€")).success).toBe(false)
 	})
 })
 

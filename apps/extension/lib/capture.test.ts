@@ -156,3 +156,33 @@ describe("isCapturableUrl", () => {
 		expect(isCapturableUrl(undefined)).toBe(false)
 	})
 })
+
+describe("savePage with the extension's own sign-in", () => {
+	it("goes to the API with the token, without cookies, and leaves out what it doesn't have", async () => {
+		const calls: { url: string; init: RequestInit }[] = []
+		const fetchImpl = (async (url: unknown, init?: RequestInit) => {
+			calls.push({ url: String(url), init: init! })
+			return calls.length === 1
+				? new Response("Request body is too large.", { status: 413 })
+				: new Response(JSON.stringify({ article: { id: "1" }, created: true }), { status: 202 })
+		}) as unknown as typeof fetch
+		const r = await savePage(
+			"https://k",
+			{ url: "https://a.example/p", html: "<html/>" },
+			fetchImpl,
+			"t0k",
+		)
+		expect(r).toMatchObject({ ok: true, id: "1", readUrl: "https://k/read/1" })
+		expect(calls.map((c) => c.url)).toEqual([
+			"https://k/api/v1/articles",
+			"https://k/api/v1/articles",
+		])
+		expect(calls[0]!.init.credentials).toBe("omit")
+		expect((calls[0]!.init.headers as Record<string, string>).authorization).toBe("Bearer t0k")
+		// The address alone: the API refuses `html: null`, so there is no `html` at all.
+		expect(JSON.parse(String(calls[1]!.init.body))).toEqual({
+			url: "https://a.example/p",
+			source: "extension",
+		})
+	})
+})

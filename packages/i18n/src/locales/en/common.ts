@@ -316,6 +316,44 @@ export default {
 		},
 		company: "Klipstack is owned and operated by {{company}}, a company in Chile.",
 	},
+	// The public /extension page: each browser's extension, where to get it, and how it saves.
+	extensionPage: {
+		title: "Browser extension",
+		description: "Save the page you're reading in one click, as you see it, even behind a login.",
+		yourBrowser: "Your browser",
+		chrome: {
+			name: "Chrome",
+			body: "On a computer. Also Edge, Brave, Opera and the other browsers built on Chromium.",
+			get: "Add to Chrome",
+		},
+		safari: {
+			name: "Safari",
+			body: "On a Mac.",
+			get: "Get it on the Mac App Store",
+			soon: "Coming soon to the Mac App Store.",
+		},
+		use: {
+			title: "Saving with it",
+			button: "Click the Klipstack button in the toolbar to save the page you're on.",
+			menu: "Or right-click a page or a link and choose Save page to Klipstack or Save link to Klipstack.",
+			signIn:
+				"It saves to the account you're signed in to in that browser: sign in to Klipstack there first.",
+			safari:
+				"In Safari, turn it on in Safari → Settings → Extensions and allow it on klipstack.com. The first click asks you to connect it to your account, once.",
+		},
+		elsewhere: {
+			title: "On this server",
+			body: "The extensions in the stores save to klipstack.com only. To save to this server, build the extension from its source with this server's address.",
+			source: "The extension's source",
+		},
+		// Where the Safari extension's sign-in comes back: the extension closes the tab itself.
+		connected: {
+			title: "Klipstack for Safari is connected",
+			body: "You can close this tab, and save pages with the Klipstack button.",
+			failedTitle: "Klipstack for Safari isn't connected",
+			failedBody: "To connect it, click the Klipstack button in Safari again.",
+		},
+	},
 	actions: {
 		save: "Save",
 		cancel: "Cancel",

@@ -190,3 +190,29 @@ export const CLI_CALLBACK_PATH = "/callback"
  * matching loopback redirects (RFC 8252): send `http://127.0.0.1:<port>/callback`.
  */
 export const CLI_REDIRECT_URI = `http://127.0.0.1${CLI_CALLBACK_PATH}`
+
+/**
+ * The browser extension, where the browser keeps the site's cookies from it (Safari sends no
+ * SameSite=Lax cookie with an extension's request): it signs in as an app does, and saves through
+ * the API. Chrome's and Firefox's save with the browser's session instead.
+ */
+export const EXTENSION_CLIENT_ID = "klipstack-extension"
+
+/** The API needs read access for any call; the extension saves, so it asks for write too. */
+export const EXTENSION_SCOPES = [
+	"openid",
+	"offline_access",
+	LIBRARY_READ_SCOPE,
+	LIBRARY_WRITE_SCOPE,
+] as const
+
+/**
+ * Where the extension's sign-in ends, with the code: a page of the server's own, whose address the
+ * extension reads from the tab (it may: the server is its one host permission), then closes.
+ */
+export const EXTENSION_CALLBACK_PATH = "/extension/connected"
+
+/** The extension's redirect URI on the server at `appUrl`. */
+export function extensionRedirectUri(appUrl: string): string {
+	return `${appUrl.replace(/\/+$/, "")}${EXTENSION_CALLBACK_PATH}`
+}

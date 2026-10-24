@@ -177,6 +177,8 @@ export default {
 			"Klipstack no ha verificado esta app. Permítela solo si acabas de empezar a conectarla.",
 		firstPartyCli: "Permítelo solo si acabas de ejecutar {{command}} en tu ordenador.",
 		firstPartyMobile: "Permítelo solo si acabas de tocar Iniciar sesión en la app de Klipstack.",
+		firstPartyExtension:
+			"Permítelo solo si acabas de hacer clic en el botón de Klipstack en Safari.",
 		scopesTitle: "Podrá:",
 		redirectsTo: "Volverás a {{target}}.",
 		revokeHint: "Puedes desconectarla cuando quieras en Ajustes.",

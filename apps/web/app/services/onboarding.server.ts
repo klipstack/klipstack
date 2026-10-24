@@ -16,7 +16,7 @@ import {
 } from "@klipstack/db"
 import { topicModels } from "~/lib/ai.server"
 import { env } from "~/lib/env.server"
-import { chromiumDesktop, extensionInStore } from "~/lib/extension-url"
+import { chromiumDesktop, extensionInStore, SAFARI_STORE, safariMac } from "~/lib/extension-url"
 import { hasFeature } from "~/lib/features.server"
 import { resolvePrefs } from "~/lib/prefs"
 import { starterTexts, starterUrlHash } from "~/lib/starter-texts.server"
@@ -127,9 +127,15 @@ async function exists(query: Promise<unknown[]>): Promise<boolean> {
 	return (await query).length > 0
 }
 
-/** The store's extension saves to klipstack.com only, and installs in Chromium on a computer. */
+/**
+ * The stores' extensions save to klipstack.com only. Chrome's installs in Chromium on a computer,
+ * Safari's in Safari on a Mac, once it is in the Mac App Store.
+ */
 export function extensionOffered(headers: Headers): boolean {
-	return extensionInStore(env.APP_URL) && chromiumDesktop(headers)
+	return (
+		extensionInStore(env.APP_URL) &&
+		(chromiumDesktop(headers) || (SAFARI_STORE !== null && safariMac(headers)))
+	)
 }
 
 /** How long after signing up the empty screens mention the browser extension. */

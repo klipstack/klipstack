@@ -94,24 +94,41 @@ export interface SaveResult {
 /**
  * POST a capture to the app, signed in with the browser's Klipstack session: the extension's host
  * permission lets the request carry the site's cookies. Without a session, the answer is 401.
+ * With `token` (the extension's own sign-in, `connect.ts`), it goes to the API instead, which
+ * answers the same way.
  */
 export async function saveToKlipstack(
 	appUrl: string,
 	payload: { url: string; html?: string; servedHtml?: string | null },
 	fetchImpl: typeof fetch = fetch,
+	token?: string,
 ): Promise<SaveResult> {
 	try {
-		const res = await fetchImpl(`${appUrl}/api/documents`, {
-			method: "POST",
-			headers: { "content-type": "application/json" },
-			credentials: "include",
-			body: JSON.stringify({
-				url: payload.url,
-				html: payload.html ?? null,
-				...(payload.servedHtml ? { servedHtml: payload.servedHtml } : {}),
-				source: "extension",
-			}),
-		})
+		const page = {
+			...(payload.html ? { html: payload.html } : {}),
+			...(payload.servedHtml ? { servedHtml: payload.servedHtml } : {}),
+		}
+		const res = await fetchImpl(
+			token ? `${appUrl}/api/v1/articles` : `${appUrl}/api/documents`,
+			token
+				? {
+						method: "POST",
+						headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+						credentials: "omit",
+						body: JSON.stringify({ url: payload.url, ...page, source: "extension" }),
+					}
+				: {
+						method: "POST",
+						headers: { "content-type": "application/json" },
+						credentials: "include",
+						body: JSON.stringify({
+							url: payload.url,
+							html: payload.html ?? null,
+							...(payload.servedHtml ? { servedHtml: payload.servedHtml } : {}),
+							source: "extension",
+						}),
+					},
+		)
 		// The app answers as its API does: `{article, created}`, or `{error: {code, message}}`.
 		const body = (await res.json().catch(() => ({}))) as {
 			article?: { id: string }
@@ -139,6 +156,7 @@ export async function savePage(
 	appUrl: string,
 	payload: { url: string; html?: string; servedHtml?: string | null },
 	fetchImpl: typeof fetch = fetch,
+	token?: string,
 ): Promise<SaveResult> {
 	// Over the body limit (413), or a page the app refuses as too large (`invalid_request`).
 	const tooLarge = (result: SaveResult) =>
@@ -146,11 +164,16 @@ export async function savePage(
 	// Both pages over the capture's body cap (12 MB) would only be refused: the rendered one alone.
 	const both = (payload.html?.length ?? 0) + (payload.servedHtml?.length ?? 0)
 	if (both > 11_000_000) payload = { url: payload.url, html: payload.html }
-	let result = await saveToKlipstack(appUrl, payload, fetchImpl)
+	let result = await saveToKlipstack(appUrl, payload, fetchImpl, token)
 	if (!result.ok && payload.servedHtml && tooLarge(result))
-		result = await saveToKlipstack(appUrl, { url: payload.url, html: payload.html }, fetchImpl)
+		result = await saveToKlipstack(
+			appUrl,
+			{ url: payload.url, html: payload.html },
+			fetchImpl,
+			token,
+		)
 	if (result.ok || !payload.html || !tooLarge(result)) return result
-	return saveToKlipstack(appUrl, { url: payload.url }, fetchImpl)
+	return saveToKlipstack(appUrl, { url: payload.url }, fetchImpl, token)
 }
 
 /**

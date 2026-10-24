@@ -58,8 +58,8 @@ describe("handleWelcomeEmail", () => {
 		expect(email!.text).toContain("Te damos la bienvenida a Klipstack, Ada")
 		expect(email!.text).toMatch(/\nErnesto\n/)
 		expect(email!.text).toContain("/library?save")
-		// The store's extension saves to klipstack.com only: no link to it from elsewhere.
-		expect(email!.text).not.toContain("chromewebstore")
+		// The stores' extensions save to klipstack.com only: no word of them from elsewhere.
+		expect(email!.text).not.toContain("/extension")
 		// The note on Home is its own: the email leaves it due.
 		const { onboarding } = await prefsOf(reader.id)
 		expect(onboarding?.email).toMatch(/^\d{4}-\d\d-\d\dT/)
@@ -110,7 +110,7 @@ describe("handleWelcomeEmail", () => {
 		expect((await prefsOf(reader.id)).onboarding?.email).toMatch(/^\d{4}-\d\d-\d\dT/)
 	})
 
-	it("points klipstack.com's readers to the extension in the Chrome Web Store", async () => {
+	it("points klipstack.com's readers to the extension's page", async () => {
 		const reader = await account({ verified: true, prefs: { onboarding: { email: "due" } } })
 		const mail = outbox()
 		const appUrl = process.env.APP_URL
@@ -122,7 +122,7 @@ describe("handleWelcomeEmail", () => {
 			else process.env.APP_URL = appUrl
 		}
 		expect(mail.sent[0]!.text).toContain(
-			"Chrome. It saves a page as you see it, even behind a login: https://chromewebstore.google.com/detail/",
+			"Chrome. It saves a page as you see it, even behind a login: https://klipstack.com/extension",
 		)
 	})
 })

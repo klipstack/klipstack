@@ -1,5 +1,6 @@
 /** Shared by server (auth config) and client (UI copy). Keep free of server imports. */
 import {
+	EXTENSION_CLIENT_ID,
 	LIBRARY_READ_SCOPE,
 	LIBRARY_WRITE_SCOPE,
 	MOBILE_CLIENT_ID,
@@ -27,9 +28,9 @@ export { LIBRARY_READ_SCOPE, LIBRARY_WRITE_SCOPE }
 /** Scopes the consent screen lets the user turn down while allowing the rest. */
 export const OPTIONAL_SCOPES: readonly string[] = [LIBRARY_WRITE_SCOPE]
 
-/** The mobile app saves shared links, so it gets write access or nothing. */
+/** The mobile app and the extension save links, so they get write access or nothing. */
 export function optionalScopesFor(clientId: string | null): readonly string[] {
-	return clientId === MOBILE_CLIENT_ID ? [] : OPTIONAL_SCOPES
+	return clientId === MOBILE_CLIENT_ID || clientId === EXTENSION_CLIENT_ID ? [] : OPTIONAL_SCOPES
 }
 
 /** Scopes about who the user is. With `openid`, the consent screen shows them as one line. */
