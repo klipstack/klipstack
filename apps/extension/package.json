@@ -8,7 +8,9 @@
 		"dev": "wxt",
 		"build": "wxt build",
 		"build:firefox": "wxt build -b firefox",
+		"build:safari": "wxt build -b safari --mv3",
 		"zip": "wxt zip",
+		"zip:safari": "wxt zip -b safari --mv3",
 		"typecheck": "wxt prepare && tsc -p tsconfig.json",
 		"test": "wxt prepare && vitest run"
 	},

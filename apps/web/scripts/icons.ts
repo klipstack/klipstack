@@ -121,7 +121,8 @@ for (const size of [16, 32]) {
 	write(`${extIcons}/mono-dark-${size}.png`, await png(bare(small, size, "#141210", 0)))
 	write(`${extIcons}/mono-light-${size}.png`, await png(bare(small, size, "#f4f1ec", 0)))
 }
-for (const size of [16, 32, 48, 96, 128]) write(`${extIcons}/${size}.png`, await icon(size))
+// 512: Apple's packager makes the Safari app's icon from the largest one.
+for (const size of [16, 32, 48, 96, 128, 512]) write(`${extIcons}/${size}.png`, await icon(size))
 
 // The mobile app. iOS rounds the corners itself and wants no transparency in the icon.
 const opaque = (svg: string) =>

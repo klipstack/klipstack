@@ -11,7 +11,8 @@ export default defineConfig({
 	// The e2e spec builds a copy of its own, for its server, beside the real build.
 	outDir: process.env.WXT_OUT_DIR || "dist",
 	vite: () => ({ define: { __APP_URL__: JSON.stringify(appUrl) } }),
-	manifest: {
+	// Safari builds as Manifest V3 (`--mv3` in `build:safari`): the background calls `browser.action`.
+	manifest: ({ browser }) => ({
 		name: "__MSG_name__",
 		description: "__MSG_description__",
 		default_locale: "en",
@@ -23,11 +24,18 @@ export default defineConfig({
 		action: {
 			default_title: "__MSG_actionTitle__",
 			// Firefox swaps these with the toolbar theme; Chrome ignores the key and uses `icons`.
-			theme_icons: [
-				{ light: "icon/mono-dark-16.png", dark: "icon/mono-light-16.png", size: 16 },
-				{ light: "icon/mono-dark-32.png", dark: "icon/mono-light-32.png", size: 32 },
-			],
+			// Apple's packager reports keys Safari doesn't know: Safari's manifest leaves them out.
+			...(browser === "safari"
+				? {}
+				: {
+						theme_icons: [
+							{ light: "icon/mono-dark-16.png", dark: "icon/mono-light-16.png", size: 16 },
+							{ light: "icon/mono-dark-32.png", dark: "icon/mono-light-32.png", size: 32 },
+						],
+					}),
 		},
-		browser_specific_settings: { gecko: { id: "klipstack@klipstack.app" } },
-	},
+		...(browser === "safari"
+			? {}
+			: { browser_specific_settings: { gecko: { id: "klipstack@klipstack.app" } } }),
+	}),
 })
