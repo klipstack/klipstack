@@ -51,7 +51,32 @@ test("all routes ship in the initial manifest (no discovery round trips)", async
 test("unknown URLs render the not-found page with a 404", async ({ page }) => {
 	const response = await page.goto("/definitely-not-a-route")
 	expect(response?.status()).toBe(404)
-	await expect(page.getByRole("heading", { level: 1, name: "Page not found." })).toBeVisible()
+	await expect(
+		page.getByRole("heading", {
+			level: 1,
+			name: "This page wandered off before you could save it.",
+		}),
+	).toBeVisible()
+	// A form posted to an unknown URL is a 404 too.
+	expect((await page.request.post("/definitely-not-a-route")).status()).toBe(404)
+	// Signed out: the logo and the one way on lead to the landing page.
+	await expect(page.getByRole("link", { name: "Klipstack", exact: true })).toHaveAttribute(
+		"href",
+		"/",
+	)
+	await expect(page.getByRole("link", { name: "Search your articles" })).toHaveCount(0)
+	await page.getByRole("link", { name: "Go to Klipstack" }).click()
+	await expect(page).toHaveURL(/\/$/)
+
+	await signupUser(page, "Lost")
+	await page.goto("/definitely-not-a-route")
+	await expect(page.getByRole("link", { name: "Klipstack", exact: true })).toBeVisible()
+	await expect(page.getByRole("link", { name: "Search your articles" })).toHaveAttribute(
+		"href",
+		"/search",
+	)
+	await page.getByRole("link", { name: "Go to Home" }).click()
+	await expect(page).toHaveURL(/\/home$/)
 })
 
 test("list or grid: a device preference, list by default on desktop, cleared on logout", async ({

@@ -20,7 +20,6 @@ import { useEffect, useInsertionEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
 	data,
-	isRouteErrorResponse,
 	Link,
 	redirect,
 	type ShouldRevalidateFunctionArgs,
@@ -649,7 +648,6 @@ function Reader({ loaderData }: Route.ComponentProps) {
 /** Missing article, offline, or a crash: the reader's back link stays available. */
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
 	const { t } = useTranslation("reader")
-	const notFound = isRouteErrorResponse(error) && error.status === 404
 	return (
 		<div className="min-h-screen">
 			<header className="safe-top sticky top-0 z-20 border-b border-border/60 bg-bg/90 backdrop-blur">
@@ -663,13 +661,7 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
 					</Link>
 				</div>
 			</header>
-			{notFound ? (
-				<main className="mx-auto max-w-lg px-4 py-24 text-center">
-					<h1 className="text-xl font-semibold">{t("notFound")}</h1>
-				</main>
-			) : (
-				<ErrorContent error={error} />
-			)}
+			<ErrorContent error={error} />
 		</div>
 	)
 }

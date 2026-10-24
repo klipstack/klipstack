@@ -149,4 +149,5 @@ export default [
 	route("version", "routes/version.ts"),
 	route("healthcheck", "routes/healthcheck.ts"),
 	route("status", "routes/status.ts"),
+	route("*", "routes/not-found.tsx"),
 ] satisfies RouteConfig

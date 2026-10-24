@@ -473,8 +473,15 @@ export default {
 	},
 	errors: {
 		generic: "Something went wrong.",
-		notFound: "Page not found.",
-		notFoundDetail: "The page you are looking for does not exist.",
+		notFound: {
+			kicker: "Error 404 · 0 min read",
+			title: "This page wandered off before you could save it.",
+			detail:
+				"The link may be mistyped, or what it pointed to was moved or deleted. Either way: <mark>not found</mark>.",
+			home: "Go to Home",
+			search: "Search your articles",
+			landing: "Go to Klipstack",
+		},
 		gone: "Page removed.",
 		goneDetail: "Its author took this page down.",
 		goneRemoved: "Klipstack took this page down because it broke the rules.",

@@ -402,5 +402,4 @@ export default {
 			mine: "Keep mine",
 		},
 	},
-	notFound: "This article does not exist or was deleted.",
 }

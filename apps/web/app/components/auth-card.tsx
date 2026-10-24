@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router"
 import { copyrightYear, LEGAL_NAME } from "~/lib/company"
-import { BrandMark } from "./brand-mark"
+import { BrandLogo } from "./brand-mark"
 
 /**
  * `appQuery`: the signed request of the app's sign-in the page is part of. The brand is not a link
@@ -20,14 +20,8 @@ export function AuthCard({
 	const { t } = useTranslation()
 	const inApp = appQuery !== null
 	const q = inApp ? `?${appQuery}` : ""
-	const brand = (
-		<>
-			<BrandMark className="h-9 w-auto text-accent md:h-11" />
-			{t("appName")}
-		</>
-	)
-	const brandClass =
-		"mb-4 flex items-center gap-3 text-xl font-semibold tracking-tight md:mb-8 md:text-2xl"
+	const brand = <BrandLogo className="h-8 w-auto sm:h-9" markClassName="text-accent" />
+	const brandClass = "mb-4 flex md:mb-8"
 	return (
 		// Tighter on phones, where sign-in and consent often run in an app's small browser sheet.
 		<main className="safe-top flex min-h-dvh flex-col items-center px-4 pt-6 pb-8 md:justify-center md:py-12">
