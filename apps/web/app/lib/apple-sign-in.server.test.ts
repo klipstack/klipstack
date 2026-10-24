@@ -13,7 +13,7 @@ import {
 	MOBILE_CLIENT_ID,
 	MOBILE_REDIRECT_URI,
 } from "@klipstack/api-contract/auth"
-import { account, db, eq, inArray, invites, pool, user as userTable } from "@klipstack/db"
+import { account, db, eq, inArray, invites, pool, session, user as userTable } from "@klipstack/db"
 import { RouterContextProvider } from "react-router"
 import { afterAll, describe, expect, it, vi } from "vitest"
 
@@ -475,6 +475,25 @@ describe("Sign in with Apple", () => {
 		const again = await appleFromTheApp({}, "app-code", { inviteCode: "NOT-AN-INVITE" })
 		expect(again.status).toBe(200)
 		expect(revoked).toHaveLength(0)
+	})
+
+	it("asks an account with two-factor authentication for the code, from the sign-in and the sign-up", async () => {
+		const [owner] = await db.select().from(userTable).where(eq(userTable.email, email))
+		await db.delete(session).where(eq(session.userId, owner!.id))
+		await db.update(userTable).set({ twoFactorEnabled: true }).where(eq(userTable.id, owner!.id))
+		try {
+			for (const signUp of [undefined, {}]) {
+				const answer = await appleFromTheApp({}, "app-code", signUp)
+				expect(answer.status).toBe(403)
+				expect(answer.body.error).toMatchObject({ code: "two_factor_required" })
+				expect(answer.body.code).toBeUndefined()
+			}
+			expect(await db.select().from(session).where(eq(session.userId, owner!.id))).toHaveLength(0)
+			// The reader is about to finish signing in: Apple's authorization stays.
+			expect(revoked).toHaveLength(0)
+		} finally {
+			await db.update(userTable).set({ twoFactorEnabled: false }).where(eq(userTable.id, owner!.id))
+		}
 	})
 
 	it("revokes the person's Sign in with Apple when the account is deleted", async () => {

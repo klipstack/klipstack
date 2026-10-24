@@ -121,42 +121,45 @@ export function TwoFactorSettings({
 					</confirm.Form>
 				</div>
 			) : (
-				<start.Form
-					method="post"
-					action="/settings/two-factor"
-					className="mt-3 flex flex-col gap-3"
-				>
-					<input type="hidden" name="intent" value="start" />
-					{turnedOff ? <p role="status">{t("twoFactor.disabled")}</p> : null}
-					{verified ? null : <p className="text-muted-fg">{t("twoFactor.verifyFirst")}</p>}
-					{hasPassword ? (
-						<Field
-							label={t("twoFactor.password")}
-							name="password"
-							type="password"
-							autoComplete="current-password"
-							required
-							disabled={!verified}
-							error={
-								start.data?.result === "wrong-password" ? t("twoFactor.wrongPassword") : undefined
-							}
-						/>
-					) : null}
-					<div>
-						<Button
-							type="submit"
-							size="sm"
-							variant="secondary"
-							disabled={!verified || start.state !== "idle"}
-						>
-							{t("twoFactor.start")}
-						</Button>
-					</div>
-					<Failure result={start.data?.result} />
+				<>
+					<start.Form
+						method="post"
+						action="/settings/two-factor"
+						className="mt-3 flex flex-col gap-3"
+					>
+						<input type="hidden" name="intent" value="start" />
+						{turnedOff ? <p role="status">{t("twoFactor.disabled")}</p> : null}
+						{verified ? null : <p className="text-muted-fg">{t("twoFactor.verifyFirst")}</p>}
+						{hasPassword ? (
+							<Field
+								label={t("twoFactor.password")}
+								name="password"
+								type="password"
+								autoComplete="current-password"
+								required
+								disabled={!verified}
+								error={
+									start.data?.result === "wrong-password" ? t("twoFactor.wrongPassword") : undefined
+								}
+							/>
+						) : null}
+						<div>
+							<Button
+								type="submit"
+								size="sm"
+								variant="secondary"
+								disabled={!verified || start.state !== "idle"}
+							>
+								{t("twoFactor.start")}
+							</Button>
+						</div>
+						<Failure result={start.data?.result} />
+					</start.Form>
+					{/* A form of its own, so outside the one above. */}
 					{start.data?.result === "reauthentication-required" ? (
 						<SignInAgain hasPassword={false} />
 					) : null}
-				</start.Form>
+				</>
 			)}
 		</section>
 	)

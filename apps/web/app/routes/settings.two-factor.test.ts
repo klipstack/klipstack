@@ -157,6 +157,10 @@ describe("Settings → two-factor authentication", () => {
 			(await post(cookie, { intent: "disable", password: "wrong", code: await codeFor(key) }))
 				.result,
 		).toBe("wrong-password")
+		// A wrong password uses up no backup code: the same one works below.
+		expect(
+			(await post(cookie, { intent: "disable", password: "wrong", code: backupCodes[0]! })).result,
+		).toBe("wrong-password")
 		expect(await twoFactorOf(reader.userId)).toBe(true)
 
 		const off = await post(cookie, {
@@ -172,6 +176,34 @@ describe("Settings → two-factor authentication", () => {
 			headers: new Headers(clientHeaders()),
 		})
 		expect("user" in again).toBe(true)
+	})
+
+	it("is offered only once the email is verified", async () => {
+		const reader = await signedIn()
+		await db.update(user).set({ emailVerified: false }).where(eq(user.id, reader.userId))
+		expect((await post(reader.cookie, { intent: "start", password: PASSWORD })).result).toBe(
+			"unverified",
+		)
+	})
+
+	it("counts password and code guesses per account, whatever the address", async () => {
+		const reader = await signedIn()
+		// Each post comes from a fresh address: only the account's count can stop them.
+		for (let guess = 0; guess < 5; guess++)
+			expect(
+				(await post(reader.cookie, { intent: "start", password: `wrong ${guess}` })).result,
+			).toBe("wrong-password")
+		expect((await post(reader.cookie, { intent: "start", password: PASSWORD })).result).toBe(
+			"limited",
+		)
+
+		const other = await signedIn()
+		await post(other.cookie, { intent: "start", password: PASSWORD })
+		for (let guess = 0; guess < 10; guess++)
+			expect((await post(other.cookie, { intent: "confirm", code: "000000" })).result).toBe(
+				"wrong-code",
+			)
+		expect((await post(other.cookie, { intent: "confirm", code: "000000" })).result).toBe("limited")
 	})
 
 	it("asks an account without a password for a recent sign-in instead", async () => {

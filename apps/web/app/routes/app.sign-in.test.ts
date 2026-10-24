@@ -414,14 +414,26 @@ describe("the iPhone app's sign-in with two-factor authentication", async () => 
 	})
 
 	it("takes nothing but a pending sign-in as the token", async () => {
-		const forged = Buffer.from("klip.session_token=anything").toString("base64url")
-		const answer = await secondStep({
-			codeChallenge: pkce().challenge,
-			twoFactorToken: forged,
-			code: await codeNow(),
+		const { challenge } = pkce()
+		const first = await signIn({
+			method: "password",
+			email,
+			password: PASSWORD,
+			codeChallenge: challenge,
 		})
-		expect(answer.status).toBe(403)
-		expect(answer.body.error).toMatchObject({ code: "reauthentication_required" })
+		const pending = Buffer.from(first.body.error.details.twoFactorToken, "base64url").toString()
+		const before = (await sessionsOf(email)).length
+		// A real pending sign-in with another cookie joined to it, or a header that can't be sent.
+		for (const cookie of [`${pending}; klip.extra=1`, `${pending}\r\nx-extra: 1`]) {
+			const answer = await secondStep({
+				codeChallenge: challenge,
+				twoFactorToken: Buffer.from(cookie).toString("base64url"),
+				code: await codeNow(),
+			})
+			expect(answer.status).toBe(403)
+			expect(answer.body.error).toMatchObject({ code: "reauthentication_required" })
+		}
+		expect(await sessionsOf(email)).toHaveLength(before)
 	})
 })
 

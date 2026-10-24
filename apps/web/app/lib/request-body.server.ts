@@ -63,6 +63,7 @@ export async function readForm(request: Request) {
 	const path = new URL(request.url).pathname.replace(/\.data$/, "")
 	const small = [
 		"/login",
+		"/login/code",
 		"/signup",
 		"/request-invite",
 		"/magic-link",

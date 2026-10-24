@@ -320,7 +320,18 @@ describe("two-factor sign-in", () => {
 	})
 
 	it("closes the plugin's endpoints over HTTP", async () => {
-		for (const path of ["/two-factor/verify-totp", "/two-factor/enable", "/two-factor/disable"]) {
+		// Every one of the plugin's: Settings and the sign-in pages are the only ways to them.
+		for (const path of [
+			"/two-factor/enable",
+			"/two-factor/disable",
+			"/two-factor/get-totp-uri",
+			"/two-factor/verify-totp",
+			"/two-factor/send-otp",
+			"/two-factor/verify-otp",
+			"/two-factor/verify-backup-code",
+			"/two-factor/generate-backup-codes",
+			"/two-factor/view-backup-codes",
+		]) {
 			const response = await auth.handler(
 				new Request(`${env.APP_URL}/api/auth${path}`, {
 					method: "POST",

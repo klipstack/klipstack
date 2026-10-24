@@ -1,7 +1,7 @@
 import { and, db, eq, ne, session as sessions } from "@klipstack/db"
 import { APIError } from "better-auth/api"
 import { data } from "react-router"
-import { checkAuthLimit } from "~/lib/auth-limits.server"
+import { checkAuthLimit, withAuthLimitChecked } from "~/lib/auth-limits.server"
 import { auth } from "~/lib/auth.server"
 import { hasFeature } from "~/lib/features.server"
 import { signedInRecently } from "~/lib/recent-sign-in.server"
@@ -38,13 +38,16 @@ export async function action({ context, request }: Route.ActionArgs) {
 			const { hasPassword } = await signInMethods(user.id)
 			if (!hasPassword && !signedInRecently(current.session.createdAt))
 				return data({ result: "reauthentication-required" as const }, { status: 403 })
-			const started = await auth.api.enableTwoFactor({
-				body: {
-					method: "totp",
-					...(hasPassword ? { password: String(form.get("password") ?? "") } : {}),
-				},
-				headers: request.headers,
-			})
+			if (hasPassword) await checkAuthLimit("/two-factor/enable", user.email, request.headers)
+			const started = await withAuthLimitChecked(() =>
+				auth.api.enableTwoFactor({
+					body: {
+						method: "totp",
+						...(hasPassword ? { password: String(form.get("password") ?? "") } : {}),
+					},
+					headers: request.headers,
+				}),
+			)
 			if (started.method !== "totp") throw new Error("expected an authenticator app's setup")
 			return {
 				result: "started" as const,
@@ -69,16 +72,28 @@ export async function action({ context, request }: Route.ActionArgs) {
 				.map((pair) => pair.split(";")[0])
 				.join("; ")
 			const renewed = await auth.api.getSession({ headers: new Headers({ cookie }) })
-			if (renewed)
-				await db
-					.delete(sessions)
-					.where(and(eq(sessions.userId, user.id), ne(sessions.id, renewed.session.id)))
+			// Every other session ends; should the new one not be found, this one ends too.
+			await db
+				.delete(sessions)
+				.where(
+					renewed
+						? and(eq(sessions.userId, user.id), ne(sessions.id, renewed.session.id))
+						: eq(sessions.userId, user.id),
+				)
 			return data({ result: "enabled" as const }, { headers: cookieHeadersFrom(headers) })
 		}
 
 		if (intent === "disable") {
 			if (!enabled) return { result: "disabled" as const }
 			await checkAuthLimit("/two-factor/settings-code", user.email, request.headers)
+			const { hasPassword } = await signInMethods(user.id)
+			const password = String(form.get("password") ?? "")
+			// The password before the code, so a wrong one uses up no backup code.
+			if (hasPassword) {
+				await checkAuthLimit("/two-factor/disable", user.email, request.headers)
+				if (!(await passwordMatches(user.id, password)))
+					return data({ result: "wrong-password" as const }, { status: 400 })
+			}
 			const { kind, code } = readCode(String(form.get("code") ?? ""))
 			// This session's own account: the plugin checks the code against it, using a backup code
 			// up, and makes no new session.
@@ -88,12 +103,13 @@ export async function action({ context, request }: Route.ActionArgs) {
 					body: { code, disableSession: true },
 					headers: request.headers,
 				})
-			const { hasPassword } = await signInMethods(user.id)
-			const { headers } = await auth.api.disableTwoFactor({
-				body: hasPassword ? { password: String(form.get("password") ?? "") } : {},
-				headers: request.headers,
-				returnHeaders: true,
-			})
+			const { headers } = await withAuthLimitChecked(() =>
+				auth.api.disableTwoFactor({
+					body: hasPassword ? { password } : {},
+					headers: request.headers,
+					returnHeaders: true,
+				}),
+			)
 			return data({ result: "disabled" as const }, { headers: cookieHeadersFrom(headers) })
 		}
 	} catch (error) {
@@ -110,6 +126,13 @@ export async function action({ context, request }: Route.ActionArgs) {
 		throw error
 	}
 	return data({ result: "failed" as const }, { status: 400 })
+}
+
+async function passwordMatches(userId: string, password: string) {
+	const context = await auth.$context
+	const accounts = await context.internalAdapter.findAccounts(userId)
+	const hash = accounts.find((account) => account.providerId === "credential")?.password
+	return Boolean(hash) && (await context.password.verify({ hash: hash!, password }))
 }
 
 export function loader() {

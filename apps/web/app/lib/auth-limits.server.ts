@@ -47,9 +47,10 @@ export async function checkAuthLimit(path: string, email: unknown, headers?: Hea
 		// Codes typed in Settings, by a signed-in account (confirming the app, turning it off): the
 		// plugin counts no tries there, so the account's are counted here.
 		"/two-factor/settings-code": { account: 10, ip: 30, seconds: 900 },
-		// Turning it on or off checks the password, when the account has one.
-		"/two-factor/enable": { ip: 20, seconds: 900 },
-		"/two-factor/disable": { ip: 20, seconds: 900 },
+		// Turning it on or off checks the password, when the account has one: counted as the
+		// password change's.
+		"/two-factor/enable": { account: 5, ip: 20, seconds: 900 },
+		"/two-factor/disable": { account: 5, ip: 20, seconds: 900 },
 		// The public wait list form (lib/invite-requests.server.ts), not a better-auth endpoint.
 		"/request-invite": { account: 3, ip: 10, seconds: 3600 },
 		// The public report form (lib/edition-reports.server.ts). Its "account" is one edition from
@@ -63,7 +64,8 @@ export async function checkAuthLimit(path: string, email: unknown, headers?: Hea
 		["ip", trustedAuthAddress(headers), policy.ip],
 		["account", normalized, policy.account],
 	] as const) {
-		if (limit === undefined) continue
+		// No account named (a body without one): counting "" would pool every account's tries.
+		if (limit === undefined || value === "") continue
 		const key = createHmac("sha256", env.BETTER_AUTH_SECRET)
 			.update(`${path}:${kind}:${value}`)
 			.digest("hex")

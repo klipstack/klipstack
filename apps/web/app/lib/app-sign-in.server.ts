@@ -209,7 +209,12 @@ export async function appSignInTwoFactor(
 	const request = parseInput(TwoFactorStep, input)
 	const pending = Buffer.from(request.twoFactorToken, "base64url").toString("utf8")
 	// Only a pending sign-in: the token is no way to send the server other cookies.
-	if (pendingSignInSent(new Headers({ cookie: pending })) !== pending) throw signInEnded()
+	// (Printable characters first: a line break would make the header itself throw.)
+	if (
+		/[^\x20-\x7e]/.test(pending) ||
+		pendingSignInSent(new Headers({ cookie: pending })) !== pending
+	)
+		throw signInEnded()
 	const done = await completeSignIn(new Request(env.APP_URL, { headers }), pending, request.code)
 	if ("error" in done) {
 		if (done.error === "wrong-code")
