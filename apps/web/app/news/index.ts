@@ -7,7 +7,11 @@ import type { DesktopBrowser } from "../lib/extension-url"
  * A deploy publishes it: on `/news`, its feed and share image, and in the sidebar of the accounts
  * it is for (`lib/news.server.ts`).
  */
-export const NEWS: readonly NewsEntry[] = []
+export const NEWS: readonly NewsEntry[] = [
+	{ slug: "iphone-app-in-spanish", date: "2026-10-23", audience: { unless: "iphone-app" } },
+	{ slug: "link-articles-from-notes", date: "2026-10-21" },
+	{ slug: "ask-your-own-assistant", date: "2026-10-21" },
+]
 
 /** Each entry's pages, by path: `./<slug>/<language>.html`. */
 export const NEWS_PAGES: Record<string, string> = import.meta.glob<string>("./*/*.html", {

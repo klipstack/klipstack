@@ -115,7 +115,7 @@ export function NewsStack({
 						{top.title}
 					</Link>
 				</h2>
-				<p className="mt-0.5 line-clamp-3 text-xs text-muted-fg">{top.description}</p>
+				<p className="mt-0.5 line-clamp-4 text-xs text-muted-fg">{top.description}</p>
 			</article>
 		</section>
 	)
