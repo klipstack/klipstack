@@ -85,12 +85,29 @@ export function SignInAgain({ hasPassword }: { hasPassword: boolean }) {
 					autoComplete="current-password"
 					required
 					error={
-						result
+						result?.error === "limited" || result?.error === "wrong-password"
 							? t(result.error === "limited" ? "reauth.limited" : "reauth.wrongPassword")
 							: undefined
 					}
 				/>
 			</div>
+			{/* With two-factor authentication on, the server asks for the code too. */}
+			{result?.error === "code-required" || result?.error === "wrong-code" ? (
+				<div className="w-full sm:w-72">
+					<Field
+						label={t("reauth.code")}
+						name="code"
+						autoComplete="one-time-code"
+						autoCapitalize="off"
+						spellCheck={false}
+						required
+						autoFocus
+						maxLength={20}
+						hint={t("reauth.codeHint")}
+						error={result.error === "wrong-code" ? t("reauth.wrongCode") : undefined}
+					/>
+				</div>
+			) : null}
 			<Button type="submit" variant="secondary" disabled={fetcher.state !== "idle"}>
 				{t("reauth.confirm")}
 			</Button>

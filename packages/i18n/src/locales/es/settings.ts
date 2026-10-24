@@ -161,5 +161,9 @@ export default {
 		confirmed: "Confirmado. Inténtalo de nuevo ahora.",
 		wrongPassword: "Esa contraseña no es correcta.",
 		limited: "Demasiados intentos. Inténtalo más tarde.",
+		code: "Código de tu app de autenticación",
+		codeHint:
+			"La verificación en dos pasos está activada: escribe el código de 6 dígitos o un código de respaldo.",
+		wrongCode: "Ese código no es correcto.",
 	},
 } satisfies typeof import("../en/settings").default

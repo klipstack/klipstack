@@ -39,6 +39,14 @@ export async function checkAuthLimit(path: string, email: unknown, headers?: Hea
 		// The provider names the account only at the callback: the address alone is counted.
 		"/sign-up/provider": { ip: 20, seconds: 3600 },
 		"/change-password": { account: 5, ip: 20, seconds: 900 },
+		// A sign-in's second step (lib/two-factor.server.ts): the pending sign-in allows 5 codes and
+		// the plugin locks the account for 15 minutes after 10 wrong ones; this bounds one address
+		// across accounts. The body names no account.
+		"/two-factor/verify-totp": { ip: 30, seconds: 900 },
+		"/two-factor/verify-backup-code": { ip: 30, seconds: 900 },
+		// Turning it on or off checks the password, when the account has one.
+		"/two-factor/enable": { ip: 20, seconds: 900 },
+		"/two-factor/disable": { ip: 20, seconds: 900 },
 		// The public wait list form (lib/invite-requests.server.ts), not a better-auth endpoint.
 		"/request-invite": { account: 3, ip: 10, seconds: 3600 },
 		// The public report form (lib/edition-reports.server.ts). Its "account" is one edition from

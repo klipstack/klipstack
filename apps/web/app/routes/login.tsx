@@ -28,6 +28,7 @@ import {
 } from "~/lib/provider-sign-in.server"
 import { readForm } from "~/lib/request-body.server"
 import { cookieHeadersFrom, requireAnonymous, safeRedirect } from "~/lib/session.server"
+import { needsSecondStep } from "~/lib/two-factor.server"
 import type { Route } from "./+types/login"
 
 const schema = z.object({
@@ -115,6 +116,13 @@ export async function action({ request, context }: Route.ActionArgs) {
 			returnHeaders: true,
 		})
 		const out = cookieHeadersFrom(headers)
+		// Two-factor authentication: no session yet, a pending sign-in the code page finishes. It
+		// takes the app's request along in its address, as this page has it.
+		if (needsSecondStep(response)) {
+			const next = new URLSearchParams(oauthQuery ?? "")
+			if (parsed.data.redirectTo) next.set("redirectTo", safeRedirect(parsed.data.redirectTo))
+			throw redirect(`/login/code?${next}`, { headers: out })
+		}
 		if ("user" in response)
 			out.append("set-cookie", await localeCookie.serialize(response.user.locale))
 		const next = oauthQuery ? oauthRedirectUrl(response) : null

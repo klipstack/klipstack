@@ -17,6 +17,7 @@ export async function action({ request, context }: Route.ActionArgs) {
 		request,
 		getSession(context)!,
 		String(form.get("password") ?? ""),
+		String(form.get("code") ?? ""),
 	)
 	if ("error" in confirmed)
 		return data(

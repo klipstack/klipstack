@@ -13,6 +13,17 @@ export default {
 		invalid: "Invalid email or password.",
 		oauthNote: "Log in to continue connecting an app to your Klipstack account.",
 	},
+	twoFactor: {
+		title: "Enter your code",
+		description: "Open your authenticator app and enter the 6-digit code it shows for Klipstack.",
+		code: "Code",
+		hint: "No phone at hand? Enter one of your backup codes instead.",
+		submit: "Continue",
+		wrongCode: "That code is not right. Check the app and try again.",
+		expired: "This sign-in has ended: it was open too long, or had too many tries. Log in again.",
+		limited: "Too many tries. Wait a few minutes, then log in again.",
+		startOver: "Log in again",
+	},
 	signup: {
 		title: "Create your account",
 		submit: "Create account",

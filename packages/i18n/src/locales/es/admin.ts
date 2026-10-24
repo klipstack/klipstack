@@ -40,6 +40,10 @@ export default {
 		submit: "Confirmar",
 		wrongPassword: "Esa contraseña no es correcta.",
 		limited: "Demasiados intentos. Inténtalo más tarde.",
+		code: "Código de tu app de autenticación",
+		codeHint:
+			"La verificación en dos pasos está activada: escribe el código de 6 dígitos o un código de respaldo.",
+		wrongCode: "Ese código no es correcto.",
 		required: "Ese cambio no se hizo. Confirma que eres tú y repítelo tú.",
 	},
 	errors: {
@@ -319,6 +323,11 @@ export default {
 					name: "IA en el lector",
 					description:
 						"Explicar, Definir y Preguntar sobre una selección en el lector, con la respuesta en el margen.",
+				},
+				"two-factor": {
+					name: "Verificación en dos pasos",
+					description:
+						"Configurar una app de autenticación en Ajustes, Cuenta. Una vez activada, cada inicio de sesión nuevo pide su código. Desactivar la función no quita la verificación a una cuenta que ya la configuró.",
 				},
 			},
 		},

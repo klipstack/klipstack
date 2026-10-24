@@ -158,5 +158,8 @@ export default {
 		confirmed: "Confirmed. Try it again now.",
 		wrongPassword: "That password is not right.",
 		limited: "Too many attempts. Try again later.",
+		code: "Code from your authenticator app",
+		codeHint: "Two-factor authentication is on: enter the 6-digit code, or a backup code.",
+		wrongCode: "That code is not right.",
 	},
 }

@@ -14,6 +14,8 @@ export const RESET_PASSWORD_MINUTES = 60
 export const VERIFY_EMAIL_MINUTES = 60
 /** The iPhone app's emailed sign-in code. */
 export const SIGN_IN_CODE_MINUTES = 10
+/** How long a sign-in waits for its two-factor code, once the first step passed. */
+export const TWO_FACTOR_MINUTES = 10
 export const MIN_PASSWORD_LENGTH = 8
 
 /**
