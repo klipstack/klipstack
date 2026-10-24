@@ -1,9 +1,20 @@
 import { randomUUID } from "node:crypto"
-import { adminAuditEvents, assets, db, documents, eq, user } from "@klipstack/db"
+import {
+	adminAuditEvents,
+	and,
+	assets,
+	db,
+	documents,
+	eq,
+	newId,
+	session,
+	twoFactor,
+	user,
+} from "@klipstack/db"
 import { getStorage } from "@klipstack/storage"
 import { afterAll, describe, expect, it } from "vitest"
 import { adminFixtures } from "~/test/admin-fixtures"
-import { deleteAccountAsOperator } from "./admin-accounts.server"
+import { deleteAccountAsOperator, resetTwoFactorAsOperator } from "./admin-accounts.server"
 
 const fx = adminFixtures("admin-accounts")
 afterAll(fx.cleanup)
@@ -69,5 +80,59 @@ describe("deleteAccountAsOperator", () => {
 			targetKind: "user",
 			metadata: { reason: "Phishing editions, removed twice" },
 		})
+	})
+})
+
+describe("resetTwoFactorAsOperator", () => {
+	const events = (id: string) =>
+		db
+			.select()
+			.from(adminAuditEvents)
+			.where(
+				and(
+					eq(adminAuditEvents.targetId, id),
+					eq(adminAuditEvents.action, "account.reset_two_factor"),
+				),
+			)
+
+	it("removes the authenticator and backup codes, ends every session, and records why", async () => {
+		const reader = await fx.account()
+		await db.insert(twoFactor).values({
+			id: newId(),
+			userId: reader.id,
+			secret: "sealed-secret",
+			backupCodes: "sealed-codes",
+		})
+		await db.update(user).set({ twoFactorEnabled: true }).where(eq(user.id, reader.id))
+		expect(await reader.session()).not.toBeNull()
+
+		await expect(
+			resetTwoFactorAsOperator({ userId: reader.id }, { reason: " " }),
+		).rejects.toMatchObject({ code: "invalid_request" })
+		const result = await resetTwoFactorAsOperator(
+			{ email: reader.email.toUpperCase() },
+			{ reason: "Lost phone and codes; confirmed by reply" },
+		)
+		expect(result).toMatchObject({ userId: reader.id, changed: true })
+		expect(result.sessionsEnded).toBeGreaterThanOrEqual(1)
+		expect(await db.select().from(twoFactor).where(eq(twoFactor.userId, reader.id))).toEqual([])
+		const [row] = await db.select().from(user).where(eq(user.id, reader.id))
+		expect(row!.twoFactorEnabled).toBe(false)
+		expect(await db.select().from(session).where(eq(session.userId, reader.id))).toEqual([])
+		expect(await events(reader.id)).toMatchObject([
+			{
+				actorKind: "operator-cli",
+				metadata: { reason: "Lost phone and codes; confirmed by reply" },
+			},
+		])
+	})
+
+	it("changes nothing, and records nothing, for an account without it", async () => {
+		const reader = await fx.account()
+		expect(
+			await resetTwoFactorAsOperator({ userId: reader.id }, { reason: "Asked by mistake" }),
+		).toEqual({ userId: reader.id, changed: false, sessionsEnded: 0 })
+		expect(await reader.session()).not.toBeNull()
+		expect(await events(reader.id)).toEqual([])
 	})
 })

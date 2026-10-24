@@ -4,7 +4,8 @@ This directory is for people who run their own Klipstack. It covers one machine 
 Compose: the containers, their settings, upgrades and backups.
 
 - [compose.yml](compose.yml): an example Compose file for the web server, the worker and PostgreSQL.
-- [admin.md](admin.md): roles, the operator CLI, stopping an account, release and rollback.
+- [admin.md](admin.md): roles, the operator CLI, stopping an account, two-factor authentication,
+  release and rollback.
 - [sign-in-providers.md](sign-in-providers.md): Google, GitHub and Apple sign-in.
 - [ai.md](ai.md): AI answers in the reader, with an Anthropic key.
 - [postgres-collation.md](postgres-collation.md): why the database uses the builtin collation

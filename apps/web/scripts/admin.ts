@@ -1,7 +1,10 @@
 import { parseArgs } from "node:util"
 import { pool } from "@klipstack/db"
 import { AppError } from "../app/lib/app-error"
-import { deleteAccountAsOperator } from "../app/services/admin-accounts.server"
+import {
+	deleteAccountAsOperator,
+	resetTwoFactorAsOperator,
+} from "../app/services/admin-accounts.server"
 import { changeRole, listAdmins } from "../app/services/admin-roles.server"
 
 /**
@@ -13,14 +16,19 @@ import { changeRole, listAdmins } from "../app/services/admin-roles.server"
  *   pnpm --filter @klipstack/web admin revoke --user-id <id> --reason "Access removed"
  *   pnpm --filter @klipstack/web admin delete-account --email someone@example.com \
  *     --confirm someone@example.com --reason "Phishing editions, removed twice"
+ *   pnpm --filter @klipstack/web admin reset-two-factor --email someone@example.com \
+ *     --reason "Lost phone and backup codes; confirmed by reply from the address"
  *
  * A grant needs an existing, verified account. Either change ends that account's browser
  * sessions. Revoking the last admin is allowed: this script is the way back. Deleting is not
  * undoable, and refuses an admin's account (docs/self-hosting/admin.md, "Stopping an account").
+ * Removing two-factor authentication ends the account's sessions too; check first that the
+ * request comes from the account's owner (docs/self-hosting/admin.md, "Two-factor authentication").
  */
 const USAGE = [
 	'usage: admin list | admin grant|revoke (--email <email> | --user-id <id>) --reason "<why>"',
 	'       admin delete-account (--email <email> | --user-id <id>) --confirm <its email> --reason "<why>"',
+	'       admin reset-two-factor (--email <email> | --user-id <id>) --reason "<why>"',
 ].join("\n")
 
 async function main(): Promise<number> {
@@ -79,6 +87,31 @@ async function main(): Promise<number> {
 				return 1
 			}
 			console.error(`deletion failed: ${error instanceof Error ? error.name : typeof error}`)
+			return 1
+		}
+	}
+	if (command === "reset-two-factor") {
+		if (!values.reason?.trim() || values.confirm || Boolean(email) === Boolean(userId)) {
+			console.error(USAGE)
+			return 2
+		}
+		try {
+			const result = await resetTwoFactorAsOperator(
+				email ? { email } : { userId: userId as string },
+				{ reason: values.reason },
+			)
+			console.log(
+				result.changed
+					? `${result.userId}: two-factor authentication removed; ${result.sessionsEnded} session(s) ended`
+					: `${result.userId}: two-factor authentication was not on; no change needed`,
+			)
+			return 0
+		} catch (error) {
+			if (error instanceof AppError) {
+				console.error(error.message)
+				return 1
+			}
+			console.error(`reset failed: ${error instanceof Error ? error.name : typeof error}`)
 			return 1
 		}
 	}

@@ -412,6 +412,7 @@ export default {
 			"feature.enable": "Feature turned on",
 			"feature.disable": "Feature turned off",
 			"account.delete": "Account deleted",
+			"account.reset_two_factor": "Two-factor authentication removed",
 			"edition.remove": "Edition removed",
 			"edition.restore": "Edition restored",
 			"edition_reports.dismiss": "Reports dismissed",

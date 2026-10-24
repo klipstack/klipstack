@@ -422,6 +422,7 @@ export default {
 			"feature.enable": "Función activada",
 			"feature.disable": "Función desactivada",
 			"account.delete": "Cuenta borrada",
+			"account.reset_two_factor": "Verificación en dos pasos quitada",
 			"edition.remove": "Edición retirada",
 			"edition.restore": "Edición restaurada",
 			"edition_reports.dismiss": "Denuncias descartadas",
