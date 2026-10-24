@@ -74,9 +74,14 @@ export function SignInForm({
 			if (e instanceof TwoFactorRequired) {
 				setPending(e.pending)
 				setSecondCode("")
-			} else {
+			} else if (kind === "twoFactor" && e instanceof SignInError && e.code === "unauthorized") {
+				// A wrong code, not a lost session: the step stays.
+				setError(t("account.signIn.twoFactorWrong"))
+			} else if (e instanceof SignInError && e.code === "reauthentication_required") {
 				// Too long, or too many tries: the sign-in is over, and starts again.
-				if (e instanceof SignInError && e.code === "reauthentication_required") setPending(null)
+				setPending(null)
+				setError(t("account.signIn.twoFactorEnded"))
+			} else {
 				setError(errorMessage(e))
 			}
 		} finally {
@@ -479,6 +484,8 @@ export const styles = StyleSheet.create({
 		paddingHorizontal: 14,
 		paddingVertical: 13,
 		fontSize: 17,
+		// iOS reuses a code field's native view for the next field, letter spacing and all.
+		letterSpacing: 0,
 	},
 	code: { letterSpacing: 6, fontVariant: ["tabular-nums"] },
 	note: { fontSize: 15, lineHeight: 21 },

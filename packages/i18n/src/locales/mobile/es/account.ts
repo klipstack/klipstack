@@ -113,6 +113,8 @@ export default {
 		twoFactorPlaceholder: "Código",
 		twoFactorSubmit: "Continuar",
 		twoFactorCancel: "Volver",
+		twoFactorWrong: "Ese código no es correcto. Revisa la app y vuelve a intentarlo.",
+		twoFactorEnded: "Este inicio de sesión terminó. Vuelve a iniciar sesión.",
 		newHere: "¿Nuevo en Klipstack?",
 		createAccount: "Crea una cuenta",
 		continueWith: "Continuar con {{provider}}",
@@ -120,6 +122,8 @@ export default {
 	},
 	signUp: {
 		enterInvite: "Primero escribe tu código de invitación.",
+		twoFactor:
+			"Ya tienes una cuenta, con verificación en dos pasos. Vuelve atrás e inicia sesión para escribir su código.",
 		passwordShort: "Usa al menos {{min}} caracteres para la contraseña.",
 		inviteCode: "Código de invitación",
 		noInvite: "¿No tienes invitación?",
