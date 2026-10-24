@@ -1,6 +1,19 @@
 import { APIError } from "better-auth/api"
+import { renderSVG } from "uqr"
 import { auth } from "./auth.server"
 import { oauthApiContext } from "./oauth.server"
+
+/**
+ * What an authenticator app needs to add the account: the `otpauth://` URI as a QR code (an SVG
+ * data URL: no markup of ours is injected), and its secret in base32, to type in instead.
+ */
+export function authenticatorSetup(totpURI: string) {
+	const svg = renderSVG(totpURI, { border: 2 })
+	return {
+		qr: `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`,
+		secret: new URL(totpURI).searchParams.get("secret") ?? "",
+	}
+}
 
 /**
  * The second step of a sign-in, for accounts with two-factor authentication. A first step (a
@@ -40,7 +53,7 @@ export type CodeRefusal = "wrong-code" | "expired" | "limited"
  * Six digits are the authenticator app's code; anything else is taken as a backup code
  * (`abcde-12345`, the dash optional). Spaces are dropped either way.
  */
-function readCode(input: string): { kind: "totp" | "backup"; code: string } {
+export function readCode(input: string): { kind: "totp" | "backup"; code: string } {
 	const code = input.replace(/\s+/g, "")
 	if (/^\d{6}$/.test(code)) return { kind: "totp", code }
 	if (/^[A-Za-z0-9]{10}$/.test(code))

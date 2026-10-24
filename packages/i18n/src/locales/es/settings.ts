@@ -57,6 +57,33 @@ export default {
 		signInTitle: "Correo e inicio de sesión",
 		email: "Sesión iniciada como {{email}}",
 	},
+	twoFactor: {
+		title: "Verificación en dos pasos",
+		description:
+			"Cada inicio de sesión nuevo pide además un código de una app de autenticación en tu teléfono, como 1Password, Google Authenticator o Authy.",
+		on: "Activada. Cada inicio de sesión nuevo pide un código de tu app de autenticación.",
+		password: "Contraseña",
+		start: "Configurar",
+		verifyFirst: "Primero verifica tu correo.",
+		scan: "1. Escanea este código con tu app de autenticación.",
+		qrAlt: "Código QR que agrega Klipstack a una app de autenticación",
+		manual: "¿No puedes escanearlo? Escribe esta clave en la app:",
+		backupTitle: "2. Guarda tus códigos de respaldo",
+		backupHint:
+			"Si pierdes el teléfono, cada uno de estos códigos te deja entrar una vez. Guárdalos lejos del teléfono: no se vuelven a mostrar.",
+		confirmTitle: "3. Escribe el código que muestra la app",
+		code: "Código",
+		confirm: "Activar",
+		enabled: "La verificación en dos pasos está activada. Se cerraron tus otras sesiones.",
+		turnOffHint:
+			"Para desactivarla, escribe un código de tu app de autenticación o un código de respaldo.",
+		turnOff: "Desactivar",
+		disabled: "La verificación en dos pasos está desactivada.",
+		wrongPassword: "Esa contraseña no es correcta.",
+		wrongCode: "Ese código no es correcto.",
+		limited: "Demasiados intentos. Inténtalo más tarde.",
+		expired: "Esta configuración ya no está abierta. Vuelve a empezar.",
+	},
 	signIn: {
 		title: "Formas de iniciar sesión",
 		description: "Añade una contraseña o conecta una cuenta que ya usas.",

@@ -44,6 +44,9 @@ export async function checkAuthLimit(path: string, email: unknown, headers?: Hea
 		// across accounts. The body names no account.
 		"/two-factor/verify-totp": { ip: 30, seconds: 900 },
 		"/two-factor/verify-backup-code": { ip: 30, seconds: 900 },
+		// Codes typed in Settings, by a signed-in account (confirming the app, turning it off): the
+		// plugin counts no tries there, so the account's are counted here.
+		"/two-factor/settings-code": { account: 10, ip: 30, seconds: 900 },
 		// Turning it on or off checks the password, when the account has one.
 		"/two-factor/enable": { ip: 20, seconds: 900 },
 		"/two-factor/disable": { ip: 20, seconds: 900 },

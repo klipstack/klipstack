@@ -6,10 +6,12 @@ import { updateProfile } from "~/commands/account.server"
 import { EmailVerification } from "~/components/email-verification"
 import { SettingsCard, SettingsPage, SignInAgain } from "~/components/settings-page"
 import { SignInMethods } from "~/components/sign-in-methods"
+import { TwoFactorSettings } from "~/components/two-factor-settings"
 import { Button } from "~/components/ui/button"
 import { Field } from "~/components/ui/field"
 import { Label } from "~/components/ui/label"
 import { emailEnabled } from "~/lib/email.server"
+import { hasFeature } from "~/lib/features.server"
 import { type FieldErrors, parseForm } from "~/lib/forms"
 import { localeCookie } from "~/lib/i18n.server"
 import type { PageBarHandle } from "~/lib/page-bar"
@@ -42,6 +44,11 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 			emailVerified: user.emailVerified,
 		},
 		signIn: { ...(await signInMethods(user.id)), providers: enabledProviders },
+		// Offered with the flag; an account that has it on keeps the way to turn it off.
+		twoFactor:
+			user.twoFactorEnabled || (await hasFeature(user.id, "two-factor"))
+				? { enabled: Boolean(user.twoFactorEnabled) }
+				: null,
 		emailEnabled,
 	}
 }
@@ -80,6 +87,13 @@ export default function AccountSettings({ loaderData, actionData }: Route.Compon
 					verified={loaderData.user.emailVerified}
 					emailEnabled={loaderData.emailEnabled}
 				/>
+				{loaderData.twoFactor ? (
+					<TwoFactorSettings
+						enabled={loaderData.twoFactor.enabled}
+						hasPassword={loaderData.signIn.hasPassword}
+						verified={loaderData.user.emailVerified}
+					/>
+				) : null}
 			</SettingsCard>
 			<DeleteAccount hasPassword={loaderData.signIn.hasPassword} />
 		</SettingsPage>
