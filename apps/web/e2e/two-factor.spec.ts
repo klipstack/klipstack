@@ -142,7 +142,7 @@ test("a backup code signs in once, new ones replace them, and turning it off nee
 	await off.getByLabel("Code").fill(fresh[0]!)
 	await off.getByRole("button", { name: "Turn off" }).click()
 	await expect(page.getByRole("status")).toHaveText("Two-factor authentication is off.")
-	// Off, the page offers a new setup, not the last one's code and key.
+	// Off, the page offers a new setup.
 	await expect(page.getByRole("button", { name: "Set up" })).toBeVisible()
 	await expect(page.getByTestId("two-factor-key")).toHaveCount(0)
 

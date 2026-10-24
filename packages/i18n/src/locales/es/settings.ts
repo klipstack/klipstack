@@ -55,7 +55,6 @@ export default {
 	account: {
 		title: "Cuenta",
 		signInTitle: "Inicio de sesión y seguridad",
-		email: "Sesión iniciada como {{email}}",
 		emailLabel: "Correo",
 		password: "Contraseña",
 		linksOnly: "Enlaces enviados a tu correo",

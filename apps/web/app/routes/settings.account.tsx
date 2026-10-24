@@ -64,7 +64,7 @@ export async function action({ context, request }: Route.ActionArgs) {
 }
 
 export default function AccountSettings({ loaderData, actionData }: Route.ComponentProps) {
-	const { t } = useTranslation("settings")
+	const { t, i18n } = useTranslation("settings")
 	const { signIn, twoFactor, user } = loaderData
 	const ways = [
 		...(signIn.hasPassword ? [t("account.password")] : []),
@@ -90,7 +90,11 @@ export default function AccountSettings({ loaderData, actionData }: Route.Compon
 					</li>
 					<Row
 						title={t("signIn.title")}
-						value={ways.length ? ways.join(", ") : t("account.linksOnly")}
+						value={
+							ways.length
+								? new Intl.ListFormat(i18n.language, { type: "conjunction" }).format(ways)
+								: t("account.linksOnly")
+						}
 						to="/settings/account/sign-in"
 						action={t("account.manage")}
 						actionLabel={t("account.manageNamed", { name: t("signIn.title") })}

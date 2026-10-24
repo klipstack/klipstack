@@ -55,7 +55,6 @@ export default {
 	account: {
 		title: "Account",
 		signInTitle: "Login and security",
-		email: "Signed in as {{email}}",
 		emailLabel: "Email",
 		password: "Password",
 		linksOnly: "Links sent to your email",

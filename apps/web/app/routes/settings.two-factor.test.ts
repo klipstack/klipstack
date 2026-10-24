@@ -190,6 +190,14 @@ describe("Settings → two-factor authentication", () => {
 			(await post(cookie, { intent: "backup-codes", password: "wrong", code: await codeFor(key) }))
 				.result,
 		).toBe("wrong-password")
+		// The password alone gives none: a code is asked too, and a refusal replaces nothing.
+		const noCode = await post(cookie, {
+			intent: "backup-codes",
+			password: PASSWORD,
+			code: "000000",
+		})
+		expect(noCode.result).toBe("wrong-code")
+		expect(noCode.data).not.toHaveProperty("backupCodes")
 		const renewed = await post(cookie, {
 			intent: "backup-codes",
 			password: PASSWORD,
