@@ -1,5 +1,6 @@
 import { addOperator } from "@klipstack/api-contract/search-query"
 import type { Topic } from "@klipstack/sdk"
+import { t } from "./i18n"
 
 /**
  * The library's topic choice, as the web's: a list (Inbox, Starred, Archive) narrowed to one of
@@ -19,13 +20,13 @@ export interface TopicsInList {
 /** A topic's id, `none` for the articles in no topic, or null for every topic. */
 export type TopicChoice = string | null
 
-export const NO_TOPIC = "No topic"
+export const NO_TOPIC = t("library.topicChoice.none")
 
-const NONE_DESCRIPTION = "Articles sorted into none of your topics. New topics grow from these."
+const NONE_DESCRIPTION = t("library.topicChoice.noneDescription")
 
 function articles(n: number): string {
-	if (n === 0) return "None here"
-	return n === 1 ? "1 article" : `${n} articles`
+	if (n === 0) return t("library.topicChoice.noneHere")
+	return t("library.articles", { count: n })
 }
 
 /** The menu's choices, in the server's order (most in the list first), the chosen one on. */
@@ -34,7 +35,7 @@ export function topicMenu(
 	chosen: TopicChoice,
 ): { value: TopicChoice; label: string; count: string | null; on: boolean }[] {
 	return [
-		{ value: null, label: "Every topic", count: null, on: chosen === null },
+		{ value: null, label: t("library.topicChoice.every"), count: null, on: chosen === null },
 		...topics.items.map((t) => ({
 			value: t.id,
 			label: t.name,
@@ -52,11 +53,7 @@ export function chosenTopic(
 ): { name: string; description: string } | null {
 	if (chosen === "none") {
 		const sorting =
-			topics.sorting === 0
-				? ""
-				: topics.sorting === 1
-					? " 1 more is still being sorted."
-					: ` ${topics.sorting} more are still being sorted.`
+			topics.sorting === 0 ? "" : ` ${t("library.topicChoice.sorting", { count: topics.sorting })}`
 		return { name: NO_TOPIC, description: NONE_DESCRIPTION + sorting }
 	}
 	const topic = topics.items.find((t) => t.id === chosen)
@@ -108,7 +105,5 @@ export function topicQuery(name: string): string {
 
 /** The empty search's hint; a reader with topics also gets has:topic, and their topics below it. */
 export function searchHint(hasTopics: boolean): string {
-	return hasTopics
-		? "Search titles, text and notes. Try is:starred, site:example.com or has:topic, or a topic below."
-		: "Search titles, text and notes. Try is:starred or site:example.com."
+	return hasTopics ? t("library.search.hintTopics") : t("library.search.hint")
 }

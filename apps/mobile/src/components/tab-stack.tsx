@@ -4,6 +4,7 @@ import type { ReactNode } from "react"
 import { Pressable, StyleSheet, Text, View } from "react-native"
 import { AccountButton } from "@/components/account-button"
 import { Paper } from "@/components/paper"
+import { t } from "@/lib/i18n"
 import { headerType, useColors } from "@/lib/theme"
 
 /**
@@ -55,7 +56,7 @@ export function SaveLinkButton() {
 	return (
 		<Pressable
 			accessibilityRole="button"
-			accessibilityLabel="Save a link"
+			accessibilityLabel={t("library.header.saveLink")}
 			hitSlop={8}
 			onPress={() => router.push("/save")}
 		>

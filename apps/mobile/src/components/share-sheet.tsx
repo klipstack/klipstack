@@ -21,6 +21,7 @@ import { ClippingPaper, CLIP_TOP } from "@/components/clipping"
 import { hostOf } from "@/components/link-card"
 import { PostIt, postItText } from "@/components/post-it"
 import { copyRich, copyText } from "@/lib/clipboard"
+import { language, t } from "@/lib/i18n"
 import { fromStored } from "@/lib/note-field"
 import { tiltFor } from "@/lib/post-it"
 import { loadShareTab, saveShareTab, writeShareImage } from "@/lib/reader-files"
@@ -30,7 +31,6 @@ import {
 	REMOVED,
 	SHARE_TABS,
 	type ShareTab,
-	shareLocale,
 	shownTab,
 	TAB_LABELS,
 } from "@/lib/share-highlight"
@@ -143,14 +143,16 @@ function ShareSheet({
 	return (
 		<View style={[styles.sheet, { backgroundColor: colors.bg }]}>
 			<View style={[styles.bar, { borderColor: colors.border }]}>
-				<Text style={[styles.title, { color: colors.fg }]}>Share</Text>
+				<Text style={[styles.title, { color: colors.fg }]}>{t("reader.share.title")}</Text>
 				<Pressable accessibilityRole="button" onPress={onClose} hitSlop={12} style={styles.done}>
-					<Text style={[styles.doneText, { color: colors.accent }]}>Done</Text>
+					<Text style={[styles.doneText, { color: colors.accent }]}>
+						{t("common.actions.done")}
+					</Text>
 				</Pressable>
 			</View>
 			<ScrollView contentContainerStyle={styles.body}>
 				<Segments
-					label="Share as"
+					label={t("reader.share.shareAs")}
 					options={SHARE_TABS.map((t) => ({ value: t, label: TAB_LABELS[t] }))}
 					value={tab}
 					onChange={choose}
@@ -158,9 +160,11 @@ function ShareSheet({
 				/>
 				{note ? (
 					<View style={styles.switchRow}>
-						<Text style={[styles.switchLabel, { color: colors.fg }]}>Include My Note</Text>
+						<Text style={[styles.switchLabel, { color: colors.fg }]}>
+							{t("reader.share.includeNote")}
+						</Text>
 						<Switch
-							accessibilityLabel="Include My Note"
+							accessibilityLabel={t("reader.share.includeNote")}
 							value={withNote}
 							onValueChange={setWithNote}
 						/>
@@ -183,17 +187,13 @@ function ShareSheet({
 						link={link}
 						withNote={withNote}
 						hasNote={note !== null}
-						locale={deviceLocale()}
+						locale={language}
 						colors={colors}
 					/>
 				) : null}
 			</ScrollView>
 		</View>
 	)
-}
-
-function deviceLocale(): "en" | "es" {
-	return shareLocale(Intl.DateTimeFormat().resolvedOptions().locale)
 }
 
 /** A segmented control: one choice among a few, as iOS draws it. */
@@ -259,7 +259,7 @@ function Preview({
 		<View testID="share-preview" style={styles.clipping}>
 			<ClippingPaper id={h.id} colors={colors} />
 			<Text style={[styles.quote, { color: colors.fg }]} numberOfLines={8}>
-				“{h.quote.trim()}”
+				{t("reader.share.quote", { quote: h.quote.trim() })}
 			</Text>
 			{shown ? (
 				<PostIt
@@ -300,7 +300,7 @@ function TextPanel({
 		<View style={styles.actions}>
 			<Action
 				icon="square.and.arrow.up"
-				label="Share Text…"
+				label={t("reader.share.shareText")}
 				primary
 				disabled={!ready}
 				onPress={() => void Share.share({ message: text().plain }).catch(() => {})}
@@ -308,7 +308,7 @@ function TextPanel({
 			/>
 			<Action
 				icon={copied ? "checkmark" : "doc.on.doc"}
-				label={copied ? "Copied" : "Copy"}
+				label={copied ? t("reader.share.copied") : t("reader.share.copy")}
 				disabled={!ready}
 				onPress={() => {
 					const { html, plain } = text()
@@ -348,14 +348,12 @@ function LinkPanel({
 		return (
 			<View style={styles.panel}>
 				<Text style={muted}>
-					{withNote && hasNote
-						? "Anyone with the link sees this highlight, your note and the article it's from. Your name isn't shown."
-						: "Anyone with the link sees this highlight and the article it's from. Your name isn't shown."}
+					{withNote && hasNote ? t("reader.share.aboutWithNote") : t("reader.share.about")}
 				</Text>
 				<View style={styles.actions}>
 					<Action
 						icon="link"
-						label="Create Link"
+						label={t("reader.share.createLink")}
 						primary
 						disabled={busy}
 						onPress={() => change({ share: { includeNote: withNote, locale } })}
@@ -375,22 +373,18 @@ function LinkPanel({
 			>
 				{share.url}
 			</Text>
-			{stale ? (
-				<Text style={muted}>
-					The page shows this highlight as you shared it. Update the link to show it as it is now.
-				</Text>
-			) : null}
+			{stale ? <Text style={muted}>{t("reader.share.stale")}</Text> : null}
 			<View style={styles.actions}>
 				<Action
 					icon="square.and.arrow.up"
-					label="Share Link…"
+					label={t("reader.share.shareLink")}
 					primary
 					onPress={() => void Share.share({ url: share.url }).catch(() => {})}
 					colors={colors}
 				/>
 				<Action
 					icon={copied ? "checkmark" : "doc.on.doc"}
-					label={copied ? "Copied" : "Copy Link"}
+					label={copied ? t("reader.share.copied") : t("reader.share.copyLink")}
 					onPress={() => void copyText(share.url).then(() => setCopied(true))}
 					colors={colors}
 				/>
@@ -399,7 +393,7 @@ function LinkPanel({
 				{stale ? (
 					<Action
 						icon="arrow.clockwise"
-						label="Update Link"
+						label={t("reader.share.updateLink")}
 						disabled={busy}
 						onPress={() => change({ share: { includeNote: withNote, locale } })}
 						colors={colors}
@@ -407,23 +401,23 @@ function LinkPanel({
 				) : null}
 				<Action
 					icon="xmark.circle"
-					label="Stop Sharing"
+					label={t("reader.share.stop")}
 					destructive
 					disabled={busy}
 					onPress={() =>
-						Alert.alert(
-							"Stop Sharing?",
-							"The link stops working for everyone. Sharing again makes a new link.",
-							[
-								{ text: "Cancel", style: "cancel" },
-								{ text: "Stop Sharing", style: "destructive", onPress: () => change("stop") },
-							],
-						)
+						Alert.alert(t("reader.share.stopTitle"), t("reader.share.stopMessage"), [
+							{ text: t("common.actions.cancel"), style: "cancel" },
+							{
+								text: t("reader.share.stop"),
+								style: "destructive",
+								onPress: () => change("stop"),
+							},
+						])
 					}
 					colors={colors}
 				/>
 			</View>
-			<Text style={muted}>Every highlight you shared is in the Notebook, under Shared.</Text>
+			<Text style={muted}>{t("reader.share.all")}</Text>
 			{failed}
 		</View>
 	)
@@ -475,10 +469,10 @@ function ImagePanel({
 					retry: code !== "cannot_draw",
 					message:
 						code === "cannot_draw"
-							? "This highlight's script can't be drawn as an image yet."
+							? t("reader.share.cannotDraw")
 							: code === "rate_limited"
-								? "Too many images drawn for now. Try again later."
-								: "Couldn't draw the image. Try again.",
+								? t("reader.share.tooManyImages")
+								: t("reader.share.drawFailed"),
 				})
 			})
 		return () => {
@@ -489,19 +483,17 @@ function ImagePanel({
 	return (
 		<View style={styles.panel}>
 			<Segments
-				label="Shape"
+				label={t("reader.share.shape")}
 				options={[
-					{ value: "wide", label: "Wide" },
-					{ value: "tall", label: "Tall" },
+					{ value: "wide", label: t("reader.share.wide") },
+					{ value: "tall", label: t("reader.share.tall") },
 				]}
 				value={shape}
 				onChange={setShape}
 				colors={colors}
 			/>
 			<Text style={[styles.message, { color: colors.mutedFg }]}>
-				{shape === "wide"
-					? "For chats, posts and messages."
-					: "For a phone's full screen: Stories and Status."}
+				{shape === "wide" ? t("reader.share.wideHint") : t("reader.share.tallHint")}
 			</Text>
 			<View
 				style={[
@@ -516,11 +508,14 @@ function ImagePanel({
 						source={{ uri: drawn.uri }}
 						cachePolicy="none"
 						contentFit="contain"
-						accessibilityLabel="The highlight as an image"
+						accessibilityLabel={t("reader.share.image")}
 						style={StyleSheet.absoluteFill}
 					/>
 				) : drawn.status === "drawing" ? (
-					<ActivityIndicator color={colors.mutedFg} accessibilityLabel="Drawing the image…" />
+					<ActivityIndicator
+						color={colors.mutedFg}
+						accessibilityLabel={t("reader.share.drawing")}
+					/>
 				) : (
 					<Text style={[styles.message, { color: colors.mutedFg }]}>{drawn.message}</Text>
 				)}
@@ -529,14 +524,14 @@ function ImagePanel({
 				{drawn.status === "failed" && drawn.retry ? (
 					<Action
 						icon="arrow.clockwise"
-						label="Try Again"
+						label={t("common.actions.retry")}
 						onPress={() => setAttempt((n) => n + 1)}
 						colors={colors}
 					/>
 				) : null}
 				<Action
 					icon="square.and.arrow.up"
-					label="Share Image…"
+					label={t("reader.share.shareImage")}
 					primary
 					disabled={drawn.status !== "drawn"}
 					onPress={() => {

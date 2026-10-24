@@ -2,6 +2,7 @@ import { useFocusEffect } from "expo-router"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { AppState } from "react-native"
 import { onChange, settled } from "@/lib/article-changes"
+import { errorMessage } from "@/lib/i18n"
 import { canUseOffline, OFFLINE_NOTE } from "@/lib/offline"
 
 type Page<T> = { items: T[]; nextCursor: string | null }
@@ -65,7 +66,7 @@ export function usePagedList<T extends { id: string }>(
 				setError(OFFLINE_NOTE)
 				return
 			}
-			setError(e instanceof Error ? e.message : String(e))
+			setError(errorMessage(e))
 		}
 	}, [fetchPage, pageSize, max, offline])
 
@@ -82,7 +83,7 @@ export function usePagedList<T extends { id: string }>(
 			})
 			setNext(page.nextCursor)
 		} catch (e) {
-			if (mine === generation.current) setError(e instanceof Error ? e.message : String(e))
+			if (mine === generation.current) setError(errorMessage(e))
 		} finally {
 			setLoadingMore(false)
 		}

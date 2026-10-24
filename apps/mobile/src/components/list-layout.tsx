@@ -1,6 +1,7 @@
 import { SymbolView } from "expo-symbols"
 import { useSyncExternalStore } from "react"
 import { Pressable } from "react-native"
+import { t } from "@/lib/i18n"
 import type { ListLayout } from "@/lib/list-layout"
 import { loadListLayout, saveListLayout } from "@/lib/reader-files"
 import { useColors } from "@/lib/theme"
@@ -39,7 +40,9 @@ export function LayoutButton() {
 	return (
 		<Pressable
 			accessibilityRole="button"
-			accessibilityLabel={next === "list" ? "List view" : "Grid view"}
+			accessibilityLabel={
+				next === "list" ? t("library.header.listView") : t("library.header.gridView")
+			}
 			hitSlop={8}
 			onPress={() => setListLayout(next)}
 		>

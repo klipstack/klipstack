@@ -28,6 +28,7 @@ import { useAuth } from "@/lib/auth"
 import { copyText } from "@/lib/clipboard"
 import { inSections } from "@/lib/date-groups"
 import { useEditions } from "@/lib/editions"
+import { t } from "@/lib/i18n"
 import { leadImageSource } from "@/lib/lead-image"
 import type { Act } from "@/lib/list-motion"
 import { type Colors, fonts, useColors } from "@/lib/theme"
@@ -249,7 +250,7 @@ export function Starred({
 					name="star.fill"
 					tintColor={colors.favorite}
 					size={12}
-					accessibilityLabel="Starred"
+					accessibilityLabel={t("library.card.starred")}
 				/>
 			) : null}
 			{marked ? (
@@ -257,7 +258,7 @@ export function Starred({
 					name="newspaper.fill"
 					tintColor={colors.accent}
 					size={12}
-					accessibilityLabel="Marked for your next edition"
+					accessibilityLabel={t("library.card.shortlisted")}
 				/>
 			) : null}
 			{children}
@@ -376,7 +377,7 @@ function articleMenu(item: ArticleSummary, menu: CardMenu, editions: boolean) {
 	const archived = item.location === "archive"
 	const share = (
 		<Link.MenuAction icon="square.and.arrow.up" onPress={() => shareArticle(item)}>
-			Share
+			{t("common.actions.share")}
 		</Link.MenuAction>
 	)
 	// The original, after `first` (Share, when it isn't on top).
@@ -388,29 +389,29 @@ function articleMenu(item: ArticleSummary, menu: CardMenu, editions: boolean) {
 				// Web pages open in the phone's browser, never inside the app.
 				onPress={() => void Linking.openURL(item.url)}
 			>
-				Open Original
+				{t("library.actions.openOriginal")}
 			</Link.MenuAction>
 			<Link.MenuAction icon="link" onPress={() => void copyText(item.url)}>
-				Copy Link
+				{t("library.actions.copyLink")}
 			</Link.MenuAction>
 		</Link.Menu>
 	)
 	const select = menu.select ? (
 		<Link.MenuAction icon="checkmark.circle.badge.plus" onPress={() => menu.select?.(item)}>
-			Select
+			{t("library.actions.select")}
 		</Link.MenuAction>
 	) : null
 	if (item.trashedAt)
 		return (
 			<Link.Menu>
 				<Link.MenuAction icon="arrow.uturn.backward" onPress={() => menu.act(item, "restore")}>
-					Restore
+					{t("library.actions.restore")}
 				</Link.MenuAction>
 				{original(share)}
 				<Link.Menu inline>
 					{select}
 					<Link.MenuAction icon="trash" destructive onPress={() => menu.act(item, "purge")}>
-						Delete Forever
+						{t("common.actions.deleteForever")}
 					</Link.MenuAction>
 				</Link.Menu>
 			</Link.Menu>
@@ -419,7 +420,7 @@ function articleMenu(item: ArticleSummary, menu: CardMenu, editions: boolean) {
 		<Link.Menu>
 			{saved ? null : (
 				<Link.MenuAction icon="arrow.clockwise" onPress={() => menu.act(item, "retry")}>
-					Try Again
+					{t("common.actions.retry")}
 				</Link.MenuAction>
 			)}
 			{saved ? (
@@ -428,13 +429,13 @@ function articleMenu(item: ArticleSummary, menu: CardMenu, editions: boolean) {
 						icon={item.starred ? "star.slash" : "star"}
 						onPress={() => menu.act(item, item.starred ? "unstar" : "star")}
 					>
-						{item.starred ? "Unstar" : "Star"}
+						{item.starred ? t("library.actions.unstar") : t("library.actions.star")}
 					</Link.MenuAction>
 					<Link.MenuAction
 						icon={archived ? "tray.and.arrow.up" : "archivebox"}
 						onPress={() => menu.act(item, archived ? "unarchive" : "archive")}
 					>
-						{archived ? "Move to Inbox" : "Archive"}
+						{archived ? t("library.actions.unarchive") : t("common.actions.archive")}
 					</Link.MenuAction>
 					{share}
 				</Link.Menu>
@@ -443,12 +444,12 @@ function articleMenu(item: ArticleSummary, menu: CardMenu, editions: boolean) {
 				<Link.Menu inline>
 					{!ready || item.finished ? null : (
 						<Link.MenuAction icon="checkmark.circle" onPress={() => menu.act(item, "finish")}>
-							Mark as Finished
+							{t("library.actions.finish")}
 						</Link.MenuAction>
 					)}
 					{ready && item.opened ? (
 						<Link.MenuAction icon="eye.slash" onPress={() => menu.act(item, "unread")}>
-							Mark as Unread
+							{t("library.actions.unread")}
 						</Link.MenuAction>
 					) : null}
 					{editions ? (
@@ -456,14 +457,14 @@ function articleMenu(item: ArticleSummary, menu: CardMenu, editions: boolean) {
 							icon="newspaper"
 							onPress={() => menu.act(item, item.shortlisted ? "unshortlist" : "shortlist")}
 						>
-							{item.shortlisted ? "Remove from Next Edition" : "Add to Next Edition"}
+							{item.shortlisted ? t("library.actions.unshortlist") : t("library.actions.shortlist")}
 						</Link.MenuAction>
 					) : null}
 					<Link.MenuAction icon="tag" onPress={() => menu.tag(item)}>
-						Tags…
+						{t("library.actions.tagsMore")}
 					</Link.MenuAction>
 					<Link.MenuAction icon="pencil" onPress={() => menu.act(item, "rename")}>
-						Rename…
+						{t("common.actions.renameMore")}
 					</Link.MenuAction>
 				</Link.Menu>
 			) : null}
@@ -472,11 +473,11 @@ function articleMenu(item: ArticleSummary, menu: CardMenu, editions: boolean) {
 				{select}
 				{menu.takeOut ? (
 					<Link.MenuAction icon="minus.circle" onPress={() => menu.takeOut?.(item)}>
-						Take Out of This Topic
+						{t("library.actions.takeOut")}
 					</Link.MenuAction>
 				) : null}
 				<Link.MenuAction icon="trash" destructive onPress={() => menu.act(item, "delete")}>
-					Delete
+					{t("common.actions.delete")}
 				</Link.MenuAction>
 			</Link.Menu>
 		</Link.Menu>
@@ -503,12 +504,12 @@ function metaLine(item: ArticleSummary): string {
  */
 function withStatus(line: string, item: ArticleSummary): string {
 	const status = item.trashedAt
-		? "In the trash"
+		? t("library.card.inTrash")
 		: item.status === "failed"
-			? "Couldn't save"
+			? t("library.card.failed")
 			: item.status === "ready"
 				? null
-				: "Saving…"
+				: t("library.card.saving")
 	return status ? [line, status].filter(Boolean).join(" · ") : line
 }
 

@@ -14,6 +14,7 @@ import {
 import { listStyles } from "@/components/grouped-list"
 import { SignInForm } from "@/components/sign-in-form"
 import { useAuth } from "@/lib/auth"
+import { errorMessage, t } from "@/lib/i18n"
 import type { Session } from "@/lib/session-store"
 import { fonts, useColors } from "@/lib/theme"
 import { openOnTheWeb } from "@/lib/web-pages"
@@ -43,7 +44,7 @@ export default function DeleteAccount() {
 	useEffect(() => {
 		void client?.me().then(
 			(me) => setEmail(me.email),
-			() => setError({ message: "Couldn't load your account. Go back and try again." }),
+			() => setError({ message: t("account.delete.loadFailed") }),
 		)
 	}, [client])
 
@@ -58,13 +59,13 @@ export default function DeleteAccount() {
 			if (e instanceof KlipstackApiError && e.code === "reauthentication_required" && !again)
 				return setConfirming(true)
 			setError({
-				message: e instanceof Error ? e.message : String(e),
+				message: errorMessage(e),
 				web: e instanceof KlipstackApiError && e.code === "forbidden",
 			})
 			return
 		}
 		await accountDeleted()
-		Alert.alert("Account deleted", "Your account and everything in it are gone.")
+		Alert.alert(t("account.delete.deletedTitle"), t("account.delete.deletedMessage"))
 	}
 
 	async function signedIn(session: Session) {
@@ -76,20 +77,16 @@ export default function DeleteAccount() {
 		const now = await client?.me()
 		if (now && now.email.toLowerCase() !== email?.toLowerCase())
 			return setError({
-				message: `You signed in as ${now.email}, so nothing was deleted. The app now uses that account.`,
+				message: t("account.delete.otherAccount", { email: now.email }),
 			})
 		await remove(true)
 	}
 
 	function confirm() {
-		Alert.alert(
-			"Delete your account?",
-			"Everything in it is deleted for good. This can't be undone.",
-			[
-				{ text: "Cancel", style: "cancel" },
-				{ text: "Delete", style: "destructive", onPress: () => void remove() },
-			],
-		)
+		Alert.alert(t("account.delete.confirmTitle"), t("account.delete.confirmMessage"), [
+			{ text: t("common.actions.cancel"), style: "cancel" },
+			{ text: t("common.actions.delete"), style: "destructive", onPress: () => void remove() },
+		])
 	}
 
 	return (
@@ -99,23 +96,19 @@ export default function DeleteAccount() {
 			contentInsetAdjustmentBehavior="automatic"
 			keyboardShouldPersistTaps="handled"
 		>
-			<Text style={[styles.lead, { color: colors.fg }]}>
-				This deletes your account and everything in it: articles, highlights, notes, tags, feeds and
-				editions. It can't be undone.
-			</Text>
-			<Text style={[styles.body, { color: colors.mutedFg }]}>
-				To keep your library, export it first from Account. Klipstack on your other devices is
-				signed out.
-			</Text>
+			<Text style={[styles.lead, { color: colors.fg }]}>{t("account.delete.lead")}</Text>
+			<Text style={[styles.body, { color: colors.mutedFg }]}>{t("account.delete.body")}</Text>
 			<View style={styles.field}>
 				<Text style={[styles.label, { color: colors.fg }]}>
-					Type {email ? <Text style={styles.strong}>{email}</Text> : "your email"} to confirm
+					{t("account.delete.typeBefore")}
+					{email ? <Text style={styles.strong}>{email}</Text> : t("account.delete.yourEmail")}
+					{t("account.delete.typeAfter")}
 				</Text>
 				<TextInput
-					accessibilityLabel="Your email, to confirm"
+					accessibilityLabel={t("account.delete.fieldLabel")}
 					value={typed}
 					onChangeText={setTyped}
-					placeholder={email ?? "Email"}
+					placeholder={email ?? t("account.delete.email")}
 					placeholderTextColor={colors.mutedFg}
 					autoCapitalize="none"
 					autoCorrect={false}
@@ -139,7 +132,9 @@ export default function DeleteAccount() {
 							accessibilityRole="link"
 							onPress={() => openOnTheWeb(`${apiUrl}/settings/account`)}
 						>
-							<Text style={[styles.body, { color: colors.accent }]}>Open Settings on the web</Text>
+							<Text style={[styles.body, { color: colors.accent }]}>
+								{t("account.delete.openWeb")}
+							</Text>
 						</Pressable>
 					) : null}
 				</View>
@@ -158,7 +153,7 @@ export default function DeleteAccount() {
 				{busy ? (
 					<ActivityIndicator color="#fff" />
 				) : (
-					<Text style={styles.buttonText}>Delete account</Text>
+					<Text style={styles.buttonText}>{t("account.delete.button")}</Text>
 				)}
 			</Pressable>
 			<Modal
@@ -169,9 +164,13 @@ export default function DeleteAccount() {
 			>
 				<View style={[styles.sheet, { backgroundColor: colors.bg }]}>
 					<View style={styles.sheetBar}>
-						<Text style={[styles.sheetTitle, { color: colors.fg }]}>Confirm it's you</Text>
+						<Text style={[styles.sheetTitle, { color: colors.fg }]}>
+							{t("account.delete.sheetTitle")}
+						</Text>
 						<Pressable accessibilityRole="button" hitSlop={8} onPress={() => setConfirming(false)}>
-							<Text style={[styles.cancel, { color: colors.accent }]}>Cancel</Text>
+							<Text style={[styles.cancel, { color: colors.accent }]}>
+								{t("common.actions.cancel")}
+							</Text>
 						</Pressable>
 					</View>
 					<SignInForm
@@ -179,8 +178,7 @@ export default function DeleteAccount() {
 						onSession={signedIn}
 						header={
 							<Text style={[styles.body, styles.sheetLead, { color: colors.mutedFg }]}>
-								Deleting the account needs a sign-in from the last 30 minutes. Sign in again
-								{email ? ` as ${email}` : ""}, any way you like.
+								{email ? t("account.delete.sheetLeadAs", { email }) : t("account.delete.sheetLead")}
 							</Text>
 						}
 					/>

@@ -1,5 +1,6 @@
 import type { ArticleSummary } from "@klipstack/sdk"
 import { minutesLeft } from "./home"
+import { dateLocale, t } from "./i18n"
 
 /**
  * Site and reading time, as the cards show them. On X the site says nothing about who wrote the
@@ -11,7 +12,7 @@ export function articleMeta(
 	return [
 		siteName(item),
 		hostOf(item.url) === "x.com" ? item.author : null,
-		item.readingMinutes ? `${item.readingMinutes} min` : null,
+		item.readingMinutes ? t("library.meta.minutes", { count: item.readingMinutes }) : null,
 	]
 		.filter(Boolean)
 		.join(" · ")
@@ -31,7 +32,14 @@ export function articleByline(
 ): string {
 	const left = item.status === "ready" && item.progress > 0 && item.progress < 1
 	const minutes = left ? minutesLeft(item) : item.readingMinutes
-	return [item.author, minutes ? `${minutes} min${left ? " left" : ""}` : null]
+	return [
+		item.author,
+		minutes
+			? left
+				? t("library.meta.minutesLeft", { count: minutes })
+				: t("library.meta.minutes", { count: minutes })
+			: null,
+	]
 		.filter(Boolean)
 		.join(" · ")
 }
@@ -41,7 +49,7 @@ export function shortDate(iso: string | null, now = new Date()): string | null {
 	if (!iso) return null
 	const date = new Date(iso)
 	if (Number.isNaN(date.getTime())) return null
-	return date.toLocaleDateString("en-US", {
+	return date.toLocaleDateString(dateLocale, {
 		month: "short",
 		day: "numeric",
 		...(date.getFullYear() === now.getFullYear() ? {} : { year: "numeric" }),

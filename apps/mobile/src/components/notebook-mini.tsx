@@ -9,12 +9,13 @@ import { type CardContext, oneLine, Thumb, titleOf } from "@/components/notebook
 import { PostIt, postItText } from "@/components/post-it"
 import { siteName } from "@/lib/article-meta"
 import { copyText } from "@/lib/clipboard"
+import { t } from "@/lib/i18n"
 import { fromStored } from "@/lib/note-field"
 import {
 	countLine,
 	type NotebookEntry,
 	type NotebookGroup,
-	plural,
+	highlightCount,
 	type ZoomTile,
 } from "@/lib/notebook"
 import { tiltFor } from "@/lib/post-it"
@@ -87,7 +88,9 @@ export function NotebookWall({
 								style={styles.moreRow}
 							>
 								<Text style={[styles.more, { color: colors.accent }]}>
-									{tile.open ? "Show Less" : `Show All ${tile.count}`}
+									{tile.open
+										? t("notebook.sections.showLess")
+										: t("notebook.sections.showAll", { count: tile.count })}
 								</Text>
 							</Pressable>
 						)
@@ -135,7 +138,7 @@ function ArticleHead({
 						<Text style={[styles.meta, { color: colors.mutedFg }]} numberOfLines={1}>
 							{[
 								siteName(article),
-								entry.highlights.length ? plural(entry.highlights.length, "highlight") : null,
+								entry.highlights.length ? highlightCount(entry.highlights.length) : null,
 							]
 								.filter(Boolean)
 								.join(" · ")}
@@ -163,7 +166,7 @@ function TopicHead({
 		<View style={[styles.head, styles.topicHead]}>
 			<View style={styles.articleText}>
 				<Text style={[styles.topicTitle, { color: colors.fg }]}>
-					{group.topic?.name ?? "Other"}
+					{group.topic?.name ?? t("notebook.sections.other")}
 				</Text>
 				<Text style={[styles.meta, { color: colors.mutedFg }]}>
 					{countLine(group.highlights, group.notes)}
@@ -175,7 +178,9 @@ function TopicHead({
 					hitSlop={8}
 					onPress={() => onSeeAll(group.topic?.id ?? "none")}
 				>
-					<Text style={[styles.more, { color: colors.accent }]}>See All {total}</Text>
+					<Text style={[styles.more, { color: colors.accent }]}>
+						{t("notebook.sections.seeAll", { count: total })}
+					</Text>
 				</Pressable>
 			) : null}
 		</View>
@@ -265,13 +270,13 @@ function Tile({
 			</Link.Trigger>
 			<Link.Menu>
 				<Link.MenuAction icon="doc.on.doc" onPress={() => void copyText(highlight.quote)}>
-					Copy
+					{t("notebook.card.copy")}
 				</Link.MenuAction>
 				<Link.MenuAction icon="square.and.arrow.up" onPress={() => ctx.onShare(highlight, article)}>
-					Share
+					{t("common.actions.share")}
 				</Link.MenuAction>
 				<Link.MenuAction icon="trash" destructive onPress={() => ctx.onDelete(highlight)}>
-					Delete
+					{t("common.actions.delete")}
 				</Link.MenuAction>
 			</Link.Menu>
 		</Link>

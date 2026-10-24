@@ -12,6 +12,7 @@ import {
 } from "react-native"
 import { CardPicture } from "@/components/article-card"
 import { articleMeta } from "@/lib/article-meta"
+import { t } from "@/lib/i18n"
 import { type ReviewAction, savedAgo, swipeDecision } from "@/lib/review"
 import type { Colors } from "@/lib/theme"
 
@@ -118,11 +119,11 @@ export function ReviewDeck({
 			>
 				<Pressable
 					accessibilityRole="link"
-					accessibilityHint="Opens it to read. Swipe right to keep it, left to archive it."
+					accessibilityHint={t("home.review.openHint")}
 					accessibilityActions={[
-						{ name: "keep", label: "Keep" },
-						{ name: "archive", label: "Archive" },
-						{ name: "delete", label: "Delete" },
+						{ name: "keep", label: t("home.review.keep") },
+						{ name: "archive", label: t("common.actions.archive") },
+						{ name: "delete", label: t("common.actions.delete") },
 					]}
 					onAccessibilityAction={(event) =>
 						leave(deck, event.nativeEvent.actionName as ReviewAction)
@@ -140,7 +141,7 @@ export function ReviewDeck({
 						{ opacity: keepShown, borderColor: colors.accent },
 					]}
 				>
-					<Text style={[styles.stampText, { color: colors.accent }]}>Keep</Text>
+					<Text style={[styles.stampText, { color: colors.accent }]}>{t("home.review.keep")}</Text>
 				</Animated.View>
 				<Animated.View
 					pointerEvents="none"
@@ -150,7 +151,9 @@ export function ReviewDeck({
 						{ opacity: archiveShown, borderColor: colors.mutedFg },
 					]}
 				>
-					<Text style={[styles.stampText, { color: colors.mutedFg }]}>Archive</Text>
+					<Text style={[styles.stampText, { color: colors.mutedFg }]}>
+						{t("common.actions.archive")}
+					</Text>
 				</Animated.View>
 			</Animated.View>
 		</View>

@@ -6,6 +6,7 @@ import { LibraryList } from "@/components/library-list"
 import { removeTopic, renameTopic } from "@/components/topic-actions"
 import { showToast } from "@/lib/article-changes"
 import { useAuth } from "@/lib/auth"
+import { t } from "@/lib/i18n"
 import { useColors } from "@/lib/theme"
 import { topicRefusal } from "@/lib/topic-shelves"
 
@@ -27,9 +28,9 @@ export default function TopicArticles() {
 	const takeOut = useCallback(
 		async (item: ArticleSummary) => {
 			if (!client) return
-			showToast({ message: `Taken out of ${name}. It won't be put back.` })
+			showToast({ message: t("library.topics.takenOut", { name }) })
 			await client.topics.takeOut(id, item.id).catch((e: unknown) => {
-				showToast({ message: `Not taken out: ${topicRefusal(e)}` })
+				showToast({ message: t("library.topics.notTakenOut", { reason: topicRefusal(e) }) })
 				throw e
 			})
 		},
@@ -40,22 +41,22 @@ export default function TopicArticles() {
 		const topic = { id, name }
 		return {
 			type: "menu",
-			label: "More",
-			accessibilityLabel: `More for ${name}`,
+			label: t("common.actions.more"),
+			accessibilityLabel: t("library.moreFor", { name }),
 			tintColor: colors.accent,
 			icon: { type: "sfSymbol", name: "ellipsis.circle" },
 			menu: {
 				items: [
 					{
 						type: "action",
-						label: "Rename…",
+						label: t("common.actions.renameMore"),
 						icon: { type: "sfSymbol", name: "pencil" },
 						onPress: () =>
 							renameTopic(client, topic, (renamed) => router.setParams({ name: renamed.name })),
 					},
 					{
 						type: "action",
-						label: "Remove Topic…",
+						label: t("library.topics.removeMore"),
 						icon: { type: "sfSymbol", name: "trash" },
 						destructive: true,
 						onPress: () => removeTopic(client, topic, () => router.back()),
@@ -69,7 +70,7 @@ export default function TopicArticles() {
 			view="all"
 			topic={id}
 			intro={description}
-			empty="No articles in this topic right now."
+			empty={t("library.empty.topic")}
 			takeOut={takeOut}
 			headerMenu={menu}
 		/>

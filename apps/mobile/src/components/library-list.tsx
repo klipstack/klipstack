@@ -28,6 +28,7 @@ import { onChange, showToast, track } from "@/lib/article-changes"
 import { retagged } from "@/lib/article-tags"
 import { useAuth } from "@/lib/auth"
 import { actedOn, bulkActions, bulkNotice, type LibraryView, stillShown } from "@/lib/bulk-actions"
+import { errorMessage, t } from "@/lib/i18n"
 import {
 	archivedReadNotice,
 	type FilterChoice,
@@ -208,8 +209,7 @@ export function LibraryList({
 					// The topic ended, or topics were turned off, since the list loaded them; unless the
 					// reader chose another one since.
 					if (filterable && topicEnded(asked, e) && topicOf(filterable) === asked) ended()
-					if (fixedTopic && topicEnded(asked, e))
-						throw new Error("This topic is gone: topics change as your library grows.")
+					if (fixedTopic && topicEnded(asked, e)) throw new Error(t("library.list.topicEnded"))
 					throw e
 				}
 			}
@@ -301,19 +301,16 @@ export function LibraryList({
 				message: archivedReadNotice(archived.length),
 				action: undo.length
 					? {
-							label: "Undo",
+							label: t("common.actions.undo"),
 							run: () =>
 								void track(Promise.all(undo.map((token) => client.articles.undo(token)))).catch(
-									() =>
-										showToast({
-											message: "Couldn't undo it: it's been too long, or you're offline.",
-										}),
+									() => showToast({ message: t("library.undoFailed") }),
 								),
 						}
 					: undefined,
 			})
 		} catch (e) {
-			showToast({ message: `Not archived: ${e instanceof Error ? e.message : String(e)}` })
+			showToast({ message: t("library.list.notArchived", { reason: errorMessage(e) }) })
 		} finally {
 			setArchiving(false)
 		}
@@ -321,15 +318,17 @@ export function LibraryList({
 
 	const note =
 		view === "trash"
-			? `Articles in the trash are deleted permanently after ${TRASH_RETENTION_DAYS} days.`
+			? t("library.list.trashNote", { days: TRASH_RETENTION_DAYS })
 			: gone
-				? "That topic ended, so this shows every topic."
+				? t("library.list.topicGone")
 				: null
 	const loaded = typeof topics === "object" ? topics : null
 	const shown = loaded && asked ? chosenTopic(loaded, asked) : null
 	const buttons = (
 		<HeaderButtons>
-			{items?.length ? <HeaderTextButton label="Select" onPress={() => start()} /> : null}
+			{items?.length ? (
+				<HeaderTextButton label={t("library.header.select")} onPress={() => start()} />
+			) : null}
 			<LayoutButton />
 			{canSave ? <SaveLinkButton /> : null}
 		</HeaderButtons>
@@ -420,7 +419,7 @@ export function LibraryList({
 												pressed && styles.pressed,
 											]}
 										>
-											Show every topic
+											{t("library.list.showEveryTopic")}
 										</Text>
 									)}
 								</Pressable>
@@ -465,13 +464,13 @@ export function LibraryList({
 									? fixedTopic
 										? empty
 										: filter
-											? "Nothing here right now."
+											? t("library.list.nothingHere")
 											: asked === "none"
-												? "No articles without a topic here."
+												? t("library.list.noTopicEmpty")
 												: asked
-													? "No articles in this topic here."
+													? t("library.list.topicEmpty")
 													: empty
-									: "Loading…")}
+									: t("library.list.loading"))}
 						</Text>
 					</View>
 				}
@@ -526,8 +525,8 @@ function FilterLine({
 				{filterLine(filter, count)}
 			</Text>
 			<View style={styles.filterActions}>
-				{archive ? link("Archive all read", archive.run, archive.busy) : null}
-				{link("Show all", clear)}
+				{archive ? link(t("library.list.archiveAllRead"), archive.run, archive.busy) : null}
+				{link(t("library.list.showAll"), clear)}
 			</View>
 		</View>
 	)

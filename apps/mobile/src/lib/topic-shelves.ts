@@ -5,6 +5,7 @@ import {
 	KlipstackApiError,
 	type Topic,
 } from "@klipstack/sdk"
+import { dateLocale, errorMessage, t } from "./i18n"
 
 /**
  * The Topics screen's pure parts, as the web's Topics page draws them (apps/web/app/routes/
@@ -69,7 +70,7 @@ export function spine(article: ArticleSummary, scheme: "light" | "dark", now: Da
 	const k = Math.min(1, Math.max(0, (Math.log10(words) - 2.5) / 1.6))
 	const { l, c } = BOOK[scheme]
 	return {
-		label: article.title ?? article.site ?? "Untitled",
+		label: article.title ?? article.site ?? t("home.topicShelves.untitled"),
 		width: Math.round(14 + k * 6),
 		height: 92 + (hash(article.id) % 30),
 		color: oklchHex(l, c, siteHue(article.site ?? article.id)),
@@ -101,7 +102,7 @@ export function oklchHex(l: number, c: number, h: number): string {
 }
 
 export function articles(n: number): string {
-	return n === 1 ? "1 article" : `${n} articles`
+	return t("home.topicShelves.articles", { count: n })
 }
 
 /**
@@ -111,7 +112,7 @@ export function articles(n: number): string {
  */
 export function topicsNotice(
 	answer: TopicsAnswer,
-	locale?: string,
+	locale = dateLocale,
 ): { title?: string; body: string } | null {
 	switch (answer.stage) {
 		case "unavailable":
@@ -121,21 +122,21 @@ export function topicsNotice(
 		case "waiting": {
 			const { count, needed } = answer.progress ?? { count: 0, needed: 0 }
 			return {
-				title: "Keep reading",
-				body: `Your first topics come when you have saved ${needed} articles: ${count} of ${needed} so far.`,
+				title: t("home.topicShelves.waiting.title"),
+				body: t("home.topicShelves.waiting.body", { needed, count }),
 			}
 		}
 		case "proposing":
 			return {
-				title: "Proposing your first topics…",
-				body: "This takes a minute or so. The screen updates on its own.",
+				title: t("home.topicShelves.proposing.title"),
+				body: t("home.topicShelves.proposing.body"),
 			}
 		case "active": {
 			const sorting = answer.sorting ?? 0
-			const waiting = sorting === 1 ? "1 article is waiting" : `${sorting} articles are waiting`
+			const waiting = t("home.topicShelves.articlesWaiting", { count: sorting })
 			if (answer.sortingPaused && sorting > 0) {
 				const { resumesAt, max } = answer.sortingPaused
-				if (!resumesAt) return { body: `This server sorts no articles into topics: ${waiting}.` }
+				if (!resumesAt) return { body: t("home.topicShelves.sortsOff", { waiting }) }
 				const date = new Intl.DateTimeFormat(locale, {
 					month: "long",
 					day: "numeric",
@@ -144,17 +145,14 @@ export function topicsNotice(
 				const sorted =
 					max === undefined
 						? ""
-						: ` ${new Intl.NumberFormat(locale).format(max)} articles were sorted, the most an account can.`
-				return {
-					body: `Sorting stopped for this month:${sorted} ${waiting}, and sorting starts again on ${date}. Nothing is lost.`,
-				}
+						: t("home.topicShelves.sorted", { max: new Intl.NumberFormat(locale).format(max) })
+				return { body: t("home.topicShelves.paused", { sorted, waiting, date }) }
 			}
 			if (sorting > 0)
 				return {
-					body: `Sorting your library into its topics: ${sorting === 1 ? "1 article" : `${sorting} articles`} to go.`,
+					body: t("home.topicShelves.sorting", { count: sorting }),
 				}
-			if (answer.items.length === 0)
-				return { body: "No topics right now. New ones appear as you save more articles." }
+			if (answer.items.length === 0) return { body: t("home.topicShelves.empty") }
 			return null
 		}
 	}
@@ -185,10 +183,10 @@ export function confirmation(
  */
 export function turnOffQuestion(savedSearches: { name: string; query: string }[]): string {
 	const naming = savedSearches.filter((s) => topicsNamedIn(s.query).length > 0).map((s) => s.name)
-	const base = "This deletes your topics and where each article was. It can't be undone."
+	const base = t("home.topicShelves.turnOff")
 	if (!naming.length) return base
-	const names = naming.map((n) => `“${n}”`).join(", ")
-	return `${base} ${naming.length === 1 ? "1 saved search names topics" : `${naming.length} saved searches name topics`} and will find nothing in them: ${names}.`
+	const names = naming.map((name) => t("home.topicShelves.quoted", { name })).join(", ")
+	return `${base} ${t("home.topicShelves.turnOffSaved", { count: naming.length, names })}`
 }
 
 /** A refused topic change in the reader's words, as the web's toasts say them. */
@@ -196,19 +194,19 @@ export function topicRefusal(e: unknown): string {
 	const code = e instanceof KlipstackApiError ? e.code : null
 	switch (code) {
 		case "name_taken":
-			return "Another topic has that name."
+			return t("home.topicShelves.refusal.nameTaken")
 		case "invalid_request":
-			return "A topic name has 1 to 60 characters."
+			return t("home.topicShelves.refusal.invalidName")
 		case "not_found":
-			return "That topic is gone."
+			return t("home.topicShelves.refusal.notFound")
 		case "already_done":
-			return "Your topics are confirmed already."
+			return t("home.topicShelves.refusal.alreadyDone")
 		case "forbidden":
-			return "Topics are not turned on for your account."
+			return t("home.topicShelves.refusal.forbidden")
 		case "unavailable":
-			return "Topics are not set up on this server."
+			return t("home.topicShelves.refusal.unavailable")
 		default:
-			return e instanceof Error ? e.message : String(e)
+			return errorMessage(e)
 	}
 }
 

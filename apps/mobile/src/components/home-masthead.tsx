@@ -9,6 +9,7 @@ import {
 	mastheadDate,
 	partOfDay,
 } from "@/lib/home-masthead"
+import { t } from "@/lib/i18n"
 import { type Colors, fonts } from "@/lib/theme"
 
 /**
@@ -83,7 +84,8 @@ export function HomeMasthead({
 			) : null}
 			{ear ? (
 				<Text testID="home-edition" style={[styles.ear, { color: colors.mutedFg }]}>
-					Your next edition: <Text style={{ color: colors.fg }}>{ear.count}</Text>
+					{t("home.masthead.nextEdition")}
+					<Text style={{ color: colors.fg }}>{ear.count}</Text>
 					{" · "}
 					{action(ear.action)}
 				</Text>
@@ -107,7 +109,9 @@ export function HomeMasthead({
 									pressed && styles.pressed,
 								]}
 							>
-								<Text style={[styles.buttonText, { color: colors.fg }]}>Put it together</Text>
+								<Text style={[styles.buttonText, { color: colors.fg }]}>
+									{t("home.masthead.putTogether")}
+								</Text>
 							</Pressable>
 						)}
 						<Pressable
@@ -119,7 +123,9 @@ export function HomeMasthead({
 								pressed && styles.pressed,
 							]}
 						>
-							<Text style={[styles.buttonText, { color: colors.fg }]}>Not now</Text>
+							<Text style={[styles.buttonText, { color: colors.fg }]}>
+								{t("home.masthead.notNow")}
+							</Text>
 						</Pressable>
 					</View>
 				</View>

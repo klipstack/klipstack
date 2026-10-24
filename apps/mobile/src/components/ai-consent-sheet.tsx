@@ -9,6 +9,7 @@ import {
 	View,
 } from "react-native"
 import { AI_CONSENT } from "@/lib/ai"
+import { t } from "@/lib/i18n"
 import { type Colors, fonts } from "@/lib/theme"
 import { openOnTheWeb } from "@/lib/web-pages"
 
@@ -60,12 +61,12 @@ export function AiConsentSheet({
 				<Text style={[styles.body, { color: colors.fg }]}>{AI_CONSENT.sent}</Text>
 				<Text style={[styles.body, { color: colors.mutedFg }]}>{AI_CONSENT.when}</Text>
 				<Pressable accessibilityRole="link" onPress={() => openOnTheWeb(privacyUrl)} hitSlop={8}>
-					<Text style={[styles.link, { color: colors.accent }]}>Privacy Policy</Text>
+					<Text style={[styles.link, { color: colors.accent }]}>{t("ai.consent.privacy")}</Text>
 				</Pressable>
 				<View style={styles.actions}>
 					{failed ? (
 						<Text style={[styles.failed, { color: colors.danger }]} accessibilityRole="alert">
-							Couldn't save your choice. Nothing was sent. Try again.
+							{t("ai.consent.failed")}
 						</Text>
 					) : null}
 					<Pressable
@@ -82,11 +83,15 @@ export function AiConsentSheet({
 						{busy ? (
 							<ActivityIndicator color={colors.accentFg} />
 						) : (
-							<Text style={[styles.buttonText, { color: colors.accentFg }]}>Continue</Text>
+							<Text style={[styles.buttonText, { color: colors.accentFg }]}>
+								{t("ai.consent.continue")}
+							</Text>
 						)}
 					</Pressable>
 					<Pressable accessibilityRole="button" onPress={onClose} hitSlop={8} style={styles.notNow}>
-						<Text style={[styles.notNowText, { color: colors.accent }]}>Not Now</Text>
+						<Text style={[styles.notNowText, { color: colors.accent }]}>
+							{t("ai.consent.notNow")}
+						</Text>
 					</Pressable>
 				</View>
 			</ScrollView>

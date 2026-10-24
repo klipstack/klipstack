@@ -19,6 +19,7 @@ import { useTagSheet } from "@/components/tag-sheet"
 import { retagged } from "@/lib/article-tags"
 import { useAuth } from "@/lib/auth"
 import { actedOn, bulkActions, bulkNotice } from "@/lib/bulk-actions"
+import { errorMessage, t } from "@/lib/i18n"
 import { searchHint, topicQuery } from "@/lib/library-topics"
 import { useColors } from "@/lib/theme"
 
@@ -66,7 +67,7 @@ export default function Search() {
 				const page = await client.articles.search(q, { limit: 50 })
 				if (live) setAnswer({ q, items: page.items, error: null })
 			} catch (e) {
-				if (live) setAnswer({ q, items: null, error: e instanceof Error ? e.message : String(e) })
+				if (live) setAnswer({ q, items: null, error: errorMessage(e) })
 			}
 		}, DEBOUNCE_MS)
 		return () => {
@@ -141,7 +142,11 @@ export default function Search() {
 		setQuery(text)
 	}
 
-	const hint = !q ? searchHint(topics.length > 0) : items ? "No articles match." : "Searching…"
+	const hint = !q
+		? searchHint(topics.length > 0)
+		: items
+			? t("library.empty.noMatch")
+			: t("library.search.searching")
 
 	return (
 		<>
@@ -149,7 +154,7 @@ export default function Search() {
 				options={{
 					headerSearchBarOptions: {
 						ref: field,
-						placeholder: "Search your library",
+						placeholder: t("library.search.placeholder"),
 						autoCapitalize: "none",
 						// The header stays while searching: it has Select.
 						hideNavigationBar: false,
@@ -159,7 +164,9 @@ export default function Search() {
 						headerLeft: () => <AccountButton />,
 						headerRight: () => (
 							<HeaderButtons>
-								{items?.length ? <HeaderTextButton label="Select" onPress={() => start()} /> : null}
+								{items?.length ? (
+									<HeaderTextButton label={t("library.header.select")} onPress={() => start()} />
+								) : null}
 								{client && canSaveSearch(q) ? (
 									<SaveSearchButton
 										saved={savedAs}
@@ -194,14 +201,14 @@ export default function Search() {
 					!q && topics.length > 0 ? (
 						<View style={styles.suggestions}>
 							<Text style={[styles.hint, styles.hintAbove, { color: colors.mutedFg }]}>{hint}</Text>
-							<PlaceGroup title="Topics" colors={colors}>
+							<PlaceGroup title={t("library.places.topics")} colors={colors}>
 								{topics.map((topic) => (
 									<PlaceButton
 										key={topic.id}
 										title={topic.name}
 										icon="square.stack.3d.up"
 										detail={String(topic.articles)}
-										label={`${topic.name}, ${topic.articles === 1 ? "1 article" : `${topic.articles} articles`}`}
+										label={`${topic.name}, ${t("library.articles", { count: topic.articles })}`}
 										onPress={() => searchFor(topicQuery(topic.name))}
 										colors={colors}
 									/>
@@ -238,7 +245,11 @@ function SaveSearchButton({ saved, onPress }: { saved: SavedSearch | null; onPre
 	return (
 		<Pressable
 			accessibilityRole="button"
-			accessibilityLabel={saved ? `Saved as ${saved.name}` : "Save search"}
+			accessibilityLabel={
+				saved
+					? t("library.savedSearches.savedAsLabel", { name: saved.name })
+					: t("library.savedSearches.save")
+			}
 			hitSlop={8}
 			onPress={onPress}
 		>

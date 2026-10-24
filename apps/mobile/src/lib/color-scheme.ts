@@ -1,10 +1,12 @@
 /** Light or dark mode for the whole app: the system's, or one chosen in the reader's Appearance. */
+import { t } from "./i18n"
+
 export type ColorSchemePref = "system" | "light" | "dark"
 
 export const COLOR_SCHEMES = [
-	{ id: "system", label: "Auto" },
-	{ id: "light", label: "Light" },
-	{ id: "dark", label: "Dark" },
+	{ id: "system", label: t("reader.colorSchemes.system") },
+	{ id: "light", label: t("reader.colorSchemes.light") },
+	{ id: "dark", label: t("reader.colorSchemes.dark") },
 ] as const satisfies ReadonlyArray<{ id: ColorSchemePref; label: string }>
 
 /** Stored JSON to a choice; anything unknown follows the system. */

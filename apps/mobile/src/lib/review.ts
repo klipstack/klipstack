@@ -1,3 +1,5 @@
+import { t } from "./i18n"
+
 /**
  * The review of old saves (`GET /review`), one article at a time: keep it, archive it or delete
  * it, as on the web's /library/review. A swipe right keeps, a swipe left archives.
@@ -54,9 +56,7 @@ export function swipeDecision(dx: number, vx: number, width: number): ReviewActi
 
 /** What the toast says once the server answered: "Archived", "12 articles kept". */
 export function reviewNotice(action: ReviewAction, count: number): string {
-	const done = { keep: "kept", archive: "archived", delete: "deleted" }[action]
-	if (count === 1) return done.charAt(0).toUpperCase() + done.slice(1)
-	return `${count} articles ${done}`
+	return t(`home.review.done.${action}`, { count })
 }
 
 const DAY_MS = 86_400_000
@@ -64,20 +64,22 @@ const DAY_MS = 86_400_000
 /** "Saved 5 weeks ago", "Saved 3 months ago", "Saved 2 years ago". */
 export function savedAgo(savedAt: string, now = new Date()): string {
 	const days = Math.max(0, Math.floor((now.getTime() - Date.parse(savedAt)) / DAY_MS))
-	if (days >= 730) return `Saved ${Math.floor(days / 365)} years ago`
-	if (days >= 365) return "Saved a year ago"
-	if (days >= 60) return `Saved ${Math.floor(days / 30)} months ago`
-	if (days >= 14) return `Saved ${Math.floor(days / 7)} weeks ago`
-	return `Saved ${days} ${days === 1 ? "day" : "days"} ago`
+	if (days >= 730) return t("home.review.savedAgo.years", { count: Math.floor(days / 365) })
+	if (days >= 365) return t("home.review.savedAgo.year")
+	if (days >= 60) return t("home.review.savedAgo.months", { count: Math.floor(days / 30) })
+	if (days >= 14) return t("home.review.savedAgo.weeks", { count: Math.floor(days / 7) })
+	return t("home.review.savedAgo.days", { count: days })
 }
 
 /** The server's days as the web says them: "a month", "3 months", "45 days". */
 export function spanText(days: number): string {
-	if (days % 30 !== 0) return `${days} days`
-	return days === 30 ? "a month" : `${days / 30} months`
+	if (days % 30 !== 0) return t("home.review.span.days", { count: days })
+	return days === 30
+		? t("home.review.span.month")
+		: t("home.review.span.months", { count: days / 30 })
 }
 
 /** How many are left: "12 left"; with more waiting after the page, "25+ left". */
 export function leftText(count: number, more: boolean): string {
-	return `${count}${more ? "+" : ""} left`
+	return t(more ? "home.review.leftMore" : "home.review.left", { count })
 }

@@ -9,7 +9,6 @@ import {
 	selectorFor,
 	walkTextNodes,
 } from "@klipstack/anchor"
-import { EDITION_NOTE_PLACEHOLDER } from "../lib/edition-note"
 import { controlsStep } from "./controls"
 import { createInk, textRects } from "./ink"
 import { type Box, lineBoxes } from "./line-boxes"
@@ -20,6 +19,7 @@ import type {
 	PageEnd,
 	PageHighlight,
 	PageMessage,
+	PageStrings,
 	PageSelection,
 	PageThread,
 	Sentence,
@@ -510,13 +510,13 @@ export function startReaderPage(): void {
 	const endHead = document.createElement("div")
 	const endRest = document.createElement("div")
 	endHead.className = endRest.className = "end-part"
-	const takeaway = createTakeaway(post)
+	const takeaway = createTakeaway(post, config.strings)
 	// Marked with its button here: what that opens below scrolls into view once the app says so.
 	let showEdition = false
 	page.klipEnd = (end) => {
 		if (!endBlock) return
 		if (!endBlock.firstChild) endBlock.append(endHead, takeaway.element, endRest)
-		const parts = endParts(end)
+		const parts = endParts(end, config.strings)
 		endHead.innerHTML = parts.head
 		endRest.innerHTML = parts.rest
 		if (!end.editions || !end.shortlisted) return
@@ -794,7 +794,14 @@ export function readingSpan(el: HTMLElement): number {
 /** How long a jump to a section in the contents may take to land. */
 const PICK_SCROLL_MS = 1000
 
-const NO_CONFIG: PageConfig = { top: 0, highlights: [], position: 0, highlight: null }
+// The app always writes the page's words in its config: without one, the page has none.
+const NO_CONFIG: PageConfig = {
+	top: 0,
+	highlights: [],
+	position: 0,
+	highlight: null,
+	strings: {} as PageStrings,
+}
 
 const CHECK =
 	'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>'
@@ -818,29 +825,30 @@ const linkText = (text: string) => text.replace(/\[([^\]\n]*)\]\((https?:\/\/[^\
  * reading left the article, and Mark as Finished while it is early. `rest`, below: the choices,
  * and once marked, the note for the next edition.
  */
-export function endParts(end: PageEnd): { head: string; rest: string } {
+export function endParts(end: PageEnd, strings: PageStrings): { head: string; rest: string } {
+	const say = (key: keyof PageStrings) => escapeText(strings[key])
 	const done = end.state === "finished" || end.state === "finishing"
-	const heading = `<span class="end-heading">${done ? `<span class="end-check">${CHECK}</span>Finished` : "You reached the end"}</span>`
+	const heading = `<span class="end-heading">${done ? `<span class="end-check">${CHECK}</span>${say("finished")}` : say("reachedEnd")}</span>`
 	const state =
 		end.state === "finishing"
-			? ` ${end.archived ? "It's marked as finished when you leave." : "It goes to your archive when you leave."} <button type="button" class="end-link" data-end="keep">${end.archived ? "Keep unfinished" : "Keep in Inbox"}</button>`
+			? ` ${end.archived ? say("finishingArchived") : say("finishing")} <button type="button" class="end-link" data-end="keep">${end.archived ? say("keepUnfinished") : say("keepInInbox")}</button>`
 			: end.state === "kept"
-				? ` ${end.archived ? "It stays unfinished." : "It stays in your Inbox."} <button type="button" class="end-link" data-end="unkeep">Finish when I leave</button>`
+				? ` ${end.archived ? say("keptArchived") : say("kept")} <button type="button" class="end-link" data-end="unkeep">${say("finishOnLeave")}</button>`
 				: ""
 	const finish =
 		end.state === "early"
-			? `<button type="button" class="end-finish" data-end="finish">${CHECK}Mark as Finished</button>`
+			? `<button type="button" class="end-finish" data-end="finish">${CHECK}${say("markFinished")}</button>`
 			: ""
-	const star = `<button type="button" class="end-choice${end.starred ? " starred" : ""}" data-end="star" aria-pressed="${end.starred}">${STAR}${end.starred ? "Starred" : "Star"}</button>`
-	const share = `<button type="button" class="end-choice" data-end="share">${SHARE}Share</button>`
+	const star = `<button type="button" class="end-choice${end.starred ? " starred" : ""}" data-end="star" aria-pressed="${end.starred}">${STAR}${end.starred ? say("starred") : say("star")}</button>`
+	const share = `<button type="button" class="end-choice" data-end="share">${SHARE}${say("share")}</button>`
 	const edition = !end.editions
 		? ""
-		: `<button type="button" class="end-choice wide${end.shortlisted ? " on" : ""}" data-end="shortlist" aria-pressed="${end.shortlisted}">${EDITION}${end.shortlisted ? "In Next Edition" : "Share in Next Edition"}</button>`
+		: `<button type="button" class="end-choice wide${end.shortlisted ? " on" : ""}" data-end="shortlist" aria-pressed="${end.shortlisted}">${EDITION}${end.shortlisted ? say("shortlisted") : say("shortlist")}</button>`
 	// Marked: it says so, and offers the note for the edition's readers, which the app edits.
 	const written = end.editionNote?.trim() ? linkText(end.editionNote) : null
 	const card =
 		end.editions && end.shortlisted
-			? `<div class="end-edition"><div class="end-edition-title"><span class="end-check">${CHECK}</span>Added to your next edition</div><div class="end-edition-label">For your edition's readers</div><button type="button" class="end-edition-note${written ? "" : " empty"}" data-end="edition-note">${escapeText(written ?? EDITION_NOTE_PLACEHOLDER)}</button></div>`
+			? `<div class="end-edition"><div class="end-edition-title"><span class="end-check">${CHECK}</span>${say("added")}</div><div class="end-edition-label">${say("editionLabel")}</div><button type="button" class="end-edition-note${written ? "" : " empty"}" data-end="edition-note">${written ? escapeText(written) : say("editionPlaceholder")}</button></div>`
 			: ""
 	return {
 		head: `<p class="end-status">${heading}${state}</p>${finish}`,

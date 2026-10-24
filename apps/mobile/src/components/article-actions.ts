@@ -6,6 +6,7 @@ import { newTitle } from "@/lib/article-title"
 import { actedOn, afterAction, BULK_CHANGES, type BulkAction, bulkNotice } from "@/lib/bulk-actions"
 import { afterMarking } from "@/lib/draft-undo"
 import { waitForExtraction } from "@/lib/extraction"
+import { errorMessage, t } from "@/lib/i18n"
 
 /**
  * What the actions change themselves: Tags opens the tag sheet instead (`useTagSheet`). Three are
@@ -20,12 +21,12 @@ export function askTitle(
 	rename: (title: string) => void,
 ): void {
 	Alert.prompt(
-		"Rename Article",
+		t("library.article.renameTitle"),
 		undefined,
 		[
-			{ text: "Cancel", style: "cancel" },
+			{ text: t("common.actions.cancel"), style: "cancel" },
 			{
-				text: "Rename",
+				text: t("common.actions.rename"),
 				onPress: (typed?: string) => {
 					const title = newTitle(typed, article.title)
 					if (title) rename(title)
@@ -70,7 +71,7 @@ export function useArticleActions(options: {
 			latest.current.apply(new Map([[article.id, answer.article]]))
 		} catch (e) {
 			latest.current.apply(new Map([[article.id, article]]))
-			Alert.alert("Not renamed", e instanceof Error ? e.message : String(e))
+			Alert.alert(t("common.failed.notRenamed"), errorMessage(e))
 		}
 	}, [])
 
@@ -117,7 +118,7 @@ export function useArticleActions(options: {
 					)
 				}
 			} catch (e) {
-				Alert.alert("Not saved", e instanceof Error ? e.message : String(e))
+				Alert.alert(t("common.failed.notSaved"), errorMessage(e))
 				latest.current.reload()
 			}
 		},
@@ -136,14 +137,14 @@ export function useArticleActions(options: {
 					articles.filter((a) => a.status === "failed"),
 				)
 			if (action === "purge") {
-				const one = articles.length === 1
+				const count = articles.length
 				return Alert.alert(
-					one ? "Delete this article forever?" : `Delete ${articles.length} articles forever?`,
-					`${one ? "Its" : "Their"} highlights and notes go too. This can't be undone.`,
+					t("library.article.purgeTitle", { count }),
+					t("library.article.purgeMessage", { count }),
 					[
-						{ text: "Cancel", style: "cancel" },
+						{ text: t("common.actions.cancel"), style: "cancel" },
 						{
-							text: "Delete Forever",
+							text: t("common.actions.deleteForever"),
 							style: "destructive",
 							onPress: () => void run(action, articles),
 						},
@@ -168,18 +169,17 @@ export function offerRestore(
 	reload: () => void,
 ): void {
 	showToast({
-		message: ids.length === 1 ? "Deleted" : bulkNotice("delete", ids.length),
+		message: ids.length === 1 ? t("library.article.deleted") : bulkNotice("delete", ids.length),
 		action: {
-			label: "Undo",
+			label: t("common.actions.undo"),
 			run: () => {
 				// Other screens load again once it lands.
 				track(client.articles.restore(ids)).then(
 					({ alreadySaved }) => {
-						if (alreadySaved.length)
-							showToast({ message: "Saved again since, so it stays in the trash." })
+						if (alreadySaved.length) showToast({ message: t("library.article.savedAgain") })
 						reload()
 					},
-					() => showToast({ message: "Couldn't undo it: it's been too long, or you're offline." }),
+					() => showToast({ message: t("library.undoFailed") }),
 				)
 			},
 		},

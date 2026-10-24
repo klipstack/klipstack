@@ -9,6 +9,7 @@ import {
 	type Written,
 	written,
 } from "./ai"
+import { language } from "./i18n"
 
 /**
  * The reader's AI for one article: whether the account may ask (the `ai` feature, on a server set
@@ -90,7 +91,7 @@ export function useReaderAi(client: KlipstackClient | null, articleId: string, r
 		setStreamed(NOTHING_WRITTEN)
 		try {
 			let ended = false
-			for await (const event of await client.ai.brief(articleId)) {
+			for await (const event of await client.ai.brief(articleId, { language })) {
 				if (!live.current) continue
 				if (event.type === "allowance") setAllowance(event.allowance)
 				else if (event.type === "brief") {

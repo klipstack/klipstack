@@ -4,10 +4,10 @@ import { Alert } from "react-native"
 import type { ListenStatus } from "@/components/listen-bar"
 import type { PageMessage } from "@/page/messages"
 import { speech } from "../../modules/klip-speech"
+import { errorMessage, t } from "./i18n"
 import { loadSpeechPrefs, saveSpeechPrefs } from "./reader-files"
 import {
 	formatBytes,
-	LANGUAGE_NAMES,
 	minutesLeft,
 	nextSpeed,
 	progressAt,
@@ -88,7 +88,7 @@ export function useReadAloud({
 			speech.addListener("onState", ({ state, error }) => {
 				if (!ownsSpeech(me)) return
 				if (state === "idle") {
-					if (error) Alert.alert("Couldn't read aloud", error)
+					if (error) Alert.alert(t("reader.readAloud.failed"), error)
 					releaseSpeech(me)
 					me.release()
 					return
@@ -117,7 +117,7 @@ export function useReadAloud({
 		if (!speech || !article) return
 		const language = speechLanguage(article.language, textSample())
 		if (!language) {
-			Alert.alert("Can't read this aloud", "Voices are available in English and Spanish.")
+			Alert.alert(t("reader.readAloud.cantTitle"), t("reader.readAloud.cantMessage"))
 			return
 		}
 		const pack = (await speech.languages()).find((p) => p.language === language)
@@ -127,11 +127,14 @@ export function useReadAloud({
 		claimSpeech(me)
 		if (pack.installed) return ask(language, voice)
 		Alert.alert(
-			`Download ${LANGUAGE_NAMES[language]} voices?`,
-			`Klipstack reads aloud on this iPhone, also offline. It needs a one-time download of ${formatBytes(pack.missingBytes)}.`,
+			t("reader.readAloud.downloadTitle", { language: t(`reader.inLanguage.${language}`) }),
+			t("reader.readAloud.downloadMessage", { size: formatBytes(pack.missingBytes) }),
 			[
-				{ text: "Cancel", style: "cancel", onPress: () => releaseSpeech(me) },
-				{ text: "Download", onPress: () => void download(language, voice, pack.missingBytes) },
+				{ text: t("common.actions.cancel"), style: "cancel", onPress: () => releaseSpeech(me) },
+				{
+					text: t("reader.readAloud.download"),
+					onPress: () => void download(language, voice, pack.missingBytes),
+				},
 			],
 		)
 	}
@@ -143,7 +146,7 @@ export function useReadAloud({
 		} catch (e) {
 			// Closing the player cancels the download: nothing to say then.
 			if (ownsSpeech(me)) {
-				Alert.alert("Download stopped", e instanceof Error ? e.message : String(e))
+				Alert.alert(t("reader.voices.downloadStopped"), errorMessage(e))
 				close()
 			}
 			return
@@ -184,7 +187,7 @@ export function useReadAloud({
 			})
 			.catch((e: unknown) => {
 				if (!ownsSpeech(me)) return
-				Alert.alert("Couldn't read aloud", e instanceof Error ? e.message : String(e))
+				Alert.alert(t("reader.readAloud.failed"), errorMessage(e))
 				close()
 			})
 		return true

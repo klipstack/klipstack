@@ -1,0 +1,168 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "%lld min": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld min"
+          }
+        }
+      }
+    },
+    "%lld min left": {
+      "localizations": {
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld min restante"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld min restantes"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Continue reading": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seguir leyendo"
+          }
+        }
+      }
+    },
+    "Next Up": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Siguiente lectura"
+          }
+        }
+      }
+    },
+    "Open Klipstack": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abre Klipstack"
+          }
+        }
+      }
+    },
+    "Share an article to Klipstack to read it next.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comparte un artículo con Klipstack para leerlo después."
+          }
+        }
+      }
+    },
+    "Share an article to Klipstack.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comparte un artículo con Klipstack."
+          }
+        }
+      }
+    },
+    "Share an article to Klipstack. It will be here when you're ready.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comparte un artículo con Klipstack. Estará aquí cuando quieras leerlo."
+          }
+        }
+      }
+    },
+    "Sign in to Klipstack": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inicia sesión en Klipstack"
+          }
+        }
+      }
+    },
+    "The article you're reading, or the newest one you saved.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El artículo que estás leyendo, o el último que guardaste."
+          }
+        }
+      }
+    },
+    "This version of the app no longer works.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta versión de la app ya no funciona."
+          }
+        }
+      }
+    },
+    "Up next": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A continuación"
+          }
+        }
+      }
+    },
+    "Update Klipstack": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actualiza Klipstack"
+          }
+        }
+      }
+    },
+    "Your next read shows here.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aquí aparece tu próxima lectura."
+          }
+        }
+      }
+    },
+    "Your next read starts here": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu próxima lectura empieza aquí"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

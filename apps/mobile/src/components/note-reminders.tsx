@@ -3,6 +3,7 @@ import { router } from "expo-router"
 import { SymbolView } from "expo-symbols"
 import { Pressable, StyleSheet, Text, View } from "react-native"
 import { showToast } from "@/lib/article-changes"
+import { t } from "@/lib/i18n"
 import { finishedLabel } from "@/lib/note-reminders"
 import type { Colors } from "@/lib/theme"
 
@@ -37,9 +38,9 @@ export function NoteReminders({
 		client.articles.skipNote(item.article.id).then(
 			() =>
 				showToast({
-					message: "It won't be asked about again.",
+					message: t("home.notes.skipped"),
 					action: {
-						label: "Undo",
+						label: t("common.actions.undo"),
 						run: () => {
 							onUnskip(item)
 							void client.articles.unskipNote(item.article.id).catch(() => {})
@@ -48,7 +49,7 @@ export function NoteReminders({
 				}),
 			() => {
 				onUnskip(item)
-				showToast({ message: "Couldn't save that. Try again." })
+				showToast({ message: t("home.saveFailed") })
 			},
 		)
 	}
@@ -59,10 +60,10 @@ export function NoteReminders({
 				onReadAgain()
 				const token = answer.undo?.[0]
 				showToast({
-					message: "It's back in your library, under Read again.",
+					message: t("home.notes.putBack"),
 					action: token
 						? {
-								label: "Undo",
+								label: t("common.actions.undo"),
 								run: () => {
 									onUnskip(item)
 									void client.articles
@@ -76,22 +77,21 @@ export function NoteReminders({
 			},
 			() => {
 				onUnskip(item)
-				showToast({ message: "Couldn't save that. Try again." })
+				showToast({ message: t("home.saveFailed") })
 			},
 		)
 	}
 	return (
 		<View style={[styles.card, { backgroundColor: colors.muted }]}>
-			<Text style={[styles.title, { color: colors.fg }]}>Anything to keep from these?</Text>
+			<Text style={[styles.title, { color: colors.fg }]}>{t("home.notes.title")}</Text>
 			<Text style={[styles.description, { color: colors.mutedFg }]}>
-				You finished these without a note. A line on what you take from each helps it stay with you.
-				Nothing to add is fine too.
+				{t("home.notes.description")}
 			</Text>
 			{items.map((item) => (
 				<View key={item.article.id} style={[styles.item, { borderTopColor: colors.border }]}>
 					<Pressable
 						accessibilityRole="button"
-						accessibilityHint="Opens it with its notes, to write one"
+						accessibilityHint={t("home.notes.openHint")}
 						onPress={() =>
 							router.push({
 								pathname: "/read/[id]",
@@ -131,27 +131,33 @@ export function NoteReminders({
 								size={15}
 								accessibilityElementsHidden
 							/>
-							<Text style={[styles.action, { color: colors.accent }]}>Write a note</Text>
+							<Text style={[styles.action, { color: colors.accent }]}>{t("home.notes.write")}</Text>
 						</View>
 					</Pressable>
 					<View style={styles.side}>
 						<Pressable
 							accessibilityRole="button"
-							accessibilityLabel={`Read ${item.article.title ?? "this article"} again`}
+							accessibilityLabel={t("home.notes.readAgainLabel", {
+								title: item.article.title ?? t("home.notes.thisArticle"),
+							})}
 							onPress={() => readAgain(item)}
 							hitSlop={8}
 							style={({ pressed }) => pressed && styles.pressed}
 						>
-							<Text style={[styles.action, { color: colors.mutedFg }]}>Read again</Text>
+							<Text style={[styles.action, { color: colors.mutedFg }]}>
+								{t("home.notes.readAgain")}
+							</Text>
 						</Pressable>
 						<Pressable
 							accessibilityRole="button"
-							accessibilityLabel={`Nothing to add on ${item.article.title ?? "this article"}`}
+							accessibilityLabel={t("home.notes.skipLabel", {
+								title: item.article.title ?? t("home.notes.thisArticle"),
+							})}
 							onPress={() => skip(item)}
 							hitSlop={8}
 							style={({ pressed }) => pressed && styles.pressed}
 						>
-							<Text style={[styles.action, { color: colors.mutedFg }]}>Nothing to add</Text>
+							<Text style={[styles.action, { color: colors.mutedFg }]}>{t("home.notes.skip")}</Text>
 						</Pressable>
 					</View>
 				</View>
@@ -162,7 +168,7 @@ export function NoteReminders({
 				hitSlop={8}
 				style={({ pressed }) => [styles.later, pressed && styles.pressed]}
 			>
-				<Text style={[styles.action, { color: colors.mutedFg }]}>Not now</Text>
+				<Text style={[styles.action, { color: colors.mutedFg }]}>{t("home.notes.notNow")}</Text>
 			</Pressable>
 		</View>
 	)

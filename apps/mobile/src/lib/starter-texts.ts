@@ -1,4 +1,5 @@
 import type { StarterLanguage, StarterText, StarterTopic } from "@klipstack/sdk"
+import { errorMessage, t } from "./i18n"
 import { lostConnection } from "./offline"
 import { bookColor, hash } from "./topic-shelves"
 
@@ -20,22 +21,31 @@ export type StarterShelves = {
 /** `GET /starter-texts/offer`. */
 export type StarterOffer = { guide: StarterText | null; texts: StarterText[] }
 
-/** The shelves' names, as the web's English ones: the app's own words are English. */
+/** The shelves' names, as the web's, in the app's language. */
 export const TOPIC_NAMES: Record<StarterTopic, { title: string; description: string }> = {
-	reading: { title: "Reading & writing", description: "Writers on books, style and readers." },
-	stories: { title: "Stories", description: "Short fiction to read in one sitting." },
-	living: { title: "How to live", description: "Advice on time, work and character." },
+	reading: {
+		title: t("home.starter.topics.reading.title"),
+		description: t("home.starter.topics.reading.description"),
+	},
+	stories: {
+		title: t("home.starter.topics.stories.title"),
+		description: t("home.starter.topics.stories.description"),
+	},
+	living: {
+		title: t("home.starter.topics.living.title"),
+		description: t("home.starter.topics.living.description"),
+	},
 	ideas: {
-		title: "Ideas & work",
-		description: "Essays on making things, technology and thinking for yourself.",
+		title: t("home.starter.topics.ideas.title"),
+		description: t("home.starter.topics.ideas.description"),
 	},
 	science: {
-		title: "Science & nature",
-		description: "Scientists and naturalists explaining the world.",
+		title: t("home.starter.topics.science.title"),
+		description: t("home.starter.topics.science.description"),
 	},
 	society: {
-		title: "Society & history",
-		description: "Speeches and essays that argued for change.",
+		title: t("home.starter.topics.society.title"),
+		description: t("home.starter.topics.society.description"),
 	},
 }
 
@@ -43,8 +53,7 @@ export const TOPIC_NAMES: Record<StarterTopic, { title: string; description: str
 export const LANGUAGE_NAMES: Record<StarterLanguage, string> = { en: "English", es: "Español" }
 
 /** What the shelves say about themselves, as the web's. */
-export const STARTER_DESCRIPTION =
-	"Essays, stories and speeches to try highlights and notes on. A book marked with a site is saved from the site that publishes it. Choose a book to add it to your library."
+export const STARTER_DESCRIPTION = t("home.starter.description")
 
 /**
  * A book's paint and how much taller than the shelf's shortest it stands, by its name, as the
@@ -76,14 +85,14 @@ export function keptShelves(
 
 /** What VoiceOver says a book does when tapped. */
 export function starterLabel(item: StarterText): string {
-	if (item.articleId) return `Open ${item.title}`
+	if (item.articleId) return t("home.starter.openLabel", { title: item.title })
 	return item.site
-		? `Add ${item.title} to your library from ${item.site}`
-		: `Add ${item.title} to your library`
+		? t("home.starter.addFromLabel", { title: item.title, site: item.site })
+		: t("home.starter.addLabel", { title: item.title })
 }
 
 /** Why a text could not be added, in the reader's words. */
 export function starterRefusal(error: unknown): string {
-	if (lostConnection(error)) return "Can't reach Klipstack. Connect to the internet to add it."
-	return error instanceof Error ? error.message : String(error)
+	if (lostConnection(error)) return t("home.starter.offline")
+	return errorMessage(error)
 }

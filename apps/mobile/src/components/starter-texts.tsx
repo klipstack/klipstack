@@ -13,6 +13,7 @@ import {
 	type ViewStyle,
 } from "react-native"
 import { waitForExtraction } from "@/lib/extraction"
+import { t } from "@/lib/i18n"
 import { canUseOffline, keepStarter, keptStarter } from "@/lib/offline"
 import {
 	STARTER_DESCRIPTION,
@@ -58,7 +59,7 @@ export function useAddStarter(client: KlipstackClient | null) {
 					await waitForExtraction(client, articleId)
 				router.push({ pathname: "/read/[id]", params: { id: articleId } })
 			} catch (e) {
-				Alert.alert("Not added", starterRefusal(e))
+				Alert.alert(t("home.starter.notAdded"), starterRefusal(e))
 			} finally {
 				busy.current = false
 				setAdding(null)
@@ -167,7 +168,7 @@ function StarterBook({
 					{item.author}
 				</Text>
 				<Text allowFontScaling={false} style={[styles.minutes, ink]}>
-					{item.minutes} min
+					{t("home.starter.minutes", { minutes: item.minutes })}
 				</Text>
 				{/* On the site that publishes it: adding it saves it from there. */}
 				{item.site ? (
@@ -237,16 +238,20 @@ export function StarterGuide({
 			</View>
 			<View style={styles.guideText}>
 				<Text style={[styles.eyebrow, { color: colors.mutedFg }]}>
-					{saved ? "In your library" : "New to Klipstack?"}
+					{saved ? t("home.starter.guide.saved") : t("home.starter.guide.new")}
 				</Text>
 				<Text style={[styles.guideTitle, { color: colors.fg }]}>{item.title}</Text>
 				<Text style={[styles.guideLine, { color: colors.mutedFg }]}>
-					Saving, highlighting and notes, in {item.minutes} min.
+					{t("home.starter.guide.line", { minutes: item.minutes })}
 				</Text>
 			</View>
 			<Pressable
 				accessibilityRole="button"
-				accessibilityLabel={saved ? `Open ${item.title}` : `Add ${item.title} to your library`}
+				accessibilityLabel={
+					saved
+						? t("home.starter.openLabel", { title: item.title })
+						: t("home.starter.addLabel", { title: item.title })
+				}
 				disabled={adding !== null}
 				onPress={() => onOpen(item)}
 				style={({ pressed }) => [
@@ -264,7 +269,7 @@ export function StarterGuide({
 					tintColor={saved ? colors.favorite : colors.accentFg}
 				/>
 				<Text style={[styles.guideButtonText, { color: saved ? colors.fg : colors.accentFg }]}>
-					{saved ? "Open" : "Read it"}
+					{saved ? t("home.starter.guide.open") : t("home.starter.guide.read")}
 				</Text>
 			</Pressable>
 		</View>
@@ -309,7 +314,7 @@ export function StarterOffer({
 		<View style={styles.offer}>
 			{offering ? (
 				<Text accessibilityRole="header" style={[styles.offerTitle, { color: colors.fg }]}>
-					Or start with one of these
+					{t("home.starter.offerTitle")}
 				</Text>
 			) : null}
 			{offer.guide ? (
@@ -330,12 +335,12 @@ export function StarterOffer({
 			) : null}
 			<Pressable
 				accessibilityRole="link"
-				accessibilityLabel="More to read"
+				accessibilityLabel={t("home.starter.more")}
 				hitSlop={8}
 				onPress={() => router.push("/discover")}
 				style={({ pressed }) => [styles.more, { opacity: pressed ? 0.6 : 1 }]}
 			>
-				<Text style={[styles.moreText, { color: colors.accent }]}>More to read</Text>
+				<Text style={[styles.moreText, { color: colors.accent }]}>{t("home.starter.more")}</Text>
 				<SymbolView name="chevron.right" size={12} weight="semibold" tintColor={colors.accent} />
 			</Pressable>
 		</View>

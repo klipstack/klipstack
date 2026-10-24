@@ -13,6 +13,7 @@ import {
 	View,
 } from "react-native"
 import { type Tagged, tagChange, tagChoices, tagState, withChange } from "@/lib/article-tags"
+import { errorMessage, t } from "@/lib/i18n"
 import { type Colors, useColors } from "@/lib/theme"
 
 /**
@@ -81,7 +82,7 @@ function TagSheet({
 				if (live) setNames(answer.items.map((t) => t.name))
 			})
 			.catch((e: unknown) => {
-				if (live) setError(e instanceof Error ? e.message : String(e))
+				if (live) setError(errorMessage(e))
 			})
 		return () => {
 			live = false
@@ -109,7 +110,7 @@ function TagSheet({
 			onTags(new Map(answer.items.map((a) => [a.id, a.tags])))
 		} catch (e) {
 			onTags(before)
-			Alert.alert("Not saved", e instanceof Error ? e.message : String(e))
+			Alert.alert(t("common.failed.notSaved"), errorMessage(e))
 		}
 	}
 
@@ -121,16 +122,20 @@ function TagSheet({
 			<View style={[styles.sheet, { backgroundColor: colors.bg }]}>
 				<View style={[styles.bar, { borderColor: colors.border }]}>
 					<Text style={[styles.title, { color: colors.fg }]}>
-						{many ? `Tags for ${articles.length} Articles` : "Tags"}
+						{many
+							? t("library.tagSheet.titleMany", { number: articles.length })
+							: t("library.tagSheet.title")}
 					</Text>
 					<Pressable accessibilityRole="button" onPress={onClose} hitSlop={12} style={styles.done}>
-						<Text style={[styles.doneText, { color: colors.accent }]}>Done</Text>
+						<Text style={[styles.doneText, { color: colors.accent }]}>
+							{t("common.actions.done")}
+						</Text>
 					</Pressable>
 				</View>
 				<TextInput
 					ref={field}
 					onChangeText={setTyped}
-					placeholder="Find or create a tag"
+					placeholder={t("library.tagSheet.placeholder")}
 					placeholderTextColor={colors.mutedFg}
 					autoCapitalize="none"
 					autoCorrect={false}
@@ -161,7 +166,7 @@ function TagSheet({
 						<>
 							{create ? (
 								<TagRow
-									label={`Create “${create}”`}
+									label={t("library.tagSheet.create", { name: create })}
 									icon="plus"
 									onPress={() => void toggle(create)}
 									colors={colors}
@@ -182,7 +187,7 @@ function TagSheet({
 							})}
 							{names?.length === 0 && !create ? (
 								<Text style={[styles.message, { color: colors.mutedFg }]}>
-									No tags yet. Type a name to make one.
+									{t("library.tagSheet.empty")}
 								</Text>
 							) : null}
 						</>

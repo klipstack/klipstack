@@ -1,4 +1,5 @@
 import type { AiCitation } from "@klipstack/sdk"
+import { t } from "./i18n"
 
 /**
  * An answer's light Markdown (paragraphs, "- " and "1. " lists, "## " headings, **bold**,
@@ -118,12 +119,12 @@ export function answerLead(text: string): string {
 
 /**
  * A brief's sections, opened by these headings, in English whatever the language
- * (`briefSystemPrompt` in `@klipstack/ai`), as the app names them.
+ * (`briefSystemPrompt` in `@klipstack/ai`), as the app names them in its language.
  */
 const BRIEF_SECTIONS: Record<string, string> = {
-	"key claims": "Key claims",
-	"keep in mind": "Keep in mind",
-	parts: "Parts",
+	"key claims": t("ai.brief.sections.claims"),
+	"keep in mind": t("ai.brief.sections.caveats"),
+	parts: t("ai.brief.sections.parts"),
 }
 
 /** A brief's heading as shown: forgiving of case and a trailing colon, which a model may add. */

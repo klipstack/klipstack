@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { Pressable, StyleSheet, Text, View } from "react-native"
 import { MarkerText } from "@/components/marker-text"
 import { PostIt, postItText } from "@/components/post-it"
+import { t } from "@/lib/i18n"
 import { tiltFor } from "@/lib/post-it"
 import type { Colors } from "@/lib/theme"
 
@@ -72,7 +73,7 @@ export function SearchAnnotations({
 			{highlights.total ? (
 				<View>
 					<Heading
-						label="Highlights"
+						label={t("library.search.highlights")}
 						shown={highlights.items.length}
 						total={highlights.total}
 						onShowAll={() => showAll("highlights")}
@@ -126,7 +127,7 @@ export function SearchAnnotations({
 			{notes.total ? (
 				<View>
 					<Heading
-						label="Notes"
+						label={t("library.search.notes")}
 						shown={notes.items.length}
 						total={notes.total}
 						onShowAll={() => showAll("notes")}
@@ -137,7 +138,7 @@ export function SearchAnnotations({
 							<Pressable
 								key={n.article.id}
 								accessibilityRole="link"
-								accessibilityLabel={`Note on ${n.article.title}`}
+								accessibilityLabel={t("library.search.noteOn", { title: n.article.title })}
 								onPress={() =>
 									router.push({ pathname: "/read/[id]", params: { id: n.article.id, notes: "1" } })
 								}
@@ -159,7 +160,9 @@ export function SearchAnnotations({
 					</View>
 				</View>
 			) : null}
-			<Text style={[styles.heading, styles.articles, { color: colors.mutedFg }]}>Articles</Text>
+			<Text style={[styles.heading, styles.articles, { color: colors.mutedFg }]}>
+				{t("library.search.articles")}
+			</Text>
 		</View>
 	)
 }
@@ -183,12 +186,14 @@ function Heading({
 			<Text style={[styles.heading, { color: colors.mutedFg }]}>{label}</Text>
 			{shown >= total ? null : total > ALL && shown >= ALL ? (
 				<Text style={[styles.more, { color: colors.mutedFg }]}>
-					{shown} of {total}
+					{t("library.search.shownOf", { shown, total })}
 				</Text>
 			) : (
 				<Pressable accessibilityRole="button" hitSlop={8} onPress={onShowAll}>
 					<Text style={[styles.more, { color: colors.accent }]}>
-						{total > ALL ? `Show the First ${ALL}` : `Show All ${total}`}
+						{total > ALL
+							? t("library.search.showFirst", { max: ALL })
+							: t("library.search.showAll", { total })}
 					</Text>
 				</Pressable>
 			)}

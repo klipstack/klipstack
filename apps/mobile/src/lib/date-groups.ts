@@ -5,6 +5,8 @@
  * zone.
  */
 
+import { dateLocale, t } from "./i18n"
+
 /** "today", "yesterday", "week", "month", "month:YYYY-MM" or "year:YYYY". */
 export type DateGroup = string
 
@@ -29,29 +31,25 @@ export function dateGroup(date: Date, now: Date): DateGroup {
 }
 
 const NAMED: Record<string, string> = {
-	today: "Today",
-	yesterday: "Yesterday",
-	week: "Last 7 days",
-	month: "Earlier this month",
+	today: t("library.dateGroups.today"),
+	yesterday: t("library.dateGroups.yesterday"),
+	week: t("library.dateGroups.week"),
+	month: t("library.dateGroups.month"),
 }
 
-const MONTHS = [
-	"January",
-	"February",
-	"March",
-	"April",
-	"May",
-	"June",
-	"July",
-	"August",
-	"September",
-	"October",
-	"November",
-	"December",
-]
+/** A month's name in the app's language, capitalized as a heading: "September", "Septiembre". */
+function monthName(month: number): string {
+	const name = new Intl.DateTimeFormat(dateLocale, { month: "long", timeZone: "UTC" }).format(
+		new Date(Date.UTC(2000, month - 1, 15)),
+	)
+	return name.charAt(0).toLocaleUpperCase(dateLocale) + name.slice(1)
+}
 
 export function dateGroupLabel(group: DateGroup): string {
-	if (group.startsWith("month:")) return MONTHS[Number(group.slice(11)) - 1] ?? group
+	if (group.startsWith("month:")) {
+		const month = Number(group.slice(11))
+		return month >= 1 && month <= 12 ? monthName(month) : group
+	}
 	if (group.startsWith("year:")) return group.slice(5)
 	return NAMED[group] ?? group
 }

@@ -10,6 +10,7 @@ import { allowanceMessage, failureMessage, questionsLeft } from "@/lib/ai"
 import { plainAnswer } from "@/lib/ai-answer"
 import { useWritten } from "@/lib/ai-cards"
 import { type AiCard, type AnswerStore, cardState } from "@/lib/ai-threads"
+import { t } from "@/lib/i18n"
 import { type Colors, fonts } from "@/lib/theme"
 
 /**
@@ -88,9 +89,11 @@ export function ChatSheet({
 			    KeyboardAvoidingView measures from the sheet's top, and leaves the field under it.) */}
 			<View style={[styles.sheet, { backgroundColor: colors.bg, paddingBottom: keyboard }]}>
 				<View style={[styles.bar, { borderColor: colors.border }]}>
-					<Text style={[styles.barTitle, { color: colors.fg }]}>Chat</Text>
+					<Text style={[styles.barTitle, { color: colors.fg }]}>{t("ai.chat.title")}</Text>
 					<Pressable accessibilityRole="button" onPress={onClose} hitSlop={12} style={styles.done}>
-						<Text style={[styles.doneText, { color: colors.accent }]}>Done</Text>
+						<Text style={[styles.doneText, { color: colors.accent }]}>
+							{t("common.actions.done")}
+						</Text>
 					</Pressable>
 				</View>
 				<ScrollView
@@ -113,9 +116,7 @@ export function ChatSheet({
 					</Text>
 					<View accessibilityLiveRegion="polite" style={styles.turns}>
 						{!chat || chat.messages.length === 0 ? (
-							<Text style={[styles.empty, { color: colors.mutedFg }]}>
-								Ask anything about this article. Answers cite the parts they use.
-							</Text>
+							<Text style={[styles.empty, { color: colors.mutedFg }]}>{t("ai.chat.empty")}</Text>
 						) : (
 							<Turns card={chat} onCite={cite} colors={colors} />
 						)}
@@ -128,7 +129,11 @@ export function ChatSheet({
 									colors={colors}
 								/>
 							) : (
-								<InkThinking label="Thinking…" colors={colors} style={styles.thinking} />
+								<InkThinking
+									label={t("ai.card.thinking")}
+									colors={colors}
+									style={styles.thinking}
+								/>
 							)
 						) : null}
 						{chat?.failure && !busy ? (
@@ -146,7 +151,7 @@ export function ChatSheet({
 						<View style={styles.tools}>
 							{state.canRetry && onRetry ? (
 								<Tool
-									label="Answer Again"
+									label={t("ai.card.answerAgain")}
 									symbol="arrow.clockwise"
 									color={colors.accent}
 									onPress={onRetry}
@@ -154,23 +159,26 @@ export function ChatSheet({
 							) : null}
 							{state.lastAnswer ? (
 								<Tool
-									label="Copy"
+									label={t("ai.card.copy")}
 									symbol="doc.on.doc"
 									color={colors.accent}
 									onPress={() => state.lastAnswer && onCopy(plainAnswer(state.lastAnswer.text))}
 								/>
 							) : null}
-							<Tool label="Clear Chat" symbol="trash" color={colors.danger} onPress={onClear} />
+							<Tool
+								label={t("ai.chat.clear")}
+								symbol="trash"
+								color={colors.danger}
+								onPress={onClear}
+							/>
 						</View>
 					) : null}
 					{!onAsk ? (
-						<Text style={[styles.left, { color: colors.mutedFg }]}>
-							AI answers are turned off in Settings → Features, on the web.
-						</Text>
+						<Text style={[styles.left, { color: colors.mutedFg }]}>{t("ai.chat.turnedOff")}</Text>
 					) : asking ? (
 						<QuestionField
 							key={chat?.id ?? "new"}
-							placeholder="Ask about this article…"
+							placeholder={t("ai.chat.placeholder")}
 							onSend={onAsk}
 							colors={colors}
 						/>

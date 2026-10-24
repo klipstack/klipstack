@@ -5,6 +5,7 @@ import { useEffect, useMemo } from "react"
 import { useColorScheme } from "react-native"
 import { ToastHost } from "@/components/toast-host"
 import { AuthProvider, useAuth } from "@/lib/auth"
+import { t } from "@/lib/i18n"
 import { loadColorScheme } from "@/lib/reader-files"
 import { applyColorScheme, headerType, useColors } from "@/lib/theme"
 import { reloadNextUpInBackground } from "@/lib/widget"
@@ -79,15 +80,19 @@ function Screens() {
 				    shows no title, but VoiceOver reads one: without it, "(tabs)". */}
 				<Stack.Screen
 					name="read/[id]"
-					options={{ title: "", headerBackTitle: "Back", headerBackButtonDisplayMode: "minimal" }}
+					options={{
+						title: "",
+						headerBackTitle: t("account.screens.back"),
+						headerBackButtonDisplayMode: "minimal",
+					}}
 				/>
 				{/* Over the tabs too, from Home's card and the Library: the reader opens over it. Its
 				    cards swipe sideways, so going back is from the edge only, not iOS 26's whole width. */}
 				<Stack.Screen
 					name="review"
 					options={{
-						title: "Old Saves",
-						headerBackTitle: "Back",
+						title: t("home.review.title"),
+						headerBackTitle: t("account.screens.back"),
 						headerBackButtonDisplayMode: "minimal",
 						fullScreenGestureEnabled: false,
 					}}
@@ -96,21 +101,30 @@ function Screens() {
 				<Stack.Screen
 					name="discover"
 					options={{
-						title: "Discover",
-						headerBackTitle: "Back",
+						title: t("account.screens.discover"),
+						headerBackTitle: t("account.screens.back"),
 						headerBackButtonDisplayMode: "minimal",
 					}}
 				/>
-				<Stack.Screen name="voices" options={{ title: "Voices", presentation: "modal" }} />
+				<Stack.Screen
+					name="voices"
+					options={{ title: t("account.account.voices"), presentation: "modal" }}
+				/>
 				{/* A sheet with its own stack (`account/_layout.tsx`), from the header's account button. */}
 				<Stack.Screen name="account" options={{ headerShown: false, presentation: "modal" }} />
-				<Stack.Screen name="save" options={{ title: "Save a Link", presentation: "modal" }} />
+				<Stack.Screen
+					name="save"
+					options={{ title: t("account.screens.saveLink"), presentation: "modal" }}
+				/>
 			</Stack.Protected>
 			<Stack.Protected guard={state.status === "signed-out"}>
 				<Stack.Screen name="sign-in" options={{ headerShown: false }} />
 				<Stack.Screen
 					name="sign-up"
-					options={{ title: "Create Account", headerBackTitle: "Sign In" }}
+					options={{
+						title: t("account.screens.createAccount"),
+						headerBackTitle: t("account.screens.signIn"),
+					}}
 				/>
 			</Stack.Protected>
 		</Stack>

@@ -1,6 +1,7 @@
 import { SymbolView, type SymbolViewProps } from "expo-symbols"
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
+import { t } from "@/lib/i18n"
 import { speedLabel } from "@/lib/speech"
 import type { Colors } from "@/lib/theme"
 import type { SpeechState } from "../../modules/klip-speech"
@@ -63,12 +64,12 @@ export function ListenBar({
 				{status.kind === "speech" && status.state === "ended" && onNote ? (
 					<View style={styles.row}>
 						<Text style={[styles.label, styles.ask, { color: bar.fg }]} numberOfLines={2}>
-							Anything to keep from it?
+							{t("reader.listenBar.ask")}
 						</Text>
 						{speak ? (
 							<Pressable
 								accessibilityRole="button"
-								accessibilityLabel="Speak a note"
+								accessibilityLabel={t("reader.listenBar.speakNote")}
 								onPress={() => onNote(true)}
 								hitSlop={6}
 								style={({ pressed }) => [
@@ -78,12 +79,14 @@ export function ListenBar({
 								]}
 							>
 								<SymbolView name="mic.fill" tintColor={bar.accentFg} size={15} />
-								<Text style={[styles.choiceText, { color: bar.accentFg }]}>Speak</Text>
+								<Text style={[styles.choiceText, { color: bar.accentFg }]}>
+									{t("reader.listenBar.speak")}
+								</Text>
 							</Pressable>
 						) : null}
 						<Pressable
 							accessibilityRole="button"
-							accessibilityLabel="Write a note"
+							accessibilityLabel={t("reader.listenBar.writeNote")}
 							onPress={() => onNote(false)}
 							hitSlop={6}
 							style={({ pressed }) => [
@@ -93,30 +96,46 @@ export function ListenBar({
 							]}
 						>
 							<SymbolView name="square.and.pencil" tintColor={bar.fg} size={15} />
-							<Text style={[styles.choiceText, { color: bar.fg }]}>Write</Text>
+							<Text style={[styles.choiceText, { color: bar.fg }]}>
+								{t("reader.listenBar.write")}
+							</Text>
 						</Pressable>
-						<Button icon="xmark" label="Not now" onPress={onClose} tint={bar.fg} />
+						<Button
+							icon="xmark"
+							label={t("reader.listenBar.notNow")}
+							onPress={onClose}
+							tint={bar.fg}
+						/>
 					</View>
 				) : status.kind === "downloading" ? (
 					<View style={styles.row}>
 						<ActivityIndicator color={bar.mutedFg} />
 						<Text style={[styles.label, { color: bar.fg }]}>
-							Downloading voices… {Math.floor(progress * 100)}%
+							{t("reader.listenBar.downloading", { percent: Math.floor(progress * 100) })}
 						</Text>
 						<View style={styles.spacer} />
-						<Button icon="xmark" label="Stop downloading" onPress={onClose} tint={bar.fg} />
+						<Button
+							icon="xmark"
+							label={t("reader.listenBar.stopDownloading")}
+							onPress={onClose}
+							tint={bar.fg}
+						/>
 					</View>
 				) : (
 					<View style={styles.row}>
 						<Button
 							icon="gobackward"
-							label="Previous sentence"
+							label={t("reader.listenBar.previous")}
 							onPress={() => onSkip(-1)}
 							tint={bar.fg}
 						/>
 						<Pressable
 							accessibilityRole="button"
-							accessibilityLabel={status.state === "playing" ? "Pause" : "Play"}
+							accessibilityLabel={
+								status.state === "playing"
+									? t("reader.listenBar.pause")
+									: t("reader.listenBar.play")
+							}
 							onPress={onPlayPause}
 							hitSlop={6}
 							style={({ pressed }) => [
@@ -137,21 +156,21 @@ export function ListenBar({
 						</Pressable>
 						<Button
 							icon="goforward"
-							label="Next sentence"
+							label={t("reader.listenBar.next")}
 							onPress={() => onSkip(1)}
 							tint={bar.fg}
 						/>
 						<Text style={[styles.label, { color: bar.mutedFg }]} numberOfLines={1}>
 							{status.state === "ended"
-								? "Finished"
+								? t("reader.listenBar.finished")
 								: status.minutesLeft
-									? `${status.minutesLeft} min left`
+									? t("reader.listenBar.minutesLeft", { count: status.minutesLeft })
 									: ""}
 						</Text>
 						<View style={styles.spacer} />
 						<Pressable
 							accessibilityRole="button"
-							accessibilityLabel={`Speed ${speedLabel(speed)}`}
+							accessibilityLabel={t("reader.listenBar.speed", { speed: speedLabel(speed) })}
 							onPress={onSpeed}
 							hitSlop={6}
 							style={({ pressed }) => [
@@ -162,7 +181,12 @@ export function ListenBar({
 						>
 							<Text style={[styles.speedText, { color: bar.fg }]}>{speedLabel(speed)}</Text>
 						</Pressable>
-						<Button icon="xmark" label="Stop reading aloud" onPress={onClose} tint={bar.fg} />
+						<Button
+							icon="xmark"
+							label={t("reader.menu.stopReadingAloud")}
+							onPress={onClose}
+							tint={bar.fg}
+						/>
 					</View>
 				)}
 			</View>

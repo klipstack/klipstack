@@ -1,5 +1,6 @@
 import type { HighlightColor, NotebookFilter } from "@klipstack/api-contract/enums"
 import type { Highlight, NotebookArticle, NotebookItem } from "@klipstack/sdk"
+import { t } from "./i18n"
 
 /** By article's entry: the article, its note, and its matching highlights in reading order. */
 export type NotebookEntry = {
@@ -132,30 +133,34 @@ export function withoutHighlight(rows: NotebookRow[], id: string): NotebookRow[]
 
 /** The filter's name, as the menu says it. */
 export function filterLabel(filter: NotebookFilter | null): string {
-	if (filter === null) return "All"
-	if (filter === "notes") return "Notes"
-	if (filter === "highlights") return "Highlights"
-	if (filter === "shared") return "Shared"
+	if (filter === null) return t("notebook.filters.all")
+	if (filter === "notes") return t("notebook.filters.notes")
+	if (filter === "highlights") return t("notebook.filters.highlights")
+	if (filter === "shared") return t("notebook.filters.shared")
 	return COLOR_LABELS[filter]
 }
 
 const COLOR_LABELS: Record<HighlightColor, string> = {
-	yellow: "Yellow",
-	green: "Green",
-	blue: "Blue",
-	pink: "Pink",
-	orange: "Orange",
+	yellow: t("notebook.colors.yellow"),
+	green: t("notebook.colors.green"),
+	blue: t("notebook.colors.blue"),
+	pink: t("notebook.colors.pink"),
+	orange: t("notebook.colors.orange"),
 }
 
 /** "3 highlights · 1 note": what a topic holds. Nothing for none of either. */
 export function countLine(highlights: number, notes: number): string {
-	return [highlights ? plural(highlights, "highlight") : null, notes ? plural(notes, "note") : null]
+	return [
+		highlights ? highlightCount(highlights) : null,
+		notes ? t("notebook.count.notes", { count: notes }) : null,
+	]
 		.filter(Boolean)
 		.join(" · ")
 }
 
-export function plural(n: number, word: string): string {
-	return `${n} ${word}${n === 1 ? "" : "s"}`
+/** "3 highlights". */
+export function highlightCount(count: number): string {
+	return t("notebook.count.highlights", { count })
 }
 
 /** A new Shuffle hand: eight random letters and digits (`NOTEBOOK_SEED`). */

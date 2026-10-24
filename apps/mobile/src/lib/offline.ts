@@ -7,6 +7,7 @@ import {
 	KlipstackInputError,
 } from "@klipstack/sdk"
 import { Directory, File, Paths } from "expo-file-system"
+import { t } from "./i18n"
 import { readerFolder } from "./reader-files"
 
 /**
@@ -37,10 +38,10 @@ export type OfflineList =
 	| "starred"
 
 /** What a kept list says when it shows what the phone kept. */
-export const OFFLINE_NOTE = "Can't reach Klipstack. Articles kept on this phone still open."
+export const OFFLINE_NOTE = t("home.offline.note")
 
 /** The reader's message for an article opened offline that the phone didn't keep. */
-export const NOT_KEPT = "This article isn't on this phone yet. Connect to the internet to read it."
+export const NOT_KEPT = t("home.offline.notKept")
 
 /** The most articles kept, as the web keeps 300 pages; the oldest go first. */
 export const MAX_ARTICLES = 300

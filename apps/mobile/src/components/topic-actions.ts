@@ -1,6 +1,7 @@
 import type { KlipstackClient } from "@klipstack/sdk"
 import { Alert } from "react-native"
 import { showToast } from "@/lib/article-changes"
+import { t } from "@/lib/i18n"
 import { topicRefusal, turnOffQuestion } from "@/lib/topic-shelves"
 
 /**
@@ -21,19 +22,21 @@ export function renameTopic(
 	done: (renamed: TopicRef) => void,
 ) {
 	Alert.prompt(
-		"Rename Topic",
-		"Topics never rename it again.",
+		t("library.topics.renameTitle"),
+		t("library.topics.renameMessage"),
 		[
-			{ text: "Cancel", style: "cancel" },
+			{ text: t("common.actions.cancel"), style: "cancel" },
 			{
-				text: "Rename",
+				text: t("common.actions.rename"),
 				onPress: (value?: string) => {
 					const name = value?.trim()
 					if (!name || name === topic.name) return
 					client.topics
 						.rename(topic.id, name)
 						.then(({ topic: renamed }) => done(renamed))
-						.catch((e: unknown) => showToast({ message: `Not renamed: ${topicRefusal(e)}` }))
+						.catch((e: unknown) =>
+							showToast({ message: t("library.topics.notRenamed", { reason: topicRefusal(e) }) }),
+						)
 				},
 			},
 		],
@@ -44,21 +47,23 @@ export function renameTopic(
 
 export function removeTopic(client: KlipstackClient, topic: TopicRef, done: () => void) {
 	Alert.alert(
-		`Remove “${topic.name}”?`,
-		"Its articles leave it, and it won't be proposed again. There is no undo.",
+		t("library.topics.removeTitle", { name: topic.name }),
+		t("library.topics.removeMessage"),
 		[
-			{ text: "Cancel", style: "cancel" },
+			{ text: t("common.actions.cancel"), style: "cancel" },
 			{
-				text: "Remove",
+				text: t("library.topics.remove"),
 				style: "destructive",
 				onPress: () =>
 					void client.topics
 						.remove(topic.id)
 						.then(({ topic: removed }) => {
-							showToast({ message: `Removed ${removed.name}. It won't be proposed again.` })
+							showToast({ message: t("library.topics.removed", { name: removed.name }) })
 							done()
 						})
-						.catch((e: unknown) => showToast({ message: `Not removed: ${topicRefusal(e)}` })),
+						.catch((e: unknown) =>
+							showToast({ message: t("library.topics.notRemoved", { reason: topicRefusal(e) }) }),
+						),
 			},
 		],
 	)
@@ -70,19 +75,21 @@ export async function turnOffTopics(client: KlipstackClient, done: () => void) {
 		.list()
 		.then((answer) => answer.items)
 		.catch(() => [])
-	Alert.alert("Turn Off Topics?", turnOffQuestion(saved), [
-		{ text: "Cancel", style: "cancel" },
+	Alert.alert(t("library.topics.turnOffTitle"), turnOffQuestion(saved), [
+		{ text: t("common.actions.cancel"), style: "cancel" },
 		{
-			text: "Turn Off",
+			text: t("library.topics.turnOff"),
 			style: "destructive",
 			onPress: () =>
 				void client.topics
 					.disable()
 					.then(() => {
-						showToast({ message: "Topics are off, and deleted." })
+						showToast({ message: t("library.topics.turnedOff") })
 						done()
 					})
-					.catch((e: unknown) => showToast({ message: `Not turned off: ${topicRefusal(e)}` })),
+					.catch((e: unknown) =>
+						showToast({ message: t("library.topics.notTurnedOff", { reason: topicRefusal(e) }) }),
+					),
 		},
 	])
 }

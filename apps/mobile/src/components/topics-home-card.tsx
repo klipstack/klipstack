@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from "react-native"
+import { dateLocale, t } from "@/lib/i18n"
 import type { Colors } from "@/lib/theme"
 
 /**
@@ -27,16 +28,18 @@ export function TopicsHomeCard({
 			testID={invitation ? "home-topics-invitation" : "home-topics"}
 		>
 			<Text style={[styles.title, { color: colors.fg }]}>
-				{invitation ? "Your library is big enough to sort itself" : "Your first topics are ready"}
+				{invitation ? t("home.topicsCard.invitationTitle") : t("home.topicsCard.readyTitle")}
 			</Text>
 			<Text style={[styles.description, { color: colors.mutedFg }]}>
 				{invitation
-					? `You've saved ${new Intl.NumberFormat().format(count)} articles: enough for topics to sort them into shelves, like a bookstore's sections, and keep them sorted as you save more.`
-					: "Klipstack found topics in your library. Look them over and confirm them."}
+					? t("home.topicsCard.invitationBody", {
+							number: new Intl.NumberFormat(dateLocale).format(count),
+						})
+					: t("home.topicsCard.readyBody")}
 			</Text>
 			{invitation ? (
 				<Text style={[styles.description, { color: colors.mutedFg }]}>
-					Once you turn topics on, article text is sent to TypeSafe and Anthropic.
+					{t("home.topicsCard.privacy")}
 				</Text>
 			) : null}
 			<View style={styles.actions}>
@@ -50,7 +53,7 @@ export function TopicsHomeCard({
 					]}
 				>
 					<Text style={[styles.openText, { color: colors.accentFg }]}>
-						{invitation ? "See Topics" : "See Your Topics"}
+						{invitation ? t("home.topicsCard.seeTopics") : t("home.topicsCard.seeYourTopics")}
 					</Text>
 				</Pressable>
 				<Pressable
@@ -60,7 +63,7 @@ export function TopicsHomeCard({
 					style={({ pressed }) => pressed && styles.pressed}
 				>
 					<Text style={[styles.later, { color: colors.mutedFg }]}>
-						{invitation ? "No thanks" : "Not now"}
+						{invitation ? t("home.topicsCard.decline") : t("home.topicsCard.notNow")}
 					</Text>
 				</Pressable>
 			</View>

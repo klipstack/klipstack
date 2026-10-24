@@ -1,3 +1,5 @@
+import type { MobileStrings } from "@klipstack/i18n/mobile"
+
 /**
  * What the app and the reader page (`reader-page.ts`, in the WebView) tell each other. The page
  * posts `PageMessage`s (`window.ReactNativeWebView.postMessage`, as JSON); the app calls the
@@ -42,7 +44,12 @@ export type PageConfig = {
 	position: number
 	/** A highlight to open at instead (its id). */
 	highlight: string | null
+	/** The words the page writes itself, in the app's language. */
+	strings: PageStrings
 }
+
+/** `reader.page` in the app's strings: the page can't load them, so the app hands them over. */
+export type PageStrings = MobileStrings["reader"]["page"]
 
 export type Sentence = { text: string; pause: number }
 

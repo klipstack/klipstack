@@ -66,6 +66,7 @@ import {
 	type TopicPick,
 	topicHeading,
 } from "@/lib/home-topics"
+import { errorMessage, t } from "@/lib/i18n"
 import { topicEnded } from "@/lib/library-topics"
 import {
 	canUseOffline,
@@ -310,7 +311,7 @@ export default function Home() {
 				setError(OFFLINE_NOTE)
 				return
 			}
-			setError(e instanceof Error ? e.message : String(e))
+			setError(errorMessage(e))
 		}
 	}, [client, topic])
 
@@ -495,16 +496,15 @@ export default function Home() {
 				/>
 			) : empty && chosen ? (
 				<Text style={[styles.inset, styles.message, { color: colors.mutedFg }]}>
-					Nothing in {chosen.topic.name} to read right now.
+					{t("home.topics.nothing", { topic: chosen.topic.name })}
 				</Text>
 			) : empty ? (
 				<View style={styles.emptyState}>
 					{/* Nothing to read yet: the reading chair, waiting. */}
 					<EmptyDrawing name="chair" width={176} />
-					<Text style={[styles.emptyTitle, { color: colors.fg }]}>Your next read starts here</Text>
+					<Text style={[styles.emptyTitle, { color: colors.fg }]}>{t("home.empty.title")}</Text>
 					<Text style={[styles.message, { color: colors.mutedFg }]}>
-						Share an article to Klipstack from Safari or any app, or tap + to paste a link. It will
-						be here when you're ready to read.
+						{t("home.empty.description")}
 					</Text>
 					{/* Nothing saved, or all of it read: something to start with, as on the web. */}
 					<StarterOffer client={client} margin={EMPTY_PAD} colors={colors} />
@@ -513,13 +513,17 @@ export default function Home() {
 				<>
 					{home.hero ? (
 						<Section
-							title={home.hero.progress > 0 ? "Continue reading" : "Up next"}
+							title={
+								home.hero.progress > 0
+									? t("home.sections.continueReading")
+									: t("home.sections.upNext")
+							}
 							colors={colors}
 						>
 							<Hero item={home.hero} colors={colors} headers={headers} menu={menu} />
 							{home.pickUp ? (
 								<Text style={[styles.inset, styles.note, { color: colors.mutedFg }]}>
-									Doesn't fit in {minutesText(minutes!)}, but it's where you left off.
+									{t("home.time.pickUp", { count: minutes! })}
 								</Text>
 							) : null}
 							<Shelf items={home.reading} colors={colors} headers={headers} menu={menu} />
@@ -527,7 +531,7 @@ export default function Home() {
 					) : null}
 					{home.recent.length ? (
 						<Section
-							title="Recently saved"
+							title={t("home.sections.recent")}
 							onMore={() => {
 								// Inbox, in the same topic; otherwise as the reader left it.
 								if (topic) chooseTopic("inbox", topic)
@@ -540,8 +544,8 @@ export default function Home() {
 					) : null}
 					{home.again.length ? (
 						<Section
-							title="Read again"
-							note="Articles you finished and put back, to read once more."
+							title={t("home.sections.again.title")}
+							note={t("home.sections.again.note")}
 							colors={colors}
 						>
 							<Shelf items={home.again} colors={colors} headers={headers} menu={menu} />
@@ -550,8 +554,8 @@ export default function Home() {
 					{/* In a topic, or with a time chosen, the reader came to read. */}
 					{client && daily && highlights.length > 0 && !chosen && minutes === null ? (
 						<Section
-							title="From your highlights"
-							note="Passages you marked, back for another look. A few each day."
+							title={t("home.sections.highlights.title")}
+							note={t("home.sections.highlights.note")}
 							colors={colors}
 						>
 							<HomeHighlights
@@ -568,8 +572,8 @@ export default function Home() {
 					) : null}
 					{home.rediscover.length ? (
 						<Section
-							title="From a while ago"
-							note={`Saved more than ${afterDays} ${afterDays === 1 ? "day" : "days"} ago. A different few each day.`}
+							title={t("home.sections.rediscover.title")}
+							note={t("home.sections.rediscover.note", { count: afterDays })}
 							onMore={() => {
 								// Inbox's unread saves, oldest first, in the same topic or all of them: as the
 								// web's link.
@@ -595,7 +599,11 @@ export default function Home() {
 					) : null}
 					{home.quick.length ? (
 						// QUICK_MAX_MINUTES in apps/web/app/lib/inbox-filters.ts.
-						<Section title="A few minutes to read" note="Ten minutes or less." colors={colors}>
+						<Section
+							title={t("home.sections.quick.title")}
+							note={t("home.sections.quick.note")}
+							colors={colors}
+						>
 							<Shelf items={home.quick} colors={colors} headers={headers} menu={menu} />
 						</Section>
 					) : null}
@@ -613,11 +621,6 @@ export default function Home() {
 			{tags.sheet}
 		</ScrollView>
 	)
-}
-
-/** "5 minutes", "1 minute". */
-function minutesText(minutes: number) {
-	return `${minutes} ${minutes === 1 ? "minute" : "minutes"}`
 }
 
 /**
@@ -639,7 +642,9 @@ function TimeChoice({
 			<Pressable
 				key={value ?? "any"}
 				accessibilityRole="button"
-				accessibilityLabel={value === null ? "Any length" : minutesText(value)}
+				accessibilityLabel={
+					value === null ? t("home.time.anyLength") : t("home.time.minutes", { count: value })
+				}
 				accessibilityState={{ selected: on }}
 				onPress={() => {
 					if (!on) onPick(value)
@@ -649,7 +654,7 @@ function TimeChoice({
 				{({ pressed }) => (
 					<InkMark on={on} pressed={pressed} colors={colors} style={styles.filter}>
 						<Text style={[styles.filterText, { color: on ? colors.fg : colors.mutedFg }]}>
-							{value === null ? "Any" : `${value} min`}
+							{value === null ? t("home.time.any") : t("home.time.choice", { minutes: value })}
 						</Text>
 					</InkMark>
 				)}
@@ -659,7 +664,7 @@ function TimeChoice({
 	return (
 		<View style={styles.about}>
 			<Text style={[styles.inset, styles.aboutTitle, { color: colors.mutedFg }]}>
-				How much time do you have?
+				{t("home.time.title")}
 			</Text>
 			<ScrollView
 				horizontal
@@ -688,7 +693,9 @@ function NothingFits({
 	return (
 		<View style={[styles.inset, styles.nothingFits]}>
 			<Text style={[styles.message, { color: colors.mutedFg }]}>
-				Nothing in {topic ?? "your library"} fits in {minutesText(minutes)}.
+				{topic
+					? t("home.time.nothingFitsTopic", { topic, count: minutes })
+					: t("home.time.nothingFits", { count: minutes })}
 			</Text>
 			<Pressable
 				accessibilityRole="button"
@@ -700,7 +707,7 @@ function NothingFits({
 				]}
 			>
 				<Text style={[styles.chipText, { color: colors.fg }]}>
-					{topic ? "Any length" : "Show everything"}
+					{topic ? t("home.time.anyLength") : t("home.time.showAll")}
 				</Text>
 			</Pressable>
 		</View>
@@ -743,8 +750,8 @@ function AboutWhat({
 	const more = () =>
 		ActionSheetIOS.showActionSheetWithOptions(
 			{
-				title: "More topics",
-				options: [...choice.more.map((t) => t.name), "Cancel"],
+				title: t("home.topics.moreLabel"),
+				options: [...choice.more.map((topic) => topic.name), t("common.actions.cancel")],
 				cancelButtonIndex: choice.more.length,
 			},
 			(index) => {
@@ -754,24 +761,33 @@ function AboutWhat({
 		)
 	return (
 		<View style={styles.about}>
-			<Text style={[styles.inset, styles.aboutTitle, { color: colors.mutedFg }]}>About what?</Text>
+			<Text style={[styles.inset, styles.aboutTitle, { color: colors.mutedFg }]}>
+				{t("home.topics.title")}
+			</Text>
 			<ScrollView
 				horizontal
 				showsHorizontalScrollIndicator={false}
 				contentContainerStyle={styles.chips}
 			>
-				{chip("any", "Anything", !pick, null)}
-				{choice.chips.map((t) =>
-					chip(t.id, t.name, pick?.id === t.id && !pick.different, { id: t.id, different: false }),
+				{chip("any", t("home.topics.any"), !pick, null)}
+				{choice.chips.map((topic) =>
+					chip(topic.id, topic.name, pick?.id === topic.id && !pick.different, {
+						id: topic.id,
+						different: false,
+					}),
 				)}
 				{choice.different
-					? chip("different", "Something different", !!pick?.different, {
+					? chip("different", t("home.topics.different"), !!pick?.different, {
 							id: choice.different,
 							different: true,
 						})
 					: null}
 				{choice.more.length ? (
-					<Pressable accessibilityRole="button" accessibilityLabel="More topics" onPress={more}>
+					<Pressable
+						accessibilityRole="button"
+						accessibilityLabel={t("home.topics.moreLabel")}
+						onPress={more}
+					>
 						{({ pressed }) => (
 							<InkMark
 								on={false}
@@ -779,7 +795,9 @@ function AboutWhat({
 								colors={colors}
 								style={[styles.filter, styles.moreChip]}
 							>
-								<Text style={[styles.filterText, { color: colors.mutedFg }]}>More</Text>
+								<Text style={[styles.filterText, { color: colors.mutedFg }]}>
+									{t("home.topics.more")}
+								</Text>
 								<SymbolView
 									name="chevron.down"
 									tintColor={colors.mutedFg}
@@ -810,7 +828,10 @@ function TopicHeading({
 }) {
 	const heading = topicHeading(chosen)
 	const { line, all } = heading
-	const title = minutes === null ? heading.title : `${minutesText(minutes)} of ${heading.title}`
+	const title =
+		minutes === null
+			? heading.title
+			: t("home.topics.timed", { count: minutes, topic: heading.title })
 	const { topic } = chosen
 	return (
 		<View style={[styles.topicHeading, { borderBottomColor: colors.border }]}>
@@ -932,7 +953,9 @@ function Hero({
 						<ProgressBar progress={item.progress} colors={colors} />
 					</View>
 					{left ? (
-						<Text style={[styles.meta, { color: colors.mutedFg }]}>{left} min left</Text>
+						<Text style={[styles.meta, { color: colors.mutedFg }]}>
+							{t("home.sections.minutesLeft", { count: left })}
+						</Text>
 					) : null}
 				</View>
 			) : null}

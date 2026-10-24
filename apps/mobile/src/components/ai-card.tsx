@@ -28,20 +28,21 @@ import {
 	DRAFT_CHOICES,
 	unasked,
 } from "@/lib/ai-threads"
+import { t } from "@/lib/i18n"
 import type { Colors } from "@/lib/theme"
 
 export const AI_ACTIONS: Record<
 	Card["action"],
 	{ label: string; symbol: SymbolViewProps["name"] }
 > = {
-	explain: { label: "Explain", symbol: "lightbulb" },
-	define: { label: "Define", symbol: "book" },
-	ask: { label: "Ask", symbol: "questionmark.bubble" },
-	chat: { label: "Chat", symbol: "bubble.left.and.text.bubble.right" },
+	explain: { label: t("ai.actions.explain"), symbol: "lightbulb" },
+	define: { label: t("ai.actions.define"), symbol: "book" },
+	ask: { label: t("ai.actions.ask"), symbol: "questionmark.bubble" },
+	chat: { label: t("ai.actions.chat"), symbol: "bubble.left.and.text.bubble.right" },
 }
 
 /** Asking AI about a passage, before choosing how: the selection menu's Ask, and the draft's head. */
-const ASK_AI = { label: "Ask AI", symbol: "sparkles" } as const
+const ASK_AI = { label: t("ai.actions.askAi"), symbol: "sparkles" } as const
 
 /** The card's height without its turns: the action, the passage, the tools and the field. */
 const CARD_CHROME = 230
@@ -61,7 +62,11 @@ export function useKeyboardHeight() {
 }
 
 /** Questions offered under an empty field about a passage, for a reader without one in mind. */
-const SUGGESTIONS = ["Give me an example", "Why does it matter?", "What is the evidence?"]
+const SUGGESTIONS = [
+	t("ai.card.suggestions.example"),
+	t("ai.card.suggestions.matters"),
+	t("ai.card.suggestions.evidence"),
+]
 
 /**
  * A question about a passage and its answers, as a card at the bottom that leaves the article in
@@ -170,14 +175,16 @@ export function AiCard({
 							<Text style={[styles.actionText, { color: colors.accent }]}>{label}</Text>
 						</View>
 						<Pressable accessibilityRole="button" onPress={onClose} hitSlop={8}>
-							<Text style={[styles.done, { color: colors.accent }]}>Done</Text>
+							<Text style={[styles.done, { color: colors.accent }]}>
+								{t("common.actions.done")}
+							</Text>
 						</Pressable>
 					</View>
 					<Text
 						numberOfLines={2}
 						style={[styles.passage, { color: colors.mutedFg, borderColor: colors.accent }]}
 					>
-						“{shown.exact}”
+						{t("ai.card.passage", { exact: shown.exact })}
 					</Text>
 					<CardBody
 						key={shown.id}
@@ -270,7 +277,11 @@ function CardBody({
 									colors={colors}
 								/>
 							) : (
-								<InkThinking label="Thinking…" colors={colors} style={styles.thinking} />
+								<InkThinking
+									label={t("ai.card.thinking")}
+									colors={colors}
+									style={styles.thinking}
+								/>
 							)
 						) : null}
 						{card.failure && !busy ? (
@@ -310,7 +321,7 @@ function CardBody({
 						</View>
 					) : null}
 					<QuestionField
-						placeholder="Ask about this passage…"
+						placeholder={t("ai.card.askPlaceholder")}
 						autoFocus
 						onSend={onSend}
 						colors={colors}
@@ -337,7 +348,7 @@ function CardBody({
 					<View style={styles.tools}>
 						{canRetry && onRetry ? (
 							<Tool
-								label="Answer Again"
+								label={t("ai.card.answerAgain")}
 								symbol="arrow.clockwise"
 								color={colors.accent}
 								onPress={onRetry}
@@ -345,16 +356,25 @@ function CardBody({
 						) : null}
 						{lastAnswer ? (
 							<Tool
-								label="Copy"
+								label={t("ai.card.copy")}
 								symbol="doc.on.doc"
 								color={colors.accent}
 								onPress={() => onCopy(plainAnswer(lastAnswer.text))}
 							/>
 						) : null}
-						<Tool label="Delete" symbol="trash" color={colors.danger} onPress={onDelete} />
+						<Tool
+							label={t("common.actions.delete")}
+							symbol="trash"
+							color={colors.danger}
+							onPress={onDelete}
+						/>
 					</View>
 					{canFollowUp && onSend ? (
-						<QuestionField placeholder="Ask a follow-up…" onSend={onSend} colors={colors} />
+						<QuestionField
+							placeholder={t("ai.card.followUpPlaceholder")}
+							onSend={onSend}
+							colors={colors}
+						/>
 					) : null}
 				</>
 			)}
@@ -387,11 +407,11 @@ export function Turns({
 			) : null
 		) : message.status === "failed" ? (
 			<Text key={message.id} style={[styles.failure, { color: colors.danger }]}>
-				Couldn't answer. Try again.
+				{t("ai.card.failed")}
 			</Text>
 		) : message.status === "refused" ? (
 			<Text key={message.id} style={[styles.failure, { color: colors.mutedFg }]}>
-				This question couldn't be answered.
+				{t("ai.card.refused")}
 			</Text>
 		) : (
 			<AiAnswer
@@ -441,7 +461,7 @@ export function QuestionField({
 			/>
 			<Pressable
 				accessibilityRole="button"
-				accessibilityLabel="Send"
+				accessibilityLabel={t("ai.card.send")}
 				disabled={!value.trim()}
 				onPress={send}
 				hitSlop={8}

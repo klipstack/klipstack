@@ -5,6 +5,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, View } from
 import { PasteButton } from "@/components/paste-button"
 import { useAuth } from "@/lib/auth"
 import { markClipboardSeen } from "@/lib/clipboard"
+import { errorMessage, t } from "@/lib/i18n"
 import { linkIn } from "@/lib/save-link"
 import { useColors } from "@/lib/theme"
 
@@ -44,13 +45,14 @@ export default function SaveLink() {
 			if (pasted.current) markClipboardSeen()
 			setStatus({ state: "saved", created })
 		} catch (e) {
-			setStatus({ state: "failed", message: e instanceof Error ? e.message : String(e) })
+			setStatus({ state: "failed", message: errorMessage(e) })
 		}
 	}
 
 	function paste(value: string | null) {
 		if (busy) return
-		if (!value?.trim()) return setStatus({ state: "failed", message: "There's nothing to paste." })
+		if (!value?.trim())
+			return setStatus({ state: "failed", message: t("home.save.nothingToPaste") })
 		pasted.current = true
 		setText(linkIn(value) ?? value.trim())
 		setStatus({ state: "editing" })
@@ -59,7 +61,9 @@ export default function SaveLink() {
 	return (
 		<>
 			<Stack.Toolbar placement="left">
-				<Stack.Toolbar.Button onPress={() => router.back()}>Cancel</Stack.Toolbar.Button>
+				<Stack.Toolbar.Button onPress={() => router.back()}>
+					{t("common.actions.cancel")}
+				</Stack.Toolbar.Button>
 			</Stack.Toolbar>
 			<Stack.Toolbar placement="right">
 				<Stack.Toolbar.Button
@@ -68,7 +72,7 @@ export default function SaveLink() {
 					disabled={!link || busy}
 					onPress={() => void save()}
 				>
-					Save
+					{t("common.actions.save")}
 				</Stack.Toolbar.Button>
 			</Stack.Toolbar>
 			<ScrollView
@@ -85,7 +89,7 @@ export default function SaveLink() {
 						accessibilityElementsHidden
 					/>
 					<TextInput
-						accessibilityLabel="Link to save"
+						accessibilityLabel={t("home.save.linkLabel")}
 						value={text}
 						onChangeText={(value) => {
 							pasted.current = false
@@ -112,7 +116,9 @@ export default function SaveLink() {
 						{status.state === "saving" ? (
 							<>
 								<ActivityIndicator color={colors.mutedFg} />
-								<Text style={[styles.statusText, { color: colors.mutedFg }]}>Saving…</Text>
+								<Text style={[styles.statusText, { color: colors.mutedFg }]}>
+									{t("home.save.saving")}
+								</Text>
 							</>
 						) : status.state === "saved" ? (
 							<>
@@ -123,14 +129,14 @@ export default function SaveLink() {
 									accessibilityElementsHidden
 								/>
 								<Text style={[styles.statusText, { color: colors.fg }]}>
-									{status.created ? "Saved to Klipstack" : "Already in Klipstack"}
+									{status.created ? t("home.save.saved") : t("home.save.already")}
 								</Text>
 							</>
 						) : status.state === "failed" ? (
 							<Text style={[styles.statusText, { color: colors.danger }]}>{status.message}</Text>
 						) : text.trim() && !link ? (
 							<Text style={[styles.statusText, { color: colors.mutedFg }]}>
-								That isn't a web address.
+								{t("home.save.notALink")}
 							</Text>
 						) : null}
 					</View>

@@ -60,6 +60,7 @@ import { waitForExtraction } from "@/lib/extraction"
 import { finishOnLeave, showFinished } from "@/lib/finish-on-leave"
 import { offerHighlightUndo } from "@/lib/highlight-undo"
 import { minutesLeft } from "@/lib/home"
+import { errorMessage, t } from "@/lib/i18n"
 import { inTime } from "@/lib/in-time"
 import { guardNoteSaves, type SavedNote } from "@/lib/note-guard"
 import {
@@ -497,7 +498,7 @@ export default function Reader() {
 				}
 				await Promise.all([worker(), worker(), worker(), worker()])
 			} catch (e) {
-				if (live) setError(e instanceof Error ? e.message : String(e))
+				if (live) setError(errorMessage(e))
 			}
 		})()
 		return () => {
@@ -517,7 +518,7 @@ export default function Reader() {
 			setPage(null)
 			await waitForExtraction(client, id)
 		} catch (e) {
-			Alert.alert("Couldn't switch to the post", e instanceof Error ? e.message : String(e))
+			Alert.alert(t("reader.failed.switchToPost"), errorMessage(e))
 		}
 		setGeneration((n) => n + 1)
 	}
@@ -530,7 +531,7 @@ export default function Reader() {
 			const { queued } = await client.articles.retry(id)
 			if (queued) await waitForExtraction(client, id)
 		} catch (e) {
-			Alert.alert("Couldn't try again", e instanceof Error ? e.message : String(e))
+			Alert.alert(t("reader.failed.retry"), errorMessage(e))
 		}
 		setRetrying(false)
 		setGeneration((n) => n + 1)
@@ -556,11 +557,11 @@ export default function Reader() {
 		if (askingNote.current || !mounted.current) return
 		askingNote.current = true
 		Alert.alert(
-			"Note Changed Elsewhere",
-			"This note changed somewhere else while you were writing.",
+			t("reader.noteChanged.title"),
+			t("reader.noteChanged.message"),
 			[
 				{
-					text: "Use the Saved Note",
+					text: t("reader.noteChanged.useSaved"),
 					onPress: () => {
 						askingNote.current = false
 						const text = now.note ?? ""
@@ -571,7 +572,7 @@ export default function Reader() {
 					},
 				},
 				{
-					text: "Keep Mine",
+					text: t("reader.noteChanged.keepMine"),
 					onPress: () => {
 						askingNote.current = false
 						noteGuard.current?.replaces(now.noteUpdatedAt)
@@ -629,7 +630,7 @@ export default function Reader() {
 			if (changes.location === "archive" || changes.finished !== undefined) router.back()
 		} catch (e) {
 			setArticle(before)
-			Alert.alert("Not saved", e instanceof Error ? e.message : String(e))
+			Alert.alert(t("common.failed.notSaved"), errorMessage(e))
 		}
 	}
 
@@ -648,7 +649,7 @@ export default function Reader() {
 			await track(client.articles.rename(article.id, title))
 		} catch (e) {
 			show(before)
-			Alert.alert("Not renamed", e instanceof Error ? e.message : String(e))
+			Alert.alert(t("common.failed.notRenamed"), errorMessage(e))
 		}
 	}
 
@@ -662,7 +663,7 @@ export default function Reader() {
 			if (trashed.length) offerRestore(client, trashed, () => {})
 			router.back()
 		} catch (e) {
-			Alert.alert("Not deleted", e instanceof Error ? e.message : String(e))
+			Alert.alert(t("common.failed.notDeleted"), errorMessage(e))
 		}
 	}
 
@@ -672,9 +673,9 @@ export default function Reader() {
 		try {
 			const { restored } = await track(client.articles.restore([article.id]))
 			if (restored.length) setArticle({ ...article, trashedAt: null })
-			else showToast({ message: "Saved again since, so it stays in the trash." })
+			else showToast({ message: t("reader.toasts.stillInTrash") })
 		} catch (e) {
-			Alert.alert("Not restored", e instanceof Error ? e.message : String(e))
+			Alert.alert(t("reader.failed.notRestored"), errorMessage(e))
 		}
 	}
 
@@ -683,23 +684,18 @@ export default function Reader() {
 		if (!client || !article) return
 		const c = client
 		const gone = article.id
-		Alert.alert(
-			"Delete this article forever?",
-			"Its highlights and notes go too. This can't be undone.",
-			[
-				{ text: "Cancel", style: "cancel" },
-				{
-					text: "Delete Forever",
-					style: "destructive",
-					onPress: () =>
-						void track(c.articles.purge([gone])).then(
-							() => router.back(),
-							(e: unknown) =>
-								Alert.alert("Not deleted", e instanceof Error ? e.message : String(e)),
-						),
-				},
-			],
-		)
+		Alert.alert(t("reader.purge.title"), t("reader.purge.message"), [
+			{ text: t("common.actions.cancel"), style: "cancel" },
+			{
+				text: t("common.actions.deleteForever"),
+				style: "destructive",
+				onPress: () =>
+					void track(c.articles.purge([gone])).then(
+						() => router.back(),
+						(e: unknown) => Alert.alert(t("common.failed.notDeleted"), errorMessage(e)),
+					),
+			},
+		])
 	}
 
 	function onMessage(event: WebViewMessageEvent) {
@@ -842,7 +838,7 @@ export default function Reader() {
 			void reloadHighlights()
 			reading.current?.engage()
 		} catch (e) {
-			Alert.alert("Not highlighted", e instanceof Error ? e.message : String(e))
+			Alert.alert(t("reader.failed.notHighlighted"), errorMessage(e))
 		} finally {
 			setSaving(false)
 		}
@@ -880,7 +876,7 @@ export default function Reader() {
 		const picked = selection.current
 		const version = versionId.current
 		if (!picked || !version || !picked.exact.trim())
-			return void showToast({ message: "Select the passage again." })
+			return void showToast({ message: t("reader.toasts.selectAgain") })
 		web.current?.injectJavaScript("window.klipClearSelection && window.klipClearSelection(); true;")
 		setEditing(null)
 		withConsent(() => {
@@ -932,7 +928,10 @@ export default function Reader() {
 	/** Gone at once; the toast's Undo brings it back, as a highlight's does. */
 	function deleteAnswer(
 		threadId: string,
-		{ message, lost } = { message: "Answer deleted", lost: "Couldn't bring the answer back." },
+		{ message, lost } = {
+			message: t("reader.toasts.answerDeleted"),
+			lost: t("reader.toasts.answerLost"),
+		},
 	) {
 		aiCards.remove(
 			threadId,
@@ -940,11 +939,11 @@ export default function Reader() {
 				showToast({
 					message,
 					action: {
-						label: "Undo",
+						label: t("common.actions.undo"),
 						run: () => void restore().catch(() => showToast({ message: lost })),
 					},
 				}),
-			() => showToast({ message: "Couldn't delete it. Try again." }),
+			() => showToast({ message: t("reader.toasts.deleteFailed") }),
 		)
 	}
 
@@ -974,7 +973,7 @@ export default function Reader() {
 			await send()
 		} catch (e) {
 			setArticle((current) => (current ? { ...current, highlights: before } : current))
-			Alert.alert(failure, e instanceof Error ? e.message : String(e))
+			Alert.alert(failure, errorMessage(e))
 		}
 	}
 
@@ -984,7 +983,7 @@ export default function Reader() {
 			highlightId,
 			(list) => list.map((h) => (h.id === highlightId ? { ...h, color } : h)),
 			() => client.highlights.update(highlightId, { color }),
-			"Color not changed",
+			t("reader.failed.colorNotChanged"),
 		)
 	}
 
@@ -1015,7 +1014,7 @@ export default function Reader() {
 						: current,
 				)
 			},
-			"Highlight not changed",
+			t("reader.failed.highlightNotChanged"),
 		)
 	}
 
@@ -1043,7 +1042,7 @@ export default function Reader() {
 			target.id,
 			(list) => list.filter((h) => h.id !== target.id),
 			() => deleting,
-			"Not deleted",
+			t("common.failed.notDeleted"),
 		)
 		offerHighlightUndo(client, target, deleting, (back) => {
 			setArticle((current) =>
@@ -1107,7 +1106,9 @@ export default function Reader() {
 					{page && listen.available ? (
 						<Stack.Toolbar.Button
 							icon="headphones"
-							accessibilityLabel={listen.status ? "Stop reading aloud" : "Read aloud"}
+							accessibilityLabel={
+								listen.status ? t("reader.menu.stopReadingAloud") : t("reader.menu.readAloud")
+							}
 							tintColor={colors.accent}
 							onPress={() => (listen.status ? listen.close() : void listen.start())}
 						/>
@@ -1115,12 +1116,12 @@ export default function Reader() {
 					{page && ai.enabled && (briefShown || chatShown) ? (
 						<Stack.Toolbar.Menu
 							icon="sparkles"
-							accessibilityLabel="Ask AI"
+							accessibilityLabel={t("reader.menu.askAi")}
 							tintColor={colors.accent}
 						>
 							{briefShown ? (
 								<Stack.Toolbar.MenuAction icon="list.bullet.rectangle.portrait" onPress={openBrief}>
-									Sum Up This Article
+									{t("reader.menu.sumUp")}
 								</Stack.Toolbar.MenuAction>
 							) : null}
 							{chatShown ? (
@@ -1130,7 +1131,7 @@ export default function Reader() {
 										ai.asking ? withConsent(() => setChatOpen(true)) : setChatOpen(true)
 									}
 								>
-									Chat About This Article
+									{t("reader.menu.chat")}
 								</Stack.Toolbar.MenuAction>
 							) : null}
 						</Stack.Toolbar.Menu>
@@ -1138,7 +1139,7 @@ export default function Reader() {
 					{article.status === "ready" ? (
 						<Stack.Toolbar.Button
 							icon="note.text"
-							accessibilityLabel="Notes and highlights"
+							accessibilityLabel={t("reader.menu.notes")}
 							tintColor={colors.accent}
 							onPress={() => {
 								// Out of the post-it first: the sheet holds the same note.
@@ -1149,7 +1150,7 @@ export default function Reader() {
 					) : null}
 					<Stack.Toolbar.Menu
 						icon="ellipsis.circle"
-						accessibilityLabel="More"
+						accessibilityLabel={t("common.actions.more")}
 						tintColor={colors.accent}
 					>
 						{page && contents.length ? (
@@ -1158,7 +1159,7 @@ export default function Reader() {
 									icon="list.bullet.indent"
 									onPress={() => setContentsOpen(true)}
 								>
-									Contents
+									{t("reader.menu.contents")}
 								</Stack.Toolbar.MenuAction>
 							</Stack.Toolbar.Menu>
 						) : null}
@@ -1169,21 +1170,21 @@ export default function Reader() {
 								hidden={!can.has("restore")}
 								onPress={() => void restore()}
 							>
-								Restore
+								{t("reader.menu.restore")}
 							</Stack.Toolbar.MenuAction>
 							<Stack.Toolbar.MenuAction
 								icon="arrow.clockwise"
 								hidden={!can.has("retry")}
 								onPress={() => void retry()}
 							>
-								Try Again
+								{t("common.actions.retry")}
 							</Stack.Toolbar.MenuAction>
 							<Stack.Toolbar.MenuAction
 								icon={article.starred ? "star.slash" : "star"}
 								hidden={!can.has("star")}
 								onPress={() => update({ starred: !article.starred })}
 							>
-								{article.starred ? "Unstar" : "Star"}
+								{article.starred ? t("reader.menu.unstar") : t("reader.menu.star")}
 							</Stack.Toolbar.MenuAction>
 							<Stack.Toolbar.MenuAction
 								icon={article.location === "archive" ? "tray.and.arrow.up" : "archivebox"}
@@ -1192,21 +1193,23 @@ export default function Reader() {
 									update({ location: article.location === "archive" ? "inbox" : "archive" })
 								}
 							>
-								{article.location === "archive" ? "Move to Inbox" : "Archive"}
+								{article.location === "archive"
+									? t("reader.menu.moveToInbox")
+									: t("common.actions.archive")}
 							</Stack.Toolbar.MenuAction>
 							<Stack.Toolbar.MenuAction
 								icon="checkmark.circle"
 								hidden={!can.has("finish")}
 								onPress={() => update({ finished: true })}
 							>
-								Mark as Finished
+								{t("reader.menu.finish")}
 							</Stack.Toolbar.MenuAction>
 							<Stack.Toolbar.MenuAction
 								icon="eye.slash"
 								hidden={!can.has("unread")}
 								onPress={() => update({ finished: false })}
 							>
-								Mark as Unread
+								{t("reader.menu.unread")}
 							</Stack.Toolbar.MenuAction>
 						</Stack.Toolbar.Menu>
 						<Stack.Toolbar.Menu inline>
@@ -1215,21 +1218,21 @@ export default function Reader() {
 								hidden={!can.has("shortlist") || !editions}
 								onPress={() => update({ shortlisted: !article.shortlisted })}
 							>
-								{article.shortlisted ? "Remove from Next Edition" : "Add to Next Edition"}
+								{article.shortlisted ? t("reader.menu.unshortlist") : t("reader.menu.shortlist")}
 							</Stack.Toolbar.MenuAction>
 							<Stack.Toolbar.MenuAction
 								icon="tag"
 								hidden={!can.has("tags")}
 								onPress={() => tags.open([article])}
 							>
-								Tags…
+								{t("reader.menu.tags")}
 							</Stack.Toolbar.MenuAction>
 							<Stack.Toolbar.MenuAction
 								icon="pencil"
 								hidden={!can.has("rename")}
 								onPress={() => askTitle(article, (title) => void rename(title))}
 							>
-								Rename…
+								{t("common.actions.renameMore")}
 							</Stack.Toolbar.MenuAction>
 						</Stack.Toolbar.Menu>
 						<Stack.Toolbar.Menu inline>
@@ -1238,12 +1241,12 @@ export default function Reader() {
 									icon="textformat.size"
 									onPress={() => setAppearanceOpen(true)}
 								>
-									Appearance
+									{t("reader.menu.appearance")}
 								</Stack.Toolbar.MenuAction>
 							) : null}
 							{listen.available ? (
 								<Stack.Toolbar.MenuAction icon="waveform" onPress={() => router.push("/voices")}>
-									Voices
+									{t("reader.menu.voices")}
 								</Stack.Toolbar.MenuAction>
 							) : null}
 						</Stack.Toolbar.Menu>
@@ -1253,17 +1256,17 @@ export default function Reader() {
 								// Web pages open in the phone's browser, never inside the app.
 								onPress={() => void Linking.openURL(article.url)}
 							>
-								Open Original
+								{t("reader.menu.openOriginal")}
 							</Stack.Toolbar.MenuAction>
 							<Stack.Toolbar.MenuAction icon="link" onPress={() => void copyText(article.url)}>
-								Copy Link
+								{t("reader.menu.copyLink")}
 							</Stack.Toolbar.MenuAction>
 							<Stack.Toolbar.MenuAction
 								icon="text.bubble"
 								hidden={!article.via?.some((via) => via.restorable)}
 								onPress={() => void readPost()}
 							>
-								Read the Post Instead
+								{t("reader.menu.readPost")}
 							</Stack.Toolbar.MenuAction>
 							<Stack.Toolbar.MenuAction
 								icon="square.and.arrow.up"
@@ -1272,7 +1275,7 @@ export default function Reader() {
 									void Share.share({ url: article.url, title: article.title ?? undefined })
 								}
 							>
-								Share
+								{t("common.actions.share")}
 							</Stack.Toolbar.MenuAction>
 						</Stack.Toolbar.Menu>
 						<Stack.Toolbar.Menu inline>
@@ -1281,7 +1284,7 @@ export default function Reader() {
 								destructive
 								onPress={() => (can.has("purge") ? purge() : void trash())}
 							>
-								{can.has("purge") ? "Delete Forever" : "Delete"}
+								{can.has("purge") ? t("common.actions.deleteForever") : t("common.actions.delete")}
 							</Stack.Toolbar.MenuAction>
 						</Stack.Toolbar.Menu>
 					</Stack.Toolbar.Menu>
@@ -1303,12 +1306,12 @@ export default function Reader() {
 							? undefined
 							: [
 									// Highlight, Copy and Ask (none with AI off) first; iOS pages the rest as they fit.
-									{ label: "Highlight", key: "highlight" },
-									{ label: "Copy", key: "copy" },
-									...(ai.asking ? [{ label: "Ask", key: "ask" }] : []),
-									{ label: "Add Note", key: "note" },
-									...(canLookUp ? [{ label: "Look Up", key: "lookup" }] : []),
-									{ label: "Share", key: "share" },
+									{ label: t("reader.selection.highlight"), key: "highlight" },
+									{ label: t("reader.selection.copy"), key: "copy" },
+									...(ai.asking ? [{ label: t("reader.selection.ask"), key: "ask" }] : []),
+									{ label: t("reader.selection.addNote"), key: "note" },
+									...(canLookUp ? [{ label: t("reader.selection.lookUp"), key: "lookup" }] : []),
+									{ label: t("common.actions.share"), key: "share" },
 								]
 					}
 					onCustomMenuSelection={(event) => {
@@ -1362,7 +1365,9 @@ export default function Reader() {
 					{retrying ? (
 						<>
 							<ActivityIndicator color={colors.mutedFg} />
-							<Text style={[styles.message, { color: colors.mutedFg }]}>Trying again…</Text>
+							<Text style={[styles.message, { color: colors.mutedFg }]}>
+								{t("reader.status.tryingAgain")}
+							</Text>
 						</>
 					) : error || (article && article.status !== "ready") ? (
 						<>
@@ -1376,7 +1381,9 @@ export default function Reader() {
 									hitSlop={8}
 									style={({ pressed }) => pressed && styles.pressed}
 								>
-									<Text style={[styles.action, { color: colors.accent }]}>Try Again</Text>
+									<Text style={[styles.action, { color: colors.accent }]}>
+										{t("common.actions.retry")}
+									</Text>
 								</Pressable>
 							) : null}
 						</>
@@ -1455,14 +1462,14 @@ export default function Reader() {
 						// Its offsets are into the text the brief read: the page's, unless it changed since.
 						if (ai.brief.brief && ai.brief.brief.versionId !== versionId.current)
 							return void showToast({
-								message: "That passage is from another version of the article.",
+								message: t("reader.toasts.otherVersion"),
 							})
 						citeAfterSheet.current = citation
 						setBriefOpen(false)
 					}}
 					onCopy={(text) => {
 						void copyText(text)
-						showToast({ message: "Brief copied" })
+						showToast({ message: t("reader.toasts.briefCopied") })
 					}}
 					onClose={() => setBriefOpen(false)}
 					onDismiss={() => {
@@ -1490,13 +1497,13 @@ export default function Reader() {
 					onClear={() =>
 						chatCard &&
 						deleteAnswer(chatCard.id, {
-							message: "Chat cleared",
-							lost: "Couldn't bring the chat back.",
+							message: t("reader.toasts.chatCleared"),
+							lost: t("reader.toasts.chatLost"),
 						})
 					}
 					onCopy={(answer) => {
 						void copyText(answer)
-						showToast({ message: "Answer copied" })
+						showToast({ message: t("reader.toasts.answerCopied") })
 					}}
 					onCite={(citation) => {
 						citeAfterSheet.current = citation
@@ -1678,7 +1685,7 @@ export default function Reader() {
 					onDelete={() => openCard && deleteAnswer(openCard.id)}
 					onCopy={(answer) => {
 						void copyText(answer)
-						showToast({ message: "Answer copied" })
+						showToast({ message: t("reader.toasts.answerCopied") })
 					}}
 					onCite={cite}
 					onCover={(points) => setCovered(Math.round(points))}
@@ -1691,15 +1698,18 @@ export default function Reader() {
 
 function bylineOf(a: ArticleDetails): string {
 	const site = a.site ?? hostOf(a.url)
-	return [site, a.author, a.readingMinutes ? `${a.readingMinutes} min` : null]
+	return [
+		site,
+		a.author,
+		a.readingMinutes ? t("reader.html.minutes", { count: a.readingMinutes }) : null,
+	]
 		.filter(Boolean)
 		.join(" · ")
 }
 
 function statusMessage(a: ArticleDetails): string {
-	if (a.status === "failed")
-		return "Klipstack couldn't read this page. Try again, or open the original from the More menu above."
-	return "Klipstack is still saving this article. Try again in a moment."
+	if (a.status === "failed") return t("reader.status.failed")
+	return t("reader.status.saving")
 }
 
 function hostOf(url: string): string {

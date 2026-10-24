@@ -1,10 +1,11 @@
 import type { AiAllowance, AiCitation } from "@klipstack/sdk"
 import { KlipstackApiError } from "@klipstack/sdk"
+import { dateLocale, t } from "./i18n"
 
 /**
  * The reader's AI in the app: where the account stands against its monthly cap, and what to say
  * when a question is refused. As the web reader's (`use-ai-allowance.ts`, `ai-card.tsx`), in the
- * app's English.
+ * app's language.
  */
 
 /** Why a question got no answer: an API error's code, or `network`. */
@@ -44,7 +45,7 @@ export function afterFailure(
 
 /** The day the count starts over, as "November 1": midnight UTC on the 1st. */
 export function resetsOn(resetsAt: string): string {
-	return new Date(resetsAt).toLocaleDateString("en-US", {
+	return new Date(resetsAt).toLocaleDateString(dateLocale, {
 		month: "long",
 		day: "numeric",
 		timeZone: "UTC",
@@ -52,18 +53,20 @@ export function resetsOn(resetsAt: string): string {
 }
 
 const limitMessage = (resetsAt: string | undefined) =>
-	`You've asked as many questions as this month allows. It starts over on ${resetsAt ? resetsOn(resetsAt) : "the 1st"}.`
+	resetsAt
+		? t("ai.errors.limitReachedOn", { date: resetsOn(resetsAt) })
+		: t("ai.errors.limitReached")
 
-const FAILURES: Record<string, string> = {
-	rate_limited: "Too many questions at once. Wait a few minutes and try again.",
-	network: "Klipstack couldn't be reached. Check your connection and try again.",
-	no_match: "That passage isn't in the article anymore.",
-	ambiguous_quote: "That passage appears more than once. Select a little more of it.",
-	not_ready: "The article is being updated. Try again in a moment.",
-	forbidden: "AI answers aren't turned on for your account.",
-	unavailable: "AI answers aren't set up on this server.",
-	too_large: "This article is too long to ask about.",
-	already_pending: "The last question is still being answered. Try again in a minute.",
+const FAILURES: Record<string, () => string> = {
+	rate_limited: () => t("ai.errors.rateLimited"),
+	network: () => t("ai.errors.network"),
+	no_match: () => t("ai.errors.noMatch"),
+	ambiguous_quote: () => t("ai.errors.ambiguousQuote"),
+	not_ready: () => t("ai.errors.notReady"),
+	forbidden: () => t("ai.errors.forbidden"),
+	unavailable: () => t("ai.errors.unavailable"),
+	too_large: () => t("ai.errors.tooLarge"),
+	already_pending: () => t("ai.errors.alreadyPending"),
 }
 
 /** What to say for a failure. */
@@ -72,7 +75,7 @@ export function failureMessage(failure: AiFailure, allowance: AiAllowance | null
 		const at = failure.details?.resetsAt
 		return limitMessage(typeof at === "string" ? at : allowance?.resetsAt)
 	}
-	return FAILURES[failure.code] ?? "Couldn't answer. Try again."
+	return FAILURES[failure.code]?.() ?? t("ai.errors.other")
 }
 
 /** Under the next question: how many are left when few are, or why none can be asked. */
@@ -80,7 +83,7 @@ export function allowanceMessage(allowance: AiAllowance | null, now = Date.now()
 	const { left, few, none } = questionsLeft(allowance, now)
 	if (none) return limitMessage(allowance?.resetsAt)
 	if (!few) return null
-	return `${left} ${left === 1 ? "question" : "questions"} left this month`
+	return t("ai.left", { count: left })
 }
 
 /** An answer as it is written: its text and citations so far. */
@@ -103,7 +106,7 @@ export function written(
  * As the privacy policy's "Questions about what you read".
  */
 export const AI_CONSENT = {
-	title: "Ask Anthropic's AI?",
-	sent: "To answer, Klipstack sends Anthropic the article's text and what you ask about it: the passage you chose, your question. Anthropic uses them only to answer, and doesn't train its models on them.",
-	when: "Nothing is sent until you ask. Your choice holds in the app on all your devices, and you can change it in Account.",
+	title: t("ai.consent.title"),
+	sent: t("ai.consent.sent"),
+	when: t("ai.consent.when"),
 } as const

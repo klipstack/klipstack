@@ -1,5 +1,6 @@
 import { somethingDifferent } from "@klipstack/api-contract/topics"
 import type { Topic } from "@klipstack/sdk"
+import { t } from "./i18n"
 
 /**
  * Home's "About what?", as the web's (apps/web/app/routes/reading-home.tsx): the reader's topics
@@ -57,10 +58,10 @@ export function topicHeading({ topic, different }: { topic: Topic; different: bo
 		title: topic.name,
 		line: different
 			? topic.lastReadAt
-				? "Something different: the topic you haven't read from in the longest time."
-				: "Something different: a topic you haven't read from yet."
-			: `${topic.toRead} to read`,
-		all: `Everything in ${topic.name}`,
+				? t("home.topics.differentLeast")
+				: t("home.topics.differentNever")
+			: t("home.topics.toRead", { count: topic.toRead }),
+		all: t("home.topics.all", { topic: topic.name }),
 	}
 }
 

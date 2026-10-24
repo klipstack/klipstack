@@ -2,6 +2,7 @@ import { defaultSavedSearchName } from "@klipstack/api-contract/search-query"
 import { type KlipstackClient, KlipstackApiError, type SavedSearch } from "@klipstack/sdk"
 import { ActionSheetIOS, Alert } from "react-native"
 import { showToast } from "@/lib/article-changes"
+import { errorMessage, t } from "@/lib/i18n"
 
 /**
  * Saving a search, renaming and deleting one: the web's saved-search dialog and menu, as iOS's own
@@ -12,19 +13,19 @@ import { showToast } from "@/lib/article-changes"
 /** Asks for a name, starting from the query (or its tag), and saves the query under it. */
 export function saveSearch(client: KlipstackClient, query: string, done: () => void) {
 	Alert.prompt(
-		"Save Search",
-		`The Library lists it with its results: ${query}`,
+		t("library.savedSearches.saveTitle"),
+		t("library.savedSearches.saveMessage", { query }),
 		[
-			{ text: "Cancel", style: "cancel" },
+			{ text: t("common.actions.cancel"), style: "cancel" },
 			{
-				text: "Save",
+				text: t("common.actions.save"),
 				onPress: (value?: string) => {
 					const name = value?.trim()
 					if (!name) return
 					client.savedSearches
 						.create(name, query)
 						.then(done)
-						.catch((e: unknown) => refused("Not saved", e))
+						.catch((e: unknown) => refused(t("common.failed.notSaved"), e))
 				},
 			},
 		],
@@ -37,8 +38,12 @@ export function saveSearch(client: KlipstackClient, query: string, done: () => v
 export function savedSearchSheet(client: KlipstackClient, saved: SavedSearch, done: () => void) {
 	ActionSheetIOS.showActionSheetWithOptions(
 		{
-			title: `Saved as “${saved.name}”`,
-			options: ["Rename…", "Delete", "Cancel"],
+			title: t("library.savedSearches.savedAs", { name: saved.name }),
+			options: [
+				t("common.actions.renameMore"),
+				t("common.actions.delete"),
+				t("common.actions.cancel"),
+			],
 			destructiveButtonIndex: 1,
 			cancelButtonIndex: 2,
 		},
@@ -55,19 +60,19 @@ export function renameSavedSearch(
 	done: (name: string) => void,
 ) {
 	Alert.prompt(
-		"Rename Saved Search",
+		t("library.savedSearches.renameTitle"),
 		undefined,
 		[
-			{ text: "Cancel", style: "cancel" },
+			{ text: t("common.actions.cancel"), style: "cancel" },
 			{
-				text: "Rename",
+				text: t("common.actions.rename"),
 				onPress: (value?: string) => {
 					const name = value?.trim()
 					if (!name || name === saved.name) return
 					client.savedSearches
 						.rename(saved.id, name)
 						.then(() => done(name))
-						.catch((e: unknown) => refused("Not renamed", e))
+						.catch((e: unknown) => refused(t("common.failed.notRenamed"), e))
 				},
 			},
 		],
@@ -92,24 +97,21 @@ export function deleteSavedSearch(
 		.then(() => {
 			done()
 			showToast({
-				message: `Deleted “${saved.name}”`,
+				message: t("library.savedSearches.deleted", { name: saved.name }),
 				action: {
-					label: "Undo",
+					label: t("common.actions.undo"),
 					run: () =>
 						void client.savedSearches
 							.create(saved.name, saved.query)
 							.then(restored)
-							.catch((e: unknown) => refused("Not saved", e)),
+							.catch((e: unknown) => refused(t("common.failed.notSaved"), e)),
 				},
 			})
 		})
-		.catch((e: unknown) => refused("Not deleted", e))
+		.catch((e: unknown) => refused(t("common.failed.notDeleted"), e))
 }
 
 function refused(title: string, e: unknown) {
 	const taken = e instanceof KlipstackApiError && e.code === "name_taken"
-	Alert.alert(
-		title,
-		taken ? "A saved search already has that name." : e instanceof Error ? e.message : String(e),
-	)
+	Alert.alert(title, taken ? t("library.savedSearches.nameTaken") : errorMessage(e))
 }

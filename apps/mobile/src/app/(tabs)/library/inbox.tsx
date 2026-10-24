@@ -2,6 +2,7 @@ import { useLocalSearchParams, useNavigation } from "expo-router"
 import type { NavigationProp } from "expo-router/react-navigation"
 import { useEffect } from "react"
 import { LibraryList } from "@/components/library-list"
+import { t } from "@/lib/i18n"
 
 /** What is saved and not archived: the API's `inbox`, the web's Library. */
 export default function Inbox() {
@@ -12,5 +13,5 @@ export default function Inbox() {
 	useEffect(() => {
 		if (opening) navigation.setParams({ opening: undefined })
 	}, [navigation, opening])
-	return <LibraryList view="inbox" canSave empty="Nothing saved yet. Share a page to Klipstack." />
+	return <LibraryList view="inbox" canSave empty={t("library.empty.inbox")} />
 }

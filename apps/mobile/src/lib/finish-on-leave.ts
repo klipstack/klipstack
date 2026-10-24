@@ -1,5 +1,6 @@
 import type { KlipstackClient } from "@klipstack/sdk"
 import { showToast, track } from "./article-changes"
+import { t } from "./i18n"
 
 /**
  * Finishes an article as the reader closes, then says so in a toast with an undo. Lists wait for it
@@ -27,12 +28,12 @@ export function showFinished(
 	const token = undo?.[0]
 	if (!token) return
 	showToast({
-		message: archived ? "Marked as Finished" : "Finished and Archived",
+		message: archived ? t("library.finished.marked") : t("library.finished.archived"),
 		action: {
-			label: "Undo",
+			label: t("common.actions.undo"),
 			run: () => {
 				track(client.articles.undo(token)).catch(() =>
-					showToast({ message: "Couldn't undo. Find it in the Archive." }),
+					showToast({ message: t("library.finished.undoFailed") }),
 				)
 			},
 		},

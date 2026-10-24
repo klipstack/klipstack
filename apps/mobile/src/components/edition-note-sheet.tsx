@@ -2,7 +2,8 @@ import { NOTE_MAX } from "@klipstack/api-contract/names"
 import type { NoteSaveStatus } from "@klipstack/sdk/note-autosave"
 import { SymbolView } from "expo-symbols"
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native"
-import { EDITION_NOTE_PLACEHOLDER, editionFromNote } from "@/lib/edition-note"
+import { editionFromNote } from "@/lib/edition-note"
+import { t } from "@/lib/i18n"
 import type { Colors } from "@/lib/theme"
 
 /**
@@ -44,9 +45,11 @@ export function EditionNoteSheet({
 		>
 			<View style={[styles.sheet, { backgroundColor: colors.bg }]}>
 				<View style={[styles.bar, { borderColor: colors.border }]}>
-					<Text style={[styles.title, { color: colors.fg }]}>For Your Edition's Readers</Text>
+					<Text style={[styles.title, { color: colors.fg }]}>{t("reader.editionNote.title")}</Text>
 					<Pressable accessibilityRole="button" onPress={onClose} hitSlop={12} style={styles.done}>
-						<Text style={[styles.doneText, { color: colors.accent }]}>Done</Text>
+						<Text style={[styles.doneText, { color: colors.accent }]}>
+							{t("common.actions.done")}
+						</Text>
 					</Pressable>
 				</View>
 				<ScrollView
@@ -56,7 +59,7 @@ export function EditionNoteSheet({
 					automaticallyAdjustKeyboardInsets
 				>
 					<TextInput
-						accessibilityLabel="For your edition's readers"
+						accessibilityLabel={t("reader.editionNote.label")}
 						value={note.value}
 						onChangeText={note.onChange}
 						onBlur={note.onFlush}
@@ -65,7 +68,7 @@ export function EditionNoteSheet({
 						autoFocus
 						scrollEnabled={false}
 						maxLength={NOTE_MAX}
-						placeholder={EDITION_NOTE_PLACEHOLDER}
+						placeholder={t("reader.page.editionPlaceholder")}
 						placeholderTextColor={colors.mutedFg}
 						style={[
 							styles.note,
@@ -76,15 +79,15 @@ export function EditionNoteSheet({
 					{fromNote !== null ? (
 						<Pressable
 							accessibilityRole="button"
-							accessibilityLabel="Start from my note"
-							accessibilityHint="Copies your private note here, to edit for your readers"
+							accessibilityLabel={t("reader.editionNote.fromNote")}
+							accessibilityHint={t("reader.editionNote.fromNoteHint")}
 							onPress={() => note.onChange(fromNote)}
 							hitSlop={8}
 							style={styles.fromNote}
 						>
 							<SymbolView name="note.text" tintColor={colors.accent} size={17} />
 							<Text style={[styles.fromNoteText, { color: colors.accent }]}>
-								Start from my note
+								{t("reader.editionNote.fromNote")}
 							</Text>
 						</Pressable>
 					) : null}
@@ -106,10 +109,17 @@ function SaveStatus({
 	if (status === "error")
 		return (
 			<Pressable accessibilityRole="button" onPress={onRetry} hitSlop={8}>
-				<Text style={[styles.status, { color: colors.danger }]}>Not saved · Retry</Text>
+				<Text style={[styles.status, { color: colors.danger }]}>
+					{t("reader.editionNote.failed")}
+				</Text>
 			</Pressable>
 		)
-	const text = status === "saving" ? "Saving…" : status === "saved" ? "Saved" : "Saves as you type"
+	const text =
+		status === "saving"
+			? t("reader.editionNote.saving")
+			: status === "saved"
+				? t("reader.editionNote.saved")
+				: t("reader.editionNote.autosave")
 	return <Text style={[styles.status, { color: colors.mutedFg }]}>{text}</Text>
 }
 

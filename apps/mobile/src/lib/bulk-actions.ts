@@ -1,4 +1,5 @@
 import type { ArticleSummary } from "@klipstack/sdk"
+import { t } from "./i18n"
 
 /** A list of the library: the API's views, each a place in the Library tab; `all`, a topic's. */
 export type LibraryView = "inbox" | "starred" | "archive" | "all" | "trash"
@@ -149,28 +150,13 @@ export function stillShown(
 	return !(after.trashedAt && !before.trashedAt)
 }
 
-const DONE: Record<BulkAction, string> = {
-	star: "starred",
-	unstar: "unstarred",
-	shortlist: "added to your next edition",
-	unshortlist: "removed from your next edition",
-	archive: "archived",
-	unarchive: "moved to Inbox",
-	finish: "finished",
-	unread: "marked as unread",
-	tag: "tagged",
-	delete: "deleted",
-	restore: "restored",
-	purge: "deleted forever",
-}
-
 /**
  * What the bar says once the server answered, as the web's toast: "3 articles archived".
  * `conflicts`: articles not restored, because the same page was saved again since.
  */
 export function bulkNotice(action: BulkAction, count: number, conflicts = 0): string {
-	const done = `${count} ${count === 1 ? "article" : "articles"} ${DONE[action]}`
+	const done = t(`library.bulk.${action}`, { count })
 	if (!conflicts) return done
-	const kept = `${conflicts} saved again, so still in the trash`
+	const kept = t("library.bulk.conflicts", { count: conflicts })
 	return count ? `${done} · ${kept}` : kept
 }
