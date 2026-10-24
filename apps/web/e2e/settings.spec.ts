@@ -263,7 +263,10 @@ test("a new account's Getting started card ticks a step as it is done, and goes 
 	const feature = card.getByRole("link", { name: /^Turn on .*feeds or editions$/ })
 	await feature.click()
 	await expect(page).toHaveURL(/\/settings\/features$/)
-	const done = page.waitForResponse((r) => r.url().includes("/prefs") && r.ok())
+	// The save itself: a GET of the `prefs-*.js` chunk matches /prefs too.
+	const done = page.waitForResponse(
+		(r) => r.request().method() === "POST" && r.url().includes("/prefs") && r.ok(),
+	)
 	await page.getByTestId("feature-feeds").check()
 	await done
 	await page.goto("/home")
