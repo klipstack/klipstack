@@ -401,5 +401,4 @@ export default {
 			mine: "Quedarme con la mía",
 		},
 	},
-	notFound: "Este artículo no existe o fue eliminado.",
 } satisfies typeof import("../en/reader").default

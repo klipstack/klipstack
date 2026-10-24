@@ -252,7 +252,7 @@ test("save via API with captured html → extracted → readable → archive", a
 	await expect(page.getByRole("heading", { level: 1, name: "Makers vs managers" })).toBeVisible()
 	await Promise.all([stateSaved(page, "delete"), openMenuAnd(page, "Delete")])
 	await expect(page).toHaveURL(/\/starred$/)
-	await expect(page.getByText("This article does not exist or was deleted.")).toHaveCount(0)
+	await expect(page.getByText("This page wandered off before you could save it.")).toHaveCount(0)
 	const readerToast = page.getByRole("status").filter({ hasText: "Deleted" })
 	await Promise.all([
 		stateSaved(page, "restore"),

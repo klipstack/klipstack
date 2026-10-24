@@ -478,8 +478,15 @@ export default {
 	},
 	errors: {
 		generic: "Algo salió mal.",
-		notFound: "Página no encontrada.",
-		notFoundDetail: "La página que buscas no existe.",
+		notFound: {
+			kicker: "Error 404 · 0 min de lectura",
+			title: "Esta página se fue antes de que pudieras guardarla.",
+			detail:
+				"Puede que el enlace esté mal escrito, o que lo que señalaba se haya movido o eliminado. En cualquier caso: <mark>no encontrada</mark>.",
+			home: "Ir al Inicio",
+			search: "Buscar en tus artículos",
+			landing: "Ir a Klipstack",
+		},
 		gone: "Página retirada.",
 		goneDetail: "Su autor retiró esta página.",
 		goneRemoved: "Klipstack retiró esta página porque incumplía las reglas.",

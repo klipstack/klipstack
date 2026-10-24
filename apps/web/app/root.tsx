@@ -150,5 +150,5 @@ export default function App({ loaderData: { locale, loggedIn } }: Route.Componen
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
-	return <ErrorContent error={error} />
+	return <ErrorContent error={error} brand />
 }
