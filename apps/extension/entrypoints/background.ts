@@ -1,6 +1,6 @@
 import { type Browser, browser } from "wxt/browser"
 import { defineBackground } from "wxt/utils/define-background"
-import { APP_URL } from "../lib/app-url"
+import { APP_URL, HOST_PERMISSION } from "../lib/app-url"
 import {
 	capturePage,
 	isCapturableUrl,
@@ -51,6 +51,7 @@ async function savePage(tab: Browser.tabs.Tab): Promise<SaveOutcome> {
 		await flash(tab.id, "!", "#b91c1c")
 		return { ok: false, status: 0, error: "not_capturable" }
 	}
+	if (!(await serverAccess(tab.id))) return { ok: false, status: 0, error: "no_access" }
 	await setBadge(tab.id, "…", "#243f6c")
 	// Shown before the capture, which fetches the page again: that can take a few seconds.
 	void toast(tab.id, { kind: "saving", title: msg("toastSaving") })
@@ -80,11 +81,37 @@ async function captureTab(tabId: number): Promise<Capture | null> {
 
 async function saveUrlOnly(url: string, tabId: number) {
 	if (!isCapturableUrl(url)) return
+	if (!(await serverAccess(tabId))) return
 	await setBadge(tabId, "…", "#243f6c")
 	void toast(tabId, { kind: "saving", title: msg("toastSaving") })
 	const result = await saveToKlipstack(APP_URL, { url })
 	await flash(tabId, result.ok ? "✓" : "!", result.ok ? "#15803d" : "#b91c1c")
 	await toast(tabId, outcomeToast(result, APP_URL))
+}
+
+/**
+ * Whether the extension may reach the server, asking the reader when it may not. Chrome grants it
+ * at install; Safari only when the reader allows it, and a reader can withhold it in either. A save
+ * without it is cross-origin: the server refuses it (no CORS), and the browser reports a network
+ * error, as if the server were down. First, while the click still counts as the reader's gesture,
+ * which the browser's prompt requires; already granted, it answers at once.
+ */
+async function serverAccess(tabId: number): Promise<boolean> {
+	let granted = false
+	try {
+		granted = await browser.permissions.request({ origins: [HOST_PERMISSION] })
+	} catch {
+		granted = await browser.permissions.contains({ origins: [HOST_PERMISSION] }).catch(() => false)
+	}
+	if (!granted) {
+		await flash(tabId, "!", "#b91c1c")
+		await toast(tabId, {
+			kind: "error",
+			title: msg("toastNoAccess", new URL(APP_URL).hostname),
+			ms: 10000,
+		})
+	}
+	return granted
 }
 
 type MessageKey = Parameters<typeof browser.i18n.getMessage>[0]

@@ -1,4 +1,5 @@
 declare const __APP_URL__: string
+declare const __HOST_PERMISSION__: string
 
 /**
  * The Klipstack server this build saves to, fixed when it is built: klipstack.com, or another
@@ -7,3 +8,6 @@ declare const __APP_URL__: string
  * changing it means building again.
  */
 export const APP_URL = __APP_URL__
+
+/** The extension's lasting access to that server (`host_permissions`), to save with its session. */
+export const HOST_PERMISSION = __HOST_PERMISSION__

@@ -36,14 +36,15 @@ A temporary extension needs no Apple account. Safari removes it when it quits, o
 6. Sign in to https://klipstack.com in Safari, if you aren't already.
 7. Open an article and click the Klipstack button in the toolbar. If the button isn't there, add
    it with View → Customize Toolbar.
-8. Safari grants no site to an extension at install. If it asks whether Klipstack may use a
-   site, choose "Always Allow on This Website". Then check Settings → Extensions → Klipstack →
-   "Edit Websites…": klipstack.com should say Allow. Set it there if it doesn't. Note whether
-   Safari asked on its own: readers will go through the same steps.
+8. Safari grants no site to an extension at install, and without klipstack.com the save can't
+   reach your account. So the first click asks Safari for it, and Safari asks you: choose to
+   always allow it. Declined, the notice says Klipstack needs access to klipstack.com. Settings
+   → Extensions → Klipstack → "Edit Websites…" shows and changes the answer: klipstack.com should
+   say Allow.
 
 What to check, since only a real Safari can tell us:
 
-- **The save reaches your account.** A "Saved to Klipstack" notice appears on the page, with
+- **The save reaches your account** after you allow klipstack.com. A "Saved to Klipstack" notice appears on the page, with
   "Open", and the article is in your Inbox. This is the main risk: the extension saves with
   Safari's klipstack.com sign-in (its cookie), and Safari's privacy protections could keep that
   cookie from the extension's request. "Sign in to Klipstack first" while you are signed in means

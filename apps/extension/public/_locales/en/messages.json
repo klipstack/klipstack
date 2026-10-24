@@ -51,5 +51,13 @@
 	},
 	"toastNotCapturable": {
 		"message": "This page can't be saved"
+	},
+	"toastNoAccess": {
+		"message": "Klipstack needs access to $HOST$ to save. Allow it in the browser's settings for extensions.",
+		"placeholders": {
+			"host": {
+				"content": "$1"
+			}
+		}
 	}
 }

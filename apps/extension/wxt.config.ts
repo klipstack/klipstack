@@ -5,12 +5,19 @@ import { defineConfig } from "wxt"
 // code but not this file).
 const appUrl = (process.env.WXT_APP_URL || "https://klipstack.com").replace(/\/+$/, "")
 const appOrigin = new URL(appUrl)
+// Without the port: Firefox refuses patterns with one.
+const hostPermission = `${appOrigin.protocol}//${appOrigin.hostname}/*`
 
 export default defineConfig({
 	srcDir: ".",
 	// The e2e spec builds a copy of its own, for its server, beside the real build.
 	outDir: process.env.WXT_OUT_DIR || "dist",
-	vite: () => ({ define: { __APP_URL__: JSON.stringify(appUrl) } }),
+	vite: () => ({
+		define: {
+			__APP_URL__: JSON.stringify(appUrl),
+			__HOST_PERMISSION__: JSON.stringify(hostPermission),
+		},
+	}),
 	// Safari builds as Manifest V3 (`--mv3` in `build:safari`): the background calls `browser.action`.
 	manifest: ({ browser }) => ({
 		name: "__MSG_name__",
@@ -19,8 +26,8 @@ export default defineConfig({
 		permissions: ["activeTab", "scripting", "contextMenus"],
 		// Saving reaches a page through `activeTab`, granted by the click on the button or the menu.
 		// Only the Klipstack server needs lasting access, to send the page with the browser's
-		// session. Without the port: Firefox refuses patterns with one.
-		host_permissions: [`${appOrigin.protocol}//${appOrigin.hostname}/*`],
+		// session. Safari grants it only when the reader allows it: the background asks on a save.
+		host_permissions: [hostPermission],
 		action: {
 			default_title: "__MSG_actionTitle__",
 			// Firefox swaps these with the toolbar theme; Chrome ignores the key and uses `icons`.

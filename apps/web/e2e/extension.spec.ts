@@ -152,3 +152,51 @@ test("extension saves the whole article when the page's paywall cut it in the br
 		await context.close()
 	}
 })
+
+test("extension asks for the server when the browser withholds it, instead of failing to reach it", async () => {
+	test.setTimeout(90_000)
+	const { context, extensionId } = await signedInBrowser()
+	try {
+		// Safari grants an extension no site until the reader allows it; Chrome's "on click" site
+		// access withholds them the same way. Without it, a save is cross-origin and the server
+		// refuses it, which the browser reports as a network error.
+		const settings = await context.newPage()
+		await settings.goto("chrome://extensions")
+		await settings.evaluate(
+			(id) =>
+				new Promise<void>((done) =>
+					// @ts-expect-error chrome.developerPrivate exists on chrome://extensions only
+					chrome.developerPrivate.updateExtensionConfiguration(
+						{ extensionId: id, hostAccess: "ON_CLICK" },
+						done,
+					),
+				),
+			extensionId,
+		)
+		await context.route(`${PAGE_URL}**`, (route) =>
+			route.fulfill({
+				status: 200,
+				contentType: "text/html; charset=utf-8",
+				body: readFileSync(FIXTURE, "utf8"),
+			}),
+		)
+		const article = await context.newPage()
+		await article.goto(PAGE_URL, { timeout: 20_000 })
+		await clickButton(context, extensionId, article)
+		// The browser now asks the reader (a prompt outside the page, which the test can't answer).
+		// Before, the save went out at once and failed within a second as "Can't reach Klipstack".
+		const shown = new Set<string>()
+		for (const until = Date.now() + 8000; Date.now() < until;) {
+			const text = await article.evaluate(
+				() =>
+					document.getElementById("klipstack-toast-host")?.shadowRoot?.querySelector(".toast")
+						?.textContent ?? "",
+			)
+			if (text) shown.add(text)
+			await article.waitForTimeout(200)
+		}
+		expect([...shown]).toEqual([])
+	} finally {
+		await context.close()
+	}
+})
