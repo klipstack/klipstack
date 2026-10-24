@@ -276,6 +276,10 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 								<ArrowRight className="size-4" aria-hidden />
 							</a>
 							<p className="mt-2 text-sm text-muted-fg">{t("home.phone.betaNote")}</p>
+							{/* The app signs in to an account: where one needs an invite, say so here. */}
+							{inviteOnly && !loggedIn ? (
+								<p className="mt-1 text-sm text-muted-fg">{t("home.phone.betaInvite")}</p>
+							) : null}
 						</div>
 						<ul className="mt-8 grid max-w-xl gap-5">
 							{phoneFeatures.map((key) => (

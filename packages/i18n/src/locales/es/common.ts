@@ -127,6 +127,8 @@ export default {
 			beta: "Únete a la beta en TestFlight",
 			betaNote:
 				"TestFlight es la app de Apple para probar apps antes de que lleguen a la App Store.",
+			betaInvite:
+				"Para iniciar sesión necesitas una cuenta de Klipstack, y crearla requiere un código de invitación.",
 			account:
 				"Una cuenta, una biblioteca: lo que guardas en el teléfono te espera en el computador, y al revés.",
 			save: {

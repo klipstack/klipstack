@@ -118,6 +118,9 @@ export default {
 			// The landing's button to the TestFlight beta, and the line under it.
 			beta: "Join the beta on TestFlight",
 			betaNote: "TestFlight is Apple's app for trying apps before they reach the App Store.",
+			// Under it, where accounts need an invite: the app does not let anyone in without one.
+			betaInvite:
+				"To sign in, you need a Klipstack account, and creating one takes an invite code.",
 			account:
 				"One account, one library: what you save on your phone is waiting on your computer, and the other way around.",
 			save: {
