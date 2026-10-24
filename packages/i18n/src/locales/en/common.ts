@@ -280,6 +280,7 @@ export default {
 			terms: "Terms",
 			privacy: "Privacy",
 			support: "Support",
+			news: "News",
 			copyright: "© {{year}} {{company}}",
 		},
 	},
@@ -420,6 +421,23 @@ export default {
 		},
 		allSet: "All set",
 		allSetText: "You know your way around. Settings has the rest, whenever you want it.",
+	},
+	// What's new in Klipstack: the sidebar's stack of news, and the public pages at /news.
+	news: {
+		// The sidebar's stack, to a screen reader.
+		label: "What's new in Klipstack",
+		// Over a card's title, before how long ago: "New · 2 days ago".
+		kicker: "New",
+		close: "Close",
+		// The collapsed sidebar's icon: its tooltip and name.
+		rail: "New in Klipstack: {{title}}",
+		title: "News",
+		intro: "What's new in Klipstack, newest first.",
+		all: "All news",
+		feed: "Follow with RSS",
+		// The share image's line over the title.
+		cardKicker: "Klipstack news",
+		empty: "Nothing here yet.",
 	},
 	savedSearches: {
 		heading: "Saved searches",

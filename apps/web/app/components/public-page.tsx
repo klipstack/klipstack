@@ -4,7 +4,7 @@ import { copyrightYear, LEGAL_NAME } from "~/lib/company"
 import { BrandLogo } from "./brand-mark"
 
 /**
- * The frame of the pages anyone can open: the landing page, the policies and support.
+ * The frame of the pages anyone can open: the landing page, the policies, support and news.
  * `appQuery`: opened from an app's sign-in (AuthCard), with its signed request. The page then leads
  * back to that sign-in, and nowhere else: the web's own login offers what the app's leaves out.
  */
@@ -58,6 +58,11 @@ export function PublicPage({
 					<Link to={`/support${q}`} className="hover:text-fg">
 						{t("home.footer.support")}
 					</Link>
+					{appQuery !== null ? null : (
+						<Link to="/news" className="hover:text-fg">
+							{t("home.footer.news")}
+						</Link>
+					)}
 				</nav>
 			</footer>
 		</div>

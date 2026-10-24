@@ -90,6 +90,11 @@ export interface UserPrefs {
 	outline?: "on" | "off"
 	/** A new account's first steps. Only the server writes it. */
 	onboarding?: Onboarding
+	/**
+	 * The news announcements (`apps/web/app/news/`) closed in the sidebar, or opened from it, by
+	 * slug: they do not return, on any device. Only the server writes it.
+	 */
+	newsClosed?: string[]
 }
 
 /**

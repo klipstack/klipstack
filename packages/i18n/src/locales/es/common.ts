@@ -289,6 +289,7 @@ export default {
 			terms: "Términos",
 			privacy: "Privacidad",
 			support: "Ayuda",
+			news: "Novedades",
 			copyright: "© {{year}} {{company}}",
 		},
 	},
@@ -431,6 +432,19 @@ export default {
 		},
 		allSet: "Todo listo",
 		allSetText: "Ya conoces lo básico. En Ajustes tienes el resto, cuando quieras.",
+	},
+	// Lo nuevo de Klipstack: la pila de novedades de la barra lateral y las páginas públicas en /news.
+	news: {
+		label: "Novedades de Klipstack",
+		kicker: "Nuevo",
+		close: "Cerrar",
+		rail: "Nuevo en Klipstack: {{title}}",
+		title: "Novedades",
+		intro: "Lo nuevo de Klipstack, lo más reciente primero.",
+		all: "Todas las novedades",
+		feed: "Seguir por RSS",
+		cardKicker: "Novedades de Klipstack",
+		empty: "Todavía no hay nada aquí.",
 	},
 	savedSearches: {
 		heading: "Búsquedas guardadas",
