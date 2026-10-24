@@ -144,3 +144,12 @@ Check, in this order:
 
 - **Drafting:** give the final copy. Then list every placeholder and every unconfirmed fact.
 - **Reviewing:** use a table with **Original**, **Suggested**, and **Why**. Then list the missing facts. Keep each reason to one short sentence.
+
+## In Klipstack
+
+- **Sources.** Merged pull requests are the record of what changed: `git log` on `main`, and each pull request's **Why** and **What changes**, which describe the effects on users. Leave out changes to docs, tests, CI, and agent tooling.
+- **Check facts in the repository.** Limits are in `@klipstack/api-contract`. What runs where is in the code and `docs/`. Mark anything you can't confirm there with `[CONFIRM: …]`. The examples in this guide show the patterns. They don't describe Klipstack features.
+- **Availability has two more questions here.** Is it only on klipstack.com, or also on self-hosted servers once they pull the new image? Does a self-hosted server need new configuration for it, such as an AI provider key (`docs/self-hosting/`)?
+- **Platforms:** the web app, the browser extension, and the iPhone app. Name the platform when a change isn't on all of them. An iPhone change reaches users only with a new App Store or TestFlight build.
+- **Two languages.** App Store text and in-app announcements need English and Spanish, like every other string (see the `app-copy` skill).
+- **Credit people, not agents.** Name the humans who did the work, or the users who asked. Never a coding agent.

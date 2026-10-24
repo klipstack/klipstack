@@ -48,7 +48,7 @@ The commitment to specific detail doesn't change. How much personality you use d
 
 - **Bylined and first-person pieces** (a founder's newsletter, personal essays): full range. A strong point of view, personal scenes, humor that takes up space. The writer is a character. A bylined piece that sounds like anyone wrote it has failed.
 - **Brand blog and educational articles:** moderate range. Practical first, with a few precise human moments. Read it aloud. If it sounds like a polite automated system, rewrite it.
-- **Product sections inside newsletters:** one or two specific images per section. For structure, use the `product-announcements` guide.
+- **Product sections inside newsletters:** one or two specific images per section. For structure, use the `product-announcements` skill.
 
 ## Respect the reader
 
@@ -104,6 +104,14 @@ Use these unless the project's style guide says otherwise.
 - Exclamation points: rare. Emoji: rare, and never the main source of warmth.
 - Smart quotes: “ ” ’.
 - Prefer a period to a semicolon.
+
+## In Klipstack
+
+- **Check product facts in the repository.** What a feature does, its limits, and where it runs are in the code, `docs/`, and `@klipstack/api-contract`. Mark anything you can't confirm there: `[CONFIRM: …]`. The examples in this guide show the patterns. They don't describe Klipstack features.
+- **Use the product's own terms:** Inbox, Archive, Trash, highlights, notes, tags, topics, and editions. The `app-copy` skill lists them.
+- **Klipstack runs in two ways:** on klipstack.com, and self-hosted. When a piece says what readers can do, check that it holds for the one it speaks about.
+- **Spanish pieces** use sentence case in titles too, and speak to the reader as "tú". Write them in Spanish, not word for word from the English.
+- **Credit people, not agents.** Name the humans who did the work, never a coding agent.
 
 ## Drafting mode
 
