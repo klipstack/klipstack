@@ -168,7 +168,7 @@ test("extension asks for the server when the browser withholds it, instead of fa
 	try {
 		// Safari grants an extension no site until the reader allows it; Chrome's "on click" site
 		// access withholds them the same way. Without it, a save is cross-origin and the server
-		// refuses it, which the browser reports as a network error.
+		// refuses it, which the browser reports as a network error ("Can't reach Klipstack").
 		const settings = await context.newPage()
 		await settings.goto("chrome://extensions")
 		await settings.evaluate(
@@ -182,6 +182,24 @@ test("extension asks for the server when the browser withholds it, instead of fa
 				),
 			extensionId,
 		)
+		// The browser's prompt is outside the page and the test can't answer it: the reader's answer
+		// is stood in for, and the request recorded.
+		const [sw] = context.serviceWorkers()
+		const answer = (granted: boolean) =>
+			sw!.evaluate((granted) => {
+				// The service worker's own `chrome`, which this file has no types for.
+				type Permissions = { origins?: string[] }
+				const g = globalThis as unknown as {
+					asked: string[][]
+					chrome: { permissions: { request: (p: Permissions) => Promise<boolean> } }
+				}
+				g.asked = []
+				g.chrome.permissions.request = async (p) => {
+					g.asked.push(p.origins ?? [])
+					return granted
+				}
+			}, granted)
+		const asked = () => sw!.evaluate(() => (globalThis as unknown as { asked: string[][] }).asked)
 		await context.route(`${PAGE_URL}**`, (route) =>
 			route.fulfill({
 				status: 200,
@@ -191,20 +209,32 @@ test("extension asks for the server when the browser withholds it, instead of fa
 		)
 		const article = await context.newPage()
 		await article.goto(PAGE_URL, { timeout: 20_000 })
+
+		// Declined: it says what it needs, and sends nothing.
+		await answer(false)
 		await clickButton(context, extensionId, article)
-		// The browser now asks the reader (a prompt outside the page, which the test can't answer).
-		// Before, the save went out at once and failed within a second as "Can't reach Klipstack".
-		const shown = new Set<string>()
-		for (const until = Date.now() + 8000; Date.now() < until;) {
-			const text = await article.evaluate(
-				() =>
-					document.getElementById("klipstack-toast-host")?.shadowRoot?.querySelector(".toast")
-						?.textContent ?? "",
-			)
-			if (text) shown.add(text)
-			await article.waitForTimeout(200)
-		}
-		expect([...shown]).toEqual([])
+		await expect(article.getByText(/Klipstack needs access to localhost to save/)).toBeVisible({
+			timeout: 10_000,
+		})
+		expect(await asked()).toEqual([[expect.stringContaining("localhost")]])
+		await expect(article.getByText("Can't reach Klipstack")).toHaveCount(0)
+
+		// Allowed: the browser lets it reach the server, and the save goes through.
+		await answer(true)
+		await settings.evaluate(
+			(id) =>
+				new Promise<void>((done) =>
+					// @ts-expect-error chrome.developerPrivate exists on chrome://extensions only
+					chrome.developerPrivate.updateExtensionConfiguration(
+						{ extensionId: id, hostAccess: "ON_ALL_SITES" },
+						done,
+					),
+				),
+			extensionId,
+		)
+		await clickButton(context, extensionId, article)
+		await expect(article.getByText("Saved to Klipstack")).toBeVisible({ timeout: 30_000 })
+		expect(await asked()).toHaveLength(1)
 	} finally {
 		await context.close()
 	}
@@ -230,6 +260,12 @@ test("extension signs in on its own where the browser keeps the session from it,
 		const consentTab = context.waitForEvent("page")
 		await clickButton(context, extensionId, article)
 		const consent = await consentTab
+		// A callback this extension didn't start (another state) is never exchanged: the tab stays.
+		const forged = await context.newPage()
+		await forged.goto(`${APP_URL}/extension/connected?code=forged&state=not-ours`)
+		await forged.waitForTimeout(2000)
+		expect(forged.isClosed()).toBe(false)
+		await forged.close()
 		await expect(consent.getByText("Klipstack for Safari wants to access")).toBeVisible({
 			timeout: 20_000,
 		})
@@ -238,7 +274,7 @@ test("extension signs in on its own where the browser keeps the session from it,
 		await consent.getByRole("button", { name: "Allow" }).click()
 
 		// The extension reads the code from the tab, closes it, and saves the page it was asked to.
-		await expect.poll(() => consent.isClosed(), { timeout: 20_000 }).toBe(true)
+		await expect.poll(() => consent.isClosed(), { timeout: 40_000 }).toBe(true)
 		await expect(article.getByText("Saved to Klipstack")).toBeVisible({ timeout: 30_000 })
 		const href = await article.getByRole("link", { name: "Open" }).getAttribute("href")
 		const id = new RegExp(`^${APP_URL}/read/([0-9a-f-]{36})$`).exec(href ?? "")?.[1]

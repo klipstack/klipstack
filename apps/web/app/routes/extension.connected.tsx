@@ -6,8 +6,8 @@ import type { Route } from "./+types/extension.connected"
 /**
  * GET /extension/connected — where the Safari extension's sign-in ends (`extensionRedirectUri`),
  * with `code` or `error` in the address. The extension reads the code from the tab and closes it;
- * the page is for a tab it didn't close. It shows neither: the code is useless without the
- * extension's PKCE verifier, and the page loads nothing from another site.
+ * the page is for a tab it didn't close. It shows neither code nor error, and loads nothing from
+ * another site: only this origin may read its address (docs/security.md).
  */
 export function loader({ context, request }: Route.LoaderArgs) {
 	return {

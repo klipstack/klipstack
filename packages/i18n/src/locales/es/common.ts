@@ -358,9 +358,9 @@ export default {
 		},
 		// Donde vuelve el inicio de sesión de la extensión de Safari: la extensión cierra la pestaña.
 		connected: {
-			title: "Klipstack para Safari está conectado",
+			title: "Klipstack for Safari está conectado",
 			body: "Puedes cerrar esta pestaña y guardar páginas con el botón de Klipstack.",
-			failedTitle: "Klipstack para Safari no está conectado",
+			failedTitle: "Klipstack for Safari no está conectado",
 			failedBody: "Para conectarlo, vuelve a hacer clic en el botón de Klipstack en Safari.",
 		},
 	},

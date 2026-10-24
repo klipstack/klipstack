@@ -151,7 +151,24 @@ const EXPIRY_MARGIN_MS = 60_000
  * to expire (`force`: the API refused the kept one). Null when there is no sign-in, or the server
  * refused the refresh token: the tokens are forgotten, and the reader connects again.
  */
-export async function accessToken(
+export function accessToken(
+	appUrl: string,
+	store: TokenStore,
+	options: { force?: boolean; fetchImpl?: typeof fetch; now?: number } = {},
+): Promise<string | null> {
+	// One refresh at a time: the server rotates the refresh token, so a second one at once would
+	// be refused, and forget the sign-in the first just renewed.
+	if (refreshing) return refreshing
+	const result = currentToken(appUrl, store, options)
+	refreshing = result.finally(() => {
+		refreshing = null
+	})
+	return refreshing
+}
+
+let refreshing: Promise<string | null> | null = null
+
+async function currentToken(
 	appUrl: string,
 	store: TokenStore,
 	{

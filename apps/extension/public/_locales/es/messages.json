@@ -61,9 +61,9 @@
 		}
 	},
 	"toastConnect": {
-		"message": "Conecta Klipstack para Safari a tu cuenta en la pestaña nueva"
+		"message": "Conecta Klipstack for Safari a tu cuenta en la pestaña nueva"
 	},
 	"toastNotConnected": {
-		"message": "Klipstack para Safari no está conectado. Haz clic en el botón para intentarlo de nuevo."
+		"message": "Klipstack for Safari no está conectado. Haz clic en el botón para intentarlo de nuevo."
 	}
 }

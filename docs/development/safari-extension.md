@@ -88,7 +88,7 @@ role.
 3. Choose `apps/extension/dist/klipstackextension-0.1.0-safari.zip`, and the app
    Klipstack for Safari.
 4. Wait until its status there says it's done (minutes). It reports what Safari doesn't support:
-   send me the report, even when it passes.
+   keep the report, even when it passes: its warnings are what to fix next.
 5. If it says an identifier is missing for the extension inside the app (something like
    `com.klipstack.safari.Extension`), register that one as in (a) and upload again.
 
@@ -138,9 +138,9 @@ App Privacy (left column), "Get Started": data is collected, none used for track
 | User Content → Other User Content | The pages you save | Yes | App Functionality |
 | Browsing History | The address of each page you save | Yes | App Functionality |
 
-The extension itself reads no account details, so Name, Email and User ID are not declared here:
-the browser's sign-in to klipstack.com carries them. If App Review disagrees, declaring them as
-the iPhone app does (App Functionality, linked) is harmless.
+| Identifiers → User ID | The account the extension is connected to (its own sign-in) | Yes | App Functionality |
+
+The extension reads no name or email: those stay on klipstack.com.
 
 Pricing and Availability: Free, all countries.
 
@@ -150,7 +150,7 @@ App Store tab → Add for Review → Submit. Review takes a day or two. Once it 
 
 1. Copy the app's link from App Store Connect (App Information → "View on App Store"), like
    `https://apps.apple.com/app/id…`.
-2. Ask me to set it as `SAFARI_STORE` in `packages/email/src/extension-url.ts`. Then
+2. Set it as `SAFARI_STORE` in `packages/email/src/extension-url.ts`. Then
    klipstack.com/extension offers it instead of "Coming soon", and Safari on a Mac gets the
    extension in Getting started and on the empty Home and Inbox. In the same change, the landing
    page's FAQ and "Save from anywhere" should say Safari too.

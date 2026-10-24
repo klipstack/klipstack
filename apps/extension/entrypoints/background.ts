@@ -198,11 +198,14 @@ const finishing = new Set<string>()
 async function finishSignIn(callbackTab: number, url: string) {
 	const callback = callbackOf(APP_URL, url)
 	if (!callback || finishing.has(callback.state)) return
-	const { pending } = (await browser.storage.local.get("pending")) as { pending?: PendingSignIn }
-	// Another sign-in's end, or one this extension didn't start: never exchange it.
-	if (!pending || pending.state !== callback.state) return
+	// Claimed before any await: the tab reports its address twice, and a code works once.
 	finishing.add(callback.state)
 	try {
+		const { pending } = (await browser.storage.local.get("pending")) as {
+			pending?: PendingSignIn
+		}
+		// Another sign-in's end, or one this extension didn't start: never exchange it.
+		if (!pending || pending.state !== callback.state) return
 		await browser.storage.local.remove("pending")
 		const tokens = callback.code
 			? await exchangeCode(APP_URL, { code: callback.code, verifier: pending.verifier }).catch(
@@ -243,6 +246,9 @@ function outcomeToast(result: SaveOutcome, appUrl: string): ToastOptions {
 			link: { label: msg("toastUsage"), href: `${appUrl}/settings/usage` },
 			ms: 8000,
 		}
+	// With its own sign-in, the website's login doesn't help: the next click connects again.
+	if (TOKEN_AUTH && result.status === 401)
+		return { kind: "error", title: msg("toastNotConnected"), ms: 8000 }
 	if (result.status === 401 || result.status === 403)
 		return {
 			kind: "error",
