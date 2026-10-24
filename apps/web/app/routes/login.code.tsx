@@ -53,9 +53,9 @@ export async function action({ context, request }: Route.ActionArgs) {
 	// A page load for an app's request: its callback may be on this origin (see oauth.consent).
 	if (next) throw redirectDocument(next, { headers: out })
 	const redirectTo = form.get("redirectTo")
-	throw redirect(safeRedirect(typeof redirectTo === "string" ? redirectTo : null), {
-		headers: out,
-	})
+	const to = safeRedirect(typeof redirectTo === "string" ? redirectTo : null)
+	// An app's request from a provider's sheet goes on at the provider's endpoint, not a page.
+	throw (to.startsWith("/api/") ? redirectDocument : redirect)(to, { headers: out })
 }
 
 export default function LoginCode({ loaderData, actionData }: Route.ComponentProps) {

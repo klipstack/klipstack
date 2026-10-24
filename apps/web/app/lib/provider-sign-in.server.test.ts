@@ -1,5 +1,5 @@
 import { createHmac } from "node:crypto"
-import { account, db, eq, inArray, invites, pool, user as userTable } from "@klipstack/db"
+import { account, db, eq, inArray, invites, pool, session, user as userTable } from "@klipstack/db"
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest"
 
 // Credentials make the provider exist. No request reaches GitHub: `fetch` is replaced below.
@@ -19,7 +19,7 @@ const { handleProviderCallback, InvalidInviteError, startProviderSignIn } =
 
 const stamp = Date.now()
 const address = (name: string) => `provider-${name}+${stamp}@example.com`
-const emails = ["new", "login", "forged", "squatted", "verified"].map(address)
+const emails = ["new", "login", "forged", "squatted", "verified", "two-factor"].map(address)
 const inviteCodes: string[] = []
 
 /** What GitHub answers for the account signing in. */
@@ -211,5 +211,33 @@ describe("provider sign-in", () => {
 			}),
 		)
 		expect(back.headers.get("location")).toBe("/settings?tab=1")
+	})
+
+	it("stops at the code for an account with two-factor authentication", async () => {
+		profile.email = address("two-factor")
+		const signup = await withSignupAllowed(() =>
+			auth.api.signUpEmail({
+				headers: clientHeaders(),
+				body: { name: "Owner", email: profile.email, password: "password123" },
+			}),
+		)
+		await db
+			.update(userTable)
+			.set({ emailVerified: true, twoFactorEnabled: true })
+			.where(eq(userTable.id, signup.user.id))
+		await db.delete(session).where(eq(session.userId, signup.user.id))
+		const done = await comeBack(
+			await startProviderSignIn(request(), {
+				provider: "github",
+				signup: false,
+				redirectTo: "/settings?tab=1",
+			}),
+		)
+		expect(done.headers.get("location")).toBe("/login/code?redirectTo=%2Fsettings%3Ftab%3D1")
+		expect(done.headers.getSetCookie().some((c) => /two_factor=[^;]/.test(c))).toBe(true)
+		expect(done.headers.getSetCookie().some((c) => /session_token=[^;]/.test(c))).toBe(false)
+		expect(await db.select().from(session).where(eq(session.userId, signup.user.id))).toHaveLength(
+			0,
+		)
 	})
 })

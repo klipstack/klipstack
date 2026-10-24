@@ -6,13 +6,19 @@ import {
 	MOBILE_SCOPES,
 } from "@klipstack/api-contract/auth"
 import { db, eq, inArray, like, session, user, verification } from "@klipstack/db"
-import { afterAll, describe, expect, it } from "vitest"
+import { afterAll, describe, expect, it, vi } from "vitest"
 import { auth } from "./auth.server"
 import { env } from "./env.server"
 import { oauthApiContext, oauthRedirectUrl, signedOAuthQuery } from "./oauth.server"
 import { confirmPassword } from "./session.server"
 import { withSignupAllowed } from "./signup-gate.server"
 import { completeSignIn, needsSecondStep, pendingSignInSet } from "./two-factor.server"
+
+// The console transport prints emails: the magic link is read from there.
+const logs: string[] = []
+vi.spyOn(console, "log").mockImplementation((...args: unknown[]) => {
+	logs.push(args.map(String).join(" "))
+})
 
 const emails: string[] = []
 afterAll(async () => {
@@ -278,6 +284,39 @@ describe("two-factor sign-in", () => {
 			headers: new Headers({ cookie: cookiesOf((confirmed as { headers: Headers }).headers) }),
 		})
 		expect(renewed?.user.id).toBe(account.userId)
+	})
+
+	it("stops a magic link at the code too, then goes where the link was going", async () => {
+		const account = await accountWithTwoFactor()
+		const before = logs.length
+		await auth.api.signInMagicLink({
+			body: { email: account.email, callbackURL: "/library?view=all" },
+			headers: client(),
+		})
+		await vi.waitFor(() => {
+			expect(logs.slice(before).join("\n")).toMatch(/magic-link\/verify\?token=/)
+		})
+		const link = /https?:\/\/\S+magic-link\/verify\?\S+/.exec(logs.slice(before).join("\n"))![0]
+		const sessionsBefore = (await sessionsOf(account.userId)).length
+		const opened = await auth.handler(new Request(link, { headers: client(), redirect: "manual" }))
+		expect(opened.status).toBe(302)
+		const location = new URL(opened.headers.get("location")!, env.APP_URL)
+		expect(location.pathname).toBe("/login/code")
+		expect(location.searchParams.get("redirectTo")).toBe("/library?view=all")
+		// No session reached the browser, and none is left behind.
+		expect(opened.headers.getSetCookie().filter((c) => /session_token=[^;]/.test(c))).toHaveLength(
+			0,
+		)
+		expect(await sessionsOf(account.userId)).toHaveLength(sessionsBefore)
+
+		const pending = pendingSignInSet(opened.headers)
+		expect(pending).toBeTruthy()
+		const done = await completeSignIn(
+			new Request(env.APP_URL, { headers: client() }),
+			pending!,
+			await codeFor(account.secret),
+		)
+		expect("headers" in done).toBe(true)
 	})
 
 	it("closes the plugin's endpoints over HTTP", async () => {

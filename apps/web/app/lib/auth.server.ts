@@ -74,6 +74,7 @@ import {
 	type AppSignUp,
 	signupAllowed,
 } from "./signup-gate.server"
+import { twoFactorGate } from "./two-factor-gate.server"
 
 /** The MCP server's resource identifier: MCP access tokens carry it as their audience. */
 export const MCP_RESOURCE = new URL("/mcp", env.APP_URL).href
@@ -181,6 +182,8 @@ export const auth = betterAuth({
 			)
 				throw new EmailError("EMAIL_NOT_CONFIGURED", "Email delivery is not configured")
 		}),
+		// Two-factor authentication for the ways in the plugin does not cover (links, providers).
+		after: twoFactorGate,
 	},
 	database: drizzleAdapter(authDb, {
 		provider: "pg",
