@@ -325,7 +325,7 @@ function SidebarContent({
 			/>
 			{/* At the foot, above the divider: news, not a place to go. */}
 			<div className="mt-auto">
-				<NewsStack news={news} collapsed={collapsed} onExpand={onToggle} onNavigate={onNavigate} />
+				<NewsStack news={news} collapsed={collapsed} onExpand={onToggle} />
 			</div>
 			<div className="flex flex-col gap-1 border-t border-border pt-3">
 				{/* Below the divider: the keyboard is the way in, this is how people find it. */}

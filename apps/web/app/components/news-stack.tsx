@@ -1,7 +1,7 @@
 import { Megaphone, X } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
-import { Link, useFetcher } from "react-router"
+import { useFetcher } from "react-router"
 import type { SidebarNewsItem } from "~/services/news.server"
 import { tooltip } from "./tooltip-host"
 
@@ -19,19 +19,18 @@ function since(date: string, language: string) {
 
 /**
  * What is new in Klipstack, at the foot of the sidebar: the newest entry on top, the next ones
- * behind it, their edges showing. Opening the top one (its page on `/news`) or its ✕ closes it for
- * good, and the next one comes forward. In the rail: an icon with a dot, which opens the sidebar.
+ * behind it, their edges showing. Opening the top one (its page on `/news`, in a new tab) or its
+ * ✕ closes it for good, and the next one comes forward. In the rail: an icon with a dot, which
+ * opens the sidebar.
  */
 export function NewsStack({
 	news,
 	collapsed,
 	onExpand,
-	onNavigate,
 }: {
 	news: SidebarNewsItem[]
 	collapsed: boolean
 	onExpand?: () => void
-	onNavigate?: () => void
 }) {
 	const { t, i18n } = useTranslation()
 	const fetcher = useFetcher()
@@ -103,17 +102,17 @@ export function NewsStack({
 					</button>
 				</div>
 				<h2 id={titleId} className="mt-0.5 font-medium">
-					{/* The whole card opens it: the link's area covers the card, the ✕ above it. */}
-					<Link
-						to={`/news/${top.slug}`}
-						onClick={() => {
-							close(top.slug)
-							onNavigate?.()
-						}}
+					{/* The whole card opens it, in a new tab so the app stays where it was: the link's
+					    area covers the card, the ✕ above it. */}
+					<a
+						href={`/news/${top.slug}`}
+						target="_blank"
+						rel="noopener"
+						onClick={() => close(top.slug)}
 						className="after:absolute after:inset-0 after:rounded-lg focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-accent"
 					>
 						{top.title}
-					</Link>
+					</a>
 				</h2>
 				<p className="mt-0.5 line-clamp-4 text-xs text-muted-fg">{top.description}</p>
 			</article>
