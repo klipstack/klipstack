@@ -435,6 +435,10 @@ export default {
 		// Over a card's title, before how long ago: "New · 2 days ago".
 		kicker: "New",
 		close: "Close",
+		// The button on the stack's edges: how many are behind, and its name.
+		more: "+{{count}}",
+		showAll: "Show all {{count}}",
+		less: "Show less",
 		// The collapsed sidebar's icon: its tooltip and name.
 		rail: "New in Klipstack: {{title}}",
 		title: "News",
