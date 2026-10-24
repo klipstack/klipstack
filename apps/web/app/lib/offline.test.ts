@@ -365,6 +365,23 @@ describe("private offline partitions", () => {
 			expect(cached(w).filter(isPublic)).toEqual([])
 		})
 
+		it("leaves the extension's sign-in callback to the network right after a consent", async () => {
+			// Read as a private page, its answer looked like a new sign-in after the consent post,
+			// and the worker told every tab to reload: Safari cancelled the way to the callback.
+			const w = worker()
+			await w.read("/library.data")
+			await w.read("/oauth/consent.data", "POST")
+			const navigate = (path: string) =>
+				w.dispatch("fetch", {
+					request: { url: `http://localhost:5180${path}`, method: "GET", mode: "navigate" },
+					clientId: "",
+				})
+			expect(await navigate("/extension/connected?code=c&state=s")).toBeUndefined()
+			expect(await navigate("/extension")).toBeUndefined()
+			// Only those two: the app's own pages still go through the worker.
+			expect(await navigate("/extensions")).toBeInstanceOf(Response)
+		})
+
 		it("does not warm them, and keeps the app's own editions pages private", async () => {
 			const w = worker()
 			await w.read("/editions.data")
