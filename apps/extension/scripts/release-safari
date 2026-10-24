@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+# Build the Safari extension, archive the Mac app that holds it (safari/) and upload it to App Store
+# Connect: `pnpm --filter @klipstack/extension release:safari`.
+#
+# Signs with the team in APPLE_TEAM_ID (apps/extension/.env.local) and uploads with the Apple
+# account signed in to Xcode (Settings → Accounts), which must belong to that team as Admin or App
+# Manager. Xcode creates the certificates and profiles it needs. The version is package.json's; the
+# build number is the time (yymmdd.HHMMSS, UTC), so each upload is higher than the last.
+# UPLOAD_DESTINATION=export signs and exports the app into the output folder instead of uploading.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+
+# The last APPLE_TEAM_ID= line, without quotes, a trailing comment or a carriage return.
+team=$(sed -nE 's/^APPLE_TEAM_ID=["'"'"']?([A-Z0-9]+).*$/\1/p' .env.local 2>/dev/null | tail -n 1)
+if [ -z "$team" ]; then
+  echo "No APPLE_TEAM_ID in apps/extension/.env.local: the App Store needs the paid team." >&2
+  exit 1
+fi
+version=$(node -p 'require("./package.json").version')
+# The date, then the time of day as a number without leading zeros (Apple wants plain integers).
+build=${SAFARI_BUILD_NUMBER:-$(date -u +%y%m%d).$((10#$(date -u +%H%M%S)))}
+destination=${UPLOAD_DESTINATION:-upload}
+
+out=build/safari/$version-$build
+mkdir -p "$out"
+log=$out/log.txt
+step() {
+  local name=$1
+  shift
+  printf '  %-28s' "$name"
+  if "$@" >>"$log" 2>&1; then
+    echo ok
+  else
+    printf 'FAIL\n\n'
+    tail -n 40 "$log"
+    printf '\nFull log: %s\n' "$log"
+    exit 1
+  fi
+}
+
+cat >"$out/ExportOptions.plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>method</key><string>app-store-connect</string>
+	<key>destination</key><string>$destination</string>
+	<key>teamID</key><string>$team</string>
+	<key>signingStyle</key><string>automatic</string>
+	<key>manageAppVersionAndBuildNumber</key><false/>
+</dict>
+</plist>
+PLIST
+
+echo "Klipstack for Safari $version ($build), team $team, from $(git rev-parse --short HEAD)$([ -z "$(git status --porcelain -- .)" ] || echo ' with uncommitted changes')"
+# Built again, for https://klipstack.com whatever this shell sets, so no development build ends up
+# in the app.
+step "web extension" env -u WXT_APP_URL -u WXT_TOKEN_AUTH -u WXT_OUT_DIR pnpm build:safari
+step "archive (signing)" xcodebuild -project "safari/Klipstack for Safari.xcodeproj" \
+  -scheme "Klipstack for Safari" -configuration Release -destination generic/platform=macOS \
+  -archivePath "$out/Klipstack for Safari.xcarchive" -allowProvisioningUpdates \
+  DEVELOPMENT_TEAM="$team" MARKETING_VERSION="$version" CURRENT_PROJECT_VERSION="$build" archive
+if [ "$destination" = upload ]; then
+  step "export and upload" xcodebuild -exportArchive -archivePath "$out/Klipstack for Safari.xcarchive" \
+    -exportOptionsPlist "$out/ExportOptions.plist" -exportPath "$out" -allowProvisioningUpdates
+  echo "Done. App Store Connect → Klipstack for Safari → TestFlight shows the build once Apple has processed it."
+else
+  step "export" xcodebuild -exportArchive -archivePath "$out/Klipstack for Safari.xcarchive" \
+    -exportOptionsPlist "$out/ExportOptions.plist" -exportPath "$out" -allowProvisioningUpdates
+  echo "Done, not uploaded: $out"
+fi

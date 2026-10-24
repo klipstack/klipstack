@@ -2,10 +2,11 @@
 
 The browser extension (`apps/extension`) runs in Safari on a Mac as it is. Apple distributes
 Safari extensions only inside an app from the App Store, so it ships as a small Mac app,
-"Klipstack for Safari", which holds the extension and does nothing else. Apple's
-[Safari Web Extension Packager](https://developer.apple.com/documentation/safariservices/packaging-and-distributing-safari-web-extensions-with-app-store-connect),
-in App Store Connect, builds that app from the extension's files. It needs no Xcode, and it gets
-testers through TestFlight and readers through App Review, like the iPhone app (`app-store.md`).
+"Klipstack for Safari", which holds the extension and does nothing else. Its Xcode project is
+`apps/extension/safari/`; a build phase copies the extension's build (`dist/safari-mv3`) into it,
+so the project holds no copy of its own. One command builds, archives and uploads it with Xcode,
+and it gets testers through TestFlight and readers through App Review, like the iPhone app
+(`app-store.md`).
 
 Decided: macOS only (iPhone readers save from the app's share sheet), in an app record of its
 own, under the team Klipstack SpA.
@@ -14,7 +15,6 @@ own, under the team Klipstack SpA.
 
 ```sh
 pnpm --filter @klipstack/extension build:safari   # → apps/extension/dist/safari-mv3/
-pnpm --filter @klipstack/extension zip:safari     # → apps/extension/dist/klipstackextension-<version>-safari.zip
 ```
 
 Safari's build is Manifest V3 (the background calls `browser.action`, which V2 lacks) and leaves
@@ -62,7 +62,7 @@ To try a change, build again, then click "Reload" beside the extension in Settin
 ## 2. Publish it
 
 Each step says where to click. The ones in App Store Connect need the Account Holder or Admin
-role.
+role. Steps a and b were done for 0.1.0: a new version starts at c.
 
 ### a. Register the app's identifier
 
@@ -81,26 +81,43 @@ role.
    User access: Full Access.
 5. Create.
 
-### c. Upload the extension
+### c. Upload a build
 
-1. Build the zip: `pnpm --filter @klipstack/extension zip:safari`.
-2. App Store Connect → Users and Access → the Xcode Cloud tab → Safari Web Extension Packager →
-   Upload. If it asks you to accept Xcode Cloud's terms first, accept them.
-3. Choose `apps/extension/dist/klipstackextension-0.1.0-safari.zip`, and the app
-   Klipstack for Safari.
-4. Wait until its status there says it's done (minutes). It reports what Safari doesn't support:
-   keep the report, even when it passes: its warnings are what to fix next.
-5. If it says an identifier is missing for the extension inside the app (something like
-   `com.klipstack.safari.Extension`), register that one as in (a) and upload again.
+Once, on the Mac that uploads:
 
-Packaging uses the Xcode Cloud hours that come with the membership (25 a month). An upload takes
-a few minutes of them.
+1. Xcode → Settings → Accounts: sign in with an Apple account of the team Klipstack SpA, as
+   Admin or App Manager.
+2. Put the team's ID in `apps/extension/.env.local` (ignored by git), as for the iPhone app:
+   `APPLE_TEAM_ID=…` (Membership details at https://developer.apple.com/account). The repository
+   is public and others sign with their own team, so the project doesn't name one.
+
+Then, for each build:
+
+```sh
+pnpm --filter @klipstack/extension release:safari
+```
+
+It builds the extension for https://klipstack.com, then archives the app (`xcodebuild archive`)
+with the version of `apps/extension/package.json` and a new build number, the time
+(`yymmdd.HHMMSS`, UTC), so each upload is higher than the last. Then it exports it for the App
+Store and uploads it (`xcodebuild -exportArchive`), with the account signed in to Xcode. Xcode
+makes the certificates and profiles it needs, and registers the identifiers `com.klipstack.safari`
+and `com.klipstack.safari.Extension` if they are missing. Everything, the log included, goes to
+`apps/extension/build/safari/<version>-<build>/`.
+
+`UPLOAD_DESTINATION=export` in front signs and exports the app's `.pkg` there without uploading,
+to check a build. To open the project in Xcode, build the extension first (`build:safari`) and
+choose the team under Signing & Capabilities, for both targets, without committing it.
+
+(Apple's Safari Web Extension Packager, in App Store Connect, builds the archive from a zip with no
+Xcode, but its export failed for 0.1.0 without saying why. Build 2 was archived in Xcode instead,
+and this project is that one.)
 
 ### d. Test it with TestFlight
 
 1. The app → TestFlight. The build shows up there once processed (it can take half an hour).
-2. If it asks about encryption ("Missing Compliance"): the extension only uses HTTPS, so answer
-   that it uses no encryption besides the exemptions (standard encryption built into the OS).
+2. It asks nothing about encryption: the app's `Info.plist` says it uses none besides the
+   system's (`ITSAppUsesNonExemptEncryption`, false), as it only uses HTTPS.
 3. Internal Testing → "+" → a group with yourself → add the build.
 4. On your Mac, install TestFlight from the Mac App Store, accept the invite, install
    Klipstack for Safari, and open it once.
@@ -138,7 +155,6 @@ App Privacy (left column), "Get Started": data is collected, none used for track
 | --- | --- | --- | --- |
 | User Content → Other User Content | The pages you save | Yes | App Functionality |
 | Browsing History | The address of each page you save | Yes | App Functionality |
-
 | Identifiers → User ID | The account the extension is connected to (its own sign-in) | Yes | App Functionality |
 
 The extension reads no name or email: those stay on klipstack.com.
@@ -158,5 +174,5 @@ App Store tab → Add for Review → Submit. Review takes a day or two. Once it 
 
 ### Updating it
 
-Raise `version` in `apps/extension/package.json`, build the zip again, upload it as in (c), and
-submit the new build as a new version. The Chrome and Safari versions can move together.
+Raise `version` in `apps/extension/package.json`, upload a build as in (c), and submit it as a
+new version. The Chrome and Safari versions can move together.
