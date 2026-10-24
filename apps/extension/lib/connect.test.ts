@@ -36,6 +36,8 @@ describe("the extension's sign-in", () => {
 			code_challenge: "c",
 			code_challenge_method: "S256",
 			state: "s",
+			// The consent page is what asks an old sign-in to sign in again.
+			prompt: "consent",
 		})
 		expect(url.searchParams.get("scope")?.split(" ")).toEqual(
 			expect.arrayContaining(["offline_access", "library:read", "library:write"]),

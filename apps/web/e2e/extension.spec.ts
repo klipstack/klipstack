@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { EXTENSION_CLIENT_ID } from "@klipstack/api-contract/auth"
-import { and, db, documents, eq, oauthConsent, user } from "@klipstack/db"
+import { and, db, documents, eq, oauthConsent, sql, user } from "@klipstack/db"
 import { type BrowserContext, chromium, expect, type Page, test } from "@playwright/test"
 import { createInviteCode, uniqueEmail, waitForHydration } from "./helpers"
 
@@ -245,6 +245,11 @@ test("extension signs in on its own where the browser keeps the session from it,
 	const { context, extensionId, email } = await signedInBrowser(TOKEN_EXTENSION_DIR)
 	// An app connects only to an account with a verified email.
 	await db.update(user).set({ emailVerified: true }).where(eq(user.email, email))
+	// Signed in 31 minutes ago, as a reader usually is: connecting a new app asks to sign in again.
+	await db.execute(sql`
+		update session set created_at = now() - interval '31 minutes'
+		where user_id = (select id from "user" where email = ${email})
+	`)
 	try {
 		await context.route(`${PAGE_URL}**`, (route) =>
 			route.fulfill({
@@ -266,6 +271,14 @@ test("extension signs in on its own where the browser keeps the session from it,
 		await forged.waitForTimeout(2000)
 		expect(forged.isClosed()).toBe(false)
 		await forged.close()
+		await expect(consent).toHaveURL(/\/oauth\/consent\?/, { timeout: 20_000 })
+		await waitForHydration(consent)
+		await consent.getByRole("button", { name: "Log in again" }).click()
+		await expect(consent).toHaveURL(/\/login\?/)
+		await waitForHydration(consent)
+		await consent.getByLabel("Email").fill(email)
+		await consent.getByLabel("Password").fill("password123")
+		await consent.getByRole("button", { name: "Log in" }).click()
 		await expect(consent.getByText("Klipstack for Safari wants to access")).toBeVisible({
 			timeout: 20_000,
 		})

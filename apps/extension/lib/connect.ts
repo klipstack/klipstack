@@ -61,6 +61,10 @@ export function authorizeUrl(
 		code_challenge: challenge,
 		code_challenge_method: "S256",
 		resource: `${base(appUrl)}${API_RESOURCE_PATH}`,
+		// Always through the consent page: it asks a sign-in older than 30 minutes to sign in again
+		// and comes back. Without it, authorize refuses one in a JSON body (better-auth applies our
+		// recent-sign-in rule there, before any page), and the reader is stuck on it.
+		prompt: "consent",
 	})
 	return `${base(appUrl)}/api/auth/oauth2/authorize?${params}`
 }

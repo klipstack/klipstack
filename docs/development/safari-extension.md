@@ -46,7 +46,8 @@ What to check, since only a real Safari can tell us:
 
 - **Connecting.** Safari sends no klipstack.com cookie with an extension's request (a WebKit
   bug), so the Safari build signs in on its own. The first click opens a klipstack.com tab that
-  asks to let "Klipstack for Safari" access your account: Allow. The tab closes by itself and the
+  asks to let "Klipstack for Safari" access your account: Allow. If you signed in to
+  klipstack.com more than 30 minutes ago, it first asks you to log in again, then comes back. The tab closes by itself and the
   page saves: "Saved to Klipstack", with "Open", and the article is in your Inbox. The next clicks
   save at once. It shows in Settings → Connected apps on the web, where disconnecting it makes
   the next click ask again.
