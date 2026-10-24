@@ -1,3 +1,4 @@
+import { JSDOM } from "jsdom"
 import { describe, expect, it } from "vitest"
 import type { NewsEntry } from "../news"
 import { allNews, loadNews, type NewsReader, sidebarNews } from "./news.server"
@@ -29,6 +30,22 @@ const slugs = async (entries: NewsEntry[], over: Partial<NewsReader> = {}) =>
 describe("app/news", () => {
 	it("has every entry's pages, in every language", () => {
 		expect(() => allNews()).not.toThrow()
+	})
+
+	// The pages go into /news and the feed unsanitized: only text markup, and links out by http(s).
+	const TAGS = new Set(["P", "H2", "H3", "OL", "UL", "LI", "STRONG", "EM", "CODE", "A", "BR"])
+	it.each(
+		allNews().flatMap((news) =>
+			Object.entries(news.text).map(([lang, text]) => [`${news.slug}/${lang}`, text.article]),
+		),
+	)("%s holds only text markup, and links without scripts", (_page, article) => {
+		for (const element of new JSDOM(article).window.document.body.querySelectorAll("*")) {
+			expect(TAGS.has(element.tagName), element.tagName).toBe(true)
+			const names = [...element.attributes].map((attribute) => attribute.name)
+			expect(names, element.outerHTML.slice(0, 80)).toEqual(element.tagName === "A" ? ["href"] : [])
+			if (element.tagName === "A")
+				expect(element.getAttribute("href")).toMatch(/^(https:\/\/|\/(?!\/))/)
+		}
 	})
 })
 

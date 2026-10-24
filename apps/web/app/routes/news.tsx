@@ -12,6 +12,7 @@ export function loader({ context }: Route.LoaderArgs) {
 	const locale = newsLocale(getInstance(context).language)
 	return {
 		title: getInstance(context).getFixedT(locale)("news.title"),
+		feedTitle: getInstance(context).getFixedT(locale)("news.cardKicker"),
 		loggedIn: Boolean(getSession(context)),
 		locale,
 		url: newsUrl("", locale),
@@ -35,7 +36,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
 			tagName: "link",
 			rel: "alternate",
 			type: "application/rss+xml",
-			title: "Klipstack",
+			title: loaderData.feedTitle,
 			href: loaderData.feed,
 		},
 	]

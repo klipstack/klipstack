@@ -2,7 +2,7 @@ import { db, eq, user as userTable } from "@klipstack/db"
 import { afterAll, describe, expect, it, vi } from "vitest"
 import { closeNews } from "./news.server"
 
-// The real list ships empty and grows with each release: these tests bring entries of their own.
+// The shipped entries change with every release: these tests bring entries of their own.
 vi.mock("~/news", () => {
 	const page = (title: string) =>
 		`<html><head><title>${title}</title><meta name="description" content="${title}."></head><body><article><p>${title}</p></article></body></html>`
