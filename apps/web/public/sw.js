@@ -11,8 +11,11 @@ const ADMIN = /^\/admin(?:\/|\.data$|$)/
 function isAdmin(url) { return ADMIN.test(new URL(url, self.location.origin).pathname) }
 // Public editions (/e/*) and shared highlights (/h/*) are the same for everyone, and change or go
 // down when their author or a moderator says so: the network's alone, never cached, warmed or
-// served offline, and never kept in a private partition.
-const PUBLIC_PAGE = /^\/[eh]\//
+// served offline, and never kept in a private partition. So are /extension and the Safari
+// extension's sign-in callback, /extension/connected: reached right after the consent page (a
+// sign-in change here), read as one, it told every tab to reload, and Safari cancelled the tab's
+// way to the callback for it.
+const PUBLIC_PAGE = /^\/(?:[eh]\/|extension(?:\/connected)?$)/
 function isNetworkOnly(url) {
 	const path = new URL(url, self.location.origin).pathname
 	return ADMIN.test(path) || PUBLIC_PAGE.test(path)
