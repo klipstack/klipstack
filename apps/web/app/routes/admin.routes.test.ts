@@ -154,6 +154,7 @@ describe("every admin route denies on its own", () => {
 		["anonymous", null, 401],
 		["ordinary", { role: "user", verified: true }, 403],
 		["unverified admin", { role: "admin", verified: false }, 403],
+		["admin without two-factor", { role: "admin", verified: true, twoFactor: false }, 403],
 	] as const)("%s callers, including malformed targets", async (_, who, status) => {
 		const account = who ? await fx.account(who) : null
 		const context = await fx.routerContext(account)
@@ -173,7 +174,7 @@ describe("every admin route denies on its own", () => {
 			const denied = await call(action, fx.post(path, fields), context, params)
 			expect(statusOf(denied)).toBe(status)
 			expect(JSON.stringify((denied as { data?: unknown }).data ?? {})).toMatch(
-				/^\{"error":"(unauthenticated|forbidden)"\}$/,
+				/^\{"error":"(unauthenticated|forbidden|two_factor_required)"\}$/,
 			)
 		}
 	})

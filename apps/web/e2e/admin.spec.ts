@@ -285,8 +285,11 @@ test("an admin without two-factor authentication is sent to set it up, then gets
 		page.getByRole("heading", { name: "Turn on two-factor authentication first" }),
 	).toBeVisible()
 	await expect(page.getByRole("heading", { name: "Overview" })).toHaveCount(0)
+	// Offered to an admin without the flag, in Account too.
+	await page.goto("/settings/account")
+	await expect(page.getByRole("link", { name: "Set up Two-factor authentication" })).toBeVisible()
+	await page.goBack()
 	await page.getByRole("link", { name: "Set up two-factor authentication" }).click()
-	// Offered to an admin without the flag.
 	await expect(page).toHaveURL(/\/settings\/account\/two-factor$/)
 	await waitForHydration(page)
 	await page.getByLabel("Password").fill(PASSWORD)
@@ -296,7 +299,7 @@ test("an admin without two-factor authentication is sent to set it up, then gets
 	await page.getByRole("button", { name: "Turn on" }).click()
 	await expect(page.getByTestId("two-factor-backup-codes")).toBeVisible()
 	await page.goto("/admin")
-	await expect(page.getByTestId("admin-label")).toBeVisible()
+	await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible()
 	await expect(
 		page.getByRole("heading", { name: "Turn on two-factor authentication first" }),
 	).toHaveCount(0)
