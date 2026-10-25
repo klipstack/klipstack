@@ -130,7 +130,7 @@ export default function DeleteAccount() {
 					{error.web ? (
 						<Pressable
 							accessibilityRole="link"
-							onPress={() => openOnTheWeb(`${apiUrl}/settings/account`)}
+							onPress={() => openOnTheWeb(`${apiUrl}/settings/account/delete`)}
 						>
 							<Text style={[styles.body, { color: colors.accent }]}>
 								{t("account.delete.openWeb")}

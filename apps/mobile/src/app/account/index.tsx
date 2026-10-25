@@ -205,7 +205,11 @@ export default function Account() {
 			</Section>
 
 			<Section title={t("account.account.web.title")} footnote={t("account.account.web.footnote")}>
-				<Row label={t("account.account.web.signIn")} web onPress={web("/settings/account")} />
+				<Row
+					label={t("account.account.web.signIn")}
+					web
+					onPress={web("/settings/account/sign-in")}
+				/>
 				<Row label={t("account.account.web.features")} web onPress={web("/settings/features")} />
 				<Row
 					label={t("account.account.web.connectedApps")}
