@@ -14,6 +14,8 @@ export interface RoleChangeResult {
 	role: UserRole
 	changed: boolean
 	sessionsRevoked: number
+	/** Without it, an admin's /admin answers "set up two-factor first" (`authorizeAdmin`). */
+	twoFactorEnabled: boolean
 }
 
 /**
@@ -39,7 +41,12 @@ export async function changeRole(
 				? eq(user.email, target.email.trim().toLowerCase())
 				: eq(user.id, target.userId)
 		const [account] = await tx
-			.select({ id: user.id, role: user.role, emailVerified: user.emailVerified })
+			.select({
+				id: user.id,
+				role: user.role,
+				emailVerified: user.emailVerified,
+				twoFactorEnabled: user.twoFactorEnabled,
+			})
 			.from(user)
 			.where(where)
 			.for("update")
@@ -61,8 +68,9 @@ export async function changeRole(
 					"The account has no password; admins must have one. Set it in Settings, Account first.",
 				)
 		}
+		const twoFactorEnabled = Boolean(account.twoFactorEnabled)
 		if (account.role === role)
-			return { userId: account.id, role, changed: false, sessionsRevoked: 0 }
+			return { userId: account.id, role, changed: false, sessionsRevoked: 0, twoFactorEnabled }
 
 		await tx.update(user).set({ role }).where(eq(user.id, account.id))
 		const ended = await tx
@@ -82,27 +90,42 @@ export async function changeRole(
 				reason: why,
 			},
 		})
-		return { userId: account.id, role, changed: true, sessionsRevoked: ended.length }
+		return {
+			userId: account.id,
+			role,
+			changed: true,
+			sessionsRevoked: ended.length,
+			twoFactorEnabled,
+		}
 	})
 }
 
 export async function listAdmins(): Promise<
-	Array<{ id: string; name: string; email: string; emailVerified: boolean; createdAt: Date }>
+	Array<{
+		id: string
+		name: string
+		email: string
+		emailVerified: boolean
+		twoFactorEnabled: boolean
+		createdAt: Date
+	}>
 > {
 	const result = await db.execute<{
 		id: string
 		name: string
 		email: string
 		email_verified: boolean
+		two_factor_enabled: boolean | null
 		created_at: Date
 	}>(
-		sql`select id, name, email, email_verified, created_at from "user" where role = 'admin' order by created_at`,
+		sql`select id, name, email, email_verified, two_factor_enabled, created_at from "user" where role = 'admin' order by created_at`,
 	)
 	return result.rows.map((row) => ({
 		id: row.id,
 		name: row.name,
 		email: row.email,
 		emailVerified: row.email_verified,
+		twoFactorEnabled: Boolean(row.two_factor_enabled),
 		createdAt: new Date(row.created_at),
 	}))
 }

@@ -10,7 +10,6 @@ import { Button, buttonVariants } from "~/components/ui/button"
 import { Field } from "~/components/ui/field"
 import { Label } from "~/components/ui/label"
 import { emailEnabled } from "~/lib/email.server"
-import { hasFeature } from "~/lib/features.server"
 import { type FieldErrors, parseForm } from "~/lib/forms"
 import { localeCookie } from "~/lib/i18n.server"
 import type { PageBarHandle } from "~/lib/page-bar"
@@ -18,6 +17,7 @@ import { pageTitle } from "~/lib/page-title"
 import { readForm } from "~/lib/request-body.server"
 import { requireUser } from "~/lib/session.server"
 import { signInMethods } from "~/lib/sign-in-methods.server"
+import { twoFactorOffered } from "~/lib/two-factor.server"
 import type { Route } from "./+types/settings.account"
 
 const schema = z.object({
@@ -41,11 +41,7 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 			emailVerified: user.emailVerified,
 		},
 		signIn: await signInMethods(user.id),
-		// Offered with the flag; an account that has it on keeps the way to turn it off.
-		twoFactor:
-			user.twoFactorEnabled || (await hasFeature(user.id, "two-factor"))
-				? { enabled: Boolean(user.twoFactorEnabled) }
-				: null,
+		twoFactor: (await twoFactorOffered(user)) ? { enabled: Boolean(user.twoFactorEnabled) } : null,
 		emailEnabled,
 	}
 }

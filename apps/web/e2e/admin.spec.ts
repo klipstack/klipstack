@@ -11,7 +11,16 @@ import {
 	user,
 } from "@klipstack/db"
 import { devices, expect, type Page, test } from "@playwright/test"
-import { PASSWORD, signupAdmin, signupUser, waitForHydration } from "./helpers"
+import { changeRole } from "../app/services/admin-roles.server"
+import {
+	adminCode,
+	login,
+	PASSWORD,
+	signupAdmin,
+	signupUser,
+	totp,
+	waitForHydration,
+} from "./helpers"
 import { insertArticle } from "./seed"
 
 const userByEmail = async (email: string) =>
@@ -264,6 +273,35 @@ test("the system page shows a live worker, the build and the storage mode", asyn
 	await expect(page.getByText("Klipstack does not know when the last backup ran.")).toBeVisible()
 })
 
+test("an admin without two-factor authentication is sent to set it up, then gets in", async ({
+	page,
+}) => {
+	const email = await signupUser(page, "No Two Factor Admin")
+	await changeRole({ email }, "admin", "e2e fixture")
+	await page.goto("/login")
+	await login(page, email)
+	await page.goto("/admin")
+	await expect(
+		page.getByRole("heading", { name: "Turn on two-factor authentication first" }),
+	).toBeVisible()
+	await expect(page.getByRole("heading", { name: "Overview" })).toHaveCount(0)
+	await page.getByRole("link", { name: "Set up two-factor authentication" }).click()
+	// Offered to an admin without the flag.
+	await expect(page).toHaveURL(/\/settings\/account\/two-factor$/)
+	await waitForHydration(page)
+	await page.getByLabel("Password").fill(PASSWORD)
+	await page.getByRole("button", { name: "Set up" }).click()
+	const key = (await page.getByTestId("two-factor-key").textContent())!
+	await page.getByLabel("Code").fill(totp(key))
+	await page.getByRole("button", { name: "Turn on" }).click()
+	await expect(page.getByTestId("two-factor-backup-codes")).toBeVisible()
+	await page.goto("/admin")
+	await expect(page.getByTestId("admin-label")).toBeVisible()
+	await expect(
+		page.getByRole("heading", { name: "Turn on two-factor authentication first" }),
+	).toHaveCount(0)
+})
+
 test("an older session reads but cannot write; its own password renews it in place", async ({
 	page,
 	baseURL,
@@ -290,7 +328,10 @@ test("an older session reads but cannot write; its own password renews it in pla
 	await expect(page.getByText("That password is not right.")).toBeVisible()
 	await expect(page.getByTestId("reauth-banner")).toBeVisible()
 
+	// An admin has two-factor authentication on: the code too.
 	await page.getByLabel("Password").fill(PASSWORD)
+	await page.getByRole("button", { name: "Confirm" }).click()
+	await page.getByLabel("Code").fill(adminCode(email))
 	await page.getByRole("button", { name: "Confirm" }).click()
 	await expect(page.getByTestId("reauth-banner")).toHaveCount(0)
 	await expect(page).toHaveURL(/\/admin\/invites$/)

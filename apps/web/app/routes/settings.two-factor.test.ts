@@ -98,6 +98,13 @@ describe("Settings → two-factor authentication", () => {
 		expect(await twoFactorOf(reader.userId)).toBe(false)
 	})
 
+	it("is offered to an admin without the flag: /admin needs it", async () => {
+		const reader = await signedIn({ flag: false })
+		await db.update(user).set({ role: "admin" }).where(eq(user.id, reader.userId))
+		const { cookie } = reader
+		expect((await post(cookie, { intent: "start", password: PASSWORD })).result).toBe("started")
+	})
+
 	it("needs the password to start, and the app's code to turn on", async () => {
 		const reader = await signedIn()
 		expect(

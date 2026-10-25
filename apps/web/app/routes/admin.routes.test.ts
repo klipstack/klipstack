@@ -222,10 +222,10 @@ describe("admin actions", () => {
 		const admin = await fx.account({ role: "admin" })
 		const hourAgo = new Date(Date.now() - 60 * 60 * 1000)
 		await db.update(session).set({ createdAt: hourAgo }).where(eq(session.userId, admin.id))
-		const confirm = async (password: string) => {
+		const confirm = async (password: string, code = "") => {
 			const request = fx.post(
 				"/admin/reauthenticate",
-				{ password, returnTo: "https://evil.example/admin" },
+				{ password, code, returnTo: "https://evil.example/admin" },
 				{ ...Object.fromEntries(fx.signedHeaders), cookie: admin.headers().get("cookie") ?? "" },
 			)
 			const context = await fx.routerContext(admin)
@@ -239,7 +239,12 @@ describe("admin actions", () => {
 		expect(wrong.data).toEqual({ ok: false, error: "wrong-password" })
 		expect((await admin.session())?.session.createdAt).toEqual(hourAgo)
 
-		const right = (await confirm("password123")) as Response
+		// An admin has two-factor authentication on: the password alone is not enough.
+		const noCode = (await confirm("password123")) as { data: unknown }
+		expect(noCode.data).toEqual({ ok: false, error: "code-required" })
+		expect((await admin.session())?.session.createdAt).toEqual(hourAgo)
+
+		const right = (await confirm("password123", await admin.totp())) as Response
 		expect(right.status).toBe(302)
 		expect(right.headers.get("location")).toBe("/admin")
 		const cookie = right.headers
