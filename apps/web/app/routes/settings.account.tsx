@@ -1,13 +1,12 @@
 import { isLocale, supportedLanguages } from "@klipstack/i18n/languages"
 import { useTranslation } from "react-i18next"
-import { data, Form, useFetcher, useNavigation } from "react-router"
+import { data, Form, Link, useNavigation } from "react-router"
 import { z } from "zod"
 import { updateProfile } from "~/commands/account.server"
 import { EmailVerification } from "~/components/email-verification"
-import { SettingsCard, SettingsPage, SignInAgain } from "~/components/settings-page"
-import { SignInMethods } from "~/components/sign-in-methods"
-import { TwoFactorSettings } from "~/components/two-factor-settings"
-import { Button } from "~/components/ui/button"
+import { PROVIDER_NAMES, type ProviderId } from "~/components/provider-buttons"
+import { SettingsCard, SettingsPage } from "~/components/settings-page"
+import { Button, buttonVariants } from "~/components/ui/button"
 import { Field } from "~/components/ui/field"
 import { Label } from "~/components/ui/label"
 import { emailEnabled } from "~/lib/email.server"
@@ -16,11 +15,9 @@ import { type FieldErrors, parseForm } from "~/lib/forms"
 import { localeCookie } from "~/lib/i18n.server"
 import type { PageBarHandle } from "~/lib/page-bar"
 import { pageTitle } from "~/lib/page-title"
-import { enabledProviders } from "~/lib/provider-sign-in.server"
 import { readForm } from "~/lib/request-body.server"
 import { requireUser } from "~/lib/session.server"
 import { signInMethods } from "~/lib/sign-in-methods.server"
-import type { WebResult } from "~/lib/web-result"
 import type { Route } from "./+types/settings.account"
 
 const schema = z.object({
@@ -43,7 +40,7 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 			email: user.email,
 			emailVerified: user.emailVerified,
 		},
-		signIn: { ...(await signInMethods(user.id)), providers: enabledProviders },
+		signIn: await signInMethods(user.id),
 		// Offered with the flag; an account that has it on keeps the way to turn it off.
 		twoFactor:
 			user.twoFactorEnabled || (await hasFeature(user.id, "two-factor"))
@@ -67,36 +64,95 @@ export async function action({ context, request }: Route.ActionArgs) {
 }
 
 export default function AccountSettings({ loaderData, actionData }: Route.ComponentProps) {
-	const { t } = useTranslation("settings")
+	const { t, i18n } = useTranslation("settings")
+	const { signIn, twoFactor, user } = loaderData
+	const ways = [
+		...(signIn.hasPassword ? [t("account.password")] : []),
+		...signIn.linked
+			.filter((id) => id in PROVIDER_NAMES)
+			.map((id) => PROVIDER_NAMES[id as ProviderId]),
+	]
 	return (
 		<SettingsPage title={t("account.title")}>
-			<Profile user={loaderData.user} actionData={actionData} />
+			<Profile user={user} actionData={actionData} />
 			<SettingsCard title={t("account.signInTitle")}>
-				<p className="mt-1 text-sm text-muted-fg">
-					{t("account.email", { email: loaderData.user.email })}
-				</p>
-				<div className="mt-4">
-					<EmailVerification
-						email={loaderData.user.email}
-						verified={loaderData.user.emailVerified}
-						emailEnabled={loaderData.emailEnabled}
+				<ul className="mt-2 divide-y divide-border text-sm">
+					<li className="py-4">
+						<p className="font-medium">{t("account.emailLabel")}</p>
+						<p className="mt-0.5 break-words text-muted-fg">{user.email}</p>
+						<div className="mt-3">
+							<EmailVerification
+								email={user.email}
+								verified={user.emailVerified}
+								emailEnabled={loaderData.emailEnabled}
+							/>
+						</div>
+					</li>
+					<Row
+						title={t("signIn.title")}
+						value={
+							ways.length
+								? new Intl.ListFormat(i18n.language, { type: "conjunction" }).format(ways)
+								: t("account.linksOnly")
+						}
+						to="/settings/account/sign-in"
+						action={t("account.manage")}
+						actionLabel={t("account.manageNamed", { name: t("signIn.title") })}
 					/>
-				</div>
-				<SignInMethods
-					{...loaderData.signIn}
-					verified={loaderData.user.emailVerified}
-					emailEnabled={loaderData.emailEnabled}
-				/>
-				{loaderData.twoFactor ? (
-					<TwoFactorSettings
-						enabled={loaderData.twoFactor.enabled}
-						hasPassword={loaderData.signIn.hasPassword}
-						verified={loaderData.user.emailVerified}
-					/>
-				) : null}
+					{twoFactor ? (
+						<Row
+							title={t("twoFactor.title")}
+							value={t(twoFactor.enabled ? "account.on" : "account.off")}
+							to="/settings/account/two-factor"
+							action={t(twoFactor.enabled ? "account.manage" : "twoFactor.start")}
+							actionLabel={t(twoFactor.enabled ? "account.manageNamed" : "account.setUpNamed", {
+								name: t("twoFactor.title"),
+							})}
+						/>
+					) : null}
+				</ul>
 			</SettingsCard>
-			<DeleteAccount hasPassword={loaderData.signIn.hasPassword} />
+			<SettingsCard title={t("danger.title")} description={t("danger.description")}>
+				<Link
+					to="/settings/account/delete"
+					className={`mt-4 border border-danger/40 text-danger hover:bg-danger/10 ${buttonVariants({ variant: "ghost", size: "sm" })}`}
+				>
+					{t("danger.start")}
+				</Link>
+			</SettingsCard>
 		</SettingsPage>
+	)
+}
+
+/** A line of the summary: what it is, where it stands, and the page that changes it. */
+function Row({
+	title,
+	value,
+	to,
+	action,
+	actionLabel,
+}: {
+	title: string
+	value: string
+	to: string
+	action: string
+	actionLabel: string
+}) {
+	return (
+		<li className="flex items-center justify-between gap-4 py-4">
+			<div className="min-w-0">
+				<p className="font-medium">{title}</p>
+				<p className="mt-0.5 text-muted-fg">{value}</p>
+			</div>
+			<Link
+				to={to}
+				prefetch="intent"
+				aria-label={actionLabel}
+				className={`shrink-0 ${buttonVariants({ variant: "secondary", size: "sm" })}`}
+			>
+				{action}
+			</Link>
+		</li>
 	)
 }
 
@@ -147,37 +203,6 @@ function Profile({
 					) : null}
 				</div>
 			</Form>
-		</SettingsCard>
-	)
-}
-
-/** At the foot of Account rather than in the sidebar: rare, and not to be stumbled on. */
-function DeleteAccount({ hasPassword }: { hasPassword: boolean }) {
-	const { t } = useTranslation("settings")
-	const fetcher = useFetcher<WebResult>()
-	const refusal = fetcher.data?.ok === false ? fetcher.data.error.code : null
-	return (
-		<SettingsCard title={t("danger.title")} description={t("danger.description")}>
-			<fetcher.Form
-				method="post"
-				action="/settings/delete"
-				className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end"
-			>
-				<div className="flex-1">
-					<Field
-						label={t("danger.confirmLabel")}
-						name="confirmEmail"
-						type="email"
-						autoComplete="off"
-						required
-						error={refusal === "invalid_request" ? t("danger.mismatch") : undefined}
-					/>
-				</div>
-				<Button type="submit" variant="danger" disabled={fetcher.state !== "idle"}>
-					{t("danger.submit")}
-				</Button>
-			</fetcher.Form>
-			{refusal === "reauthentication_required" ? <SignInAgain hasPassword={hasPassword} /> : null}
 		</SettingsCard>
 	)
 }

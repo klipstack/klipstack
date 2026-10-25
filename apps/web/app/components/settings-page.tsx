@@ -1,5 +1,6 @@
+import { ArrowLeft } from "lucide-react"
 import { useTranslation } from "react-i18next"
-import { Form, useFetcher, useLocation } from "react-router"
+import { Form, Link, useFetcher, useLocation } from "react-router"
 import { Button } from "~/components/ui/button"
 import { Field } from "~/components/ui/field"
 
@@ -7,14 +8,26 @@ import { Field } from "~/components/ui/field"
 export function SettingsPage({
 	title,
 	description,
+	back,
 	children,
 }: {
 	title: string
 	description?: React.ReactNode
+	/** A page within a section (Account → Delete account): the way back to it. */
+	back?: { to: string; label: string }
 	children: React.ReactNode
 }) {
 	return (
 		<main className="mx-auto w-full max-w-2xl flex-1 px-4 pt-4 pb-8">
+			{back ? (
+				<Link
+					to={back.to}
+					className="mb-3 inline-flex items-center gap-1.5 text-sm text-muted-fg hover:text-fg"
+				>
+					<ArrowLeft className="size-4" aria-hidden />
+					{back.label}
+				</Link>
+			) : null}
 			<h1 className="hidden page-title md:block md:leading-10">{title}</h1>
 			{description ? <p className="text-sm text-muted-fg md:mt-1">{description}</p> : null}
 			{children}

@@ -12,7 +12,7 @@ const CONNECT_ERRORS: Record<string, "emailMismatch" | "linkedElsewhere"> = {
 	account_already_linked_to_different_user: "linkedElsewhere",
 }
 
-/** Settings → Account: the password and the providers that open this account. */
+/** Settings → Account → Ways to log in: the password and the providers that open this account. */
 export function SignInMethods({
 	hasPassword,
 	linked,
@@ -48,9 +48,8 @@ export function SignInMethods({
 	const connectError = params.get("connect") === "failed" ? (params.get("error") ?? "") : null
 
 	return (
-		<section aria-label={t("signIn.title")} className="mt-6 border-t border-border pt-4 text-sm">
-			<h3 className="font-medium">{t("signIn.title")}</h3>
-			<p className="mt-1 text-muted-fg">
+		<section aria-label={t("signIn.title")} className="text-sm">
+			<p className="text-muted-fg">
 				{t(emailEnabled ? "signIn.descriptionWithLinks" : "signIn.description")}
 			</p>
 			{verified ? null : <p className="mt-2 text-muted-fg">{t("signIn.verifyFirst")}</p>}

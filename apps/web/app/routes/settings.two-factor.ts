@@ -12,7 +12,7 @@ import { authenticatorSetup, readCode } from "~/lib/two-factor.server"
 import type { Route } from "./+types/settings.two-factor"
 
 /**
- * POST /settings/two-factor  intent=start|confirm|disable: Settings' authenticator app. The
+ * POST /settings/two-factor  intent=start|confirm|disable|backup-codes: Settings' authenticator app. The
  * plugin's own endpoints are closed (`disabledPaths`); this adds our rules around them:
  *
  * - start: accounts with the `two-factor` flag and a verified email. The password, or for an
@@ -21,6 +21,7 @@ import type { Route } from "./+types/settings.two-factor"
  * - confirm: the app's first code turns it on, and signs every other session out.
  * - disable: a current code (or a backup code) and the password, when the account has one. A
  *   reader with neither phone nor backup codes asks the operator (`admin reset-two-factor`).
+ * - backup-codes: the same proof as disable; answers 10 new backup codes, which replace the old.
  *
  * Codes typed here count against the account's limit (`/two-factor/settings-code`).
  */
@@ -83,7 +84,7 @@ export async function action({ context, request }: Route.ActionArgs) {
 			return data({ result: "enabled" as const }, { headers: cookieHeadersFrom(headers) })
 		}
 
-		if (intent === "disable") {
+		if (intent === "disable" || intent === "backup-codes") {
 			if (!enabled) return { result: "disabled" as const }
 			await checkAuthLimit("/two-factor/settings-code", user.email, request.headers)
 			const { hasPassword } = await signInMethods(user.id)
@@ -103,12 +104,16 @@ export async function action({ context, request }: Route.ActionArgs) {
 					body: { code, disableSession: true },
 					headers: request.headers,
 				})
+			const body = hasPassword ? { password } : {}
+			if (intent === "backup-codes") {
+				// New codes replace every old one, the unused ones too.
+				const { backupCodes } = await withAuthLimitChecked(() =>
+					auth.api.generateBackupCodes({ body, headers: request.headers }),
+				)
+				return { result: "new-codes" as const, backupCodes }
+			}
 			const { headers } = await withAuthLimitChecked(() =>
-				auth.api.disableTwoFactor({
-					body: hasPassword ? { password } : {},
-					headers: request.headers,
-					returnHeaders: true,
-				}),
+				auth.api.disableTwoFactor({ body, headers: request.headers, returnHeaders: true }),
 			)
 			return data({ result: "disabled" as const }, { headers: cookieHeadersFrom(headers) })
 		}

@@ -46,6 +46,9 @@ export default [
 	route("settings", "routes/settings-layout.tsx", [
 		index("routes/settings.index.tsx"),
 		route("account", "routes/settings.account.tsx"),
+		route("account/sign-in", "routes/settings.account.sign-in.tsx"),
+		route("account/two-factor", "routes/settings.account.two-factor.tsx"),
+		route("account/delete", "routes/settings.account.delete.tsx"),
 		route("appearance", "routes/settings.appearance.tsx"),
 		route("shortcuts", "routes/settings.shortcuts.tsx"),
 		route("features", "routes/settings.features.tsx"),
