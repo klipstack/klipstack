@@ -30,6 +30,9 @@ Docker: `pnpm --filter @klipstack/web admin list`.
 - Look the account up first (`admin list` shows current admins; account IDs are on `/admin/users`
   once one admin exists, or in the `user` table). A grant needs an existing, verified account
   with a password (set one in Settings, Account): the admin pages confirm a sign-in with it.
+- `/admin` opens only once the admin has two-factor authentication on (Settings, Account, which
+  offers it to every admin). Until then it says so and links there. A grant to an account without
+  it succeeds and prints a note; `admin list` shows each admin's state (`NO TWO-FACTOR`).
 - Every change ends that account's browser sessions and writes an audit event with the actor
   `operator-cli`. The reason is context, not proof of who ran the command.
 - Repeating a command reports "no change needed" and exits 0. A missing account, an unverified or
@@ -119,8 +122,10 @@ docker compose exec web pnpm --filter @klipstack/web admin delete-account \
 Readers turn it on themselves, in Settings, Account: an authenticator app on their phone, and 10
 backup codes shown once. Every new sign-in then asks for a code, whatever the way in (password,
 emailed link, Google, GitHub, Apple, the iPhone app). While it is being tried out, only accounts
-with the `two-factor` feature (`/admin/users/<id>`, Features in testing) can set it up; an account
-that has it keeps it if the feature is turned off.
+with the `two-factor` feature (`/admin/users/<id>`, Features in testing), and admins, can set it
+up; an account that has it keeps it if the feature is turned off. Admins need it to open `/admin`.
+
+Resetting an admin's two-factor authentication closes `/admin` to them until they set it up again.
 
 A reader who lost both the phone and the backup codes cannot sign in, and a password reset does
 not help: it does not remove the second step. The operator CLI does.
@@ -150,7 +155,7 @@ On a new server, or the first time with an image that has the admin pages:
 
 1. `admin list` (expect none), then grant your verified account, which has a password, by
    explicit email or ID.
-2. Sign in afresh, open `/admin`, and check: overview counts, the worker shows "Seen recently",
+2. Sign in afresh, turn on two-factor authentication (`/admin` links to it), open `/admin`, and check: overview counts, the worker shows "Seen recently",
    create and revoke a test invite, the audit page lists both and the grant.
 3. With an ordinary account: no Admin menu entry, and `/admin` answers 403.
 

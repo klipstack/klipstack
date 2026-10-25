@@ -1,6 +1,7 @@
 import { createHmac, randomUUID } from "node:crypto"
 import { db, eq, inArray, invites, sql, user } from "@klipstack/db"
 import { RouterContextProvider } from "react-router"
+import { withAuthLimitChecked } from "~/lib/auth-limits.server"
 import { auth, type SessionData } from "~/lib/auth.server"
 import { env } from "~/lib/env.server"
 import { createInvite, signupWithInvite } from "~/lib/invites.server"
@@ -25,10 +26,13 @@ export function adminFixtures(tag: string) {
 	async function account({
 		role = "user",
 		verified = true,
+		twoFactor = role === "admin",
 		signupBody = {},
 	}: {
 		role?: "user" | "admin"
 		verified?: boolean
+		/** An authenticator app set up and confirmed, as every admin needs: on for admins. */
+		twoFactor?: boolean
 		/** Extra fields a hostile client might add to the signup request. */
 		signupBody?: Record<string, unknown>
 	} = {}) {
@@ -48,14 +52,37 @@ export function adminFixtures(tag: string) {
 			.update(user)
 			.set({ ...(role === "admin" ? { role } : {}), emailVerified: verified })
 			.where(eq(user.id, id))
-		const cookie = result.headers
-			.getSetCookie()
-			.map((c) => c.split(";")[0])
-			.join("; ")
+		const cookieOf = (from: Headers) =>
+			from
+				.getSetCookie()
+				.map((c) => c.split(";")[0])
+				.filter((pair) => !pair!.endsWith("="))
+				.join("; ")
+		let cookie = cookieOf(result.headers)
+		let secret = ""
+		/** The code the account's authenticator app shows now. */
+		const totp = async () => (await auth.api.generateTOTP({ body: { secret } })).code
+		// Setup, not what a test checks: the auth limits (per address, shared here) stay out of it.
+		if (twoFactor)
+			await withAuthLimitChecked(async () => {
+				const enabled = await auth.api.enableTwoFactor({
+					body: { password: "password123", method: "totp" },
+					headers: new Headers({ cookie }),
+				})
+				if (enabled.method !== "totp") throw new Error("expected an authenticator app")
+				secret = base32Decode(new URL(enabled.totpURI).searchParams.get("secret")!)
+				// The first code turns it on, and replaces this session with a new one.
+				const confirmed = await auth.api.verifyTOTP({
+					body: { code: await totp() },
+					headers: new Headers({ cookie }),
+					returnHeaders: true,
+				})
+				cookie = cookieOf(confirmed.headers)
+			})
 		const headers = () => new Headers({ cookie })
 		const session = async (): Promise<SessionData | null> =>
 			(await auth.api.getSession({ headers: headers() })) ?? null
-		return { id, email, headers, session }
+		return { id, email, headers, session, totp }
 	}
 
 	/** What the session middleware would have put in the router context. */
@@ -113,4 +140,11 @@ export async function thrownBy(fn: () => Promise<unknown>): Promise<unknown> {
 		return error
 	}
 	throw new Error("expected a throw")
+}
+
+function base32Decode(text: string): string {
+	const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
+	let bits = ""
+	for (const char of text.toUpperCase()) bits += alphabet.indexOf(char).toString(2).padStart(5, "0")
+	return Buffer.from(bits.match(/.{8}/g)!.map((byte) => Number.parseInt(byte, 2))).toString("utf8")
 }

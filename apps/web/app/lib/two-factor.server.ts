@@ -1,7 +1,24 @@
 import { APIError } from "better-auth/api"
 import { renderSVG } from "uqr"
 import { auth } from "./auth.server"
+import { hasFeature } from "./features.server"
 import { oauthApiContext } from "./oauth.server"
+
+/**
+ * Whether Settings offers two-factor authentication: with the `two-factor` flag, to admins (who
+ * need it to open /admin), and to an account that has it on (so it can be turned off).
+ */
+export async function twoFactorOffered(user: {
+	id: string
+	role?: string | null
+	twoFactorEnabled?: boolean | null
+}) {
+	return (
+		Boolean(user.twoFactorEnabled) ||
+		user.role === "admin" ||
+		(await hasFeature(user.id, "two-factor"))
+	)
+}
 
 /**
  * What an authenticator app needs to add the account: the `otpauth://` URI as a QR code (an SVG

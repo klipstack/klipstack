@@ -1,20 +1,13 @@
-import { createHmac } from "node:crypto"
 import { expect, type Page, test } from "@playwright/test"
-import { login, logout, PASSWORD, resetLocalIpLimit, signupUser, waitForHydration } from "./helpers"
-
-/** The code an authenticator app shows now for this key (RFC 6238: SHA-1, 6 digits, 30 s). */
-function totp(key: string) {
-	const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
-	let bits = ""
-	for (const char of key.replace(/\s+/g, ""))
-		bits += alphabet.indexOf(char).toString(2).padStart(5, "0")
-	const secret = Buffer.from(bits.match(/.{8}/g)!.map((byte) => Number.parseInt(byte, 2)))
-	const counter = Buffer.alloc(8)
-	counter.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 30_000)))
-	const mac = createHmac("sha1", secret).update(counter).digest()
-	const offset = mac[mac.length - 1]! & 15
-	return String((mac.readUInt32BE(offset) & 0x7fffffff) % 1_000_000).padStart(6, "0")
-}
+import {
+	login,
+	logout,
+	PASSWORD,
+	resetLocalIpLimit,
+	signupUser,
+	totp,
+	waitForHydration,
+} from "./helpers"
 
 /** Sets up the authenticator app from Settings → Account: its key and backup codes. */
 async function turnOn(page: Page) {

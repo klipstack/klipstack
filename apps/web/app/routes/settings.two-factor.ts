@@ -3,19 +3,18 @@ import { APIError } from "better-auth/api"
 import { data } from "react-router"
 import { checkAuthLimit, withAuthLimitChecked } from "~/lib/auth-limits.server"
 import { auth } from "~/lib/auth.server"
-import { hasFeature } from "~/lib/features.server"
 import { signedInRecently } from "~/lib/recent-sign-in.server"
 import { readForm } from "~/lib/request-body.server"
 import { cookieHeadersFrom, getSession, requireUser } from "~/lib/session.server"
 import { signInMethods } from "~/lib/sign-in-methods.server"
-import { authenticatorSetup, readCode } from "~/lib/two-factor.server"
+import { authenticatorSetup, readCode, twoFactorOffered } from "~/lib/two-factor.server"
 import type { Route } from "./+types/settings.two-factor"
 
 /**
  * POST /settings/two-factor  intent=start|confirm|disable|backup-codes: Settings' authenticator app. The
  * plugin's own endpoints are closed (`disabledPaths`); this adds our rules around them:
  *
- * - start: accounts with the `two-factor` flag and a verified email. The password, or for an
+ * - start: accounts it is offered to (`twoFactorOffered`: the flag, or admins) with a verified email. The password, or for an
  *   account without one a sign-in from the last 30 minutes. Answers the QR code, its key and the
  *   backup codes; nothing asks for a code yet.
  * - confirm: the app's first code turns it on, and signs every other session out.
@@ -34,7 +33,7 @@ export async function action({ context, request }: Route.ActionArgs) {
 	try {
 		if (intent === "start") {
 			if (enabled) return { result: "already-on" as const }
-			if (!(await hasFeature(user.id, "two-factor"))) throw data(null, { status: 404 })
+			if (!(await twoFactorOffered(user))) throw data(null, { status: 404 })
 			if (!user.emailVerified) return data({ result: "unverified" as const }, { status: 403 })
 			const { hasPassword } = await signInMethods(user.id)
 			if (!hasPassword && !signedInRecently(current.session.createdAt))

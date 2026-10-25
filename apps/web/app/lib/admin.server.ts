@@ -51,20 +51,29 @@ export function looksLikeAdmin(sessionUser: SessionData["user"] | null | undefin
 
 /**
  * The policy every admin loader, action and resource route runs first: a browser session (bearer
- * credentials never produce one), then the role, the verified email and a password as the database
- * has them now. Anonymous callers get 401, everyone else without all three gets 403. A database
+ * credentials never produce one), then the role, the verified email, a password and two-factor
+ * authentication as the database has them now. Anonymous callers get 401, everyone else without
+ * all four gets 403 (`two_factor_required` for an admin without two-factor). A database
  * error denies. The password is how an admin confirms a recent sign-in without signing out
  * (`admin.reauthenticate.ts`), so an account without one is no admin.
  */
 export async function authorizeAdmin(session: SessionData | null): Promise<AdminContext> {
 	const correlationId = randomUUID()
 	if (!session) deny(401, "unauthenticated", { correlationId })
-	let row: { role: string; emailVerified: boolean; hasPassword: boolean } | undefined
+	let row:
+		| {
+				role: string
+				emailVerified: boolean
+				twoFactorEnabled: boolean | null
+				hasPassword: boolean
+		  }
+		| undefined
 	try {
 		;[row] = await db
 			.select({
 				role: user.role,
 				emailVerified: user.emailVerified,
+				twoFactorEnabled: user.twoFactorEnabled,
 				hasPassword: exists(
 					db
 						.select({ one: sql`1` })
@@ -80,6 +89,9 @@ export async function authorizeAdmin(session: SessionData | null): Promise<Admin
 	}
 	if (row?.role !== "admin" || !row.emailVerified || !row.hasPassword)
 		deny(403, "forbidden", { userId: session.user.id, correlationId })
+	// An admin is one with two-factor authentication on: a password alone opens nothing here.
+	if (!row.twoFactorEnabled)
+		deny(403, "two_factor_required", { userId: session.user.id, correlationId })
 	const ctx: AdminContext = Object.freeze({
 		userId: session.user.id,
 		sessionId: session.session.id,

@@ -25,7 +25,7 @@ vi.mock("./admin-audit.server", async (original) => {
 		},
 	}
 })
-const { changeRole } = await import("./admin-roles.server")
+const { changeRole, listAdmins } = await import("./admin-roles.server")
 
 const fx = adminFixtures("admin-roles")
 afterAll(fx.cleanup)
@@ -103,6 +103,22 @@ describe("changeRole", () => {
 		await expect(changeRole({ userId: unverified.id }, "user", "  ")).rejects.toMatchObject({
 			code: "invalid_request",
 		})
+	})
+
+	it("says whether the account has two-factor authentication, on a grant and in the list", async () => {
+		const without = await fx.account()
+		const withIt = await fx.account({ twoFactor: true })
+		expect(await changeRole({ userId: without.id }, "admin", "x")).toMatchObject({
+			changed: true,
+			twoFactorEnabled: false,
+		})
+		expect(await changeRole({ userId: withIt.id }, "admin", "x")).toMatchObject({
+			changed: true,
+			twoFactorEnabled: true,
+		})
+		const listed = await listAdmins()
+		expect(listed.find((admin) => admin.id === without.id)?.twoFactorEnabled).toBe(false)
+		expect(listed.find((admin) => admin.id === withIt.id)?.twoFactorEnabled).toBe(true)
 	})
 
 	it("changes nothing when the audit event cannot be written", async () => {

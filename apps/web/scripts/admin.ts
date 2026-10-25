@@ -19,7 +19,8 @@ import { changeRole, listAdmins } from "../app/services/admin-roles.server"
  *   pnpm --filter @klipstack/web admin reset-two-factor --email someone@example.com \
  *     --reason "Lost phone and backup codes; confirmed by reply from the address"
  *
- * A grant needs an existing, verified account. Either change ends that account's browser
+ * A grant needs an existing, verified account. /admin opens only once the account has two-factor
+ * authentication on; `list` shows which admins do. Either change ends that account's browser
  * sessions. Revoking the last admin is allowed: this script is the way back. Deleting is not
  * undoable, and refuses an admin's account (docs/self-hosting/admin.md, "Stopping an account").
  * Removing two-factor authentication ends the account's sessions too; check first that the
@@ -62,7 +63,7 @@ async function main(): Promise<number> {
 		if (!admins.length) console.log("no admins")
 		for (const admin of admins)
 			console.log(
-				`${admin.id}\t${admin.email}\t${admin.name}\t${admin.emailVerified ? "verified" : "UNVERIFIED"}`,
+				`${admin.id}\t${admin.email}\t${admin.name}\t${admin.emailVerified ? "verified" : "UNVERIFIED"}\t${admin.twoFactorEnabled ? "two-factor" : "NO TWO-FACTOR"}`,
 			)
 		return 0
 	}
@@ -135,6 +136,10 @@ async function main(): Promise<number> {
 				? `${result.userId}: role is now ${result.role}; ${result.sessionsRevoked} session(s) ended, sign in again`
 				: `${result.userId}: role is already ${result.role}; no change needed`,
 		)
+		if (result.role === "admin" && !result.twoFactorEnabled)
+			console.log(
+				"note: the account has no two-factor authentication yet; /admin asks it to set it up (Settings, Account) before opening",
+			)
 		return 0
 	} catch (error) {
 		if (error instanceof AppError) {

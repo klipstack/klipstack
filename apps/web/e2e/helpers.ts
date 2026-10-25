@@ -22,6 +22,7 @@ import {
 	type Locator,
 	type Page,
 	type TestInfo,
+	test,
 } from "@playwright/test"
 import { changeRole } from "../app/services/admin-roles.server"
 
@@ -276,15 +277,59 @@ export async function logout(page: Page) {
 	})
 }
 
+/** The code an authenticator app shows now for this key (RFC 6238: SHA-1, 6 digits, 30 s). */
+export function totp(key: string) {
+	const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
+	let bits = ""
+	for (const char of key.replace(/\s+/g, ""))
+		bits += alphabet.indexOf(char).toString(2).padStart(5, "0")
+	const secret = Buffer.from(bits.match(/.{8}/g)!.map((byte) => Number.parseInt(byte, 2)))
+	const counter = Buffer.alloc(8)
+	counter.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 30_000)))
+	const mac = createHmac("sha1", secret).update(counter).digest()
+	const offset = mac[mac.length - 1]! & 15
+	return String((mac.readUInt32BE(offset) & 0x7fffffff) % 1_000_000).padStart(6, "0")
+}
+
+/** Each admin's authenticator key, by email: `adminCode` makes its codes. */
+const adminKeys = new Map<string, string>()
+export const adminCode = (email: string) => totp(adminKeys.get(email)!)
+
 /**
- * A signed-in admin, made the way production makes one: sign up, verify, grant with the operator
- * CLI's function (which ends the account's sessions), then log in again.
+ * A signed-in admin, made the way production makes one: sign up, verify, turn on two-factor
+ * authentication (which /admin needs), grant with the operator CLI's function (which ends the
+ * account's sessions), then log in again with the password and the code. The setup runs before any page
+ * loads: a session changed behind a loaded page's service worker makes it reload every tab.
  */
 export async function signupAdmin(page: Page, name = "Admin") {
 	const email = await signupUser(page, name)
+	const base = test.info().project.use.baseURL!
+	for (const path of ["/two-factor/enable", "/two-factor/settings-code"])
+		await resetLocalIpLimit(path)
+	// With the sign-up's own session, and the flag for as long as the setup takes.
+	const [account] = await db.select({ id: user.id }).from(user).where(eq(user.email, email))
+	await db.insert(userFeatures).values({ userId: account!.id, feature: "two-factor" })
+	const started = await page.request.post("/settings/two-factor", {
+		headers: { origin: base },
+		form: { intent: "start", password: PASSWORD },
+	})
+	const { secret } = (await started.json()) as { secret: string }
+	adminKeys.set(email, secret)
+	const confirmed = await page.request.post("/settings/two-factor", {
+		headers: { origin: base },
+		form: { intent: "confirm", code: totp(secret) },
+	})
+	expect(await confirmed.json()).toMatchObject({ result: "enabled" })
+	await db.delete(userFeatures).where(eq(userFeatures.userId, account!.id))
 	await changeRole({ email }, "admin", "e2e fixture")
+	await resetLocalIpLimit("/sign-in/email")
+	await resetLocalIpLimit("/two-factor/verify-totp")
 	await page.goto("/login")
-	await login(page, email)
+	await login(page, email, /\/login\/code/)
+	await waitForHydration(page)
+	await page.getByLabel("Code").fill(totp(secret))
+	await page.getByRole("button", { name: "Continue" }).click()
+	await expect(page).toHaveURL(/\/home$/)
 	return email
 }
 

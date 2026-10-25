@@ -3,7 +3,7 @@ import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { isRouteErrorResponse, Link, NavLink, Outlet, useFetcher, useLocation } from "react-router"
 import { ErrorContent } from "~/components/error-content"
-import { Button } from "~/components/ui/button"
+import { Button, buttonVariants } from "~/components/ui/button"
 import { Field } from "~/components/ui/field"
 import { useClientValue } from "~/hooks/use-client-value"
 import { ensureAdminSafeWorker } from "~/lib/admin-freshness.client"
@@ -225,6 +225,16 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
 				<h1 className="text-2xl font-semibold">{t("reauth.title")}</h1>
 				<p className="mt-2 mb-4 text-muted-fg">{t("reauth.required")}</p>
 				<SignInAgain />
+			</Frame>
+		)
+	if (code === "two_factor_required")
+		return (
+			<Frame>
+				<h1 className="text-2xl font-semibold">{t("errors.twoFactorTitle")}</h1>
+				<p className="mt-2 mb-4 text-muted-fg">{t("errors.twoFactorDetail")}</p>
+				<Link to="/settings/account/two-factor" className={buttonVariants()}>
+					{t("errors.twoFactorSetUp")}
+				</Link>
 			</Frame>
 		)
 	if (isRouteErrorResponse(error) && error.status === 403)

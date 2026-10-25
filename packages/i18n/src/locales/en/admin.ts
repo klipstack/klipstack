@@ -48,6 +48,10 @@ export default {
 	errors: {
 		forbidden: "This area is for administrators.",
 		forbiddenDetail: "Your account does not have access to it.",
+		twoFactorTitle: "Turn on two-factor authentication first",
+		twoFactorDetail:
+			"Admin pages need two-factor authentication on your account: with it, a stolen password alone opens nothing here.",
+		twoFactorSetUp: "Set up two-factor authentication",
 		offline: "Admin is unavailable offline",
 		offlineDetail: "Nothing from these pages is kept on this device. Connect and reload.",
 		updating: "Updating the app before showing admin pages…",

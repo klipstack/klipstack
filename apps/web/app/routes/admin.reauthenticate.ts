@@ -6,7 +6,8 @@ import type { Route } from "./+types/admin.reauthenticate"
 const NO_STORE = "private, no-store"
 
 /**
- * POST /admin/reauthenticate  password=…&returnTo=…: the signed-in admin's own password renews
+ * POST /admin/reauthenticate  password=…&code=…&returnTo=…: the signed-in admin's own password
+ * and two-factor code (every admin has it on) renew
  * their sign-in in place (`confirmPassword`), without the login page, where anyone could sign in.
  * Then back to `returnTo`, a path inside /admin: the navigation also clears a refused change's
  * error page. The one admin action an older session may use (it is how that session recovers).

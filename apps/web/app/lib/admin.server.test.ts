@@ -39,6 +39,15 @@ describe("authorizeAdmin", () => {
 		expect(statusOf(await thrownBy(async () => authorizeAdmin(await admin.session())))).toBe(403)
 	})
 
+	it("denies an admin without two-factor authentication, naming why, until it is on", async () => {
+		const admin = await fx.account({ role: "admin", twoFactor: false })
+		const denied = await thrownBy(async () => authorizeAdmin(await admin.session()))
+		expect(statusOf(denied)).toBe(403)
+		expect((denied as { data: unknown }).data).toEqual({ error: "two_factor_required" })
+		const ready = await fx.account({ role: "admin" })
+		expect((await authorizeAdmin(await ready.session())).userId).toBe(ready.id)
+	})
+
 	it("reads the role from the database, not from the session object it was handed", async () => {
 		const ordinary = await fx.account()
 		const forged = await ordinary.session()

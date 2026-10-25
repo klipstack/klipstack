@@ -154,6 +154,7 @@ describe("every admin route denies on its own", () => {
 		["anonymous", null, 401],
 		["ordinary", { role: "user", verified: true }, 403],
 		["unverified admin", { role: "admin", verified: false }, 403],
+		["admin without two-factor", { role: "admin", verified: true, twoFactor: false }, 403],
 	] as const)("%s callers, including malformed targets", async (_, who, status) => {
 		const account = who ? await fx.account(who) : null
 		const context = await fx.routerContext(account)
@@ -173,7 +174,7 @@ describe("every admin route denies on its own", () => {
 			const denied = await call(action, fx.post(path, fields), context, params)
 			expect(statusOf(denied)).toBe(status)
 			expect(JSON.stringify((denied as { data?: unknown }).data ?? {})).toMatch(
-				/^\{"error":"(unauthenticated|forbidden)"\}$/,
+				/^\{"error":"(unauthenticated|forbidden|two_factor_required)"\}$/,
 			)
 		}
 	})
@@ -222,10 +223,10 @@ describe("admin actions", () => {
 		const admin = await fx.account({ role: "admin" })
 		const hourAgo = new Date(Date.now() - 60 * 60 * 1000)
 		await db.update(session).set({ createdAt: hourAgo }).where(eq(session.userId, admin.id))
-		const confirm = async (password: string) => {
+		const confirm = async (password: string, code = "") => {
 			const request = fx.post(
 				"/admin/reauthenticate",
-				{ password, returnTo: "https://evil.example/admin" },
+				{ password, code, returnTo: "https://evil.example/admin" },
 				{ ...Object.fromEntries(fx.signedHeaders), cookie: admin.headers().get("cookie") ?? "" },
 			)
 			const context = await fx.routerContext(admin)
@@ -239,7 +240,12 @@ describe("admin actions", () => {
 		expect(wrong.data).toEqual({ ok: false, error: "wrong-password" })
 		expect((await admin.session())?.session.createdAt).toEqual(hourAgo)
 
-		const right = (await confirm("password123")) as Response
+		// An admin has two-factor authentication on: the password alone is not enough.
+		const noCode = (await confirm("password123")) as { data: unknown }
+		expect(noCode.data).toEqual({ ok: false, error: "code-required" })
+		expect((await admin.session())?.session.createdAt).toEqual(hourAgo)
+
+		const right = (await confirm("password123", await admin.totp())) as Response
 		expect(right.status).toBe(302)
 		expect(right.headers.get("location")).toBe("/admin")
 		const cookie = right.headers

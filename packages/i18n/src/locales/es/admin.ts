@@ -49,6 +49,10 @@ export default {
 	errors: {
 		forbidden: "Esta área es para administradores.",
 		forbiddenDetail: "Tu cuenta no tiene acceso.",
+		twoFactorTitle: "Primero activa la verificación en dos pasos",
+		twoFactorDetail:
+			"La administración necesita la verificación en dos pasos en tu cuenta: así, una contraseña robada no basta para entrar aquí.",
+		twoFactorSetUp: "Configurar la verificación en dos pasos",
 		offline: "La administración no está disponible sin conexión",
 		offlineDetail: "Nada de estas páginas se guarda en este dispositivo. Conéctate y recarga.",
 		updating: "Actualizando la aplicación antes de mostrar la administración…",
