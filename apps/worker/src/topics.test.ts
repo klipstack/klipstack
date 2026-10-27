@@ -121,7 +121,7 @@ function models(script: {
 	}
 	review?: (topics: TopicIn[]) => ReviewChange[]
 	/** Sees the topics each article is sorted against. */
-	sorting?: (topics: TopicIn[]) => void
+	sorting?: (topics: TopicIn[], article: TopicArticleIn) => void
 	refuse?: (article: TopicArticleIn) => boolean
 	/** Jev is down: a failure worth retrying. */
 	down?: () => boolean
@@ -171,7 +171,7 @@ function models(script: {
 			},
 			async sort({ article, topics }) {
 				calls.push("sort")
-				script.sorting?.(topics)
+				script.sorting?.(topics, article)
 				await script.during?.("sort")
 				if (script.down?.())
 					throw new AiError("provider", "Jev is down", { cause: new Error("socket hang up") })
@@ -495,7 +495,30 @@ describe("after the reader confirms", () => {
 			.select()
 			.from(topicLibraries)
 			.where(eq(topicLibraries.userId, userId))
-		expect(library).toMatchObject({ unsortedAtLastGrow: 5, resortAfterAt: null })
+		// Measured once the library was sorted into Owls: the owls are in it, none fit no topic.
+		expect(library).toMatchObject({ unsortedAtLastGrow: 0, resortAfterAt: null })
+	})
+
+	it("asks for new topics again once five more articles fit none than a growth left", async () => {
+		const { deps, calls } = await confirmed({
+			grow: (_topics, pool) => ({
+				topics: pool.some((a) => a.text.includes("owls"))
+					? [{ ...spec("Owls"), articleIds: pool.map((a) => a.id) }]
+					: [],
+			}),
+		})
+		await settle(deps, calls)
+		await many(8, "owls")
+		await many(4, "bats")
+		await settle(deps, calls)
+		// The owls went to Owls; the 4 bats fit no topic.
+		expect(calls.filter((c) => c.startsWith("grow"))).toEqual(["grow:12"])
+		await many(4, "moles")
+		await settle(deps, calls)
+		expect(calls.filter((c) => c.startsWith("grow"))).toEqual(["grow:12"])
+		await article("moles")
+		await settle(deps, calls)
+		expect(calls.filter((c) => c.startsWith("grow"))).toEqual(["grow:12", "grow:9"])
 	})
 
 	it("keeps nothing a growth brings when the reader turns topics off meanwhile", async () => {
@@ -566,6 +589,47 @@ describe("after the reader confirms", () => {
 		})
 	})
 
+	it("sorts again into a widened topic only the articles in no topic and those it was suggested for", async () => {
+		const sorts: { id: string; topics: string[] }[] = []
+		const { deps, calls, dogs } = await confirmed({
+			grow: (topics) => ({
+				widen: [
+					{
+						topicId: topics.find((t) => t.name === "Cats")!.id,
+						description: "Articles about cats, and about owls.",
+						boundary: "",
+						articleIds: [],
+						reason: "",
+					},
+				],
+			}),
+			sorting: (topics, article) =>
+				void sorts.push({ id: article.id, topics: topics.map((t) => t.name) }),
+		})
+		await settle(deps, calls)
+		// A dog that Cats nearly holds, and one the reader took out of Cats.
+		const catsTopic = await topicNamed("Cats")
+		await db.insert(documentTopics).values([
+			{ documentId: dogs[0]!, topicId: catsTopic.id, probability: 0.5, level: "suggested" },
+			{
+				documentId: dogs[1]!,
+				topicId: catsTopic.id,
+				probability: 0.5,
+				level: "suggested",
+				refusedAt: new Date(),
+			},
+		])
+		const owls = await many(5, "owls")
+		sorts.length = 0
+		await settle(deps, calls)
+		// First sorts go against both topics; sorting again, against the widened one only.
+		expect(sorts.filter((s) => s.topics.length === 1)).toEqual(
+			[dogs[0]!, ...owls].map((id) => ({ id, topics: ["Cats"] })),
+		)
+		for (const id of owls) expect(await topicsOf(id)).toEqual(["Cats"])
+		expect(await topicsOf(dogs[0]!)).toEqual(["Dogs"])
+	})
+
 	const growsOwls = {
 		grow: (_topics: TopicIn[], pool: TopicArticleIn[]) => ({
 			topics: [{ ...spec("Owls"), articleIds: pool.map((a) => a.id) }],
@@ -610,22 +674,26 @@ describe("after the reader confirms", () => {
 		expect(await db.select().from(topicSorts).where(eq(topicSorts.userId, userId))).toHaveLength(25)
 	})
 
-	it("stops sorting the library again at the budget, grows nothing meanwhile, and goes on next month", async () => {
+	it("stops sorting the library again a quarter short of the budget, kept for new saves, grows nothing meanwhile, and goes on next month", async () => {
 		const { deps, calls } = await confirmed(growsOwls)
 		await settle(deps, calls)
-		const owls = await many(5, "owls")
+		await nextMonth()
+		const owls = await many(10, "owls")
 		calls.length = 0
-		// 25 sorted already, 5 new, then 10 of the 30 again into Owls.
+		// 10 new, then 20 of the 35 again into Owls: the month's last 10 sorts wait for new saves.
 		const budget = { ...deps, sortLimit: 40 }
 		await settle(budget, calls)
-		expect(calls.filter((c) => c === "sort")).toHaveLength(15)
-		expect(await run(budget)).toMatchObject({ resorted: 0, paused: true })
+		const late = await article("dogs")
+		expect(await run(budget)).toMatchObject({ articles: 1, resorted: 0, paused: true })
+		expect(await topicsOf(late)).toEqual(["Dogs"])
+		expect(calls.filter((c) => c === "sort")).toHaveLength(31)
 		expect((await topicNamed("Owls")).resortPending).toBe(true)
 
 		calls.length = 0
 		await nextMonth()
 		await settle(budget, calls)
-		expect(calls.filter((c) => c === "sort")).toHaveLength(20)
+		// The library's other 16 articles, the late one included.
+		expect(calls.filter((c) => c === "sort")).toHaveLength(16)
 		expect(calls.some((c) => c.startsWith("grow"))).toBe(false)
 		expect((await topicNamed("Owls")).resortPending).toBe(false)
 		for (const id of owls) expect(await topicsOf(id)).toEqual(["Owls"])

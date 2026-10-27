@@ -106,9 +106,11 @@ The work runs in the worker, so both containers need both keys:
 
 What it costs: Jev reads about 2,000 tokens of each article, a hundredth of a cent. A new or
 changed topic sorts the whole library again into it, so a library of a thousand articles costs
-about ten cents each time. Each account has two monthly caps, counted from the 1st (UTC):
+about ten cents each time. A widened topic only sorts again the articles in no topic and those it
+nearly held. Each account has two monthly caps, counted from the 1st (UTC):
 
 - `LIMIT_TOPIC_SORTS_PER_MONTH` (default 1,000): articles sorted, first sorts and re-sorts alike.
+  Re-sorting the library stops at three quarters of it, so the last quarter goes to new saves.
   Past it, sorting stops until the next month, and so do growing and reviewing topics: new
   articles wait unsorted, nothing is lost, and
   the Topics page tells the reader when sorting starts again. The worker sorts them on the 1st
