@@ -37,10 +37,16 @@ export const topicLibraries = pgTable("topic_libraries", {
 	/** When the library was first sorted into the confirmed topics: reviews count articles after it. */
 	librarySortedAt: timestamp("library_sorted_at", { withTimezone: true }),
 	/**
-	 * Unsorted articles once the library was sorted into what the last growth brought: the next
-	 * ask waits for more. Null while that sorting goes on.
+	 * Unsorted articles the last growth left, once the library was sorted into what it brought: the
+	 * next ask waits for more.
 	 */
-	unsortedAtLastGrow: integer("unsorted_at_last_grow").default(0),
+	unsortedAtLastGrow: integer("unsorted_at_last_grow").notNull().default(0),
+	/**
+	 * When the last growth changed the topics, until the library is sorted into what it brought.
+	 * The articles sorted by then and still unsorted are what it left; later ones count towards the
+	 * next growth.
+	 */
+	grewAt: timestamp("grew_at", { withTimezone: true }),
 	/**
 	 * How far the library has been sorted again into the topics that need it (`resortPending`): the
 	 * last article done, by save time then id. Null: from the first article.
@@ -83,7 +89,8 @@ export const topics = pgTable(
 		resortPending: boolean("resort_pending").notNull().default(false),
 		/**
 		 * Widened, with `resortPending`: only the articles in no topic, and those it was suggested for,
-		 * are sorted again into it. Those it holds stay; the rest did not fit before and still do not.
+		 * are sorted again into it. Those it holds stay. An article in another topic that the wider
+		 * description would now take is not asked about: the price of not sorting the whole library.
 		 */
 		resortWidened: boolean("resort_widened").notNull().default(false),
 		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

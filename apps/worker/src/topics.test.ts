@@ -521,6 +521,30 @@ describe("after the reader confirms", () => {
 		expect(calls.filter((c) => c.startsWith("grow"))).toEqual(["grow:12", "grow:9"])
 	})
 
+	it("counts towards the next growth the articles saved while the library is sorted into the last", async () => {
+		const { deps, calls } = await confirmed({
+			grow: (_topics, pool) => ({
+				topics: pool.some((a) => a.text.includes("owls"))
+					? [{ ...spec("Owls"), articleIds: pool.map((a) => a.id) }]
+					: [],
+			}),
+		})
+		await settle(deps, calls)
+		await nextMonth()
+		const budget = { ...deps, sortLimit: 40 }
+		// 10 owls grow Owls; sorting the library again into it stops at 30 of the month's 40.
+		await many(10, "owls")
+		await settle(budget, calls)
+		expect((await topicNamed("Owls")).resortPending).toBe(true)
+		// 5 bats are sorted meanwhile, into no topic.
+		await many(5, "bats")
+		await settle(budget, calls)
+		await nextMonth()
+		await settle(budget, calls)
+		expect((await topicNamed("Owls")).resortPending).toBe(false)
+		expect(calls.filter((c) => c.startsWith("grow"))).toEqual(["grow:10", "grow:5"])
+	})
+
 	it("keeps nothing a growth brings when the reader turns topics off meanwhile", async () => {
 		let off = false
 		const { deps, calls } = await confirmed({
@@ -619,8 +643,20 @@ describe("after the reader confirms", () => {
 				refusedAt: new Date(),
 			},
 		])
+		// An owl the reader took out of Cats before it widened: it stays in no topic.
+		const takenOut = await article("owls")
+		await db.insert(documentTopics).values({
+			documentId: takenOut,
+			topicId: catsTopic.id,
+			probability: 0,
+			level: "suggested",
+			refusedAt: new Date(),
+		})
 		const owls = await many(5, "owls")
 		sorts.length = 0
+		expect(await run(deps)).toMatchObject({ articles: 6, widened: 1 })
+		// Every article the batch holds is sorted again: none takes a place in it for nothing.
+		expect(await run(deps)).toMatchObject({ resorted: 6 })
 		await settle(deps, calls)
 		// First sorts go against both topics; sorting again, against the widened one only.
 		expect(sorts.filter((s) => s.topics.length === 1)).toEqual(
@@ -628,6 +664,90 @@ describe("after the reader confirms", () => {
 		)
 		for (const id of owls) expect(await topicsOf(id)).toEqual(["Cats"])
 		expect(await topicsOf(dogs[0]!)).toEqual(["Dogs"])
+		expect(await topicsOf(takenOut)).toEqual([])
+		// What the widening left, once the library is sorted into it: the owl taken out.
+		const [library] = await db
+			.select()
+			.from(topicLibraries)
+			.where(eq(topicLibraries.userId, userId))
+		expect(library).toMatchObject({ unsortedAtLastGrow: 1, grewAt: null })
+	})
+
+	it("sorts the whole library into a new topic, and into a topic widened beside it only what could join it", async () => {
+		const sorts: { id: string; topics: string[] }[] = []
+		const { deps, calls, cats, dogs } = await confirmed({
+			grow: (topics, pool) => ({
+				topics: [{ ...spec("Owls"), articleIds: pool.map((a) => a.id) }],
+				widen: [
+					{
+						topicId: topics.find((t) => t.name === "Cats")!.id,
+						description: "Articles about cats, and about bats.",
+						boundary: "",
+						articleIds: [],
+						reason: "",
+					},
+				],
+			}),
+			sorting: (topics, article) =>
+				void sorts.push({ id: article.id, topics: topics.map((t) => t.name).sort() }),
+		})
+		await settle(deps, calls)
+		const catsTopic = await topicNamed("Cats")
+		await db.insert(documentTopics).values([
+			{ documentId: dogs[0]!, topicId: catsTopic.id, probability: 0.5, level: "suggested" },
+			{
+				documentId: dogs[1]!,
+				topicId: catsTopic.id,
+				probability: 0.5,
+				level: "suggested",
+				refusedAt: new Date(),
+			},
+		])
+		const owls = await many(4, "owls")
+		const bat = await article("bats")
+		sorts.length = 0
+		await settle(deps, calls)
+		expect(calls.filter((c) => c.startsWith("grow"))).toEqual(["grow:5"])
+		expect(sorts.filter((s) => s.topics.includes("Owls"))).toEqual([
+			...cats.map((id) => ({ id, topics: ["Owls"] })),
+			...dogs.map((id, i) => ({ id, topics: i === 0 ? ["Cats", "Owls"] : ["Owls"] })),
+			...[...owls, bat].map((id) => ({ id, topics: ["Cats", "Owls"] })),
+		])
+		expect(await topicsOf(bat)).toEqual(["Cats"])
+		for (const id of owls) expect(await topicsOf(id)).toEqual(["Owls"])
+	})
+
+	it("counts what a growth left once its topic is gone before the library is sorted into it", async () => {
+		const { deps, calls } = await confirmed({
+			grow: (topics) => ({
+				widen: [
+					{
+						topicId: topics.find((t) => t.name === "Cats")!.id,
+						description: "Articles about cats, and about owls.",
+						boundary: "",
+						articleIds: [],
+						reason: "",
+					},
+				],
+			}),
+			// The reader removes Cats while the growth is asked for.
+			during: async (call) => {
+				if (call !== "grow") return
+				const cats = await topicNamed("Cats")
+				await db.update(topics).set({ status: "removed" }).where(eq(topics.id, cats.id))
+				await db.delete(documentTopics).where(eq(documentTopics.topicId, cats.id))
+			},
+		})
+		await settle(deps, calls)
+		await many(5, "owls")
+		await settle(deps, calls)
+		expect(calls.filter((c) => c.startsWith("grow"))).toEqual(["grow:5"])
+		// The 13 cats and the 5 owls are in no topic.
+		const [library] = await db
+			.select()
+			.from(topicLibraries)
+			.where(eq(topicLibraries.userId, userId))
+		expect(library).toMatchObject({ unsortedAtLastGrow: 18, grewAt: null })
 	})
 
 	const growsOwls = {
@@ -697,6 +817,22 @@ describe("after the reader confirms", () => {
 		expect(calls.some((c) => c.startsWith("grow"))).toBe(false)
 		expect((await topicNamed("Owls")).resortPending).toBe(false)
 		for (const id of owls) expect(await topicsOf(id)).toEqual(["Owls"])
+	})
+
+	it("grows nothing once only the sorts kept for new saves are left: its topic would wait a month", async () => {
+		const { deps, calls } = await confirmed(growsOwls)
+		await settle(deps, calls)
+		await many(5, "owls")
+		calls.length = 0
+		// 25 sorted already and 5 new: the month's last 10 of 40 are for new saves.
+		const budget = { ...deps, sortLimit: 40 }
+		await settle(budget, calls)
+		expect(calls).toEqual(["sort", "sort", "sort", "sort", "sort"])
+		expect(await usage("topics")).toBe(1)
+
+		await nextMonth()
+		await settle(budget, calls)
+		expect(calls).toContain("grow:5")
 	})
 })
 

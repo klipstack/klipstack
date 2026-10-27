@@ -110,9 +110,9 @@ about ten cents each time. A widened topic only sorts again the articles in no t
 nearly held. Each account has two monthly caps, counted from the 1st (UTC):
 
 - `LIMIT_TOPIC_SORTS_PER_MONTH` (default 1,000): articles sorted, first sorts and re-sorts alike.
-  Re-sorting the library stops at three quarters of it, so the last quarter goes to new saves.
-  Past it, sorting stops until the next month, and so do growing and reviewing topics: new
-  articles wait unsorted, nothing is lost, and
+  Re-sorting the library, growing and reviewing topics stop at three quarters of it, so the last
+  quarter goes to new saves. Past the cap, sorting stops until the next month: new articles wait
+  unsorted, nothing is lost, and
   the Topics page tells the reader when sorting starts again. The worker sorts them on the 1st
   without waiting for a new save. Raise it for readers with large libraries: turning topics on
   sorts the whole library, and every new or changed topic sorts it again.

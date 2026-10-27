@@ -1,5 +1,5 @@
 {
-	"id": "39bdbe56-b98d-40b7-87a1-c14a13de1f37",
+	"id": "4fb3b13e-966d-4d12-bd74-4b47f57b3dcb",
 	"prevId": "3fafde49-1913-4998-bb80-2999688bc2bb",
 	"version": "7",
 	"dialect": "postgresql",
@@ -5823,8 +5823,14 @@
 					"name": "unsorted_at_last_grow",
 					"type": "integer",
 					"primaryKey": false,
-					"notNull": false,
+					"notNull": true,
 					"default": 0
+				},
+				"grew_at": {
+					"name": "grew_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
 				},
 				"resort_after_at": {
 					"name": "resort_after_at",

@@ -28,6 +28,7 @@ import {
 	inArray,
 	isNotNull,
 	isNull,
+	lte,
 	not,
 	notExists,
 	or,
@@ -251,9 +252,9 @@ class Run {
 		if (!resort.finished) return later()
 		// The library is sorted into what the last growth brought: what it left unsorted is counted.
 		let unsortedAtLastGrow = library.unsortedAtLastGrow
-		if (unsortedAtLastGrow === null) {
-			unsortedAtLastGrow = await this.unsortedCount()
-			await this.setLibrary({ unsortedAtLastGrow })
+		if (library.grewAt) {
+			unsortedAtLastGrow = await this.unsortedCount({ byGrowth: true })
+			await this.setLibrary({ unsortedAtLastGrow, grewAt: null })
 		}
 		// Nothing waits, but a topic grown or changed now could not be sorted into until the 1st.
 		if (this.resortsLeft() === 0) return done()
@@ -387,11 +388,11 @@ class Run {
 				created.map((t) => t.id),
 			)
 			// What a growth asked for is settled, whatever it brought: the next waits for more than it
-			// leaves unsorted, counted once the library is sorted into what it brought.
+			// leaves unsorted, counted once the library is sorted into what it brought (`grewAt`).
 			const changed = widen.length + created.length > 0
 			await tx
 				.update(topicLibraries)
-				.set({ unsortedAtLastGrow: changed ? null : unsorted })
+				.set(changed ? { grewAt: sql`now()` } : { unsortedAtLastGrow: unsorted })
 				.where(eq(topicLibraries.userId, this.userId))
 			return { grew: created.length, widened: widen.length }
 		})
@@ -781,6 +782,33 @@ class Run {
 		)
 	}
 
+	/**
+	 * An article that could join `topicId` once it widened, as `joinable` says of a batch: in no
+	 * topic, or suggested for it, and never taken out of it.
+	 */
+	mayJoin(topicId: string): SQL {
+		const row = (where: SQL | undefined) =>
+			exists(
+				db
+					.select({ id: documentTopics.documentId })
+					.from(documentTopics)
+					.where(
+						and(
+							eq(documentTopics.documentId, documents.id),
+							eq(documentTopics.topicId, topicId),
+							where,
+						),
+					),
+			)
+		return and(
+			not(row(isNotNull(documentTopics.refusedAt))),
+			or(
+				this.inNoTopic(),
+				row(and(eq(documentTopics.level, "suggested"), isNull(documentTopics.refusedAt))),
+			),
+		)!
+	}
+
 	/** Ready, not in the trash, an article (not a post): what the topics are about. */
 	inLibrary(): SQL {
 		return and(
@@ -821,9 +849,9 @@ class Run {
 
 	/**
 	 * The library's articles, oldest first (the `newest` ones, still oldest first). `unsorted`: not
-	 * sorted yet; `sorted`: sorted already; `unsortedInTopics`: sorted into no topic; `mayJoin`: in
-	 * no topic, or suggested for one of these and not taken out of it; `after`: past that article,
-	 * by save time then id. Without `withText`, the text is left out.
+	 * sorted yet; `sorted`: sorted already; `unsortedInTopics`: sorted into no topic; `mayJoin`:
+	 * could join one of these widened topics; `after`: past that article, by save time then id.
+	 * Without `withText`, the text is left out.
 	 */
 	async articles(
 		options: {
@@ -871,24 +899,7 @@ class Run {
 						: undefined,
 					options.sorted ? sortedYet : undefined,
 					options.unsortedInTopics ? this.inNoTopic() : undefined,
-					options.mayJoin
-						? or(
-								this.inNoTopic(),
-								exists(
-									db
-										.select({ id: documentTopics.documentId })
-										.from(documentTopics)
-										.where(
-											and(
-												eq(documentTopics.documentId, documents.id),
-												inArray(documentTopics.topicId, options.mayJoin),
-												eq(documentTopics.level, "suggested"),
-												isNull(documentTopics.refusedAt),
-											),
-										),
-								),
-							)
-						: undefined,
+					options.mayJoin ? or(...options.mayJoin.map((id) => this.mayJoin(id))) : undefined,
 					options.after
 						? // Milliseconds, as the cursor was kept: a JavaScript date has no more.
 							sql`(date_trunc('milliseconds', ${documents.createdAt}), ${documents.id}) > (${options.after.at.toISOString()}::timestamptz, ${options.after.id}::uuid)`
@@ -914,12 +925,27 @@ class Run {
 		return row?.count ?? 0
 	}
 
-	/** Sorted articles in no topic: how many, without reading them. */
-	async unsortedCount(): Promise<number> {
+	/**
+	 * Sorted articles in no topic: how many, without reading them. `byGrowth`: only those first
+	 * sorted by the last growth (`grewAt`).
+	 */
+	async unsortedCount({ byGrowth = false } = {}): Promise<number> {
+		const sortedByGrowth = exists(
+			db
+				.select({ id: topicSorts.documentId })
+				.from(topicSorts)
+				.innerJoin(topicLibraries, eq(topicLibraries.userId, topicSorts.userId))
+				.where(
+					and(
+						eq(topicSorts.documentId, documents.id),
+						lte(topicSorts.sortedAt, topicLibraries.grewAt),
+					),
+				),
+		)
 		const [row] = await db
 			.select({ count: sql<number>`count(*)::int` })
 			.from(documents)
-			.where(and(this.inLibrary(), this.inNoTopic()))
+			.where(and(this.inLibrary(), this.inNoTopic(), byGrowth ? sortedByGrowth : undefined))
 		return row?.count ?? 0
 	}
 
@@ -935,7 +961,7 @@ class Run {
 
 	/** Articles the month's sort budget has left for sorting again: a share stays for new saves. */
 	resortsLeft(): number {
-		return Math.max(0, this.sortsLeft() - Math.round(this.deps.sortLimit * NEW_SAVES_SHARE))
+		return Math.max(0, this.sortsLeft() - Math.floor(this.deps.sortLimit * NEW_SAVES_SHARE))
 	}
 
 	/** One article sent to Jev: towards the month's sort budget, once it answered (or refused). */
