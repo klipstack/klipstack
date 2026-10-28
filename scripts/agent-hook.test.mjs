@@ -2,8 +2,8 @@
 // Code and Amp run.
 import assert from "node:assert/strict"
 import { execFileSync, spawnSync } from "node:child_process"
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs"
-import { tmpdir } from "node:os"
+import { mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs"
+import { homedir, tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, beforeEach, describe, test } from "node:test"
 import { fingerprint, guard, turnEnd } from "./agent-hook.mjs"
@@ -11,7 +11,26 @@ import { fingerprint, guard, turnEnd } from "./agent-hook.mjs"
 const script = join(import.meta.dirname, "agent-hook.mjs")
 
 describe("guard", () => {
-	const refused = (line, branch = "feat/x") => guard(line, branch) !== null
+	const refused = (line, branch = "feat/x") =>
+		guard(line, process.cwd(), () => ({ top: "/repo", branch })) !== null
+
+	// Two checkouts: /repo on main, and the worktree /wt on feat/x. In the home directory, a checkout
+	// on main and ~/wt on feat/x. Any other directory is in no repository.
+	const home = homedir()
+	const checkouts = {
+		"/repo": ["/repo", "main"],
+		"/repo/apps": ["/repo", "main"],
+		"/wt": ["/wt", "feat/x"],
+		"/wt/apps": ["/wt", "feat/x"],
+		"/wt/apps/web": ["/wt", "feat/x"],
+		[home]: [home, "main"],
+		[join(home, "wt")]: [join(home, "wt"), "feat/x"],
+	}
+	const refusedIn = (line, cwd) =>
+		guard(line, cwd, (dir) => {
+			const [top, branch] = checkouts[dir] ?? []
+			return top ? { top, branch } : null
+		}) !== null
 
 	test("refuses commits on main, allows them on a branch", () => {
 		assert.ok(refused("git add -A && git commit -m 'x'", "main"))
@@ -120,6 +139,131 @@ describe("guard", () => {
 		assert.ok(!refused("gh pr merge --squash --delete-branch", "main"))
 		assert.ok(refused("cd apps/web && git push origin main"))
 		assert.ok(refused("/usr/bin/git push origin main"))
+	})
+
+	test("reads the branch of the directory a git command runs in", () => {
+		assert.ok(!refusedIn("git commit -m x", "/wt"))
+		assert.ok(refusedIn("git commit -m x", "/repo"))
+		assert.ok(!refusedIn("cd /wt && git commit -m x", "/repo"))
+		assert.ok(refusedIn("cd /repo && git commit -m x", "/wt"))
+		assert.ok(refusedIn("cd apps; git push", "/repo"))
+		assert.ok(!refusedIn("git -C /wt commit -m x", "/repo"))
+		assert.ok(refusedIn("git -C /repo commit -m x", "/wt"))
+		assert.ok(refusedIn("git -C /wt -C ../repo push -u origin HEAD", "/wt"))
+		assert.ok(refusedIn("git -C /repo -C apps commit -m x", "/wt"))
+	})
+
+	test("remembers a branch switch for the whole checkout", () => {
+		assert.ok(refusedIn("git switch main && cd apps/web && git commit -am x", "/wt"))
+		assert.ok(refusedIn("git -C apps switch main && git commit -m x", "/wt"))
+		assert.ok(refusedIn("cd apps/web && git switch main && cd ../.. && git commit -m x", "/wt"))
+		assert.ok(refusedIn("git switch -c y && git -C /repo commit -m x", "/wt"))
+		assert.ok(!refusedIn("git -C /repo switch -c y && cd /repo/apps && git commit -m x", "/wt"))
+		assert.ok(!refusedIn("git switch -c y && cd apps && git commit -m x", "/repo"))
+	})
+
+	test("follows cd home", () => {
+		assert.ok(refusedIn("cd && git commit -m x", "/wt"))
+		assert.ok(refusedIn("cd ~ && git commit -m x", "/wt"))
+		assert.ok(refusedIn('cd "$HOME" && git commit -m x', "/wt"))
+		assert.ok(!refusedIn('cd "$HOME/wt" && git commit -m x', "/repo"))
+		assert.ok(!refusedIn(`cd \${HOME}/wt && git push`, "/repo"))
+		assert.ok(!refusedIn("cd ~/wt && git commit -m x", "/repo"))
+	})
+
+	test("refuses to guess the branch of a directory it can't place", () => {
+		assert.ok(refusedIn('cd "$WORKTREE" && git commit -m x', "/wt"))
+		assert.ok(refusedIn('cd "$(git rev-parse --git-common-dir)/.." && git merge feat/x', "/wt"))
+		assert.ok(refusedIn("cd `pwd` && git commit -m x", "/wt"))
+		assert.ok(refusedIn("cd - && git push -u origin HEAD", "/wt"))
+		assert.ok(refusedIn("cd /missing; git commit -m x", "/wt"))
+		assert.ok(refusedIn('git -C "$WORKTREE" commit -m x', "/wt"))
+		assert.ok(!refusedIn('cd "$WORKTREE" && git status && git push origin feat/x', "/wt"))
+		assert.ok(!refusedIn('cd "$WORKTREE" && cd /wt/apps && git commit -m x', "/repo"))
+	})
+
+	test("keeps a cd in a subshell inside it", () => {
+		assert.ok(refusedIn("(cd /wt && git status); git commit -m x", "/repo"))
+		assert.ok(refusedIn("echo $(cd /wt && pwd) && git commit -m x", "/repo"))
+		assert.ok(!refusedIn("(cd /wt && git commit -m x)", "/repo"))
+	})
+})
+
+describe("in a worktree", () => {
+	let root
+	let main
+	let worktree
+	const git = (...args) => execFileSync("git", args, { stdio: "ignore" })
+	// The hook may run in the main checkout; `cwd` names where the session works.
+	const claude = (event) =>
+		spawnSync(process.execPath, [script, "claude"], {
+			cwd: main,
+			input: JSON.stringify(event),
+			encoding: "utf8",
+		})
+	const bash = (command, cwd) =>
+		claude({ hook_event_name: "PreToolUse", tool_input: { command }, cwd })
+
+	beforeEach(() => {
+		root = realpathSync(mkdtempSync(join(tmpdir(), "agent-hook-worktree-")))
+		main = join(root, "main")
+		worktree = join(main, ".claude", "worktrees", "x")
+		git("init", "-q", "-b", "main", main)
+		git(
+			"-C",
+			main,
+			"-c",
+			"user.name=t",
+			"-c",
+			"user.email=t@example.com",
+			"commit",
+			"--allow-empty",
+			"-qm",
+			"init",
+		)
+		git("-C", main, "worktree", "add", "-q", "-b", "feat/x", worktree)
+	})
+	afterEach(() => rmSync(root, { recursive: true, force: true }))
+
+	test("allows a commit in a worktree on its own branch", () => {
+		const result = bash("git commit -m x", worktree)
+		assert.equal(result.status, 0, result.stderr)
+		assert.equal(bash(`cd ${worktree} && git commit -m x`, main).status, 0)
+		assert.equal(bash(`git -C ${worktree} push -u origin HEAD`, main).status, 0)
+	})
+
+	test("refuses a commit in the checkout on main", () => {
+		const result = bash("git commit -m x", main)
+		assert.equal(result.status, 2)
+		assert.match(result.stderr, /Never commit on `main`/)
+		assert.equal(bash(`cd ${main} && git commit -m x`, worktree).status, 2)
+		assert.equal(bash(`git -C ${main} push`, worktree).status, 2)
+	})
+
+	test("reads the hook's own directory when the event names none", () => {
+		assert.equal(bash("git commit -m x").status, 2)
+	})
+
+	test("refuses a commit in a directory it can't place", () => {
+		const result = bash('cd "$(git rev-parse --git-common-dir)/.." && git merge feat/y', worktree)
+		assert.equal(result.status, 2)
+		assert.match(result.stderr, /can't tell which branch/)
+		assert.equal(bash(`cd ${join(root, "missing")}; git commit -m x`, worktree).status, 2)
+		assert.equal(bash(`cd ${root} && git commit -m x`, worktree).status, 2)
+	})
+
+	test("asks for pnpm verify after a code change in the worktree, until it passes there", () => {
+		const turn = { session_id: "w", cwd: worktree }
+		const stop = () => claude({ ...turn, hook_event_name: "Stop", stop_hook_active: false })
+		writeFileSync(join(worktree, "a.ts"), "export const a = 1\n")
+		claude({ ...turn, hook_event_name: "UserPromptSubmit" })
+		assert.equal(stop().status, 0, "a change from before the turn")
+		writeFileSync(join(worktree, "a.ts"), "export const a = 2\n")
+		const result = stop()
+		assert.equal(result.status, 2, result.stderr)
+		assert.match(result.stderr, /a\.ts/)
+		execFileSync(process.execPath, [script, "mark-verified"], { cwd: worktree })
+		assert.equal(stop().status, 0)
 	})
 })
 

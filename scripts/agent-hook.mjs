@@ -8,7 +8,8 @@
 //   agent-hook.mjs turn-end <session>         exit 2, with the reason on stderr, when the turn
 //                                             changed code that `pnpm verify` has not passed
 //   agent-hook.mjs guard <command>            exit 2, with the reason on stderr, for a shell
-//                                             command that breaks a rule of AGENTS.md
+//                                             command that breaks a rule of AGENTS.md, when it
+//                                             runs in the current directory
 //   agent-hook.mjs mark-verified <tree>       record a tree `pnpm verify` passed (scripts/verify)
 //   agent-hook.mjs fingerprint                print the working tree's fingerprint
 //
@@ -26,8 +27,8 @@ import {
 	utimesSync,
 	writeFileSync,
 } from "node:fs"
-import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { homedir, tmpdir } from "node:os"
+import { isAbsolute, join, resolve } from "node:path"
 import { pathToFileURL } from "node:url"
 
 const git = (args, env) =>
@@ -120,6 +121,10 @@ export function turnEnd(session) {
 	].join(" ")
 }
 
+// Where a subshell starts and ends among the commands: a `cd` inside one stays inside it.
+const subshellStart = ["("]
+const subshellEnd = [")"]
+
 // Splits a shell line into simple commands and their words. Rough, but enough to find `git`
 // invocations: quotes are honoured, so a commit message that says "main" is one word; heredoc
 // bodies and redirections (`2>&1`, `>log`) are not words.
@@ -184,6 +189,8 @@ function commands(line) {
 			endWord()
 		} else if (c === "\n" || c === ";" || c === "&" || c === "|" || c === "(" || c === ")") {
 			endCommand()
+			if (c === "(") result.push(subshellStart)
+			if (c === ")") result.push(subshellEnd)
 			if (c === "\n") {
 				for (const { delimiter, tabs } of heredocs.splice(0)) {
 					while (i < line.length) {
@@ -233,36 +240,58 @@ const isPrefix = (word) =>
 	word.startsWith("-") ||
 	/^\d+[smhd]?$/.test(word)
 
-// `FOO=1 git -C dir -c a=b push …` → { sub: "push", args: [...] }; null when the command is not git.
-function gitInvocation(words) {
-	let i = 0
-	while (i < words.length && words[i] !== "git" && !words[i].endsWith("/git") && isPrefix(words[i]))
-		i++
-	if (words[i] !== "git" && !words[i]?.endsWith("/git")) return null
-	i++
-	while (i < words.length && words[i].startsWith("-")) {
-		if (["-C", "-c", "--git-dir", "--work-tree"].includes(words[i])) i++
-		i++
-	}
-	return i < words.length ? { sub: words[i], args: words.slice(i + 1) } : null
+// `sudo FOO=1 cd dir` → ["cd", "dir"]: the program a command runs, and its arguments.
+function program(words) {
+	const i = words.findIndex((word) => !isPrefix(word))
+	return i < 0 ? [] : words.slice(i)
 }
 
-const isBranch = (name) => {
+// `FOO=1 git -C dir -c a=b push …` → { sub: "push", args: [...], dirs: ["dir"] }; null when the
+// command is not git.
+function gitInvocation(words) {
+	const [name, ...rest] = program(words)
+	if (name !== "git" && !name?.endsWith("/git")) return null
+	const dirs = []
+	let i = 0
+	while (i < rest.length && rest[i].startsWith("-")) {
+		if (rest[i] === "-C" && i + 1 < rest.length) dirs.push(rest[i + 1])
+		if (["-C", "-c", "--git-dir", "--work-tree"].includes(rest[i])) i++
+		i++
+	}
+	return i < rest.length ? { sub: rest[i], args: rest.slice(i + 1), dirs } : null
+}
+
+// The directory that `cd target` or `git -C target` leads to from dir, or null for one only the
+// shell knows: a variable other than $HOME, a command's output, `cd -`.
+function chdir(dir, target = homedir()) {
+	const path = target.replace(/^(~|\$HOME|\$\{HOME\})(?=\/|$)/, homedir())
+	if (path === "-" || /[$`]/.test(path)) return null
+	if (isAbsolute(path)) return resolve(path)
+	return dir === null ? null : resolve(dir, path)
+}
+
+const isBranch = (name, dir) => {
 	if (!name || name === "-" || name.startsWith("-")) return name === "-"
 	try {
-		git(["rev-parse", "-q", "--verify", `refs/heads/${name}`])
+		git(["-C", dir, "rev-parse", "-q", "--verify", `refs/heads/${name}`])
 		return true
 	} catch {
 		return name === "main"
 	}
 }
 
-const currentBranch = () => {
-	try {
-		return git(["symbolic-ref", "--short", "-q", "HEAD"])
-	} catch {
-		return ""
+// The checkout that dir is in, named by its top directory, and the branch it has out ("" when
+// HEAD is detached). Null when dir is in no repository, or does not exist.
+const checkoutAt = (dir) => {
+	const read = (...args) => {
+		try {
+			return git(["-C", dir, ...args])
+		} catch {
+			return null
+		}
 	}
+	const top = read("rev-parse", "--show-toplevel")
+	return top ? { top, branch: read("symbolic-ref", "--short", "-q", "HEAD") ?? "" } : null
 }
 
 // The words that are not options, skipping the values of the options named.
@@ -319,14 +348,35 @@ const skipsHooks = (sub, args) =>
 		? commitSkipsHooks(args)
 		: args.some((a) => a.length > 6 && "--no-verify".startsWith(a))
 
-// `branch` stands in for the current branch, for tests. A line that switches branches before it
-// commits or pushes is read in order: `git switch -c x && git commit` commits on x.
-export function guard(line, branch = currentBranch()) {
-	let current = branch
+const unplaced =
+	"This hook can't tell which branch that git command acts on: it runs in a directory only the shell knows (a variable, `cd -`), or in no repository. Name the directory literally: `cd <dir> && git …` or `git -C <dir> …`."
+
+// `cwd` is where the line runs, and `checkoutOf(dir)` stands in for git, for tests. A git command
+// acts on the branch of the checkout it runs in: a worktree's own, not that of the main checkout.
+// The line is read in order: `cd wt && git commit` commits in wt, and `git switch -c x && git
+// commit` commits on x, from any directory of that checkout.
+export function guard(line, cwd = process.cwd(), checkoutOf = checkoutAt) {
+	let dir = resolve(cwd)
+	const outer = []
+	// Branches switched to earlier on the line, by checkout.
+	const switched = new Map()
 	for (const words of commands(line)) {
+		const [name, ...rest] = program(words)
+		if (words === subshellStart) outer.push(dir)
+		else if (words === subshellEnd) dir = outer.pop() ?? dir
+		else if (name === "cd") {
+			dir = chdir(
+				dir,
+				rest.find((arg) => !/^-./.test(arg)),
+			)
+		}
 		const call = gitInvocation(words)
 		if (!call) continue
 		const { sub, args } = call
+		const here = call.dirs.reduce((from, to) => chdir(from, to), dir)
+		// Null when the branch can't be known here: a commit or push there is refused, not guessed.
+		const at = here === null ? null : checkoutOf(here)
+		const current = at && (switched.has(at.top) ? switched.get(at.top) : at.branch)
 		if (
 			["commit", "push", "merge", "cherry-pick", "revert", "am"].includes(sub) &&
 			skipsHooks(sub, args)
@@ -339,12 +389,15 @@ export function guard(line, branch = currentBranch()) {
 			)
 			const [target] = create >= 0 ? [args[create + 1]] : positionals(args, ["--conflict"])
 			// `git checkout <path>` restores files: only an existing branch is a switch.
-			if (sub === "checkout" && create < 0 && !isBranch(target)) continue
-			current = target === undefined ? current : target === "-" ? "" : target
+			if (!at || (sub === "checkout" && create < 0 && !isBranch(target, here))) continue
+			if (target !== undefined) switched.set(at.top, target === "-" ? "" : target)
 			continue
 		}
-		if (["commit", "merge", "cherry-pick", "revert", "am"].includes(sub) && current === "main") {
-			return "Never commit on `main` (AGENTS.md). Create a branch first: `git switch -c <type>/<short-name>`; uncommitted changes come along."
+		if (["commit", "merge", "cherry-pick", "revert", "am"].includes(sub)) {
+			if (current === null) return unplaced
+			if (current === "main") {
+				return "Never commit on `main` (AGENTS.md). Create a branch first: `git switch -c <type>/<short-name>`; uncommitted changes come along."
+			}
 		}
 		if (sub === "push") {
 			if (args.includes("--all") || args.includes("--mirror")) {
@@ -361,6 +414,7 @@ export function guard(line, branch = currentBranch()) {
 			const targets = refspecs.length
 				? refspecs.map((r) => r.replace(/^\+/, "").split(":").pop())
 				: [current]
+			if (targets.some((t) => t === null || (t === "HEAD" && current === null))) return unplaced
 			if (
 				targets.some(
 					(t) => t === "main" || t === "refs/heads/main" || (t === "HEAD" && current === "main"),
@@ -402,6 +456,8 @@ async function main() {
 			case "claude": {
 				const event = await stdinJson()
 				const session = event.session_id ?? "claude"
+				// `cwd` is where the session works, such as a worktree; this process may run elsewhere.
+				if (event.cwd) process.chdir(event.cwd)
 				if (event.hook_event_name === "UserPromptSubmit") return turnStart(session)
 				// Claude Code sets stop_hook_active once a Stop hook has sent it back to work: ask once.
 				if (event.hook_event_name === "Stop")
