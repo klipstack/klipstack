@@ -361,6 +361,37 @@ describe("GET /topics: the stage, and each topic's latest articles", () => {
 		}
 	})
 
+	it("says when only the library's first sort waits for next month, new saves going on", async () => {
+		const [old] = await db
+			.insert(documents)
+			.values({
+				userId: reader.id,
+				sourceUrl: `https://example.com/${newId()}`,
+				urlHash: newId(),
+				status: "ready",
+				title: "Saved before confirming",
+				createdAt: new Date(Date.UTC(2020, 0, 1)),
+			})
+			.returning({ id: documents.id })
+		const { month, resetsAt } = monthOf()
+		try {
+			// Three quarters of the month's 1,000 sorts: the rest are for new saves.
+			await db
+				.insert(usageCounts)
+				.values({ userId: reader.id, metric: "topic_sorts", month, count: 750 })
+			const answer = await reader.client.topics.list()
+			expect(answer).toEqual(
+				expect.objectContaining({
+					sorting: 1,
+					sortingPaused: { resumesAt: resetsAt.toISOString(), library: true },
+				}),
+			)
+		} finally {
+			await db.delete(documents).where(eq(documents.id, old!.id))
+			await db.delete(usageCounts).where(eq(usageCounts.userId, reader.id))
+		}
+	})
+
 	it("counts one list's articles still to sort with view, even without a topic yet", async () => {
 		const empty = await users.create("No topics yet")
 		await db.insert(userFeatures).values({ userId: empty.id, feature: "topics" })

@@ -204,6 +204,7 @@ async function settle(deps: TopicsDeps, calls: string[]) {
 	throw new Error("the runs never settled")
 }
 
+/** The reader confirms the first topics, between the last article saved and the next. */
 async function confirm() {
 	await db
 		.update(topics)
@@ -211,7 +212,7 @@ async function confirm() {
 		.where(and(eq(topics.userId, userId), eq(topics.status, "proposed")))
 	await db
 		.update(topicLibraries)
-		.set({ confirmedAt: new Date() })
+		.set({ confirmedAt: new Date(Date.UTC(2026, 0, 1, 0, saved, 30)) })
 		.where(eq(topicLibraries.userId, userId))
 }
 
@@ -442,6 +443,17 @@ describe("after the reader confirms", () => {
 		await run(deps)
 		expect(calls.filter((c) => c === "sort")).toHaveLength(1)
 		expect(await topicsOf(late)).toEqual(["Dogs"])
+	})
+
+	it("sorts what was saved since confirming first, then the library newest first", async () => {
+		const { deps, dogs } = await confirmed()
+		const late = await article("owls")
+		expect(await run({ ...deps, batch: 5 })).toMatchObject({ articles: 5 })
+		const sorted = await db
+			.select({ id: topicSorts.documentId })
+			.from(topicSorts)
+			.where(eq(topicSorts.userId, userId))
+		expect(sorted.map((s) => s.id).sort()).toEqual([late, ...dogs.slice(-4)].sort())
 	})
 
 	it("leaves out an article a provider refuses, and goes on with the others", async () => {
@@ -769,29 +781,34 @@ describe("after the reader confirms", () => {
 		expect(await usage("ai_spend")).toBe(0)
 	})
 
-	it("stops sorting new articles at the month's budget, and picks up on the 1st", async () => {
+	it("stops the library's first sort a quarter short of the month's budget, sorts new saves up to it, and picks up on the 1st", async () => {
 		const { deps, calls, cats, dogs } = await confirmed()
-		const budget = { ...deps, sortLimit: 10 }
-		expect(await run(budget)).toMatchObject({ done: "sorted", articles: 10, paused: true })
-		expect(calls.filter((c) => c === "sort")).toHaveLength(10)
+		// 12 sorts a month: the library takes 9, and the last 3 wait for new saves.
+		const budget = { ...deps, sortLimit: 12 }
+		expect(await run(budget)).toMatchObject({ done: "sorted", articles: 9, paused: true })
 		// No run is asked for: the month's runs (`topics-month`) come on the 1st.
 		expect(calls).not.toContain("again")
-		expect(await usage("topic_sorts")).toBe(10)
+		expect(await topicsOf(dogs.at(-1)!)).toEqual(["Dogs"])
+		expect(await topicsOf(cats[0]!)).toEqual([])
 
-		// Within the month, a run (a new save's) sorts nothing.
+		// Four saved: three are sorted with the month's last sorts, and the fourth waits.
+		const saves = await many(4, "cats")
+		expect(await run(budget)).toMatchObject({ articles: 3, paused: true })
+		expect(await topicsOf(saves[0]!)).toEqual(["Cats"])
+		expect(await topicsOf(saves[3]!)).toEqual([])
+		expect(await usage("topic_sorts")).toBe(12)
 		calls.length = 0
 		expect(await run(budget)).toMatchObject({ done: "sorted", articles: 0, paused: true })
 		expect(calls).toEqual([])
-		expect(await topicsOf(dogs.at(-1)!)).toEqual([])
 
-		// Ten more on the 1st, and the last five the month after.
+		// On the 1st, the save that waited, then 8 more of the library; the last 8 the month after.
 		await nextMonth()
-		expect(await run(budget)).toMatchObject({ articles: 10, paused: true })
+		expect(await run(budget)).toMatchObject({ articles: 9, paused: true })
+		expect(await topicsOf(saves[3]!)).toEqual(["Cats"])
 		await nextMonth()
-		expect(await run(budget)).toMatchObject({ articles: 5, paused: false })
+		expect(await run(budget)).toMatchObject({ articles: 8, paused: false })
 		expect(await topicsOf(cats[0]!)).toEqual(["Cats"])
-		expect(await topicsOf(dogs.at(-1)!)).toEqual(["Dogs"])
-		expect(await db.select().from(topicSorts).where(eq(topicSorts.userId, userId))).toHaveLength(25)
+		expect(await db.select().from(topicSorts).where(eq(topicSorts.userId, userId))).toHaveLength(29)
 	})
 
 	it("stops sorting the library again a quarter short of the budget, kept for new saves, grows nothing meanwhile, and goes on next month", async () => {
@@ -891,6 +908,17 @@ describe("reviews", () => {
 		await settle(deps, calls)
 		expect(calls.filter((c) => c === "review")).toHaveLength(0)
 		await article("dogs")
+		await settle(deps, calls)
+		expect(calls.filter((c) => c === "review")).toHaveLength(1)
+	})
+
+	it("count the articles saved since confirming that the library's first sort took", async () => {
+		const { deps, calls } = models({ propose: () => [spec("Cats"), spec("Dogs")] })
+		await many(13, "cats")
+		await many(12, "dogs")
+		await run(deps)
+		await confirm()
+		await many(20, "dogs")
 		await settle(deps, calls)
 		expect(calls.filter((c) => c === "review")).toHaveLength(1)
 	})

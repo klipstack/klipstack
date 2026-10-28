@@ -1,5 +1,6 @@
 import {
 	db,
+	documents,
 	documentTopics,
 	user,
 	eq,
@@ -11,7 +12,7 @@ import {
 	userFeatures,
 } from "@klipstack/db"
 import { expect, test } from "@playwright/test"
-import { signupAdmin, waitForHydration } from "./helpers"
+import { signupAdmin, signupUser, waitForHydration } from "./helpers"
 import { insertArticle } from "./seed"
 
 const userByEmail = async (email: string) =>
@@ -138,4 +139,45 @@ test("topics: sorting waits for next month at the budget, and admins see costs a
 	await expect(page.getByTestId("topic-cost-total")).toContainText(
 		"Topics this month, every account",
 	)
+})
+
+test("topics: the library's first sort waits for next month at three quarters of the month's sorts", async ({
+	page,
+}) => {
+	const email = await signupUser(page, "Library Budget", { features: ["topics"] })
+	const reader = await userByEmail(email)
+	// Two articles saved before the reader confirmed, still to sort, and 750 of 1,000 sorts used.
+	for (const title of ["Older essay 1", "Older essay 2"]) {
+		const id = await insertArticle(reader.id, title, "<p>Older</p>")
+		await db
+			.update(documents)
+			.set({ createdAt: new Date(Date.UTC(2026, 0, 1)) })
+			.where(eq(documents.id, id))
+	}
+	const confirmedAt = new Date(Date.UTC(2026, 5, 1))
+	await db
+		.insert(topicLibraries)
+		.values({ userId: reader.id, proposedAt: confirmedAt, seenAt: confirmedAt, confirmedAt })
+	await db.insert(topics).values({
+		userId: reader.id,
+		name: "Essays",
+		description: "Essays.",
+		status: "active",
+		origin: "first",
+	})
+	const { month, resetsAt } = monthOf()
+	await db
+		.insert(usageCounts)
+		.values({ userId: reader.id, metric: "topic_sorts", month, count: 750 })
+	// A new save, not sorted yet: the month's last quarter is for it, so it does not wait for the 1st.
+	await insertArticle(reader.id, "New essay", "<p>New</p>")
+
+	await page.goto("/topics")
+	const next = new Intl.DateTimeFormat("en", { dateStyle: "medium", timeZone: "UTC" }).format(
+		resetsAt,
+	)
+	await expect(page.getByTestId("topics-sorts-paused")).toHaveText(
+		`Sorting your library paused for this month, so new saves can still be sorted. 2 articles are waiting, and sorting starts again on ${next}. Nothing is lost.`,
+	)
+	await expect(page.getByTestId("topics-sorting")).toHaveCount(0)
 })
