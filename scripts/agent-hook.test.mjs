@@ -144,18 +144,20 @@ describe("guard", () => {
 	})
 })
 
-describe("guard in a worktree", () => {
+describe("in a worktree", () => {
 	let root
 	let main
 	let worktree
 	const git = (...args) => execFileSync("git", args, { stdio: "ignore" })
 	// The hook may run in the main checkout; `cwd` names where the session works.
-	const claude = (command, cwd) =>
+	const claude = (event) =>
 		spawnSync(process.execPath, [script, "claude"], {
 			cwd: main,
-			input: JSON.stringify({ hook_event_name: "PreToolUse", tool_input: { command }, cwd }),
+			input: JSON.stringify(event),
 			encoding: "utf8",
 		})
+	const bash = (command, cwd) =>
+		claude({ hook_event_name: "PreToolUse", tool_input: { command }, cwd })
 
 	beforeEach(() => {
 		root = realpathSync(mkdtempSync(join(tmpdir(), "agent-hook-worktree-")))
@@ -179,22 +181,33 @@ describe("guard in a worktree", () => {
 	afterEach(() => rmSync(root, { recursive: true, force: true }))
 
 	test("allows a commit in a worktree on its own branch", () => {
-		const result = claude("git commit -m x", worktree)
+		const result = bash("git commit -m x", worktree)
 		assert.equal(result.status, 0, result.stderr)
-		assert.equal(claude(`cd ${worktree} && git commit -m x`, main).status, 0)
-		assert.equal(claude(`git -C ${worktree} push -u origin HEAD`, main).status, 0)
+		assert.equal(bash(`cd ${worktree} && git commit -m x`, main).status, 0)
+		assert.equal(bash(`git -C ${worktree} push -u origin HEAD`, main).status, 0)
 	})
 
 	test("refuses a commit in the checkout on main", () => {
-		const result = claude("git commit -m x", main)
+		const result = bash("git commit -m x", main)
 		assert.equal(result.status, 2)
 		assert.match(result.stderr, /Never commit on `main`/)
-		assert.equal(claude(`cd ${main} && git commit -m x`, worktree).status, 2)
-		assert.equal(claude(`git -C ${main} push`, worktree).status, 2)
+		assert.equal(bash(`cd ${main} && git commit -m x`, worktree).status, 2)
+		assert.equal(bash(`git -C ${main} push`, worktree).status, 2)
 	})
 
 	test("reads the hook's own directory when the event names none", () => {
-		assert.equal(claude("git commit -m x").status, 2)
+		assert.equal(bash("git commit -m x").status, 2)
+	})
+
+	test("asks for pnpm verify after a code change in the worktree, until it passes there", () => {
+		const turn = { session_id: "w", cwd: worktree }
+		claude({ ...turn, hook_event_name: "UserPromptSubmit" })
+		writeFileSync(join(worktree, "a.ts"), "export const a = 1\n")
+		const stop = claude({ ...turn, hook_event_name: "Stop", stop_hook_active: false })
+		assert.equal(stop.status, 2, stop.stderr)
+		assert.match(stop.stderr, /a\.ts/)
+		execFileSync(process.execPath, [script, "mark-verified"], { cwd: worktree })
+		assert.equal(claude({ ...turn, hook_event_name: "Stop", stop_hook_active: false }).status, 0)
 	})
 })
 

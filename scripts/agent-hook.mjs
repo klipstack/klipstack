@@ -438,13 +438,14 @@ async function main() {
 			case "claude": {
 				const event = await stdinJson()
 				const session = event.session_id ?? "claude"
+				// `cwd` is where the session works, such as a worktree; this process may run elsewhere.
+				if (event.cwd) process.chdir(event.cwd)
 				if (event.hook_event_name === "UserPromptSubmit") return turnStart(session)
 				// Claude Code sets stop_hook_active once a Stop hook has sent it back to work: ask once.
 				if (event.hook_event_name === "Stop")
 					return refuse(event.stop_hook_active ? null : turnEnd(session))
-				// `cwd` is where the session works, such as a worktree; this process may run elsewhere.
 				if (event.hook_event_name === "PreToolUse")
-					return refuse(guard(event.tool_input?.command ?? "", event.cwd))
+					return refuse(guard(event.tool_input?.command ?? ""))
 				return
 			}
 			default:

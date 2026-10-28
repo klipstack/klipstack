@@ -99,10 +99,14 @@ The hooks fail open: if `scripts/agent-hook.mjs` breaks, it prints why and lets 
 continue, instead of stopping all work. A missing `pnpm` (a GUI git client) skips the lint in the
 git hook; CI still runs it.
 
+The hooks act on the checkout where the agent works. In a git worktree, that is the worktree and
+its own branch, not the main checkout. A `cd <dir>` or `git -C <dir>` earlier in a command
+counts too.
+
 The hooks compare fingerprints of the working tree: a git tree hash of every file, untracked
-ones included. Each takes about 50 ms. They keep their state in `.git/klipstack-agent/`, never in
-the repository's own object store. `node --test scripts/*.test.mjs` tests its rules, and CI
-runs it.
+ones included. Each takes about 50 ms. They keep their state in `.git/klipstack-agent/` (a
+worktree's in its own git directory, `.git/worktrees/<name>/`), never in the repository's own
+object store. `node --test scripts/*.test.mjs` tests its rules, and CI runs it.
 
 ## Improving it
 
