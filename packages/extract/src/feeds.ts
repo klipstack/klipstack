@@ -50,6 +50,7 @@ export function fetchFeed(url: string, options: FetchPageOptions = {}): Promise<
 	return fetchPage(url, {
 		userAgent: FEED_USER_AGENT,
 		contentTypes: FEED_CONTENT_TYPES,
+		botChecks: false,
 		...options,
 		headers: { accept: FEED_ACCEPT, ...options.headers },
 	})

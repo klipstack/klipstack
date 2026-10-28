@@ -105,6 +105,7 @@ describe("error categories", () => {
 	it("passes known codes and hides everything else", () => {
 		expect(documentErrorCategory("http_error:404")).toBe("http_error:404")
 		expect(documentErrorCategory("timeout")).toBe("timeout")
+		expect(documentErrorCategory("bot_check")).toBe("bot_check")
 		expect(documentErrorCategory("http_error:<script>")).toBe("http_error")
 		expect(documentErrorCategory("connect ECONNREFUSED 10.0.0.1")).toBe("unknown")
 		expect(documentErrorCategory(null)).toBe("unknown")

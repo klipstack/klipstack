@@ -23,6 +23,8 @@ const PERMANENT: ReadonlySet<ExtractErrorCode> = new Set([
 	"blocked_host",
 	"not_html",
 	"no_content",
+	// The wall stays up for the server's address; the owner's Retry asks again.
+	"bot_check",
 	"too_large",
 	"too_many_redirects",
 ])

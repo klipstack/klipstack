@@ -28,6 +28,7 @@ const EXTRACT_CODES = new Set([
 	"too_large",
 	"too_many_redirects",
 	"no_content",
+	"bot_check",
 	"not_feed",
 	"unknown",
 ])

@@ -8,6 +8,8 @@ export type ExtractErrorCode =
 	| "too_large"
 	| "too_many_redirects"
 	| "no_content"
+	/** The site sent a bot check (a CAPTCHA, a browser check) in place of the page. */
+	| "bot_check"
 	| "not_feed"
 	| "not_opml"
 

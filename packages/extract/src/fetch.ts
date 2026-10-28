@@ -1,6 +1,7 @@
 import dns from "node:dns"
 import { BlockList, isIP } from "node:net"
 import { Agent, buildConnector, fetch as undiciFetch } from "undici"
+import { botCheck } from "./bot-check"
 import { ExtractError } from "./errors"
 
 export interface FetchedPage {
@@ -28,6 +29,11 @@ export interface FetchPageOptions extends FetchOptions {
 	headers?: Record<string, string>
 	/** Content types accepted as a page. Defaults to HTML, XML and plain text. */
 	contentTypes?: RegExp
+	/**
+	 * Refuse a bot wall's page (`bot_check`) instead of returning it. Defaults to true. Feeds turn
+	 * it off: a wall on a site's home page may spare its feed, which `resolveFeed` goes on to find.
+	 */
+	botChecks?: boolean
 }
 
 const PAGE_TYPES = /text\/html|application\/xhtml\+xml|text\/plain|application\/xml|text\/xml/i
@@ -36,9 +42,9 @@ const DEFAULT_UA =
 	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
 
 /**
- * Klipstack's own name. Some bot walls (Cloudflare's) refuse a request that says it is Chrome but
- * doesn't act like a browser, and let an honest client in: a page refused with a 403 under the
- * default name is asked for once more under this one.
+ * Klipstack's own name. Some bot walls (Cloudflare's, Anubis) refuse or check a request that says
+ * it is Chrome but doesn't act like a browser, and let an honest client in: a page refused with a
+ * 403, or answered with a bot check, under the default name is asked for once more under this one.
  */
 const HONEST_UA = "Klipstack/1.0 (+https://klipstack.com)"
 
@@ -239,10 +245,15 @@ export async function fetchPage(url: string, options: FetchPageOptions = {}): Pr
 		return await fetchPageAs(url, options)
 	} catch (error) {
 		// Only under the default name: a name the caller chose is theirs to keep.
-		const refused = error instanceof ExtractError && error.status === 403
+		const refused =
+			error instanceof ExtractError && (error.status === 403 || error.code === "bot_check")
 		if (!refused || options.userAgent) throw error
 		// From the start, through every check again.
-		return fetchPageAs(url, { ...options, userAgent: HONEST_UA })
+		return fetchPageAs(url, { ...options, userAgent: HONEST_UA }).catch((retry: unknown) => {
+			// A wall that checks browsers may refuse the honest name outright: the check is the reason.
+			const plain = retry instanceof ExtractError && retry.code === "http_error"
+			throw plain && error.code === "bot_check" ? error : retry
+		})
 	}
 }
 
@@ -255,6 +266,7 @@ async function fetchPageAs(url: string, options: FetchPageOptions): Promise<Fetc
 		headers = {},
 		contentTypes = PAGE_TYPES,
 		headOnly = false,
+		botChecks = true,
 	} = options
 	const deadline = AbortSignal.timeout(timeoutMs)
 	let current = url
@@ -321,10 +333,15 @@ async function fetchPageAs(url: string, options: FetchPageOptions): Promise<Fetc
 			continue
 		}
 		if (!res.ok) {
-			await res.body?.cancel()
+			const retryAfter = parseRetryAfter(res.headers.get("retry-after"))
+			// Walls answer with these, and say why in the body.
+			let wall: string | null = null
+			if (botChecks && WALL_STATUSES.has(res.status)) wall = botCheck(await readSome(res, deadline))
+			else await res.body?.cancel()
+			if (wall) throw wallError(target, wall, res.status, retryAfter)
 			throw new ExtractError("http_error", `HTTP ${res.status}`, {
 				status: res.status,
-				retryAfter: parseRetryAfter(res.headers.get("retry-after")),
+				retryAfter,
 			})
 		}
 		const contentType = res.headers.get("content-type")
@@ -368,6 +385,12 @@ async function fetchPageAs(url: string, options: FetchPageOptions): Promise<Fetc
 			offset += c.byteLength
 		}
 		const html = decodeBody(bytes, contentType)
+		// Walls send HTML, and say so at the top. A feed's items may well be titled "Just a moment...".
+		const wall =
+			botChecks && (!contentType || HTML_TYPES.test(contentType))
+				? botCheck(html.slice(0, WALL_BYTES))
+				: null
+		if (wall) throw wallError(target, wall, res.status, null)
 		const headEnd = headOnly ? html.search(/<\/head\s*>|<body(?:\s|>)/i) : -1
 		return {
 			html: headEnd < 0 ? html : html.slice(0, headEnd),
@@ -378,6 +401,52 @@ async function fetchPageAs(url: string, options: FetchPageOptions): Promise<Fetc
 		}
 	}
 	throw new ExtractError("too_many_redirects", `More than ${maxRedirects} redirects`)
+}
+
+const HTML_TYPES = /text\/html|application\/xhtml\+xml/i
+/** Statuses a bot wall answers with, when it does not answer 200 (AWS WAF's CAPTCHA: 405). */
+const WALL_STATUSES = new Set([403, 405, 429, 503])
+/** Enough of a page to tell a wall's: they are small, and name themselves at the top. */
+const WALL_BYTES = 64 * 1024
+/** How long an error page's body may take: past it, it is an error page like any other. */
+const WALL_READ_MS = 2_000
+
+/**
+ * The start of an error page's body, decoded; the rest is not read. A body that breaks or stalls
+ * is read as far as it came: the status is the answer, whatever the body does.
+ */
+async function readSome(
+	res: Awaited<ReturnType<typeof undiciFetch>>,
+	deadline: AbortSignal,
+): Promise<string> {
+	const reader = res.body?.getReader()
+	if (!reader) return ""
+	const stop = AbortSignal.any([deadline, AbortSignal.timeout(WALL_READ_MS)])
+	const stopped = new Promise<null>((resolve) => {
+		if (stop.aborted) resolve(null)
+		else stop.addEventListener("abort", () => resolve(null), { once: true })
+	})
+	const chunks: Uint8Array[] = []
+	let total = 0
+	try {
+		while (total < WALL_BYTES) {
+			const next = await Promise.race([reader.read(), stopped])
+			if (!next || next.done) break
+			chunks.push(next.value)
+			total += next.value.byteLength
+		}
+	} catch {
+		// Broken partway: what came is all there is.
+	}
+	reader.cancel().catch(() => {})
+	return decodeBody(Buffer.concat(chunks).subarray(0, WALL_BYTES), res.headers.get("content-type"))
+}
+
+function wallError(target: URL, wall: string, status: number, retryAfter: number | null) {
+	return new ExtractError("bot_check", `${target.hostname} answered with a bot check (${wall})`, {
+		status,
+		retryAfter,
+	})
 }
 
 /** Seconds from a `Retry-After` header (delta seconds or an HTTP date); null when absent or bad. */

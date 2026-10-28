@@ -308,6 +308,7 @@ export default {
 		http_error: "The site returned an error.",
 		not_html: "That link is not a web page.",
 		no_content: "We could not find an article on that page.",
+		bot_check: "The site only shows this page to browsers that pass its check.",
 		timeout: "The site took too long to respond.",
 		fetch_failed: "We could not reach the site.",
 		too_large: "The page is too large.",

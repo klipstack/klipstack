@@ -317,6 +317,7 @@ export default {
 		http_error: "El sitio devolvió un error.",
 		not_html: "Ese enlace no es una página web.",
 		no_content: "No encontramos un artículo en esa página.",
+		bot_check: "El sitio solo muestra esta página a navegadores que pasan su verificación.",
 		timeout: "El sitio tardó demasiado en responder.",
 		fetch_failed: "No pudimos conectar con el sitio.",
 		too_large: "La página es demasiado grande.",
