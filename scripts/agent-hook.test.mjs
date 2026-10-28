@@ -2,7 +2,7 @@
 // Code and Amp run.
 import assert from "node:assert/strict"
 import { execFileSync, spawnSync } from "node:child_process"
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs"
+import { mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, beforeEach, describe, test } from "node:test"
@@ -11,7 +11,7 @@ import { fingerprint, guard, turnEnd } from "./agent-hook.mjs"
 const script = join(import.meta.dirname, "agent-hook.mjs")
 
 describe("guard", () => {
-	const refused = (line, branch = "feat/x") => guard(line, branch) !== null
+	const refused = (line, branch = "feat/x") => guard(line, process.cwd(), () => branch) !== null
 
 	test("refuses commits on main, allows them on a branch", () => {
 		assert.ok(refused("git add -A && git commit -m 'x'", "main"))
@@ -120,6 +120,81 @@ describe("guard", () => {
 		assert.ok(!refused("gh pr merge --squash --delete-branch", "main"))
 		assert.ok(refused("cd apps/web && git push origin main"))
 		assert.ok(refused("/usr/bin/git push origin main"))
+	})
+
+	test("reads the branch of the directory a git command runs in", () => {
+		const branches = { "/repo": "main", "/repo/apps": "main", "/wt": "feat/x" }
+		const refusedIn = (line, cwd) => guard(line, cwd, (dir) => branches[dir] ?? "") !== null
+		assert.ok(!refusedIn("git commit -m x", "/wt"))
+		assert.ok(refusedIn("git commit -m x", "/repo"))
+		assert.ok(!refusedIn("cd /wt && git commit -m x", "/repo"))
+		assert.ok(refusedIn("cd /repo && git commit -m x", "/wt"))
+		assert.ok(refusedIn("cd apps; git push", "/repo"))
+		assert.ok(!refusedIn("git -C /wt commit -m x", "/repo"))
+		assert.ok(refusedIn("git -C /repo commit -m x", "/wt"))
+		assert.ok(refusedIn("git -C /wt -C ../repo push -u origin HEAD", "/wt"))
+	})
+
+	test("keeps a cd in a subshell inside it", () => {
+		const branches = { "/repo": "main", "/wt": "feat/x" }
+		const refusedIn = (line, cwd) => guard(line, cwd, (dir) => branches[dir] ?? "") !== null
+		assert.ok(refusedIn("(cd /wt && git status); git commit -m x", "/repo"))
+		assert.ok(refusedIn("echo $(cd /wt && pwd) && git commit -m x", "/repo"))
+		assert.ok(!refusedIn("(cd /wt && git commit -m x)", "/repo"))
+	})
+})
+
+describe("guard in a worktree", () => {
+	let root
+	let main
+	let worktree
+	const git = (...args) => execFileSync("git", args, { stdio: "ignore" })
+	// The hook may run in the main checkout; `cwd` names where the session works.
+	const claude = (command, cwd) =>
+		spawnSync(process.execPath, [script, "claude"], {
+			cwd: main,
+			input: JSON.stringify({ hook_event_name: "PreToolUse", tool_input: { command }, cwd }),
+			encoding: "utf8",
+		})
+
+	beforeEach(() => {
+		root = realpathSync(mkdtempSync(join(tmpdir(), "agent-hook-worktree-")))
+		main = join(root, "main")
+		worktree = join(main, ".claude", "worktrees", "x")
+		git("init", "-q", "-b", "main", main)
+		git(
+			"-C",
+			main,
+			"-c",
+			"user.name=t",
+			"-c",
+			"user.email=t@example.com",
+			"commit",
+			"--allow-empty",
+			"-qm",
+			"init",
+		)
+		git("-C", main, "worktree", "add", "-q", "-b", "feat/x", worktree)
+	})
+	afterEach(() => rmSync(root, { recursive: true, force: true }))
+
+	test("allows a commit in a worktree on its own branch", () => {
+		const result = claude("git commit -m x", worktree)
+		assert.equal(result.status, 0, result.stderr)
+		assert.equal(claude(`cd ${worktree} && git commit -m x`, main).status, 0)
+		assert.equal(claude(`git -C ${worktree} push -u origin HEAD`, main).status, 0)
+	})
+
+	test("refuses a commit in the checkout on main", () => {
+		const result = claude("git commit -m x", main)
+		assert.equal(result.status, 2)
+		assert.match(result.stderr, /Never commit on `main`/)
+		assert.equal(claude(`cd ${main} && git commit -m x`, worktree).status, 2)
+		assert.equal(claude(`git -C ${main} push`, worktree).status, 2)
+	})
+
+	test("reads the hook's own directory when the event names none", () => {
+		assert.equal(claude("git commit -m x").status, 2)
 	})
 })
 
