@@ -45,7 +45,6 @@ import {
 	createAuthMiddleware,
 	getOAuthState,
 	getSessionFromCtx,
-	isAPIError,
 } from "better-auth/api"
 import { emailOTP, jwt, magicLink, twoFactor } from "better-auth/plugins"
 import { sealAppleToken } from "./apple-tokens.server"
@@ -411,24 +410,10 @@ export const auth = betterAuth({
 			write(`[auth] ${text}`, ...extra)
 		},
 	},
-	// Endpoint failures: expected API errors (401, 400, …) are answers, not log lines.
-	onAPIError: {
-		onError(error) {
-			if (isAPIError(error)) {
-				if (error.statusCode >= 500) logError("[auth] request failed", error)
-				return
-			}
-			logError("[auth] request failed", error)
-			// Answer ourselves: otherwise better-call prints the raw error, message and all. (It must
-			// throw synchronously: better-auth does not await this handler.)
-			if (error instanceof EmailError && error.code === "EMAIL_NOT_CONFIGURED")
-				throw new APIError("SERVICE_UNAVAILABLE", {
-					code: error.code,
-					message: "Email delivery is not configured.",
-				})
-			throw new APIError("INTERNAL_SERVER_ERROR")
-		},
-	},
+	// Endpoint failures other than API errors reach `answerAuth` below, which logs and answers them.
+	// (An `onError` hook can't: better-auth only logs what it throws, and better-call then prints the
+	// raw error, message and all.)
+	onAPIError: { throw: true },
 	plugins: [
 		magicLink({
 			expiresIn: MAGIC_LINK_MINUTES * 60,
@@ -530,6 +515,41 @@ export const auth = betterAuth({
 		cimd({ fetchClientMetadataResource, metadataProfile: "mcp-2026-07-28" }),
 	],
 })
+
+const handleAuth = auth.handler
+auth.handler = answerAuth
+auth.fetch = answerAuth
+
+/**
+ * The auth endpoints over HTTP. better-call answers API errors itself; expected ones (401, 400, …)
+ * are answers, not log lines. Anything else is logged reduced and answered here.
+ */
+async function answerAuth(request: Request): Promise<Response> {
+	try {
+		const response = await handleAuth(request)
+		if (response.status >= 500) logError("[auth] request failed", await apiErrorOf(response))
+		return response
+	} catch (error) {
+		logError("[auth] request failed", error)
+		if (error instanceof EmailError && error.code === "EMAIL_NOT_CONFIGURED")
+			return Response.json(
+				{ code: error.code, message: "Email delivery is not configured." },
+				{ status: 503 },
+			)
+		return new Response(null, { status: 500 })
+	}
+}
+
+/** A failed answer as the API error it came from, for the log: its code and status. */
+async function apiErrorOf(response: Response) {
+	const body: unknown = await response
+		.clone()
+		.json()
+		.catch(() => undefined)
+	const code = (body as { code?: unknown } | undefined)?.code
+	const status = response.status as NonNullable<ConstructorParameters<typeof APIError>[0]>
+	return new APIError(status, typeof code === "string" ? { code } : undefined)
+}
 
 // The first-party clients, inserted directly (the provider's registration checks do not run).
 // Upserted, so later changes to these fields apply on restart.

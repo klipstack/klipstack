@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto"
 import { and, db, eq, gt, user, verification } from "@klipstack/db"
 import { authDb, withAuthTransaction } from "./auth-db.server"
 import { auth } from "./auth.server"
@@ -43,13 +44,36 @@ export async function requestSignupLink(
 	)
 }
 
+/** better-auth's row for a link: the token as sent (stored plain), behind its purpose. */
+const linkIdentifier = (token: string) => `magic-link:${token}`
+
+/**
+ * A link token for the address, written as the magic-link plugin writes one, without sending
+ * email (the demo's login link). Opening it runs better-auth's ordinary verification.
+ */
+export async function writeMagicLinkToken(email: string, expiresAt: Date): Promise<string> {
+	const token = randomBytes(32).toString("base64url")
+	const context = await auth.$context
+	await context.internalAdapter.createVerificationValue({
+		identifier: linkIdentifier(token),
+		value: JSON.stringify({ type: "magic-link", email }),
+		expiresAt,
+	})
+	return token
+}
+
 /** The address an unused, unexpired link token was issued for. Reading it does not use it up. */
 export async function peekMagicLink(token: string): Promise<string | null> {
 	if (!token) return null
 	const [row] = await db
 		.select({ value: verification.value })
 		.from(verification)
-		.where(and(eq(verification.identifier, token), gt(verification.expiresAt, new Date())))
+		.where(
+			and(
+				eq(verification.identifier, linkIdentifier(token)),
+				gt(verification.expiresAt, new Date()),
+			),
+		)
 		.limit(1)
 	if (!row) return null
 	try {

@@ -11,7 +11,6 @@ import {
 	pool,
 	user as userTable,
 } from "@klipstack/db"
-import { APIError } from "better-auth/api"
 import { afterAll, describe, expect, it, vi } from "vitest"
 import { env } from "./env.server"
 import { listFeatures } from "./features.server"
@@ -37,8 +36,13 @@ for (const method of ["error", "warn"] as const)
 	})
 
 const { auth } = await import("./auth.server")
-const { confirmSignupLink, peekMagicLink, requestMagicLink, requestSignupLink } =
-	await import("./magic-link.server")
+const {
+	confirmSignupLink,
+	peekMagicLink,
+	requestMagicLink,
+	requestSignupLink,
+	writeMagicLinkToken,
+} = await import("./magic-link.server")
 const { createInvite } = await import("./invites.server")
 const { requestEmailVerification, verifyEmailToken } = await import("./email-verification.server")
 const { withSignupAllowed } = await import("./signup-gate.server")
@@ -149,6 +153,28 @@ describe("auth", () => {
 		await expect(
 			auth.api.signInEmail({ body: { email, password: "password123" } }),
 		).rejects.toMatchObject({ statusCode: 401 })
+	})
+
+	it("signs in with a link token written without email, as the demo's login link", async () => {
+		const token = await writeMagicLinkToken(email, new Date(Date.now() + 60_000))
+		expect(await peekMagicLink(token)).toBe(email)
+		// As the demo's link asks (scripts/demo/local.ts): home, or the login page on a refusal.
+		const link = new URL("/api/auth/magic-link/verify", env.APP_URL)
+		link.search = new URLSearchParams({
+			token,
+			callbackURL: "/home",
+			errorCallbackURL: "/login",
+		}).toString()
+		const verify = await auth.handler(new Request(link, { redirect: "manual" }))
+		expect(verify.headers.get("location")).toMatch(/\/home$/)
+		const cookie = verify.headers
+			.getSetCookie()
+			.find((c) => c.startsWith("klip.session_token=") && !c.includes("Max-Age=0"))
+		const session = await auth.api.getSession({
+			headers: new Headers({ cookie: cookie!.split(";")[0]! }),
+		})
+		expect(session?.user.email).toBe(email)
+		expect(await peekMagicLink(token)).toBeNull()
 	})
 
 	it("sets a new password from an emailed link, once, and signs sessions out", async () => {
@@ -401,29 +427,32 @@ describe("auth logs", () => {
 		expect(errors.join("\n")).not.toContain("secret")
 	})
 
-	it("log failed requests without their messages, and skip ordinary API errors", () => {
+	it("skip ordinary API errors", async () => {
 		errors.length = 0
-		const onError = auth.options.onAPIError?.onError
-		onError?.(new APIError("UNAUTHORIZED", { message: "secret@example.com" }))
+		const res = await auth.handler(new Request("http://localhost:5180/api/auth/list-sessions"))
+		expect(res.status).toBe(401)
 		expect(errors).toEqual([])
-		// Anything else is logged reduced, and answered as a bare 500 (thrown as an API error).
-		expect(() => onError?.(failedQuery())).toThrow(APIError)
-		expect(errors.join("\n")).toContain("[auth] request failed")
-		expect(errors.join("\n")).not.toContain("secret")
 	})
 
-	it("log a failed request's code and status", () => {
+	it("log a failed request's code and status", async () => {
 		errors.length = 0
-		auth.options.onAPIError?.onError?.(
-			new APIError("INTERNAL_SERVER_ERROR", {
-				code: "FAILED_TO_GET_SESSION",
-				message: "secret@example.com",
+		// A session token Postgres refuses (NUL byte), signed as ours: its lookup fails.
+		const token = "secret\0token"
+		const signature = createHmac("sha256", env.BETTER_AUTH_SECRET).update(token).digest("base64")
+		const res = await auth.handler(
+			new Request("http://localhost:5180/api/auth/get-session", {
+				headers: { cookie: `klip.session_token=${encodeURIComponent(`${token}.${signature}`)}` },
 			}),
 		)
+		expect(res.status).toBe(500)
+		expect(errors).toHaveLength(2)
+		// better-auth's own line, reduced by our logger.
+		expect(errors[0]).toMatch(
+			/^\[auth\] INTERNAL_SERVER_ERROR Error cause=error cause.code=22021\n/,
+		)
 		// No frames: better-call leaves them out of an API error's stack.
-		expect(errors).toEqual([
-			"[auth] request failed\nAPIError code=FAILED_TO_GET_SESSION status=500",
-		])
+		expect(errors[1]).toBe("[auth] request failed\nAPIError code=FAILED_TO_GET_SESSION status=500")
+		expect(errors.join("\n")).not.toContain("secret")
 	})
 
 	it.each(["/api/auth/sign-in/magic-link", "/api/auth/request-password-reset"])(

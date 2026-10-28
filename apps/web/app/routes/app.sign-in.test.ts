@@ -204,7 +204,9 @@ describe("the iPhone app's sign-in", () => {
 			codeChallenge: challenge,
 		})
 		const tokens = await exchange(answer.body.code, pkce().verifier)
-		expect(tokens.status).toBe(401)
+		// OAuth's answer to a grant that fails its checks (RFC 6749, 5.2).
+		expect(tokens.status).toBe(400)
+		expect(tokens.body).toMatchObject({ error: "invalid_grant" })
 		expect(tokens.body.access_token).toBeUndefined()
 	})
 

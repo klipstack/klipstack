@@ -1,14 +1,13 @@
-import { randomBytes } from "node:crypto"
 import { db, eq, or, user } from "@klipstack/db"
-import { auth } from "../../app/lib/auth.server"
+import { writeMagicLinkToken } from "../../app/lib/magic-link.server"
 import { assertOwned, EMAIL, loadState, loginLinkUrl } from "./local"
 
 /** Long enough to open later from a thread; the account's password is public anyway. */
 export const LINK_HOURS = 24
 
 /**
- * A one-time sign-in link for the demo account: a magic-link token, written as the magic-link
- * plugin writes one, without sending email. Opening it runs better-auth's ordinary verification.
+ * A one-time sign-in link for the demo account: a magic-link token, without sending email.
+ * Opening it runs better-auth's ordinary verification.
  */
 export async function createLoginLink(options: {
 	cache: string
@@ -26,12 +25,6 @@ export async function createLoginLink(options: {
 	// For an unverified address, a magic link removes the password first: keep it as documented.
 	if (!matches[0]!.emailVerified)
 		throw new Error("Demo account email is unverified; use demo:reset")
-	const token = randomBytes(32).toString("base64url")
-	const context = await auth.$context
-	await context.internalAdapter.createVerificationValue({
-		identifier: token,
-		value: JSON.stringify({ email: EMAIL }),
-		expiresAt: new Date(Date.now() + LINK_HOURS * 3_600_000),
-	})
+	const token = await writeMagicLinkToken(EMAIL, new Date(Date.now() + LINK_HOURS * 3_600_000))
 	return loginLinkUrl(options.baseUrl, token)
 }

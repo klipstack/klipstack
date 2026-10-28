@@ -17,9 +17,10 @@ import { account, db, eq, inArray, invites, pool, session, user as userTable } f
 import { RouterContextProvider } from "react-router"
 import { afterAll, describe, expect, it, vi } from "vitest"
 
-// Our key at Apple, which signs the client secret, and Apple's own, which signs its ID tokens.
+// Our key at Apple, which signs the client secret (ES256), and Apple's own, which signs its ID
+// tokens (RS256: better-auth accepts no other).
 const ours = generateKeyPairSync("ec", { namedCurve: "P-256" })
-const apples = generateKeyPairSync("ec", { namedCurve: "P-256" })
+const apples = generateKeyPairSync("rsa", { modulusLength: 2048 })
 process.env.APPLE_TEAM_ID = "TEAM123456"
 process.env.APPLE_BUNDLE_ID = "com.example.reader"
 process.env.APPLE_SERVICES_ID = "com.example.reader.web"
@@ -55,7 +56,7 @@ const b64 = (value: unknown) => Buffer.from(JSON.stringify(value)).toString("bas
 /** An ID token as Apple signs it. */
 function appleIdToken(claims: Record<string, unknown>) {
 	const now = Math.floor(Date.now() / 1000)
-	const input = `${b64({ alg: "ES256", kid: "apple-kid" })}.${b64({
+	const input = `${b64({ alg: "RS256", kid: "apple-kid" })}.${b64({
 		iss: "https://appleid.apple.com",
 		sub: subject,
 		email,
@@ -65,10 +66,7 @@ function appleIdToken(claims: Record<string, unknown>) {
 		exp: now + 600,
 		...claims,
 	})}`
-	const signature = sign("sha256", Buffer.from(input), {
-		key: apples.privateKey,
-		dsaEncoding: "ieee-p1363",
-	})
+	const signature = sign("sha256", Buffer.from(input), apples.privateKey)
 	return `${input}.${signature.toString("base64url")}`
 }
 
@@ -112,7 +110,7 @@ vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
 	}
 	if (url === "https://appleid.apple.com/auth/keys")
 		return json({
-			keys: [{ ...apples.publicKey.export({ format: "jwk" }), kid: "apple-kid", alg: "ES256" }],
+			keys: [{ ...apples.publicKey.export({ format: "jwk" }), kid: "apple-kid", alg: "RS256" }],
 		})
 	throw new Error(`unexpected request to ${new URL(url).host}`)
 })
