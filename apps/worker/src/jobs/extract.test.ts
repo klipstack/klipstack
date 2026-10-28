@@ -333,6 +333,14 @@ describe("handleExtract", () => {
 		})
 	})
 
+	it("fails at once on a bot check, whatever status it came with", async () => {
+		const doc = await saved("Walled")
+		barrier.failure = new ExtractError("bot_check", "A bot check", { status: 503 })
+		await handleExtract(job(doc.id))
+		expect(await docOf(doc.id)).toMatchObject({ status: "failed", failureReason: "bot_check" })
+		expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: "failed" }))
+	})
+
 	it("leaves the status to the job of a capture saved while it ran", async () => {
 		const doc = await saved("Old capture")
 		const { reached, release } = hold()

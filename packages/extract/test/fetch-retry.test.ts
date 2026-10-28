@@ -16,8 +16,14 @@ vi.mock("undici", async (original) => {
 
 const CHROME = /Chrome\//
 const requests: { path: string; userAgent: string }[] = []
+const RECAPTCHA = `<!doctype html><html><head><base href="https://www.google.com/recaptcha/challengepage/"><title>Checking your browser - reCAPTCHA</title></head><body></body></html>`
+const CLOUDFLARE = `<!DOCTYPE html><html><head><title>Just a moment...</title></head><body><script>window._cf_chl_opt = {cType: 'managed'};</script></body></html>`
+const ANUBIS = `<!doctype html><html><head><title>Making sure you&#39;re not a bot!</title></head><body><script id="anubis_challenge" type="application/json">{}</script></body></html>`
+const VERCEL = `<!DOCTYPE html><html><head><title>Vercel Security Checkpoint</title></head><body></body></html>`
+
+type Answer = { status: number; headers?: object; body?: string }
 /** What the site answers a path: by the user agent asking. */
-const routes: Record<string, (req: IncomingMessage) => { status: number; headers?: object }> = {
+const routes: Record<string, (req: IncomingMessage) => Answer> = {
 	// Refuses a browser's name that doesn't act like a browser; lets an honest client in.
 	"/wall": (req) =>
 		CHROME.test(req.headers["user-agent"] ?? "") ? { status: 403 } : { status: 200 },
@@ -29,6 +35,13 @@ const routes: Record<string, (req: IncomingMessage) => { status: number; headers
 		CHROME.test(req.headers["user-agent"] ?? "")
 			? { status: 403 }
 			: { status: 302, headers: { location: "http://169.254.169.254/latest/meta-data/" } },
+	// Google's challenge for everyone, with a 200.
+	"/recaptcha": () => ({ status: 200, body: RECAPTCHA }),
+	// Anubis checks clients that say they are browsers, and lets the others in.
+	"/anubis": (req) =>
+		CHROME.test(req.headers["user-agent"] ?? "") ? { status: 200, body: ANUBIS } : { status: 200 },
+	"/cloudflare": () => ({ status: 403, body: CLOUDFLARE }),
+	"/vercel": () => ({ status: 429, headers: { "retry-after": "60" }, body: VERCEL }),
 }
 
 let server: Server
@@ -36,9 +49,11 @@ let origin = ""
 beforeAll(async () => {
 	server = createServer((req, res) => {
 		requests.push({ path: req.url ?? "", userAgent: req.headers["user-agent"] ?? "" })
-		const { status, headers = {} } = routes[req.url ?? ""]?.(req) ?? { status: 404 }
+		const answer = routes[req.url ?? ""]?.(req) ?? { status: 404 }
+		const { status, headers = {} } = answer
 		res.writeHead(status, { "content-type": "text/html", ...headers })
-		res.end(status === 200 ? "<html><title>Through</title><body>Hello</body></html>" : "")
+		const through = "<html><title>Through</title><body>Hello</body></html>"
+		res.end(answer.body ?? (status === 200 ? through : ""))
 	})
 	await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve))
 	origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
@@ -93,6 +108,42 @@ describe("a page behind a wall that refuses the browser's name", () => {
 		await expect(
 			fetchPage("https://site.example/always-403", { userAgent: "Klipstack/1.0 (feed reader)" }),
 		).rejects.toMatchObject({ status: 403 })
+		expect(agents()).toEqual(["Klipstack/1.0 (feed reader)"])
+	})
+})
+
+describe("a bot check sent in place of the page", () => {
+	it("is a bot_check, after one retry under Klipstack's own name", async () => {
+		await expect(fetchPage("https://site.example/recaptcha")).rejects.toMatchObject({
+			code: "bot_check",
+			status: 200,
+		})
+		expect(agents()).toEqual(["chrome", "Klipstack/1.0 (+https://klipstack.com)"])
+	})
+
+	it("lets the page through when the wall lets Klipstack's own name in", async () => {
+		const page = await fetchPage("https://site.example/anubis")
+		expect(page.html).toContain("Through")
+		expect(agents()).toEqual(["chrome", "Klipstack/1.0 (+https://klipstack.com)"])
+	})
+
+	it("is a bot_check when it comes with an error status", async () => {
+		await expect(fetchPage("https://site.example/cloudflare")).rejects.toMatchObject({
+			code: "bot_check",
+			status: 403,
+		})
+		await expect(fetchPage("https://site.example/vercel")).rejects.toMatchObject({
+			code: "bot_check",
+			status: 429,
+			retryAfter: 60,
+		})
+		expect(requests).toHaveLength(4)
+	})
+
+	it("keeps a user agent the caller chose", async () => {
+		await expect(
+			fetchPage("https://site.example/recaptcha", { userAgent: "Klipstack/1.0 (feed reader)" }),
+		).rejects.toMatchObject({ code: "bot_check" })
 		expect(agents()).toEqual(["Klipstack/1.0 (feed reader)"])
 	})
 })

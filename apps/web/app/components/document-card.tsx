@@ -820,6 +820,7 @@ const FAILURE_CODES = [
 	"http_error",
 	"not_html",
 	"no_content",
+	"bot_check",
 	"timeout",
 	"fetch_failed",
 	"too_large",

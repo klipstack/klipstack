@@ -93,6 +93,7 @@ export const FAILURE_CODES = [
 	"too_large",
 	"too_many_redirects",
 	"no_content",
+	"bot_check",
 	"unknown",
 ] as const
 
