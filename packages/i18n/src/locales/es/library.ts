@@ -467,6 +467,12 @@ export default {
 			"La ordenación se detuvo este mes: se ordenaron {{max}} artículos, el máximo por cuenta. Hay {{waiting}} artículo esperando, y la ordenación vuelve a empezar el {{date}}. No se pierde nada.",
 		sortsPaused_other:
 			"La ordenación se detuvo este mes: se ordenaron {{max}} artículos, el máximo por cuenta. Hay {{waiting}} artículos esperando, y la ordenación vuelve a empezar el {{date}}. No se pierde nada.",
+		librarySortPaused:
+			"La ordenación de tu biblioteca se pausó este mes, para que los artículos nuevos se sigan ordenando. Hay {{waiting}} artículos esperando, y la ordenación vuelve a empezar el {{date}}. No se pierde nada.",
+		librarySortPaused_one:
+			"La ordenación de tu biblioteca se pausó este mes, para que los artículos nuevos se sigan ordenando. Hay {{waiting}} artículo esperando, y la ordenación vuelve a empezar el {{date}}. No se pierde nada.",
+		librarySortPaused_other:
+			"La ordenación de tu biblioteca se pausó este mes, para que los artículos nuevos se sigan ordenando. Hay {{waiting}} artículos esperando, y la ordenación vuelve a empezar el {{date}}. No se pierde nada.",
 		sortsOff: "Este servidor no ordena artículos en temas: hay {{waiting}} artículos esperando.",
 		sortsOff_one: "Este servidor no ordena artículos en temas: hay {{waiting}} artículo esperando.",
 		sortsOff_other:

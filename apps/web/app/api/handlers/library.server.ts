@@ -196,7 +196,9 @@ export const topics: Handler<typeof listTopicsEndpoint> = async ({ userId, query
 					sortingPaused: state.sortsPaused && {
 						// A server that sorts none at all starts again in no month.
 						resumesAt: state.sortsPaused.max === 0 ? null : state.sortsPaused.resetsAt,
-						max: state.sortsPaused.max,
+						// Not all of the month's sorts are spent: no `max`, for an app to say they are.
+						...(state.sortsPaused.library ? {} : { max: state.sortsPaused.max }),
+						library: state.sortsPaused.library,
 					},
 				}
 			: {}),

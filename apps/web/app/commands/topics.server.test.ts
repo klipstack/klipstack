@@ -228,8 +228,46 @@ describe("where topics stand", () => {
 			.where(and(eq(usageCounts.userId, userId), eq(usageCounts.metric, "topic_sorts")))
 		expect(await topicsState(userId)).toMatchObject({
 			sorting: 2,
-			sortsPaused: { max: 1000, resetsAt: resetsAt.toISOString() },
+			sortsPaused: { max: 1000, resetsAt: resetsAt.toISOString(), library: false },
 		})
+	})
+
+	it("says the library's first sort waits for next month at three quarters of the month's sorts, and only while it is not done", async () => {
+		const backlog = await article()
+		await db
+			.update(documents)
+			.set({ createdAt: new Date(Date.UTC(2026, 0, 1)) })
+			.where(eq(documents.id, backlog))
+		await active(userId, "Shelf", [])
+		await db
+			.update(topicLibraries)
+			.set({ confirmedAt: new Date(Date.UTC(2026, 5, 1)) })
+			.where(eq(topicLibraries.userId, userId))
+		const { month, resetsAt } = monthOf()
+		await db.insert(usageCounts).values({ userId, metric: "topic_sorts", month, count: 749 })
+		expect(await topicsState(userId)).toMatchObject({ sorting: 1, sortsPaused: null })
+		const setUsage = (count: number) =>
+			db
+				.update(usageCounts)
+				.set({ count })
+				.where(and(eq(usageCounts.userId, userId), eq(usageCounts.metric, "topic_sorts")))
+		await setUsage(750)
+		expect(await topicsState(userId)).toMatchObject({
+			sorting: 1,
+			sortsPaused: { max: 1000, resetsAt: resetsAt.toISOString(), library: true },
+		})
+
+		// Only a new save waits: the month's last quarter is for it.
+		await db.insert(topicSorts).values({ documentId: backlog, userId })
+		await article()
+		expect(await topicsState(userId)).toMatchObject({ sorting: 1, sortsPaused: null })
+		// Once the library's first sort is done, an older article back from the trash is a new save.
+		await db.delete(topicSorts).where(eq(topicSorts.documentId, backlog))
+		await db
+			.update(topicLibraries)
+			.set({ librarySortedAt: new Date() })
+			.where(eq(topicLibraries.userId, userId))
+		expect(await topicsState(userId)).toMatchObject({ sorting: 2, sortsPaused: null })
 	})
 
 	it("shelves a topic's newest 16 articles, and counts the ones saved this week", async () => {

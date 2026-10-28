@@ -12,6 +12,8 @@ import {
 	eq,
 	inArray,
 	isNull,
+	librarySorts,
+	lte,
 	monthOf,
 	ne,
 	not,
@@ -89,9 +91,10 @@ export interface TopicsState {
 	sorting: number
 	/**
 	 * The month's sorts are spent while articles wait to be sorted: they are sorted from `resetsAt`
-	 * on. `max`: the month's sorts (`LIMIT_TOPIC_SORTS_PER_MONTH`).
+	 * on. `max`: the month's sorts (`LIMIT_TOPIC_SORTS_PER_MONTH`). `library`: only the library's
+	 * first sort waits, having taken its share of them (`librarySorts`); new saves are still sorted.
 	 */
-	sortsPaused: { max: number; resetsAt: string } | null
+	sortsPaused: { max: number; resetsAt: string; library: boolean } | null
 }
 
 const inLibrary = (userId: string) =>
@@ -148,15 +151,30 @@ export async function topicsState(
 		topics: await summaries(userId, status, { shelves }),
 		unseen: !library.confirmedAt && !library.seenAt,
 		sorting,
-		sortsPaused: sorting > 0 ? await sortsPaused(userId) : null,
+		sortsPaused: sorting > 0 ? await sortsPaused(userId, library) : null,
 	}
 }
 
-/** The month's sorts, when they are spent: when they start again, and how many there are. */
-async function sortsPaused(userId: string): Promise<TopicsState["sortsPaused"]> {
+/**
+ * The month's sorts, when they are spent, or when the library's first sort took its share of them
+ * and articles saved before the reader confirmed wait: when they start again, and how many there are.
+ */
+async function sortsPaused(
+	userId: string,
+	library: typeof topicLibraries.$inferSelect,
+): Promise<TopicsState["sortsPaused"]> {
 	const max = topicLimits().sorts
-	if ((await usageThisMonth(db, userId, "topic_sorts")) < max) return null
-	return { max, resetsAt: monthOf().resetsAt.toISOString() }
+	const used = await usageThisMonth(db, userId, "topic_sorts")
+	const paused = { max, resetsAt: monthOf().resetsAt.toISOString() }
+	if (used >= max) return { ...paused, library: false }
+	if (library.librarySortedAt || used < librarySorts(max)) return null
+	const [waiting] = await db
+		.select({ id: documents.id })
+		.from(documents)
+		.innerJoin(topicLibraries, eq(topicLibraries.userId, documents.userId))
+		.where(and(inLibrary(userId), notSorted, lte(documents.createdAt, topicLibraries.confirmedAt)))
+		.limit(1)
+	return waiting ? { ...paused, library: true } : null
 }
 
 async function sortedCount(userId: string): Promise<number> {

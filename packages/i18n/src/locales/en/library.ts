@@ -458,6 +458,12 @@ export default {
 			"Sorting stopped for this month: {{max}} articles were sorted, the most an account can. {{waiting}} article is waiting, and sorting starts again on {{date}}. Nothing is lost.",
 		sortsPaused_other:
 			"Sorting stopped for this month: {{max}} articles were sorted, the most an account can. {{waiting}} articles are waiting, and sorting starts again on {{date}}. Nothing is lost.",
+		librarySortPaused:
+			"Sorting your library paused for this month, so new saves can still be sorted. {{waiting}} articles are waiting, and sorting starts again on {{date}}. Nothing is lost.",
+		librarySortPaused_one:
+			"Sorting your library paused for this month, so new saves can still be sorted. {{waiting}} article is waiting, and sorting starts again on {{date}}. Nothing is lost.",
+		librarySortPaused_other:
+			"Sorting your library paused for this month, so new saves can still be sorted. {{waiting}} articles are waiting, and sorting starts again on {{date}}. Nothing is lost.",
 		sortsOff: "This server sorts no articles into topics: {{waiting}} articles are waiting.",
 		sortsOff_one: "This server sorts no articles into topics: {{waiting}} article is waiting.",
 		sortsOff_other: "This server sorts no articles into topics: {{waiting}} articles are waiting.",

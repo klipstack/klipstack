@@ -125,10 +125,16 @@ export const listTopics = defineEndpoint({
 			/**
 			 * While `active`: null, or the month's sorts are spent and articles wait. `resumesAt` is when
 			 * sorting starts again; null when this server sorts none at all. `max`: the articles an
-			 * account may have sorted a month (servers before 2026-10-17 leave it out).
+			 * account may have sorted a month (servers before 2026-10-17 leave it out). `library`: only
+			 * the library's first sort waits, having taken three quarters of the month's sorts; new saves
+			 * are still sorted, and `max` is left out (servers before 2026-10-28 leave `library` out).
 			 */
 			sortingPaused: z
-				.object({ resumesAt: Time.nullable(), max: z.number().int().optional() })
+				.object({
+					resumesAt: Time.nullable(),
+					max: z.number().int().optional(),
+					library: z.boolean().optional(),
+				})
 				.nullable()
 				.optional(),
 			/** With `view`, while topics are on: the list's articles sorted into no topic. */
