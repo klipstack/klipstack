@@ -341,6 +341,23 @@ describe("confirming the first topics", () => {
 		})
 	})
 
+	it("asks for new words only for a kept topic whose name says something new", async () => {
+		const [writing, management] = await proposed()
+		await confirmTopics(userId, {
+			keep: [{ id: writing!.id, name: "writing online" }, { id: management!.id }],
+		})
+		const rows = await db.select().from(topics).where(eq(topics.userId, userId))
+		expect(rows.find((t) => t.id === writing!.id)).toMatchObject({
+			name: "writing online",
+			namedByReader: true,
+			rewordPending: false,
+		})
+		expect(rows.find((t) => t.id === management!.id)).toMatchObject({
+			namedByReader: false,
+			rewordPending: false,
+		})
+	})
+
 	it("refuses a topic that is not in the proposal, and a name past the limit", async () => {
 		await proposed()
 		const [theirs] = await proposed(otherId)

@@ -42,7 +42,7 @@ export const confirmTopics = defineEndpoint({
 	path: "/topics/confirm",
 	scope: "write",
 	summary:
-		"Confirms the first topics (GET /topics while `proposed`): the ones in `keep`, each under its new `name` if one is given; the others are removed and never proposed again. Then the library is sorted into them.",
+		"Confirms the first topics (GET /topics while `proposed`): the ones in `keep`, each under its new `name` if one is given; the others are removed and never proposed again. A kept topic whose new name says something new (more than its case changed) gets a description written for it first. Then the library is sorted into them.",
 	body: z.object({
 		keep: z.array(z.object({ id: Id, name: TopicName.optional() })).max(PROPOSED_TOPICS_MAX),
 	}),

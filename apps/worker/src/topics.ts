@@ -74,7 +74,7 @@ import { log } from "./log"
 
 export interface TopicsDeps {
 	models: Pick<TopicModels, "available" | "propose" | "grow" | "review" | "reword" | "sort">
-	/** Haiku's work (propose, grow, review) an account may have a month. */
+	/** Haiku's work (propose, grow, review, reword) an account may have a month. */
 	limit: number
 	/** Articles an account may have sorted a month, first sorts and re-sorts alike. */
 	sortLimit: number
@@ -248,8 +248,9 @@ class Run {
 			return done()
 		}
 		this.sorted = await usageThisMonth(db, this.userId, "topic_sorts")
-		// Topics the reader renamed get their words first: new saves are sorted by them.
-		await this.reword()
+		// Topics the reader renamed get their words first: new saves are sorted by them. The library
+		// is then sorted again into them from its first article, as `needsResort` left it.
+		if (await this.reword()) library = { ...library, resortAfterAt: null, resortAfterId: null }
 		const active = await this.activeTopics()
 
 		// New saves first, up to the whole budget: until the library's first sort is done, those
@@ -384,20 +385,30 @@ class Run {
 	 * A description and boundary for each topic the reader renamed (`rewordPending`), for what the
 	 * new name says; the library is then sorted again into them, once any of it was sorted. Not
 	 * while the library is being sorted again into other topics: that would start it over. What a
-	 * reword asked for is settled, whatever it brought, unless the reader renamed the topic again
-	 * meanwhile. True when the library is to be sorted again.
+	 * reword asked for is settled, whatever it brought, failures included: the topic keeps its words,
+	 * and sorting goes on. Unless the reader renamed the topic again meanwhile: that asks again. True
+	 * when the library is to be sorted again.
 	 */
 	async reword(): Promise<boolean> {
 		const active = await this.activeTopics()
 		const renamed = active.filter((t) => t.rewordPending)
 		if (renamed.length === 0 || active.some((t) => t.resortPending)) return false
 		if (!(await this.mayWork())) return false
-		const answer = await this.deps.models.reword({
-			topics: renamed,
-			others: active.filter((t) => !t.rewordPending),
-			language: this.language,
-		})
-		await this.worked(answer.spend)
+		let answer: Awaited<ReturnType<TopicsDeps["models"]["reword"]>> = { value: [], spend: [] }
+		try {
+			answer = await this.deps.models.reword({
+				topics: renamed,
+				others: active.filter((t) => !t.rewordPending),
+				language: this.language,
+			})
+			await this.worked(answer.spend)
+		} catch (error) {
+			// Asked again on every run, a failing reword would hold up sorting and cost what no cap counts.
+			log.warn("topics: a rename's words could not be written", {
+				userId: this.userId,
+				error: String(error),
+			})
+		}
 		const words = new Map(answer.value.map((w) => [w.topicId, w]))
 		return this.write(async (tx) => {
 			const reworded: string[] = []
@@ -416,7 +427,8 @@ class Run {
 						and(
 							eq(topics.id, t.id),
 							eq(topics.status, "active"),
-							eq(topics.name, t.name),
+							// A change of case meanwhile says nothing new.
+							sql`lower(${topics.name}) = lower(${t.name})`,
 							eq(topics.rewordPending, true),
 						),
 					)
@@ -460,29 +472,36 @@ class Run {
 				: []
 		})
 		return this.write(async (tx) => {
-			for (const w of widen)
-				await tx
+			const widened: string[] = []
+			for (const w of widen) {
+				// Not one the reader named meanwhile.
+				const [row] = await tx
 					.update(topics)
 					.set({ description: w.description, boundary: w.boundary })
-					.where(and(eq(topics.id, w.topicId), eq(topics.status, "active")))
+					.where(
+						and(
+							eq(topics.id, w.topicId),
+							eq(topics.status, "active"),
+							eq(topics.namedByReader, false),
+						),
+					)
+					.returning({ id: topics.id })
+				if (row) widened.push(row.id)
+			}
 			const created = await this.createTopics(tx, fresh, "grown")
-			await this.needsResort(
-				tx,
-				widen.map((w) => w.topicId),
-				true,
-			)
+			await this.needsResort(tx, widened, true)
 			await this.needsResort(
 				tx,
 				created.map((t) => t.id),
 			)
 			// What a growth asked for is settled, whatever it brought: the next waits for more than it
 			// leaves unsorted, counted once the library is sorted into what it brought (`grewAt`).
-			const changed = widen.length + created.length > 0
+			const changed = widened.length + created.length > 0
 			await tx
 				.update(topicLibraries)
 				.set(changed ? { grewAt: sql`now()` } : { unsortedAtLastGrow: unsorted })
 				.where(eq(topicLibraries.userId, this.userId))
-			return { grew: created.length, widened: widen.length }
+			return { grew: created.length, widened: widened.length }
 		})
 	}
 

@@ -770,36 +770,22 @@ describe("after the reader confirms", () => {
 	})
 
 	it("counts what a growth left once its topic is gone before the library is sorted into it", async () => {
-		const { deps, calls } = await confirmed({
-			grow: (topics) => ({
-				widen: [
-					{
-						topicId: topics.find((t) => t.name === "Cats")!.id,
-						description: "Articles about cats, and about owls.",
-						boundary: "",
-						articleIds: [],
-						reason: "",
-					},
-				],
-			}),
-			// The reader removes Cats while the growth is asked for.
-			during: async (call) => {
-				if (call !== "grow") return
-				const cats = await topicNamed("Cats")
-				await db.update(topics).set({ status: "removed" }).where(eq(topics.id, cats.id))
-				await db.delete(documentTopics).where(eq(documentTopics.topicId, cats.id))
-			},
-		})
+		const { deps, calls } = await confirmed(growsOwls)
 		await settle(deps, calls)
 		await many(5, "owls")
+		// The owls are sorted and Owls grows; the reader removes it before the library is sorted into it.
+		await run(deps)
+		const owls = await topicNamed("Owls")
+		await db.update(topics).set({ status: "removed" }).where(eq(topics.id, owls.id))
+		await db.delete(documentTopics).where(eq(documentTopics.topicId, owls.id))
 		await settle(deps, calls)
 		expect(calls.filter((c) => c.startsWith("grow"))).toEqual(["grow:5"])
-		// The 13 cats and the 5 owls are in no topic.
+		// The 5 owls are in no topic.
 		const [library] = await db
 			.select()
 			.from(topicLibraries)
 			.where(eq(topicLibraries.userId, userId))
-		expect(library).toMatchObject({ unsortedAtLastGrow: 18, grewAt: null })
+		expect(library).toMatchObject({ unsortedAtLastGrow: 5, grewAt: null })
 	})
 
 	const growsOwls = {
@@ -1245,6 +1231,118 @@ describe("a topic the reader renamed", () => {
 		expect(log.lastIndexOf("sort:Owls")).toBe(29)
 		expect(log.indexOf("reword")).toBe(30)
 		expect(log.slice(31)).toEqual(Array.from({ length: 30 }, () => "sort:Felines"))
+	})
+
+	it("holds up nothing when its words cannot be written: sorting goes on, and the old words stay", async () => {
+		const { deps, calls } = await confirmed({
+			reword: () => {
+				throw new AiError("provider", "Haiku is down", { cause: new Error("socket hang up") })
+			},
+		})
+		await rename("Cats", "Felines")
+		const late = await article("dogs")
+		await settle(deps, calls)
+		expect(calls.filter((c) => c.startsWith("reword"))).toEqual(["reword:Felines"])
+		expect(await topicsOf(late)).toEqual(["Dogs"])
+		expect(await topicNamed("Felines")).toMatchObject({
+			description: "Articles about cats.",
+			rewordPending: false,
+			resortPending: false,
+		})
+	})
+
+	it("keeps its words when the answer leaves it out, and sorts nothing again", async () => {
+		const { deps, calls } = await confirmed({ reword: () => [] })
+		await rename("Cats", "Felines")
+		await settle(deps, calls)
+		expect(calls.filter((c) => c.startsWith("reword"))).toEqual(["reword:Felines"])
+		expect(calls.filter((c) => c === "sort")).toEqual([])
+		expect(await topicNamed("Felines")).toMatchObject({
+			description: "Articles about cats.",
+			rewordPending: false,
+		})
+	})
+
+	it("counts towards the month's Haiku work, and waits at its cap while sorting goes on", async () => {
+		const { deps, calls } = await confirmed()
+		const before = await usage("topics")
+		await rename("Cats", "Cats and lions")
+		await settle(deps, calls)
+		expect(await usage("topics")).toBe(before + 1)
+
+		calls.length = 0
+		await rename("Cats and lions", "Felines")
+		const late = await article("dogs")
+		await settle({ ...deps, limit: before + 1 }, calls)
+		expect(calls.filter((c) => c.startsWith("reword"))).toEqual([])
+		expect(await topicsOf(late)).toEqual(["Dogs"])
+		expect((await topicNamed("Felines")).rewordPending).toBe(true)
+	})
+
+	it("takes its words when the reader changes only the name's case while they are written", async () => {
+		const { deps, calls } = await confirmed({
+			during: async (call) => {
+				if (call !== "reword") return
+				// As `renameTopic` does for a change of case: the name only.
+				await db
+					.update(topics)
+					.set({ name: "Cats And Lions" })
+					.where(and(eq(topics.userId, userId), eq(topics.name, "Cats and lions")))
+			},
+		})
+		await rename("Cats", "Cats and lions")
+		await settle(deps, calls)
+		expect(calls.filter((c) => c.startsWith("reword"))).toEqual(["reword:Cats and lions"])
+		expect(await topicNamed("Cats And Lions")).toMatchObject({
+			description: "Articles about cats and lions.",
+			rewordPending: false,
+		})
+	})
+
+	it("sorts the whole library into it, even past where an ended re-sort had stopped", async () => {
+		const sorts: string[][] = []
+		const { deps, calls, cats } = await confirmed({
+			sorting: (topics) => void sorts.push(topics.map((t) => t.name)),
+		})
+		// A re-sort that ended when the reader removed its topic left its place behind.
+		const [stopped] = await db
+			.select({ at: documents.createdAt, id: documents.id })
+			.from(documents)
+			.where(eq(documents.id, cats[9]!))
+		await db
+			.update(topicLibraries)
+			.set({ resortAfterAt: stopped!.at, resortAfterId: stopped!.id })
+			.where(eq(topicLibraries.userId, userId))
+		await rename("Cats", "Cats and lions")
+		sorts.length = 0
+		await settle(deps, calls)
+		expect(sorts).toEqual(Array.from({ length: 25 }, () => ["Cats and lions"]))
+	})
+
+	it("is not widened by a growth under way when the reader renames it", async () => {
+		const { deps, calls } = await confirmed({
+			grow: (topics) => ({
+				widen: [
+					{
+						topicId: topics.find((t) => t.name === "Cats")!.id,
+						description: "Articles about cats, and about owls.",
+						boundary: "",
+						articleIds: [],
+						reason: "",
+					},
+				],
+			}),
+			during: async (call) => {
+				if (call === "grow")
+					await db
+						.update(topics)
+						.set({ namedByReader: true })
+						.where(and(eq(topics.userId, userId), eq(topics.name, "Cats")))
+			},
+		})
+		await many(5, "owls")
+		await settle(deps, calls)
+		expect(await topicNamed("Cats")).toMatchObject({ description: "Articles about cats." })
 	})
 
 	it("is never widened by a growth", async () => {

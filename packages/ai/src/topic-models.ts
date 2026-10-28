@@ -187,15 +187,8 @@ export function createTopicModels(config: AiConfig, rules: TopicRules = TOPIC_RU
 			others: TopicIn[]
 			language: AiLanguage
 		}): Promise<Spent<{ topicId: string; description: string; boundary: string }[]>> {
-			if (config.fake)
-				return {
-					value: input.topics.map((t) => ({
-						topicId: t.id,
-						description: FAKE_TEXT[input.language].about(t.name),
-						boundary: FAKE_TEXT[input.language].boundary,
-					})),
-					spend: [],
-				}
+			// The fake cannot tell what a name means: the topics keep their words.
+			if (config.fake) return { value: [], spend: [] }
 			const renamed = topicRefs(input.topics)
 			const answer = await structured(
 				config,
@@ -282,18 +275,13 @@ async function structured<S extends z.ZodType>(
 }
 
 /** What the fake writes about a site's topic, in the reader's language. */
-const FAKE_TEXT: Record<
-	AiLanguage,
-	{ description: (site: string) => string; about: (name: string) => string; boundary: string }
-> = {
+const FAKE_TEXT: Record<AiLanguage, { description: (site: string) => string; boundary: string }> = {
 	en: {
 		description: (site) => `Articles from ${site}.`,
-		about: (name) => `Articles about ${name}.`,
 		boundary: "Articles from other sites belong in their own topics.",
 	},
 	es: {
 		description: (site) => `Artículos de ${site}.`,
-		about: (name) => `Artículos sobre ${name}.`,
 		boundary: "Los artículos de otros sitios van en sus propios temas.",
 	},
 }

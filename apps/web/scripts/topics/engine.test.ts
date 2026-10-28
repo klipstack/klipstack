@@ -457,6 +457,35 @@ describe("a simulated reader", () => {
 		])
 	})
 
+	it("writes words for a name the reader gives later, and sorts the library again into it", async () => {
+		const { models, haikuPurposes } = fakeModels(
+			{
+				propose: () => ({ topics: [cats] }),
+				grow: () => ({ widen: [], topics: [], note: "" }),
+				maintain: noChange,
+				reword: () => ({
+					topics: [{ topicId: "t1", description: "Articles about dogs.", boundary: "" }],
+				}),
+			},
+			undefined,
+			{
+				judge,
+				tidy: (prompt) =>
+					prompt.includes("proposes")
+						? none()
+						: { change: { op: "rename", topicId: "t1", name: "Dogs" } },
+			},
+		)
+		const sim = new Simulation(reading(), models)
+		for (const [n, animal] of arrivals) await sim.arrive(article(n, animal))
+
+		expect(haikuPurposes).toContain("reword")
+		expect(sim.topics[0]).toMatchObject({ name: "Dogs", description: "Articles about dogs." })
+		// Sorted again by the new words: the dogs join it, the cats leave.
+		expect(sortedInto(sim, id(2))).toEqual(["t1"])
+		expect(sortedInto(sim, id(1))).toEqual([])
+	})
+
 	it("never lets a review rename, merge, split or retire a topic the reader named", async () => {
 		const { models, haikuPurposes } = fakeModels(
 			{
