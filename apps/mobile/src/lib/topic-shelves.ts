@@ -135,13 +135,15 @@ export function topicsNotice(
 			const sorting = answer.sorting ?? 0
 			const waiting = t("home.topicShelves.articlesWaiting", { count: sorting })
 			if (answer.sortingPaused && sorting > 0) {
-				const { resumesAt, max } = answer.sortingPaused
+				const { resumesAt, max, library } = answer.sortingPaused
 				if (!resumesAt) return { body: t("home.topicShelves.sortsOff", { waiting }) }
 				const date = new Intl.DateTimeFormat(locale, {
 					month: "long",
 					day: "numeric",
 					timeZone: "UTC",
 				}).format(new Date(resumesAt))
+				// Only the library's first sort waits: new saves are still sorted.
+				if (library) return { body: t("home.topicShelves.libraryPaused", { waiting, date }) }
 				const sorted =
 					max === undefined
 						? ""
@@ -212,9 +214,11 @@ export function topicRefusal(e: unknown): string {
 
 /**
  * Whether the server is on it, so the screen asks again now and then, as the web's page does:
- * the first topics being proposed, or the library being sorted (not paused for the month).
+ * the first topics being proposed, or the library being sorted (not paused for the month). Unlike
+ * the web's page, it also asks while only the library's first sort waits: new saves are still sorted.
  */
 export function topicsBusy(answer: TopicsAnswer): boolean {
 	if (answer.stage === "proposing") return true
-	return answer.stage === "active" && (answer.sorting ?? 0) > 0 && !answer.sortingPaused
+	const paused = answer.sortingPaused && !answer.sortingPaused.library
+	return answer.stage === "active" && (answer.sorting ?? 0) > 0 && !paused
 }

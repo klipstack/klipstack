@@ -278,9 +278,11 @@ export default {
 		articlesWaiting_one: "{{count}} artículo espera",
 		articlesWaiting_other: "{{count}} artículos esperan",
 		sortsOff: "Este servidor no ordena artículos en temas: {{waiting}}.",
-		sorted: " Se ordenaron {{max}} artículos, el máximo por cuenta.",
+		sorted: " se ordenaron {{max}} artículos, el máximo por cuenta.",
 		paused:
 			"La ordenación se detuvo este mes:{{sorted}} {{waiting}}, y la ordenación vuelve a empezar el {{date}}. No se pierde nada.",
+		libraryPaused:
+			"La ordenación de tu biblioteca se pausó este mes, para que los artículos nuevos se sigan ordenando. {{waiting}}, y la ordenación vuelve a empezar el {{date}}. No se pierde nada.",
 		sorting_one: "Ordenando tu biblioteca en sus temas: falta {{count}} artículo.",
 		sorting_other: "Ordenando tu biblioteca en sus temas: faltan {{count}} artículos.",
 		empty: "Ahora no hay temas. Aparecerán nuevos a medida que guardes artículos.",

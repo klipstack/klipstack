@@ -1,6 +1,6 @@
 import type { ArticleSummary, Topic } from "@klipstack/sdk"
 import { KlipstackApiError } from "@klipstack/sdk"
-import { describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import { siteHue as webSiteHue } from "../../../web/app/lib/book-hue"
 import {
 	bookColor,
@@ -154,6 +154,32 @@ describe("topicsNotice", () => {
 		)
 	})
 
+	it("says only the library's first sort waits, and new saves are still sorted", () => {
+		// As servers since 2026-10-28 send it: no `max`, the month's sorts are not all spent.
+		expect(
+			topicsNotice(
+				answer({
+					sorting: 3,
+					sortingPaused: { resumesAt: "2026-11-01T00:00:00Z", library: true },
+				}),
+				"en-US",
+			)?.body,
+		).toBe(
+			"Sorting your library paused for this month, so new saves can still be sorted. 3 articles are waiting, and sorting starts again on November 1. Nothing is lost.",
+		)
+		expect(
+			topicsNotice(
+				answer({
+					sorting: 1,
+					sortingPaused: { resumesAt: "2026-11-01T00:00:00Z", max: 2000, library: false },
+				}),
+				"en-US",
+			)?.body,
+		).toBe(
+			"Sorting stopped for this month: 2,000 articles were sorted, the most an account can. 1 article is waiting, and sorting starts again on November 1. Nothing is lost.",
+		)
+	})
+
 	it("says nothing while every article is sorted, and nothing for an account without topics", () => {
 		expect(
 			topicsNotice(answer({ items: [topic(1, 1)], sorting: 0, sortingPaused: null })),
@@ -180,11 +206,55 @@ describe("topicsBusy", () => {
 		expect(topicsBusy(answer({ sorting: 3, sortingPaused: null }))).toBe(true)
 	})
 
+	it("asks again while only the library's first sort waits: new saves are still sorted", () => {
+		expect(
+			topicsBusy(
+				answer({ sorting: 3, sortingPaused: { resumesAt: "2026-11-01T00:00:00Z", library: true } }),
+			),
+		).toBe(true)
+	})
+
 	it("waits for the reader otherwise", () => {
 		expect(topicsBusy(answer({ sorting: 3, sortingPaused: { resumesAt: null } }))).toBe(false)
+		for (const library of [undefined, false])
+			expect(
+				topicsBusy(
+					answer({
+						sorting: 3,
+						sortingPaused: { resumesAt: "2026-11-01T00:00:00Z", max: 2000, library },
+					}),
+				),
+			).toBe(false)
 		expect(topicsBusy(answer({ sorting: 0, sortingPaused: null }))).toBe(false)
 		for (const stage of ["unavailable", "off", "waiting", "proposed"] as const)
 			expect(topicsBusy(answer({ stage }))).toBe(false)
+	})
+})
+
+describe("in Spanish", () => {
+	/** The screen's words as on a phone in Spanish. */
+	async function inSpanish() {
+		vi.resetModules()
+		vi.doMock("expo-localization", () => ({
+			getLocales: () => [{ languageTag: "es-ES", languageCode: "es" }],
+		}))
+		return import("./topic-shelves")
+	}
+
+	afterEach(() => {
+		vi.doUnmock("expo-localization")
+	})
+
+	it("says the month's sorts are spent, or that only the library's first sort waits", async () => {
+		const shelves = await inSpanish()
+		const paused = (sortingPaused: TopicsAnswer["sortingPaused"]) =>
+			shelves.topicsNotice({ stage: "active", items: [], sorting: 3, sortingPaused })?.body
+		expect(paused({ resumesAt: "2026-11-01T00:00:00Z", max: 2000 })).toBe(
+			"La ordenación se detuvo este mes: se ordenaron 2000 artículos, el máximo por cuenta. 3 artículos esperan, y la ordenación vuelve a empezar el 1 de noviembre. No se pierde nada.",
+		)
+		expect(paused({ resumesAt: "2026-11-01T00:00:00Z", library: true })).toBe(
+			"La ordenación de tu biblioteca se pausó este mes, para que los artículos nuevos se sigan ordenando. 3 artículos esperan, y la ordenación vuelve a empezar el 1 de noviembre. No se pierde nada.",
+		)
 	})
 })
 
