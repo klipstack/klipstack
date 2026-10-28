@@ -216,7 +216,7 @@ describe("the topics simulation", () => {
 		expect(sim.topics.map((t) => t.name)).toEqual(["Cats"])
 	})
 
-	it("counts an article a widened topic lets go as unsorted again", async () => {
+	it("keeps what a widened topic holds, and sorts into it the articles in no topic", async () => {
 		const { models } = fakeModels({
 			// Named for neither animal: only its description says which articles belong.
 			propose: () => ({
@@ -244,8 +244,10 @@ describe("the topics simulation", () => {
 			[5, "dogs"],
 		] as const)
 			await sim.arrive(article(n, animal))
-		expect(sortedInto(sim, id(1))).toEqual([])
-		expect(sim.result("test").unsorted.sort()).toEqual([id(1), id(2)])
+		// The cats are not sorted again: a description that no longer names them keeps them.
+		expect(sortedInto(sim, id(1))).toEqual(["t1"])
+		expect(sortedInto(sim, id(3))).toEqual(["t1"])
+		expect(sim.result("test").unsorted).toEqual([])
 	})
 
 	it("asks for the first topics again only after more articles, when none were proposed", async () => {

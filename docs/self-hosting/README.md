@@ -150,7 +150,7 @@ work. Keep the bucket private: the app serves images itself, after checking who 
 | `ANTHROPIC_API_KEY` | unset | AI answers in the reader. See [ai.md](ai.md). |
 | `TYPESAFE_API_KEY` | unset | With `ANTHROPIC_API_KEY`, automatic topics. See [ai.md](ai.md#automatic-topics). |
 | `LIMIT_TOPICS_PER_MONTH` | `100` | Haiku's work on one account's topics per month. |
-| `LIMIT_TOPIC_SORTS_PER_MONTH` | `1000` | Articles sorted into one account's topics per month, first sorts and re-sorts alike. |
+| `LIMIT_TOPIC_SORTS_PER_MONTH` | `1000` | Articles sorted into one account's topics per month, first sorts and re-sorts alike; re-sorts, growing and reviewing stop at three quarters, keeping the rest for new saves. |
 | `LIMIT_SAVES_PER_MONTH` | `300` | Saves per account per month. |
 | `LIMIT_STORAGE_MB` | `250` | Image storage per account. |
 | `LIMIT_FEEDS` | `100` | Feeds per account. |

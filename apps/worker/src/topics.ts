@@ -28,8 +28,10 @@ import {
 	inArray,
 	isNotNull,
 	isNull,
+	lte,
 	not,
 	notExists,
+	or,
 	rewriteSavedQueries,
 	type SQL,
 	sql,
@@ -50,15 +52,17 @@ import { log } from "./log"
  * 1. Before the reader confirmed: propose the first topics once the library is big enough.
  * 2. Sort the articles not sorted yet into the topics.
  * 3. Sort the library again into the topics new or changed since (`resortPending`), from where the
- *    last run stopped.
+ *    last run stopped. A widened topic only gets the articles that could join it (`resortWidened`).
  * 4. Grow new topics, or widen existing ones, from the articles no topic holds.
  * 5. Review the topics every so many new articles.
  *
- * What is left goes to the next run (`again`). Sorting, first or again, stops at the month's sort
- * budget (`sortLimit`), and growing and reviewing stop with it: their topics would wait a month to
- * be sorted into. What is left waits for the month's runs on the 1st (`topics-month`). Runs for
- * one reader never overlap (the queue's `stately` policy). Every write first checks that the
- * reader still has topics on: one turned off mid-run stops the run, and nothing it learned is kept.
+ * What is left goes to the next run (`again`). Sorting stops at the month's sort budget
+ * (`sortLimit`); sorting again stops a share short of it (`NEW_SAVES_SHARE`), so that new saves are
+ * sorted while the library waits. Growing and reviewing stop with sorting again: their topics would
+ * wait a month to be sorted into. What is left waits for the month's runs on the 1st
+ * (`topics-month`). Runs for one reader never overlap (the queue's `stately` policy). Every write
+ * first checks that the reader still has topics on: one turned off mid-run stops the run, and
+ * nothing it learned is kept.
  */
 
 export interface TopicsDeps {
@@ -94,6 +98,8 @@ export const SORT_BATCH = 200
 export const PROPOSE_MAX = 200
 /** The newest unsorted articles a growth reads. */
 const GROW_MAX = 40
+/** The share of the month's sorts that sorting the library again leaves to new saves. */
+const NEW_SAVES_SHARE = 0.25
 /** A model's description or boundary longer than this is cut: it is a sentence or two. */
 const DESCRIPTION_MAX = 600
 
@@ -129,7 +135,11 @@ export async function bringTopicsUpToDate(
 }
 
 type Library = typeof topicLibraries.$inferSelect
-type ActiveTopic = TopicIn & { namedByReader: boolean; resortPending: boolean }
+type ActiveTopic = TopicIn & {
+	namedByReader: boolean
+	resortPending: boolean
+	resortWidened: boolean
+}
 
 class Run {
 	readonly batch: number
@@ -240,10 +250,16 @@ class Run {
 		outcome.resorted = resort.articles
 		if (resort.paused) return paused()
 		if (!resort.finished) return later()
+		// The library is sorted into what the last growth brought: what it left unsorted is counted.
+		let unsortedAtLastGrow = library.unsortedAtLastGrow
+		if (library.grewAt) {
+			unsortedAtLastGrow = await this.unsortedCount({ byGrowth: true })
+			await this.setLibrary({ unsortedAtLastGrow, grewAt: null })
+		}
 		// Nothing waits, but a topic grown or changed now could not be sorted into until the 1st.
-		if (this.sortsLeft() === 0) return done()
+		if (this.resortsLeft() === 0) return done()
 
-		const growth = await this.grow(library.unsortedAtLastGrow)
+		const growth = await this.grow(unsortedAtLastGrow)
 		outcome.grew = growth.grew
 		outcome.widened = growth.widened
 		if (growth.grew + growth.widened > 0) return later()
@@ -261,23 +277,38 @@ class Run {
 
 	/**
 	 * Sorts a batch of the library again into the topics that need it, after the article the last
-	 * batch stopped at. `finished` once the library's end is reached: the topics are up to date.
-	 * `paused` when the month's sort budget ends the batch first.
+	 * batch stopped at: every article into a new or changed topic, and into a widened one only those
+	 * that could join it. `finished` once the library's end is reached: the topics are up to date.
+	 * `paused` when the month's sort budget for sorting again ends the batch first.
 	 */
 	async resort(
 		library: Library,
 	): Promise<{ articles: number; finished: boolean; paused: boolean }> {
 		const changed = (await this.activeTopics()).filter((t) => t.resortPending)
 		if (changed.length === 0) return { articles: 0, finished: true, paused: false }
-		const room = Math.min(this.batch, this.sortsLeft())
+		const room = Math.min(this.batch, this.resortsLeft())
 		if (room === 0) return { articles: 0, finished: false, paused: true }
 		const after =
 			library.resortAfterAt && library.resortAfterId
 				? { at: library.resortAfterAt, id: library.resortAfterId }
 				: null
-		const batch = await this.articles({ sorted: true, after, limit: room })
-		for (const article of batch)
-			await this.sortInto(article, changed, { first: false, counts: false, refusedFirst: false })
+		const whole = changed.filter((t) => !t.resortWidened)
+		const widened = changed.filter((t) => t.resortWidened)
+		const batch = await this.articles({
+			sorted: true,
+			mayJoin: whole.length ? undefined : widened.map((t) => t.id),
+			after,
+			limit: room,
+		})
+		const joins = await this.joinable(
+			batch.map((a) => a.id),
+			widened,
+		)
+		for (const article of batch) {
+			const scored = [...whole, ...(joins.get(article.id) ?? [])]
+			if (scored.length)
+				await this.sortInto(article, scored, { first: false, counts: false, refusedFirst: false })
+		}
 		const last = batch.at(-1)
 		if (batch.length === room && last) {
 			await this.setLibrary({ resortAfterAt: last.createdAt, resortAfterId: last.id })
@@ -286,7 +317,7 @@ class Run {
 		await this.write(async (tx) => {
 			await tx
 				.update(topics)
-				.set({ resortPending: false })
+				.set({ resortPending: false, resortWidened: false })
 				.where(
 					inArray(
 						topics.id,
@@ -301,10 +332,16 @@ class Run {
 		return { articles: batch.length, finished: true, paused: false }
 	}
 
-	/** Marks topics for the library to be sorted again into them, from its first article. */
-	async needsResort(tx: Tx, topicIds: string[]) {
+	/**
+	 * Marks topics for the library to be sorted again into them, from its first article. `widened`:
+	 * only the articles that could join them are.
+	 */
+	async needsResort(tx: Tx, topicIds: string[], widened = false) {
 		if (topicIds.length === 0) return
-		await tx.update(topics).set({ resortPending: true }).where(inArray(topics.id, topicIds))
+		await tx
+			.update(topics)
+			.set({ resortPending: true, resortWidened: widened })
+			.where(inArray(topics.id, topicIds))
 		await tx
 			.update(topicLibraries)
 			.set({ resortAfterAt: null, resortAfterId: null })
@@ -335,18 +372,28 @@ class Run {
 				: []
 		})
 		return this.write(async (tx) => {
-			// What a growth asked for is settled, whatever it brought: the next waits for more.
-			await tx
-				.update(topicLibraries)
-				.set({ unsortedAtLastGrow: unsorted })
-				.where(eq(topicLibraries.userId, this.userId))
 			for (const w of widen)
 				await tx
 					.update(topics)
 					.set({ description: w.description, boundary: w.boundary })
 					.where(and(eq(topics.id, w.topicId), eq(topics.status, "active")))
 			const created = await this.createTopics(tx, fresh, "grown")
-			await this.needsResort(tx, [...widen.map((w) => w.topicId), ...created.map((t) => t.id)])
+			await this.needsResort(
+				tx,
+				widen.map((w) => w.topicId),
+				true,
+			)
+			await this.needsResort(
+				tx,
+				created.map((t) => t.id),
+			)
+			// What a growth asked for is settled, whatever it brought: the next waits for more than it
+			// leaves unsorted, counted once the library is sorted into what it brought (`grewAt`).
+			const changed = widen.length + created.length > 0
+			await tx
+				.update(topicLibraries)
+				.set(changed ? { grewAt: sql`now()` } : { unsortedAtLastGrow: unsorted })
+				.where(eq(topicLibraries.userId, this.userId))
 			return { grew: created.length, widened: widen.length }
 		})
 	}
@@ -685,6 +732,7 @@ class Run {
 				boundary: topics.boundary,
 				namedByReader: topics.namedByReader,
 				resortPending: topics.resortPending,
+				resortWidened: topics.resortWidened,
 			})
 			.from(topics)
 			.where(and(eq(topics.userId, this.userId), eq(topics.status, "active")))
@@ -703,6 +751,62 @@ class Run {
 					isNull(documentTopics.refusedAt),
 				),
 			)
+	}
+
+	/**
+	 * The widened topics each article could join: every one when it is in no topic, else those it
+	 * was suggested for. Never one the reader took it out of.
+	 */
+	async joinable(articleIds: string[], widened: TopicIn[]): Promise<Map<string, TopicIn[]>> {
+		if (articleIds.length === 0 || widened.length === 0) return new Map()
+		const rows = await db
+			.select({
+				documentId: documentTopics.documentId,
+				topicId: documentTopics.topicId,
+				level: documentTopics.level,
+				refusedAt: documentTopics.refusedAt,
+			})
+			.from(documentTopics)
+			.innerJoin(topics, eq(topics.id, documentTopics.topicId))
+			.where(and(inArray(documentTopics.documentId, articleIds), eq(topics.status, "active")))
+		return new Map(
+			articleIds.map((id) => {
+				const own = rows.filter((r) => r.documentId === id)
+				const inNoTopic = !own.some((r) => r.level === "applied" && !r.refusedAt)
+				const joins = widened.filter((t) => {
+					const row = own.find((r) => r.topicId === t.id)
+					return row ? row.level === "suggested" && !row.refusedAt : inNoTopic
+				})
+				return [id, joins]
+			}),
+		)
+	}
+
+	/**
+	 * An article that could join `topicId` once it widened, as `joinable` says of a batch: in no
+	 * topic, or suggested for it, and never taken out of it.
+	 */
+	mayJoin(topicId: string): SQL {
+		const row = (where: SQL | undefined) =>
+			exists(
+				db
+					.select({ id: documentTopics.documentId })
+					.from(documentTopics)
+					.where(
+						and(
+							eq(documentTopics.documentId, documents.id),
+							eq(documentTopics.topicId, topicId),
+							where,
+						),
+					),
+			)
+		return and(
+			not(row(isNotNull(documentTopics.refusedAt))),
+			or(
+				this.inNoTopic(),
+				row(and(eq(documentTopics.level, "suggested"), isNull(documentTopics.refusedAt))),
+			),
+		)!
 	}
 
 	/** Ready, not in the trash, an article (not a post): what the topics are about. */
@@ -745,14 +849,16 @@ class Run {
 
 	/**
 	 * The library's articles, oldest first (the `newest` ones, still oldest first). `unsorted`: not
-	 * sorted yet; `sorted`: sorted already; `unsortedInTopics`: sorted into no topic; `after`: past
-	 * that article, by save time then id. Without `withText`, the text is left out.
+	 * sorted yet; `sorted`: sorted already; `unsortedInTopics`: sorted into no topic; `mayJoin`:
+	 * could join one of these widened topics; `after`: past that article, by save time then id.
+	 * Without `withText`, the text is left out.
 	 */
 	async articles(
 		options: {
 			unsorted?: boolean
 			sorted?: boolean
 			unsortedInTopics?: boolean
+			mayJoin?: string[]
 			after?: { at: Date; id: string } | null
 			limit?: number
 			newest?: number
@@ -793,6 +899,7 @@ class Run {
 						: undefined,
 					options.sorted ? sortedYet : undefined,
 					options.unsortedInTopics ? this.inNoTopic() : undefined,
+					options.mayJoin ? or(...options.mayJoin.map((id) => this.mayJoin(id))) : undefined,
 					options.after
 						? // Milliseconds, as the cursor was kept: a JavaScript date has no more.
 							sql`(date_trunc('milliseconds', ${documents.createdAt}), ${documents.id}) > (${options.after.at.toISOString()}::timestamptz, ${options.after.id}::uuid)`
@@ -818,12 +925,27 @@ class Run {
 		return row?.count ?? 0
 	}
 
-	/** Sorted articles in no topic: how many, without reading them. */
-	async unsortedCount(): Promise<number> {
+	/**
+	 * Sorted articles in no topic: how many, without reading them. `byGrowth`: only those first
+	 * sorted by the last growth (`grewAt`).
+	 */
+	async unsortedCount({ byGrowth = false } = {}): Promise<number> {
+		const sortedByGrowth = exists(
+			db
+				.select({ id: topicSorts.documentId })
+				.from(topicSorts)
+				.innerJoin(topicLibraries, eq(topicLibraries.userId, topicSorts.userId))
+				.where(
+					and(
+						eq(topicSorts.documentId, documents.id),
+						lte(topicSorts.sortedAt, topicLibraries.grewAt),
+					),
+				),
+		)
 		const [row] = await db
 			.select({ count: sql<number>`count(*)::int` })
 			.from(documents)
-			.where(and(this.inLibrary(), this.inNoTopic()))
+			.where(and(this.inLibrary(), this.inNoTopic(), byGrowth ? sortedByGrowth : undefined))
 		return row?.count ?? 0
 	}
 
@@ -835,6 +957,11 @@ class Run {
 	/** Articles the month's sort budget has left. */
 	sortsLeft(): number {
 		return Math.max(0, this.deps.sortLimit - this.sorted)
+	}
+
+	/** Articles the month's sort budget has left for sorting again: a share stays for new saves. */
+	resortsLeft(): number {
+		return Math.max(0, this.sortsLeft() - Math.floor(this.deps.sortLimit * NEW_SAVES_SHARE))
 	}
 
 	/** One article sent to Jev: towards the month's sort budget, once it answered (or refused). */

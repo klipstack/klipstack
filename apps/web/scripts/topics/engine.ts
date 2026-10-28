@@ -278,6 +278,16 @@ export class Simulation {
 		return (this.assignments.get(articleId) ?? []).some((a) => a.level === "applied")
 	}
 
+	/**
+	 * Whether an article could join a widened topic: it is in no topic, or the topic was suggested
+	 * for it. Never one the reader took it out of.
+	 */
+	private mayJoin(articleId: string, topicId: string): boolean {
+		if (this.refusedFor(articleId).has(topicId)) return false
+		const own = (this.assignments.get(articleId) ?? []).find((a) => a.topicId === topicId)
+		return own ? own.level === "suggested" : !this.isSorted(articleId)
+	}
+
 	private describe(articleId: string): string {
 		const list = this.assignments.get(articleId) ?? []
 		if (list.length === 0) return "unsorted"
@@ -446,9 +456,13 @@ export class Simulation {
 			this.log(`  ○ no new topic from ${pool.length} unsorted: ${answer.note}`)
 			return
 		}
-		// A new or widened topic is checked against the whole library, not only the pool.
-		for (const article of this.library) await this.sort(article, [...widened, ...topics])
-		// A widened topic can also let an article go.
+		// A new topic is checked against the whole library, not only the pool; a widened one only
+		// against the articles that could join it, as in production.
+		for (const article of this.library) {
+			const joins = widened.filter((t) => this.mayJoin(article.id, t.id))
+			if (joins.length || topics.length) await this.sort(article, [...joins, ...topics])
+		}
+		// What is left unsorted once the library is sorted into them: the next growth waits for more.
 		this.unsorted = this.library.filter((a) => !this.isSorted(a.id)).map((a) => a.id)
 		this.lastAttemptPool = this.unsorted.length
 	}
