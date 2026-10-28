@@ -291,6 +291,8 @@ export default {
 		sorted: " {{max}} articles were sorted, the most an account can.",
 		paused:
 			"Sorting stopped for this month:{{sorted}} {{waiting}}, and sorting starts again on {{date}}. Nothing is lost.",
+		libraryPaused:
+			"Sorting your library paused for this month, so new saves can still be sorted. {{waiting}}, and sorting starts again on {{date}}. Nothing is lost.",
 		sorting_one: "Sorting your library into its topics: {{count}} article to go.",
 		sorting_other: "Sorting your library into its topics: {{count}} articles to go.",
 		empty: "No topics right now. New ones appear as you save more articles.",
