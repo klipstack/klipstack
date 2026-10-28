@@ -28,7 +28,7 @@ import {
 	writeFileSync,
 } from "node:fs"
 import { homedir, tmpdir } from "node:os"
-import { join, resolve } from "node:path"
+import { isAbsolute, join, resolve } from "node:path"
 import { pathToFileURL } from "node:url"
 
 const git = (args, env) =>
@@ -261,11 +261,13 @@ function gitInvocation(words) {
 	return i < rest.length ? { sub: rest[i], args: rest.slice(i + 1), dirs } : null
 }
 
-// The directory that `cd target` or `git -C target` leads to from dir. A target only the shell
-// knows, such as a variable or `cd -`, is taken to leave dir as it is.
+// The directory that `cd target` or `git -C target` leads to from dir, or null for one only the
+// shell knows: a variable other than $HOME, a command's output, `cd -`.
 function chdir(dir, target = homedir()) {
-	if (target === "-" || /[$`]/.test(target)) return dir
-	return resolve(dir, target.replace(/^~(?=\/|$)/, homedir()))
+	const path = target.replace(/^(~|\$HOME|\$\{HOME\})(?=\/|$)/, homedir())
+	if (path === "-" || /[$`]/.test(path)) return null
+	if (isAbsolute(path)) return resolve(path)
+	return dir === null ? null : resolve(dir, path)
 }
 
 const isBranch = (name, dir) => {
@@ -278,12 +280,18 @@ const isBranch = (name, dir) => {
 	}
 }
 
-const currentBranch = (dir) => {
-	try {
-		return git(["-C", dir, "symbolic-ref", "--short", "-q", "HEAD"])
-	} catch {
-		return ""
+// The checkout that dir is in, named by its top directory, and the branch it has out ("" when
+// HEAD is detached). Null when dir is in no repository, or does not exist.
+const checkoutAt = (dir) => {
+	const read = (...args) => {
+		try {
+			return git(["-C", dir, ...args])
+		} catch {
+			return null
+		}
 	}
+	const top = read("rev-parse", "--show-toplevel")
+	return top ? { top, branch: read("symbolic-ref", "--short", "-q", "HEAD") ?? "" } : null
 }
 
 // The words that are not options, skipping the values of the options named.
@@ -340,13 +348,17 @@ const skipsHooks = (sub, args) =>
 		? commitSkipsHooks(args)
 		: args.some((a) => a.length > 6 && "--no-verify".startsWith(a))
 
-// `cwd` is where the line runs, and `branchOf(dir)` stands in for git, for tests. A git command
-// acts on the branch of the directory it runs in: a worktree's own, not that of the main checkout.
+const unplaced =
+	"This hook can't tell which branch that git command acts on: it runs in a directory only the shell knows (a variable, `cd -`), or in no repository. Name the directory literally: `cd <dir> && git …` or `git -C <dir> …`."
+
+// `cwd` is where the line runs, and `checkoutOf(dir)` stands in for git, for tests. A git command
+// acts on the branch of the checkout it runs in: a worktree's own, not that of the main checkout.
 // The line is read in order: `cd wt && git commit` commits in wt, and `git switch -c x && git
-// commit` commits on x.
-export function guard(line, cwd = process.cwd(), branchOf = currentBranch) {
+// commit` commits on x, from any directory of that checkout.
+export function guard(line, cwd = process.cwd(), checkoutOf = checkoutAt) {
 	let dir = resolve(cwd)
 	const outer = []
+	// Branches switched to earlier on the line, by checkout.
 	const switched = new Map()
 	for (const words of commands(line)) {
 		const [name, ...rest] = program(words)
@@ -362,7 +374,9 @@ export function guard(line, cwd = process.cwd(), branchOf = currentBranch) {
 		if (!call) continue
 		const { sub, args } = call
 		const here = call.dirs.reduce((from, to) => chdir(from, to), dir)
-		const current = switched.has(here) ? switched.get(here) : branchOf(here)
+		// Null when the branch can't be known here: a commit or push there is refused, not guessed.
+		const at = here === null ? null : checkoutOf(here)
+		const current = at && (switched.has(at.top) ? switched.get(at.top) : at.branch)
 		if (
 			["commit", "push", "merge", "cherry-pick", "revert", "am"].includes(sub) &&
 			skipsHooks(sub, args)
@@ -375,12 +389,15 @@ export function guard(line, cwd = process.cwd(), branchOf = currentBranch) {
 			)
 			const [target] = create >= 0 ? [args[create + 1]] : positionals(args, ["--conflict"])
 			// `git checkout <path>` restores files: only an existing branch is a switch.
-			if (sub === "checkout" && create < 0 && !isBranch(target, here)) continue
-			if (target !== undefined) switched.set(here, target === "-" ? "" : target)
+			if (!at || (sub === "checkout" && create < 0 && !isBranch(target, here))) continue
+			if (target !== undefined) switched.set(at.top, target === "-" ? "" : target)
 			continue
 		}
-		if (["commit", "merge", "cherry-pick", "revert", "am"].includes(sub) && current === "main") {
-			return "Never commit on `main` (AGENTS.md). Create a branch first: `git switch -c <type>/<short-name>`; uncommitted changes come along."
+		if (["commit", "merge", "cherry-pick", "revert", "am"].includes(sub)) {
+			if (current === null) return unplaced
+			if (current === "main") {
+				return "Never commit on `main` (AGENTS.md). Create a branch first: `git switch -c <type>/<short-name>`; uncommitted changes come along."
+			}
 		}
 		if (sub === "push") {
 			if (args.includes("--all") || args.includes("--mirror")) {
@@ -397,6 +414,7 @@ export function guard(line, cwd = process.cwd(), branchOf = currentBranch) {
 			const targets = refspecs.length
 				? refspecs.map((r) => r.replace(/^\+/, "").split(":").pop())
 				: [current]
+			if (targets.some((t) => t === null || (t === "HEAD" && current === null))) return unplaced
 			if (
 				targets.some(
 					(t) => t === "main" || t === "refs/heads/main" || (t === "HEAD" && current === "main"),
