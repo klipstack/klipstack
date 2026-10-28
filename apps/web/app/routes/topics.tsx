@@ -70,7 +70,8 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 	const number = new Intl.NumberFormat(locale)
 	const sortsPaused = state.sortsPaused && {
 		max: number.format(state.sortsPaused.max),
-		waiting: number.format(state.sorting),
+		waiting: number.format(state.sortsPaused.waiting),
+		count: state.sortsPaused.waiting,
 		date: formatDay(state.sortsPaused.resetsAt, locale, "UTC"),
 		// The server sorts nothing at all: no month brings sorting back.
 		off: state.sortsPaused.max === 0,
@@ -306,6 +307,7 @@ function Shelves({
 	sortsPaused: {
 		max: string
 		waiting: string
+		count: number
 		date: string
 		off: boolean
 		library: boolean
@@ -322,10 +324,7 @@ function Shelves({
 							: sortsPaused.library
 								? "topics.librarySortPaused"
 								: "topics.sortsPaused",
-						{
-							count: state.sorting,
-							...sortsPaused,
-						},
+						sortsPaused,
 					)}
 				</p>
 			) : state.sorting > 0 ? (

@@ -169,6 +169,8 @@ test("topics: the library's first sort waits for next month at three quarters of
 	await db
 		.insert(usageCounts)
 		.values({ userId: reader.id, metric: "topic_sorts", month, count: 750 })
+	// A new save, not sorted yet: the month's last quarter is for it, so it does not wait for the 1st.
+	await insertArticle(reader.id, "New essay", "<p>New</p>")
 
 	await page.goto("/topics")
 	const next = new Intl.DateTimeFormat("en", { dateStyle: "medium", timeZone: "UTC" }).format(

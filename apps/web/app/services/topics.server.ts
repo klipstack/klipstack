@@ -93,8 +93,9 @@ export interface TopicsState {
 	 * The month's sorts are spent while articles wait to be sorted: they are sorted from `resetsAt`
 	 * on. `max`: the month's sorts (`LIMIT_TOPIC_SORTS_PER_MONTH`). `library`: only the library's
 	 * first sort waits, having taken its share of them (`librarySorts`); new saves are still sorted.
+	 * `waiting`: the articles that wait for `resetsAt`.
 	 */
-	sortsPaused: { max: number; resetsAt: string; library: boolean } | null
+	sortsPaused: { max: number; resetsAt: string; library: boolean; waiting: number } | null
 }
 
 const inLibrary = (userId: string) =>
@@ -151,7 +152,7 @@ export async function topicsState(
 		topics: await summaries(userId, status, { shelves }),
 		unseen: !library.confirmedAt && !library.seenAt,
 		sorting,
-		sortsPaused: sorting > 0 ? await sortsPaused(userId, library) : null,
+		sortsPaused: sorting > 0 ? await sortsPaused(userId, library, sorting) : null,
 	}
 }
 
@@ -162,19 +163,20 @@ export async function topicsState(
 async function sortsPaused(
 	userId: string,
 	library: typeof topicLibraries.$inferSelect,
+	sorting: number,
 ): Promise<TopicsState["sortsPaused"]> {
 	const max = topicLimits().sorts
 	const used = await usageThisMonth(db, userId, "topic_sorts")
 	const paused = { max, resetsAt: monthOf().resetsAt.toISOString() }
-	if (used >= max) return { ...paused, library: false }
+	if (used >= max) return { ...paused, library: false, waiting: sorting }
 	if (library.librarySortedAt || used < librarySorts(max)) return null
-	const [waiting] = await db
-		.select({ id: documents.id })
+	// New saves are still sorted: only the library saved before the reader confirmed waits.
+	const [{ waiting } = { waiting: 0 }] = await db
+		.select({ waiting: count() })
 		.from(documents)
 		.innerJoin(topicLibraries, eq(topicLibraries.userId, documents.userId))
 		.where(and(inLibrary(userId), notSorted, lte(documents.createdAt, topicLibraries.confirmedAt)))
-		.limit(1)
-	return waiting ? { ...paused, library: true } : null
+	return waiting ? { ...paused, library: true, waiting } : null
 }
 
 async function sortedCount(userId: string): Promise<number> {

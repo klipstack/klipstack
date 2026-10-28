@@ -214,6 +214,11 @@ describe("where topics stand", () => {
 		const sorted = await article()
 		await active(userId, "Shelf", [sorted])
 		await db.insert(topicSorts).values({ documentId: sorted, userId })
+		// Confirmed long ago: the articles saved below are new saves, whatever the clocks say.
+		await db
+			.update(topicLibraries)
+			.set({ confirmedAt: new Date(Date.UTC(2026, 0, 1)) })
+			.where(eq(topicLibraries.userId, userId))
 		const { month, resetsAt } = monthOf()
 		await db.insert(usageCounts).values({ userId, metric: "topic_sorts", month, count: 999 })
 		expect(await topicsState(userId)).toMatchObject({ sorting: 0, sortsPaused: null })
@@ -228,7 +233,7 @@ describe("where topics stand", () => {
 			.where(and(eq(usageCounts.userId, userId), eq(usageCounts.metric, "topic_sorts")))
 		expect(await topicsState(userId)).toMatchObject({
 			sorting: 2,
-			sortsPaused: { max: 1000, resetsAt: resetsAt.toISOString(), library: false },
+			sortsPaused: { max: 1000, resetsAt: resetsAt.toISOString(), library: false, waiting: 2 },
 		})
 	})
 
@@ -254,12 +259,17 @@ describe("where topics stand", () => {
 		await setUsage(750)
 		expect(await topicsState(userId)).toMatchObject({
 			sorting: 1,
-			sortsPaused: { max: 1000, resetsAt: resetsAt.toISOString(), library: true },
+			sortsPaused: { max: 1000, resetsAt: resetsAt.toISOString(), library: true, waiting: 1 },
+		})
+		// A new save is sorted with the month's last quarter: only the library waits for the 1st.
+		await article()
+		expect(await topicsState(userId)).toMatchObject({
+			sorting: 2,
+			sortsPaused: { library: true, waiting: 1 },
 		})
 
-		// Only a new save waits: the month's last quarter is for it.
+		// Only the new save waits: nothing waits for the 1st.
 		await db.insert(topicSorts).values({ documentId: backlog, userId })
-		await article()
 		expect(await topicsState(userId)).toMatchObject({ sorting: 1, sortsPaused: null })
 		// Once the library's first sort is done, an older article back from the trash is a new save.
 		await db.delete(topicSorts).where(eq(topicSorts.documentId, backlog))
