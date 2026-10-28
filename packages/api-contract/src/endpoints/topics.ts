@@ -42,7 +42,7 @@ export const confirmTopics = defineEndpoint({
 	path: "/topics/confirm",
 	scope: "write",
 	summary:
-		"Confirms the first topics (GET /topics while `proposed`): the ones in `keep`, each under its new `name` if one is given; the others are removed and never proposed again. Then the library is sorted into them.",
+		"Confirms the first topics (GET /topics while `proposed`): the ones in `keep`, each under its new `name` if one is given; the others are removed and never proposed again. A kept topic whose new name says something new (more than its case changed) gets a description written for it first. Then the library is sorted into them.",
 	body: z.object({
 		keep: z.array(z.object({ id: Id, name: TopicName.optional() })).max(PROPOSED_TOPICS_MAX),
 	}),
@@ -95,7 +95,7 @@ export const renameTopic = defineEndpoint({
 	path: "/topics/:id",
 	scope: "write",
 	summary:
-		"Renames a topic in use. The name is the reader's from then on: topics never rename it. Saved searches that name the topic follow it. Another topic's name, whatever its case, is `name_taken`.",
+		"Renames a topic in use. The name is the reader's from then on: topics never rename it. A name that says something new (more than its case changed) gets a description written for it, and the library is sorted again into the topic, a little later. Saved searches that name the topic follow it. Another topic's name, whatever its case, is `name_taken`.",
 	params,
 	body: z.object({ name: TopicName }),
 	response: json(z.object({ topic: TopicRef })),

@@ -56,21 +56,25 @@ import { log } from "./log"
  *    before then too, newest first: the new saves do not wait behind it.
  * 3. Sort the library again into the topics new or changed since (`resortPending`), from where the
  *    last run stopped. A widened topic only gets the articles that could join it (`resortWidened`).
- * 4. Grow new topics, or widen existing ones, from the articles no topic holds.
+ * 4. Grow new topics, or widen existing ones (never one the reader named), from the articles no
+ *    topic holds.
  * 5. Review the topics every so many new articles.
+ *
+ * Before 2, or once 3 is done, a topic the reader renamed gets a description and boundary for its
+ * new name (`rewordPending`), and the library is sorted again into it.
  *
  * What is left goes to the next run (`again`). Sorting stops at the month's sort budget
  * (`sortLimit`); sorting the library, first or again, stops a share short of it (`librarySorts`),
  * so that new saves are sorted while the library waits. Growing and reviewing stop with it: their
  * topics would wait a month to be sorted into. What is left waits for the month's runs on the 1st
  * (`topics-month`). Runs for one reader never overlap (the queue's `stately` policy). Every write
- * first checks that the reader still has topics on: one turned off mid-run stops the run, and
- * nothing it learned is kept.
+ * first checks that the reader still has on the topics the run began with: turned off mid-run,
+ * or off and on again, the run stops, and nothing it learned is kept.
  */
 
 export interface TopicsDeps {
-	models: Pick<TopicModels, "available" | "propose" | "grow" | "review" | "sort">
-	/** Haiku's work (propose, grow, review) an account may have a month. */
+	models: Pick<TopicModels, "available" | "propose" | "grow" | "review" | "reword" | "sort">
+	/** Haiku's work (propose, grow, review, reword) an account may have a month. */
 	limit: number
 	/** Articles an account may have sorted a month, first sorts and re-sorts alike. */
 	sortLimit: number
@@ -122,7 +126,7 @@ export async function bringTopicsUpToDate(
 	if (!deps.models.available) return { done: "nothing", why: "unavailable" }
 	const [account] = await db.select({ locale: user.locale }).from(user).where(eq(user.id, userId))
 	const language: AiLanguage = account?.locale === "es" ? "es" : "en"
-	const run = new Run(userId, language, deps)
+	const run = new Run(userId, library.enabledAt, language, deps)
 	try {
 		if (!library.confirmedAt) {
 			if (library.proposedAt) return { done: "nothing", why: "waiting" }
@@ -138,6 +142,7 @@ export async function bringTopicsUpToDate(
 type Library = typeof topicLibraries.$inferSelect
 type ActiveTopic = TopicIn & {
 	namedByReader: boolean
+	rewordPending: boolean
 	resortPending: boolean
 	resortWidened: boolean
 }
@@ -149,19 +154,30 @@ class Run {
 
 	constructor(
 		readonly userId: string,
+		/** When the reader turned on the topics this run brings up to date. */
+		readonly enabledAt: Date,
 		readonly language: AiLanguage,
 		readonly deps: TopicsDeps,
 	) {
 		this.batch = deps.batch ?? SORT_BATCH
 	}
 
-	/** A change, once it is sure the reader still has topics on; the row is locked meanwhile. */
+	/**
+	 * A change, once it is sure the reader still has the topics this run began with on: not off,
+	 * nor off and on again since. The row is locked meanwhile.
+	 */
 	async write<T>(change: (tx: Tx) => Promise<T>): Promise<T> {
 		return db.transaction(async (tx) => {
 			const [library] = await tx
 				.select({ userId: topicLibraries.userId })
 				.from(topicLibraries)
-				.where(eq(topicLibraries.userId, this.userId))
+				.where(
+					and(
+						eq(topicLibraries.userId, this.userId),
+						// Milliseconds, as a JavaScript date holds it.
+						sql`date_trunc('milliseconds', ${topicLibraries.enabledAt}) = ${this.enabledAt.toISOString()}::timestamptz`,
+					),
+				)
 				.for("share")
 			if (!library) throw new TopicsOff()
 			return change(tx)
@@ -232,6 +248,9 @@ class Run {
 			return done()
 		}
 		this.sorted = await usageThisMonth(db, this.userId, "topic_sorts")
+		// Topics the reader renamed get their words first: new saves are sorted by them. The library
+		// is then sorted again into them from its first article, as `needsResort` left it.
+		if (await this.reword()) library = { ...library, resortAfterAt: null, resortAfterId: null }
 		const active = await this.activeTopics()
 
 		// New saves first, up to the whole budget: until the library's first sort is done, those
@@ -268,6 +287,8 @@ class Run {
 			unsortedAtLastGrow = await this.unsortedCount({ byGrowth: true })
 			await this.setLibrary({ unsortedAtLastGrow, grewAt: null })
 		}
+		// A rename that waited for the library to be sorted again into other topics.
+		if (await this.reword()) return later()
 		// Nothing waits, but a topic grown or changed now could not be sorted into until the 1st.
 		if (this.librarySortsLeft() === 0) return done()
 
@@ -361,8 +382,75 @@ class Run {
 	}
 
 	/**
+	 * A description and boundary for each topic the reader renamed (`rewordPending`), for what the
+	 * new name says; the library is then sorted again into them, once any of it was sorted. Not
+	 * while the library is being sorted again into other topics: that would start it over. What a
+	 * reword asked for is settled, whatever it brought, failures included: the topic keeps its words,
+	 * and sorting goes on. Unless the reader renamed the topic again meanwhile: that asks again. True
+	 * when the library is to be sorted again.
+	 */
+	async reword(): Promise<boolean> {
+		const active = await this.activeTopics()
+		const renamed = active.filter((t) => t.rewordPending)
+		if (renamed.length === 0 || active.some((t) => t.resortPending)) return false
+		if (!(await this.mayWork())) return false
+		let answer: Awaited<ReturnType<TopicsDeps["models"]["reword"]>> = { value: [], spend: [] }
+		try {
+			answer = await this.deps.models.reword({
+				topics: renamed,
+				others: active.filter((t) => !t.rewordPending),
+				language: this.language,
+			})
+			await this.worked(answer.spend)
+		} catch (error) {
+			// Asked again on every run, a failing reword would hold up sorting and cost what no cap counts.
+			log.warn("topics: a rename's words could not be written", {
+				userId: this.userId,
+				error: String(error),
+			})
+		}
+		const words = new Map(answer.value.map((w) => [w.topicId, w]))
+		return this.write(async (tx) => {
+			const reworded: string[] = []
+			for (const t of renamed) {
+				const w = words.get(t.id)
+				const description = w ? cleanDescription(w.description) : null
+				const [row] = await tx
+					.update(topics)
+					.set({
+						rewordPending: false,
+						...(description && w
+							? { description, boundary: cleanDescription(w.boundary) ?? "" }
+							: {}),
+					})
+					.where(
+						and(
+							eq(topics.id, t.id),
+							eq(topics.status, "active"),
+							// A change of case meanwhile says nothing new.
+							sql`lower(${topics.name}) = lower(${t.name})`,
+							eq(topics.rewordPending, true),
+						),
+					)
+					.returning({ id: topics.id })
+				if (row && description) reworded.push(row.id)
+			}
+			// With nothing sorted yet, the first sort uses the new words.
+			const [sorted] = await tx
+				.select({ id: topicSorts.documentId })
+				.from(topicSorts)
+				.where(eq(topicSorts.userId, this.userId))
+				.limit(1)
+			if (!sorted) return false
+			await this.needsResort(tx, reworded)
+			return reworded.length > 0
+		})
+	}
+
+	/**
 	 * New topics, or wider descriptions, for the articles no topic holds, once enough more of them
-	 * piled up since the last time. The library is then sorted again into what changed.
+	 * piled up since the last time. The library is then sorted again into what changed. A topic the
+	 * reader named is never widened: its words follow its name.
 	 */
 	async grow(unsortedAtLastGrow: number): Promise<{ grew: number; widened: number }> {
 		const none = { grew: 0, widened: 0 }
@@ -379,34 +467,41 @@ class Run {
 		const fresh = await this.fresh(answer.value.topics)
 		const widen = answer.value.widen.flatMap((w) => {
 			const description = cleanDescription(w.description)
-			return description && active.some((t) => t.id === w.topicId)
+			return description && active.some((t) => t.id === w.topicId && !t.namedByReader)
 				? [{ topicId: w.topicId, description, boundary: cleanDescription(w.boundary) ?? "" }]
 				: []
 		})
 		return this.write(async (tx) => {
-			for (const w of widen)
-				await tx
+			const widened: string[] = []
+			for (const w of widen) {
+				// Not one the reader named meanwhile.
+				const [row] = await tx
 					.update(topics)
 					.set({ description: w.description, boundary: w.boundary })
-					.where(and(eq(topics.id, w.topicId), eq(topics.status, "active")))
+					.where(
+						and(
+							eq(topics.id, w.topicId),
+							eq(topics.status, "active"),
+							eq(topics.namedByReader, false),
+						),
+					)
+					.returning({ id: topics.id })
+				if (row) widened.push(row.id)
+			}
 			const created = await this.createTopics(tx, fresh, "grown")
-			await this.needsResort(
-				tx,
-				widen.map((w) => w.topicId),
-				true,
-			)
+			await this.needsResort(tx, widened, true)
 			await this.needsResort(
 				tx,
 				created.map((t) => t.id),
 			)
 			// What a growth asked for is settled, whatever it brought: the next waits for more than it
 			// leaves unsorted, counted once the library is sorted into what it brought (`grewAt`).
-			const changed = widen.length + created.length > 0
+			const changed = widened.length + created.length > 0
 			await tx
 				.update(topicLibraries)
 				.set(changed ? { grewAt: sql`now()` } : { unsortedAtLastGrow: unsorted })
 				.where(eq(topicLibraries.userId, this.userId))
-			return { grew: created.length, widened: widen.length }
+			return { grew: created.length, widened: widened.length }
 		})
 	}
 
@@ -743,6 +838,7 @@ class Run {
 				description: topics.description,
 				boundary: topics.boundary,
 				namedByReader: topics.namedByReader,
+				rewordPending: topics.rewordPending,
 				resortPending: topics.resortPending,
 				resortWidened: topics.resortWidened,
 			})

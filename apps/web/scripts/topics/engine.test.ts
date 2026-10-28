@@ -457,10 +457,43 @@ describe("a simulated reader", () => {
 		])
 	})
 
+	it("writes words for a name the reader gives later, and sorts the library again into it", async () => {
+		const { models, haikuPurposes } = fakeModels(
+			{
+				propose: () => ({ topics: [cats] }),
+				grow: () => ({ widen: [], topics: [], note: "" }),
+				maintain: noChange,
+				reword: () => ({
+					topics: [{ topicId: "t1", description: "Articles about dogs.", boundary: "" }],
+				}),
+			},
+			undefined,
+			{
+				judge,
+				tidy: (prompt) =>
+					prompt.includes("proposes")
+						? none()
+						: { change: { op: "rename", topicId: "t1", name: "Dogs" } },
+			},
+		)
+		const sim = new Simulation(reading(), models)
+		for (const [n, animal] of arrivals) await sim.arrive(article(n, animal))
+
+		expect(haikuPurposes).toContain("reword")
+		expect(sim.topics[0]).toMatchObject({ name: "Dogs", description: "Articles about dogs." })
+		// Sorted again by the new words: the dogs join it, the cats leave.
+		expect(sortedInto(sim, id(2))).toEqual(["t1"])
+		expect(sortedInto(sim, id(1))).toEqual([])
+	})
+
 	it("never lets a review rename, merge, split or retire a topic the reader named", async () => {
-		const { models } = fakeModels(
+		const { models, haikuPurposes } = fakeModels(
 			{
 				propose: () => ({ topics: [cats, dogs] }),
+				// The reader's name gets words of its own, as in production.
+				reword: () => ({
+					topics: [{ topicId: "t1", description: "Articles about my cats.", boundary: "" }],
+				}),
 				maintain: () => ({
 					changes: [
 						{
@@ -487,6 +520,7 @@ describe("a simulated reader", () => {
 		const sim = new Simulation(reading({ readerEvery: 1000 }), models)
 		for (const [n, animal] of arrivals) await sim.arrive(article(n, animal))
 
+		expect(haikuPurposes.slice(0, 2)).toEqual(["propose", "reword"])
 		expect(sim.topics.filter((t) => t.retiredAt === undefined)).toMatchObject([
 			{
 				id: "t1",

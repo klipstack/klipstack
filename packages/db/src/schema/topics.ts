@@ -83,8 +83,16 @@ export const topics = pgTable(
 		boundary: text("boundary").notNull().default(""),
 		status: text("status", { enum: topicStatus }).notNull(),
 		origin: text("origin", { enum: topicOrigin }).notNull(),
-		/** The reader named it: a review never renames, merges, splits or retires it. */
+		/**
+		 * The reader named it: a review never renames, merges, splits or retires it, and a growth never
+		 * widens it.
+		 */
 		namedByReader: boolean("named_by_reader").notNull().default(false),
+		/**
+		 * The reader renamed it: its description and boundary are to be written again for the new
+		 * name, then the library sorted again into it.
+		 */
+		rewordPending: boolean("reword_pending").notNull().default(false),
 		/** New or changed since the library was sorted: the library is sorted again into it. */
 		resortPending: boolean("resort_pending").notNull().default(false),
 		/**

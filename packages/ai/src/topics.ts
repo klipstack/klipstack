@@ -2,7 +2,7 @@ import { z } from "zod"
 import type { AiLanguage } from "./types"
 
 /**
- * Automatic topics: what Haiku is asked to propose, grow and review a reader's topics, and what
+ * Automatic topics: what Haiku is asked to propose, grow, review and reword a reader's topics, and what
  * Jev is asked to sort an article into them. The topics simulator (`apps/web/scripts/topics`)
  * builds its requests here too, so it measures what production runs. What was tried with it, and
  * what it showed, is in `docs/development/topics-experiments.md`.
@@ -291,6 +291,32 @@ export function reviewRequest(input: ReviewInput, options: RequestOptions) {
 				}),
 			),
 			note: z.string().describe("One sentence on the state of the topics"),
+		}),
+	} satisfies TopicRequest<z.ZodType>
+}
+
+/**
+ * New descriptions and boundaries for topics the reader renamed: what the new name says, which
+ * the old words, written for the old name, may not. `others` are the library's other topics, which
+ * a boundary names.
+ */
+export function rewordRequest(
+	renamed: TopicRef[],
+	others: Pick<TopicRef, "name" | "description">[],
+	options: RequestOptions,
+) {
+	const spec = topicSpec(options.style)
+	return {
+		system: topicSystem(options),
+		prompt: `The reader renamed ${renamed.length === 1 ? "a topic" : "these topics"} of their library. ${renamed.length === 1 ? "Its" : "Each one's"} description and boundary were written for the old name:\n${renamed.map((t) => `- ${t.ref}: now "${t.name}": ${sortingText(t)}`).join("\n")}\n\nThe library's other topics:\n${others.map((t) => `- ${t.name}: ${t.description}`).join("\n") || "(none)"}\n\nFor each renamed topic, write a description and a boundary for what its new name says. The reader chose the name: follow it, and keep from the old words only what still fits it.`,
+		schema: z.object({
+			topics: z.array(
+				z.object({
+					topicId: z.string().describe("The renamed topic, by id"),
+					description: spec.shape.description,
+					boundary: spec.shape.boundary,
+				}),
+			),
 		}),
 	} satisfies TopicRequest<z.ZodType>
 }

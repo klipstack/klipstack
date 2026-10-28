@@ -10,6 +10,7 @@ import {
 	QUESTIONS_PER_REQUEST,
 	type ReviewInput,
 	reviewRequest,
+	rewordRequest,
 	sortQuestions,
 	TOPIC_RULES,
 	type TopicArticle,
@@ -62,7 +63,7 @@ export interface ReviewChange {
 }
 
 /**
- * The models behind automatic topics: Haiku proposes, grows and reviews topics; Jev sorts articles
+ * The models behind automatic topics: Haiku proposes, grows, reviews and rewords topics; Jev sorts articles
  * into them. Models see short refs (`a1`, `t1`), never the app's ids; answers come back in ids,
  * with refs the request did not hold dropped.
  */
@@ -178,6 +179,26 @@ export function createTopicModels(config: AiConfig, rules: TopicRules = TOPIC_RU
 				return topicIds.length ? [{ ...c, topicIds }] : []
 			})
 			return { value: { changes, note: answer.value.note }, spend: [answer.spend] }
+		},
+
+		/** A description and boundary for each topic the reader renamed, by topic id. */
+		async reword(input: {
+			topics: TopicIn[]
+			others: TopicIn[]
+			language: AiLanguage
+		}): Promise<Spent<{ topicId: string; description: string; boundary: string }[]>> {
+			// The fake cannot tell what a name means: the topics keep their words.
+			if (config.fake) return { value: [], spend: [] }
+			const renamed = topicRefs(input.topics)
+			const answer = await structured(
+				config,
+				rewordRequest(renamed.view, input.others, options(input.language)),
+			)
+			const value = answer.value.topics.flatMap((t) => {
+				const topicId = renamed.toId.get(t.topicId)
+				return topicId ? [{ topicId, description: t.description, boundary: t.boundary }] : []
+			})
+			return { value, spend: [answer.spend] }
 		},
 
 		/** The probability that the article belongs in each topic, by topic id. */
