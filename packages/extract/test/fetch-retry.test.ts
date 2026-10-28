@@ -56,6 +56,12 @@ const routes: Record<string, (req: IncomingMessage) => Answer> = {
 	"/reset-403": () => ({ status: 403, body: "<html>", end: "reset" }),
 	"/stall-503": () => ({ status: 503, body: "<html>", end: "stall" }),
 	"/feed": () => ({ status: 200, headers: { "content-type": "application/xml" }, body: FEED }),
+	// A real page that names a wall's tag, past where walls name themselves.
+	"/late": () => ({
+		status: 200,
+		body: `<html><body>${"<p>Text.</p>".repeat(6_000)}${RECAPTCHA}</body></html>`,
+	}),
+	"/untyped": () => ({ status: 200, headers: { "content-type": "" }, body: RECAPTCHA }),
 }
 
 let server: Server
@@ -189,7 +195,18 @@ describe("a bot check sent in place of the page", () => {
 		expect(Date.now() - started).toBeLessThan(5_000)
 	})
 
+	it("is looked for at the top of a page, with or without a content type", async () => {
+		expect((await fetchPage("https://site.example/late")).html).toContain("reCAPTCHA")
+		await expect(fetchPage("https://site.example/untyped")).rejects.toMatchObject({
+			code: "bot_check",
+		})
+	})
+
 	it("is not looked for in a feed, nor by a caller that turns it off", async () => {
+		await expect(
+			fetchPage("https://site.example/cloudflare", { botChecks: false }),
+		).rejects.toMatchObject({ code: "http_error", status: 403 })
+		requests.length = 0
 		expect((await fetchPage("https://site.example/feed")).html).toContain("Just a moment...")
 		const page = await fetchPage("https://site.example/recaptcha", { botChecks: false })
 		expect(page.html).toContain("Checking your browser")

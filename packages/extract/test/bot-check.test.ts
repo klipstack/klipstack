@@ -24,6 +24,8 @@ const PAGES: Record<string, string> = {
 	"DataDome's tag": `<html><head><title>A shop</title><script src="https://js.datadome.co/tags.js" async></script></head><body><p>Products.</p></body></html>`,
 	"AWS WAF's CAPTCHA integration": `<html><head><title>Sign up</title><script src="https://abc.token.awswaf.com/abc/def/jsapi.js" defer></script></head><body><form></form></body></html>`,
 	"Incapsula's script": `<html><head><title>A bank</title></head><body><p>Welcome.</p><script src="/_Incapsula_Resource?SWJIYLWA=719d34d31c8e3a6e6fffd425f7e032f3"></script></body></html>`,
+	"a review of a wall": `<html><head><title>Sucuri WebSite Firewall review</title></head><body><p>Text.</p></body></html>`,
+	"a story about one": `<html><head><title>Access to this page has been denied: a story</title></head><body><p>Text.</p></body></html>`,
 	"AWS WAF's challenge script": `<html><head><title>A shop</title><script src="https://abc.token.awswaf.com/abc/def/challenge.js" defer></script></head><body><p>Products.</p></body></html>`,
 	"an article about walls": `<html><head><title>How bot walls work</title></head><body><article><p>Cloudflare shows a page titled "Just a moment..." and sets window._cf_chl_opt. Akamai answers "Access Denied" with a link to errors.edgesuite.net. DataDome loads geo.captcha-delivery.com, Incapsula says "Incapsula incident ID: 123-456", and Google's RecaptchaChallengePageUi says "Checking your browser".</p></article></body></html>`,
 	"a code sample of wall pages": `<html><head><title>Scraping notes</title></head><body><pre><code>&lt;title&gt;Just a moment...&lt;/title&gt;
@@ -42,4 +44,13 @@ describe("bot check pages", () => {
 	it.each(Object.entries(PAGES))("leaves a page with %s alone", (_, html) => {
 		expect(botCheck(html)).toBeNull()
 	})
+
+	it.each(["<iframe", "<script", '<iframe src="', "<title>", "<div id="])(
+		"reads 64 K characters of %s in linear time",
+		(start) => {
+			const started = performance.now()
+			expect(botCheck(start.repeat(Math.ceil(65_536 / start.length)))).toBeNull()
+			expect(performance.now() - started).toBeLessThan(100)
+		},
+	)
 })

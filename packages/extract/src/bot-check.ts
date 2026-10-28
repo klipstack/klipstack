@@ -1,7 +1,8 @@
 /**
  * Pages that bot walls send in place of the page asked for, by who sends them: every pattern of a
- * wall must match. They match tags, never text: an article, a comment or a code sample that names
- * a wall's address or script has its `<` escaped. Real pages load some of these services too (a
+ * wall must match, and each wall has one that matches a tag, never text: an article, a comment or
+ * a code sample that names a wall's address or script has its `<` escaped. Titles are matched
+ * whole. No pattern may backtrack: they run on what any site sends (`[^<>]*`, not `[^>]*`). Real pages load some of these services too (a
  * reCAPTCHA comment form, Cloudflare's background script, DataDome's tag, Incapsula's script), and
  * must not match.
  */
@@ -18,13 +19,13 @@ const WALLS: ReadonlyArray<readonly [name: string, patterns: readonly RegExp[]]>
 		"anubis",
 		[/<script id="anubis_challenge"|<title>Making sure you(?:'|&#39;)re not a bot!<\/title>/],
 	],
-	["datadome", [/<(?:script|iframe)\b[^>]*\bsrc="https:\/\/(?:ct|geo)\.captcha-delivery\.com\//]],
-	["perimeterx", [/<div id="px-captcha"|<title>Access to this page has been denied/]],
+	["datadome", [/<(?:script|iframe)\b[^<>]*\bsrc="https:\/\/(?:ct|geo)\.captcha-delivery\.com\//]],
+	["perimeterx", [/<div id="px-captcha"|<title>Access to this page has been denied\.?<\/title>/]],
 	// AWS WAF's challenge comes as a 202, its CAPTCHA as a 405.
 	["aws-waf", [/<div id="(?:challenge|captcha)-container"/, /window\.gokuProps\s*=/]],
 	["vercel", [/<title>Vercel Security Checkpoint<\/title>/]],
-	["sucuri", [/<title>Sucuri WebSite Firewall/]],
-	["incapsula", [/<iframe\b[^>]*\bsrc="\/_Incapsula_Resource\?/]],
+	["sucuri", [/<title>Sucuri WebSite Firewall - (?:CloudProxy - )?Access Denied<\/title>/i]],
+	["incapsula", [/<iframe\b[^<>]*\bsrc="\/_Incapsula_Resource\?/]],
 	["akamai", [/<title>Access Denied<\/title>/i, /errors(?:\.|&#46;)edgesuite(?:\.|&#46;)net/]],
 ]
 
