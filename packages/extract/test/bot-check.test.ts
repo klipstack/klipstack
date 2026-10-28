@@ -24,7 +24,14 @@ const PAGES: Record<string, string> = {
 	"DataDome's tag": `<html><head><title>A shop</title><script src="https://js.datadome.co/tags.js" async></script></head><body><p>Products.</p></body></html>`,
 	"AWS WAF's CAPTCHA integration": `<html><head><title>Sign up</title><script src="https://abc.token.awswaf.com/abc/def/jsapi.js" defer></script></head><body><form></form></body></html>`,
 	"Incapsula's script": `<html><head><title>A bank</title></head><body><p>Welcome.</p><script src="/_Incapsula_Resource?SWJIYLWA=719d34d31c8e3a6e6fffd425f7e032f3"></script></body></html>`,
-	"an article about walls": `<html><head><title>How bot walls work</title></head><body><article><p>Cloudflare shows a page titled "Just a moment..." while it checks the browser. Akamai answers "Access Denied" with a reference number, and Google's challenge page says "Checking your browser".</p></article></body></html>`,
+	"AWS WAF's challenge script": `<html><head><title>A shop</title><script src="https://abc.token.awswaf.com/abc/def/challenge.js" defer></script></head><body><p>Products.</p></body></html>`,
+	"an article about walls": `<html><head><title>How bot walls work</title></head><body><article><p>Cloudflare shows a page titled "Just a moment..." and sets window._cf_chl_opt. Akamai answers "Access Denied" with a link to errors.edgesuite.net. DataDome loads geo.captcha-delivery.com, Incapsula says "Incapsula incident ID: 123-456", and Google's RecaptchaChallengePageUi says "Checking your browser".</p></article></body></html>`,
+	"a code sample of wall pages": `<html><head><title>Scraping notes</title></head><body><pre><code>&lt;title&gt;Just a moment...&lt;/title&gt;
+&lt;title&gt;Access Denied&lt;/title&gt; https://errors.edgesuite.net/18.1
+&lt;div id="px-captcha"&gt;&lt;/div&gt;
+&lt;div id="challenge-container"&gt;&lt;/div&gt; window.gokuProps = {};
+&lt;iframe src="/_Incapsula_Resource?CWUDNSAI=1"&gt;&lt;/iframe&gt;
+&lt;script src="https://ct.captcha-delivery.com/c.js"&gt;&lt;/script&gt;</code></pre></body></html>`,
 }
 
 describe("bot check pages", () => {

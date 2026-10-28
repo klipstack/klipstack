@@ -29,6 +29,11 @@ export interface FetchPageOptions extends FetchOptions {
 	headers?: Record<string, string>
 	/** Content types accepted as a page. Defaults to HTML, XML and plain text. */
 	contentTypes?: RegExp
+	/**
+	 * Refuse a bot wall's page (`bot_check`) instead of returning it. Defaults to true. Feeds turn
+	 * it off: a wall on a site's home page may spare its feed, which `resolveFeed` goes on to find.
+	 */
+	botChecks?: boolean
 }
 
 const PAGE_TYPES = /text\/html|application\/xhtml\+xml|text\/plain|application\/xml|text\/xml/i
@@ -244,7 +249,11 @@ export async function fetchPage(url: string, options: FetchPageOptions = {}): Pr
 			error instanceof ExtractError && (error.status === 403 || error.code === "bot_check")
 		if (!refused || options.userAgent) throw error
 		// From the start, through every check again.
-		return fetchPageAs(url, { ...options, userAgent: HONEST_UA })
+		return fetchPageAs(url, { ...options, userAgent: HONEST_UA }).catch((retry: unknown) => {
+			// A wall that checks browsers may refuse the honest name outright: the check is the reason.
+			const plain = retry instanceof ExtractError && retry.code === "http_error"
+			throw plain && error.code === "bot_check" ? error : retry
+		})
 	}
 }
 
@@ -257,6 +266,7 @@ async function fetchPageAs(url: string, options: FetchPageOptions): Promise<Fetc
 		headers = {},
 		contentTypes = PAGE_TYPES,
 		headOnly = false,
+		botChecks = true,
 	} = options
 	const deadline = AbortSignal.timeout(timeoutMs)
 	let current = url
@@ -326,7 +336,7 @@ async function fetchPageAs(url: string, options: FetchPageOptions): Promise<Fetc
 			const retryAfter = parseRetryAfter(res.headers.get("retry-after"))
 			// Walls answer with these, and say why in the body.
 			let wall: string | null = null
-			if (WALL_STATUSES.has(res.status)) wall = botCheck(await readSome(res, deadline, timeoutMs))
+			if (botChecks && WALL_STATUSES.has(res.status)) wall = botCheck(await readSome(res, deadline))
 			else await res.body?.cancel()
 			if (wall) throw wallError(target, wall, res.status, retryAfter)
 			throw new ExtractError("http_error", `HTTP ${res.status}`, {
@@ -375,7 +385,11 @@ async function fetchPageAs(url: string, options: FetchPageOptions): Promise<Fetc
 			offset += c.byteLength
 		}
 		const html = decodeBody(bytes, contentType)
-		const wall = botCheck(html)
+		// Walls send HTML, and say so at the top. A feed's items may well be titled "Just a moment...".
+		const wall =
+			botChecks && (!contentType || HTML_TYPES.test(contentType))
+				? botCheck(html.slice(0, WALL_BYTES))
+				: null
 		if (wall) throw wallError(target, wall, res.status, null)
 		const headEnd = headOnly ? html.search(/<\/head\s*>|<body(?:\s|>)/i) : -1
 		return {
@@ -389,28 +403,42 @@ async function fetchPageAs(url: string, options: FetchPageOptions): Promise<Fetc
 	throw new ExtractError("too_many_redirects", `More than ${maxRedirects} redirects`)
 }
 
-/** Statuses a bot wall answers with, when it does not answer 200. */
-const WALL_STATUSES = new Set([403, 429, 503])
-/** Enough of an error page to tell a wall's: they are small. */
+const HTML_TYPES = /text\/html|application\/xhtml\+xml/i
+/** Statuses a bot wall answers with, when it does not answer 200 (AWS WAF's CAPTCHA: 405). */
+const WALL_STATUSES = new Set([403, 405, 429, 503])
+/** Enough of a page to tell a wall's: they are small, and name themselves at the top. */
 const WALL_BYTES = 64 * 1024
+/** How long an error page's body may take: past it, it is an error page like any other. */
+const WALL_READ_MS = 2_000
 
-/** The start of an error page's body, decoded; the rest is not read. */
+/**
+ * The start of an error page's body, decoded; the rest is not read. A body that breaks or stalls
+ * is read as far as it came: the status is the answer, whatever the body does.
+ */
 async function readSome(
 	res: Awaited<ReturnType<typeof undiciFetch>>,
 	deadline: AbortSignal,
-	timeoutMs: number,
 ): Promise<string> {
 	const reader = res.body?.getReader()
 	if (!reader) return ""
+	const stop = AbortSignal.any([deadline, AbortSignal.timeout(WALL_READ_MS)])
+	const stopped = new Promise<null>((resolve) => {
+		if (stop.aborted) resolve(null)
+		else stop.addEventListener("abort", () => resolve(null), { once: true })
+	})
 	const chunks: Uint8Array[] = []
 	let total = 0
-	while (total < WALL_BYTES) {
-		const { done, value } = await nextChunk(reader, deadline, timeoutMs)
-		if (done) break
-		chunks.push(value)
-		total += value.byteLength
+	try {
+		while (total < WALL_BYTES) {
+			const next = await Promise.race([reader.read(), stopped])
+			if (!next || next.done) break
+			chunks.push(next.value)
+			total += next.value.byteLength
+		}
+	} catch {
+		// Broken partway: what came is all there is.
 	}
-	await reader.cancel()
+	reader.cancel().catch(() => {})
 	return decodeBody(Buffer.concat(chunks).subarray(0, WALL_BYTES), res.headers.get("content-type"))
 }
 
