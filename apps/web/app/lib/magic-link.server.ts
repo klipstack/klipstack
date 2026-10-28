@@ -46,10 +46,12 @@ export async function requestSignupLink(
 /** The address an unused, unexpired link token was issued for. Reading it does not use it up. */
 export async function peekMagicLink(token: string): Promise<string | null> {
 	if (!token) return null
+	// better-auth's row for a link: the token as sent (stored plain), behind its purpose.
+	const identifier = `magic-link:${token}`
 	const [row] = await db
 		.select({ value: verification.value })
 		.from(verification)
-		.where(and(eq(verification.identifier, token), gt(verification.expiresAt, new Date())))
+		.where(and(eq(verification.identifier, identifier), gt(verification.expiresAt, new Date())))
 		.limit(1)
 	if (!row) return null
 	try {

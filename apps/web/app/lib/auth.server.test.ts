@@ -11,7 +11,6 @@ import {
 	pool,
 	user as userTable,
 } from "@klipstack/db"
-import { APIError } from "better-auth/api"
 import { afterAll, describe, expect, it, vi } from "vitest"
 import { env } from "./env.server"
 import { listFeatures } from "./features.server"
@@ -401,29 +400,29 @@ describe("auth logs", () => {
 		expect(errors.join("\n")).not.toContain("secret")
 	})
 
-	it("log failed requests without their messages, and skip ordinary API errors", () => {
+	it("skip ordinary API errors", async () => {
 		errors.length = 0
-		const onError = auth.options.onAPIError?.onError
-		onError?.(new APIError("UNAUTHORIZED", { message: "secret@example.com" }))
+		const res = await auth.handler(new Request("http://localhost:5180/api/auth/list-sessions"))
+		expect(res.status).toBe(401)
 		expect(errors).toEqual([])
-		// Anything else is logged reduced, and answered as a bare 500 (thrown as an API error).
-		expect(() => onError?.(failedQuery())).toThrow(APIError)
-		expect(errors.join("\n")).toContain("[auth] request failed")
-		expect(errors.join("\n")).not.toContain("secret")
 	})
 
-	it("log a failed request's code and status", () => {
+	it("log a failed request's code and status", async () => {
 		errors.length = 0
-		auth.options.onAPIError?.onError?.(
-			new APIError("INTERNAL_SERVER_ERROR", {
-				code: "FAILED_TO_GET_SESSION",
-				message: "secret@example.com",
+		// A session token Postgres refuses (NUL byte), signed as ours: its lookup fails.
+		const token = "secret\0token"
+		const signature = createHmac("sha256", env.BETTER_AUTH_SECRET).update(token).digest("base64")
+		const res = await auth.handler(
+			new Request("http://localhost:5180/api/auth/get-session", {
+				headers: { cookie: `klip.session_token=${encodeURIComponent(`${token}.${signature}`)}` },
 			}),
 		)
+		expect(res.status).toBe(500)
 		// No frames: better-call leaves them out of an API error's stack.
-		expect(errors).toEqual([
+		expect(errors).toContain(
 			"[auth] request failed\nAPIError code=FAILED_TO_GET_SESSION status=500",
-		])
+		)
+		expect(errors.join("\n")).not.toContain("secret")
 	})
 
 	it.each(["/api/auth/sign-in/magic-link", "/api/auth/request-password-reset"])(
