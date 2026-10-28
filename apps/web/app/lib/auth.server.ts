@@ -518,6 +518,7 @@ export const auth = betterAuth({
 
 const handleAuth = auth.handler
 auth.handler = answerAuth
+auth.fetch = answerAuth
 
 /**
  * The auth endpoints over HTTP. better-call answers API errors itself; expected ones (401, 400, …)
