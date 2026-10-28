@@ -54,7 +54,7 @@ export async function usageThisMonth(
 	return row?.count ?? 0
 }
 
-/** Haiku's work on one account's topics a month (proposing, growing, reviewing), by default. */
+/** Haiku's work on one account's topics a month (proposing, growing, reviewing, rewording), by default. */
 export const TOPICS_PER_MONTH = 100
 /** Articles sorted into one account's topics a month, first sorts and re-sorts alike, by default. */
 export const TOPIC_SORTS_PER_MONTH = 1000

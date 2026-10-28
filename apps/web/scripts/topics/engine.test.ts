@@ -458,9 +458,13 @@ describe("a simulated reader", () => {
 	})
 
 	it("never lets a review rename, merge, split or retire a topic the reader named", async () => {
-		const { models } = fakeModels(
+		const { models, haikuPurposes } = fakeModels(
 			{
 				propose: () => ({ topics: [cats, dogs] }),
+				// The reader's name gets words of its own, as in production.
+				reword: () => ({
+					topics: [{ topicId: "t1", description: "Articles about my cats.", boundary: "" }],
+				}),
 				maintain: () => ({
 					changes: [
 						{
@@ -487,6 +491,7 @@ describe("a simulated reader", () => {
 		const sim = new Simulation(reading({ readerEvery: 1000 }), models)
 		for (const [n, animal] of arrivals) await sim.arrive(article(n, animal))
 
+		expect(haikuPurposes.slice(0, 2)).toEqual(["propose", "reword"])
 		expect(sim.topics.filter((t) => t.retiredAt === undefined)).toMatchObject([
 			{
 				id: "t1",

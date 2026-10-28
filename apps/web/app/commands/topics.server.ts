@@ -160,7 +160,8 @@ export type ConfirmationInput = z.input<typeof Confirmation>
 
 /**
  * Confirms the first topics: the ones kept, under the names the reader gave them; the others are
- * removed, and never proposed again. Then the worker sorts the whole library.
+ * removed, and never proposed again. Then the worker writes a description for each name that says
+ * something new, and sorts the whole library.
  */
 export async function confirmTopics(userId: string, input: ConfirmationInput): Promise<void> {
 	const { keep } = parseInput(Confirmation, input)
@@ -200,7 +201,12 @@ export async function confirmTopics(userId: string, input: ConfirmationInput): P
 			const name = raw === undefined ? topic.name : cleanTopicName(raw)!
 			await tx
 				.update(topics)
-				.set({ status: "active", name, namedByReader: name !== topic.name })
+				.set({
+					status: "active",
+					name,
+					namedByReader: name !== topic.name,
+					rewordPending: renamesMeaning(topic.name, name),
+				})
 				.where(eq(topics.id, topic.id))
 		}
 		await tx
@@ -211,13 +217,21 @@ export async function confirmTopics(userId: string, input: ConfirmationInput): P
 	await queueRun(userId)
 }
 
-/** Renames a topic. The name is the reader's from now on: a review never changes it. */
+/** Whether a new name says something else than the old one: more than its case changed. */
+const renamesMeaning = (from: string, to: string) =>
+	from.toLocaleLowerCase() !== to.toLocaleLowerCase()
+
+/**
+ * Renames a topic. The name is the reader's from now on: a review never changes it. When the name
+ * says something new, the worker writes its description and boundary again for it, then sorts the
+ * library again into it.
+ */
 export async function renameTopic(userId: string, id: string, rawName: string) {
 	const topicId = parseInput(Id, id)
 	const name = cleanTopicName(parseInput(TopicName, rawName))!
 	await mayChangeTopics(userId)
 	try {
-		return await db.transaction(async (tx) => {
+		const { renamed, reword } = await db.transaction(async (tx) => {
 			const [before] = await tx
 				.select({ name: topics.name })
 				.from(topics)
@@ -228,15 +242,18 @@ export async function renameTopic(userId: string, id: string, rawName: string) {
 			if (await nameTaken(tx, userId, name, [topicId])) throw new AppError("name_taken", NAME_TAKEN)
 			// The saved searches that name it follow it.
 			await rewriteSavedQueries(tx, userId, (q) => renameTopicOperator(q, before.name, [name]))
+			const reword = renamesMeaning(before.name, name)
 			const [renamed] = await tx
 				.update(topics)
-				.set({ name, namedByReader: true })
+				.set({ name, namedByReader: true, ...(reword ? { rewordPending: true } : {}) })
 				.where(and(eq(topics.id, topicId), eq(topics.userId, userId), eq(topics.status, "active")))
 				.returning({ id: topics.id, name: topics.name })
 			if (!renamed) throw notFound(NO_TOPIC)
 			await addUsage(tx, userId, "topic_renamed")
-			return renamed
+			return { renamed, reword }
 		})
+		if (reword) await queueRun(userId)
+		return renamed
 	} catch (error) {
 		// A topic of that name made meanwhile (the worker's): the unique index has the last word.
 		if (isUniqueViolation(error)) throw new AppError("name_taken", NAME_TAKEN)

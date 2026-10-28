@@ -120,6 +120,8 @@ function models(script: {
 		topics?: { name: string; description: string; boundary: string; articleIds: string[] }[]
 	}
 	review?: (topics: TopicIn[]) => ReviewChange[]
+	/** New words for renamed topics; by default, "Articles about <name>." */
+	reword?: (topics: TopicIn[]) => { topicId: string; description: string; boundary: string }[]
 	/** Sees the topics each article is sorted against. */
 	sorting?: (topics: TopicIn[], article: TopicArticleIn) => void
 	refuse?: (article: TopicArticleIn) => boolean
@@ -168,6 +170,20 @@ function models(script: {
 			async review({ topics }) {
 				calls.push("review")
 				return { value: { changes: script.review?.(topics) ?? [], note: "" }, spend: [] }
+			},
+			async reword({ topics }) {
+				calls.push(`reword:${topics.map((t) => t.name).join(",")}`)
+				await script.during?.("reword")
+				return {
+					value:
+						script.reword?.(topics) ??
+						topics.map((t) => ({
+							topicId: t.id,
+							description: `Articles about ${t.name.toLowerCase()}.`,
+							boundary: "",
+						})),
+					spend: [],
+				}
 			},
 			async sort({ article, topics }) {
 				calls.push("sort")
@@ -573,6 +589,30 @@ describe("after the reader confirms", () => {
 		off = true
 		await settle(deps, calls)
 		expect((await statuses()).map(([name]) => name)).not.toContain("Owls")
+	})
+
+	it("keeps nothing for topics turned on again while a run that began before is still sorting", async () => {
+		let again = false
+		const { deps, calls } = await confirmed({
+			during: async (call) => {
+				if (call !== "sort" || again) return
+				again = true
+				// Off, as `disableTopics` does, then on again: a new library, waiting for its first topics.
+				await db.delete(topics).where(eq(topics.userId, userId))
+				await db.delete(topicSorts).where(eq(topicSorts.userId, userId))
+				await db.delete(topicLibraries).where(eq(topicLibraries.userId, userId))
+				await db.insert(topicLibraries).values({ userId })
+			},
+		})
+		expect(await run(deps)).toEqual({ done: "nothing", why: "off" })
+		expect(calls.filter((c) => c === "sort")).toHaveLength(1)
+		// The new library has sorted nothing: its first topics will sort every article.
+		expect(await db.select().from(topicSorts).where(eq(topicSorts.userId, userId))).toEqual([])
+		const [library] = await db
+			.select()
+			.from(topicLibraries)
+			.where(eq(topicLibraries.userId, userId))
+		expect(library).toMatchObject({ confirmedAt: null, librarySortedAt: null })
 	})
 
 	it("gives nothing to a topic the reader removed while the article was being sorted", async () => {
@@ -1096,6 +1136,143 @@ describe("reviews", () => {
 			["Dogs", "retired"],
 		])
 		expect(await topicsOf(cats[0]!)).toEqual([])
+	})
+})
+
+describe("a topic the reader renamed", () => {
+	/** The reader renames a topic, as `renameTopic` does. */
+	async function rename(from: string, to: string) {
+		await db
+			.update(topics)
+			.set({ name: to, namedByReader: true, rewordPending: true })
+			.where(and(eq(topics.userId, userId), eq(topics.name, from)))
+	}
+
+	async function confirmed(script: Parameters<typeof models>[0] = {}) {
+		const setup = models({ propose: () => [spec("Cats"), spec("Dogs")], ...script })
+		const cats = await many(13, "cats")
+		const dogs = await many(12, "dogs")
+		await run(setup.deps)
+		await confirm()
+		await settle(setup.deps, setup.calls)
+		setup.calls.length = 0
+		return { ...setup, cats, dogs }
+	}
+
+	it("gets a description and boundary for its new name, then the library is sorted again into it", async () => {
+		const sorts: string[][] = []
+		const { deps, calls, cats } = await confirmed({
+			sorting: (topics) => void sorts.push(topics.map((t) => t.name)),
+		})
+		const lions = await many(2, "lions")
+		await settle(deps, calls)
+		await rename("Cats", "Cats and lions")
+		sorts.length = 0
+		calls.length = 0
+		await settle(deps, calls)
+		expect(calls.filter((c) => c.startsWith("reword"))).toEqual(["reword:Cats and lions"])
+		expect(await topicNamed("Cats and lions")).toMatchObject({
+			description: "Articles about cats and lions.",
+			rewordPending: false,
+			resortPending: false,
+		})
+		// The whole library, into the renamed topic only.
+		expect(sorts).toEqual(Array.from({ length: 27 }, () => ["Cats and lions"]))
+		for (const id of [cats[0]!, ...lions]) expect(await topicsOf(id)).toEqual(["Cats and lions"])
+	})
+
+	it("renamed when the reader confirmed, gets its words before the first sort, and the library is sorted once", async () => {
+		const { deps, calls } = models({ propose: () => [spec("Cats"), spec("Dogs")] })
+		await many(13, "cats")
+		await many(12, "dogs")
+		await run(deps)
+		await rename("Cats", "Cats and lions")
+		await confirm()
+		calls.length = 0
+		await settle(deps, calls)
+		expect(calls[0]).toBe("reword:Cats and lions")
+		expect(calls.filter((c) => c === "sort")).toHaveLength(25)
+		expect(await topicNamed("Cats and lions")).toMatchObject({
+			description: "Articles about cats and lions.",
+			resortPending: false,
+		})
+	})
+
+	it("asks again when the reader renames it once more while its words are being written", async () => {
+		let renamedAgain = false
+		const { deps, calls } = await confirmed({
+			during: async (call) => {
+				if (call !== "reword" || renamedAgain) return
+				renamedAgain = true
+				await rename("Cats and lions", "Cats and tigers")
+			},
+		})
+		await rename("Cats", "Cats and lions")
+		await settle(deps, calls)
+		expect(calls.filter((c) => c.startsWith("reword"))).toEqual([
+			"reword:Cats and lions",
+			"reword:Cats and tigers",
+		])
+		expect(await topicNamed("Cats and tigers")).toMatchObject({
+			description: "Articles about cats and tigers.",
+			rewordPending: false,
+		})
+	})
+
+	it("waits for the library to be sorted again into other topics, not to start that over", async () => {
+		const log: string[] = []
+		const { deps, calls } = await confirmed({
+			grow: (_topics, pool) => ({
+				topics: [{ ...spec("Owls"), articleIds: pool.map((a) => a.id) }],
+			}),
+			sorting: (topics) => void log.push(`sort:${topics.map((t) => t.name).join(",")}`),
+			reword: (topics) => {
+				log.push("reword")
+				return topics.map((t) => ({
+					topicId: t.id,
+					description: "Articles about cats.",
+					boundary: "",
+				}))
+			},
+		})
+		await many(5, "owls")
+		// The owls are sorted, and Owls grows: the library waits to be sorted into it.
+		await run({ ...deps, batch: 10 })
+		expect((await topicNamed("Owls")).resortPending).toBe(true)
+		await rename("Cats", "Felines")
+		log.length = 0
+		await settle({ ...deps, batch: 10 }, calls)
+		expect(log.lastIndexOf("sort:Owls")).toBe(29)
+		expect(log.indexOf("reword")).toBe(30)
+		expect(log.slice(31)).toEqual(Array.from({ length: 30 }, () => "sort:Felines"))
+	})
+
+	it("is never widened by a growth", async () => {
+		const { deps, calls } = await confirmed({
+			grow: (topics) => ({
+				widen: [
+					{
+						topicId: topics.find((t) => t.name === "Cats")!.id,
+						description: "Articles about cats, and about owls.",
+						boundary: "",
+						articleIds: [],
+						reason: "",
+					},
+				],
+			}),
+		})
+		await db
+			.update(topics)
+			.set({ namedByReader: true })
+			.where(and(eq(topics.userId, userId), eq(topics.name, "Cats")))
+		const owls = await many(5, "owls")
+		await settle(deps, calls)
+		expect(calls.filter((c) => c.startsWith("grow"))).toEqual(["grow:5"])
+		expect(await topicNamed("Cats")).toMatchObject({
+			description: "Articles about cats.",
+			resortPending: false,
+		})
+		expect(await topicsOf(owls[0]!)).toEqual([])
 	})
 })
 

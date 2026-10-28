@@ -95,7 +95,7 @@ export const renameTopic = defineEndpoint({
 	path: "/topics/:id",
 	scope: "write",
 	summary:
-		"Renames a topic in use. The name is the reader's from then on: topics never rename it. Saved searches that name the topic follow it. Another topic's name, whatever its case, is `name_taken`.",
+		"Renames a topic in use. The name is the reader's from then on: topics never rename it. A name that says something new (more than its case changed) gets a description written for it, and the library is sorted again into the topic, a little later. Saved searches that name the topic follow it. Another topic's name, whatever its case, is `name_taken`.",
 	params,
 	body: z.object({ name: TopicName }),
 	response: json(z.object({ topic: TopicRef })),

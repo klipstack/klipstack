@@ -10,6 +10,7 @@ import {
 	QUESTIONS_PER_REQUEST,
 	type ReviewInput,
 	reviewRequest,
+	rewordRequest,
 	sortQuestions,
 	TOPIC_RULES,
 	type TopicArticle,
@@ -62,7 +63,7 @@ export interface ReviewChange {
 }
 
 /**
- * The models behind automatic topics: Haiku proposes, grows and reviews topics; Jev sorts articles
+ * The models behind automatic topics: Haiku proposes, grows, reviews and rewords topics; Jev sorts articles
  * into them. Models see short refs (`a1`, `t1`), never the app's ids; answers come back in ids,
  * with refs the request did not hold dropped.
  */
@@ -180,6 +181,33 @@ export function createTopicModels(config: AiConfig, rules: TopicRules = TOPIC_RU
 			return { value: { changes, note: answer.value.note }, spend: [answer.spend] }
 		},
 
+		/** A description and boundary for each topic the reader renamed, by topic id. */
+		async reword(input: {
+			topics: TopicIn[]
+			others: TopicIn[]
+			language: AiLanguage
+		}): Promise<Spent<{ topicId: string; description: string; boundary: string }[]>> {
+			if (config.fake)
+				return {
+					value: input.topics.map((t) => ({
+						topicId: t.id,
+						description: FAKE_TEXT[input.language].about(t.name),
+						boundary: FAKE_TEXT[input.language].boundary,
+					})),
+					spend: [],
+				}
+			const renamed = topicRefs(input.topics)
+			const answer = await structured(
+				config,
+				rewordRequest(renamed.view, input.others, options(input.language)),
+			)
+			const value = answer.value.topics.flatMap((t) => {
+				const topicId = renamed.toId.get(t.topicId)
+				return topicId ? [{ topicId, description: t.description, boundary: t.boundary }] : []
+			})
+			return { value, spend: [answer.spend] }
+		},
+
 		/** The probability that the article belongs in each topic, by topic id. */
 		async sort(input: {
 			article: TopicArticleIn
@@ -254,13 +282,18 @@ async function structured<S extends z.ZodType>(
 }
 
 /** What the fake writes about a site's topic, in the reader's language. */
-const FAKE_TEXT: Record<AiLanguage, { description: (site: string) => string; boundary: string }> = {
+const FAKE_TEXT: Record<
+	AiLanguage,
+	{ description: (site: string) => string; about: (name: string) => string; boundary: string }
+> = {
 	en: {
 		description: (site) => `Articles from ${site}.`,
+		about: (name) => `Articles about ${name}.`,
 		boundary: "Articles from other sites belong in their own topics.",
 	},
 	es: {
 		description: (site) => `Artículos de ${site}.`,
+		about: (name) => `Artículos sobre ${name}.`,
 		boundary: "Los artículos de otros sitios van en sus propios temas.",
 	},
 }

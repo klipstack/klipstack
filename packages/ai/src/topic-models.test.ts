@@ -206,6 +206,28 @@ describe("the topic models", () => {
 		expect(result.value.changes.map((c) => c.topicIds)).toEqual([["B"], ["A"]])
 	})
 
+	it("ask for new words for a renamed topic by ref, and map the answer back to its id", async () => {
+		const { fetch, sent } = anthropic({
+			topics: [
+				{ topicId: "t1", description: "Programming languages.", boundary: "Not tools." },
+				{ topicId: "t7", description: "Invented.", boundary: "" },
+			],
+		})
+		const result = await createTopicModels({ ...keys, fetch }).reword({
+			topics: [
+				{ id: "A", name: "Programming Languages", description: "Building software.", boundary: "" },
+			],
+			others: [{ id: "B", name: "Startups", description: "Founding companies.", boundary: "" }],
+			language: "en",
+		})
+		expect(sent[0]!.prompt).toContain('t1: now "Programming Languages": Building software.')
+		expect(sent[0]!.prompt).toContain("- Startups: Founding companies.")
+		expect(sent[0]!.prompt).not.toContain('"A"')
+		expect(result.value).toEqual([
+			{ topicId: "A", description: "Programming languages.", boundary: "Not tools." },
+		])
+	})
+
 	it("ask Jev the shelf question, twenty topics at a time, and return scores by topic id", async () => {
 		const { fetch, sent } = jev((q) => (q.includes('"Topic 3"') ? 0.8 : 0.1))
 		const topics = Array.from({ length: 25 }, (_, i) => ({

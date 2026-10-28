@@ -5,6 +5,7 @@ import {
 	place,
 	proposeRequest,
 	reviewRequest,
+	rewordRequest,
 	sortQuestions,
 	sortRequest,
 	type TopicArticle,
@@ -413,7 +414,8 @@ export class Simulation {
 		})
 		const widened: Topic[] = []
 		for (const w of answer.widen ?? []) {
-			const topic = this.active().find((t) => t.id === w.topicId)
+			// As production: a topic the reader named is never widened.
+			const topic = this.active().find((t) => t.id === w.topicId && !t.namedByReader)
 			if (!topic || w.articleIds.length === 0) continue
 			this.events.push({
 				step: this.step,
@@ -722,6 +724,30 @@ export class Simulation {
 			change: { op, topicId: t.id, from, to: clean },
 		})
 		this.log(`  ✋ reader renamed ${from} to ${clean}`)
+		if (from.toLocaleLowerCase() !== clean.toLocaleLowerCase()) await this.reword(t, confirming)
+	}
+
+	/**
+	 * As production: a topic the reader renamed gets a description and boundary for its new name,
+	 * and the library is sorted again into it, unless its first sort is still to come.
+	 */
+	private async reword(t: Topic, confirming: boolean) {
+		const answer = await this.models.haiku("reword", {
+			...rewordRequest(
+				this.refs([t]),
+				this.active().filter((x) => x.id !== t.id),
+				{ style: this.config.style },
+			),
+			sample: this.config.sample,
+		})
+		const words = answer.topics.find((w) => w.topicId === t.id)
+		if (!words?.description.trim()) return
+		t.description = words.description
+		t.boundary = words.boundary ?? ""
+		this.log(`  ↻ reworded ${t.name}: ${t.description}`)
+		if (confirming) return
+		for (const article of this.library) await this.sort(article, [t])
+		this.unsorted = this.library.filter((a) => !this.isSorted(a.id)).map((a) => a.id)
 	}
 
 	/** The final topics, each article of the library judged by the reader against all of them. */

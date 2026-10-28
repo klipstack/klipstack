@@ -117,7 +117,7 @@ nearly held. Each account has two monthly caps, counted from the 1st (UTC):
   again, as it does when the library's first sort waits. The worker sorts them on the 1st without
   waiting for a new save. Raise it for readers with large libraries: turning topics on sorts the
   whole library, and every new or changed topic sorts it again.
-- `LIMIT_TOPICS_PER_MONTH` (default 100): Haiku's work (proposing, growing, reviewing). Past it,
+- `LIMIT_TOPICS_PER_MONTH` (default 100): Haiku's work (proposing, growing, reviewing, and rewording a topic the reader renamed). Past it,
   sorting goes on and topics stop changing until the next month.
 
 Set either to `0` to stop that work. Set them for the web and the worker alike: the worker

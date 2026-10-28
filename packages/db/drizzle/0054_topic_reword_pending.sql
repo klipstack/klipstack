@@ -1,0 +1,1 @@
+ALTER TABLE "topics" ADD COLUMN "reword_pending" boolean DEFAULT false NOT NULL;

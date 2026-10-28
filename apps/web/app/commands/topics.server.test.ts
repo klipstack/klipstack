@@ -329,6 +329,8 @@ describe("confirming the first topics", () => {
 			status: "active",
 			name: "Writing in public",
 			namedByReader: true,
+			// Its description is written again for the reader's name before the library is sorted.
+			rewordPending: true,
 		})
 		expect(rows.find((t) => t.id === management!.id)).toMatchObject({ status: "removed" })
 		expect(await topicsState(userId)).toMatchObject({ stage: "active", unseen: false })
@@ -367,6 +369,17 @@ describe("correcting topics", () => {
 			code: "not_found",
 		})
 		await expect(renameTopic(userId, topic, "")).rejects.toMatchObject({ code: "invalid_request" })
+	})
+
+	it("asks for a renamed topic's description to be written for its new name, but not for a change of case", async () => {
+		const topic = await active(userId, "Shelf", [])
+		const row = async () => (await db.select().from(topics).where(eq(topics.id, topic)))[0]
+		await renameTopic(userId, topic, "SHELF")
+		expect(await row()).toMatchObject({ name: "SHELF", namedByReader: true, rewordPending: false })
+		expect(await queuedRuns(userId)).toBe(0)
+		await renameTopic(userId, topic, "Better shelf")
+		expect(await row()).toMatchObject({ name: "Better shelf", rewordPending: true })
+		expect(await queuedRuns(userId)).toBe(1)
 	})
 
 	it("takes the reader's saved searches along to the new name, and no one else's", async () => {
