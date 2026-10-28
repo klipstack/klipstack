@@ -60,6 +60,14 @@ export const TOPICS_PER_MONTH = 100
 export const TOPIC_SORTS_PER_MONTH = 1000
 
 /**
+ * Of `sorts` a month, those that sorting the library may take, first or again: a quarter stays
+ * for new saves, so that they are sorted while the library waits for the 1st.
+ */
+export function librarySorts(sorts: number): number {
+	return sorts - Math.floor(sorts / 4)
+}
+
+/**
  * The topics' monthly caps, for the worker and the web alike: `LIMIT_TOPICS_PER_MONTH` and
  * `LIMIT_TOPIC_SORTS_PER_MONTH`, or the defaults when unset or not a whole number. 0 stops it.
  */

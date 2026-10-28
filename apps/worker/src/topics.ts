@@ -25,9 +25,11 @@ import {
 	documentVersions,
 	eq,
 	exists,
+	gt,
 	inArray,
 	isNotNull,
 	isNull,
+	librarySorts,
 	lte,
 	not,
 	notExists,
@@ -50,16 +52,17 @@ import { log } from "./log"
  * is due, in order, and at most a batch of articles' worth of sorting:
  *
  * 1. Before the reader confirmed: propose the first topics once the library is big enough.
- * 2. Sort the articles not sorted yet into the topics.
+ * 2. Sort the new saves into the topics. Right after the reader confirmed, sort the library saved
+ *    before then too, newest first: the new saves do not wait behind it.
  * 3. Sort the library again into the topics new or changed since (`resortPending`), from where the
  *    last run stopped. A widened topic only gets the articles that could join it (`resortWidened`).
  * 4. Grow new topics, or widen existing ones, from the articles no topic holds.
  * 5. Review the topics every so many new articles.
  *
  * What is left goes to the next run (`again`). Sorting stops at the month's sort budget
- * (`sortLimit`); sorting again stops a share short of it (`NEW_SAVES_SHARE`), so that new saves are
- * sorted while the library waits. Growing and reviewing stop with sorting again: their topics would
- * wait a month to be sorted into. What is left waits for the month's runs on the 1st
+ * (`sortLimit`); sorting the library, first or again, stops a share short of it (`librarySorts`),
+ * so that new saves are sorted while the library waits. Growing and reviewing stop with it: their
+ * topics would wait a month to be sorted into. What is left waits for the month's runs on the 1st
  * (`topics-month`). Runs for one reader never overlap (the queue's `stately` policy). Every write
  * first checks that the reader still has topics on: one turned off mid-run stops the run, and
  * nothing it learned is kept.
@@ -98,8 +101,6 @@ export const SORT_BATCH = 200
 export const PROPOSE_MAX = 200
 /** The newest unsorted articles a growth reads. */
 const GROW_MAX = 40
-/** The share of the month's sorts that sorting the library again leaves to new saves. */
-const NEW_SAVES_SHARE = 0.25
 /** A model's description or boundary longer than this is cut: it is a sentence or two. */
 const DESCRIPTION_MAX = 600
 
@@ -231,20 +232,31 @@ class Run {
 			return done()
 		}
 		this.sorted = await usageThisMonth(db, this.userId, "topic_sorts")
-
-		const room = Math.min(this.batch, this.sortsLeft())
-		const pending = await this.articles({ unsorted: true, limit: room })
 		const active = await this.activeTopics()
-		// The library's first sort, right after the reader confirmed, does not call for a review:
-		// only articles saved since do.
-		const counts = library.librarySortedAt !== null
-		for (const article of pending)
-			await this.sortInto(article, active, { first: true, counts, refusedFirst: true })
-		outcome.articles = pending.length
-		if (pending.length === this.batch) return later()
-		if (pending.length === room && (await this.articles({ unsorted: true, limit: 1 })).length)
-			return paused()
-		if (!counts) await this.setLibrary({ librarySortedAt: new Date() })
+
+		// New saves first, up to the whole budget: until the library's first sort is done, those
+		// saved since the reader confirmed. They call for a review; the library does not.
+		const firstSort = library.librarySortedAt === null
+		const savesRoom = Math.min(this.batch, this.sortsLeft())
+		const saves = await this.articles({
+			unsorted: true,
+			saved: firstSort ? "since-confirmed" : undefined,
+			limit: savesRoom,
+		})
+		for (const article of saves)
+			await this.sortInto(article, active, { first: true, counts: true, refusedFirst: true })
+		// Then the library, newest first, a share short of the budget.
+		const libraryRoom = firstSort ? Math.min(this.batch - saves.length, this.librarySortsLeft()) : 0
+		const backlog = firstSort
+			? await this.articles({ unsorted: true, saved: "before-confirmed", newest: libraryRoom })
+			: []
+		for (const article of backlog)
+			await this.sortInto(article, active, { first: true, counts: false, refusedFirst: true })
+		outcome.articles = saves.length + backlog.length
+		if (outcome.articles === this.batch) return later()
+		const stopped = saves.length === savesRoom || (firstSort && backlog.length === libraryRoom)
+		if (stopped && (await this.articles({ unsorted: true, limit: 1 })).length) return paused()
+		if (firstSort) await this.setLibrary({ librarySortedAt: new Date() })
 
 		const resort = await this.resort(library)
 		outcome.resorted = resort.articles
@@ -257,7 +269,7 @@ class Run {
 			await this.setLibrary({ unsortedAtLastGrow, grewAt: null })
 		}
 		// Nothing waits, but a topic grown or changed now could not be sorted into until the 1st.
-		if (this.resortsLeft() === 0) return done()
+		if (this.librarySortsLeft() === 0) return done()
 
 		const growth = await this.grow(unsortedAtLastGrow)
 		outcome.grew = growth.grew
@@ -286,7 +298,7 @@ class Run {
 	): Promise<{ articles: number; finished: boolean; paused: boolean }> {
 		const changed = (await this.activeTopics()).filter((t) => t.resortPending)
 		if (changed.length === 0) return { articles: 0, finished: true, paused: false }
-		const room = Math.min(this.batch, this.resortsLeft())
+		const room = Math.min(this.batch, this.librarySortsLeft())
 		if (room === 0) return { articles: 0, finished: false, paused: true }
 		const after =
 			library.resortAfterAt && library.resortAfterId
@@ -850,8 +862,9 @@ class Run {
 	/**
 	 * The library's articles, oldest first (the `newest` ones, still oldest first). `unsorted`: not
 	 * sorted yet; `sorted`: sorted already; `unsortedInTopics`: sorted into no topic; `mayJoin`:
-	 * could join one of these widened topics; `after`: past that article, by save time then id.
-	 * Without `withText`, the text is left out.
+	 * could join one of these widened topics; `after`: past that article, by save time then id;
+	 * `saved`: before or since the reader confirmed the topics. Without `withText`, the text is left
+	 * out.
 	 */
 	async articles(
 		options: {
@@ -860,6 +873,7 @@ class Run {
 			unsortedInTopics?: boolean
 			mayJoin?: string[]
 			after?: { at: Date; id: string } | null
+			saved?: "before-confirmed" | "since-confirmed"
 			limit?: number
 			newest?: number
 			withText?: boolean
@@ -871,6 +885,10 @@ class Run {
 				.from(topicSorts)
 				.where(eq(topicSorts.documentId, documents.id)),
 		)
+		const confirmedAt = sql`(${db
+			.select({ at: topicLibraries.confirmedAt })
+			.from(topicLibraries)
+			.where(eq(topicLibraries.userId, this.userId))})`
 		const text =
 			options.withText === false
 				? sql<string>`''`
@@ -904,6 +922,8 @@ class Run {
 						? // Milliseconds, as the cursor was kept: a JavaScript date has no more.
 							sql`(date_trunc('milliseconds', ${documents.createdAt}), ${documents.id}) > (${options.after.at.toISOString()}::timestamptz, ${options.after.id}::uuid)`
 						: undefined,
+					options.saved === "before-confirmed" ? lte(documents.createdAt, confirmedAt) : undefined,
+					options.saved === "since-confirmed" ? gt(documents.createdAt, confirmedAt) : undefined,
 				),
 			)
 			.orderBy(
@@ -959,9 +979,9 @@ class Run {
 		return Math.max(0, this.deps.sortLimit - this.sorted)
 	}
 
-	/** Articles the month's sort budget has left for sorting again: a share stays for new saves. */
-	resortsLeft(): number {
-		return Math.max(0, this.sortsLeft() - Math.floor(this.deps.sortLimit * NEW_SAVES_SHARE))
+	/** Articles the month's sort budget has left for sorting the library: a share stays for new saves. */
+	librarySortsLeft(): number {
+		return Math.max(0, librarySorts(this.deps.sortLimit) - this.sorted)
 	}
 
 	/** One article sent to Jev: towards the month's sort budget, once it answered (or refused). */

@@ -24,6 +24,7 @@ export {
 export { rewriteSavedQueries } from "./saved-searches"
 export {
 	addUsage,
+	librarySorts,
 	monthOf,
 	TOPIC_SORTS_PER_MONTH,
 	TOPICS_PER_MONTH,
