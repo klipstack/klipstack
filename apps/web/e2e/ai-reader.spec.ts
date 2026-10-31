@@ -324,6 +324,61 @@ test("the brief: asked for, a cited gist, claims, caveats and parts above the te
 	await expect(brief).toHaveCount(0)
 })
 
+test("asking for the brief and reading it leaves a new article new; reading its text opens it", async ({
+	page,
+}) => {
+	test.setTimeout(120_000)
+	// A phone: the title and the brief take more than the window.
+	await page.setViewportSize({ width: 390, height: 600 })
+	// The reader's seconds on the page pass when the test says so.
+	await page.clock.install()
+	const id = await open(page)
+	const opens: string[] = []
+	page.on("request", (r) => {
+		if (r.url().includes(`/documents/${id}/state`) && r.postData()?.includes("intent=open"))
+			opens.push(r.url())
+	})
+	await page.getByRole("button", { name: /Sum up this article/ }).click()
+	const brief = page.getByRole("region", { name: "Brief" })
+	await expect(brief.getByRole("button", { name: "Collapse" })).toBeVisible()
+	await page.clock.pauseAt(Date.now() + 1000)
+	const textTop = () =>
+		page.evaluate(() => document.querySelector(".reader-content")!.getBoundingClientRect().top)
+	// A screen scrolled through the brief to read it, and a long while there: the text is below.
+	await page.mouse.wheel(0, 600)
+	await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(600)
+	expect(await textTop()).toBeGreaterThan(600 * 0.15)
+	await page.clock.runFor(30_000)
+	await page.waitForTimeout(500)
+	expect(opens).toEqual([])
+	const doc = () => db.query.documents.findFirst({ where: eq(documents.id, id) })
+	expect((await doc())!.firstOpenedAt).toBeNull()
+
+	// The text up to the top of the window, more than a screen from the start: not yet opened, the
+	// scroll through the brief does not count. Ten seconds on the text, and it is.
+	await page.mouse.wheel(0, await textTop())
+	await expect.poll(textTop).toBeLessThan(1)
+	await page.clock.runFor(8_000)
+	await page.waitForTimeout(500)
+	expect(opens).toEqual([])
+	await Promise.all([
+		page.waitForResponse((r) => r.url().includes(`/documents/${id}/state`) && r.ok()),
+		page.clock.runFor(3_000),
+	])
+	expect((await doc())!.firstOpenedAt).not.toBeNull()
+
+	// A text short enough to be in view whole, under its title: its ten seconds start on arrival.
+	const short = await insertArticle((await doc())!.userId, "Short", "<p>Alpha bravo charlie.</p>")
+	// The page loads on a flowing clock: hydration waits on it.
+	await page.clock.resume()
+	await page.goto(`/read/${short}`)
+	await waitForHydration(page)
+	await Promise.all([
+		page.waitForResponse((r) => r.url().includes(`/documents/${short}/state`) && r.ok()),
+		page.clock.runFor(11_000),
+	])
+})
+
 test("the chat: questions about the whole article in the sidebar, kept, and cleared", async ({
 	page,
 }) => {
