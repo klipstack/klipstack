@@ -1,6 +1,6 @@
 import { APIError } from "better-auth/api"
 import { useTranslation } from "react-i18next"
-import { data, Form, Link, redirect, redirectDocument, useNavigation } from "react-router"
+import { data, Form, Link, redirectDocument, useNavigation } from "react-router"
 import { z } from "zod"
 import { AuthCard } from "~/components/auth-card"
 import { ProviderButtons } from "~/components/provider-buttons"
@@ -134,7 +134,8 @@ export async function action({ request, context }: Route.ActionArgs) {
 		if (needsSecondStep(response)) {
 			const next = new URLSearchParams(oauthQuery ?? "")
 			if (parsed.data.redirectTo) next.set("redirectTo", safeRedirect(parsed.data.redirectTo))
-			throw redirect(`/login/code?${next}`, { headers: out })
+			// A page load, as every redirect from this page: see useFreshDocumentOnLeave.
+			throw redirectDocument(`/login/code?${next}`, { headers: out })
 		}
 		if ("user" in response)
 			out.append("set-cookie", await localeCookie.serialize(response.user.locale))

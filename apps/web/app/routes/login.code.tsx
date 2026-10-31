@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next"
-import { data, Form, Link, redirect, redirectDocument, useNavigation } from "react-router"
+import { data, Form, Link, redirectDocument, useNavigation } from "react-router"
 import { AuthCard } from "~/components/auth-card"
 import { Button } from "~/components/ui/button"
 import { Field } from "~/components/ui/field"
@@ -40,7 +40,7 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 	const url = new URL(request.url)
 	const oauthQuery = await validOAuthQuery(signedOAuthQuery(url))
 	if (!oauthQuery) requireAnonymous(context)
-	if (!pendingSignInSent(request.headers)) throw redirect(`/login${url.search}`)
+	if (!pendingSignInSent(request.headers)) throw redirectDocument(`/login${url.search}`)
 	const redirectTo = url.searchParams.get("redirectTo")
 	// The code finishes a sign-in that goes on to an app: the one this page's request names, or the
 	// iPhone app's request a provider's sheet carries in `redirectTo` (see the action).

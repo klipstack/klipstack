@@ -15,14 +15,16 @@ const serverCommand = prod
 /**
  * What runs in WebKit as well as Chromium (Firefox is not tested): what depends on the browser
  * engine. Selections and handles, the marker strokes highlights are painted with, how an input lays
- * out its text, and editions (dates formatted in
- * the browser must match the server's, or hydration fails).
+ * out its text, editions (dates formatted in
+ * the browser must match the server's, or hydration fails), and leaving a page for a new document
+ * (WebKit cancels the module import the navigation away interrupts).
  */
 const ENGINE_SPECS = [
 	"highlight-resizing.spec.ts",
 	"highlight-ink.spec.ts",
 	"search-field.spec.ts",
 	"editions.spec.ts",
+	"fresh-document.spec.ts",
 ]
 
 export default defineConfig({

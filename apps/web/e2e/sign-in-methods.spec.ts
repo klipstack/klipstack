@@ -2,16 +2,13 @@ import { account, and, db, eq, newId, user } from "@klipstack/db"
 import { chromium, expect, type Page, test } from "@playwright/test"
 import {
 	createInviteCode,
-	login,
 	logout,
 	PASSWORD,
-	postInjectedForm,
 	resetLocalIpLimit,
 	sameOrigin,
 	signupUser,
 	waitForHydration,
 } from "./helpers"
-import { insertArticle } from "./seed"
 
 /** Answers for GitHub, so the test sees where the browser was sent and nothing leaves the machine. */
 async function stopAtGitHub(page: Page) {
@@ -89,36 +86,6 @@ test("before the page hydrates, the GitHub buttons still hand over to GitHub", a
 	} finally {
 		await browser.close()
 	}
-})
-
-test("a sign-in page's wider form-action ends with the page", async ({ page }) => {
-	// A policy belongs to the document, and React Router's navigation keeps the document: the
-	// pages that let forms go on to a provider must not hand that on to the rest of the app.
-	const email = await signupUser(page, "Wider Policy")
-	const [row] = await db.select({ id: user.id }).from(user).where(eq(user.email, email))
-	await insertArticle(row!.id, "Policy", "<p>An article whose markup got past the sanitizer.</p>")
-	const toGitHub = "https://github.com/collect"
-	const blocked = { outcome: "form-action", reached: [] }
-
-	// Signing in on a hydrated /login.
-	await logout(page)
-	await page.goto("/login")
-	await waitForHydration(page)
-	await login(page, email)
-	await waitForHydration(page)
-	expect(await postInjectedForm(page, toGitHub)).toEqual(blocked)
-
-	// Leaving Settings → Ways to log in by its own link, then on to the library and the reader.
-	await page.goto("/settings/account/sign-in")
-	await waitForHydration(page)
-	await page.getByRole("link", { name: "Back", exact: true }).click()
-	await expect(page).not.toHaveURL(/\/settings/)
-	await page.getByRole("link", { name: "Library", exact: true }).first().click()
-	await expect(page).toHaveURL(/\/library$/)
-	await page.getByRole("link", { name: "Policy" }).first().click()
-	await expect(page).toHaveURL(/\/read\//)
-	await waitForHydration(page)
-	expect(await postInjectedForm(page, toGitHub)).toEqual(blocked)
 })
 
 test("better-auth's own password and provider endpoints are closed", async ({ page }) => {

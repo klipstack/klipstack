@@ -1,7 +1,7 @@
 import { errorLabel } from "@klipstack/log"
 import { APIError } from "better-auth/api"
 import { useTranslation } from "react-i18next"
-import { data, Form, Link, redirect, redirectDocument, useNavigation } from "react-router"
+import { data, Form, Link, redirectDocument, useNavigation } from "react-router"
 import { z } from "zod"
 import { AuthCard } from "~/components/auth-card"
 import { ProviderButtons } from "~/components/provider-buttons"
@@ -82,7 +82,7 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 	const oauthQuery = await validOAuthQuery(appQuery)
 	// Signed in already, the app's sign-in goes on with that account (or another, from /login).
 	// Expired, /login says to start again from the app.
-	if (appQuery && (!oauthQuery || getSession(context))) throw redirect(`/login?${appQuery}`)
+	if (appQuery && (!oauthQuery || getSession(context))) throw redirectDocument(`/login?${appQuery}`)
 	requireAnonymous(context)
 	// A provider's button is a submit button, and signing up for an app goes on to the app.
 	const providers = providersFor(app)

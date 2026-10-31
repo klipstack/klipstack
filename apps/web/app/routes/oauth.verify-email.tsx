@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next"
-import { data, Form, redirect, redirectDocument, useFetcher, useNavigation } from "react-router"
+import { data, Form, redirectDocument, useFetcher, useNavigation } from "react-router"
 import { AuthCard } from "~/components/auth-card"
 import { Button } from "~/components/ui/button"
 import { type WiderFormActionHandle } from "~/hooks/use-fresh-document"
@@ -35,7 +35,7 @@ export function meta({ matches }: Route.MetaArgs) {
 export async function loader({ request, context }: Route.LoaderArgs) {
 	const user = requireUser(context, request)
 	const url = new URL(request.url)
-	if (!(await oauthClientOf(url))) throw redirect("/settings/account")
+	if (!(await oauthClientOf(url))) throw redirectDocument("/settings/account")
 	const query = signedOAuthQuery(url)
 	const expired = !query || !(await verifySignedOAuthQuery(query))
 	// Continue resumes the app's request, which may end at the app's redirect URI.
