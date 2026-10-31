@@ -437,6 +437,46 @@ test("denying consent sends the app an access_denied error", async ({ page }) =>
 	expect(back.searchParams.get("code")).toBeNull()
 })
 
+test("before the pages hydrate, login and consent still send the browser back to the app", async ({
+	page,
+	browser,
+}) => {
+	// Without scripts each form posts as a page load, and the browser checks the redirect to the
+	// app against the page's form-action: the page must allow the app's redirect URI. A route sees
+	// only the first address of a redirect, so the test waits for the browser's request instead;
+	// nothing listens there.
+	const email = await signup(page)
+	const client = await createOAuthClient("Scriptless App")
+	const context = await browser.newContext({ javaScriptEnabled: false })
+	const bare = await context.newPage()
+	const signIn = async () => {
+		await bare.goto(authorizeUrl(client, { challenge: pkce().challenge }))
+		await expect(bare).toHaveURL(/\/login\?/)
+		await bare.getByLabel("Email").fill(email)
+		await bare.getByLabel("Password").fill(PASSWORD)
+		await bare.getByRole("button", { name: "Log in", exact: true }).click()
+	}
+
+	await signIn()
+	await expect(bare).toHaveURL(/\/oauth\/consent\?/)
+	const csp = (await bare.request.get(bare.url())).headers()["content-security-policy"]
+	expect(csp).toMatch(/form-action 'self' http:\/\/127\.0\.0\.1:47123$/)
+	const backToApp = () =>
+		bare
+			.waitForRequest((request) => request.url().startsWith(client.redirectUri))
+			.then((request) => new URL(request.url()))
+	let callback = backToApp()
+	await bare.getByRole("button", { name: "Allow" }).click()
+	expect((await callback).searchParams.get("code")).toBeTruthy()
+
+	// Allowed before, the login itself goes back to the app.
+	await context.clearCookies()
+	callback = backToApp()
+	await signIn()
+	expect((await callback).searchParams.get("code")).toBeTruthy()
+	await context.close()
+})
+
 test("consent page rejects a tampered request", async ({ page }) => {
 	await signup(page)
 	const client = await createOAuthClient()

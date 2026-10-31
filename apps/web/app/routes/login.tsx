@@ -8,6 +8,7 @@ import { Button } from "~/components/ui/button"
 import { Field } from "~/components/ui/field"
 import { authLimitResponse } from "~/lib/auth-limits.server"
 import { auth } from "~/lib/auth.server"
+import { allowFormTargets } from "~/lib/csp.server"
 import { emailEnabled } from "~/lib/email.server"
 import { type FieldErrors, parseForm } from "~/lib/forms"
 import { useIsNsKey, useKeyTranslation } from "~/lib/i18n-keys"
@@ -15,6 +16,7 @@ import { localeCookie } from "~/lib/i18n.server"
 import {
 	oauthApiContext,
 	oauthClientOf,
+	oauthRedirectUri,
 	oauthRedirectUrl,
 	signedOAuthQuery,
 	verifySignedOAuthQuery,
@@ -22,6 +24,7 @@ import {
 import { pageTitle } from "~/lib/page-title"
 import {
 	enabledProvider,
+	PROVIDER_ORIGINS,
 	providerErrorKey,
 	providersFor,
 	startProviderSignIn,
@@ -57,13 +60,19 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 	// app, without a way into the web's own sign-in or library.
 	if (!oauthQuery && !app) requireAnonymous(context)
 	const redirectTo = url.searchParams.get("redirectTo")
+	// A provider's button is a submit button, and signing in for an app goes on to the app.
+	const providers = oauthQuery ? [] : providersFor(app)
+	allowFormTargets(context, [
+		...providers.map((provider) => PROVIDER_ORIGINS[provider]),
+		oauthRedirectUri(oauthQuery),
+	])
 	return {
 		// Arriving from a verification email (routes/verify-email.ts). Only a password login keeps the
 		// password: a login link would prove the mailbox alone, and remove it.
 		verifying: !!redirectTo?.startsWith("/verify-email?"),
 		emailLinks: emailEnabled,
 		// A provider's redirect would drop the app's authorization request, as an emailed link does.
-		providers: oauthQuery ? [] : providersFor(app),
+		providers,
 		// Still in the app's sign-in, expired or not: Sign up keeps it.
 		appQuery: app ? signed : null,
 		providerError: providerErrorKey(new URL(request.url).searchParams.get("error")),

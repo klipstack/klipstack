@@ -26,6 +26,7 @@ process.env.APPLE_PRIVATE_KEY = generateKeyPairSync("ec", { namedCurve: "P-256" 
 const { env } = await import("~/lib/env.server")
 const { auth } = await import("~/lib/auth.server")
 const { offeredIn } = await import("~/lib/provider-sign-in.server")
+const { formTargetsOf } = await import("~/lib/csp.server")
 const login = await import("./login")
 const signup = await import("./signup")
 
@@ -74,10 +75,17 @@ async function expired(url: URL) {
 
 const at = (path: string, search = "") => new URL(`${path}${search}`, env.APP_URL)
 
-const args = (url: URL) =>
-	({ request: new Request(url), context: new RouterContextProvider(), params: {} }) as never
+const args = (url: URL, context = new RouterContextProvider()) =>
+	({ request: new Request(url), context, params: {} }) as never
 const atLoginPage = (url: URL) => login.loader(args(url))
 const atSignupPage = (url: URL) => signup.loader(args(url))
+
+/** The origins the page's forms may go on to besides its own (its policy's form-action). */
+async function formTargetsAt(page: typeof login | typeof signup, url: URL) {
+	const context = new RouterContextProvider()
+	await page.loader(args(url, context))
+	return formTargetsOf(context)
+}
 
 describe("third-party sign-in in an app's sign-in", () => {
 	it("is never offered in the iPhone app's: the app offers providers itself", () => {
@@ -126,5 +134,36 @@ describe("third-party sign-in in an app's sign-in", () => {
 			"apple",
 			"github",
 		])
+	})
+})
+
+describe("where the sign-in pages' forms may go", () => {
+	// Until the page hydrates, a form posts as a page load, and form-action also holds the redirect
+	// that follows: without these, Chrome would stop the sign-in on this origin.
+	it("on the web: the providers its buttons start", async () => {
+		const providers = ["https://appleid.apple.com", "https://github.com"]
+		expect(await formTargetsAt(login, at("/login"))).toEqual(providers)
+		expect(await formTargetsAt(signup, at("/signup"))).toEqual(providers)
+	})
+
+	it("in an app's sign-in: that app's redirect URI, and only the providers the page offers", async () => {
+		const cli = await signInPage(CLI_CLIENT_ID, "http://127.0.0.1:47123/callback", CLI_SCOPES)
+		expect(await formTargetsAt(login, cli)).toEqual(["http://127.0.0.1:47123"])
+		const atLogin = await atLoginPage(cli)
+		expect(await formTargetsAt(signup, at("/signup", `?${atLogin.appQuery}`))).toEqual([
+			"https://appleid.apple.com",
+			"https://github.com",
+			"http://127.0.0.1:47123",
+		])
+		const app = await signInPage(MOBILE_CLIENT_ID, MOBILE_REDIRECT_URI, MOBILE_SCOPES)
+		expect(await formTargetsAt(login, app)).toEqual(["com.klipstack.app:"])
+	})
+
+	it("never an address from a request that does not hold", async () => {
+		const cli = await signInPage(CLI_CLIENT_ID, "http://127.0.0.1:47123/callback", CLI_SCOPES)
+		const web = ["https://appleid.apple.com", "https://github.com"]
+		expect(await formTargetsAt(login, await expired(cli))).toEqual(web)
+		const forged = at("/login", cli.search.replace("47123", "47124"))
+		expect(await formTargetsAt(login, forged)).toEqual(web)
 	})
 })

@@ -3,9 +3,16 @@ import { data, Form, Link, redirect, redirectDocument, useNavigation } from "rea
 import { AuthCard } from "~/components/auth-card"
 import { Button } from "~/components/ui/button"
 import { Field } from "~/components/ui/field"
+import { allowFormTargets } from "~/lib/csp.server"
 import { localeCookie } from "~/lib/i18n.server"
-import { oauthRedirectUrl, signedOAuthQuery, verifySignedOAuthQuery } from "~/lib/oauth.server"
+import {
+	oauthRedirectUri,
+	oauthRedirectUrl,
+	signedOAuthQuery,
+	verifySignedOAuthQuery,
+} from "~/lib/oauth.server"
 import { pageTitle } from "~/lib/page-title"
+import { appRedirectIn } from "~/lib/provider-sign-in.server"
 import { readForm } from "~/lib/request-body.server"
 import { cookieHeadersFrom, requireAnonymous, safeRedirect } from "~/lib/session.server"
 import { type CodeRefusal, completeSignIn, pendingSignInSent } from "~/lib/two-factor.server"
@@ -31,6 +38,9 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 	if (!oauthQuery) requireAnonymous(context)
 	if (!pendingSignInSent(request.headers)) throw redirect(`/login${url.search}`)
 	const redirectTo = url.searchParams.get("redirectTo")
+	// The code finishes a sign-in that goes on to an app: the one this page's request names, or the
+	// iPhone app's request a provider's sheet carries in `redirectTo` (see the action).
+	allowFormTargets(context, [oauthRedirectUri(oauthQuery), appRedirectIn(redirectTo)])
 	return {
 		oauthQuery,
 		appQuery: oauthQuery,

@@ -9,7 +9,7 @@ import { renderToPipeableStream } from "react-dom/server"
 import { I18nextProvider } from "react-i18next"
 import type { EntryContext, HandleErrorFunction, RouterContextProvider } from "react-router"
 import { isRouteErrorResponse, ServerRouter } from "react-router"
-import { createNonce, documentPolicy } from "~/lib/csp.server"
+import { createNonce, documentPolicy, formTargetsOf } from "~/lib/csp.server"
 import { stopDocumentEvents } from "~/lib/events.server"
 import { getInstanceOrFallback } from "~/lib/i18n.server"
 
@@ -31,7 +31,10 @@ export default function handleRequest(
 		const i18n = getInstanceOrFallback(loadContext)
 		// Replaces a route's own policy: this one includes it (frame-ancestors 'none').
 		const nonce = createNonce()
-		responseHeaders.set("Content-Security-Policy", documentPolicy(nonce))
+		responseHeaders.set(
+			"Content-Security-Policy",
+			documentPolicy(nonce, formTargetsOf(loadContext)),
+		)
 
 		const { pipe, abort } = renderToPipeableStream(
 			<I18nextProvider i18n={i18n}>

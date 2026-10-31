@@ -8,11 +8,13 @@ import { Button } from "~/components/ui/button"
 import { IDENTITY_SCOPES, identityKey, optionalScopesFor, scopeKey } from "~/lib/auth-constants"
 import { auth } from "~/lib/auth.server"
 import { hasGrant } from "~/lib/credential-policy.server"
+import { allowFormTargets } from "~/lib/csp.server"
 import { useKeyTranslation } from "~/lib/i18n-keys"
 import {
 	appSignInQuery,
 	describeOAuthRequest,
 	oauthApiContext,
+	oauthRedirectUri,
 	oauthRedirectUrl,
 	signedOAuthQuery,
 	verifySignedOAuthQuery,
@@ -67,6 +69,8 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 			return data({ request: null, appQuery: await appSignInQuery(url) }, { status: 400 })
 		throw error
 	}
+	// Allow and Deny both end at the app's redirect URI.
+	allowFormTargets(context, [oauthRedirectUri(oauthQuery)])
 	return {
 		request: {
 			...describeOAuthRequest(url, clientName),

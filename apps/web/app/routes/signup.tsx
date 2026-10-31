@@ -14,6 +14,7 @@ import {
 } from "~/lib/auth-constants"
 import { authLimitResponse, checkAuthLimit, withAuthLimitChecked } from "~/lib/auth-limits.server"
 import { auth } from "~/lib/auth.server"
+import { allowFormTargets } from "~/lib/csp.server"
 import { requestEmailVerification } from "~/lib/email-verification.server"
 import { emailEnabled } from "~/lib/email.server"
 import { env, invitesRequired } from "~/lib/env.server"
@@ -23,12 +24,18 @@ import { getLocale, localeCookie } from "~/lib/i18n.server"
 import { findUsableInvite, signupWithInvite } from "~/lib/invites.server"
 import { requestSignupLink } from "~/lib/magic-link.server"
 import { resumeAuthorization } from "~/lib/oauth-resume.server"
-import { appSignInQuery, oauthClientOf, verifySignedOAuthQuery } from "~/lib/oauth.server"
+import {
+	appSignInQuery,
+	oauthClientOf,
+	oauthRedirectUri,
+	verifySignedOAuthQuery,
+} from "~/lib/oauth.server"
 import { pageTitle } from "~/lib/page-title"
 import {
 	enabledProvider,
 	InvalidInviteError,
 	type Provider,
+	PROVIDER_ORIGINS,
 	providerErrorKey,
 	providersFor,
 	startProviderSignIn,
@@ -73,6 +80,12 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 	// Expired, /login says to start again from the app.
 	if (appQuery && (!oauthQuery || getSession(context))) throw redirect(`/login?${appQuery}`)
 	requireAnonymous(context)
+	// A provider's button is a submit button, and signing up for an app goes on to the app.
+	const providers = providersFor(app)
+	allowFormTargets(context, [
+		...providers.map((provider) => PROVIDER_ORIGINS[provider]),
+		oauthRedirectUri(oauthQuery),
+	])
 	return {
 		inviteRequired: invitesRequired,
 		waitlist: env.SIGNUP_MODE === "waitlist",
@@ -81,7 +94,7 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 		// An emailed sign-up link opens in the mail app's browser, outside an app's sign-in sheet,
 		// which would never hear back: there, the account needs a password.
 		linkSignup: emailEnabled && !app,
-		providers: providersFor(app),
+		providers,
 		appQuery,
 		oauthQuery,
 		providerError: providerErrorKey(url.searchParams.get("error")),

@@ -1,5 +1,5 @@
 import { account, and, db, eq, newId, user } from "@klipstack/db"
-import { expect, type Page, test } from "@playwright/test"
+import { chromium, expect, type Page, test } from "@playwright/test"
 import {
 	createInviteCode,
 	logout,
@@ -47,6 +47,45 @@ test("login offers GitHub and explains a login that has no account", async ({ pa
 	await waitForHydration(page)
 	await page.getByRole("button", { name: "Continue with GitHub" }).click()
 	await expect(page).toHaveURL(/^https:\/\/github\.com\/login\/oauth\/authorize\?/)
+})
+
+test("before the page hydrates, the GitHub buttons still hand over to GitHub", async ({
+	page,
+	baseURL,
+}) => {
+	// Without scripts the form posts as a page load, and the browser checks the redirect to GitHub
+	// against the page's form-action: the page must allow it. A route sees only the first address of
+	// a redirect, so this browser finds no GitHub at all, and the test watches its request.
+	await signupUser(page, "Sign In Without Scripts")
+	const storageState = await page.context().storageState()
+	const browser = await chromium.launch({
+		args: ["--host-resolver-rules=MAP github.com ~NOTFOUND"],
+	})
+	try {
+		for (const signedIn of [false, true]) {
+			const context = await browser.newContext({
+				baseURL,
+				javaScriptEnabled: false,
+				...(signedIn ? { storageState } : {}),
+			})
+			const bare = await context.newPage()
+			const toGitHub = bare.waitForRequest((request) =>
+				request.url().startsWith("https://github.com/login/oauth/authorize?"),
+			)
+			if (signedIn) {
+				await bare.goto("/settings/account/sign-in")
+				await bare.getByRole("button", { name: "Connect GitHub", exact: true }).click()
+			} else {
+				await bare.goto("/login")
+				await bare.getByRole("button", { name: "Continue with GitHub" }).click()
+			}
+			const authorize = new URL((await toGitHub).url())
+			expect(authorize.searchParams.get("client_id")).toBe("e2e-client")
+			await context.close()
+		}
+	} finally {
+		await browser.close()
+	}
 })
 
 test("better-auth's own password and provider endpoints are closed", async ({ page }) => {
