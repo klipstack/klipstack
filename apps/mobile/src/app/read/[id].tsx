@@ -71,6 +71,7 @@ import {
 	saveArticle,
 	type StoredHtml,
 } from "@/lib/offline"
+import { stampDegrees } from "@/lib/post-it"
 import { useReadAloud } from "@/lib/read-aloud"
 import { useReaderAi } from "@/lib/reader-ai"
 import {
@@ -469,6 +470,7 @@ export default function Reader() {
 					readerHtml({
 						title: details.title ?? details.url,
 						byline: bylineOf(details),
+						stamp: { degrees: stampDegrees(details.id), shown: details.finished },
 						via: details.via,
 						topics,
 						html: html.html,

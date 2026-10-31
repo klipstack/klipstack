@@ -609,6 +609,37 @@ describe("the reader page: reading and links", () => {
 		expect(end.textContent).toContain("Starred")
 	})
 
+	it("ends the byline with the Read stamp while the article is finished, as the app says", () => {
+		const { window } = openPage("<p>Text.</p>", [], {
+			byline: "example.com",
+			stamp: { degrees: 3, shown: true },
+		})
+		const page = window as unknown as { klipEnd: (end: unknown) => void }
+		const byline = window.document.querySelector(".byline")!
+		const stamp = byline.querySelector<HTMLElement>(".read-stamp")!
+		// Shown from the start, before the app first draws the end.
+		expect(stamp.hidden).toBe(false)
+		// VoiceOver hears the word, not the stamp's capitals.
+		expect(stamp.querySelector(".sr-only")!.textContent).toBe("Finished")
+		expect(stamp.querySelector('[aria-hidden="true"]')!.textContent).toBe("READ")
+		expect(stamp.style.transform).toBe("rotate(3deg)")
+		const end = { archived: true, starred: false, editions: false, shortlisted: false }
+		page.klipEnd({ ...end, state: "kept" })
+		expect(stamp.hidden).toBe(true)
+		page.klipEnd({ ...end, state: "finished" })
+		expect(stamp.hidden).toBe(false)
+		page.klipEnd({ ...end, state: "finishing" })
+		expect(stamp.hidden).toBe(true)
+	})
+
+	it("opens without the Read stamp on an article not finished", () => {
+		const { window } = openPage("<p>Text.</p>", [], {
+			byline: "example.com",
+			stamp: { degrees: -7, shown: false },
+		})
+		expect(window.document.querySelector<HTMLElement>(".read-stamp")!.hidden).toBe(true)
+	})
+
 	it("offers the note for the next edition once marked, as the user wrote it, and taps open it", () => {
 		const { window, messages } = openPage("<p>Text.</p>")
 		const page = window as unknown as { klipEnd: (end: unknown) => void }

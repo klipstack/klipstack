@@ -29,6 +29,15 @@ export function tiltFor(id: string): number {
 	return n
 }
 
+/**
+ * The lean, in degrees, of the "Read" stamp on the article of this id: stamped by hand, never
+ * quite straight, and the same every time, so its card and its reader agree.
+ */
+export function stampDegrees(id: string): number {
+	const tilts = [-7, -4, 3, -9]
+	return tilts[tiltFor(id) % tilts.length]!
+}
+
 /** A note's text line, in characters: never a sliver, never wider than reads well. */
 const MIN_CH = 14
 const MAX_CH = 52

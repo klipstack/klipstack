@@ -21,6 +21,12 @@ export type ReaderPage = {
 	/** Site, author and reading time, already joined. */
 	byline: string
 	/**
+	 * The "Read" stamp that ends the byline, as on the article's card (`ReadStamp`): its lean
+	 * (`stampDegrees`), and whether the article is finished. Hidden while it isn't; `klipEnd` shows
+	 * or hides it as that changes. None when unset.
+	 */
+	stamp?: { degrees: number; shown: boolean }
+	/**
 	 * The posts the article was saved through (`via` in the details), shown under the byline: who
 	 * shared it and what they said. Their HTML is sanitized on the server.
 	 */
@@ -74,7 +80,7 @@ export function readerHtml(page: ReaderPage): string {
 <body>
 <header>
 ${kickerHtml(page.topics)}<h1>${escapeHtml(page.title)}</h1>
-${page.byline ? `<p class="byline">${escapeHtml(page.byline)}</p>` : ""}
+${page.byline ? `<p class="byline">${escapeHtml(page.byline)}${stampHtml(page.stamp)}</p>` : ""}
 ${(page.via ?? []).map(viaHtml).join("")}
 </header>
 <article>${page.html}</article>
@@ -83,6 +89,15 @@ ${shelfHtml(page.topics)}<script type="application/json" id="klip-config">${scri
 <script>${pageScript}</script>
 </body>
 </html>`
+}
+
+/**
+ * The "Read" stamp after the byline, as on the card. A space before it, not a margin, so that it
+ * starts the next line flush when it wraps. VoiceOver hears "Finished".
+ */
+function stampHtml(stamp: ReaderPage["stamp"]): string {
+	if (!stamp) return ""
+	return ` <span id="klip-stamp" class="read-stamp" style="transform: rotate(${stamp.degrees}deg)"${stamp.shown ? "" : " hidden"}><span class="sr-only">${escapeHtml(t("library.readStampLabel"))}</span><span class="ink" aria-hidden="true">${escapeHtml(t("library.readStamp"))}</span></span>`
 }
 
 /** The article's topics above its title, strongest first, as a newspaper names its sections. */
@@ -238,6 +253,8 @@ const css = `
 	--hl-deepen: oklch(0.25 0.03 60) 15%;
 	--speaking: oklch(0.48 0.16 257 / 0.13);
 	--accent: oklch(0.37 0.085 260); --accent-fg: oklch(0.99 0 0); --favorite: oklch(0.58 0.12 78);
+	/* A library's date-stamp ink, on what the reader finished: the app's stamp (lib/theme.ts). */
+	--stamp: #6a499b;
 	--note: oklch(0.955 0.065 96); --note-fg: oklch(0.27 0.03 75); --note-tape: oklch(1 0 0 / 0.55);
 	--serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
 	--sans: ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
@@ -254,6 +271,7 @@ const css = `
 		--hl-deepen: oklch(0.95 0.02 90) 8%;
 		--speaking: oklch(0.78 0.105 250 / 0.2);
 		--accent: oklch(0.74 0.1 255); --accent-fg: oklch(0.2 0.02 65); --favorite: oklch(0.78 0.12 80);
+		--stamp: #b49ce1;
 		--note: oklch(0.4 0.05 85); --note-fg: oklch(0.95 0.025 90); --note-tape: oklch(1 0 0 / 0.15);
 	}
 }
@@ -269,6 +287,16 @@ body {
 }
 header h1 { font-family: var(--sans); font-size: 1.875rem; line-height: 1.2; margin: 8px 0 8px; }
 .byline { font-family: var(--sans); font-size: 0.9375rem; color: var(--muted-fg); margin: 0 0 24px; }
+/* The card's ReadStamp (src/components/read-stamp.tsx), in the same ink. It grows with the text,
+   but no further than the card's (1.5 times). */
+.read-stamp { display: inline-block; vertical-align: middle; }
+.read-stamp[hidden] { display: none; }
+.read-stamp .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.read-stamp .ink {
+	display: block; padding: 0 4px; border: 1.5px solid var(--stamp); border-radius: 3px; opacity: 0.85;
+	color: var(--stamp); font-size: min(0.625rem, 15px); line-height: min(0.8125rem, 19.5px); font-weight: 800; letter-spacing: 0.14em;
+	-webkit-user-select: none; user-select: none;
+}
 .via { font-family: var(--sans); font-size: 0.9375rem; line-height: 1.5; margin: -8px 0 24px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; }
 .via p, .via blockquote { margin: 0 0 0.5em; }
 .via > :last-child { margin-bottom: 0; }

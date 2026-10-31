@@ -61,7 +61,8 @@ import { createTakeaway } from "./takeaway"
  *   measured to the end block, not through it or the shelf (`readingSpan`).
  * - `klipEnd(end)` draws the end block after the article (whether leaving finishes it, the star,
  *   the mark for the next edition); its taps go to the app (`{ type: "end", action }`). In it, the
- *   article note's post-it (`takeaway.ts`), which `klipNote(note)` fills.
+ *   article note's post-it (`takeaway.ts`), which `klipNote(note)` fills. It also shows the byline's
+ *   "Read" stamp while the article is finished, and hides it once it isn't.
  * - A tap on a highlight tells the app which (`{ type: "highlight", id }`, the smallest when they
  *   overlap); a tap on a web link, which link (`{ type: "link", href, text }`), instead of
  *   following it.
@@ -513,7 +514,10 @@ export function startReaderPage(): void {
 	const takeaway = createTakeaway(post, config.strings)
 	// Marked with its button here: what that opens below scrolls into view once the app says so.
 	let showEdition = false
+	const stamp = document.getElementById("klip-stamp")
 	page.klipEnd = (end) => {
+		// The byline's "Read" stamp follows whether it is finished.
+		if (stamp) stamp.hidden = end.state !== "finished"
 		if (!endBlock) return
 		if (!endBlock.firstChild) endBlock.append(endHead, takeaway.element, endRest)
 		const parts = endParts(end, config.strings)

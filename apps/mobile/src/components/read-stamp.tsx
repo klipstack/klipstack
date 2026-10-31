@@ -1,14 +1,12 @@
 import { StyleSheet, Text, View } from "react-native"
 import { t } from "@/lib/i18n"
-import { tiltFor } from "@/lib/post-it"
+import { stampDegrees } from "@/lib/post-it"
 import type { Colors } from "@/lib/theme"
-
-/** Stamped by hand: never quite straight, and never twice the same way. Degrees. */
-const TILTS = [-7, -4, 3, -9]
 
 /**
  * An ink stamp that says an article was read, in a library's date-stamp ink, a little tilted by
- * the article (the same every time): the web's ReadStamp. VoiceOver hears "Finished". On a picture
+ * the article (the same every time): the web's ReadStamp. VoiceOver hears "Finished". The reader
+ * page draws the same stamp in its byline (`readerHtml`). On a picture
  * (`onPicture`) it is stamped on a slip of paper, or a photo would swallow the ink.
  */
 export function ReadStamp({
@@ -26,7 +24,7 @@ export function ReadStamp({
 			accessibilityLabel={t("library.readStampLabel")}
 			style={[
 				styles.stamp,
-				{ transform: [{ rotate: `${TILTS[tiltFor(id) % TILTS.length]}deg` }] },
+				{ transform: [{ rotate: `${stampDegrees(id)}deg` }] },
 				onPicture && [styles.slip, { backgroundColor: `${colors.bg}e6` }],
 			]}
 		>
