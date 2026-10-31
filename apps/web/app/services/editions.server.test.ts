@@ -16,6 +16,21 @@ import {
 } from "@klipstack/db"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import { purgeArticles, trashArticles } from "~/commands/articles.server"
+import {
+	addItem,
+	addShortlist,
+	createEmptyEdition as insertEdition,
+	deleteEdition,
+	moveItem,
+	publishEdition,
+	refreshItem,
+	removeItem,
+	restoreItem,
+	setEditionNote,
+	unpublishEdition,
+	updateEdition,
+	updateItem,
+} from "~/commands/editions-actions.server"
 import { changeEdition, createEdition } from "~/commands/editions.server"
 import { AppError } from "~/lib/app-error"
 import { hasUnpublishedChanges } from "~/lib/editions"
@@ -23,28 +38,15 @@ import { env } from "~/lib/env.server"
 import { usageOf } from "~/lib/limits.server"
 import { setNote } from "./documents.server"
 import {
-	addItem,
-	addShortlist,
-	createEdition as insertEdition,
-	deleteEdition,
-	editionNudge,
 	editionNeighbors,
+	editionNudge,
 	type EditionRow,
 	getEdition,
 	itemArticle,
 	listEditions,
 	listShortlist,
-	moveItem,
 	parseSnapshot,
-	publishEdition,
-	refreshItem,
-	removeItem,
 	pickerDocuments,
-	restoreItem,
-	setEditionNote,
-	unpublishEdition,
-	updateEdition,
-	updateItem,
 } from "./editions.server"
 import { buildExport } from "./export.server"
 import { deleteHighlight } from "./highlights.server"

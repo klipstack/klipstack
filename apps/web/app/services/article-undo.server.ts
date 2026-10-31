@@ -10,7 +10,8 @@ import {
 	sql,
 	tags,
 } from "@klipstack/db"
-import { type DraftChange, draftCopies, draftOfChange, revertDraftChange } from "./editions.server"
+import { revertDraftChange } from "./editions-write.server"
+import { type DraftChange, draftCopies, draftOfChange } from "./editions.server"
 
 export const DATES = [
 	"starredAt",

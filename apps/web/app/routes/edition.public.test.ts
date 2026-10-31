@@ -1,15 +1,14 @@
 import { db, documents, editions, eq, inArray, user as userTable } from "@klipstack/db"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
-import { env } from "~/lib/env.server"
 import {
 	addItem,
-	createEdition,
-	type EditionRow,
-	type EditionSnapshot,
+	createEmptyEdition as createEdition,
 	publishEdition,
 	unpublishEdition,
 	updateEdition,
-} from "~/services/editions.server"
+} from "~/commands/editions-actions.server"
+import { env } from "~/lib/env.server"
+import type { EditionRow, EditionSnapshot } from "~/services/editions.server"
 import { loader as cardLoader } from "./edition.og"
 import { headers, loader, meta } from "./edition.public"
 

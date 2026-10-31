@@ -15,13 +15,13 @@ import {
 	user as userTable,
 } from "@klipstack/db"
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
-import { AppError } from "~/lib/app-error"
 import {
 	addItem,
-	createEdition as insertEdition,
+	createEmptyEdition as insertEdition,
 	publishEdition,
 	updateItem,
-} from "~/services/editions.server"
+} from "~/commands/editions-actions.server"
+import { AppError } from "~/lib/app-error"
 import {
 	openArticle,
 	purgeArticles,

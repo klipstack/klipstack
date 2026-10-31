@@ -34,7 +34,8 @@ import {
 	liveDuplicateOf,
 	restoreDocument,
 } from "~/services/documents.server"
-import { addToDraft, currentDraft, draftCopies, removeFromDraft } from "~/services/editions.server"
+import { addToDraft, removeFromDraft } from "~/services/editions-write.server"
+import { currentDraft, draftCopies } from "~/services/editions.server"
 import { changeTagsIn } from "~/services/tags.server"
 import { mayUseEditions } from "./editions.server"
 import { queueTopicsIfOn } from "./topics.server"

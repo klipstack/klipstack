@@ -1,4 +1,3 @@
-import { db, eq, user as userTable } from "@klipstack/db"
 import { supportedLanguages } from "@klipstack/i18n"
 import { z } from "zod"
 import { AppError, parseInput } from "~/lib/app-error"
@@ -7,9 +6,9 @@ import { editionsOn } from "~/lib/features.server"
 import {
 	addItem,
 	addShortlist,
-	createEdition as insertEdition,
-	currentDraft,
+	createEmptyEdition,
 	deleteEdition,
+	findOrCreateDraft,
 	moveItem,
 	publishEdition,
 	refreshItem,
@@ -21,11 +20,13 @@ import {
 	unpublishEdition,
 	updateEdition,
 	updateItem,
-} from "~/services/editions.server"
+} from "./editions-actions.server"
+
+export type { RemovedItem } from "./editions-actions.server"
 
 /**
- * The user's editions, for the web. The limits are in the services, which refuse with the field
- * that broke one (`details.field`).
+ * The user's editions, for the web. Every command here checks `mayUseEditions` and the input, then
+ * calls the actions in `editions-actions.server.ts`, which adapters never import.
  */
 
 /** Every command here: editions are turned on for the account (Settings → Features). */
@@ -83,7 +84,7 @@ export type EditionChange = z.infer<typeof EditionChange>
  */
 export async function createEdition(userId: string, input: { locale: string; timeZone: string }) {
 	await mayUseEditions(userId)
-	const edition = await insertEdition(userId, input)
+	const edition = await createEmptyEdition(userId, input)
 	await addShortlist(userId, edition.id)
 	return edition
 }
@@ -94,17 +95,7 @@ export async function createEdition(userId: string, input: { locale: string; tim
  */
 export async function startEdition(userId: string, input: { locale: string; timeZone: string }) {
 	await mayUseEditions(userId)
-	// The user's row held while it looks, so two Starts at once make one draft.
-	const { draft, created } = await db.transaction(async (tx) => {
-		await tx
-			.select({ id: userTable.id })
-			.from(userTable)
-			.where(eq(userTable.id, userId))
-			.for("update")
-		const found = await currentDraft(tx, userId)
-		if (found) return { draft: found, created: false }
-		return { draft: await insertEdition(userId, input, tx), created: true }
-	})
+	const { draft, created } = await findOrCreateDraft(userId, input)
 	if (created) await addShortlist(userId, draft.id)
 	return draft
 }

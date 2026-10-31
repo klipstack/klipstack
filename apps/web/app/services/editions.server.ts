@@ -3,11 +3,10 @@
  * copy of library data, never a view of it. Only publishing writes the snapshot the public page
  * renders.
  *
- * Every change takes the edition's row lock first, and sets `updatedAt` in database time. So a
- * publish sees all of an edit or none of it, and "unpublished changes" never misses one.
+ * This module reads: queries, the snapshot and the views built from them, and the row locks the
+ * changes take first. The changes are in `commands/editions-actions.server.ts`, which writes through
+ * `editions-write.server.ts`.
  */
-import { withoutNul } from "@klipstack/api-contract/names"
-import { NOTE_MAX } from "@klipstack/api-contract/names"
 import {
 	and,
 	asc,
@@ -16,14 +15,12 @@ import {
 	desc,
 	documents,
 	type Edition,
-	type EditionCover,
 	type EditionItem,
 	type EditionItemHighlight,
 	editionItems,
 	editions,
 	eq,
 	gt,
-	gte,
 	inArray,
 	isNotNull,
 	isNull,
@@ -33,31 +30,21 @@ import {
 	type Tx,
 	user as userTable,
 } from "@klipstack/db"
-import { isLocale } from "@klipstack/i18n"
 import type { TFunction } from "i18next"
 import { z } from "zod"
 import { AppError } from "~/lib/app-error"
 import { type EditionView, editionView } from "~/lib/edition-view"
 import {
 	EDITION_COVERS,
-	EDITION_INTRO_MAX,
-	EDITION_TITLE_MAX,
 	editionSlug,
 	editionTitle,
-	hasUnpublishedChanges,
-	includedQuotes,
 	isHttpUrl,
 	markdownUrl,
-	NUDGE,
 	type NudgeReason,
 	nudgeReason,
 	type EditionSignals,
-	type PublishProblem,
-	publishProblems,
-	quoteProblem,
 } from "~/lib/editions"
 import { hasFeature } from "~/lib/features.server"
-import { checkMayAdd, countMonthly } from "~/lib/limits.server"
 import { extractLinkIds, rewriteNoteLinks } from "~/lib/note-links"
 import { getBrief } from "./ai-threads.server"
 import { getDocumentForReader } from "./documents.server"
@@ -73,16 +60,14 @@ const EDITION_REFUSALS = {
 		"An admin removed this edition after a report. It cannot be published again; the email sent to you says why.",
 } as const
 
-const refuse = (code: keyof typeof EDITION_REFUSALS) => new AppError(code, EDITION_REFUSALS[code])
-
-/** A field past its limit: `details.field` says which, for the editor's text. */
-const invalid = (field: "title" | "intro" | "note" | "locale", message: string) =>
-	new AppError("invalid_request", message, { details: { field } })
+/** The refusal for `code`, with its message: the reads' and the command's. */
+export const refuse = (code: keyof typeof EDITION_REFUSALS) =>
+	new AppError(code, EDITION_REFUSALS[code])
 
 /** An edition without its snapshot, which only the public page reads. */
 export type EditionRow = Omit<Edition, "userId" | "published">
 
-const editionColumns = {
+export const editionColumns = {
 	id: editions.id,
 	publicId: editions.publicId,
 	title: editions.title,
@@ -100,22 +85,17 @@ const editionColumns = {
 	updatedAt: editions.updatedAt,
 }
 
-/** Database time, to the millisecond: JavaScript compares these dates, and has no more. */
-const NOW = sql`date_trunc('milliseconds', clock_timestamp())`
-/** An edit's time: after the last publish, however soon after it. */
-const EDITED = sql`greatest(${NOW}, coalesce(${editions.republishedAt}, ${editions.publishedAt}) + interval '1 millisecond')`
-/** A publish's time: not before the last edit, which it includes. */
-const WRITTEN = sql`greatest(${NOW}, ${editions.updatedAt})`
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /** Ids come from URLs. A malformed one is not found, rather than a Postgres error. */
-function checkId(id: string) {
+export function checkId(id: string) {
 	if (!UUID.test(id)) throw refuse("not_found")
 }
 
-const owned = (userId: string, id: string) => and(eq(editions.id, id), eq(editions.userId, userId))
+export const owned = (userId: string, id: string) =>
+	and(eq(editions.id, id), eq(editions.userId, userId))
 
-async function findEdition(userId: string, id: string): Promise<EditionRow> {
+export async function findEdition(userId: string, id: string): Promise<EditionRow> {
 	checkId(id)
 	const [row] = await db.select(editionColumns).from(editions).where(owned(userId, id))
 	if (!row) throw refuse("not_found")
@@ -123,7 +103,7 @@ async function findEdition(userId: string, id: string): Promise<EditionRow> {
 }
 
 /** The user's edition, locked until the transaction ends. */
-async function lockEdition(tx: Tx, userId: string, id: string): Promise<EditionRow> {
+export async function lockEdition(tx: Tx, userId: string, id: string): Promise<EditionRow> {
 	checkId(id)
 	const [row] = await tx
 		.select(editionColumns)
@@ -134,7 +114,11 @@ async function lockEdition(tx: Tx, userId: string, id: string): Promise<EditionR
 	return row
 }
 
-async function findItem(q: Db | Tx, editionId: string, itemId: string): Promise<EditionItem> {
+export async function findItem(
+	q: Db | Tx,
+	editionId: string,
+	itemId: string,
+): Promise<EditionItem> {
 	checkId(itemId)
 	const [item] = await q
 		.select()
@@ -142,43 +126,6 @@ async function findItem(q: Db | Tx, editionId: string, itemId: string): Promise<
 		.where(and(eq(editionItems.id, itemId), eq(editionItems.editionId, editionId)))
 	if (!item) throw refuse("not_found")
 	return item
-}
-
-/** A working-copy change: the public page is now out of date. */
-async function touch(tx: Tx, id: string) {
-	await tx.update(editions).set({ updatedAt: EDITED }).where(eq(editions.id, id))
-}
-
-/** Form posts send CRLF. */
-const lf = (text: string) => text.replace(/\r\n?/g, "\n")
-
-/** Optional: blank is none, and the page shows its date instead. */
-function cleanTitle(raw: string | null): string | null {
-	const title = (raw ?? "").replace(/\s+/g, " ").trim()
-	if (title.length > EDITION_TITLE_MAX || !withoutNul(title))
-		throw invalid("title", `A title has up to ${EDITION_TITLE_MAX} characters, and no NUL.`)
-	return title || null
-}
-
-function cleanText(raw: string | null, max: number, field: "intro" | "note") {
-	const text = lf(raw ?? "").trim()
-	if (text.length > max || !withoutNul(text))
-		throw invalid(field, `That text has up to ${max} characters, and no NUL.`)
-	return text || null
-}
-
-/** A draft with no title and no articles, in the reader's time zone and language. */
-export async function createEdition(
-	userId: string,
-	input: { locale: string; timeZone: string },
-	q: Db | Tx = db,
-): Promise<EditionRow> {
-	if (!isLocale(input.locale)) throw invalid("locale", "That is not a language Klipstack has.")
-	const [row] = await q
-		.insert(editions)
-		.values({ userId, locale: input.locale, timeZone: input.timeZone })
-		.returning(editionColumns)
-	return row!
 }
 
 /** The published title, which the public address follows. Null without one, or unpublished. */
@@ -243,12 +190,135 @@ export async function getEdition(
 		.where(owned(userId, id))
 	if (!row) throw refuse("not_found")
 	const { publishedTitle: title, ...edition } = row
-	const items = await db
+	return { edition, items: await listItems(db, id), publicPath: publicPath(edition, title) }
+}
+
+/** The id of the edition's item of the article, or null when it has none. */
+export async function itemOfArticle(
+	q: Db | Tx,
+	editionId: string,
+	documentId: string,
+): Promise<string | null> {
+	const [item] = await q
+		.select({ id: editionItems.id })
+		.from(editionItems)
+		.where(and(eq(editionItems.editionId, editionId), eq(editionItems.documentId, documentId)))
+	return item?.id ?? null
+}
+
+/** The id of the edition's item at `position`, or null when it has none there. */
+export async function itemAt(
+	q: Db | Tx,
+	editionId: string,
+	position: number,
+): Promise<string | null> {
+	const [item] = await q
+		.select({ id: editionItems.id })
+		.from(editionItems)
+		.where(and(eq(editionItems.editionId, editionId), eq(editionItems.position, position)))
+	return item?.id ?? null
+}
+
+/** Whether an item with this id is in some edition. */
+export async function itemExists(q: Db | Tx, itemId: string): Promise<boolean> {
+	const [item] = await q
+		.select({ id: editionItems.id })
+		.from(editionItems)
+		.where(eq(editionItems.id, itemId))
+	return item !== undefined
+}
+
+/**
+ * The user's articles marked for an edition and not in it yet, the oldest mark first. Articles in
+ * the trash wait there.
+ */
+export async function shortlistNotIn(userId: string, editionId: string): Promise<string[]> {
+	const marked = await db
+		.select({ id: documents.id })
+		.from(documents)
+		.where(
+			and(
+				eq(documents.userId, userId),
+				isNotNull(documents.shortlistedAt),
+				isNull(documents.deletedAt),
+				sql`not exists (
+					select 1 from edition_items i
+					where i.edition_id = ${editionId} and i.document_id = ${documents.id}
+				)`,
+			),
+		)
+		.orderBy(asc(documents.shortlistedAt), asc(documents.id))
+	return marked.map((row) => row.id)
+}
+
+/**
+ * The user's drafts that have the article, locked until the transaction ends, in id order: the
+ * order every change takes their locks in. Their ids.
+ */
+export async function lockDraftsWith(
+	tx: Tx,
+	userId: string,
+	documentId: string,
+): Promise<string[]> {
+	const drafts = await tx
+		.select({ id: editions.id })
+		.from(editions)
+		.where(
+			and(
+				eq(editions.userId, userId),
+				isNull(editions.publishedAt),
+				sql`exists (
+					select 1 from edition_items i
+					where i.edition_id = ${editions.id} and i.document_id = ${documentId}
+				)`,
+			),
+		)
+		.orderBy(asc(editions.id))
+		.for("update")
+	return drafts.map((draft) => draft.id)
+}
+
+/** The user's live article's notes, locked until the transaction ends. Null without one. */
+export async function lockArticleNotes(
+	tx: Tx,
+	userId: string,
+	documentId: string,
+): Promise<{ note: string | null; editionNote: string | null } | null> {
+	const [doc] = await tx
+		.select({ note: documents.note, editionNote: documents.editionNote })
+		.from(documents)
+		.where(
+			and(eq(documents.id, documentId), eq(documents.userId, userId), isNull(documents.deletedAt)),
+		)
+		.for("update")
+	return doc ?? null
+}
+
+/** Holds the user's row until the transaction ends: changes that must not run twice at once. */
+export async function lockUser(tx: Tx, userId: string) {
+	await tx
+		.select({ id: userTable.id })
+		.from(userTable)
+		.where(eq(userTable.id, userId))
+		.for("update")
+}
+
+/** The edition's items, in order. */
+export async function listItems(q: Db | Tx, editionId: string): Promise<EditionItem[]> {
+	return q
 		.select()
 		.from(editionItems)
-		.where(eq(editionItems.editionId, id))
+		.where(eq(editionItems.editionId, editionId))
 		.orderBy(asc(editionItems.position))
-	return { edition, items, publicPath: publicPath(edition, title) }
+}
+
+/** The name the user's editions go out under. */
+export async function authorName(q: Db | Tx, userId: string): Promise<string> {
+	const [author] = await q
+		.select({ name: userTable.name })
+		.from(userTable)
+		.where(eq(userTable.id, userId))
+	return author!.name
 }
 
 const SUGGESTED_MAX = 200
@@ -457,19 +527,6 @@ async function countItems(editionId: string): Promise<number> {
 	return row?.n ?? 0
 }
 
-/** "Not now": no nudge, for a new edition or the draft, for a week (`NUDGE.snoozeDays`). */
-export async function snoozeNudge(userId: string): Promise<void> {
-	await db
-		.update(userTable)
-		.set({
-			prefs: sql`${userTable.prefs} || jsonb_build_object('editionsNudgeAfter', to_char(
-				(now() + make_interval(days => ${NUDGE.snoozeDays})) at time zone 'UTC',
-				'YYYY-MM-DD"T"HH24:MI:SS"Z"'
-			))`,
-		})
-		.where(eq(userTable.id, userId))
-}
-
 /** The user's shortlist, the latest mark first. Articles in the trash wait there, unlisted. */
 export async function listShortlist(userId: string): Promise<ShortlistEntry[]> {
 	const rows = await db
@@ -493,150 +550,7 @@ export async function listShortlist(userId: string): Promise<ShortlistEntry[]> {
 	return rows.map((row) => ({ ...row, shortlistedAt: row.shortlistedAt! }))
 }
 
-/**
- * The article's note for editions, written while reading. Blank clears it. A draft that has the
- * article already gets it too, unless the user changed the draft's copy there: a copy still as
- * adding made it becomes what adding would make now. Published editions keep their copy, as with
- * every library change.
- */
-export async function setEditionNote(
-	userId: string,
-	documentId: string,
-	raw: string | null,
-): Promise<string | null> {
-	const note = cleanText(raw, NOTE_MAX, "note")
-	checkId(documentId)
-	return db.transaction(async (tx) => {
-		// The drafts first, then the article: the order every other change takes its locks in.
-		const drafts = await tx
-			.select({ id: editions.id })
-			.from(editions)
-			.where(
-				and(
-					eq(editions.userId, userId),
-					isNull(editions.publishedAt),
-					sql`exists (
-						select 1 from edition_items i
-						where i.edition_id = ${editions.id} and i.document_id = ${documentId}
-					)`,
-				),
-			)
-			.orderBy(asc(editions.id))
-			.for("update")
-		const [doc] = await tx
-			.select({ note: documents.note, editionNote: documents.editionNote })
-			.from(documents)
-			.where(
-				and(
-					eq(documents.id, documentId),
-					eq(documents.userId, userId),
-					isNull(documents.deletedAt),
-				),
-			)
-			.for("update")
-		if (!doc) throw refuse("not_found")
-		if (doc.editionNote === note) return note
-		await tx.update(documents).set({ editionNote: note }).where(eq(documents.id, documentId))
-		if (drafts.length === 0) return note
-		// What adding gave an item before this change, and what it gives now (`copyItem`).
-		const rewrite = await noteLinkRewriter(userId, [doc.editionNote, doc.note, note])
-		const before = {
-			note: rewrite(doc.editionNote ?? doc.note),
-			included: doc.editionNote !== null,
-		}
-		const after = { note: rewrite(note ?? doc.note), includeNote: note !== null }
-		const changed = await tx
-			.update(editionItems)
-			.set(after)
-			.where(
-				and(
-					inArray(
-						editionItems.editionId,
-						drafts.map((draft) => draft.id),
-					),
-					eq(editionItems.documentId, documentId),
-					before.note === null ? isNull(editionItems.note) : eq(editionItems.note, before.note),
-					eq(editionItems.includeNote, before.included),
-				),
-			)
-			.returning({ editionId: editionItems.editionId })
-		for (const editionId of new Set(changed.map((row) => row.editionId))) await touch(tx, editionId)
-		return note
-	})
-}
-
-/**
- * Adds every article of the shortlist the edition does not have yet, the oldest mark first: the
- * order they were read in. One without a web address is left out. How many it added.
- */
-export async function addShortlist(userId: string, editionId: string): Promise<number> {
-	await findEdition(userId, editionId)
-	const marked = await db
-		.select({ id: documents.id })
-		.from(documents)
-		.where(
-			and(
-				eq(documents.userId, userId),
-				isNotNull(documents.shortlistedAt),
-				isNull(documents.deletedAt),
-				sql`not exists (
-					select 1 from edition_items i
-					where i.edition_id = ${editionId} and i.document_id = ${documents.id}
-				)`,
-			),
-		)
-		.orderBy(asc(documents.shortlistedAt), asc(documents.id))
-	let added = 0
-	for (const { id } of marked) {
-		try {
-			await addItem(userId, editionId, id)
-			added++
-		} catch (error) {
-			// No web address, or added meanwhile: the rest still go in.
-			if (error instanceof AppError && (error.code === "no_url" || error.code === "already_added"))
-				continue
-			throw error
-		}
-	}
-	return added
-}
-
-/** Title, intro, language and cover. Unchanged values change nothing, not even `updatedAt`. */
-export async function updateEdition(
-	userId: string,
-	id: string,
-	patch: { title?: string | null; intro?: string | null; locale?: string; cover?: EditionCover },
-): Promise<EditionRow> {
-	const title = patch.title === undefined ? undefined : cleanTitle(patch.title)
-	const intro =
-		patch.intro === undefined ? undefined : cleanText(patch.intro, EDITION_INTRO_MAX, "intro")
-	if (patch.locale !== undefined && !isLocale(patch.locale))
-		throw invalid("locale", "That is not a language Klipstack has.")
-	return db.transaction(async (tx) => {
-		const edition = await lockEdition(tx, userId, id)
-		const next = {
-			title: title === undefined ? edition.title : title,
-			intro: intro === undefined ? edition.intro : intro,
-			locale: patch.locale ?? edition.locale,
-			cover: patch.cover ?? edition.cover,
-		}
-		if (
-			next.title === edition.title &&
-			next.intro === edition.intro &&
-			next.locale === edition.locale &&
-			next.cover === edition.cover
-		)
-			return edition
-		const [row] = await tx
-			.update(editions)
-			.set({ ...next, updatedAt: EDITED })
-			.where(eq(editions.id, id))
-			.returning(editionColumns)
-		return row!
-	})
-}
-
-type ItemCopy = Omit<
+export type ItemCopy = Omit<
 	typeof editionItems.$inferInsert,
 	"id" | "editionId" | "documentId" | "position" | "includeNote"
 > & { highlights: EditionItemHighlight[]; includeNote: boolean }
@@ -647,7 +561,7 @@ type ItemCopy = Omit<
  * until the user includes it. "Add" and "Refresh from library" both copy with this. The article
  * must be live.
  */
-async function copyItem(
+export async function copyItem(
 	userId: string,
 	documentId: string,
 	edition: EditionRow,
@@ -713,7 +627,7 @@ async function copyItem(
  * links to the article's own address instead. A link to an article in the trash, gone, or without
  * an http(s) address becomes its plain title.
  */
-async function noteLinkRewriter(userId: string, texts: Array<string | null>) {
+export async function noteLinkRewriter(userId: string, texts: Array<string | null>) {
 	const ids = [...new Set(texts.flatMap((text) => (text ? extractLinkIds(text) : [])))]
 	const urls = new Map<string, string>()
 	if (ids.length > 0) {
@@ -734,42 +648,6 @@ async function noteLinkRewriter(userId: string, texts: Array<string | null>) {
 	}
 	return (text: string | null) =>
 		text === null ? null : rewriteNoteLinks(text, (id) => urls.get(id) ?? null)
-}
-
-/**
- * Copies the article to the end of the edition. Only its note for editions is included; nothing
- * else is until the user says so. In a draft, the article is marked too: it is in the next edition,
- * as marking it would have made it, and removing it unmarks it.
- */
-export async function addItem(
-	userId: string,
-	editionId: string,
-	documentId: string,
-): Promise<EditionItem> {
-	const copy = await copyItem(userId, documentId, await findEdition(userId, editionId))
-	return db.transaction(async (tx) => {
-		const edition = await lockEdition(tx, userId, editionId)
-		const [taken] = await tx
-			.select({ id: editionItems.id })
-			.from(editionItems)
-			.where(and(eq(editionItems.editionId, editionId), eq(editionItems.documentId, documentId)))
-		if (taken) throw refuse("already_added")
-		const [last] = await tx
-			.select({ next: sql<number>`coalesce(max(${editionItems.position}) + 1, 0)::int` })
-			.from(editionItems)
-			.where(eq(editionItems.editionId, editionId))
-		const [item] = await tx
-			.insert(editionItems)
-			.values({ ...copy, editionId, documentId, position: last!.next })
-			.returning()
-		if (!edition.publishedAt)
-			await tx
-				.update(documents)
-				.set({ shortlistedAt: sql`coalesce(${documents.shortlistedAt}, now())` })
-				.where(and(eq(documents.id, documentId), eq(documents.userId, userId)))
-		await touch(tx, editionId)
-		return item!
-	})
 }
 
 /**
@@ -808,119 +686,6 @@ export async function draftCopies(
 	return copies
 }
 
-/** The day the article was last finished, in the edition's time zone, as the transaction sees it. */
-const readOnIn = (documentId: string, timeZone: string) => sql<string | null>`(
-	select coalesce(
-		(
-			select to_char(max(c.completed_at) at time zone ${timeZone}, 'YYYY-MM-DD')
-			from reading_completions c where c.document_id = d.id
-		),
-		to_char(d.read_at at time zone ${timeZone}, 'YYYY-MM-DD')
-	)
-	from documents d where d.id = ${documentId}
-)::date`
-
-/** Inserts a copy at `position`, its reading day as the transaction sees it. The item's id. */
-async function insertCopy(
-	tx: Tx,
-	draft: EditionRow,
-	documentId: string,
-	copy: ItemCopy,
-	position: number,
-): Promise<string> {
-	const [item] = await tx
-		.insert(editionItems)
-		.values({
-			...copy,
-			editionId: draft.id,
-			documentId,
-			position,
-			readOn: readOnIn(documentId, draft.timeZone),
-		})
-		.returning({ id: editionItems.id })
-	return item!.id
-}
-
-/**
- * Marking, in the draft in progress (`currentDraft`, locked by the caller first): each article not
- * in it yet goes to the end, from `copies` (`draftCopies`). One without a copy stays out. The
- * articles it added.
- */
-export async function addToDraft(
-	tx: Tx,
-	draft: EditionRow,
-	documentIds: string[],
-	copies: DraftCopies,
-): Promise<{ documentIds: string[]; change: DraftChange }> {
-	const change: DraftChange = { editionId: draft.id, added: [], removed: [] }
-	const wanted = documentIds.filter((id) => copies.has(id))
-	if (wanted.length === 0) return { documentIds: [], change }
-	const taken = await tx
-		.select({ documentId: editionItems.documentId })
-		.from(editionItems)
-		.where(and(eq(editionItems.editionId, draft.id), inArray(editionItems.documentId, wanted)))
-	const skip = new Set(taken.map((row) => row.documentId))
-	const [last] = await tx
-		.select({ next: sql<number>`coalesce(max(${editionItems.position}) + 1, 0)::int` })
-		.from(editionItems)
-		.where(eq(editionItems.editionId, draft.id))
-	let position = last!.next
-	const added: string[] = []
-	for (const documentId of wanted) {
-		if (skip.has(documentId)) continue
-		change.added.push(await insertCopy(tx, draft, documentId, copies.get(documentId)!, position++))
-		added.push(documentId)
-	}
-	if (added.length > 0) await touch(tx, draft.id)
-	return { documentIds: added, change }
-}
-
-/**
- * How much of the removed items an undo carries, in characters of JSON. The API takes undo tokens
- * of up to 64 KiB, base64 makes a third more, and the rest of the record needs room too.
- */
-const REMOVED_BUDGET = 32_000
-
-/**
- * Unmarking, in the draft in progress (locked by the caller first): the articles' items go, and the
- * rest close up. The articles it took out.
- */
-export async function removeFromDraft(
-	tx: Tx,
-	draft: EditionRow,
-	documentIds: string[],
-): Promise<{ documentIds: string[]; change: DraftChange }> {
-	const change: DraftChange = { editionId: draft.id, added: [], removed: [], recopy: [] }
-	if (documentIds.length === 0) return { documentIds: [], change }
-	const removed = await tx
-		.delete(editionItems)
-		.where(and(eq(editionItems.editionId, draft.id), inArray(editionItems.documentId, documentIds)))
-		.returning()
-	if (removed.length === 0) return { documentIds: [], change }
-	// As they were, while they fit; past that, undo copies the article again.
-	let size = 0
-	for (const item of removed.sort((a, b) => a.position - b.position)) {
-		size += JSON.stringify(item).length
-		if (size <= REMOVED_BUDGET) change.removed.push(item)
-		else change.recopy!.push({ documentId: item.documentId!, position: item.position })
-	}
-	await closeUp(tx, draft.id)
-	await touch(tx, draft.id)
-	return { documentIds: removed.flatMap((item) => item.documentId ?? []), change }
-}
-
-/** Positions 0, 1, 2… in their order. One statement: the unique constraint is deferrable. */
-async function closeUp(tx: Tx, editionId: string) {
-	await tx.execute(sql`
-		update edition_items i set position = o.position
-		from (
-			select id, (row_number() over (order by position) - 1)::int as position
-			from edition_items where edition_id = ${editionId}
-		) o
-		where i.id = o.id and i.position <> o.position
-	`)
-}
-
 /**
  * The draft an undo of `change` writes to: the user's, still unpublished. Null when it is not, and
  * the undo leaves the draft alone.
@@ -938,300 +703,6 @@ export async function draftOfChange(
 		.where(and(owned(userId, change.editionId), isNull(editions.publishedAt)))
 	const [row] = lock ? await query.for("update") : await query
 	return row ?? null
-}
-
-/**
- * Undo of `addToDraft` or `removeFromDraft`: the added items out, the removed ones back where they
- * were (`copies`, from `draftCopies`, for those too big to carry). Only while the edition is still
- * the user's draft; an article in it again is left as it is.
- */
-export async function revertDraftChange(
-	tx: Tx,
-	userId: string,
-	change: DraftChange,
-	copies: DraftCopies,
-) {
-	const draft = await draftOfChange(tx, userId, change, true)
-	if (!draft) return
-	if (change.added.length > 0)
-		await tx
-			.delete(editionItems)
-			.where(and(eq(editionItems.editionId, draft.id), inArray(editionItems.id, change.added)))
-	const back = [
-		...change.removed
-			.filter((item) => item.editionId === draft.id)
-			.map((item) => ({ documentId: item.documentId, position: item.position, item })),
-		...(change.recopy ?? []).map((entry) => ({ ...entry, item: null })),
-	].sort((a, b) => a.position - b.position)
-	for (const { documentId, position: was, item } of back) {
-		const [taken] = await tx
-			.select({ id: editionItems.id })
-			.from(editionItems)
-			.where(
-				and(
-					eq(editionItems.editionId, draft.id),
-					documentId ? eq(editionItems.documentId, documentId) : eq(editionItems.id, item!.id),
-				),
-			)
-		if (taken) continue
-		// An article deleted for good meanwhile leaves the item without one, as deleting does.
-		const [live] = documentId
-			? await tx
-					.select({ id: documents.id })
-					.from(documents)
-					.where(and(eq(documents.id, documentId), eq(documents.userId, userId)))
-			: []
-		const copy = item ? null : live ? copies.get(live.id) : undefined
-		if (!item && !copy) continue
-		const [last] = await tx
-			.select({ next: sql<number>`coalesce(max(${editionItems.position}) + 1, 0)::int` })
-			.from(editionItems)
-			.where(eq(editionItems.editionId, draft.id))
-		const position = Math.min(was, last!.next)
-		await tx
-			.update(editionItems)
-			.set({ position: sql`${editionItems.position} + 1` })
-			.where(and(eq(editionItems.editionId, draft.id), gte(editionItems.position, position)))
-		if (item)
-			await tx.insert(editionItems).values({ ...item, position, documentId: live?.id ?? null })
-		else await insertCopy(tx, draft, live!.id, copy!, position)
-	}
-	await closeUp(tx, draft.id)
-	await touch(tx, draft.id)
-}
-
-export interface ItemPatch {
-	/** False sets the item aside. */
-	included?: boolean
-	includeNote?: boolean
-	/** The edition's copy. The library's note stays as it is. */
-	note?: string | null
-	/** By highlight id. Ids the item no longer has are skipped: a refresh elsewhere dropped them. */
-	highlights?: Array<{ highlightId: string; included?: boolean; note?: string | null }>
-}
-
-/**
- * Changes what the item shows. Including a highlight that breaks the quote cap is refused. Other
- * changes are always saved, even while a refresh has left the item over the cap.
- */
-export async function updateItem(
-	userId: string,
-	editionId: string,
-	itemId: string,
-	patch: ItemPatch,
-): Promise<EditionItem> {
-	const note = patch.note === undefined ? undefined : cleanText(patch.note, NOTE_MAX, "note")
-	const changes = new Map(
-		(patch.highlights ?? []).map((h) => [
-			h.highlightId,
-			{
-				included: h.included,
-				note: h.note === undefined ? undefined : cleanText(h.note, NOTE_MAX, "note"),
-			},
-		]),
-	)
-	return db.transaction(async (tx) => {
-		await lockEdition(tx, userId, editionId)
-		const item = await findItem(tx, editionId, itemId)
-		const highlights = item.highlights.map((h) => {
-			const change = changes.get(h.highlightId)
-			if (!change) return h
-			return {
-				...h,
-				included: change.included ?? h.included,
-				note: change.note === undefined ? h.note : change.note,
-			}
-		})
-		if (highlights.some((h, i) => h.included && !item.highlights[i]!.included)) {
-			const problem = quoteProblem(includedQuotes(highlights), item.wordCount)
-			if (problem)
-				throw new AppError("quote_cap", "That would quote more of the article than an item may.", {
-					details: { quoteProblem: problem },
-				})
-		}
-		const next = {
-			included: patch.included ?? item.included,
-			includeNote: patch.includeNote ?? item.includeNote,
-			note: note === undefined ? item.note : note,
-			highlights,
-		}
-		if (
-			next.included === item.included &&
-			next.includeNote === item.includeNote &&
-			next.note === item.note &&
-			JSON.stringify(next.highlights) === JSON.stringify(item.highlights)
-		)
-			return item
-		const [row] = await tx
-			.update(editionItems)
-			.set(next)
-			.where(eq(editionItems.id, itemId))
-			.returning()
-		await touch(tx, editionId)
-		return row!
-	})
-}
-
-/** One place up or down. At the first or last place already, nothing changes. */
-export async function moveItem(
-	userId: string,
-	editionId: string,
-	itemId: string,
-	direction: "up" | "down",
-): Promise<void> {
-	await db.transaction(async (tx) => {
-		await lockEdition(tx, userId, editionId)
-		const item = await findItem(tx, editionId, itemId)
-		const target = item.position + (direction === "up" ? -1 : 1)
-		const [other] = await tx
-			.select({ id: editionItems.id })
-			.from(editionItems)
-			.where(and(eq(editionItems.editionId, editionId), eq(editionItems.position, target)))
-		if (!other) return
-		// One statement: the unique constraint on positions is deferrable, so it holds after the swap.
-		await tx
-			.update(editionItems)
-			.set({
-				position: sql`case when ${editionItems.id} = ${itemId} then ${target}::int else ${item.position}::int end`,
-			})
-			.where(inArray(editionItems.id, [itemId, other.id]))
-		await touch(tx, editionId)
-	})
-}
-
-/** What removing an item took away, so that undo can put it back (`restoreItem`). */
-export interface RemovedItem {
-	item: EditionItem
-	/** The article's mark for the next edition, which removing took off; Postgres' own text. */
-	shortlistedAt: string | null
-}
-
-/**
- * Takes the item out. Its article leaves the shortlist too: removed while composing, it was
- * considered and left out.
- */
-export async function removeItem(
-	userId: string,
-	editionId: string,
-	itemId: string,
-): Promise<RemovedItem> {
-	return db.transaction(async (tx) => {
-		await lockEdition(tx, userId, editionId)
-		checkId(itemId)
-		const [item] = await tx
-			.delete(editionItems)
-			.where(and(eq(editionItems.id, itemId), eq(editionItems.editionId, editionId)))
-			.returning()
-		if (!item) throw refuse("not_found")
-		await tx
-			.update(editionItems)
-			.set({ position: sql`${editionItems.position} - 1` })
-			.where(and(eq(editionItems.editionId, editionId), gt(editionItems.position, item.position)))
-		let shortlistedAt: string | null = null
-		if (item.documentId) {
-			const article = and(eq(documents.id, item.documentId), eq(documents.userId, userId))
-			const [doc] = await tx
-				.select({ shortlistedAt: sql<string | null>`${documents.shortlistedAt}::text` })
-				.from(documents)
-				.where(article)
-				.for("update")
-			shortlistedAt = doc?.shortlistedAt ?? null
-			if (shortlistedAt) await tx.update(documents).set({ shortlistedAt: null }).where(article)
-		}
-		await touch(tx, editionId)
-		return { item, shortlistedAt }
-	})
-}
-
-/**
- * Undo of `removeItem`: the item back where it was, as it was, and its article's mark. Refused when
- * the article is in the edition again (`already_added`).
- */
-export async function restoreItem(
-	userId: string,
-	editionId: string,
-	removed: RemovedItem,
-): Promise<void> {
-	const { item, shortlistedAt } = removed
-	await db.transaction(async (tx) => {
-		await lockEdition(tx, userId, editionId)
-		if (item.editionId !== editionId) throw refuse("not_found")
-		// Undone twice: back already.
-		const [back] = await tx
-			.select({ id: editionItems.id })
-			.from(editionItems)
-			.where(eq(editionItems.id, item.id))
-		if (back) return
-		if (item.documentId) {
-			const [taken] = await tx
-				.select({ id: editionItems.id })
-				.from(editionItems)
-				.where(
-					and(eq(editionItems.editionId, editionId), eq(editionItems.documentId, item.documentId)),
-				)
-			if (taken) throw refuse("already_added")
-		}
-		const [last] = await tx
-			.select({ next: sql<number>`coalesce(max(${editionItems.position}) + 1, 0)::int` })
-			.from(editionItems)
-			.where(eq(editionItems.editionId, editionId))
-		const position = Math.min(item.position, last!.next)
-		await tx
-			.update(editionItems)
-			.set({ position: sql`${editionItems.position} + 1` })
-			.where(and(eq(editionItems.editionId, editionId), gte(editionItems.position, position)))
-		// An article deleted for good meanwhile leaves the item without one, as deleting does.
-		const [live] = item.documentId
-			? await tx
-					.select({ id: documents.id })
-					.from(documents)
-					.where(and(eq(documents.id, item.documentId), eq(documents.userId, userId)))
-			: []
-		await tx.insert(editionItems).values({ ...item, position, documentId: live?.id ?? null })
-		if (live && shortlistedAt)
-			await tx
-				.update(documents)
-				.set({ shortlistedAt: sql`${shortlistedAt}::timestamptz` })
-				.where(and(eq(documents.id, live.id), isNull(documents.shortlistedAt)))
-		await touch(tx, editionId)
-	})
-}
-
-/**
- * Copies the article again. Selected highlights that still exist stay selected. The note copy is
- * replaced by the current note, edits and all, included as adding would: only the note for
- * editions is, and not when the user had left out this same text.
- */
-export async function refreshItem(
-	userId: string,
-	editionId: string,
-	itemId: string,
-): Promise<EditionItem> {
-	const edition = await findEdition(userId, editionId)
-	const { documentId } = await findItem(db, editionId, itemId)
-	if (!documentId) throw refuse("document_gone")
-	const copy = await copyItem(userId, documentId, edition).catch((error: unknown) => {
-		if (error instanceof AppError && error.code === "not_found") throw refuse("document_gone")
-		throw error
-	})
-	return db.transaction(async (tx) => {
-		await lockEdition(tx, userId, editionId)
-		const item = await findItem(tx, editionId, itemId)
-		const selected = new Set(item.highlights.filter((h) => h.included).map((h) => h.highlightId))
-		const [row] = await tx
-			.update(editionItems)
-			.set({
-				...copy,
-				// The note for editions is included, unless the user left out this very text. A private
-				// note is new text the user has not let out yet, whatever they included before.
-				includeNote: copy.includeNote && (item.includeNote || item.note !== copy.note),
-				highlights: copy.highlights.map((h) => ({ ...h, included: selected.has(h.highlightId) })),
-			})
-			.where(eq(editionItems.id, itemId))
-			.returning()
-		await touch(tx, editionId)
-		return row!
-	})
 }
 
 /** The library's copy of an item's article, as the editor's article pane shows it. */
@@ -1390,94 +861,6 @@ export async function previewView(
 		t,
 		await editionNeighbors(userId, { id: edition.id, publishedAt }, edition.locale),
 	)
-}
-
-export type PublishResult =
-	| { ok: true; edition: EditionRow }
-	| { ok: false; problems: PublishProblem[] }
-
-/**
- * Publish, Update and Publish again: the working copy becomes the public page. The first time sets
- * `publishedAt`, later ones `republishedAt`. With no change since the page was last written, it
- * stays as it is, and an unpublished one comes back. Only the first time counts against the
- * monthly edition cap (`limit_reached`). An edition an admin removed stays down (`edition_removed`).
- */
-export async function publishEdition(userId: string, id: string): Promise<PublishResult> {
-	return db.transaction(async (tx) => {
-		const edition = await lockEdition(tx, userId, id)
-		if (edition.removedAt) throw refuse("edition_removed")
-		if (edition.publishedAt && !hasUnpublishedChanges(edition)) {
-			if (!edition.unpublishedAt) return { ok: true, edition }
-			const [row] = await tx
-				.update(editions)
-				.set({ unpublishedAt: null })
-				.where(eq(editions.id, id))
-				.returning(editionColumns)
-			return { ok: true, edition: row! }
-		}
-		const items = await tx
-			.select()
-			.from(editionItems)
-			.where(eq(editionItems.editionId, id))
-			.orderBy(asc(editionItems.position))
-		const problems = publishProblems(items)
-		if (problems.length > 0) return { ok: false, problems }
-		// Only the first time counts; any new text going public needs an account that may add.
-		if (!edition.publishedAt) await countMonthly(tx, userId, "editions")
-		else await checkMayAdd(userId)
-		const [author] = await tx
-			.select({ name: userTable.name })
-			.from(userTable)
-			.where(eq(userTable.id, userId))
-		// Shared now: off the shortlist. Set aside, it stays marked for an edition to come.
-		const shared = items.flatMap((item) =>
-			item.documentId && item.included ? [item.documentId] : [],
-		)
-		if (shared.length > 0)
-			await tx
-				.update(documents)
-				.set({ shortlistedAt: null })
-				.where(
-					and(
-						eq(documents.userId, userId),
-						inArray(documents.id, shared),
-						isNotNull(documents.shortlistedAt),
-					),
-				)
-		const [row] = await tx
-			.update(editions)
-			.set({
-				published: buildSnapshot(edition, items, author!.name),
-				publishedAt: edition.publishedAt ?? WRITTEN,
-				republishedAt: edition.publishedAt ? WRITTEN : null,
-				unpublishedAt: null,
-			})
-			.where(eq(editions.id, id))
-			.returning(editionColumns)
-		return { ok: true, edition: row! }
-	})
-}
-
-/** Hides the public page. The snapshot stays, for Publish again. */
-export async function unpublishEdition(userId: string, id: string): Promise<EditionRow> {
-	return db.transaction(async (tx) => {
-		const edition = await lockEdition(tx, userId, id)
-		if (!edition.publishedAt) throw refuse("not_published")
-		if (edition.unpublishedAt) return edition
-		const [row] = await tx
-			.update(editions)
-			.set({ unpublishedAt: NOW })
-			.where(eq(editions.id, id))
-			.returning(editionColumns)
-		return row!
-	})
-}
-
-/** For good: the items go with it, and the public link stops working. */
-export async function deleteEdition(userId: string, id: string): Promise<void> {
-	checkId(id)
-	const gone = await db.delete(editions).where(owned(userId, id)).returning({ id: editions.id })
-	if (gone.length === 0) throw refuse("not_found")
 }
 
 const PUBLIC_ID = /^[0-9A-Za-z]{12}$/
