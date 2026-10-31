@@ -1,3 +1,5 @@
+import { limitAddress } from "./limit-address"
+
 /**
  * Small in-process sliding-window limiter. Good enough for one web machine at friends scale;
  * swap for a Postgres/Redis implementation when there are several.
@@ -71,7 +73,10 @@ export const EXPORT_LIMIT = { limit: 6, windowMs: 60 * 60 * 1000 }
 /** OPML imports per user (key `opml-import:`): each one may queue hundreds of feed fetches. */
 export const OPML_IMPORT_LIMIT = { limit: 5, windowMs: 60 * 60 * 1000 }
 
-/** Refused bearer tokens per client address (key `bad-bearer:`): each one cost a database lookup. */
+/**
+ * Refused bearer tokens per client address (key `bad-bearer:`, an IPv6 address counted as its /64):
+ * each one cost a database lookup.
+ */
 export const BAD_BEARER_LIMIT = { limit: 60, windowMs: 60 * 1000 }
 
 /**
@@ -80,7 +85,7 @@ export const BAD_BEARER_LIMIT = { limit: 60, windowMs: 60 * 1000 }
  */
 export function refusedBearerWait(address: string): number | null {
 	const peek = peekRateLimit(
-		`bad-bearer:${address}`,
+		`bad-bearer:${limitAddress(address)}`,
 		BAD_BEARER_LIMIT.limit,
 		BAD_BEARER_LIMIT.windowMs,
 	)
@@ -88,5 +93,9 @@ export function refusedBearerWait(address: string): number | null {
 }
 
 export function countRefusedBearer(address: string) {
-	rateLimit(`bad-bearer:${address}`, BAD_BEARER_LIMIT.limit, BAD_BEARER_LIMIT.windowMs)
+	rateLimit(
+		`bad-bearer:${limitAddress(address)}`,
+		BAD_BEARER_LIMIT.limit,
+		BAD_BEARER_LIMIT.windowMs,
+	)
 }

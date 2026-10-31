@@ -3,6 +3,7 @@ import { createHmac, timingSafeEqual } from "node:crypto"
 import { db, sql } from "@klipstack/db"
 import { APIError } from "better-auth/api"
 import { env } from "./env.server"
+import { limitAddress } from "./limit-address"
 
 const checked = new AsyncLocalStorage<boolean>()
 export const withAuthLimitChecked = <T>(fn: () => Promise<T>) => checked.run(true, fn)
@@ -16,6 +17,17 @@ export function trustedAuthAddress(headers?: Headers) {
 		? address
 		: "unknown"
 }
+
+/** The `auth_limits` key of one counter: a policy's path, "ip" or "account", and the value counted. */
+export function authLimitKey(path: string, kind: "ip" | "account", value: string) {
+	return createHmac("sha256", env.BETTER_AUTH_SECRET)
+		.update(`${path}:${kind}:${value}`)
+		.digest("hex")
+}
+
+/** The key of a client address's counter for a policy: an IPv6 address counts as its /64. */
+export const addressLimitKey = (path: string, address: string) =>
+	authLimitKey(path, "ip", limitAddress(address))
 
 export async function checkAuthLimit(path: string, email: unknown, headers?: Headers) {
 	if (checked.getStore()) return
@@ -61,14 +73,13 @@ export async function checkAuthLimit(path: string, email: unknown, headers?: Hea
 	if (!policy) return
 	const normalized = typeof email === "string" ? email.trim().toLowerCase() : ""
 	for (const [kind, value, limit] of [
-		["ip", trustedAuthAddress(headers), policy.ip],
+		// An IPv6 client counts as its /64 (`limitAddress`).
+		["ip", limitAddress(trustedAuthAddress(headers)), policy.ip],
 		["account", normalized, policy.account],
 	] as const) {
 		// No account named (a body without one): counting "" would pool every account's tries.
 		if (limit === undefined || value === "") continue
-		const key = createHmac("sha256", env.BETTER_AUTH_SECRET)
-			.update(`${path}:${kind}:${value}`)
-			.digest("hex")
+		const key = authLimitKey(path, kind, value)
 		const result = await db.execute<{ hits: number; retry: number }>(sql`
 			insert into auth_limits (key, hits, reset_at) values (${key}, 1, now() + ${policy.seconds} * interval '1 second')
 			on conflict (key) do update set

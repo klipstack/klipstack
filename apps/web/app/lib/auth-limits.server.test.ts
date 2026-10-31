@@ -1,7 +1,7 @@
 import { createHmac } from "node:crypto"
 import { authLimits, db, eq } from "@klipstack/db"
-import { afterAll, expect, it } from "vitest"
-import { checkAuthLimit, trustedAuthAddress } from "./auth-limits.server"
+import { afterAll, describe, expect, it } from "vitest"
+import { addressLimitKey, checkAuthLimit, trustedAuthAddress } from "./auth-limits.server"
 import { auth } from "./auth.server"
 import { env } from "./env.server"
 
@@ -86,4 +86,47 @@ it("ignores forged forwarding headers for client-IP limits", () => {
 	expect(trustedAuthAddress(signed)).toBe("192.0.2.1")
 	signed.set("x-klipstack-client-ip", "1.2.3.4")
 	expect(trustedAuthAddress(signed)).toBe("unknown")
+})
+
+describe("per-address limits", () => {
+	const path = "/app/sign-in/apple" // The address alone, 30 in 15 minutes.
+	const limit = 30
+	const hex = () => Math.floor(Math.random() * 0xffff).toString(16)
+
+	it("count every address of one IPv6 /64 together, and each /64 apart", async () => {
+		const prefix = `2001:db8:${hex()}:${hex()}`
+		key(path, "ip", `${prefix}::/64`)
+		for (let i = 0; i < limit; i++)
+			await checkAuthLimit(path, undefined, headers(`${prefix}:${hex()}:${hex()}:${hex()}:${i}`))
+		await expect(
+			checkAuthLimit(path, undefined, headers(`${prefix.toUpperCase()}::beef`)),
+		).rejects.toMatchObject({ statusCode: 429 })
+		const other = `2001:db8:${hex()}:${hex()}`
+		key(path, "ip", `${other}::/64`)
+		await expect(checkAuthLimit(path, undefined, headers(`${other}::1`))).resolves.toBeUndefined()
+	})
+
+	it("name an address's counter by its key, so deleting it (as the e2e helpers do) resets it", async () => {
+		const prefix = `2001:db8:${hex()}:${hex()}`
+		key(path, "ip", `${prefix}::/64`)
+		for (let i = 0; i < limit; i++) await checkAuthLimit(path, undefined, headers(`${prefix}::1`))
+		await expect(checkAuthLimit(path, undefined, headers(`${prefix}::1`))).rejects.toMatchObject({
+			statusCode: 429,
+		})
+		await db.delete(authLimits).where(eq(authLimits.key, addressLimitKey(path, `${prefix}::2`)))
+		await expect(checkAuthLimit(path, undefined, headers(`${prefix}::1`))).resolves.toBeUndefined()
+	})
+
+	it("count an IPv4-mapped IPv6 address as its IPv4 address", async () => {
+		const ipv4 = `198.18.${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}`
+		key(path, "ip", ipv4)
+		for (let i = 0; i < limit; i++)
+			await checkAuthLimit(path, undefined, headers(i % 2 ? ipv4 : `::ffff:${ipv4}`))
+		await expect(checkAuthLimit(path, undefined, headers(ipv4))).rejects.toMatchObject({
+			statusCode: 429,
+		})
+		await expect(checkAuthLimit(path, undefined, headers(`::FFFF:${ipv4}`))).rejects.toMatchObject({
+			statusCode: 429,
+		})
+	})
 })
