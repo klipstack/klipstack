@@ -97,7 +97,9 @@ self.addEventListener("fetch", (event) => {
 	if (path.startsWith("/assets/") || path.startsWith("/icons/") || path === "/favicon.ico")
 		return event.respondWith(publicAsset(request))
 	if (path.endsWith(".data")) return event.respondWith(privateResponse(request, "data", event.clientId))
-	if (request.mode === "navigate") return event.respondWith(privateResponse(request, "pages", event.clientId))
+	// A navigation's own page shows the session it answers with: never tell it to reload (a sign-in
+	// ends with a page load, and Safari cancels that load for the reload).
+	if (request.mode === "navigate") return event.respondWith(privateResponse(request, "pages", event.resultingClientId || event.clientId))
 	// The dev server's modules, kept for offline use in development. Network first: Vite gives its
 	// optimized dependencies a new `?v=` hash whenever it re-optimizes, and a module served from an
 	// older pass imports another copy of React ("Cannot read properties of null (reading 'useContext')").
