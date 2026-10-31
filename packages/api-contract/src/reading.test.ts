@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { endState, secondsToFinish } from "./reading"
+import { endState, longerThan, secondsToFinish } from "./reading"
 
 describe("secondsToFinish", () => {
 	it("is the part left to read, at three times the reading speed", () => {
@@ -29,5 +29,14 @@ describe("endState", () => {
 	it("leaves finished and kept articles alone", () => {
 		expect(endState({ ...base, finished: true })).toBe("finished")
 		expect(endState({ ...base, kept: true })).toBe("kept")
+	})
+})
+
+describe("longerThan", () => {
+	it("is the longest book the words outgrew, none below the shortest", () => {
+		expect(longerThan(3_400)).toBeNull()
+		expect(longerThan(3_401)).toBe("lottery")
+		expect(longerThan(50_000)).toBe("gatsby")
+		expect(longerThan(1_000_000)).toBe("warAndPeace")
 	})
 })
