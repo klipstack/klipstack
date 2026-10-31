@@ -19,6 +19,15 @@ export function signedOAuthQuery(url: URL): string | null {
 }
 
 /**
+ * Where the app of an authorization request gets the browser back (its `redirect_uri`): a page that
+ * resumes the request lets its forms go on there (`allowFormTargets`). Only for a query the page
+ * verified; the provider signed it after checking the address against the app's.
+ */
+export function oauthRedirectUri(query: string | null): string | null {
+	return query ? new URLSearchParams(query).get("redirect_uri") : null
+}
+
+/**
  * Whether a signed OAuth query is intact and unexpired, so a page never shows a tampered request.
  * Mirrors the provider's own check (HMAC over the sorted parameters); the provider verifies again
  * when the query comes back.

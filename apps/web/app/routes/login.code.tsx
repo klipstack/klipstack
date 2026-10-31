@@ -1,15 +1,26 @@
 import { useTranslation } from "react-i18next"
-import { data, Form, Link, redirect, redirectDocument, useNavigation } from "react-router"
+import { data, Form, Link, redirectDocument, useNavigation } from "react-router"
 import { AuthCard } from "~/components/auth-card"
 import { Button } from "~/components/ui/button"
 import { Field } from "~/components/ui/field"
+import { type WiderFormActionHandle } from "~/hooks/use-fresh-document"
+import { allowFormTargets } from "~/lib/csp.server"
 import { localeCookie } from "~/lib/i18n.server"
-import { oauthRedirectUrl, signedOAuthQuery, verifySignedOAuthQuery } from "~/lib/oauth.server"
+import {
+	oauthRedirectUri,
+	oauthRedirectUrl,
+	signedOAuthQuery,
+	verifySignedOAuthQuery,
+} from "~/lib/oauth.server"
 import { pageTitle } from "~/lib/page-title"
+import { appRedirectIn } from "~/lib/provider-sign-in.server"
 import { readForm } from "~/lib/request-body.server"
 import { cookieHeadersFrom, requireAnonymous, safeRedirect } from "~/lib/session.server"
 import { type CodeRefusal, completeSignIn, pendingSignInSent } from "~/lib/two-factor.server"
 import type { Route } from "./+types/login.code"
+
+/** Its forms may go on to a provider or an app: leaving it loads a fresh document. */
+export const handle: WiderFormActionHandle = { widerFormAction: true }
 
 export function meta({ matches }: Route.MetaArgs) {
 	return [{ title: pageTitle(matches, "auth:twoFactor.title") }]
@@ -29,8 +40,11 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 	const url = new URL(request.url)
 	const oauthQuery = await validOAuthQuery(signedOAuthQuery(url))
 	if (!oauthQuery) requireAnonymous(context)
-	if (!pendingSignInSent(request.headers)) throw redirect(`/login${url.search}`)
+	if (!pendingSignInSent(request.headers)) throw redirectDocument(`/login${url.search}`)
 	const redirectTo = url.searchParams.get("redirectTo")
+	// The code finishes a sign-in that goes on to an app: the one this page's request names, or the
+	// iPhone app's request a provider's sheet carries in `redirectTo` (see the action).
+	allowFormTargets(context, [oauthRedirectUri(oauthQuery), appRedirectIn(redirectTo)])
 	return {
 		oauthQuery,
 		appQuery: oauthQuery,
@@ -54,8 +68,9 @@ export async function action({ context, request }: Route.ActionArgs) {
 	if (next) throw redirectDocument(next, { headers: out })
 	const redirectTo = form.get("redirectTo")
 	const to = safeRedirect(typeof redirectTo === "string" ? redirectTo : null)
-	// An app's request from a provider's sheet goes on at the provider's endpoint, not a page.
-	throw (to.startsWith("/api/") ? redirectDocument : redirect)(to, { headers: out })
+	// A page load: an app's request from a provider's sheet goes on at the provider's endpoint, not
+	// a page, and the next page gets its own policy, not this one's wider form-action.
+	throw redirectDocument(to, { headers: out })
 }
 
 export default function LoginCode({ loaderData, actionData }: Route.ComponentProps) {

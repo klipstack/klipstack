@@ -1,12 +1,13 @@
 import { errorLabel } from "@klipstack/log"
 import { APIError } from "better-auth/api"
 import { useTranslation } from "react-i18next"
-import { data, Form, Link, redirect, redirectDocument, useNavigation } from "react-router"
+import { data, Form, Link, redirectDocument, useNavigation } from "react-router"
 import { z } from "zod"
 import { AuthCard } from "~/components/auth-card"
 import { ProviderButtons } from "~/components/provider-buttons"
 import { Button } from "~/components/ui/button"
 import { Field } from "~/components/ui/field"
+import { type WiderFormActionHandle } from "~/hooks/use-fresh-document"
 import {
 	MAGIC_LINK_MINUTES,
 	MIN_PASSWORD_LENGTH as MIN_PASSWORD,
@@ -14,6 +15,7 @@ import {
 } from "~/lib/auth-constants"
 import { authLimitResponse, checkAuthLimit, withAuthLimitChecked } from "~/lib/auth-limits.server"
 import { auth } from "~/lib/auth.server"
+import { allowFormTargets } from "~/lib/csp.server"
 import { requestEmailVerification } from "~/lib/email-verification.server"
 import { emailEnabled } from "~/lib/email.server"
 import { env, invitesRequired } from "~/lib/env.server"
@@ -23,12 +25,18 @@ import { getLocale, localeCookie } from "~/lib/i18n.server"
 import { findUsableInvite, signupWithInvite } from "~/lib/invites.server"
 import { requestSignupLink } from "~/lib/magic-link.server"
 import { resumeAuthorization } from "~/lib/oauth-resume.server"
-import { appSignInQuery, oauthClientOf, verifySignedOAuthQuery } from "~/lib/oauth.server"
+import {
+	appSignInQuery,
+	oauthClientOf,
+	oauthRedirectUri,
+	verifySignedOAuthQuery,
+} from "~/lib/oauth.server"
 import { pageTitle } from "~/lib/page-title"
 import {
 	enabledProvider,
 	InvalidInviteError,
 	type Provider,
+	PROVIDER_ORIGINS,
 	providerErrorKey,
 	providersFor,
 	startProviderSignIn,
@@ -54,6 +62,9 @@ const schema = z.object({
 	oauthQuery: z.string().optional(),
 })
 
+/** Its forms may go on to a provider or an app: leaving it loads a fresh document. */
+export const handle: WiderFormActionHandle = { widerFormAction: true }
+
 export function meta({ matches }: Route.MetaArgs) {
 	return [{ title: pageTitle(matches, "auth:signup.title") }]
 }
@@ -71,8 +82,14 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 	const oauthQuery = await validOAuthQuery(appQuery)
 	// Signed in already, the app's sign-in goes on with that account (or another, from /login).
 	// Expired, /login says to start again from the app.
-	if (appQuery && (!oauthQuery || getSession(context))) throw redirect(`/login?${appQuery}`)
+	if (appQuery && (!oauthQuery || getSession(context))) throw redirectDocument(`/login?${appQuery}`)
 	requireAnonymous(context)
+	// A provider's button is a submit button, and signing up for an app goes on to the app.
+	const providers = providersFor(app)
+	allowFormTargets(context, [
+		...providers.map((provider) => PROVIDER_ORIGINS[provider]),
+		oauthRedirectUri(oauthQuery),
+	])
 	return {
 		inviteRequired: invitesRequired,
 		waitlist: env.SIGNUP_MODE === "waitlist",
@@ -81,7 +98,7 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 		// An emailed sign-up link opens in the mail app's browser, outside an app's sign-in sheet,
 		// which would never hear back: there, the account needs a password.
 		linkSignup: emailEnabled && !app,
-		providers: providersFor(app),
+		providers,
 		appQuery,
 		oauthQuery,
 		providerError: providerErrorKey(url.searchParams.get("error")),
@@ -139,7 +156,8 @@ export async function action({ request, context }: Route.ActionArgs) {
 		// A page load for an app's request: its callback may be on this origin (see oauth.consent).
 		if (next) throw redirectDocument(next, { headers: out })
 		// The request expired while the form was filled in: /login says to start again from the app.
-		throw redirect(appQuery ? `/login?${appQuery}` : SIGNED_IN_HOME, { headers: out })
+		// A page load: the next page's policy, not this one's wider form-action.
+		throw redirectDocument(appQuery ? `/login?${appQuery}` : SIGNED_IN_HOME, { headers: out })
 	} catch (error) {
 		const limited = authLimitResponse(error)
 		if (limited) throw limited

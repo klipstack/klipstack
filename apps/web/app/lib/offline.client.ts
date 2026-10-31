@@ -1,8 +1,16 @@
+/** How long a page that started loading another ignores the worker's reload: past it, the load stopped. */
+const LEAVING_MS = 10_000
+
 /** Registers the service worker (public/sw.js) and feeds it what to keep available offline. */
 export function registerServiceWorker() {
 	if (!("serviceWorker" in navigator)) return
+	// A page that has started loading another discards its rendered data anyway, and its reload
+	// would cancel that load (Safari does): leaving a page with a wider policy, a sign-in's redirect.
+	let leavingUntil = 0
+	window.addEventListener("beforeunload", () => (leavingUntil = Date.now() + LEAVING_MS))
 	navigator.serviceWorker.addEventListener("message", (event) => {
 		if (event.data?.type !== "session-changed") return
+		if (Date.now() < leavingUntil) return
 		// Other tabs must discard rendered private data as well as cached responses.
 		window.location.reload()
 	})

@@ -31,6 +31,8 @@ function worker() {
 		/** The server's clock for the `Date` header; `null` sends none. */
 		now: Date.now() as number | null,
 		fetched: [] as string[],
+		/** The windows the worker sees, and the messages each was sent. */
+		clients: [] as { id: string; messages: unknown[] }[],
 	}
 	const sandbox = vm.createContext({
 		URL,
@@ -41,7 +43,14 @@ function worker() {
 		self: {
 			location: { origin: base },
 			navigator: { onLine: true },
-			clients: { matchAll: async () => [], claim: async () => {} },
+			clients: {
+				matchAll: async () =>
+					state.clients.map((client) => ({
+						id: client.id,
+						postMessage: (message: unknown) => client.messages.push(message),
+					})),
+				claim: async () => {},
+			},
 			addEventListener: (name: string, fn: (event: Record<string, unknown>) => void) =>
 				handlers.set(name, fn),
 		},
@@ -80,6 +89,31 @@ function worker() {
 			}) as Promise<Response>,
 	}
 }
+
+describe("telling other tabs the session changed", () => {
+	it("tells the other tabs, never the page a navigation is loading", async () => {
+		// A sign-in ends with a page load (redirectDocument). That page shows the new session; told
+		// to reload, it would load twice, and in Safari the reload cancels the page load itself.
+		const w = worker()
+		w.state.clients = [
+			{ id: "other-tab", messages: [] },
+			{ id: "new-page", messages: [] },
+		]
+		w.state.owner = "none"
+		await w.read("/login.data", "POST")
+		for (const client of w.state.clients) client.messages.length = 0
+		w.state.owner = "b".repeat(64)
+		await w.dispatch("fetch", {
+			request: { url: "http://localhost:5180/home", method: "GET", mode: "navigate" },
+			clientId: "",
+			resultingClientId: "new-page",
+		})
+		expect(w.state.clients.map((client) => [client.id, client.messages.length])).toEqual([
+			["other-tab", 1],
+			["new-page", 0],
+		])
+	})
+})
 
 describe("private offline partitions", () => {
 	it("preserves authenticated offline reads, then removes them on logout and account change", async () => {

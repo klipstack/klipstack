@@ -1,13 +1,15 @@
 import { APIError } from "better-auth/api"
 import { useTranslation } from "react-i18next"
-import { data, Form, Link, redirect, redirectDocument, useNavigation } from "react-router"
+import { data, Form, Link, redirectDocument, useNavigation } from "react-router"
 import { z } from "zod"
 import { AuthCard } from "~/components/auth-card"
 import { ProviderButtons } from "~/components/provider-buttons"
 import { Button } from "~/components/ui/button"
 import { Field } from "~/components/ui/field"
+import { type WiderFormActionHandle } from "~/hooks/use-fresh-document"
 import { authLimitResponse } from "~/lib/auth-limits.server"
 import { auth } from "~/lib/auth.server"
+import { allowFormTargets } from "~/lib/csp.server"
 import { emailEnabled } from "~/lib/email.server"
 import { type FieldErrors, parseForm } from "~/lib/forms"
 import { useIsNsKey, useKeyTranslation } from "~/lib/i18n-keys"
@@ -15,6 +17,7 @@ import { localeCookie } from "~/lib/i18n.server"
 import {
 	oauthApiContext,
 	oauthClientOf,
+	oauthRedirectUri,
 	oauthRedirectUrl,
 	signedOAuthQuery,
 	verifySignedOAuthQuery,
@@ -22,6 +25,7 @@ import {
 import { pageTitle } from "~/lib/page-title"
 import {
 	enabledProvider,
+	PROVIDER_ORIGINS,
 	providerErrorKey,
 	providersFor,
 	startProviderSignIn,
@@ -37,6 +41,9 @@ const schema = z.object({
 	redirectTo: z.string().optional(),
 	oauthQuery: z.string().optional(),
 })
+
+/** Its forms may go on to a provider or an app: leaving it loads a fresh document. */
+export const handle: WiderFormActionHandle = { widerFormAction: true }
 
 export function meta({ matches }: Route.MetaArgs) {
 	return [{ title: pageTitle(matches, "auth:login.title") }]
@@ -57,13 +64,19 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 	// app, without a way into the web's own sign-in or library.
 	if (!oauthQuery && !app) requireAnonymous(context)
 	const redirectTo = url.searchParams.get("redirectTo")
+	// A provider's button is a submit button, and signing in for an app goes on to the app.
+	const providers = oauthQuery ? [] : providersFor(app)
+	allowFormTargets(context, [
+		...providers.map((provider) => PROVIDER_ORIGINS[provider]),
+		oauthRedirectUri(oauthQuery),
+	])
 	return {
 		// Arriving from a verification email (routes/verify-email.ts). Only a password login keeps the
 		// password: a login link would prove the mailbox alone, and remove it.
 		verifying: !!redirectTo?.startsWith("/verify-email?"),
 		emailLinks: emailEnabled,
 		// A provider's redirect would drop the app's authorization request, as an emailed link does.
-		providers: oauthQuery ? [] : providersFor(app),
+		providers,
 		// Still in the app's sign-in, expired or not: Sign up keeps it.
 		appQuery: app ? signed : null,
 		providerError: providerErrorKey(new URL(request.url).searchParams.get("error")),
@@ -121,14 +134,16 @@ export async function action({ request, context }: Route.ActionArgs) {
 		if (needsSecondStep(response)) {
 			const next = new URLSearchParams(oauthQuery ?? "")
 			if (parsed.data.redirectTo) next.set("redirectTo", safeRedirect(parsed.data.redirectTo))
-			throw redirect(`/login/code?${next}`, { headers: out })
+			// A page load, as every redirect from this page: see useFreshDocumentOnLeave.
+			throw redirectDocument(`/login/code?${next}`, { headers: out })
 		}
 		if ("user" in response)
 			out.append("set-cookie", await localeCookie.serialize(response.user.locale))
 		const next = oauthQuery ? oauthRedirectUrl(response) : null
 		// A page load for an app's request: its callback may be on this origin (see oauth.consent).
 		if (next) throw redirectDocument(next, { headers: out })
-		throw redirect(safeRedirect(parsed.data.redirectTo), { headers: out })
+		// A page load: the next page's policy, not this one's wider form-action (useFreshDocumentOnLeave).
+		throw redirectDocument(safeRedirect(parsed.data.redirectTo), { headers: out })
 	} catch (error) {
 		const limited = authLimitResponse(error)
 		if (limited) throw limited

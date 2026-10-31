@@ -1,16 +1,26 @@
 import { useTranslation } from "react-i18next"
-import { data, Form, redirect, redirectDocument, useFetcher, useNavigation } from "react-router"
+import { data, Form, redirectDocument, useFetcher, useNavigation } from "react-router"
 import { AuthCard } from "~/components/auth-card"
 import { Button } from "~/components/ui/button"
+import { type WiderFormActionHandle } from "~/hooks/use-fresh-document"
 import { VERIFY_EMAIL_MINUTES, VERIFY_TO_CONTINUE_PAGE } from "~/lib/auth-constants"
+import { allowFormTargets } from "~/lib/csp.server"
 import { emailEnabled } from "~/lib/email.server"
 import { resumeAuthorization } from "~/lib/oauth-resume.server"
-import { oauthClientOf, signedOAuthQuery, verifySignedOAuthQuery } from "~/lib/oauth.server"
+import {
+	oauthClientOf,
+	oauthRedirectUri,
+	signedOAuthQuery,
+	verifySignedOAuthQuery,
+} from "~/lib/oauth.server"
 import { pageTitle } from "~/lib/page-title"
 import { readForm } from "~/lib/request-body.server"
 import { requireUser } from "~/lib/session.server"
 import type { Route } from "./+types/oauth.verify-email"
 import type { action as sendAction } from "./settings.verify-email"
+
+/** Its forms may go on to a provider or an app: leaving it loads a fresh document. */
+export const handle: WiderFormActionHandle = { widerFormAction: true }
 
 export function meta({ matches }: Route.MetaArgs) {
 	return [{ title: pageTitle(matches, "auth:oauth.title") }]
@@ -25,14 +35,17 @@ export function meta({ matches }: Route.MetaArgs) {
 export async function loader({ request, context }: Route.LoaderArgs) {
 	const user = requireUser(context, request)
 	const url = new URL(request.url)
-	if (!(await oauthClientOf(url))) throw redirect("/settings/account")
+	if (!(await oauthClientOf(url))) throw redirectDocument("/settings/account")
 	const query = signedOAuthQuery(url)
+	const expired = !query || !(await verifySignedOAuthQuery(query))
+	// Continue resumes the app's request, which may end at the app's redirect URI.
+	if (!expired) allowFormTargets(context, [oauthRedirectUri(query)])
 	return {
 		appQuery: query,
 		email: user.email,
 		emailEnabled,
 		// The request lasts minutes; past that, the app has to start again.
-		expired: !query || !(await verifySignedOAuthQuery(query)),
+		expired,
 		// Sign-up sent the link already; Continue came back before it was opened.
 		sent: url.searchParams.has("sent"),
 		pending: url.searchParams.has("pending"),

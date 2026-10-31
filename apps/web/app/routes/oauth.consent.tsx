@@ -2,17 +2,20 @@ import { CLI_CLIENT_ID, EXTENSION_CLIENT_ID, MOBILE_CLIENT_ID } from "@klipstack
 import { APIError } from "better-auth/api"
 import { Check } from "lucide-react"
 import { useTranslation } from "react-i18next"
-import { data, Form, redirect, redirectDocument, useNavigation } from "react-router"
+import { data, Form, redirectDocument, useNavigation } from "react-router"
 import { AuthCard } from "~/components/auth-card"
 import { Button } from "~/components/ui/button"
+import { type WiderFormActionHandle } from "~/hooks/use-fresh-document"
 import { IDENTITY_SCOPES, identityKey, optionalScopesFor, scopeKey } from "~/lib/auth-constants"
 import { auth } from "~/lib/auth.server"
 import { hasGrant } from "~/lib/credential-policy.server"
+import { allowFormTargets } from "~/lib/csp.server"
 import { useKeyTranslation } from "~/lib/i18n-keys"
 import {
 	appSignInQuery,
 	describeOAuthRequest,
 	oauthApiContext,
+	oauthRedirectUri,
 	oauthRedirectUrl,
 	signedOAuthQuery,
 	verifySignedOAuthQuery,
@@ -22,6 +25,9 @@ import { signedInRecently } from "~/lib/recent-sign-in.server"
 import { readForm } from "~/lib/request-body.server"
 import { getSession, requireUser, signOutHeaders } from "~/lib/session.server"
 import type { Route } from "./+types/oauth.consent"
+
+/** Its forms may go on to a provider or an app: leaving it loads a fresh document. */
+export const handle: WiderFormActionHandle = { widerFormAction: true }
 
 export function meta({ matches }: Route.MetaArgs) {
 	return [{ title: pageTitle(matches, "auth:oauth.title") }]
@@ -49,7 +55,7 @@ async function mustSignInAgain(context: Route.LoaderArgs["context"], clientId: s
 /** GET /oauth/consent?client_id&scope&redirect_uri…&sig — the OAuth provider sends users here. */
 export async function loader({ request, context }: Route.LoaderArgs) {
 	const user = requireUser(context, request)
-	if (!user.emailVerified) throw redirect("/settings/account")
+	if (!user.emailVerified) throw redirectDocument("/settings/account")
 	const url = new URL(request.url)
 	const oauthQuery = signedOAuthQuery(url)
 	const clientId = url.searchParams.get("client_id")
@@ -67,6 +73,8 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 			return data({ request: null, appQuery: await appSignInQuery(url) }, { status: 400 })
 		throw error
 	}
+	// Allow and Deny both end at the app's redirect URI.
+	allowFormTargets(context, [oauthRedirectUri(oauthQuery)])
 	return {
 		request: {
 			...describeOAuthRequest(url, clientName),
@@ -92,7 +100,7 @@ export async function action({ request, context }: Route.ActionArgs) {
 		// Expired, the app's /login says to start again from the app.
 		const appQuery = await appSignInQuery(new URL(`/login?${oauthQuery}`, request.url))
 		const next = appQuery ? `/login?${appQuery}` : "/login"
-		throw redirect(next, { headers: await signOutHeaders(request) })
+		throw redirectDocument(next, { headers: await signOutHeaders(request) })
 	}
 	const query = new URLSearchParams(oauthQuery)
 	const clientId = query.get("client_id")

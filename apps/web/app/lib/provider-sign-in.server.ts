@@ -20,8 +20,20 @@ import {
 	withProviderSignup,
 } from "./signup-gate.server"
 
+const AUTHORIZE_PATH = "/api/auth/oauth2/authorize"
+
 export const PROVIDERS = ["apple", "google", "github"] as const
 export type Provider = (typeof PROVIDERS)[number]
+
+/**
+ * Where each provider's sign-in page is: a page whose forms start a provider sign-in lets them go on
+ * there (`allowFormTargets`). sign-in-providers.test.ts holds them to better-auth's addresses.
+ */
+export const PROVIDER_ORIGINS: Record<Provider, string> = {
+	apple: "https://appleid.apple.com",
+	google: "https://accounts.google.com",
+	github: "https://github.com",
+}
 
 /** The providers with credentials in the environment, in display order. */
 export const enabledProviders: Provider[] = PROVIDERS.filter((provider) => oauth[provider])
@@ -198,7 +210,7 @@ export async function startAppProviderSignIn(
 		auth.api.signInSocial({
 			body: {
 				provider,
-				callbackURL: `/api/auth/oauth2/authorize?${authorize}`,
+				callbackURL: `${AUTHORIZE_PATH}?${authorize}`,
 				errorCallbackURL: APP_SIGN_IN_ERROR_PATH,
 				requestSignUp: signUp,
 				disableRedirect: true,
@@ -233,6 +245,16 @@ async function readPending(request: Request): Promise<Pending | null> {
 }
 
 const isAppRedirect = (uri: string) => mobileRedirectUris(env.APP_URL).includes(uri)
+
+/**
+ * The iPhone app's redirect URI in the authorization request a provider's sheet goes on to
+ * (`startAppProviderSignIn`'s callback, which /login/code takes in `redirectTo`), or null.
+ */
+export function appRedirectIn(path: string | null): string | null {
+	if (!path?.startsWith(`${AUTHORIZE_PATH}?`)) return null
+	const uri = new URL(path, env.APP_URL).searchParams.get("redirect_uri")
+	return uri && isAppRedirect(uri) ? uri : null
+}
 
 function backToApp({ redirectUri, state }: Pending, error: AppSignInErrorCode): string {
 	const url = new URL(redirectUri)

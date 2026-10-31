@@ -26,8 +26,12 @@ process.env.APPLE_PRIVATE_KEY = generateKeyPairSync("ec", { namedCurve: "P-256" 
 const { env } = await import("~/lib/env.server")
 const { auth } = await import("~/lib/auth.server")
 const { offeredIn } = await import("~/lib/provider-sign-in.server")
+const { formTargetsOf } = await import("~/lib/csp.server")
 const login = await import("./login")
 const signup = await import("./signup")
+const loginCode = await import("./login.code")
+const verifyEmail = await import("./oauth.verify-email")
+const { sessionContext } = await import("~/lib/session.server")
 
 /**
  * Where the OAuth provider sends a signed-out person who starts this app's sign-in: /login, with
@@ -74,10 +78,17 @@ async function expired(url: URL) {
 
 const at = (path: string, search = "") => new URL(`${path}${search}`, env.APP_URL)
 
-const args = (url: URL) =>
-	({ request: new Request(url), context: new RouterContextProvider(), params: {} }) as never
+const args = (url: URL, context = new RouterContextProvider()) =>
+	({ request: new Request(url), context, params: {} }) as never
 const atLoginPage = (url: URL) => login.loader(args(url))
 const atSignupPage = (url: URL) => signup.loader(args(url))
+
+/** The origins the page's forms may go on to besides its own (its policy's form-action). */
+async function formTargetsAt(page: typeof login | typeof signup, url: URL) {
+	const context = new RouterContextProvider()
+	await page.loader(args(url, context))
+	return formTargetsOf(context)
+}
 
 describe("third-party sign-in in an app's sign-in", () => {
 	it("is never offered in the iPhone app's: the app offers providers itself", () => {
@@ -126,5 +137,101 @@ describe("third-party sign-in in an app's sign-in", () => {
 			"apple",
 			"github",
 		])
+	})
+})
+
+describe("where the sign-in pages' forms may go", () => {
+	// Until the page hydrates, a form posts as a page load, and form-action also holds the redirect
+	// that follows: without these, Chrome would stop the sign-in on this origin.
+	it("on the web: the providers its buttons start", async () => {
+		const providers = ["https://appleid.apple.com", "https://github.com"]
+		expect(await formTargetsAt(login, at("/login"))).toEqual(providers)
+		expect(await formTargetsAt(signup, at("/signup"))).toEqual(providers)
+	})
+
+	it("in an app's sign-in: that app's redirect URI, and only the providers the page offers", async () => {
+		const cli = await signInPage(CLI_CLIENT_ID, "http://127.0.0.1:47123/callback", CLI_SCOPES)
+		expect(await formTargetsAt(login, cli)).toEqual(["http://127.0.0.1:47123"])
+		const atLogin = await atLoginPage(cli)
+		expect(await formTargetsAt(signup, at("/signup", `?${atLogin.appQuery}`))).toEqual([
+			"https://appleid.apple.com",
+			"https://github.com",
+			"http://127.0.0.1:47123",
+		])
+		const app = await signInPage(MOBILE_CLIENT_ID, MOBILE_REDIRECT_URI, MOBILE_SCOPES)
+		expect(await formTargetsAt(login, app)).toEqual(["com.klipstack.app:"])
+	})
+
+	it("never an address from a request that does not hold", async () => {
+		const cli = await signInPage(CLI_CLIENT_ID, "http://127.0.0.1:47123/callback", CLI_SCOPES)
+		const web = ["https://appleid.apple.com", "https://github.com"]
+		expect(await formTargetsAt(login, await expired(cli))).toEqual(web)
+		const forged = at("/login", cli.search.replace("47123", "47124"))
+		expect(await formTargetsAt(login, forged)).toEqual(web)
+	})
+})
+
+describe("where the pages that finish an app's sign-in let forms go", () => {
+	const cliRedirect = "http://127.0.0.1:47123/callback"
+
+	/** The policy's extra origins for a route's loader at `url`, with `cookie` and `signedIn`. */
+	async function targetsAt(
+		route: typeof loginCode | typeof verifyEmail,
+		url: URL,
+		{ cookie, signedIn }: { cookie?: string; signedIn?: boolean } = {},
+	) {
+		const context = new RouterContextProvider()
+		if (signedIn)
+			context.set(sessionContext, {
+				user: { id: "u", email: "reader@example.com", emailVerified: false },
+				session: { id: "s", createdAt: new Date() },
+			} as never)
+		const request = new Request(url, cookie ? { headers: { cookie } } : {})
+		await route.loader({ request, context, params: {} } as never)
+		return formTargetsOf(context)
+	}
+
+	// A pending sign-in from /login's first step (only its presence is read here).
+	const pending = { cookie: "klip.two_factor=pending" }
+
+	it("/login/code: the app of the request it finishes", async () => {
+		const cli = await signInPage(CLI_CLIENT_ID, cliRedirect, CLI_SCOPES)
+		const page = at("/login/code", cli.search)
+		expect(await targetsAt(loginCode, page, pending)).toEqual(["http://127.0.0.1:47123"])
+		expect(
+			await targetsAt(loginCode, at("/login/code", (await expired(cli)).search), pending),
+		).toEqual([])
+	})
+
+	it("/login/code: the iPhone app, for a provider's sheet that goes on to its request", async () => {
+		const authorize = `/api/auth/oauth2/authorize?${new URLSearchParams({
+			client_id: MOBILE_CLIENT_ID,
+			redirect_uri: MOBILE_REDIRECT_URI,
+		})}`
+		const page = at("/login/code", `?${new URLSearchParams({ redirectTo: authorize })}`)
+		expect(await targetsAt(loginCode, page, pending)).toEqual(["com.klipstack.app:"])
+		const other = authorize.replace(
+			encodeURIComponent(MOBILE_REDIRECT_URI),
+			"https%3A%2F%2Fevil.example%2Fcb",
+		)
+		expect(
+			await targetsAt(
+				loginCode,
+				at("/login/code", `?${new URLSearchParams({ redirectTo: other })}`),
+				pending,
+			),
+		).toEqual([])
+	})
+
+	it("/oauth/verify-email: the app of a request that holds, none of an expired one", async () => {
+		const cli = await signInPage(CLI_CLIENT_ID, cliRedirect, CLI_SCOPES)
+		const signedIn = { signedIn: true }
+		expect(await targetsAt(verifyEmail, at("/oauth/verify-email", cli.search), signedIn)).toEqual([
+			"http://127.0.0.1:47123",
+		])
+		const old = await expired(cli)
+		expect(await targetsAt(verifyEmail, at("/oauth/verify-email", old.search), signedIn)).toEqual(
+			[],
+		)
 	})
 })
