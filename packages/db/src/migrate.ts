@@ -1,11 +1,9 @@
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
-import { createPool } from "./client"
+import { createMigrationPool } from "./client"
 import { collationProblems } from "./collation"
 
-// A pool of its own, without the app's limits: a migration may rewrite a large table, or wait for
-// the app's transactions to let go of one.
-const pool = createPool({ max: 1, timeouts: null })
+const pool = createMigrationPool()
 const db = drizzle({ client: pool })
 
 async function main() {

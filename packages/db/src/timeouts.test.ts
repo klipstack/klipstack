@@ -1,10 +1,14 @@
+import { execFile } from "node:child_process"
 import { randomUUID } from "node:crypto"
+import { fileURLToPath } from "node:url"
+import { promisify } from "node:util"
 import { eq } from "drizzle-orm"
 import type pg from "pg"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
-import { createPool, db, pool, setDatabaseProcess } from "./client"
+import { createMigrationPool, createPool, db, pool, setDatabaseProcess } from "./client"
 import { user } from "./schema"
 
+const execFileAsync = promisify(execFile)
 const userId = `test-timeouts-${randomUUID()}`
 const pools: pg.Pool[] = []
 
@@ -55,6 +59,7 @@ describe("the process pool", () => {
 	it("gives the worker's connections its longer statement limit", async () => {
 		const worker = shortPool()
 		setDatabaseProcess("worker", worker)
+		expect(worker.options.connectionTimeoutMillis).toBe(10_000)
 		expect(await settings(worker)).toEqual({
 			idle_in_transaction_session_timeout: "30000",
 			lock_timeout: "5000",
@@ -121,4 +126,40 @@ describe("the limits", () => {
 			held.release()
 		}
 	})
+})
+
+describe("the exemptions", () => {
+	it("runs migrations without the app's limits, whatever the environment says", async () => {
+		const env = { ...process.env }
+		Object.assign(process.env, {
+			PG_CONNECT_TIMEOUT_MS: "1",
+			PG_STATEMENT_TIMEOUT_MS: "1",
+			PG_LOCK_TIMEOUT_MS: "1",
+			PG_IDLE_IN_TRANSACTION_TIMEOUT_MS: "1",
+		})
+		try {
+			const migrations = createMigrationPool()
+			pools.push(migrations)
+			expect(migrations.options.connectionTimeoutMillis).toBeUndefined()
+			expect(await settings(migrations)).toEqual({
+				idle_in_transaction_session_timeout: "0",
+				lock_timeout: "0",
+				statement_timeout: "0",
+			})
+			await expect(migrations.query("select pg_sleep(0.05)")).resolves.toMatchObject({
+				rowCount: 1,
+			})
+		} finally {
+			process.env = env
+		}
+	})
+
+	it("has migrate use that pool: it runs with a 1 ms connect limit in the environment", async () => {
+		// A 1 ms limit on getting a connection fails any pool that has it: connecting takes longer.
+		const run = await execFileAsync("pnpm", ["exec", "tsx", "src/migrate.ts"], {
+			cwd: fileURLToPath(new URL("..", import.meta.url)),
+			env: { ...process.env, PG_CONNECT_TIMEOUT_MS: "1" },
+		})
+		expect(run.stdout).toContain("migrations applied")
+	}, 30_000)
 })

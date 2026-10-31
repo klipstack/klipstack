@@ -44,6 +44,14 @@ export function createPool({ max, timeouts }: { max: number; timeouts: DbTimeout
 	return created
 }
 
+/**
+ * The pool `migrate` runs on, without the app's limits: a migration may rewrite a large table, or
+ * wait for the app's transactions to let go of one. One connection, as drizzle's migrator uses.
+ */
+export function createMigrationPool() {
+	return createPool({ max: 1, timeouts: null })
+}
+
 /** One pool per process, surviving Vite HMR reloads in dev. */
 export const pool: pg.Pool =
 	globalThis.__klipstackPool ?? createPool({ max: poolMax(), timeouts: dbTimeouts("web") })
