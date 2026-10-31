@@ -585,6 +585,8 @@ test("leaving at the end of an article finishes it, with an undo", async ({ page
 	await page.getByRole("link", { name: title }).click()
 	await expect(page).toHaveURL(new RegExp(`/read/${id}$`))
 	await waitForHydration(page)
+	// Not read yet: no stamp at the top.
+	await expect(page.getByTestId("reader-meta").getByTestId("read-stamp")).toHaveCount(0)
 	const end = await toTheEnd(page)
 	await expect(end).toHaveAttribute("data-state", "finishing")
 	await expect(end).toContainText("Finished")
@@ -669,6 +671,13 @@ test("leaving at the end of an article finishes it, with an undo", async ({ page
 	const [box, cardBox] = [await stamp.boundingBox(), await card.boundingBox()]
 	expect(box!.y - cardBox!.y).toBeLessThan(30)
 	expect(cardBox!.x + cardBox!.width - (box!.x + box!.width)).toBeLessThan(70)
+
+	// Opened again, it is stamped at the top too, beside its byline.
+	await card.getByRole("link", { name: title }).click()
+	await waitForHydration(page)
+	const topStamp = page.getByTestId("reader-meta").getByTestId("read-stamp")
+	await expect(topStamp).toBeVisible()
+	await expect(topStamp.locator(".sr-only")).toHaveText("Finished")
 })
 
 test("an end reached too fast finishes only by hand, and fits a small phone", async ({ page }) => {
