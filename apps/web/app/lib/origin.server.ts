@@ -1,4 +1,5 @@
 import { AppError } from "./app-error"
+import { auth } from "./auth.server"
 import { env } from "./env.server"
 
 /**
@@ -11,7 +12,21 @@ export function sameOrigin(request: Request): boolean {
 }
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"])
-const SESSION_COOKIE = /(?:^|;\s*)(?:__Secure-)?klip\.session_token=[^;\s]/
+/**
+ * The session cookie's name as better-auth sets it: `klip.session_token`, with `__Secure-` in
+ * front under an https APP_URL.
+ */
+let sessionCookieName: Promise<string> | undefined
+const sessionCookie = () =>
+	(sessionCookieName ??= auth.$context.then((ctx) => ctx.authCookies.sessionToken.name))
+
+async function hasSessionCookie(request: Request): Promise<boolean> {
+	const name = await sessionCookie()
+	return (request.headers.get("cookie") ?? "").split(";").some((pair) => {
+		const at = pair.indexOf("=")
+		return at > 0 && pair.slice(0, at).trim() === name && pair.slice(at + 1).trim() !== ""
+	})
+}
 /** The browser extension saves with the browser's session from its own origin. */
 const EXTENSION_ORIGIN = /^(?:chrome-extension|moz-extension|safari-web-extension):\/\/[^/]+$/
 
@@ -28,9 +43,9 @@ const EXTENSION_ORIGIN = /^(?:chrome-extension|moz-extension|safari-web-extensio
  * Writes without the cookie (signed out, the iPhone app) or with a bearer token (signed out by
  * `sessionMiddleware`) have no session to misuse, and are not checked here.
  */
-export function crossSiteAllowed(request: Request): boolean {
+export async function crossSiteAllowed(request: Request): Promise<boolean> {
 	if (SAFE_METHODS.has(request.method)) return true
-	if (!SESSION_COOKIE.test(request.headers.get("cookie") ?? "")) return true
+	if (!(await hasSessionCookie(request))) return true
 	if (sameOrigin(request)) return true
 	const { pathname } = new URL(request.url)
 	if (pathname.startsWith("/api/auth/")) return true

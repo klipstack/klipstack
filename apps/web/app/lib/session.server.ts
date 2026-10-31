@@ -31,7 +31,7 @@ export const sessionMiddleware: MiddlewareFunction<Response> = async (
 		return next()
 	}
 	// Resource routes get no origin check from React Router: this is theirs (./origin.server).
-	if (!crossSiteAllowed(request)) {
+	if (!(await crossSiteAllowed(request))) {
 		context.set(sessionContext, null)
 		return withSecurityHeaders(request, crossSiteRefusal())
 	}
