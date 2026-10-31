@@ -293,4 +293,46 @@ describe("authenticateApiRequest", () => {
 		// Another address still gets its answer.
 		await expect(authenticateApiRequest(request(good))).resolves.toMatchObject({ userId })
 	})
+
+	it("counts refused tokens per IPv6 /64, and an IPv4-mapped address as its IPv4 address", async () => {
+		const from = (address: string, token: string) =>
+			new Request("http://localhost:5180/api/v1/me", {
+				headers: {
+					authorization: `Bearer ${token}`,
+					"x-klipstack-client-ip": address,
+					"x-klipstack-client-signature": createHmac("sha256", env.BETTER_AUTH_SECRET)
+						.update(address)
+						.digest("hex"),
+				},
+			})
+		const hex = () => Math.floor(Math.random() * 0xffff).toString(16)
+		const unknownKey = `${encode({ alg: "EdDSA", kid: `unknown-${randomUUID()}` })}.e30.c2ln`
+		const { clientId, generation } = await connectApp(["library:read"])
+		const good = await accessToken({ azp: clientId, scope: "library:read", klip_grant: generation })
+
+		// Every refusal from a new address of one /64: together they reach the limit.
+		const prefix = `2001:db8:${hex()}:${hex()}`
+		for (let i = 0; i < BAD_BEARER_LIMIT.limit; i++)
+			await expect(
+				authenticateApiRequest(from(`${prefix}:${hex()}:${hex()}:${hex()}:${i}`, unknownKey)),
+			).rejects.toMatchObject({ status: 401 })
+		await expect(authenticateApiRequest(from(`${prefix}::beef`, good))).rejects.toMatchObject({
+			status: 429,
+		})
+		// Another /64 is apart.
+		await expect(
+			authenticateApiRequest(from(`2001:db8:${hex()}:${hex()}::1`, good)),
+		).resolves.toMatchObject({ userId })
+
+		// The same IPv4 address, written both ways, is one address.
+		const ipv4 = `198.18.${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}`
+		for (let i = 0; i < BAD_BEARER_LIMIT.limit; i++)
+			await expect(
+				authenticateApiRequest(from(i % 2 ? ipv4 : `::ffff:${ipv4}`, unknownKey)),
+			).rejects.toMatchObject({ status: 401 })
+		for (const address of [ipv4, `::ffff:${ipv4}`])
+			await expect(authenticateApiRequest(from(address, good))).rejects.toMatchObject({
+				status: 429,
+			})
+	})
 })

@@ -3,6 +3,7 @@ import { createHmac, timingSafeEqual } from "node:crypto"
 import { db, sql } from "@klipstack/db"
 import { APIError } from "better-auth/api"
 import { env } from "./env.server"
+import { limitAddress } from "./limit-address"
 
 const checked = new AsyncLocalStorage<boolean>()
 export const withAuthLimitChecked = <T>(fn: () => Promise<T>) => checked.run(true, fn)
@@ -61,7 +62,8 @@ export async function checkAuthLimit(path: string, email: unknown, headers?: Hea
 	if (!policy) return
 	const normalized = typeof email === "string" ? email.trim().toLowerCase() : ""
 	for (const [kind, value, limit] of [
-		["ip", trustedAuthAddress(headers), policy.ip],
+		// An IPv6 client counts as its /64 (`limitAddress`).
+		["ip", limitAddress(trustedAuthAddress(headers)), policy.ip],
 		["account", normalized, policy.account],
 	] as const) {
 		// No account named (a body without one): counting "" would pool every account's tries.

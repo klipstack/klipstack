@@ -15,6 +15,7 @@ import {
 } from "@klipstack/db"
 import { checkAuthLimit, trustedAuthAddress } from "./auth-limits.server"
 import { checkFormToken } from "./invite-requests.server"
+import { limitAddress } from "./limit-address"
 
 /** Past this many open reports the form says to try later: the table cannot grow unbounded. */
 export const REPORTS_OPEN_MAX = 1000
@@ -91,7 +92,11 @@ async function report(
 	if (form === "too_fast") return "received"
 	if (form !== "ok") return "expired"
 	// Counted per address, and per page from that address.
-	await checkAuthLimit("/report-edition", `${publicId}:${trustedAuthAddress(headers)}`, headers)
+	await checkAuthLimit(
+		"/report-edition",
+		`${publicId}:${limitAddress(trustedAuthAddress(headers))}`,
+		headers,
+	)
 
 	const target = await find(publicId)
 	if (!target) return "received"
