@@ -11,7 +11,7 @@ import { useColors } from "@/lib/theme"
 
 /**
  * The Library tab's first screen: its places, each opening its list, as Mail lists its mailboxes:
- * the views, the tags and topics, the saved searches (as the web's sidebar lists them; a long press renames or
+ * the views, Your Reading, the tags and topics, the saved searches (as the web's sidebar lists them; a long press renames or
  * deletes one), the review of old saves and the trash. The tab opens on Inbox, with this screen behind it, as Mail opens on its inbox: "‹ Library" leads here,
  * and so does tapping the tab again.
  */
@@ -86,6 +86,15 @@ export default function Places() {
 					title={t("library.places.archive")}
 					icon="archivebox"
 					href="/library/archive"
+					colors={colors}
+				/>
+			</PlaceGroup>
+			<PlaceGroup colors={colors}>
+				{/* What was finished, by day, week and month: the web's sidebar's Your reading. */}
+				<PlaceRow
+					title={t("library.places.reading")}
+					icon="chart.bar.xaxis"
+					href="/reading"
 					colors={colors}
 				/>
 			</PlaceGroup>

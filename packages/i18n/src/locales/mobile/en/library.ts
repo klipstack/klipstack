@@ -11,6 +11,7 @@ export default {
 		savedSearches: "Saved Searches",
 		discover: "Discover",
 		review: "Review Old Saves",
+		reading: "Your Reading",
 	},
 	/** What an empty list says. */
 	empty: {
@@ -274,5 +275,63 @@ export default {
 		shownOf: "{{shown}} of {{total}}",
 		showFirst: "Show the First {{max}}",
 		showAll: "Show All {{total}}",
+	},
+	/** Your Reading: what was finished, by day, week and month, as the web's /reading. */
+	reading: {
+		description:
+			"What you finished, by day, week and month. Minutes are estimated from each article's length.",
+		pastWeek: "Past 7 days",
+		articles_one: "{{n}} article",
+		articles_other: "{{n}} articles",
+		words_one: "{{n}} word",
+		words_other: "{{n}} words",
+		minutes: "about {{count}} min",
+		hours: "about {{hours}} h {{minutes}} min",
+		wholeHours: "about {{hours}} h",
+		/** An amount of words, then of minutes: each already says its own. */
+		length: "{{words}} · {{minutes}}",
+		longerThan: "Longer than {{book}}",
+		year: {
+			title: "Your year",
+			/** Under the grid until a square is tapped; then the square's day. */
+			legend: "One square per day, with more ink the more you finished. Tap one to see its day.",
+			summary_one: "{{n}} article finished on {{days}} since {{from}}.",
+			summary_other: "{{n}} articles finished on {{days}} since {{from}}.",
+			days_one: "{{n}} day",
+			days_other: "{{n}} days",
+			day_one: "{{date}}: {{count}} article",
+			day_other: "{{date}}: {{count}} articles",
+			dayNone: "{{date}}: none",
+			less: "Less",
+			more: "More",
+		},
+		periods: {
+			title: "Week by week",
+			titleMonth: "Month by month",
+			week: "Weeks",
+			month: "Months",
+			bar: "{{period}}: {{articles}}, {{words}}",
+			weekOf: "Week of {{date}}",
+		},
+		selected: {
+			none: "Nothing finished in this period.",
+			topics: "What you read about",
+			range: "{{from}} – {{to}}",
+		},
+		empty: "Nothing finished yet. Articles you finish show up here, by day, week and month.",
+		untitled: "Untitled",
+		/** Well-known books, to give a sense of a length: longer than the longest one passed. */
+		books: {
+			lottery: "“The Lottery”",
+			wallpaper: "“The Yellow Wallpaper”",
+			littlePrince: "The Little Prince",
+			metamorphosis: "The Metamorphosis",
+			oldMan: "The Old Man and the Sea",
+			gatsby: "The Great Gatsby",
+			frankenstein: "Frankenstein",
+			pride: "Pride and Prejudice",
+			mobyDick: "Moby-Dick",
+			warAndPeace: "War and Peace",
+		},
 	},
 }

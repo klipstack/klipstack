@@ -29,6 +29,9 @@ const light = {
 	// Progress through an article: the highlighter's yellow warmed toward orange, so a thin line
 	// still shows on the page (the web's ink-line).
 	inkLine: "#ffc337",
+	// Your Reading's year grid: navy ink, deeper the more was finished in a day (the web's
+	// --k-heat-1 to 3), over the muted color of a day without.
+	heat: ["#708dbd", "#446396", "#243f6c"] as [string, string, string],
 	// Bars that float over the page (the player, the finish bar) stand apart from it: dark in light
 	// mode, as the web's selection bar and toasts are, with its inverse link color as the accent.
 	floating: {
@@ -84,6 +87,8 @@ const dark: typeof light = {
 	paper: "#c8c4bc",
 	selected: "#43380d",
 	inkLine: "#ffc744",
+	// Lighter the more was finished, against the dark page.
+	heat: ["#436590", "#5c88c1", "#85b4f0"],
 	// In dark mode, a raised gray rather than an inverted, near-white bar: the player stays on screen
 	// for as long as it reads, often in the dark.
 	floating: {

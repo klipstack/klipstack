@@ -109,6 +109,15 @@ function Screens() {
 						headerBackButtonDisplayMode: "minimal",
 					}}
 				/>
+				{/* Over the tabs too, from the Library and Home's line: the reader opens over it. */}
+				<Stack.Screen
+					name="reading"
+					options={{
+						title: t("library.places.reading"),
+						headerBackTitle: t("account.screens.back"),
+						headerBackButtonDisplayMode: "minimal",
+					}}
+				/>
 				<Stack.Screen
 					name="voices"
 					options={{ title: t("account.account.voices"), presentation: "modal" }}

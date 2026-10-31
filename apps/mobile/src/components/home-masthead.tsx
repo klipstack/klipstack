@@ -1,4 +1,5 @@
 import type { FinishedLately, NextEdition } from "@klipstack/sdk"
+import { router } from "expo-router"
 import { Linking, Pressable, StyleSheet, Text, View } from "react-native"
 import { MarkerText } from "@/components/marker-text"
 import {
@@ -14,8 +15,8 @@ import { type Colors, fonts } from "@/lib/theme"
 
 /**
  * Home's top, as the web's masthead on a phone, the morning paper's front page: the date over a
- * rule, a greeting with the reader's name marked in, what was finished this past week, and the
- * next edition. Editions are put together on the web: the ear opens it. When one is due
+ * rule, a greeting with the reader's name marked in, what was finished this past week (and the way
+ * to Your Reading), and the next edition. Editions are put together on the web: the ear opens it. When one is due
  * (`nudging`), why, with "Not now". A double rule under it all, as a newspaper sets its masthead.
  */
 export function HomeMasthead({
@@ -79,7 +80,16 @@ export function HomeMasthead({
 				<Text testID="home-finished" style={[styles.finished, { color: colors.mutedFg }]}>
 					{line.before}
 					{line.title ? <Text style={{ color: colors.fg }}>{line.title}</Text> : null}
-					{line.after}
+					{line.after}{" "}
+					{/* Beside the sentence, not around it: a title in it reads as the article's. */}
+					<Text
+						accessibilityRole="link"
+						onPress={() => router.push("/reading")}
+						style={[styles.more, { color: colors.accent }]}
+					>
+						{/* On one line, as the web keeps it: a link broken in two reads as two. */}
+						{t("home.masthead.seeReading").replaceAll(" ", "\u00a0")}
+					</Text>
 				</Text>
 			) : null}
 			{ear ? (
@@ -143,6 +153,13 @@ const styles = StyleSheet.create({
 	// The web's 3px double rule: two lines with a gap between.
 	rules: { height: 4, borderTopWidth: 1, borderBottomWidth: 1, marginTop: 8 },
 	finished: { fontFamily: "Iowan Old Style", fontStyle: "italic", fontSize: 18, lineHeight: 24 },
+	// The web's: the interface's own type, beside the italic sentence, underlined as a link.
+	more: {
+		fontFamily: "System",
+		fontStyle: "normal",
+		fontSize: 14,
+		textDecorationLine: "underline",
+	},
 	ear: { fontSize: 14, lineHeight: 20 },
 	nudge: { gap: 10 },
 	reason: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
