@@ -387,6 +387,7 @@ export default {
 		archive: "Archive",
 		starred: "Starred",
 		notebook: "Notebook",
+		reading: "Your reading",
 		editions: "Editions",
 		trash: "Trash",
 		settings: "Settings",

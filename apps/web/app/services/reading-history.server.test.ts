@@ -1,4 +1,14 @@
-import { and, db, documents, eq, newId, readingCompletions, user } from "@klipstack/db"
+import {
+	and,
+	db,
+	documents,
+	documentTopics,
+	eq,
+	newId,
+	readingCompletions,
+	topics,
+	user,
+} from "@klipstack/db"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import {
 	openArticle,
@@ -10,7 +20,7 @@ import {
 } from "~/commands/articles.server"
 import { restoreDocument } from "./documents.server"
 import { buildDocumentExport, buildExport } from "./export.server"
-import { finishedLately, listReadingHistory } from "./reading-history.server"
+import { finishedLately, listReadingHistory, readingStats } from "./reading-history.server"
 
 const userId = `test-history-${Date.now()}`
 const otherId = `${userId}-other`
@@ -286,5 +296,162 @@ describe("finishedLately", () => {
 			count: 2,
 			title: null,
 		})
+	})
+})
+
+describe("readingStats", () => {
+	// Saturday 31 October 2026, noon in Santiago (UTC-3).
+	const now = new Date("2026-10-31T15:00:00Z")
+	const timeZone = "America/Santiago"
+	const readers: string[] = []
+	afterAll(async () => {
+		for (const id of readers) await db.delete(user).where(eq(user.id, id))
+	})
+	async function reader() {
+		const id = `test-stats-${newId()}`
+		await db.insert(user).values({ id, name: "Reader", email: `${id}@example.com` })
+		readers.push(id)
+		return id
+	}
+	async function read(owner: string, title: string, wordCount: number | null) {
+		const [doc] = await db
+			.insert(documents)
+			.values({
+				userId: owner,
+				title,
+				sourceUrl: "https://example.com/stats",
+				urlHash: newId(),
+				status: "ready",
+				wordCount,
+				readingMinutes: wordCount === null ? null : wordCount / 200,
+			})
+			.returning()
+		return doc!
+	}
+	async function finished(
+		owner: string,
+		documentId: string,
+		completedAt: string,
+		source: "manual" | "progress" | "bulk" = "manual",
+		cycle = 0,
+	) {
+		await db
+			.insert(readingCompletions)
+			.values({ userId: owner, documentId, cycle, completedAt: new Date(completedAt), source })
+	}
+
+	/**
+	 * Days in Santiago, chosen where UTC days would say otherwise: A is Saturday the 24th (Sunday in
+	 * UTC), B Sunday the 25th, the last day of the week before; E is 30 September (1 October in UTC).
+	 */
+	async function library() {
+		const owner = await reader()
+		const someone = await reader()
+		const a = await read(owner, "A", 1000)
+		const b = await read(owner, "B", 2000)
+		const c = await read(owner, "C", 3000)
+		const e = await read(owner, "E", 400)
+		const tidied = await read(owner, "Tidied", 5000)
+		const trashed = await read(owner, "Trashed", 5000)
+		const theirs = await read(someone, "Theirs", 5000)
+		await finished(owner, a.id, "2026-10-25T02:00:00Z")
+		await finished(owner, b.id, "2026-10-25T03:30:00Z")
+		await finished(owner, c.id, "2026-10-27T15:00:00Z", "progress", 0)
+		await finished(owner, c.id, "2026-10-29T15:00:00Z", "manual", 1)
+		await finished(owner, e.id, "2026-10-01T02:00:00Z")
+		await finished(owner, tidied.id, "2026-10-30T15:00:00Z", "bulk")
+		await finished(owner, trashed.id, "2026-10-30T15:00:00Z")
+		await db.update(documents).set({ deletedAt: new Date() }).where(eq(documents.id, trashed.id))
+		await finished(someone, theirs.id, "2026-10-30T15:00:00Z")
+		return { owner, a, b, c, e }
+	}
+
+	it("totals the past 7 days, the month and the year in the reader's days, each article once", async () => {
+		const { owner } = await library()
+		const stats = await readingStats(owner, { now, timeZone, by: "week" })
+		expect(stats.today).toBe("2026-10-31")
+		expect(stats.totals).toEqual({
+			week: { articles: 2, words: 5000, minutes: 25 },
+			month: { articles: 3, words: 6000, minutes: 30 },
+			year: { articles: 4, words: 6400, minutes: 32 },
+		})
+		expect(stats.days).toEqual({
+			"2026-09-30": 1,
+			"2026-10-24": 1,
+			"2026-10-25": 1,
+			"2026-10-27": 1,
+			"2026-10-29": 1,
+		})
+		// A year of whole weeks, from a Monday.
+		expect(stats.from).toBe("2025-10-27")
+	})
+
+	it("sums twelve weeks from Monday, or twelve months, the current one last", async () => {
+		const { owner } = await library()
+		const weeks = (await readingStats(owner, { now, timeZone, by: "week" })).periods
+		expect(weeks).toHaveLength(12)
+		expect(weeks[0]?.start).toBe("2026-08-10")
+		expect(weeks.slice(-5)).toEqual([
+			{ start: "2026-09-28", articles: 1, words: 400, minutes: 2 },
+			{ start: "2026-10-05", articles: 0, words: 0, minutes: 0 },
+			{ start: "2026-10-12", articles: 0, words: 0, minutes: 0 },
+			{ start: "2026-10-19", articles: 2, words: 3000, minutes: 15 },
+			{ start: "2026-10-26", articles: 1, words: 3000, minutes: 15 },
+		])
+		const months = (await readingStats(owner, { now, timeZone, by: "month" })).periods
+		expect(months).toHaveLength(12)
+		expect(months[0]?.start).toBe("2025-11-01")
+		expect(months.slice(-2)).toEqual([
+			{ start: "2026-09-01", articles: 1, words: 400, minutes: 2 },
+			{ start: "2026-10-01", articles: 3, words: 6000, minutes: 30 },
+		])
+	})
+
+	it("lists the chosen period's articles, newest first, and the current one when none is chosen", async () => {
+		const { owner, a, b, c } = await library()
+		const current = await readingStats(owner, { now, timeZone, by: "week" })
+		expect(current.selected).toMatchObject({ start: "2026-10-26", end: "2026-11-01" })
+		expect(current.selected.articles).toEqual([
+			{ id: c.id, title: "C", siteName: null, words: 3000, minutes: 15, day: "2026-10-29" },
+		])
+		const before = await readingStats(owner, { now, timeZone, by: "week", start: "2026-10-19" })
+		expect(before.selected.end).toBe("2026-10-25")
+		expect(before.selected.articles.map((d) => d.id)).toEqual([b.id, a.id])
+		const october = await readingStats(owner, { now, timeZone, by: "month", start: "2026-10-01" })
+		expect(october.selected.end).toBe("2026-10-31")
+		// Not one of the periods shown: the current one.
+		const far = await readingStats(owner, { now, timeZone, by: "week", start: "2020-01-06" })
+		expect(far.selected.start).toBe("2026-10-26")
+	})
+
+	it("names the topics the chosen period's articles are in, not those only suggested", async () => {
+		const { owner, a, b } = await library()
+		const [essays, science] = await db
+			.insert(topics)
+			.values(
+				["Essays", "Science"].map((name) => ({
+					userId: owner,
+					name,
+					description: name,
+					status: "active" as const,
+					origin: "first" as const,
+				})),
+			)
+			.returning()
+		await db.insert(documentTopics).values([
+			{ documentId: b.id, topicId: essays!.id, probability: 0.9, level: "applied" },
+			{ documentId: a.id, topicId: science!.id, probability: 0.5, level: "suggested" },
+		])
+		const args = { now, timeZone, by: "week", start: "2026-10-19" } as const
+		expect((await readingStats(owner, { ...args, topics: true })).selected.topics).toEqual([
+			{ id: essays!.id, name: "Essays", articles: 1 },
+		])
+		expect((await readingStats(owner, args)).selected.topics).toEqual([])
+	})
+
+	it("counts by UTC days when the database doesn't know the reader's zone", async () => {
+		const { owner } = await library()
+		const stats = await readingStats(owner, { now, timeZone: "Mars/Olympus_Mons", by: "week" })
+		expect(stats.totals.week).toEqual({ articles: 3, words: 6000, minutes: 30 })
 	})
 })

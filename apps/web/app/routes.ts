@@ -35,6 +35,7 @@ export default [
 		route("add", "routes/add.tsx"),
 		route("texts", "routes/texts.tsx"),
 		route("notebook", "routes/notebook.tsx"),
+		route("reading", "routes/reading.tsx"),
 		route("tags", "routes/tags.tsx"),
 		route("topics", "routes/topics.tsx"),
 		route("topics/:id", "routes/topics.topic.tsx"),

@@ -14,6 +14,7 @@ import {
 	Moon,
 	Newspaper,
 	NotebookPen,
+	ChartNoAxesColumn,
 	Plus,
 	Rss,
 	Search,
@@ -178,6 +179,12 @@ export function CommandPalette() {
 			// Highlights live in the Notebook too.
 			keywords: [t("palette.notes"), t("palette.highlights")],
 			run: () => go("/notebook"),
+		},
+		{
+			id: "go-reading",
+			label: t("nav.reading"),
+			icon: ChartNoAxesColumn,
+			run: () => go("/reading"),
 		},
 		...(layout?.editions
 			? [
