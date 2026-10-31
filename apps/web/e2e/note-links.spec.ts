@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { expect, type Page, test } from "@playwright/test"
-import { caretToEnd, signupUser, waitForHydration } from "./helpers"
+import { caretToEnd, sameOrigin, signupUser, waitForHydration } from "./helpers"
 
 const pages = join(import.meta.dirname, "../../../packages/extract/test/fixtures/pages")
 const MAKERS = {
@@ -67,6 +67,7 @@ test("note links: chips read, navigate, backlink and export", async ({ page }) =
 
 	// A link in a highlight's note too.
 	const hl = await page.request.post(`/documents/${makers}/highlights`, {
+		headers: sameOrigin(),
 		data: {
 			intent: "create",
 			exact: MAKERS.quote,
@@ -114,6 +115,7 @@ test("note links: trashing an article says how many notes link to it", async ({ 
 	const joel = await save(page, JOEL)
 	await open(page, makers, MAKERS.quote)
 	const hl = await page.request.post(`/documents/${makers}/highlights`, {
+		headers: sameOrigin(),
 		data: {
 			intent: "create",
 			exact: MAKERS.quote,
@@ -152,6 +154,7 @@ test("note links: a link to a trashed article is struck through", async ({ page 
 	await open(page, makers, MAKERS.quote)
 	const sidebar = page.getByRole("complementary", { name: "Notes and highlights" })
 	const hl = await page.request.post(`/documents/${makers}/highlights`, {
+		headers: sameOrigin(),
 		data: {
 			intent: "create",
 			exact: MAKERS.quote,
@@ -159,7 +162,10 @@ test("note links: a link to a trashed article is struck through", async ({ page 
 		},
 	})
 	expect(hl.status()).toBe(201)
-	await page.request.post(`/documents/${joel}/state`, { form: { intent: "delete" } })
+	await page.request.post(`/documents/${joel}/state`, {
+		headers: sameOrigin(),
+		form: { intent: "delete" },
+	})
 
 	await page.reload()
 	await waitForHydration(page)
@@ -179,6 +185,7 @@ test("note links: the margin editor links, and Escape leaves the typed text alon
 	const joel = await save(page, JOEL)
 	await open(page, joel, JOEL.quote)
 	const hl = await page.request.post(`/documents/${makers}/highlights`, {
+		headers: sameOrigin(),
 		data: { intent: "create", exact: MAKERS.quote, note: "Makers need long blocks." },
 	})
 	expect(hl.status()).toBe(201)
@@ -304,7 +311,10 @@ test("content links: articles that link to each other are connected, whichever c
 	await expect(linksTo.getByRole("listitem")).toHaveCount(1)
 
 	// In the trash, the article at the other end connects nothing.
-	await page.request.post(`/documents/${makers}/state`, { form: { intent: "delete" } })
+	await page.request.post(`/documents/${makers}/state`, {
+		headers: sameOrigin(),
+		form: { intent: "delete" },
+	})
 	await page.reload()
 	await expect(page.locator(".reader-content")).toContainText("the makers essay")
 	await openSidebar(page)
@@ -320,6 +330,7 @@ test("a shared note's links lead to the linked articles' originals", async ({ pa
 	await open(page, joel, JOEL.quote)
 	await open(page, makers, MAKERS.quote)
 	const hl = await page.request.post(`/documents/${makers}/highlights`, {
+		headers: sameOrigin(),
 		data: {
 			intent: "create",
 			exact: MAKERS.quote,

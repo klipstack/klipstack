@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { db, eq, user } from "@klipstack/db"
 import { expect, type Page, test } from "@playwright/test"
-import { signupUser, waitForHydration } from "./helpers"
+import { sameOrigin, signupUser, waitForHydration } from "./helpers"
 import { insertArticle } from "./seed"
 
 const FIXTURE = join(
@@ -173,6 +173,7 @@ test("tags: on a card, as a search, in the command menu, in the reader, on their
 	// A saved search names the tag. Made after the page loaded, it is news to the page: the delete
 	// is refused, and the row says which search, and that it would find nothing.
 	const soon = await page.request.post("/saved-searches", {
+		headers: sameOrigin(),
 		form: { intent: "create", name: "Soon", query: "is:unread -TAG:Later" },
 	})
 	expect(soon.ok()).toBe(true)

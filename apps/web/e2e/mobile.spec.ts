@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { db, documents, eq, user } from "@klipstack/db"
 import { devices, expect, type Page, test } from "@playwright/test"
-import { logout, paintedHighlights, signupUser, waitForHydration } from "./helpers"
+import { logout, paintedHighlights, sameOrigin, signupUser, waitForHydration } from "./helpers"
 
 // Phone emulation (viewport, touch, UA) in the Chromium we run everywhere; drop the WebKit default.
 const { defaultBrowserType: _webkit, ...iphone } = devices["iPhone 13"]
@@ -358,6 +358,7 @@ test("phone: a highlight note links to another article from the bottom sheet", a
 	await openFixtureInReader(page)
 	const id = new URL(page.url()).pathname.split("/").pop() as string
 	const hl = await page.request.post(`/documents/${id}/highlights`, {
+		headers: sameOrigin(),
 		data: { intent: "create", exact: "There are two types of schedule" },
 	})
 	expect(hl.status()).toBe(201)

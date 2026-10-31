@@ -19,6 +19,7 @@ import {
 	caretToEnd,
 	createInviteCode,
 	expectMarked,
+	sameOrigin,
 	signupUser,
 	uniqueEmail,
 	waitForHydration,
@@ -49,7 +50,10 @@ const highlightSaved = (page: Page, id: string) =>
 	)
 
 async function writeNote(page: Page, id: string, note: string) {
-	const res = await page.request.post(`/documents/${id}/note`, { data: { note } })
+	const res = await page.request.post(`/documents/${id}/note`, {
+		headers: sameOrigin(),
+		data: { note },
+	})
 	expect(res.ok()).toBe(true)
 }
 
@@ -84,6 +88,7 @@ test("notebook: filters, word search, stream and by article", async ({ page }) =
 		{ exact: "Each type of schedule works fine by itself", color: 1 },
 	]) {
 		const created = await page.request.post(`/documents/${id}/highlights`, {
+			headers: sameOrigin(),
 			data: { intent: "create", ...h },
 		})
 		expect(created.status()).toBe(201)

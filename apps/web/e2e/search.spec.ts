@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { expect, type Page, test } from "@playwright/test"
-import { createInviteCode, uniqueEmail, waitForHydration } from "./helpers"
+import { createInviteCode, sameOrigin, uniqueEmail, waitForHydration } from "./helpers"
 
 const FIXTURE = join(
 	import.meta.dirname,
@@ -21,7 +21,7 @@ async function save(page: Page, slug: string, title: string): Promise<string> {
 }
 
 const setState = (page: Page, id: string, intent: string) =>
-	page.request.post(`/documents/${id}/state`, { form: { intent } })
+	page.request.post(`/documents/${id}/state`, { headers: sameOrigin(), form: { intent } })
 
 test("search page: a view's button, chips, the trash apart, what was not understood, tips", async ({
 	page,

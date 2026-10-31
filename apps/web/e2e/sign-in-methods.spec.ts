@@ -5,6 +5,7 @@ import {
 	logout,
 	PASSWORD,
 	resetLocalIpLimit,
+	sameOrigin,
 	signupUser,
 	waitForHydration,
 } from "./helpers"
@@ -124,6 +125,7 @@ test("an unverified account adds no password or provider", async ({ page }) => {
 	await expect(methods.getByRole("button", { name: "Change password" })).toBeDisabled()
 	await expect(methods.getByRole("button", { name: "Connect GitHub", exact: true })).toBeDisabled()
 	const response = await page.request.post("/settings/sign-in", {
+		headers: sameOrigin(),
 		form: { intent: "link", provider: "github" },
 	})
 	expect(response.status()).toBe(403)

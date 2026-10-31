@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { expect, type Page, test } from "@playwright/test"
-import { signupUser, waitForHydration } from "./helpers"
+import { sameOrigin, signupUser, waitForHydration } from "./helpers"
 
 const FIXTURE = join(
 	import.meta.dirname,
@@ -30,6 +30,7 @@ test("saved searches: save one, open it from the sidebar, rename it, delete it; 
 	for (const title of [OLDER, NEWER])
 		await expect(page.getByRole("link", { name: title })).toBeVisible({ timeout: 60_000 })
 	const tagged = await page.request.post(`/documents/${newer}/tags`, {
+		headers: sameOrigin(),
 		form: { intent: "add", name: "later" },
 	})
 	expect(tagged.ok()).toBe(true)
@@ -156,7 +157,10 @@ test("saved searches: the rail lists them in a menu, the phone drawer as rows", 
 }) => {
 	await signupUser(page, "Pocket")
 	const create = (name: string, query: string) =>
-		page.request.post("/saved-searches", { form: { intent: "create", name, query } })
+		page.request.post("/saved-searches", {
+			headers: sameOrigin(),
+			form: { intent: "create", name, query },
+		})
 	expect((await create("Long reads", "sort:longest")).ok()).toBe(true)
 	await page.goto("/library")
 	await waitForHydration(page)

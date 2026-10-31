@@ -6,6 +6,7 @@ import {
 	createOAuthClient,
 	PASSWORD,
 	pkce,
+	sameOrigin,
 	signupUser,
 	waitForHydration,
 	ownClientAddress,
@@ -158,6 +159,7 @@ test("unverified users cannot bypass the OAuth consent screen", async ({ page, b
 	)
 	const location = new URL(response.headers().location ?? "", baseURL)
 	const consent = await page.request.post("/api/auth/oauth2/consent", {
+		headers: sameOrigin(),
 		data: { accept: true, oauth_query: location.search.slice(1) },
 	})
 	expect(consent.status()).toBe(403)
@@ -182,6 +184,7 @@ test("an old sign-in connects no new app until it signs in again", async ({ page
 	const response = await page.request.get(ask, { maxRedirects: 0 })
 	const location = new URL(response.headers().location ?? "", baseURL)
 	const direct = await page.request.post("/api/auth/oauth2/consent", {
+		headers: sameOrigin(),
 		data: { accept: true, oauth_query: location.search.slice(1) },
 	})
 	expect(direct.status()).toBe(403)
