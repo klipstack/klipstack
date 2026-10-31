@@ -31,6 +31,8 @@ import { openArticle } from "~/commands/articles.server"
 import { failureKey, safeHost } from "~/components/document-card"
 import { EditableTitle } from "~/components/editable-title"
 import { ErrorContent } from "~/components/error-content"
+import { tiltFor } from "~/components/post-it"
+import { ReadStamp } from "~/components/read-stamp"
 import { ReaderArticle } from "~/components/reader-article"
 import { ReaderEnd } from "~/components/reader-end"
 import { useOutline } from "~/components/reader-outline"
@@ -555,12 +557,20 @@ function Reader({ loaderData }: Route.ComponentProps) {
 						<header ref={titleRef} className="mb-8">
 							<TopicKicker topics={loaderData.topics.topics} />
 							<EditableTitle title={doc.title} action={`/documents/${doc.id}/state`} />
-							<p className="mt-3 text-sm text-muted-fg">
+							<p data-testid="reader-meta" className="mt-3 text-sm text-muted-fg">
 								{[doc.siteName ?? safeHost(doc.sourceUrl), doc.author].filter(Boolean).join(" · ")}
 								{loaderData.published ? ` · ${loaderData.published}` : null}
 								{doc.readingMinutes
 									? ` · ${t("meta.minutes", { count: doc.readingMinutes })}`
 									: null}
+								{/* Stamped as its card is, the same way. A space, not a margin, so that it starts
+								    the next line flush when it wraps. */}
+								{state.finished ? (
+									<>
+										{" "}
+										<ReadStamp tilt={tiltFor(doc.id)} className="align-middle" />
+									</>
+								) : null}
 							</p>
 							<div data-testid="reader-tags" className="mt-3 flex flex-wrap items-center gap-1">
 								<TagChips tags={doc.tags} links />
