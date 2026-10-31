@@ -23,7 +23,6 @@ import {
 	editions,
 	eq,
 	gt,
-	gte,
 	inArray,
 	isNotNull,
 	isNull,
@@ -237,6 +236,64 @@ export async function getEdition(
 	if (!row) throw refuse("not_found")
 	const { publishedTitle: title, ...edition } = row
 	return { edition, items: await listItems(db, id), publicPath: publicPath(edition, title) }
+}
+
+/** The id of the edition's item of the article, or null when it has none. */
+export async function itemOfArticle(
+	q: Db | Tx,
+	editionId: string,
+	documentId: string,
+): Promise<string | null> {
+	const [item] = await q
+		.select({ id: editionItems.id })
+		.from(editionItems)
+		.where(and(eq(editionItems.editionId, editionId), eq(editionItems.documentId, documentId)))
+	return item?.id ?? null
+}
+
+/** The id of the edition's item at `position`, or null when it has none there. */
+export async function itemAt(
+	q: Db | Tx,
+	editionId: string,
+	position: number,
+): Promise<string | null> {
+	const [item] = await q
+		.select({ id: editionItems.id })
+		.from(editionItems)
+		.where(and(eq(editionItems.editionId, editionId), eq(editionItems.position, position)))
+	return item?.id ?? null
+}
+
+/** Whether an item with this id is in some edition. */
+export async function itemExists(q: Db | Tx, itemId: string): Promise<boolean> {
+	const [item] = await q
+		.select({ id: editionItems.id })
+		.from(editionItems)
+		.where(eq(editionItems.id, itemId))
+	return item !== undefined
+}
+
+/**
+ * The user's articles marked for an edition and not in it yet, the oldest mark first. Articles in
+ * the trash wait there.
+ */
+export async function shortlistNotIn(userId: string, editionId: string): Promise<string[]> {
+	const marked = await db
+		.select({ id: documents.id })
+		.from(documents)
+		.where(
+			and(
+				eq(documents.userId, userId),
+				isNotNull(documents.shortlistedAt),
+				isNull(documents.deletedAt),
+				sql`not exists (
+					select 1 from edition_items i
+					where i.edition_id = ${editionId} and i.document_id = ${documents.id}
+				)`,
+			),
+		)
+		.orderBy(asc(documents.shortlistedAt), asc(documents.id))
+	return marked.map((row) => row.id)
 }
 
 /** The edition's items, in order. */
@@ -571,42 +628,6 @@ export async function setEditionNote(
 	})
 }
 
-/**
- * Adds every article of the shortlist the edition does not have yet, the oldest mark first: the
- * order they were read in. One without a web address is left out. How many it added.
- */
-export async function addShortlist(userId: string, editionId: string): Promise<number> {
-	await findEdition(userId, editionId)
-	const marked = await db
-		.select({ id: documents.id })
-		.from(documents)
-		.where(
-			and(
-				eq(documents.userId, userId),
-				isNotNull(documents.shortlistedAt),
-				isNull(documents.deletedAt),
-				sql`not exists (
-					select 1 from edition_items i
-					where i.edition_id = ${editionId} and i.document_id = ${documents.id}
-				)`,
-			),
-		)
-		.orderBy(asc(documents.shortlistedAt), asc(documents.id))
-	let added = 0
-	for (const { id } of marked) {
-		try {
-			await addItem(userId, editionId, id)
-			added++
-		} catch (error) {
-			// No web address, or added meanwhile: the rest still go in.
-			if (error instanceof AppError && (error.code === "no_url" || error.code === "already_added"))
-				continue
-			throw error
-		}
-	}
-	return added
-}
-
 /** Title, intro, language and cover. Unchanged values change nothing, not even `updatedAt`. */
 export async function updateEdition(
 	userId: string,
@@ -653,7 +674,7 @@ export type ItemCopy = Omit<
  * until the user includes it. "Add" and "Refresh from library" both copy with this. The article
  * must be live.
  */
-async function copyItem(
+export async function copyItem(
 	userId: string,
 	documentId: string,
 	edition: EditionRow,
@@ -740,42 +761,6 @@ async function noteLinkRewriter(userId: string, texts: Array<string | null>) {
 	}
 	return (text: string | null) =>
 		text === null ? null : rewriteNoteLinks(text, (id) => urls.get(id) ?? null)
-}
-
-/**
- * Copies the article to the end of the edition. Only its note for editions is included; nothing
- * else is until the user says so. In a draft, the article is marked too: it is in the next edition,
- * as marking it would have made it, and removing it unmarks it.
- */
-export async function addItem(
-	userId: string,
-	editionId: string,
-	documentId: string,
-): Promise<EditionItem> {
-	const copy = await copyItem(userId, documentId, await findEdition(userId, editionId))
-	return db.transaction(async (tx) => {
-		const edition = await lockEdition(tx, userId, editionId)
-		const [taken] = await tx
-			.select({ id: editionItems.id })
-			.from(editionItems)
-			.where(and(eq(editionItems.editionId, editionId), eq(editionItems.documentId, documentId)))
-		if (taken) throw refuse("already_added")
-		const [last] = await tx
-			.select({ next: sql<number>`coalesce(max(${editionItems.position}) + 1, 0)::int` })
-			.from(editionItems)
-			.where(eq(editionItems.editionId, editionId))
-		const [item] = await tx
-			.insert(editionItems)
-			.values({ ...copy, editionId, documentId, position: last!.next })
-			.returning()
-		if (!edition.publishedAt)
-			await tx
-				.update(documents)
-				.set({ shortlistedAt: sql`coalesce(${documents.shortlistedAt}, now())` })
-				.where(and(eq(documents.id, documentId), eq(documents.userId, userId)))
-		await touch(tx, editionId)
-		return item!
-	})
 }
 
 /**
@@ -898,168 +883,6 @@ export async function updateItem(
 		const [row] = await tx
 			.update(editionItems)
 			.set(next)
-			.where(eq(editionItems.id, itemId))
-			.returning()
-		await touch(tx, editionId)
-		return row!
-	})
-}
-
-/** One place up or down. At the first or last place already, nothing changes. */
-export async function moveItem(
-	userId: string,
-	editionId: string,
-	itemId: string,
-	direction: "up" | "down",
-): Promise<void> {
-	await db.transaction(async (tx) => {
-		await lockEdition(tx, userId, editionId)
-		const item = await findItem(tx, editionId, itemId)
-		const target = item.position + (direction === "up" ? -1 : 1)
-		const [other] = await tx
-			.select({ id: editionItems.id })
-			.from(editionItems)
-			.where(and(eq(editionItems.editionId, editionId), eq(editionItems.position, target)))
-		if (!other) return
-		// One statement: the unique constraint on positions is deferrable, so it holds after the swap.
-		await tx
-			.update(editionItems)
-			.set({
-				position: sql`case when ${editionItems.id} = ${itemId} then ${target}::int else ${item.position}::int end`,
-			})
-			.where(inArray(editionItems.id, [itemId, other.id]))
-		await touch(tx, editionId)
-	})
-}
-
-/** What removing an item took away, so that undo can put it back (`restoreItem`). */
-export interface RemovedItem {
-	item: EditionItem
-	/** The article's mark for the next edition, which removing took off; Postgres' own text. */
-	shortlistedAt: string | null
-}
-
-/**
- * Takes the item out. Its article leaves the shortlist too: removed while composing, it was
- * considered and left out.
- */
-export async function removeItem(
-	userId: string,
-	editionId: string,
-	itemId: string,
-): Promise<RemovedItem> {
-	return db.transaction(async (tx) => {
-		await lockEdition(tx, userId, editionId)
-		checkId(itemId)
-		const [item] = await tx
-			.delete(editionItems)
-			.where(and(eq(editionItems.id, itemId), eq(editionItems.editionId, editionId)))
-			.returning()
-		if (!item) throw refuse("not_found")
-		await tx
-			.update(editionItems)
-			.set({ position: sql`${editionItems.position} - 1` })
-			.where(and(eq(editionItems.editionId, editionId), gt(editionItems.position, item.position)))
-		let shortlistedAt: string | null = null
-		if (item.documentId) {
-			const article = and(eq(documents.id, item.documentId), eq(documents.userId, userId))
-			const [doc] = await tx
-				.select({ shortlistedAt: sql<string | null>`${documents.shortlistedAt}::text` })
-				.from(documents)
-				.where(article)
-				.for("update")
-			shortlistedAt = doc?.shortlistedAt ?? null
-			if (shortlistedAt) await tx.update(documents).set({ shortlistedAt: null }).where(article)
-		}
-		await touch(tx, editionId)
-		return { item, shortlistedAt }
-	})
-}
-
-/**
- * Undo of `removeItem`: the item back where it was, as it was, and its article's mark. Refused when
- * the article is in the edition again (`already_added`).
- */
-export async function restoreItem(
-	userId: string,
-	editionId: string,
-	removed: RemovedItem,
-): Promise<void> {
-	const { item, shortlistedAt } = removed
-	await db.transaction(async (tx) => {
-		await lockEdition(tx, userId, editionId)
-		if (item.editionId !== editionId) throw refuse("not_found")
-		// Undone twice: back already.
-		const [back] = await tx
-			.select({ id: editionItems.id })
-			.from(editionItems)
-			.where(eq(editionItems.id, item.id))
-		if (back) return
-		if (item.documentId) {
-			const [taken] = await tx
-				.select({ id: editionItems.id })
-				.from(editionItems)
-				.where(
-					and(eq(editionItems.editionId, editionId), eq(editionItems.documentId, item.documentId)),
-				)
-			if (taken) throw refuse("already_added")
-		}
-		const [last] = await tx
-			.select({ next: sql<number>`coalesce(max(${editionItems.position}) + 1, 0)::int` })
-			.from(editionItems)
-			.where(eq(editionItems.editionId, editionId))
-		const position = Math.min(item.position, last!.next)
-		await tx
-			.update(editionItems)
-			.set({ position: sql`${editionItems.position} + 1` })
-			.where(and(eq(editionItems.editionId, editionId), gte(editionItems.position, position)))
-		// An article deleted for good meanwhile leaves the item without one, as deleting does.
-		const [live] = item.documentId
-			? await tx
-					.select({ id: documents.id })
-					.from(documents)
-					.where(and(eq(documents.id, item.documentId), eq(documents.userId, userId)))
-			: []
-		await tx.insert(editionItems).values({ ...item, position, documentId: live?.id ?? null })
-		if (live && shortlistedAt)
-			await tx
-				.update(documents)
-				.set({ shortlistedAt: sql`${shortlistedAt}::timestamptz` })
-				.where(and(eq(documents.id, live.id), isNull(documents.shortlistedAt)))
-		await touch(tx, editionId)
-	})
-}
-
-/**
- * Copies the article again. Selected highlights that still exist stay selected. The note copy is
- * replaced by the current note, edits and all, included as adding would: only the note for
- * editions is, and not when the user had left out this same text.
- */
-export async function refreshItem(
-	userId: string,
-	editionId: string,
-	itemId: string,
-): Promise<EditionItem> {
-	const edition = await findEdition(userId, editionId)
-	const { documentId } = await findItem(db, editionId, itemId)
-	if (!documentId) throw refuse("document_gone")
-	const copy = await copyItem(userId, documentId, edition).catch((error: unknown) => {
-		if (error instanceof AppError && error.code === "not_found") throw refuse("document_gone")
-		throw error
-	})
-	return db.transaction(async (tx) => {
-		await lockEdition(tx, userId, editionId)
-		const item = await findItem(tx, editionId, itemId)
-		const selected = new Set(item.highlights.filter((h) => h.included).map((h) => h.highlightId))
-		const [row] = await tx
-			.update(editionItems)
-			.set({
-				...copy,
-				// The note for editions is included, unless the user left out this very text. A private
-				// note is new text the user has not let out yet, whatever they included before.
-				includeNote: copy.includeNote && (item.includeNote || item.note !== copy.note),
-				highlights: copy.highlights.map((h) => ({ ...h, included: selected.has(h.highlightId) })),
-			})
 			.where(eq(editionItems.id, itemId))
 			.returning()
 		await touch(tx, editionId)

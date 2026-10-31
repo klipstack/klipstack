@@ -1,4 +1,4 @@
-import { db, eq, user as userTable } from "@klipstack/db"
+import { db, type EditionItem, eq, user as userTable } from "@klipstack/db"
 import { supportedLanguages } from "@klipstack/i18n"
 import { z } from "zod"
 import { AppError, parseInput } from "~/lib/app-error"
@@ -11,22 +11,23 @@ import {
 import { editionsOn } from "~/lib/features.server"
 import { checkMayAdd, countMonthly } from "~/lib/limits.server"
 import {
+	appendItem,
 	clearUnpublished,
 	deleteEditionRow,
+	deleteItem,
+	markArticle,
 	markUnpublished,
+	reinsertItem,
+	swapItems,
+	takeMark,
+	touch,
 	unmarkArticles,
+	writeItem,
 	writeSnapshot,
 } from "~/services/editions-write.server"
 import {
-	addItem,
-	addShortlist,
 	createEdition as insertEdition,
 	currentDraft,
-	moveItem,
-	refreshItem,
-	type RemovedItem,
-	removeItem,
-	restoreItem,
 	setEditionNote,
 	snoozeNudge,
 	updateEdition,
@@ -34,10 +35,17 @@ import {
 	authorName,
 	buildSnapshot,
 	checkId,
+	copyItem,
 	type EditionRow,
+	findEdition,
+	findItem,
+	itemAt,
+	itemExists,
+	itemOfArticle,
 	listItems,
 	lockEdition,
 	refuse,
+	shortlistNotIn,
 } from "~/services/editions.server"
 
 /**
@@ -260,4 +268,146 @@ export async function unpublishEdition(userId: string, id: string): Promise<Edit
 export async function deleteEdition(userId: string, id: string): Promise<void> {
 	checkId(id)
 	if (!(await deleteEditionRow(db, userId, id))) throw refuse("not_found")
+}
+
+/**
+ * Adds every article of the shortlist the edition does not have yet, the oldest mark first: the
+ * order they were read in. One without a web address is left out. How many it added.
+ */
+export async function addShortlist(userId: string, editionId: string): Promise<number> {
+	await findEdition(userId, editionId)
+	let added = 0
+	for (const id of await shortlistNotIn(userId, editionId)) {
+		try {
+			await addItem(userId, editionId, id)
+			added++
+		} catch (error) {
+			// No web address, or added meanwhile: the rest still go in.
+			if (error instanceof AppError && (error.code === "no_url" || error.code === "already_added"))
+				continue
+			throw error
+		}
+	}
+	return added
+}
+
+/**
+ * Copies the article to the end of the edition. Only its note for editions is included; nothing
+ * else is until the user says so. In a draft, the article is marked too: it is in the next edition,
+ * as marking it would have made it, and removing it unmarks it.
+ */
+export async function addItem(
+	userId: string,
+	editionId: string,
+	documentId: string,
+): Promise<EditionItem> {
+	const copy = await copyItem(userId, documentId, await findEdition(userId, editionId))
+	return db.transaction(async (tx) => {
+		const edition = await lockEdition(tx, userId, editionId)
+		if (await itemOfArticle(tx, editionId, documentId)) throw refuse("already_added")
+		const item = await appendItem(tx, editionId, documentId, copy)
+		if (!edition.publishedAt) await markArticle(tx, userId, documentId)
+		await touch(tx, editionId)
+		return item
+	})
+}
+
+/** One place up or down. At the first or last place already, nothing changes. */
+export async function moveItem(
+	userId: string,
+	editionId: string,
+	itemId: string,
+	direction: "up" | "down",
+): Promise<void> {
+	await db.transaction(async (tx) => {
+		await lockEdition(tx, userId, editionId)
+		const item = await findItem(tx, editionId, itemId)
+		const target = item.position + (direction === "up" ? -1 : 1)
+		const other = await itemAt(tx, editionId, target)
+		if (!other) return
+		await swapItems(tx, item, { id: other, position: target })
+		await touch(tx, editionId)
+	})
+}
+
+/** What removing an item took away, so that undo can put it back (`restoreItem`). */
+export interface RemovedItem {
+	item: EditionItem
+	/** The article's mark for the next edition, which removing took off; Postgres' own text. */
+	shortlistedAt: string | null
+}
+
+/**
+ * Takes the item out. Its article leaves the shortlist too: removed while composing, it was
+ * considered and left out.
+ */
+export async function removeItem(
+	userId: string,
+	editionId: string,
+	itemId: string,
+): Promise<RemovedItem> {
+	return db.transaction(async (tx) => {
+		await lockEdition(tx, userId, editionId)
+		checkId(itemId)
+		const item = await deleteItem(tx, editionId, itemId)
+		if (!item) throw refuse("not_found")
+		const shortlistedAt = item.documentId ? await takeMark(tx, userId, item.documentId) : null
+		await touch(tx, editionId)
+		return { item, shortlistedAt }
+	})
+}
+
+/**
+ * Undo of `removeItem`: the item back where it was, as it was, and its article's mark. Refused when
+ * the article is in the edition again (`already_added`).
+ */
+export async function restoreItem(
+	userId: string,
+	editionId: string,
+	removed: RemovedItem,
+): Promise<void> {
+	const { item, shortlistedAt } = removed
+	await db.transaction(async (tx) => {
+		await lockEdition(tx, userId, editionId)
+		if (item.editionId !== editionId) throw refuse("not_found")
+		// Undone twice: back already.
+		if (await itemExists(tx, item.id)) return
+		if (item.documentId && (await itemOfArticle(tx, editionId, item.documentId)))
+			throw refuse("already_added")
+		await reinsertItem(tx, userId, item, shortlistedAt)
+		await touch(tx, editionId)
+	})
+}
+
+/**
+ * Copies the article again. Selected highlights that still exist stay selected. The note copy is
+ * replaced by the current note, edits and all, included as adding would: only the note for
+ * editions is, and not when the user had left out this same text.
+ */
+export async function refreshItem(
+	userId: string,
+	editionId: string,
+	itemId: string,
+): Promise<EditionItem> {
+	const edition = await findEdition(userId, editionId)
+	const { documentId } = await findItem(db, editionId, itemId)
+	if (!documentId) throw refuse("document_gone")
+	const copy = await copyItem(userId, documentId, edition).catch((error: unknown) => {
+		if (error instanceof AppError && error.code === "not_found") throw refuse("document_gone")
+		throw error
+	})
+	return db.transaction(async (tx) => {
+		await lockEdition(tx, userId, editionId)
+		const item = await findItem(tx, editionId, itemId)
+		const selected = new Set(item.highlights.filter((h) => h.included).map((h) => h.highlightId))
+		const row = await writeItem(tx, itemId, {
+			...copy,
+			// The note for editions is included, unless the user left out this very text. A private
+			// note is new text the user has not let out yet, whatever they included before.
+			includeNote: copy.includeNote && (item.includeNote || item.note !== copy.note),
+			highlights: copy.highlights.map((h) => ({ ...h, included: selected.has(h.highlightId) })),
+		})
+		await touch(tx, editionId)
+		return row
+	})
 }

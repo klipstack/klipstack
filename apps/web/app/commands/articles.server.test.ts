@@ -15,9 +15,9 @@ import {
 	user as userTable,
 } from "@klipstack/db"
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
-import { publishEdition } from "~/commands/editions.server"
+import { publishEdition, addItem } from "~/commands/editions.server"
 import { AppError } from "~/lib/app-error"
-import { addItem, createEdition as insertEdition, updateItem } from "~/services/editions.server"
+import { createEdition as insertEdition, updateItem } from "~/services/editions.server"
 import {
 	openArticle,
 	purgeArticles,

@@ -10,12 +10,15 @@ import {
 	and,
 	type Db,
 	documents,
+	type EditionItem,
 	editionItems,
 	editions,
 	eq,
+	gt,
 	gte,
 	inArray,
 	isNotNull,
+	isNull,
 	sql,
 	type Tx,
 } from "@klipstack/db"
@@ -94,11 +97,7 @@ export async function addToDraft(
 		.from(editionItems)
 		.where(and(eq(editionItems.editionId, draft.id), inArray(editionItems.documentId, wanted)))
 	const skip = new Set(taken.map((row) => row.documentId))
-	const [last] = await tx
-		.select({ next: sql<number>`coalesce(max(${editionItems.position}) + 1, 0)::int` })
-		.from(editionItems)
-		.where(eq(editionItems.editionId, draft.id))
-	let position = last!.next
+	let position = await nextPosition(tx, draft.id)
 	const added: string[] = []
 	for (const documentId of wanted) {
 		if (skip.has(documentId)) continue
@@ -190,29 +189,155 @@ export async function revertDraftChange(
 			)
 		if (taken) continue
 		// An article deleted for good meanwhile leaves the item without one, as deleting does.
-		const [live] = documentId
-			? await tx
-					.select({ id: documents.id })
-					.from(documents)
-					.where(and(eq(documents.id, documentId), eq(documents.userId, userId)))
-			: []
-		const copy = item ? null : live ? copies.get(live.id) : undefined
+		const live = documentId ? await articleStillThere(tx, userId, documentId) : null
+		const copy = item ? null : live ? copies.get(live) : undefined
 		if (!item && !copy) continue
-		const [last] = await tx
-			.select({ next: sql<number>`coalesce(max(${editionItems.position}) + 1, 0)::int` })
-			.from(editionItems)
-			.where(eq(editionItems.editionId, draft.id))
-		const position = Math.min(was, last!.next)
-		await tx
-			.update(editionItems)
-			.set({ position: sql`${editionItems.position} + 1` })
-			.where(and(eq(editionItems.editionId, draft.id), gte(editionItems.position, position)))
-		if (item)
-			await tx.insert(editionItems).values({ ...item, position, documentId: live?.id ?? null })
-		else await insertCopy(tx, draft, live!.id, copy!, position)
+		const position = await makeRoom(tx, draft.id, was)
+		if (item) await tx.insert(editionItems).values({ ...item, position, documentId: live })
+		else await insertCopy(tx, draft, live!, copy!, position)
 	}
 	await closeUp(tx, draft.id)
 	await touch(tx, draft.id)
+}
+
+/** The position after the edition's last item: 0 for none. */
+async function nextPosition(tx: Tx, editionId: string): Promise<number> {
+	const [last] = await tx
+		.select({ next: sql<number>`coalesce(max(${editionItems.position}) + 1, 0)::int` })
+		.from(editionItems)
+		.where(eq(editionItems.editionId, editionId))
+	return last!.next
+}
+
+/**
+ * Room for an item back at `position`, or at the end when the edition is shorter now: the items
+ * from there move down one. The position it made.
+ */
+async function makeRoom(tx: Tx, editionId: string, position: number): Promise<number> {
+	const at = Math.min(position, await nextPosition(tx, editionId))
+	await tx
+		.update(editionItems)
+		.set({ position: sql`${editionItems.position} + 1` })
+		.where(and(eq(editionItems.editionId, editionId), gte(editionItems.position, at)))
+	return at
+}
+
+/** The user's article, by id, if it was not deleted for good: in the trash counts. */
+async function articleStillThere(
+	tx: Tx,
+	userId: string,
+	documentId: string,
+): Promise<string | null> {
+	const [live] = await tx
+		.select({ id: documents.id })
+		.from(documents)
+		.where(and(eq(documents.id, documentId), eq(documents.userId, userId)))
+	return live?.id ?? null
+}
+
+/** A copy of the article at the end of the edition. */
+export async function appendItem(
+	tx: Tx,
+	editionId: string,
+	documentId: string,
+	copy: ItemCopy,
+): Promise<EditionItem> {
+	const [item] = await tx
+		.insert(editionItems)
+		.values({ ...copy, editionId, documentId, position: await nextPosition(tx, editionId) })
+		.returning()
+	return item!
+}
+
+/** Marks the user's article for the next edition, unless it is marked already. */
+export async function markArticle(tx: Tx, userId: string, documentId: string) {
+	await tx
+		.update(documents)
+		.set({ shortlistedAt: sql`coalesce(${documents.shortlistedAt}, now())` })
+		.where(and(eq(documents.id, documentId), eq(documents.userId, userId)))
+}
+
+/** Changes an item's fields. The item as it is now. */
+export async function writeItem(
+	tx: Tx,
+	itemId: string,
+	values: Partial<typeof editionItems.$inferInsert>,
+): Promise<EditionItem> {
+	const [row] = await tx
+		.update(editionItems)
+		.set(values)
+		.where(eq(editionItems.id, itemId))
+		.returning()
+	return row!
+}
+
+/**
+ * Swaps two items' places. One statement: the unique constraint on positions is deferrable, so it
+ * holds after the swap.
+ */
+export async function swapItems(
+	tx: Tx,
+	item: Pick<EditionItem, "id" | "position">,
+	other: { id: string; position: number },
+) {
+	await tx
+		.update(editionItems)
+		.set({
+			position: sql`case when ${editionItems.id} = ${item.id} then ${other.position}::int else ${item.position}::int end`,
+		})
+		.where(inArray(editionItems.id, [item.id, other.id]))
+}
+
+/** Deletes the edition's item, and the rest close up. The item as it was; null without one. */
+export async function deleteItem(
+	tx: Tx,
+	editionId: string,
+	itemId: string,
+): Promise<EditionItem | null> {
+	const [item] = await tx
+		.delete(editionItems)
+		.where(and(eq(editionItems.id, itemId), eq(editionItems.editionId, editionId)))
+		.returning()
+	if (!item) return null
+	await tx
+		.update(editionItems)
+		.set({ position: sql`${editionItems.position} - 1` })
+		.where(and(eq(editionItems.editionId, editionId), gt(editionItems.position, item.position)))
+	return item
+}
+
+/** Takes the article's mark for the next edition off. The mark it had, in Postgres' own text. */
+export async function takeMark(tx: Tx, userId: string, documentId: string): Promise<string | null> {
+	const article = and(eq(documents.id, documentId), eq(documents.userId, userId))
+	const [doc] = await tx
+		.select({ shortlistedAt: sql<string | null>`${documents.shortlistedAt}::text` })
+		.from(documents)
+		.where(article)
+		.for("update")
+	const shortlistedAt = doc?.shortlistedAt ?? null
+	if (shortlistedAt) await tx.update(documents).set({ shortlistedAt: null }).where(article)
+	return shortlistedAt
+}
+
+/**
+ * A removed item back in the edition, as it was, at its place (`makeRoom`). An article deleted
+ * for good meanwhile leaves it without one, as deleting does; else the article gets back the mark
+ * it had (Postgres' text), unless it has one again.
+ */
+export async function reinsertItem(
+	tx: Tx,
+	userId: string,
+	item: EditionItem,
+	shortlistedAt: string | null,
+) {
+	const position = await makeRoom(tx, item.editionId, item.position)
+	const live = item.documentId ? await articleStillThere(tx, userId, item.documentId) : null
+	await tx.insert(editionItems).values({ ...item, position, documentId: live })
+	if (live && shortlistedAt)
+		await tx
+			.update(documents)
+			.set({ shortlistedAt: sql`${shortlistedAt}::timestamptz` })
+			.where(and(eq(documents.id, live), isNull(documents.shortlistedAt)))
 }
 
 /**

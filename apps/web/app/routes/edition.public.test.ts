@@ -1,9 +1,8 @@
 import { db, documents, editions, eq, inArray, user as userTable } from "@klipstack/db"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
-import { publishEdition, unpublishEdition } from "~/commands/editions.server"
+import { publishEdition, unpublishEdition, addItem } from "~/commands/editions.server"
 import { env } from "~/lib/env.server"
 import {
-	addItem,
 	createEdition,
 	type EditionRow,
 	type EditionSnapshot,
