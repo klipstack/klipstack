@@ -134,6 +134,20 @@ describe("reportEdition", () => {
 		expect(await stored(live.id)).toHaveLength(4)
 	})
 
+	it("counts reports on one edition from one IPv6 /64 together", async () => {
+		const hex = () => Math.floor(Math.random() * 0xffff).toString(16)
+		const prefix = `2001:db8:${hex()}:${hex()}`
+		// The keys this /64 is counted under, for the cleanup.
+		ips.push(`${prefix}::/64`)
+		for (let i = 0; i < 3; i++)
+			expect(await report(live.publicId, { from: headers(`${prefix}::${i + 1}`) })).toBe("received")
+		// Well under the /64's 10 an hour: the edition's limit for that /64 refuses it.
+		await expect(
+			report(live.publicId, { from: headers(`${prefix}:${hex()}:${hex()}:${hex()}:1`) }),
+		).rejects.toMatchObject({ statusCode: 429 })
+		expect(await stored(live.id)).toHaveLength(3)
+	})
+
 	it("says to try later once too many reports wait", async () => {
 		// The cap counts every report: filled in a snapshot, so other tests' reports don't come and
 		// go meanwhile, and they never see it full.
