@@ -161,10 +161,20 @@ work. Keep the bucket private: the app serves images itself, after checking who 
 | `BILLING_STARTS_AT` | unset | Leave it unset. It is for a server that charges for accounts: from that day, new accounts get a 30-day trial and the rest a free year, each with caps of their own (`LIMIT_TRIAL_*`, `LIMIT_PAID_*` in `.env.example`), and an account past both can read and export but add nothing. Unset, every account has the caps above and none lapses. |
 | `APPLE_TEAM_ID`, `APPLE_BUNDLE_ID` | unset | Your Apple team ID (10 characters), for Sign in with Apple or your own build of the iPhone app, and that build's bundle ID. With both set, `/.well-known/apple-app-site-association` lets that app open its sign-in callback (`/app/oauth/callback`) as a universal link; unset, it answers 404. Klipstack's own app works only with klipstack.com. |
 | `PG_POOL_MAX` | `10` | Database connections per process (web and worker each have a pool). |
+| `PG_CONNECT_TIMEOUT_MS` | `10000` | How long a request or job waits for a database connection before it fails, when all of the pool's are in use. |
+| `PG_STATEMENT_TIMEOUT_MS` | `15000` | How long one query from the web server may run before PostgreSQL cancels it. |
+| `PG_WORKER_STATEMENT_TIMEOUT_MS` | `300000` | The same for the worker, whose jobs (trash purge, feeds, topics) do more work per query. |
+| `PG_LOCK_TIMEOUT_MS` | `5000` | How long a query waits for a row another transaction has locked. |
+| `PG_IDLE_IN_TRANSACTION_TIMEOUT_MS` | `30000` | How long a transaction may sit open with nothing running before PostgreSQL ends it. |
 | `OPS_UPTIME_URL`, `OPS_BACKUPS_URL` | unset | Links on `/admin/system` to your uptime and backup dashboards. Plain `https` URLs only: no credentials, no query string. |
 | `SUPPYHQ_TENANT` | unset | A [SuppyHQ](https://suppyhq.com) account's tenant (from its embed snippet). The app's sidebar then offers Contact support to every account but admins: it opens SuppyHQ's contact form in a frame, with the account's name and email. Nothing loads from SuppyHQ before that click. |
 
-The limits apply to every account, admins too. The image sets `NODE_ENV=production`, `PORT=3000`
+The `PG_*_MS` settings are milliseconds; `0` turns a limit off. A request that crosses one fails
+with an error in the log instead of hanging, and frees its connection for the next. `migrate` runs
+without them, so a long migration is not cut short. Raise a limit only if the log shows real work
+being cut off (`code=57014` is a statement timeout, `code=55P03` a lock timeout).
+
+The `LIMIT_*` caps apply to every account, admins too. The image sets `NODE_ENV=production`, `PORT=3000`
 and `APP_VERSION`; leave them alone. `AI_FAKE` and `API_CHECK_RESPONSES` are for tests: never set
 them on a real server.
 

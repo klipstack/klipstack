@@ -1,4 +1,4 @@
-import { loadEnv, pool } from "@klipstack/db"
+import { loadEnv, pool, setDatabaseProcess } from "@klipstack/db"
 import { welcomeFrom } from "@klipstack/email"
 import { getBoss, type JobPayloads, QUEUES, stopBoss } from "@klipstack/queue"
 import { getStorage } from "@klipstack/storage"
@@ -17,6 +17,8 @@ import { handleWelcomeEmail } from "./jobs/welcome-email"
 import { log } from "./log"
 
 loadEnv()
+// Jobs (purge, feeds, topics) may run statements longer than a web request's. Before any query.
+setDatabaseProcess("worker")
 
 /** One job at a time per queue; metadata gives handlers retryCount/retryLimit. */
 const WORK_OPTIONS = { batchSize: 1, includeMetadata: true } as const
