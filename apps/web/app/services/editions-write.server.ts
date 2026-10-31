@@ -21,7 +21,9 @@ import {
 	isNull,
 	sql,
 	type Tx,
+	user as userTable,
 } from "@klipstack/db"
+import { NUDGE } from "~/lib/editions"
 import {
 	type DraftChange,
 	type DraftCopies,
@@ -338,6 +340,77 @@ export async function reinsertItem(
 			.update(documents)
 			.set({ shortlistedAt: sql`${shortlistedAt}::timestamptz` })
 			.where(and(eq(documents.id, live), isNull(documents.shortlistedAt)))
+}
+
+/** A draft with no title and no articles, in this time zone and language. */
+export async function insertEdition(
+	q: Db | Tx,
+	userId: string,
+	input: { locale: string; timeZone: string },
+): Promise<EditionRow> {
+	const [row] = await q
+		.insert(editions)
+		.values({ userId, locale: input.locale, timeZone: input.timeZone })
+		.returning(editionColumns)
+	return row!
+}
+
+/** The edition's title, intro, language and cover, as edited now. The edition as it is now. */
+export async function writeEdition(
+	tx: Tx,
+	id: string,
+	fields: Pick<EditionRow, "title" | "intro" | "locale" | "cover">,
+): Promise<EditionRow> {
+	const [row] = await tx
+		.update(editions)
+		.set({ ...fields, updatedAt: EDITED })
+		.where(eq(editions.id, id))
+		.returning(editionColumns)
+	return row!
+}
+
+/** "Not now" on the nudge for a new edition: none until `NUDGE.snoozeDays` from now. */
+export async function writeNudgeSnooze(q: Db | Tx, userId: string) {
+	await q
+		.update(userTable)
+		.set({
+			prefs: sql`${userTable.prefs} || jsonb_build_object('editionsNudgeAfter', to_char(
+				(now() + make_interval(days => ${NUDGE.snoozeDays})) at time zone 'UTC',
+				'YYYY-MM-DD"T"HH24:MI:SS"Z"'
+			))`,
+		})
+		.where(eq(userTable.id, userId))
+}
+
+/** The article's note for editions; null for none. */
+export async function writeArticleEditionNote(tx: Tx, documentId: string, note: string | null) {
+	await tx.update(documents).set({ editionNote: note }).where(eq(documents.id, documentId))
+}
+
+/**
+ * The drafts' items of the article whose note is still `before` become `after`. The ids of the
+ * drafts it changed, once or more.
+ */
+export async function rewriteDraftNotes(
+	tx: Tx,
+	draftIds: string[],
+	documentId: string,
+	before: { note: string | null; included: boolean },
+	after: { note: string | null; includeNote: boolean },
+): Promise<string[]> {
+	const changed = await tx
+		.update(editionItems)
+		.set(after)
+		.where(
+			and(
+				inArray(editionItems.editionId, draftIds),
+				eq(editionItems.documentId, documentId),
+				before.note === null ? isNull(editionItems.note) : eq(editionItems.note, before.note),
+				eq(editionItems.includeNote, before.included),
+			),
+		)
+		.returning({ editionId: editionItems.editionId })
+	return changed.map((row) => row.editionId)
 }
 
 /**

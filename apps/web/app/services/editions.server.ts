@@ -3,11 +3,10 @@
  * copy of library data, never a view of it. Only publishing writes the snapshot the public page
  * renders.
  *
- * Every change takes the edition's row lock first, and sets `updatedAt` in database time. So a
- * publish sees all of an edit or none of it, and "unpublished changes" never misses one.
+ * This module reads: queries, the snapshot and the views built from them, and the row locks the
+ * changes take first. The changes are in `commands/editions.server.ts`, which writes through
+ * `editions-write.server.ts`.
  */
-import { withoutNul } from "@klipstack/api-contract/names"
-import { NOTE_MAX } from "@klipstack/api-contract/names"
 import {
 	and,
 	asc,
@@ -16,7 +15,6 @@ import {
 	desc,
 	documents,
 	type Edition,
-	type EditionCover,
 	type EditionItem,
 	type EditionItemHighlight,
 	editionItems,
@@ -32,31 +30,24 @@ import {
 	type Tx,
 	user as userTable,
 } from "@klipstack/db"
-import { isLocale } from "@klipstack/i18n"
 import type { TFunction } from "i18next"
 import { z } from "zod"
 import { AppError } from "~/lib/app-error"
 import { type EditionView, editionView } from "~/lib/edition-view"
 import {
 	EDITION_COVERS,
-	EDITION_INTRO_MAX,
-	EDITION_TITLE_MAX,
 	editionSlug,
 	editionTitle,
-	includedQuotes,
 	isHttpUrl,
 	markdownUrl,
-	NUDGE,
 	type NudgeReason,
 	nudgeReason,
 	type EditionSignals,
-	quoteProblem,
 } from "~/lib/editions"
 import { hasFeature } from "~/lib/features.server"
 import { extractLinkIds, rewriteNoteLinks } from "~/lib/note-links"
 import { getBrief } from "./ai-threads.server"
 import { getDocumentForReader } from "./documents.server"
-import { EDITED, touch } from "./editions-write.server"
 import { listDocumentHighlights } from "./highlights.server"
 
 const EDITION_REFUSALS = {
@@ -72,10 +63,6 @@ const EDITION_REFUSALS = {
 /** The refusal for `code`, with its message: the reads' and the command's. */
 export const refuse = (code: keyof typeof EDITION_REFUSALS) =>
 	new AppError(code, EDITION_REFUSALS[code])
-
-/** A field past its limit: `details.field` says which, for the editor's text. */
-const invalid = (field: "title" | "intro" | "note" | "locale", message: string) =>
-	new AppError("invalid_request", message, { details: { field } })
 
 /** An edition without its snapshot, which only the public page reads. */
 export type EditionRow = Omit<Edition, "userId" | "published">
@@ -139,38 +126,6 @@ export async function findItem(
 		.where(and(eq(editionItems.id, itemId), eq(editionItems.editionId, editionId)))
 	if (!item) throw refuse("not_found")
 	return item
-}
-
-/** Form posts send CRLF. */
-const lf = (text: string) => text.replace(/\r\n?/g, "\n")
-
-/** Optional: blank is none, and the page shows its date instead. */
-function cleanTitle(raw: string | null): string | null {
-	const title = (raw ?? "").replace(/\s+/g, " ").trim()
-	if (title.length > EDITION_TITLE_MAX || !withoutNul(title))
-		throw invalid("title", `A title has up to ${EDITION_TITLE_MAX} characters, and no NUL.`)
-	return title || null
-}
-
-function cleanText(raw: string | null, max: number, field: "intro" | "note") {
-	const text = lf(raw ?? "").trim()
-	if (text.length > max || !withoutNul(text))
-		throw invalid(field, `That text has up to ${max} characters, and no NUL.`)
-	return text || null
-}
-
-/** A draft with no title and no articles, in the reader's time zone and language. */
-export async function createEdition(
-	userId: string,
-	input: { locale: string; timeZone: string },
-	q: Db | Tx = db,
-): Promise<EditionRow> {
-	if (!isLocale(input.locale)) throw invalid("locale", "That is not a language Klipstack has.")
-	const [row] = await q
-		.insert(editions)
-		.values({ userId, locale: input.locale, timeZone: input.timeZone })
-		.returning(editionColumns)
-	return row!
 }
 
 /** The published title, which the public address follows. Null without one, or unpublished. */
@@ -294,6 +249,58 @@ export async function shortlistNotIn(userId: string, editionId: string): Promise
 		)
 		.orderBy(asc(documents.shortlistedAt), asc(documents.id))
 	return marked.map((row) => row.id)
+}
+
+/**
+ * The user's drafts that have the article, locked until the transaction ends, in id order: the
+ * order every change takes their locks in. Their ids.
+ */
+export async function lockDraftsWith(
+	tx: Tx,
+	userId: string,
+	documentId: string,
+): Promise<string[]> {
+	const drafts = await tx
+		.select({ id: editions.id })
+		.from(editions)
+		.where(
+			and(
+				eq(editions.userId, userId),
+				isNull(editions.publishedAt),
+				sql`exists (
+					select 1 from edition_items i
+					where i.edition_id = ${editions.id} and i.document_id = ${documentId}
+				)`,
+			),
+		)
+		.orderBy(asc(editions.id))
+		.for("update")
+	return drafts.map((draft) => draft.id)
+}
+
+/** The user's live article's notes, locked until the transaction ends. Null without one. */
+export async function lockArticleNotes(
+	tx: Tx,
+	userId: string,
+	documentId: string,
+): Promise<{ note: string | null; editionNote: string | null } | null> {
+	const [doc] = await tx
+		.select({ note: documents.note, editionNote: documents.editionNote })
+		.from(documents)
+		.where(
+			and(eq(documents.id, documentId), eq(documents.userId, userId), isNull(documents.deletedAt)),
+		)
+		.for("update")
+	return doc ?? null
+}
+
+/** Holds the user's row until the transaction ends: changes that must not run twice at once. */
+export async function lockUser(tx: Tx, userId: string) {
+	await tx
+		.select({ id: userTable.id })
+		.from(userTable)
+		.where(eq(userTable.id, userId))
+		.for("update")
 }
 
 /** The edition's items, in order. */
@@ -520,19 +527,6 @@ async function countItems(editionId: string): Promise<number> {
 	return row?.n ?? 0
 }
 
-/** "Not now": no nudge, for a new edition or the draft, for a week (`NUDGE.snoozeDays`). */
-export async function snoozeNudge(userId: string): Promise<void> {
-	await db
-		.update(userTable)
-		.set({
-			prefs: sql`${userTable.prefs} || jsonb_build_object('editionsNudgeAfter', to_char(
-				(now() + make_interval(days => ${NUDGE.snoozeDays})) at time zone 'UTC',
-				'YYYY-MM-DD"T"HH24:MI:SS"Z"'
-			))`,
-		})
-		.where(eq(userTable.id, userId))
-}
-
 /** The user's shortlist, the latest mark first. Articles in the trash wait there, unlisted. */
 export async function listShortlist(userId: string): Promise<ShortlistEntry[]> {
 	const rows = await db
@@ -554,113 +548,6 @@ export async function listShortlist(userId: string): Promise<ShortlistEntry[]> {
 		)
 		.orderBy(desc(documents.shortlistedAt), desc(documents.id))
 	return rows.map((row) => ({ ...row, shortlistedAt: row.shortlistedAt! }))
-}
-
-/**
- * The article's note for editions, written while reading. Blank clears it. A draft that has the
- * article already gets it too, unless the user changed the draft's copy there: a copy still as
- * adding made it becomes what adding would make now. Published editions keep their copy, as with
- * every library change.
- */
-export async function setEditionNote(
-	userId: string,
-	documentId: string,
-	raw: string | null,
-): Promise<string | null> {
-	const note = cleanText(raw, NOTE_MAX, "note")
-	checkId(documentId)
-	return db.transaction(async (tx) => {
-		// The drafts first, then the article: the order every other change takes its locks in.
-		const drafts = await tx
-			.select({ id: editions.id })
-			.from(editions)
-			.where(
-				and(
-					eq(editions.userId, userId),
-					isNull(editions.publishedAt),
-					sql`exists (
-						select 1 from edition_items i
-						where i.edition_id = ${editions.id} and i.document_id = ${documentId}
-					)`,
-				),
-			)
-			.orderBy(asc(editions.id))
-			.for("update")
-		const [doc] = await tx
-			.select({ note: documents.note, editionNote: documents.editionNote })
-			.from(documents)
-			.where(
-				and(
-					eq(documents.id, documentId),
-					eq(documents.userId, userId),
-					isNull(documents.deletedAt),
-				),
-			)
-			.for("update")
-		if (!doc) throw refuse("not_found")
-		if (doc.editionNote === note) return note
-		await tx.update(documents).set({ editionNote: note }).where(eq(documents.id, documentId))
-		if (drafts.length === 0) return note
-		// What adding gave an item before this change, and what it gives now (`copyItem`).
-		const rewrite = await noteLinkRewriter(userId, [doc.editionNote, doc.note, note])
-		const before = {
-			note: rewrite(doc.editionNote ?? doc.note),
-			included: doc.editionNote !== null,
-		}
-		const after = { note: rewrite(note ?? doc.note), includeNote: note !== null }
-		const changed = await tx
-			.update(editionItems)
-			.set(after)
-			.where(
-				and(
-					inArray(
-						editionItems.editionId,
-						drafts.map((draft) => draft.id),
-					),
-					eq(editionItems.documentId, documentId),
-					before.note === null ? isNull(editionItems.note) : eq(editionItems.note, before.note),
-					eq(editionItems.includeNote, before.included),
-				),
-			)
-			.returning({ editionId: editionItems.editionId })
-		for (const editionId of new Set(changed.map((row) => row.editionId))) await touch(tx, editionId)
-		return note
-	})
-}
-
-/** Title, intro, language and cover. Unchanged values change nothing, not even `updatedAt`. */
-export async function updateEdition(
-	userId: string,
-	id: string,
-	patch: { title?: string | null; intro?: string | null; locale?: string; cover?: EditionCover },
-): Promise<EditionRow> {
-	const title = patch.title === undefined ? undefined : cleanTitle(patch.title)
-	const intro =
-		patch.intro === undefined ? undefined : cleanText(patch.intro, EDITION_INTRO_MAX, "intro")
-	if (patch.locale !== undefined && !isLocale(patch.locale))
-		throw invalid("locale", "That is not a language Klipstack has.")
-	return db.transaction(async (tx) => {
-		const edition = await lockEdition(tx, userId, id)
-		const next = {
-			title: title === undefined ? edition.title : title,
-			intro: intro === undefined ? edition.intro : intro,
-			locale: patch.locale ?? edition.locale,
-			cover: patch.cover ?? edition.cover,
-		}
-		if (
-			next.title === edition.title &&
-			next.intro === edition.intro &&
-			next.locale === edition.locale &&
-			next.cover === edition.cover
-		)
-			return edition
-		const [row] = await tx
-			.update(editions)
-			.set({ ...next, updatedAt: EDITED })
-			.where(eq(editions.id, id))
-			.returning(editionColumns)
-		return row!
-	})
 }
 
 export type ItemCopy = Omit<
@@ -740,7 +627,7 @@ export async function copyItem(
  * links to the article's own address instead. A link to an article in the trash, gone, or without
  * an http(s) address becomes its plain title.
  */
-async function noteLinkRewriter(userId: string, texts: Array<string | null>) {
+export async function noteLinkRewriter(userId: string, texts: Array<string | null>) {
 	const ids = [...new Set(texts.flatMap((text) => (text ? extractLinkIds(text) : [])))]
 	const urls = new Map<string, string>()
 	if (ids.length > 0) {
@@ -816,78 +703,6 @@ export async function draftOfChange(
 		.where(and(owned(userId, change.editionId), isNull(editions.publishedAt)))
 	const [row] = lock ? await query.for("update") : await query
 	return row ?? null
-}
-
-export interface ItemPatch {
-	/** False sets the item aside. */
-	included?: boolean
-	includeNote?: boolean
-	/** The edition's copy. The library's note stays as it is. */
-	note?: string | null
-	/** By highlight id. Ids the item no longer has are skipped: a refresh elsewhere dropped them. */
-	highlights?: Array<{ highlightId: string; included?: boolean; note?: string | null }>
-}
-
-/**
- * Changes what the item shows. Including a highlight that breaks the quote cap is refused. Other
- * changes are always saved, even while a refresh has left the item over the cap.
- */
-export async function updateItem(
-	userId: string,
-	editionId: string,
-	itemId: string,
-	patch: ItemPatch,
-): Promise<EditionItem> {
-	const note = patch.note === undefined ? undefined : cleanText(patch.note, NOTE_MAX, "note")
-	const changes = new Map(
-		(patch.highlights ?? []).map((h) => [
-			h.highlightId,
-			{
-				included: h.included,
-				note: h.note === undefined ? undefined : cleanText(h.note, NOTE_MAX, "note"),
-			},
-		]),
-	)
-	return db.transaction(async (tx) => {
-		await lockEdition(tx, userId, editionId)
-		const item = await findItem(tx, editionId, itemId)
-		const highlights = item.highlights.map((h) => {
-			const change = changes.get(h.highlightId)
-			if (!change) return h
-			return {
-				...h,
-				included: change.included ?? h.included,
-				note: change.note === undefined ? h.note : change.note,
-			}
-		})
-		if (highlights.some((h, i) => h.included && !item.highlights[i]!.included)) {
-			const problem = quoteProblem(includedQuotes(highlights), item.wordCount)
-			if (problem)
-				throw new AppError("quote_cap", "That would quote more of the article than an item may.", {
-					details: { quoteProblem: problem },
-				})
-		}
-		const next = {
-			included: patch.included ?? item.included,
-			includeNote: patch.includeNote ?? item.includeNote,
-			note: note === undefined ? item.note : note,
-			highlights,
-		}
-		if (
-			next.included === item.included &&
-			next.includeNote === item.includeNote &&
-			next.note === item.note &&
-			JSON.stringify(next.highlights) === JSON.stringify(item.highlights)
-		)
-			return item
-		const [row] = await tx
-			.update(editionItems)
-			.set(next)
-			.where(eq(editionItems.id, itemId))
-			.returning()
-		await touch(tx, editionId)
-		return row!
-	})
 }
 
 /** The library's copy of an item's article, as the editor's article pane shows it. */

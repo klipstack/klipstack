@@ -1,12 +1,17 @@
-import { db, type EditionItem, eq, user as userTable } from "@klipstack/db"
-import { supportedLanguages } from "@klipstack/i18n"
+import { NOTE_MAX, withoutNul } from "@klipstack/api-contract/names"
+import { db, type EditionCover, type EditionItem } from "@klipstack/db"
+import { isLocale, supportedLanguages } from "@klipstack/i18n"
 import { z } from "zod"
 import { AppError, parseInput } from "~/lib/app-error"
 import {
 	EDITION_COVERS,
+	EDITION_INTRO_MAX,
+	EDITION_TITLE_MAX,
 	hasUnpublishedChanges,
+	includedQuotes,
 	type PublishProblem,
 	publishProblems,
+	quoteProblem,
 } from "~/lib/editions"
 import { editionsOn } from "~/lib/features.server"
 import { checkMayAdd, countMonthly } from "~/lib/limits.server"
@@ -15,23 +20,23 @@ import {
 	clearUnpublished,
 	deleteEditionRow,
 	deleteItem,
+	insertEdition,
 	markArticle,
 	markUnpublished,
 	reinsertItem,
+	rewriteDraftNotes,
 	swapItems,
 	takeMark,
 	touch,
 	unmarkArticles,
+	writeArticleEditionNote,
+	writeEdition,
 	writeItem,
+	writeNudgeSnooze,
 	writeSnapshot,
 } from "~/services/editions-write.server"
 import {
-	createEdition as insertEdition,
 	currentDraft,
-	setEditionNote,
-	snoozeNudge,
-	updateEdition,
-	updateItem,
 	authorName,
 	buildSnapshot,
 	checkId,
@@ -43,20 +48,58 @@ import {
 	itemExists,
 	itemOfArticle,
 	listItems,
+	lockArticleNotes,
+	lockDraftsWith,
 	lockEdition,
+	lockUser,
+	noteLinkRewriter,
 	refuse,
 	shortlistNotIn,
 } from "~/services/editions.server"
 
 /**
- * The user's editions, for the web. The limits are in the services, which refuse with the field
- * that broke one (`details.field`).
+ * The user's editions, for the web: the limits, the transactions and the refusals. A field past its
+ * limit is refused with the field (`details.field`), for the editor's text. Reads are in
+ * `services/editions.server.ts`, the row writes in `services/editions-write.server.ts`.
+ *
+ * Every change takes the edition's row lock first (`lockEdition`), and sets `updatedAt` in database
+ * time (`touch`). So a publish sees all of an edit or none of it, and "unpublished changes" never
+ * misses one.
+ *
+ * Adapters call `changeEdition` and the commands that check `mayUseEditions`; the actions below it
+ * leave that to them.
  */
 
 /** Every command here: editions are turned on for the account (Settings → Features). */
 export async function mayUseEditions(userId: string) {
 	if (!(await editionsOn(userId)))
 		throw new AppError("forbidden", "Editions are turned off for this account.")
+}
+
+/** A field past its limit: `details.field` says which, for the editor's text. */
+const invalid = (field: "title" | "intro" | "note" | "locale", message: string) =>
+	new AppError("invalid_request", message, { details: { field } })
+
+/** Form posts send CRLF. */
+const lf = (text: string) => text.replace(/\r\n?/g, "\n")
+
+/** Optional: blank is none, and the page shows its date instead. */
+function cleanTitle(raw: string | null): string | null {
+	const title = (raw ?? "").replace(/\s+/g, " ").trim()
+	if (title.length > EDITION_TITLE_MAX || !withoutNul(title))
+		throw invalid("title", `A title has up to ${EDITION_TITLE_MAX} characters, and no NUL.`)
+	return title || null
+}
+
+function cleanText(raw: string | null, max: number, field: "intro" | "note") {
+	const text = lf(raw ?? "").trim()
+	if (text.length > max || !withoutNul(text))
+		throw invalid(field, `That text has up to ${max} characters, and no NUL.`)
+	return text || null
+}
+
+function checkLocale(locale: string) {
+	if (!isLocale(locale)) throw invalid("locale", "That is not a language Klipstack has.")
 }
 
 const id = z.string().max(64)
@@ -108,7 +151,7 @@ export type EditionChange = z.infer<typeof EditionChange>
  */
 export async function createEdition(userId: string, input: { locale: string; timeZone: string }) {
 	await mayUseEditions(userId)
-	const edition = await insertEdition(userId, input)
+	const edition = await createEmptyEdition(userId, input)
 	await addShortlist(userId, edition.id)
 	return edition
 }
@@ -121,14 +164,11 @@ export async function startEdition(userId: string, input: { locale: string; time
 	await mayUseEditions(userId)
 	// The user's row held while it looks, so two Starts at once make one draft.
 	const { draft, created } = await db.transaction(async (tx) => {
-		await tx
-			.select({ id: userTable.id })
-			.from(userTable)
-			.where(eq(userTable.id, userId))
-			.for("update")
+		await lockUser(tx, userId)
 		const found = await currentDraft(tx, userId)
 		if (found) return { draft: found, created: false }
-		return { draft: await insertEdition(userId, input, tx), created: true }
+		checkLocale(input.locale)
+		return { draft: await insertEdition(tx, userId, input), created: true }
 	})
 	if (created) await addShortlist(userId, draft.id)
 	return draft
@@ -215,6 +255,83 @@ export async function changeEdition(
 			return { deleted: true }
 	}
 	return {}
+}
+
+/** A draft with no title and no articles, in the reader's time zone and language. */
+export async function createEmptyEdition(
+	userId: string,
+	input: { locale: string; timeZone: string },
+): Promise<EditionRow> {
+	checkLocale(input.locale)
+	return insertEdition(db, userId, input)
+}
+
+/** Title, intro, language and cover. Unchanged values change nothing, not even `updatedAt`. */
+export async function updateEdition(
+	userId: string,
+	id: string,
+	patch: { title?: string | null; intro?: string | null; locale?: string; cover?: EditionCover },
+): Promise<EditionRow> {
+	const title = patch.title === undefined ? undefined : cleanTitle(patch.title)
+	const intro =
+		patch.intro === undefined ? undefined : cleanText(patch.intro, EDITION_INTRO_MAX, "intro")
+	if (patch.locale !== undefined) checkLocale(patch.locale)
+	return db.transaction(async (tx) => {
+		const edition = await lockEdition(tx, userId, id)
+		const next = {
+			title: title === undefined ? edition.title : title,
+			intro: intro === undefined ? edition.intro : intro,
+			locale: patch.locale ?? edition.locale,
+			cover: patch.cover ?? edition.cover,
+		}
+		if (
+			next.title === edition.title &&
+			next.intro === edition.intro &&
+			next.locale === edition.locale &&
+			next.cover === edition.cover
+		)
+			return edition
+		return writeEdition(tx, id, next)
+	})
+}
+
+/**
+ * The article's note for editions, written while reading. Blank clears it. A draft that has the
+ * article already gets it too, unless the user changed the draft's copy there: a copy still as
+ * adding made it becomes what adding would make now. Published editions keep their copy, as with
+ * every library change.
+ */
+export async function setEditionNote(
+	userId: string,
+	documentId: string,
+	raw: string | null,
+): Promise<string | null> {
+	const note = cleanText(raw, NOTE_MAX, "note")
+	checkId(documentId)
+	return db.transaction(async (tx) => {
+		// The drafts first, then the article: the order every other change takes its locks in.
+		const drafts = await lockDraftsWith(tx, userId, documentId)
+		const doc = await lockArticleNotes(tx, userId, documentId)
+		if (!doc) throw refuse("not_found")
+		if (doc.editionNote === note) return note
+		await writeArticleEditionNote(tx, documentId, note)
+		if (drafts.length === 0) return note
+		// What adding gave an item before this change, and what it gives now (`copyItem`).
+		const rewrite = await noteLinkRewriter(userId, [doc.editionNote, doc.note, note])
+		const before = {
+			note: rewrite(doc.editionNote ?? doc.note),
+			included: doc.editionNote !== null,
+		}
+		const after = { note: rewrite(note ?? doc.note), includeNote: note !== null }
+		const changed = await rewriteDraftNotes(tx, drafts, documentId, before, after)
+		for (const editionId of new Set(changed)) await touch(tx, editionId)
+		return note
+	})
+}
+
+/** "Not now": no nudge, for a new edition or the draft, for a week (`NUDGE.snoozeDays`). */
+export async function snoozeNudge(userId: string): Promise<void> {
+	await writeNudgeSnooze(db, userId)
 }
 
 export type PublishResult =
@@ -407,6 +524,74 @@ export async function refreshItem(
 			includeNote: copy.includeNote && (item.includeNote || item.note !== copy.note),
 			highlights: copy.highlights.map((h) => ({ ...h, included: selected.has(h.highlightId) })),
 		})
+		await touch(tx, editionId)
+		return row
+	})
+}
+
+export interface ItemPatch {
+	/** False sets the item aside. */
+	included?: boolean
+	includeNote?: boolean
+	/** The edition's copy. The library's note stays as it is. */
+	note?: string | null
+	/** By highlight id. Ids the item no longer has are skipped: a refresh elsewhere dropped them. */
+	highlights?: Array<{ highlightId: string; included?: boolean; note?: string | null }>
+}
+
+/**
+ * Changes what the item shows. Including a highlight that breaks the quote cap is refused. Other
+ * changes are always saved, even while a refresh has left the item over the cap.
+ */
+export async function updateItem(
+	userId: string,
+	editionId: string,
+	itemId: string,
+	patch: ItemPatch,
+): Promise<EditionItem> {
+	const note = patch.note === undefined ? undefined : cleanText(patch.note, NOTE_MAX, "note")
+	const changes = new Map(
+		(patch.highlights ?? []).map((h) => [
+			h.highlightId,
+			{
+				included: h.included,
+				note: h.note === undefined ? undefined : cleanText(h.note, NOTE_MAX, "note"),
+			},
+		]),
+	)
+	return db.transaction(async (tx) => {
+		await lockEdition(tx, userId, editionId)
+		const item = await findItem(tx, editionId, itemId)
+		const highlights = item.highlights.map((h) => {
+			const change = changes.get(h.highlightId)
+			if (!change) return h
+			return {
+				...h,
+				included: change.included ?? h.included,
+				note: change.note === undefined ? h.note : change.note,
+			}
+		})
+		if (highlights.some((h, i) => h.included && !item.highlights[i]!.included)) {
+			const problem = quoteProblem(includedQuotes(highlights), item.wordCount)
+			if (problem)
+				throw new AppError("quote_cap", "That would quote more of the article than an item may.", {
+					details: { quoteProblem: problem },
+				})
+		}
+		const next = {
+			included: patch.included ?? item.included,
+			includeNote: patch.includeNote ?? item.includeNote,
+			note: note === undefined ? item.note : note,
+			highlights,
+		}
+		if (
+			next.included === item.included &&
+			next.includeNote === item.includeNote &&
+			next.note === item.note &&
+			JSON.stringify(next.highlights) === JSON.stringify(item.highlights)
+		)
+			return item
+		const row = await writeItem(tx, itemId, next)
 		await touch(tx, editionId)
 		return row
 	})
