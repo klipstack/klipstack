@@ -18,6 +18,17 @@ export function trustedAuthAddress(headers?: Headers) {
 		: "unknown"
 }
 
+/** The `auth_limits` key of one counter: a policy's path, "ip" or "account", and the value counted. */
+export function authLimitKey(path: string, kind: "ip" | "account", value: string) {
+	return createHmac("sha256", env.BETTER_AUTH_SECRET)
+		.update(`${path}:${kind}:${value}`)
+		.digest("hex")
+}
+
+/** The key of a client address's counter for a policy: an IPv6 address counts as its /64. */
+export const addressLimitKey = (path: string, address: string) =>
+	authLimitKey(path, "ip", limitAddress(address))
+
 export async function checkAuthLimit(path: string, email: unknown, headers?: Headers) {
 	if (checked.getStore()) return
 	const policies: Record<string, { account?: number; ip: number; seconds: number }> = {
@@ -68,9 +79,7 @@ export async function checkAuthLimit(path: string, email: unknown, headers?: Hea
 	] as const) {
 		// No account named (a body without one): counting "" would pool every account's tries.
 		if (limit === undefined || value === "") continue
-		const key = createHmac("sha256", env.BETTER_AUTH_SECRET)
-			.update(`${path}:${kind}:${value}`)
-			.digest("hex")
+		const key = authLimitKey(path, kind, value)
 		const result = await db.execute<{ hits: number; retry: number }>(sql`
 			insert into auth_limits (key, hits, reset_at) values (${key}, 1, now() + ${policy.seconds} * interval '1 second')
 			on conflict (key) do update set

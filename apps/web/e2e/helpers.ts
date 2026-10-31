@@ -24,6 +24,7 @@ import {
 	type TestInfo,
 	test,
 } from "@playwright/test"
+import { addressLimitKey } from "../app/lib/auth-limits.server"
 import { changeRole } from "../app/services/admin-roles.server"
 
 /**
@@ -31,15 +32,9 @@ import { changeRole } from "../app/services/admin-roles.server"
  * per-account counters and all other policies intact for abuse tests.
  */
 export async function resetLocalIpLimit(path: string) {
-	for (const ip of ["::1", "127.0.0.1", "::ffff:127.0.0.1"]) {
-		const key = createHmac(
-			"sha256",
-			process.env.BETTER_AUTH_SECRET ?? "dev-secret-not-for-production",
-		)
-			.update(`${path}:ip:${ip}`)
-			.digest("hex")
-		await db.delete(authLimits).where(eq(authLimits.key, key))
-	}
+	// Keyed as the server keys them: `::1` counts as its /64.
+	for (const ip of ["::1", "127.0.0.1", "::ffff:127.0.0.1"])
+		await db.delete(authLimits).where(eq(authLimits.key, addressLimitKey(path, ip)))
 }
 
 export async function createInviteCode(): Promise<string> {

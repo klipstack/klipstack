@@ -1,7 +1,7 @@
 import { createHmac } from "node:crypto"
 import { authLimits, db, eq } from "@klipstack/db"
 import { afterAll, describe, expect, it } from "vitest"
-import { checkAuthLimit, trustedAuthAddress } from "./auth-limits.server"
+import { addressLimitKey, checkAuthLimit, trustedAuthAddress } from "./auth-limits.server"
 import { auth } from "./auth.server"
 import { env } from "./env.server"
 
@@ -104,6 +104,17 @@ describe("per-address limits", () => {
 		const other = `2001:db8:${hex()}:${hex()}`
 		key(path, "ip", `${other}::/64`)
 		await expect(checkAuthLimit(path, undefined, headers(`${other}::1`))).resolves.toBeUndefined()
+	})
+
+	it("name an address's counter by its key, so deleting it (as the e2e helpers do) resets it", async () => {
+		const prefix = `2001:db8:${hex()}:${hex()}`
+		key(path, "ip", `${prefix}::/64`)
+		for (let i = 0; i < limit; i++) await checkAuthLimit(path, undefined, headers(`${prefix}::1`))
+		await expect(checkAuthLimit(path, undefined, headers(`${prefix}::1`))).rejects.toMatchObject({
+			statusCode: 429,
+		})
+		await db.delete(authLimits).where(eq(authLimits.key, addressLimitKey(path, `${prefix}::2`)))
+		await expect(checkAuthLimit(path, undefined, headers(`${prefix}::1`))).resolves.toBeUndefined()
 	})
 
 	it("count an IPv4-mapped IPv6 address as its IPv4 address", async () => {
