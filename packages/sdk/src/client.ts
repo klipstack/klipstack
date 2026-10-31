@@ -158,6 +158,11 @@ export function createClient(options: ClientOptions) {
 		rediscover: (query: QueryOf<"home.rediscover"> = {}) => call("home.rediscover", { query }),
 	}
 
+	const reading = {
+		/** What was finished, by day, week and month; `timeZone` is the device's (an IANA name). */
+		get: (query: QueryOf<"reading.get">) => call("reading.get", { query }),
+	}
+
 	const editions = {
 		/** The next edition: the draft or the articles marked for it, and whether one is due. */
 		next: () => call("editions.next"),
@@ -238,6 +243,7 @@ export function createClient(options: ClientOptions) {
 		dailyHighlights,
 		noteReminders,
 		home,
+		reading,
 		editions,
 		review,
 		starterTexts,
@@ -398,6 +404,7 @@ export const FACADE: Record<EndpointId, string> = {
 	"noteReminders.snooze": "noteReminders.snooze",
 	"home.finished": "home.finished",
 	"home.rediscover": "home.rediscover",
+	"reading.get": "reading.get",
 	"editions.next": "editions.next",
 	"editions.snoozeNudge": "editions.snoozeNudge",
 	"review.list": "review.list",

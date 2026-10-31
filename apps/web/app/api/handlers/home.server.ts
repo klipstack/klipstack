@@ -1,6 +1,7 @@
 import type {
 	getFinishedLately,
 	getNextEdition,
+	getReadingStats,
 	listRediscover,
 	snoozeNextEdition,
 } from "@klipstack/api-contract"
@@ -11,9 +12,9 @@ import { editionsOn } from "~/lib/features.server"
 import { REDISCOVER_AFTER_DAYS } from "~/lib/inbox-filters"
 import { appOrigin, articleSummary } from "~/services/article-summary.server"
 import { editionNudge } from "~/services/editions.server"
-import { finishedLately } from "~/services/reading-history.server"
+import { finishedLately, readingStats } from "~/services/reading-history.server"
 import { rediscoverCandidates } from "~/services/reading-suggestions.server"
-import { topicAsked } from "~/services/topics.server"
+import { topicAsked, topicsInUse } from "~/services/topics.server"
 import { notFound } from "../errors.server"
 import type { Handler } from "../handler.server"
 import { NO_TOPIC } from "./articles.server"
@@ -25,6 +26,18 @@ export const finished: Handler<typeof getFinishedLately> = async ({ userId, quer
 		throw new AppError("invalid_request", "The time zone is not one: send an IANA name.")
 	const found = await finishedLately(userId, { timeZone: query.timeZone })
 	return found ?? { count: 0, title: null }
+}
+
+/** The web's Your reading page (`routes/reading`), for the device's time zone. */
+export const reading: Handler<typeof getReadingStats> = async ({ userId, query }) => {
+	if (!isTimeZone(query.timeZone))
+		throw new AppError("invalid_request", "The time zone is not one: send an IANA name.")
+	return readingStats(userId, {
+		timeZone: query.timeZone,
+		by: query.by,
+		start: query.start,
+		topics: await topicsInUse(userId),
+	})
 }
 
 /**

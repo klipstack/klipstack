@@ -112,3 +112,70 @@ export const snoozeNextEdition = defineEndpoint({
 	/** `forbidden`: editions are turned off for the account (`GET /me`). */
 	errors: ["forbidden"],
 })
+
+/** A day in the reader's time zone, which has no zone of its own. */
+const Day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
+
+/** Articles finished, their words, and minutes estimated from each one's length (not timed). */
+const ReadTotals = z.object({
+	articles: z.number().int().nonnegative(),
+	words: z.number().int().nonnegative(),
+	minutes: z.number().int().nonnegative(),
+})
+
+/** What the reader finished, as the web's Your reading page shows it. */
+export const ReadingStats = z
+	.object({
+		/** The reader's day; every day here is `YYYY-MM-DD`. */
+		today: Day,
+		/** The past 7 days (as `GET /home/finished` counts them), this month and this year, so far. */
+		totals: z.object({ week: ReadTotals, month: ReadTotals, year: ReadTotals }),
+		/** Articles finished each day since `from`. Only days with any. */
+		days: z.record(Day, z.number().int().positive()),
+		/** A Monday, a year of whole weeks before this week's. */
+		from: Day,
+		/** The last 12 weeks (from Monday) or months, by their first day, the current one last. */
+		periods: z.array(ReadTotals.extend({ start: Day })),
+		/** One of `periods`, with what was finished in it, the last finished first. */
+		selected: z.object({
+			start: Day,
+			/** Its last day. */
+			end: Day,
+			articles: z.array(
+				z.object({
+					id: Id,
+					title: z.string().nullable(),
+					siteName: z.string().nullable(),
+					words: z.number().int().nonnegative(),
+					minutes: z.number().int().nonnegative(),
+					/** The last day it was finished in the period. */
+					day: Day,
+				}),
+			),
+			/** Up to 5 of the reader's topics it was in, most articles first; none without topics. */
+			topics: z.array(
+				z.object({ id: Id, name: z.string(), articles: z.number().int().positive() }),
+			),
+		}),
+	})
+	.meta({ id: "ReadingStats" })
+export type ReadingStats = z.infer<typeof ReadingStats>
+
+export const getReadingStats = defineEndpoint({
+	id: "reading.get",
+	method: "GET",
+	path: "/reading",
+	scope: "read",
+	summary:
+		"What the reader finished, as the web's Your reading page shows it: totals for the past 7 days, this month and this year; a year of days; and the last 12 weeks (`by=week`, from Monday) or months, one of them `selected` with what was finished in it and its topics. Counted as `GET /home/finished` counts: articles, not completions, without those finished several at once or in the trash. Days are in `timeZone`. `start` chooses a period by its first day; one not shown is the current one.",
+	query: z.object({
+		/** An IANA time zone name (`Europe/Madrid`): where the reader's days start. */
+		timeZone: z.string().min(1).max(64),
+		by: z.enum(["week", "month"]).default("week"),
+		/** The first day of one of `periods`. */
+		start: Day.optional(),
+	}),
+	response: json(ReadingStats),
+	/** `invalid_request`: `timeZone` is no time zone. */
+	errors: [],
+})

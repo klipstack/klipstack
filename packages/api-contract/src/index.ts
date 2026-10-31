@@ -45,6 +45,7 @@ import {
 import {
 	getFinishedLately,
 	getNextEdition,
+	getReadingStats,
 	listRediscover,
 	snoozeNextEdition,
 } from "./endpoints/home"
@@ -175,6 +176,7 @@ export const endpoints = {
 	"noteReminders.snooze": snoozeNoteReminders,
 	"home.finished": getFinishedLately,
 	"home.rediscover": listRediscover,
+	"reading.get": getReadingStats,
 	"editions.next": getNextEdition,
 	"editions.snoozeNudge": snoozeNextEdition,
 	"review.list": listReview,
