@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { db, eq, user } from "@klipstack/db"
 import { expect, type Page, test } from "@playwright/test"
-import { caretToEnd, signupUser, waitForHydration } from "./helpers"
+import { caretToEnd, sameOrigin, signupUser, waitForHydration } from "./helpers"
 import { insertArticle } from "./seed"
 
 const FIXTURE = join(
@@ -31,6 +31,7 @@ test("article note: write, autosave, reload, keys, clear, export", async ({ page
 	const id = await signupAndSave(page)
 	const LONG_NOTE = `Makers need long blocks.\n${"Meetings cost more than their hour. ".repeat(8)}`
 	const hl = await page.request.post(`/documents/${id}/highlights`, {
+		headers: sameOrigin(),
 		data: { intent: "create", exact: QUOTE, note: LONG_NOTE },
 	})
 	expect(hl.status()).toBe(201)

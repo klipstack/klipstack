@@ -10,7 +10,13 @@ import {
 	highlights,
 } from "@klipstack/db"
 import { expect, type Page, test } from "@playwright/test"
-import { paintedHighlights, signupUser, waitForHydration, waitForSidebarPrefetch } from "./helpers"
+import {
+	paintedHighlights,
+	sameOrigin,
+	signupUser,
+	waitForHydration,
+	waitForSidebarPrefetch,
+} from "./helpers"
 import { insertArticle } from "./seed"
 
 const FIXTURE = join(
@@ -43,17 +49,24 @@ async function readLastWeek(page: Page): Promise<string> {
 		[QUOTE_2, null],
 	] as const) {
 		const created = await page.request.post(`/documents/${id}/highlights`, {
+			headers: sameOrigin(),
 			data: { intent: "create", exact, note },
 		})
 		expect(created.status()).toBe(201)
 	}
-	expect((await page.request.post(`/documents/${id}/note`, { data: { note: NOTE } })).ok()).toBe(
-		true,
-	)
+	expect(
+		(
+			await page.request.post(`/documents/${id}/note`, {
+				headers: sameOrigin(),
+				data: { note: NOTE },
+			})
+		).ok(),
+	).toBe(true)
 	// Seven days back is the same weekday of the week before, whatever the time zone.
 	const weekAgo = new Date(Date.now() - 7 * 86_400_000)
 	await db.update(highlights).set({ createdAt: weekAgo }).where(eq(highlights.documentId, id))
 	const marked = await page.request.post(`/documents/${id}/state`, {
+		headers: sameOrigin(),
 		form: { intent: "shortlist" },
 	})
 	expect(marked.ok()).toBe(true)
@@ -285,12 +298,20 @@ test("editions: pick, publish, update, unpublish, and nobody else's", async ({ p
 	expect((await stranger.request.get(`/editions/${editionId}`)).status()).toBe(404)
 	expect((await stranger.request.get(`/editions/${editionId}/preview`)).status()).toBe(404)
 	const add = { intent: "add-item", documentId }
-	expect((await stranger.request.post(`/editions/${editionId}/save`, { data: add })).status()).toBe(
-		404,
-	)
 	expect(
 		(
-			await stranger.request.post(`/editions/${editionId}`, { data: { intent: "delete" } })
+			await stranger.request.post(`/editions/${editionId}/save`, {
+				headers: sameOrigin(),
+				data: add,
+			})
+		).status(),
+	).toBe(404)
+	expect(
+		(
+			await stranger.request.post(`/editions/${editionId}`, {
+				headers: sameOrigin(),
+				data: { intent: "delete" },
+			})
 		).status(),
 	).toBe(404)
 	// The owner's edition is untouched.
@@ -411,6 +432,7 @@ test("with a draft started, marking adds to it, and a week on the page asks to p
 
 	// Marked while reading: into the draft.
 	const marked = await page.request.post(`/documents/${second}/state`, {
+		headers: sameOrigin(),
 		form: { intent: "shortlist" },
 	})
 	expect(marked.ok()).toBe(true)
@@ -478,7 +500,10 @@ test("a note written at the end of an article goes into the next edition, in the
 	const stored = () => db.query.documents.findFirst({ where: eq(documents.id, id) })
 	await expect.poll(async () => (await stored())?.status, { timeout: 60_000 }).toBe("ready")
 	// A private note too, which the edition leaves out.
-	await page.request.post(`/documents/${id}/note`, { data: { note: "Only for me." } })
+	await page.request.post(`/documents/${id}/note`, {
+		headers: sameOrigin(),
+		data: { note: "Only for me." },
+	})
 
 	// At the end: no note to write until the article is marked.
 	await page.goto(`/read/${id}`)

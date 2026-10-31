@@ -11,6 +11,7 @@ import { cacheIdentity } from "./cache-identity.server"
 import { BASE_POLICY } from "./csp.server"
 import { LAYOUT_COOKIE } from "./list-layout"
 import { NOTEBOOK_VIEW_COOKIE } from "./notebook-filters"
+import { crossSiteAllowed, crossSiteRefusal } from "./origin.server"
 import { SIDEBAR_COOKIE } from "./sidebar"
 import { completeSignIn, needsSecondStep, pendingSignInSet } from "./two-factor.server"
 
@@ -29,6 +30,11 @@ export const sessionMiddleware: MiddlewareFunction<Response> = async (
 		context.set(sessionContext, null)
 		return next()
 	}
+	// Resource routes get no origin check from React Router: this is theirs (./origin.server).
+	if (!crossSiteAllowed(request)) {
+		context.set(sessionContext, null)
+		return withSecurityHeaders(request, crossSiteRefusal())
+	}
 	const session = await auth.api.getSession({ headers: request.headers })
 	context.set(sessionContext, session ?? null)
 	const response = await next()
@@ -41,7 +47,11 @@ export const sessionMiddleware: MiddlewareFunction<Response> = async (
 		headers.set("cookie", authCookies.map((cookie) => cookie.split(";")[0]).join("; "))
 		current = await auth.api.getSession({ headers })
 	}
-	response.headers.set("X-Klipstack-Session", cacheIdentity(current?.session.id))
+	return withSecurityHeaders(request, response, current?.session.id)
+}
+
+function withSecurityHeaders(request: Request, response: Response, sessionId?: string) {
+	response.headers.set("X-Klipstack-Session", cacheIdentity(sessionId))
 	response.headers.set("Cache-Control", "private, no-store")
 	response.headers.set("X-Frame-Options", "DENY")
 	response.headers.set("X-Content-Type-Options", "nosniff")
