@@ -1,8 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useFetcher } from "react-router"
 
-/** Time on the page (tab visible) after which a new article is no longer new. */
+/**
+ * Time on the article's text (tab visible) after which a new article is no longer new. It counts
+ * from when the text first reaches the top of the window, or ends in it: not while the title and
+ * the brief are on screen over a longer text, so asking for its brief leaves the article new.
+ */
 const OPENED_AFTER_MS = 10_000
+/** How near the window's top (share of its height) the text starts once the reader is on it. */
+const TEXT_AT_TOP = 0.15
 
 interface Doc {
 	id: string
@@ -13,8 +19,8 @@ interface Doc {
 
 /**
  * Where the reader is in the article: resumes the saved position, saves it while scrolling and
- * on the way out. A new article stops being new (`engage`) after a
- * while on the page, a real scroll, or a highlight; until then no position is saved.
+ * on the way out. A new article stops being new (`engage`) after a while on its text, a real
+ * scroll through it, or a highlight; until then no position is saved.
  */
 export function useReadingProgress(doc: Doc, ready: boolean) {
 	const stateAction = `/documents/${doc.id}/state`
@@ -31,8 +37,11 @@ export function useReadingProgress(doc: Doc, ready: boolean) {
 	useEffect(() => {
 		if (!ready || engaged.current) return
 		let visibleMs = 0
+		let started = false
 		const id = window.setInterval(() => {
 			if (document.visibilityState !== "visible") return
+			started ||= onText()
+			if (!started) return
 			visibleMs += 1000
 			if (visibleMs >= OPENED_AFTER_MS) engage()
 		}, 1000)
@@ -73,9 +82,13 @@ export function useReadingProgress(doc: Doc, ready: boolean) {
 	useEffect(() => {
 		if (!ready) return
 		let timer: number | undefined
+		// Where the reader reached the text: a screen scrolled from there is reading it. The scroll
+		// through the brief before it, longer than the window on a phone, is not.
+		let textY: number | undefined
 		const onScroll = () => {
 			const el = document.documentElement
-			if (Math.abs(el.scrollTop - startY) >= el.clientHeight) engage()
+			if (textY === undefined && onText()) textY = el.scrollTop
+			if (textY !== undefined && Math.abs(el.scrollTop - textY) >= el.clientHeight) engage()
 			const max = scrollSpan(el)
 			const progress = max <= 0 ? 1 : Math.min(1, (el.scrollTop + el.clientHeight * 0.2) / max)
 			latest.current = progress
@@ -96,7 +109,6 @@ export function useReadingProgress(doc: Doc, ready: boolean) {
 				behavior: "instant",
 			})
 		}
-		const startY = window.scrollY
 		onScroll()
 		window.addEventListener("scroll", onScroll, { passive: true })
 		window.addEventListener("pagehide", flushPosition)
@@ -109,6 +121,18 @@ export function useReadingProgress(doc: Doc, ready: boolean) {
 	}, [ready, submitProgress, flushPosition, doc.readingPosition, engage])
 
 	return { engage, progress }
+}
+
+/**
+ * The reader is on the article's text: the title and the brief above it are scrolled away, or the
+ * text ends in the window (a short one, read from where it is).
+ */
+function onText(): boolean {
+	const text = document.querySelector(".reader-content")?.getBoundingClientRect()
+	return (
+		text != null &&
+		(text.top <= window.innerHeight * TEXT_AT_TOP || text.bottom <= window.innerHeight)
+	)
 }
 
 /**
