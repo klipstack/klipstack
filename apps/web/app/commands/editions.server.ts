@@ -2,25 +2,42 @@ import { db, eq, user as userTable } from "@klipstack/db"
 import { supportedLanguages } from "@klipstack/i18n"
 import { z } from "zod"
 import { AppError, parseInput } from "~/lib/app-error"
-import { EDITION_COVERS } from "~/lib/editions"
+import {
+	EDITION_COVERS,
+	hasUnpublishedChanges,
+	type PublishProblem,
+	publishProblems,
+} from "~/lib/editions"
 import { editionsOn } from "~/lib/features.server"
+import { checkMayAdd, countMonthly } from "~/lib/limits.server"
+import {
+	clearUnpublished,
+	deleteEditionRow,
+	markUnpublished,
+	unmarkArticles,
+	writeSnapshot,
+} from "~/services/editions-write.server"
 import {
 	addItem,
 	addShortlist,
 	createEdition as insertEdition,
 	currentDraft,
-	deleteEdition,
 	moveItem,
-	publishEdition,
 	refreshItem,
 	type RemovedItem,
 	removeItem,
 	restoreItem,
 	setEditionNote,
 	snoozeNudge,
-	unpublishEdition,
 	updateEdition,
 	updateItem,
+	authorName,
+	buildSnapshot,
+	checkId,
+	type EditionRow,
+	listItems,
+	lockEdition,
+	refuse,
 } from "~/services/editions.server"
 
 /**
@@ -190,4 +207,57 @@ export async function changeEdition(
 			return { deleted: true }
 	}
 	return {}
+}
+
+export type PublishResult =
+	| { ok: true; edition: EditionRow }
+	| { ok: false; problems: PublishProblem[] }
+
+/**
+ * Publish, Update and Publish again: the working copy becomes the public page. The first time sets
+ * `publishedAt`, later ones `republishedAt`. With no change since the page was last written, it
+ * stays as it is, and an unpublished one comes back. Only the first time counts against the
+ * monthly edition cap (`limit_reached`). An edition an admin removed stays down (`edition_removed`).
+ */
+export async function publishEdition(userId: string, id: string): Promise<PublishResult> {
+	return db.transaction(async (tx) => {
+		const edition = await lockEdition(tx, userId, id)
+		if (edition.removedAt) throw refuse("edition_removed")
+		if (edition.publishedAt && !hasUnpublishedChanges(edition)) {
+			if (!edition.unpublishedAt) return { ok: true, edition }
+			return { ok: true, edition: await clearUnpublished(tx, id) }
+		}
+		const items = await listItems(tx, id)
+		const problems = publishProblems(items)
+		if (problems.length > 0) return { ok: false, problems }
+		// Only the first time counts; any new text going public needs an account that may add.
+		if (!edition.publishedAt) await countMonthly(tx, userId, "editions")
+		else await checkMayAdd(userId)
+		const author = await authorName(tx, userId)
+		// Shared now: off the shortlist. Set aside, it stays marked for an edition to come.
+		const shared = items.flatMap((item) =>
+			item.documentId && item.included ? [item.documentId] : [],
+		)
+		await unmarkArticles(tx, userId, shared)
+		return {
+			ok: true,
+			edition: await writeSnapshot(tx, edition, buildSnapshot(edition, items, author)),
+		}
+	})
+}
+
+/** Hides the public page. The snapshot stays, for Publish again. */
+export async function unpublishEdition(userId: string, id: string): Promise<EditionRow> {
+	return db.transaction(async (tx) => {
+		const edition = await lockEdition(tx, userId, id)
+		if (!edition.publishedAt) throw refuse("not_published")
+		if (edition.unpublishedAt) return edition
+		return markUnpublished(tx, id)
+	})
+}
+
+/** For good: the items go with it, and the public link stops working. */
+export async function deleteEdition(userId: string, id: string): Promise<void> {
+	checkId(id)
+	if (!(await deleteEditionRow(db, userId, id))) throw refuse("not_found")
 }

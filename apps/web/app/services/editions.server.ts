@@ -44,7 +44,6 @@ import {
 	EDITION_TITLE_MAX,
 	editionSlug,
 	editionTitle,
-	hasUnpublishedChanges,
 	includedQuotes,
 	isHttpUrl,
 	markdownUrl,
@@ -52,16 +51,13 @@ import {
 	type NudgeReason,
 	nudgeReason,
 	type EditionSignals,
-	type PublishProblem,
-	publishProblems,
 	quoteProblem,
 } from "~/lib/editions"
 import { hasFeature } from "~/lib/features.server"
-import { checkMayAdd, countMonthly } from "~/lib/limits.server"
 import { extractLinkIds, rewriteNoteLinks } from "~/lib/note-links"
 import { getBrief } from "./ai-threads.server"
 import { getDocumentForReader } from "./documents.server"
-import { EDITED, NOW, touch, WRITTEN } from "./editions-write.server"
+import { EDITED, touch } from "./editions-write.server"
 import { listDocumentHighlights } from "./highlights.server"
 
 const EDITION_REFUSALS = {
@@ -74,7 +70,9 @@ const EDITION_REFUSALS = {
 		"An admin removed this edition after a report. It cannot be published again; the email sent to you says why.",
 } as const
 
-const refuse = (code: keyof typeof EDITION_REFUSALS) => new AppError(code, EDITION_REFUSALS[code])
+/** The refusal for `code`, with its message: the reads' and the command's. */
+export const refuse = (code: keyof typeof EDITION_REFUSALS) =>
+	new AppError(code, EDITION_REFUSALS[code])
 
 /** A field past its limit: `details.field` says which, for the editor's text. */
 const invalid = (field: "title" | "intro" | "note" | "locale", message: string) =>
@@ -83,7 +81,7 @@ const invalid = (field: "title" | "intro" | "note" | "locale", message: string) 
 /** An edition without its snapshot, which only the public page reads. */
 export type EditionRow = Omit<Edition, "userId" | "published">
 
-const editionColumns = {
+export const editionColumns = {
 	id: editions.id,
 	publicId: editions.publicId,
 	title: editions.title,
@@ -104,13 +102,14 @@ const editionColumns = {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /** Ids come from URLs. A malformed one is not found, rather than a Postgres error. */
-function checkId(id: string) {
+export function checkId(id: string) {
 	if (!UUID.test(id)) throw refuse("not_found")
 }
 
-const owned = (userId: string, id: string) => and(eq(editions.id, id), eq(editions.userId, userId))
+export const owned = (userId: string, id: string) =>
+	and(eq(editions.id, id), eq(editions.userId, userId))
 
-async function findEdition(userId: string, id: string): Promise<EditionRow> {
+export async function findEdition(userId: string, id: string): Promise<EditionRow> {
 	checkId(id)
 	const [row] = await db.select(editionColumns).from(editions).where(owned(userId, id))
 	if (!row) throw refuse("not_found")
@@ -118,7 +117,7 @@ async function findEdition(userId: string, id: string): Promise<EditionRow> {
 }
 
 /** The user's edition, locked until the transaction ends. */
-async function lockEdition(tx: Tx, userId: string, id: string): Promise<EditionRow> {
+export async function lockEdition(tx: Tx, userId: string, id: string): Promise<EditionRow> {
 	checkId(id)
 	const [row] = await tx
 		.select(editionColumns)
@@ -129,7 +128,11 @@ async function lockEdition(tx: Tx, userId: string, id: string): Promise<EditionR
 	return row
 }
 
-async function findItem(q: Db | Tx, editionId: string, itemId: string): Promise<EditionItem> {
+export async function findItem(
+	q: Db | Tx,
+	editionId: string,
+	itemId: string,
+): Promise<EditionItem> {
 	checkId(itemId)
 	const [item] = await q
 		.select()
@@ -233,12 +236,25 @@ export async function getEdition(
 		.where(owned(userId, id))
 	if (!row) throw refuse("not_found")
 	const { publishedTitle: title, ...edition } = row
-	const items = await db
+	return { edition, items: await listItems(db, id), publicPath: publicPath(edition, title) }
+}
+
+/** The edition's items, in order. */
+export async function listItems(q: Db | Tx, editionId: string): Promise<EditionItem[]> {
+	return q
 		.select()
 		.from(editionItems)
-		.where(eq(editionItems.editionId, id))
+		.where(eq(editionItems.editionId, editionId))
 		.orderBy(asc(editionItems.position))
-	return { edition, items, publicPath: publicPath(edition, title) }
+}
+
+/** The name the user's editions go out under. */
+export async function authorName(q: Db | Tx, userId: string): Promise<string> {
+	const [author] = await q
+		.select({ name: userTable.name })
+		.from(userTable)
+		.where(eq(userTable.id, userId))
+	return author!.name
 }
 
 const SUGGESTED_MAX = 200
@@ -1207,94 +1223,6 @@ export async function previewView(
 		t,
 		await editionNeighbors(userId, { id: edition.id, publishedAt }, edition.locale),
 	)
-}
-
-export type PublishResult =
-	| { ok: true; edition: EditionRow }
-	| { ok: false; problems: PublishProblem[] }
-
-/**
- * Publish, Update and Publish again: the working copy becomes the public page. The first time sets
- * `publishedAt`, later ones `republishedAt`. With no change since the page was last written, it
- * stays as it is, and an unpublished one comes back. Only the first time counts against the
- * monthly edition cap (`limit_reached`). An edition an admin removed stays down (`edition_removed`).
- */
-export async function publishEdition(userId: string, id: string): Promise<PublishResult> {
-	return db.transaction(async (tx) => {
-		const edition = await lockEdition(tx, userId, id)
-		if (edition.removedAt) throw refuse("edition_removed")
-		if (edition.publishedAt && !hasUnpublishedChanges(edition)) {
-			if (!edition.unpublishedAt) return { ok: true, edition }
-			const [row] = await tx
-				.update(editions)
-				.set({ unpublishedAt: null })
-				.where(eq(editions.id, id))
-				.returning(editionColumns)
-			return { ok: true, edition: row! }
-		}
-		const items = await tx
-			.select()
-			.from(editionItems)
-			.where(eq(editionItems.editionId, id))
-			.orderBy(asc(editionItems.position))
-		const problems = publishProblems(items)
-		if (problems.length > 0) return { ok: false, problems }
-		// Only the first time counts; any new text going public needs an account that may add.
-		if (!edition.publishedAt) await countMonthly(tx, userId, "editions")
-		else await checkMayAdd(userId)
-		const [author] = await tx
-			.select({ name: userTable.name })
-			.from(userTable)
-			.where(eq(userTable.id, userId))
-		// Shared now: off the shortlist. Set aside, it stays marked for an edition to come.
-		const shared = items.flatMap((item) =>
-			item.documentId && item.included ? [item.documentId] : [],
-		)
-		if (shared.length > 0)
-			await tx
-				.update(documents)
-				.set({ shortlistedAt: null })
-				.where(
-					and(
-						eq(documents.userId, userId),
-						inArray(documents.id, shared),
-						isNotNull(documents.shortlistedAt),
-					),
-				)
-		const [row] = await tx
-			.update(editions)
-			.set({
-				published: buildSnapshot(edition, items, author!.name),
-				publishedAt: edition.publishedAt ?? WRITTEN,
-				republishedAt: edition.publishedAt ? WRITTEN : null,
-				unpublishedAt: null,
-			})
-			.where(eq(editions.id, id))
-			.returning(editionColumns)
-		return { ok: true, edition: row! }
-	})
-}
-
-/** Hides the public page. The snapshot stays, for Publish again. */
-export async function unpublishEdition(userId: string, id: string): Promise<EditionRow> {
-	return db.transaction(async (tx) => {
-		const edition = await lockEdition(tx, userId, id)
-		if (!edition.publishedAt) throw refuse("not_published")
-		if (edition.unpublishedAt) return edition
-		const [row] = await tx
-			.update(editions)
-			.set({ unpublishedAt: NOW })
-			.where(eq(editions.id, id))
-			.returning(editionColumns)
-		return row!
-	})
-}
-
-/** For good: the items go with it, and the public link stops working. */
-export async function deleteEdition(userId: string, id: string): Promise<void> {
-	checkId(id)
-	const gone = await db.delete(editions).where(owned(userId, id)).returning({ id: editions.id })
-	if (gone.length === 0) throw refuse("not_found")
 }
 
 const PUBLIC_ID = /^[0-9A-Za-z]{12}$/

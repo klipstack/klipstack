@@ -8,12 +8,14 @@
  */
 import {
 	and,
+	type Db,
 	documents,
 	editionItems,
 	editions,
 	eq,
 	gte,
 	inArray,
+	isNotNull,
 	sql,
 	type Tx,
 } from "@klipstack/db"
@@ -21,8 +23,11 @@ import {
 	type DraftChange,
 	type DraftCopies,
 	draftOfChange,
+	editionColumns,
 	type EditionRow,
+	type EditionSnapshot,
 	type ItemCopy,
+	owned,
 } from "./editions.server"
 
 /** Database time, to the millisecond: JavaScript compares these dates, and has no more. */
@@ -208,4 +213,67 @@ export async function revertDraftChange(
 	}
 	await closeUp(tx, draft.id)
 	await touch(tx, draft.id)
+}
+
+/**
+ * The page written: `snapshot` becomes what the public page shows, and it is up again. The first
+ * time sets `publishedAt`, later ones `republishedAt`.
+ */
+export async function writeSnapshot(
+	tx: Tx,
+	edition: Pick<EditionRow, "id" | "publishedAt">,
+	snapshot: EditionSnapshot,
+): Promise<EditionRow> {
+	const [row] = await tx
+		.update(editions)
+		.set({
+			published: snapshot,
+			publishedAt: edition.publishedAt ?? WRITTEN,
+			republishedAt: edition.publishedAt ? WRITTEN : null,
+			unpublishedAt: null,
+		})
+		.where(eq(editions.id, edition.id))
+		.returning(editionColumns)
+	return row!
+}
+
+/** The public page up again, as it was last written. */
+export async function clearUnpublished(tx: Tx, id: string): Promise<EditionRow> {
+	const [row] = await tx
+		.update(editions)
+		.set({ unpublishedAt: null })
+		.where(eq(editions.id, id))
+		.returning(editionColumns)
+	return row!
+}
+
+/** The public page hidden, from now. */
+export async function markUnpublished(tx: Tx, id: string): Promise<EditionRow> {
+	const [row] = await tx
+		.update(editions)
+		.set({ unpublishedAt: NOW })
+		.where(eq(editions.id, id))
+		.returning(editionColumns)
+	return row!
+}
+
+/** The user's articles among `documentIds` off the shortlist. */
+export async function unmarkArticles(tx: Tx, userId: string, documentIds: string[]) {
+	if (documentIds.length === 0) return
+	await tx
+		.update(documents)
+		.set({ shortlistedAt: null })
+		.where(
+			and(
+				eq(documents.userId, userId),
+				inArray(documents.id, documentIds),
+				isNotNull(documents.shortlistedAt),
+			),
+		)
+}
+
+/** Deletes the user's edition, and its items with it. False when the user has no such edition. */
+export async function deleteEditionRow(q: Db | Tx, userId: string, id: string): Promise<boolean> {
+	const gone = await q.delete(editions).where(owned(userId, id)).returning({ id: editions.id })
+	return gone.length > 0
 }

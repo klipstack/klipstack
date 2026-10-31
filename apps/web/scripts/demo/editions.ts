@@ -1,9 +1,8 @@
 import { db, documents, editions, eq } from "@klipstack/db"
+import { deleteEdition, publishEdition } from "../../app/commands/editions.server"
 import {
 	addItem,
 	createEdition,
-	deleteEdition,
-	publishEdition,
 	updateEdition,
 	updateItem,
 } from "../../app/services/editions.server"

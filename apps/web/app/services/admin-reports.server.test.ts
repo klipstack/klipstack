@@ -21,7 +21,7 @@ vi.mock("~/lib/email.server", async (original) => {
 
 const { dismissReports, listRemovedEditions, listReportedEditions, removeEdition, restoreEdition } =
 	await import("./admin-reports.server")
-const { publishEdition } = await import("./editions.server")
+const { publishEdition } = await import("~/commands/editions.server")
 
 const fx = adminFixtures("admin-reports")
 afterAll(fx.cleanup)

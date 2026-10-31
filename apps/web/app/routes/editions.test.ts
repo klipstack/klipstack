@@ -1,14 +1,12 @@
 import { db, documents, eq, inArray, user as userTable } from "@klipstack/db"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
+import { deleteEdition, publishEdition, unpublishEdition } from "~/commands/editions.server"
 import {
 	addItem,
 	createEdition,
-	deleteEdition,
 	getEdition,
 	listEditions,
 	listShortlist,
-	publishEdition,
-	unpublishEdition,
 } from "~/services/editions.server"
 import { action as createAction, loader as listLoader } from "./editions"
 import { action as editAction, loader as editLoader } from "./editions.edit"
