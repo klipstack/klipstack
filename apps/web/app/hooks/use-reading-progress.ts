@@ -87,7 +87,13 @@ export function useReadingProgress(doc: Doc, ready: boolean) {
 		let textY: number | undefined
 		const onScroll = () => {
 			const el = document.documentElement
-			if (textY === undefined && onText()) textY = el.scrollTop
+			if (textY === undefined && onText()) {
+				// Where the text crossed the line, also when one jump past it (the scrollbar, End) got
+				// there; not before where the page opened, which a link to a highlight puts in the text.
+				const top = document.querySelector(".reader-content")!.getBoundingClientRect().top
+				const crossed = el.scrollTop + top - window.innerHeight * TEXT_AT_TOP
+				textY = Math.min(el.scrollTop, Math.max(startY, crossed))
+			}
 			if (textY !== undefined && Math.abs(el.scrollTop - textY) >= el.clientHeight) engage()
 			const max = scrollSpan(el)
 			const progress = max <= 0 ? 1 : Math.min(1, (el.scrollTop + el.clientHeight * 0.2) / max)
@@ -109,6 +115,7 @@ export function useReadingProgress(doc: Doc, ready: boolean) {
 				behavior: "instant",
 			})
 		}
+		const startY = window.scrollY
 		onScroll()
 		window.addEventListener("scroll", onScroll, { passive: true })
 		window.addEventListener("pagehide", flushPosition)
