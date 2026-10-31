@@ -428,6 +428,8 @@ export const documentVia = pgTable(
 	(t) => [
 		uniqueIndex("document_via_document_hash_idx").on(t.documentId, t.urlHash),
 		index("document_via_user_hash_idx").on(t.userId, t.urlHash),
+		// Deleting a capture nulls the posts that point at it: without this, a scan of every post.
+		index("document_via_raw_idx").on(t.rawId),
 		index("document_via_saved_as_idx")
 			.on(t.savedAs)
 			.where(sql`${t.savedAs} is not null`),
