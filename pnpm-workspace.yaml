@@ -9,6 +9,8 @@ minimumReleaseAgeExclude:
   - body-parser@2.4.0
   # GHSA-w74x-v6f9-j3xg and others (published 2026-10-23). Remove once 3.1.9 is a week old (2026-10-26).
   - fast-uri@3.1.9
+  # GHSA-7wch-p9px-956x and eight others (published 2026-10-30). Remove once 1.4.2 is a week old (2026-11-03).
+  - node-forge@1.4.2
 overrides:
   "@esbuild-kit/core-utils>esbuild": "0.25.12"
   "@jimp/core>phin": "3.7.1"
@@ -16,14 +18,13 @@ overrides:
   "@expo/plist@0.0.18>@xmldom/xmldom": "^0.8.15"
   "@bacons/xcode>uuid": "^11.1.1"
   "xcode>uuid": "^11.1.1"
+  # The Expo CLI (and its code signing) allows node-forge 1.4.0, which has advisories fixed in 1.4.1.
+  "node-forge@<1.4.1": "^1.4.2"
 auditConfig:
   ignoreGhsas:
     # decode-uri-component through expo-router's query-string: a slow decode of malformed links
     # inside the user's own app. The fixed version is ESM-only, which query-string 7 cannot require.
     - GHSA-vcc3-ghjq-m6fr
-    # node-forge through @expo/cli: forged RSA signatures pass verification. The Expo CLI runs on
-    # the developer's machine and never ships; no fixed version exists yet.
-    - GHSA-86w9-cpqp-85rv
     # braces through @expo/cli's file map: a deeply nested glob exhausts the stack. Only Metro's
     # own patterns reach it, on the developer's machine; it never ships. No fixed version exists.
     - GHSA-vfj7-8cjw-p6xm
