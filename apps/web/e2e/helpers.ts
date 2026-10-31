@@ -249,6 +249,46 @@ export function catchCallback(page: Page, redirectUri: string) {
 	})
 }
 
+/**
+ * Posts a form to `action` from inside the page, as markup injected past the sanitizer would.
+ * Answers with what stopped it ("form-action": the page's policy) or "sent", and whether the
+ * request reached the other site (answered here, so nothing leaves the machine).
+ */
+export async function postInjectedForm(page: Page, action: string) {
+	const pattern = `${new URL(action).origin}/**`
+	const reached: string[] = []
+	await page.route(pattern, (route) => {
+		reached.push(route.request().url())
+		return route.fulfill({ contentType: "text/plain", body: "collected" })
+	})
+	const outcome = await page
+		.evaluate(
+			(target) =>
+				new Promise<string>((resolve) => {
+					document.addEventListener(
+						"securitypolicyviolation",
+						(event) => resolve(event.effectiveDirective),
+						{ once: true },
+					)
+					const form = document.createElement("form")
+					form.method = "post"
+					form.action = target
+					const field = document.createElement("input")
+					field.name = "password"
+					field.value = "secret"
+					form.append(field)
+					document.body.append(form)
+					form.submit()
+				}),
+			action,
+		)
+		// The page went to the other site: nothing stopped the form.
+		.catch(() => "sent")
+	if (outcome !== "form-action") await page.waitForURL((url) => url.href.startsWith(action))
+	await page.unroute(pattern)
+	return { outcome, reached }
+}
+
 /** Logs in through the password form. */
 export async function login(page: Page, email: string, expectUrl: RegExp = /\/home$/) {
 	await page.getByLabel("Email").fill(email)

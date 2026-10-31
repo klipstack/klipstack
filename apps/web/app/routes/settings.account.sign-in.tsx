@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next"
 import { SettingsCard, SettingsPage } from "~/components/settings-page"
 import { SignInMethods } from "~/components/sign-in-methods"
+import { type WiderFormActionHandle } from "~/hooks/use-fresh-document"
 import { allowFormTargets } from "~/lib/csp.server"
 import { emailEnabled } from "~/lib/email.server"
 import type { PageBarHandle } from "~/lib/page-bar"
@@ -14,7 +15,11 @@ export function meta({ matches }: Route.MetaArgs) {
 	return [{ title: pageTitle(matches, "settings:signIn.title") }]
 }
 
-export const handle: PageBarHandle = { pageBar: { titleKey: "settings:signIn.title" } }
+// Connecting a provider may go on to it: leaving the page loads a fresh document.
+export const handle: PageBarHandle & WiderFormActionHandle = {
+	pageBar: { titleKey: "settings:signIn.title" },
+	widerFormAction: true,
+}
 
 /** Settings → Account → Ways to log in: the password, and the providers that open the account. */
 export async function loader({ context, request }: Route.LoaderArgs) {

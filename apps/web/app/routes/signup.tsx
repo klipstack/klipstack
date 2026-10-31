@@ -7,6 +7,7 @@ import { AuthCard } from "~/components/auth-card"
 import { ProviderButtons } from "~/components/provider-buttons"
 import { Button } from "~/components/ui/button"
 import { Field } from "~/components/ui/field"
+import { type WiderFormActionHandle } from "~/hooks/use-fresh-document"
 import {
 	MAGIC_LINK_MINUTES,
 	MIN_PASSWORD_LENGTH as MIN_PASSWORD,
@@ -60,6 +61,9 @@ const schema = z.object({
 	inviteCode: z.string().trim().optional(),
 	oauthQuery: z.string().optional(),
 })
+
+/** Its forms may go on to a provider or an app: leaving it loads a fresh document. */
+export const handle: WiderFormActionHandle = { widerFormAction: true }
 
 export function meta({ matches }: Route.MetaArgs) {
 	return [{ title: pageTitle(matches, "auth:signup.title") }]
@@ -152,7 +156,8 @@ export async function action({ request, context }: Route.ActionArgs) {
 		// A page load for an app's request: its callback may be on this origin (see oauth.consent).
 		if (next) throw redirectDocument(next, { headers: out })
 		// The request expired while the form was filled in: /login says to start again from the app.
-		throw redirect(appQuery ? `/login?${appQuery}` : SIGNED_IN_HOME, { headers: out })
+		// A page load: the next page's policy, not this one's wider form-action.
+		throw redirectDocument(appQuery ? `/login?${appQuery}` : SIGNED_IN_HOME, { headers: out })
 	} catch (error) {
 		const limited = authLimitResponse(error)
 		if (limited) throw limited

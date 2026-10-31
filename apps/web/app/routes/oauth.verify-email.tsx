@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next"
 import { data, Form, redirect, redirectDocument, useFetcher, useNavigation } from "react-router"
 import { AuthCard } from "~/components/auth-card"
 import { Button } from "~/components/ui/button"
+import { type WiderFormActionHandle } from "~/hooks/use-fresh-document"
 import { VERIFY_EMAIL_MINUTES, VERIFY_TO_CONTINUE_PAGE } from "~/lib/auth-constants"
 import { allowFormTargets } from "~/lib/csp.server"
 import { emailEnabled } from "~/lib/email.server"
@@ -17,6 +18,9 @@ import { readForm } from "~/lib/request-body.server"
 import { requireUser } from "~/lib/session.server"
 import type { Route } from "./+types/oauth.verify-email"
 import type { action as sendAction } from "./settings.verify-email"
+
+/** Its forms may go on to a provider or an app: leaving it loads a fresh document. */
+export const handle: WiderFormActionHandle = { widerFormAction: true }
 
 export function meta({ matches }: Route.MetaArgs) {
 	return [{ title: pageTitle(matches, "auth:oauth.title") }]

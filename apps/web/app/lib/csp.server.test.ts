@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from "node:fs"
+import { join } from "node:path"
 import { RouterContextProvider } from "react-router"
 import { describe, expect, it } from "vitest"
 import {
@@ -81,5 +83,30 @@ describe("BASE_POLICY", () => {
 		expect(policy.get("frame-ancestors")).toBe("'none'")
 		expect(policy.get("base-uri")).toBe("'self'")
 		expect(policy.get("object-src")).toBe("'none'")
+	})
+})
+
+describe("pages that widen form-action", () => {
+	it("each load a fresh document when left, so the wider policy ends with the page", async () => {
+		// A policy belongs to the document; useFreshDocumentOnLeave replaces it on the way out.
+		const routes = join(import.meta.dirname, "../routes")
+		const widening = readdirSync(routes).filter(
+			(file) =>
+				!file.includes(".test.") &&
+				readFileSync(join(routes, file), "utf8").includes("allowFormTargets("),
+		)
+		expect(widening.sort()).toEqual([
+			"login.code.tsx",
+			"login.tsx",
+			"oauth.consent.tsx",
+			"oauth.verify-email.tsx",
+			"settings.account.sign-in.tsx",
+			"signup.tsx",
+		])
+		const { widerFormAction } = await import("~/hooks/use-fresh-document")
+		for (const file of widening) {
+			const route = (await import(`../routes/${file}`)) as { handle?: unknown }
+			expect(widerFormAction(route.handle), file).toBe(true)
+		}
 	})
 })

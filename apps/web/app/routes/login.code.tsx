@@ -3,6 +3,7 @@ import { data, Form, Link, redirect, redirectDocument, useNavigation } from "rea
 import { AuthCard } from "~/components/auth-card"
 import { Button } from "~/components/ui/button"
 import { Field } from "~/components/ui/field"
+import { type WiderFormActionHandle } from "~/hooks/use-fresh-document"
 import { allowFormTargets } from "~/lib/csp.server"
 import { localeCookie } from "~/lib/i18n.server"
 import {
@@ -17,6 +18,9 @@ import { readForm } from "~/lib/request-body.server"
 import { cookieHeadersFrom, requireAnonymous, safeRedirect } from "~/lib/session.server"
 import { type CodeRefusal, completeSignIn, pendingSignInSent } from "~/lib/two-factor.server"
 import type { Route } from "./+types/login.code"
+
+/** Its forms may go on to a provider or an app: leaving it loads a fresh document. */
+export const handle: WiderFormActionHandle = { widerFormAction: true }
 
 export function meta({ matches }: Route.MetaArgs) {
 	return [{ title: pageTitle(matches, "auth:twoFactor.title") }]
@@ -64,8 +68,9 @@ export async function action({ context, request }: Route.ActionArgs) {
 	if (next) throw redirectDocument(next, { headers: out })
 	const redirectTo = form.get("redirectTo")
 	const to = safeRedirect(typeof redirectTo === "string" ? redirectTo : null)
-	// An app's request from a provider's sheet goes on at the provider's endpoint, not a page.
-	throw (to.startsWith("/api/") ? redirectDocument : redirect)(to, { headers: out })
+	// A page load: an app's request from a provider's sheet goes on at the provider's endpoint, not
+	// a page, and the next page gets its own policy, not this one's wider form-action.
+	throw redirectDocument(to, { headers: out })
 }
 
 export default function LoginCode({ loaderData, actionData }: Route.ComponentProps) {

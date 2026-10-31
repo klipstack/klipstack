@@ -6,6 +6,7 @@ import { AuthCard } from "~/components/auth-card"
 import { ProviderButtons } from "~/components/provider-buttons"
 import { Button } from "~/components/ui/button"
 import { Field } from "~/components/ui/field"
+import { type WiderFormActionHandle } from "~/hooks/use-fresh-document"
 import { authLimitResponse } from "~/lib/auth-limits.server"
 import { auth } from "~/lib/auth.server"
 import { allowFormTargets } from "~/lib/csp.server"
@@ -40,6 +41,9 @@ const schema = z.object({
 	redirectTo: z.string().optional(),
 	oauthQuery: z.string().optional(),
 })
+
+/** Its forms may go on to a provider or an app: leaving it loads a fresh document. */
+export const handle: WiderFormActionHandle = { widerFormAction: true }
 
 export function meta({ matches }: Route.MetaArgs) {
 	return [{ title: pageTitle(matches, "auth:login.title") }]
@@ -137,7 +141,8 @@ export async function action({ request, context }: Route.ActionArgs) {
 		const next = oauthQuery ? oauthRedirectUrl(response) : null
 		// A page load for an app's request: its callback may be on this origin (see oauth.consent).
 		if (next) throw redirectDocument(next, { headers: out })
-		throw redirect(safeRedirect(parsed.data.redirectTo), { headers: out })
+		// A page load: the next page's policy, not this one's wider form-action (useFreshDocumentOnLeave).
+		throw redirectDocument(safeRedirect(parsed.data.redirectTo), { headers: out })
 	} catch (error) {
 		const limited = authLimitResponse(error)
 		if (limited) throw limited

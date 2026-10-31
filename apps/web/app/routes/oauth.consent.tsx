@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next"
 import { data, Form, redirect, redirectDocument, useNavigation } from "react-router"
 import { AuthCard } from "~/components/auth-card"
 import { Button } from "~/components/ui/button"
+import { type WiderFormActionHandle } from "~/hooks/use-fresh-document"
 import { IDENTITY_SCOPES, identityKey, optionalScopesFor, scopeKey } from "~/lib/auth-constants"
 import { auth } from "~/lib/auth.server"
 import { hasGrant } from "~/lib/credential-policy.server"
@@ -24,6 +25,9 @@ import { signedInRecently } from "~/lib/recent-sign-in.server"
 import { readForm } from "~/lib/request-body.server"
 import { getSession, requireUser, signOutHeaders } from "~/lib/session.server"
 import type { Route } from "./+types/oauth.consent"
+
+/** Its forms may go on to a provider or an app: leaving it loads a fresh document. */
+export const handle: WiderFormActionHandle = { widerFormAction: true }
 
 export function meta({ matches }: Route.MetaArgs) {
 	return [{ title: pageTitle(matches, "auth:oauth.title") }]

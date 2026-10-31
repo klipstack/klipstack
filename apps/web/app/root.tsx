@@ -20,6 +20,7 @@ import { NavigationProgress } from "./components/navigation-progress"
 import { PasteToSave } from "./components/paste-to-save"
 import { ToastHost } from "./components/toast-host"
 import { TooltipHost } from "./components/tooltip-host"
+import { useFreshDocumentOnLeave } from "./hooks/use-fresh-document"
 import { useLiveUpdates } from "./hooks/use-live-updates"
 import { useStandaloneTitle } from "./hooks/use-standalone-title"
 import { cacheIdentity } from "./lib/cache-identity.server"
@@ -137,6 +138,7 @@ export default function App({ loaderData: { locale, loggedIn } }: Route.Componen
 	useLiveUpdates(loggedIn)
 	useStandaloneTitle()
 	useRememberSettingsOrigin()
+	useFreshDocumentOnLeave()
 	return (
 		<>
 			<NavigationProgress />
