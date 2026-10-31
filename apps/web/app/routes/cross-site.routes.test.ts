@@ -123,6 +123,30 @@ describe("cross-site writes", () => {
 			expect((await send(path, { cookie, origin: APP_ORIGIN })).reached, path).toBe(true)
 	})
 
+	it("are judged by APP_URL, not by the address the server was reached at", async () => {
+		// Behind a proxy the request's URL can be the server's own address, while the browser's Origin
+		// is the public one.
+		let reached = false
+		const response = (await sessionMiddleware(
+			{
+				request: new Request("http://internal:3000/prefs", {
+					method: "POST",
+					headers: { cookie, origin: APP_ORIGIN },
+					body: new URLSearchParams({ shortcuts: "off" }),
+				}),
+				context: new RouterContextProvider(),
+				params: {},
+			} as never,
+			async () => {
+				reached = true
+				return new Response("reached")
+			},
+		)) as Response
+		expect(response.status).toBe(200)
+		expect(reached).toBe(true)
+		expect((await send("/prefs", { cookie, origin: "http://internal:3000" })).reached).toBe(false)
+	})
+
 	it("are not checked without the session cookie, with a bearer token, or for reads", async () => {
 		expect((await send("/documents/bulk", { origin: EVIL })).reached).toBe(true)
 		expect((await send("/app/sign-in", {})).reached).toBe(true)
