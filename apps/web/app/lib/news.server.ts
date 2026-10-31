@@ -63,6 +63,23 @@ export function loadNews(entries: readonly NewsEntry[], pages: Record<string, st
 		.sort((a, b) => b.date.getTime() - a.date.getTime() || a.slug.localeCompare(b.slug))
 }
 
+/**
+ * An entry's article for feed readers, which have no stylesheet: without the screenshots for the
+ * dark theme (`theme-dark-only`), and with images and links at full addresses on `origin`.
+ */
+export function feedArticle(article: string, origin: string): string {
+	const doc = new JSDOM(`<article>${article}</article>`).window.document
+	const root = doc.querySelector("article")!
+	for (const el of root.querySelectorAll(".theme-dark-only")) el.remove()
+	for (const [selector, attribute] of [
+		["img[src]", "src"],
+		["a[href]", "href"],
+	] as const)
+		for (const el of root.querySelectorAll(selector))
+			el.setAttribute(attribute, new URL(el.getAttribute(attribute)!, origin).href)
+	return root.innerHTML
+}
+
 let loaded: News[] | null = null
 /** Klipstack's news (`app/news/`), newest first. */
 export function allNews(): News[] {

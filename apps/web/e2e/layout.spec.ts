@@ -262,6 +262,7 @@ test("every page's header row lines up with the sidebar's", async ({ page }) => 
 		"/library",
 		"/feed",
 		"/notebook",
+		"/reading",
 		"/editions",
 		"/tags",
 		"/search",

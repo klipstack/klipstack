@@ -9,6 +9,7 @@ import {
 	Menu,
 	Newspaper,
 	NotebookPen,
+	ChartNoAxesColumn,
 	PanelLeftClose,
 	PanelLeftOpen,
 	Rss,
@@ -55,6 +56,8 @@ const items = [
 	{ to: "/library", key: "nav.library", icon: LibraryBig },
 	{ to: "/feed", key: "nav.feed", icon: Rss },
 	{ to: "/notebook", key: "nav.notebook", icon: NotebookPen },
+	// What the reader finished, by day, week and month.
+	{ to: "/reading", key: "nav.reading", icon: ChartNoAxesColumn },
 	{ to: "/editions", key: "nav.editions", icon: Newspaper },
 	// One link, not the tags themselves: a library can have hundreds. The command menu finds one.
 	{ to: "/tags", key: "nav.tags", icon: Tag },

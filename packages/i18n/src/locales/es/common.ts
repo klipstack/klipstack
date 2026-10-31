@@ -396,6 +396,7 @@ export default {
 		archive: "Archivo",
 		starred: "Destacados",
 		notebook: "Cuaderno",
+		reading: "Tus lecturas",
 		editions: "Ediciones",
 		trash: "Papelera",
 		settings: "Ajustes",

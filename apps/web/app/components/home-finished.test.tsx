@@ -2,6 +2,7 @@ import { resources } from "@klipstack/i18n"
 import { createInstance } from "i18next"
 import { renderToStaticMarkup } from "react-dom/server"
 import { I18nextProvider } from "react-i18next"
+import { MemoryRouter } from "react-router"
 import { describe, expect, it } from "vitest"
 import { FinishedLately } from "./home-finished"
 
@@ -9,9 +10,11 @@ async function render(lng: "en" | "es", props: { count: number; title: string | 
 	const i18n = createInstance()
 	await i18n.init({ resources, lng, fallbackLng: "en", interpolation: { escapeValue: false } })
 	return renderToStaticMarkup(
-		<I18nextProvider i18n={i18n}>
-			<FinishedLately {...props} />
-		</I18nextProvider>,
+		<MemoryRouter>
+			<I18nextProvider i18n={i18n}>
+				<FinishedLately {...props} />
+			</I18nextProvider>
+		</MemoryRouter>,
 	)
 }
 const text = (html: string) => html.replace(/<[^>]+>/g, "")
@@ -19,10 +22,10 @@ const text = (html: string) => html.replace(/<[^>]+>/g, "")
 describe("FinishedLately", () => {
 	it("counts two or more articles", async () => {
 		expect(text(await render("en", { count: 4, title: null }))).toBe(
-			"You finished 4 articles this past week.",
+			"You finished 4 articles this past week. See your reading",
 		)
 		expect(text(await render("es", { count: 4, title: null }))).toBe(
-			"Terminaste 4 artículos esta última semana.",
+			"Terminaste 4 artículos esta última semana. Ver tus lecturas",
 		)
 	})
 
@@ -44,7 +47,13 @@ describe("FinishedLately", () => {
 
 	it("says an article without a title was finished", async () => {
 		const html = await render("en", { count: 1, title: null })
-		expect(text(html)).toBe("You finished an article this past week.")
+		expect(text(html)).toBe("You finished an article this past week. See your reading")
 		expect(html).not.toContain("<cite")
+	})
+
+	it("leads to the Your reading page from beside the sentence, the title not part of the link", async () => {
+		const html = await render("en", { count: 1, title: "How to Read a Book" })
+		expect(html).toMatch(/<a [^>]*href="\/reading"[^>]*>See your reading<\/a>/)
+		expect(html).not.toMatch(/<a[^>]*>[^<]*<cite/)
 	})
 })

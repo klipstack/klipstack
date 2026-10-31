@@ -1,7 +1,9 @@
+import { existsSync } from "node:fs"
+import { fileURLToPath } from "node:url"
 import { JSDOM } from "jsdom"
 import { describe, expect, it } from "vitest"
 import type { NewsEntry } from "../news"
-import { allNews, loadNews, type NewsReader, sidebarNews } from "./news.server"
+import { allNews, feedArticle, loadNews, type NewsReader, sidebarNews } from "./news.server"
 
 const page = (title: string, description = `${title}, in short.`) =>
 	`<!doctype html><html><head><title>${title}</title><meta name="description" content="${description}"></head><body><article><p>${title} in full.</p></article></body></html>`
@@ -32,21 +34,59 @@ describe("app/news", () => {
 		expect(() => allNews()).not.toThrow()
 	})
 
-	// The pages go into /news and the feed unsanitized: only text markup, and links out by http(s).
-	const TAGS = new Set(["P", "H2", "H3", "OL", "UL", "LI", "STRONG", "EM", "CODE", "A", "BR"])
+	// The pages go into /news and the feed unsanitized: only text markup, links out by http(s), and
+	// screenshots of the app's own, from `public/news-images/`, described.
+	const TAGS = new Set([
+		"P",
+		"H2",
+		"H3",
+		"OL",
+		"UL",
+		"LI",
+		"STRONG",
+		"EM",
+		"CODE",
+		"A",
+		"BR",
+		"FIGURE",
+		"IMG",
+	])
+	const IMG = ["alt", "class", "height", "loading", "src", "width"]
 	it.each(
 		allNews().flatMap((news) =>
 			Object.entries(news.text).map(([lang, text]) => [`${news.slug}/${lang}`, text.article]),
 		),
-	)("%s holds only text markup, and links without scripts", (_page, article) => {
-		for (const element of new JSDOM(article).window.document.body.querySelectorAll("*")) {
-			expect(TAGS.has(element.tagName), element.tagName).toBe(true)
-			const names = [...element.attributes].map((attribute) => attribute.name)
-			expect(names, element.outerHTML.slice(0, 80)).toEqual(element.tagName === "A" ? ["href"] : [])
-			if (element.tagName === "A")
-				expect(element.getAttribute("href")).toMatch(/^(https:\/\/|\/(?!\/))/)
-		}
-	})
+	)(
+		"%s holds only text markup, links without scripts, and its own screenshots",
+		(_page, article) => {
+			for (const element of new JSDOM(article).window.document.body.querySelectorAll("*")) {
+				expect(TAGS.has(element.tagName), element.tagName).toBe(true)
+				const names = [...element.attributes].map((attribute) => attribute.name)
+				const where = element.outerHTML.slice(0, 80)
+				if (element.tagName === "IMG") {
+					expect(
+						names.every((name) => IMG.includes(name)),
+						where,
+					).toBe(true)
+					const src = element.getAttribute("src") ?? ""
+					expect(src).toMatch(/^\/news-images\/[a-z0-9-]+\/[a-z0-9-]+\.webp$/)
+					expect(
+						existsSync(fileURLToPath(new URL(`../../public${src}`, import.meta.url))),
+						src,
+					).toBe(true)
+					expect(element.getAttribute("alt")?.trim(), where).toBeTruthy()
+					expect(["theme-light-only", "theme-dark-only", null]).toContain(
+						element.getAttribute("class"),
+					)
+					expect(["lazy", null]).toContain(element.getAttribute("loading"))
+					continue
+				}
+				expect(names, where).toEqual(element.tagName === "A" ? ["href"] : [])
+				if (element.tagName === "A")
+					expect(element.getAttribute("href")).toMatch(/^(https:\/\/|\/(?!\/))/)
+			}
+		},
+	)
 })
 
 describe("loadNews", () => {
@@ -131,5 +171,19 @@ describe("sidebarNews", () => {
 		const usesIphoneApp = async () => (asked = true)
 		await slugs([{ slug: "other", date: "2026-10-02" }], { usesIphoneApp })
 		expect(asked).toBe(false)
+	})
+})
+
+describe("feedArticle", () => {
+	it("keeps one screenshot, the light theme's, and gives images and links full addresses", () => {
+		const article = `<p>Read <a href="/reading">it</a> or <a href="https://example.org/x">elsewhere</a>.</p><figure><img src="/news-images/a/en-light.webp" class="theme-light-only" alt="A"><img src="/news-images/a/en-dark.webp" class="theme-dark-only" alt="A"></figure>`
+		const doc = new JSDOM(feedArticle(article, "https://klipstack.example")).window.document
+		expect([...doc.querySelectorAll("img")].map((img) => img.getAttribute("src"))).toEqual([
+			"https://klipstack.example/news-images/a/en-light.webp",
+		])
+		expect([...doc.querySelectorAll("a")].map((a) => a.getAttribute("href"))).toEqual([
+			"https://klipstack.example/reading",
+			"https://example.org/x",
+		])
 	})
 })

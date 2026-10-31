@@ -8,6 +8,7 @@ import type { DesktopBrowser } from "../lib/extension-url"
  * it is for (`lib/news.server.ts`).
  */
 export const NEWS: readonly NewsEntry[] = [
+	{ slug: "your-reading", date: "2026-10-31" },
 	{ slug: "iphone-app-beta", date: "2026-10-24", audience: { unless: "iphone-app" } },
 	{ slug: "link-articles-from-notes", date: "2026-10-21" },
 	{ slug: "ask-your-own-assistant", date: "2026-10-21" },
