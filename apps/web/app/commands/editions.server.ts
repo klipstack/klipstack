@@ -36,11 +36,11 @@ import {
 	writeSnapshot,
 } from "~/services/editions-write.server"
 import {
-	currentDraft,
 	authorName,
 	buildSnapshot,
 	checkId,
 	copyItem,
+	currentDraft,
 	type EditionRow,
 	findEdition,
 	findItem,
@@ -66,8 +66,8 @@ import {
  * time (`touch`). So a publish sees all of an edit or none of it, and "unpublished changes" never
  * misses one.
  *
- * Adapters call `changeEdition` and the commands that check `mayUseEditions`; the actions below it
- * leave that to them.
+ * Adapters call `changeEdition` and the other commands that check `mayUseEditions` first. The
+ * actions after `changeEdition` leave that check to their caller.
  */
 
 /** Every command here: editions are turned on for the account (Settings → Features). */
@@ -256,6 +256,8 @@ export async function changeEdition(
 	}
 	return {}
 }
+
+// The actions: what `changeEdition` and the commands above call, without `mayUseEditions`.
 
 /** A draft with no title and no articles, in the reader's time zone and language. */
 export async function createEmptyEdition(
