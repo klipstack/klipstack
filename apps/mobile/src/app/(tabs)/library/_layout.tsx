@@ -8,7 +8,7 @@ export const unstable_settings = { anchor: "index" }
 /**
  * The Library tab: its places (`index`), as Mail's mailboxes, and each place's list: the views,
  * the tags and a tag's articles, the topics and a topic's articles, a saved search's results. The tab opens on Inbox, with the places
- * behind it (`index.tsx`): that first push has no animation (`opening`).
+ * behind it (`index.tsx`): that first screen opens without animation (`opening`).
  */
 export default function LibraryLayout() {
 	return (

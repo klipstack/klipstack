@@ -11,6 +11,7 @@ import {
 	Text,
 	TextInput,
 	View,
+	type TextInputInstance,
 } from "react-native"
 import { type Tagged, tagChange, tagChoices, tagState, withChange } from "@/lib/article-tags"
 import { errorMessage, t } from "@/lib/i18n"
@@ -71,7 +72,7 @@ function TagSheet({
 	const [error, setError] = useState<string | null>(null)
 	const [typed, setTyped] = useState("")
 	// Uncontrolled: fast typing isn't undone by a render that lags behind it.
-	const field = useRef<TextInput>(null)
+	const field = useRef<TextInputInstance>(null)
 
 	useEffect(() => {
 		if (!client) return

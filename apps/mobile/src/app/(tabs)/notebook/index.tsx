@@ -521,7 +521,7 @@ export default function Notebook() {
 					onEndReached={list.loadMore}
 					onEndReachedThreshold={0.5}
 					ListHeaderComponent={header}
-					ListFooterComponent={footer}
+					ListFooterComponent={footer ?? undefined}
 					ListEmptyComponent={empty}
 				/>
 			)}

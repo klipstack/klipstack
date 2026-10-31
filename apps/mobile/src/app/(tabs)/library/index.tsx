@@ -1,6 +1,6 @@
 import type { SavedSearch } from "@klipstack/sdk"
 import { Link, useFocusEffect, useNavigation } from "expo-router"
-import { StackActions } from "expo-router/react-navigation"
+import { CommonActions } from "expo-router/react-navigation"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { ScrollView, StyleSheet } from "react-native"
 import { PlaceGroup, PlaceRow } from "@/components/place-list"
@@ -28,8 +28,16 @@ export default function Places() {
 		if (opened.current) return
 		const frame = requestAnimationFrame(() => {
 			opened.current = true
-			if ((navigation.getState()?.routes.length ?? 1) > 1) return
-			navigation.dispatch(StackActions.push("inbox", { opening: "1" }))
+			const state = navigation.getState()
+			if (!state || state.routes.length > 1) return
+			// A reset, not a push: Expo Router 58 moves the app to the tab a push lands in.
+			navigation.dispatch(
+				CommonActions.reset({
+					...state,
+					index: state.routes.length,
+					routes: [...state.routes, { name: "inbox", params: { opening: "1" } }],
+				}),
+			)
 		})
 		return () => cancelAnimationFrame(frame)
 	}, [navigation])

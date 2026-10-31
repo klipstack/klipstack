@@ -8,7 +8,7 @@ import type {
 	KlipstackClient,
 } from "@klipstack/sdk"
 import { createNoteAutosave, type NoteSaveStatus } from "@klipstack/sdk/note-autosave"
-import { router, Stack, useLocalSearchParams, useNavigation } from "expo-router"
+import { router, Stack, useLocalSearchParams } from "expo-router"
 import { useCallback, useEffect, useRef, useState } from "react"
 import {
 	ActivityIndicator,
@@ -310,8 +310,8 @@ export default function Reader() {
 		if (!noteJson || !loaded.current) return
 		web.current?.injectJavaScript(`window.klipNote && window.klipNote(${noteJson}); true;`)
 	}, [noteJson])
-	// Leaving finishes it when the end block says so: as the screen goes (back, a swipe), or, if
-	// that was missed, as it unmounts. Once.
+	// Leaving finishes it when the end block says so, as the screen unmounts (back, a swipe). Once.
+	// Expo Router 58 has no event before a screen is removed; its `removed` comes after the unmount.
 	const armed = useRef(false)
 	armed.current = end?.state === "finishing"
 	const leaving = useRef({ client, id, archived: false })
@@ -322,11 +322,6 @@ export default function Reader() {
 		armed.current = false
 		void finishOnLeave(c, articleId, archived)
 	}, [])
-	const navigation = useNavigation()
-	useEffect(
-		() => navigation.addListener("beforeRemove", finishIfArmed),
-		[navigation, finishIfArmed],
-	)
 	useEffect(() => finishIfArmed, [finishIfArmed])
 
 	// Repaint when the highlights change after the page is up (it paints the first ones itself).

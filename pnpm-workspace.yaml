@@ -22,12 +22,6 @@ overrides:
   "node-forge@<1.4.1": "^1.4.2"
 auditConfig:
   ignoreGhsas:
-    # decode-uri-component through expo-router's query-string: a slow decode of malformed links
-    # inside the user's own app. The fixed version is ESM-only, which query-string 7 cannot require.
-    - GHSA-vcc3-ghjq-m6fr
-    # The same, through the same path: a quadratic decode of a long malformed link. Its fix, 0.5.1,
-    # is ESM-only too. expo-router 58 drops query-string: remove both with the Expo SDK 58 upgrade.
-    - GHSA-qr28-fpjm-wq7f
     # glob through Expo's config tooling: an aborted walk keeps reading. Expo never passes a signal.
     # Fixed only in glob 14, which Expo does not use yet; it runs on the developer's machine only.
     - GHSA-3g3m-2fjr-6pw4
@@ -51,4 +45,4 @@ onlyBuiltDependencies:
   - wxt
 patchedDependencies:
   # The system text menu (Paste) in the reader page's note field: see the patch.
-  react-native-webview@13.16.1: patches/react-native-webview@13.16.1.patch
+  react-native-webview@14.0.1: patches/react-native-webview@14.0.1.patch

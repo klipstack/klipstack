@@ -39,7 +39,7 @@ vi.mock("expo-file-system", () => {
 		create() {
 			disk.set(this.uri, "")
 		}
-		write(content: string | Uint8Array) {
+		writeSync(content: string | Uint8Array) {
 			disk.set(this.uri, content)
 		}
 		textSync() {

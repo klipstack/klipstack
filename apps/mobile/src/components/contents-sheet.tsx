@@ -1,5 +1,13 @@
 import { useRef } from "react"
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
+import {
+	Modal,
+	Pressable,
+	ScrollView,
+	StyleSheet,
+	Text,
+	type ScrollViewInstance,
+	View,
+} from "react-native"
 import { t } from "@/lib/i18n"
 import { type Colors, fonts } from "@/lib/theme"
 import type { ContentsEntry } from "@/page/messages"
@@ -28,7 +36,7 @@ export function ContentsSheet({
 	onClose: () => void
 	colors: Colors
 }) {
-	const list = useRef<ScrollView>(null)
+	const list = useRef<ScrollViewInstance>(null)
 	// A long outline opens at the section being read, a third of the way down: once both the list's
 	// height and the row's place are known, in whichever order they come.
 	const height = useRef<number | null>(null)

@@ -95,6 +95,9 @@ function Screens() {
 						headerBackTitle: t("account.screens.back"),
 						headerBackButtonDisplayMode: "minimal",
 						fullScreenGestureEnabled: false,
+						// Its cards are no scroll view that would inset itself: Expo Router 58's see-through
+						// header on iOS 26 would cover the top line.
+						headerTransparent: false,
 					}}
 				/>
 				{/* Over the tabs too, from Home's empty state and the Library: the reader opens over it. */}

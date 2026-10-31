@@ -192,7 +192,7 @@ export default function Search() {
 				ListHeaderComponent={
 					client && q && !select.selecting ? (
 						<SearchAnnotations client={client} q={q} colors={colors} />
-					) : null
+					) : undefined
 				}
 				contentContainerStyle={
 					select.selecting ? { paddingBottom: SELECTION_BAR_SPACE } : undefined

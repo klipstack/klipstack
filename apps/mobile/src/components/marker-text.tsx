@@ -4,13 +4,16 @@ import {
 	type StyleProp,
 	StyleSheet,
 	Text,
-	type TextLayoutLine,
+	type TextLayoutEvent,
 	type TextStyle,
 	View,
 	type ViewStyle,
 } from "react-native"
 import { inkLines, inkStroke } from "@/lib/highlight-ink"
 import type { Colors } from "@/lib/theme"
+
+// React Native 0.88 no longer exports the line type itself.
+type TextLayoutLine = TextLayoutEvent["nativeEvent"]["lines"][number]
 
 /**
  * A highlight's quote, marked as it is in the reader: one marker stroke per line, in its color,

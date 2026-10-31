@@ -9,6 +9,7 @@ import {
 	Text,
 	TextInput,
 	View,
+	type TextInputInstance,
 } from "react-native"
 import { ProviderButtons, styles, useSignInOptions } from "@/components/sign-in-form"
 import { useAuth } from "@/lib/auth"
@@ -48,8 +49,8 @@ export default function SignUpScreen() {
 	const [codeSentTo, setCodeSentTo] = useState<string | null>(null)
 	const [busy, setBusy] = useState<Busy>(null)
 	const [error, setError] = useState<string | null>(null)
-	const emailField = useRef<TextInput>(null)
-	const passwordField = useRef<TextInput>(null)
+	const emailField = useRef<TextInputInstance>(null)
+	const passwordField = useRef<TextInputInstance>(null)
 
 	const needsInvite = options.signUp !== "open"
 	const trimmedEmail = email.trim()

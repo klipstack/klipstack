@@ -79,7 +79,7 @@ export function saveList(list: OfflineList, items: ArticleSummary[]): void {
 	try {
 		const file = new File(listsFolder(), `${list}.json`)
 		file.create({ overwrite: true })
-		file.write(JSON.stringify(items))
+		file.writeSync(JSON.stringify(items))
 	} catch {
 		// Offline, the list is older or missing; online, nothing changes.
 	}
@@ -101,7 +101,7 @@ export function saveRecentSince(since: string | null): void {
 	try {
 		const file = new File(listsFolder(), "home-recent-since.json")
 		file.create({ overwrite: true })
-		file.write(JSON.stringify(since))
+		file.writeSync(JSON.stringify(since))
 	} catch {
 		// Offline, a time chosen keeps Recently saved to no date.
 	}
@@ -128,7 +128,7 @@ export function keepStarter(name: KeptStarter, answer: unknown): void {
 	try {
 		const file = new File(listsFolder(), `${name}.json`)
 		file.create({ overwrite: true })
-		file.write(JSON.stringify(answer))
+		file.writeSync(JSON.stringify(answer))
 	} catch {
 		// Offline, the screen says it can't reach Klipstack, as before.
 	}
@@ -154,7 +154,7 @@ export function saveArticle(details: ArticleDetails, stored: StoredHtml, now = D
 	try {
 		const file = new File(readerFolder(details.id), "article.json")
 		file.create({ overwrite: true })
-		file.write(JSON.stringify({ details, stored, savedAt: now } satisfies OfflineArticle))
+		file.writeSync(JSON.stringify({ details, stored, savedAt: now } satisfies OfflineArticle))
 	} catch {
 		// The article opens only online, as before.
 	}

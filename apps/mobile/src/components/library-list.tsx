@@ -450,7 +450,9 @@ export function LibraryList({
 					</>
 				}
 				ListFooterComponent={
-					list.loadingMore ? <ActivityIndicator style={styles.more} color={colors.mutedFg} /> : null
+					list.loadingMore ? (
+						<ActivityIndicator style={styles.more} color={colors.mutedFg} />
+					) : undefined
 				}
 				ListEmptyComponent={
 					<View style={styles.emptyPage}>

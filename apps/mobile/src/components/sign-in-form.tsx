@@ -11,6 +11,7 @@ import {
 	TextInput,
 	useColorScheme,
 	View,
+	type TextInputInstance,
 } from "react-native"
 import Svg, { Path } from "react-native-svg"
 import { errorMessage, t } from "@/lib/i18n"
@@ -59,7 +60,7 @@ export function SignInForm({
 	const [codeSentTo, setCodeSentTo] = useState<string | null>(null)
 	const [busy, setBusy] = useState<Busy>(null)
 	const [error, setError] = useState<string | null>(null)
-	const passwordField = useRef<TextInput>(null)
+	const passwordField = useRef<TextInputInstance>(null)
 	// Two-factor authentication: a way in checked out, and the sign-in waits for the app's code.
 	const [pending, setPending] = useState<PendingSignIn | null>(null)
 	const [secondCode, setSecondCode] = useState("")
