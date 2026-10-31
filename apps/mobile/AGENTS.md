@@ -33,10 +33,10 @@ pnpm dlx expo-doctor         # Diagnose dependency and config problems
 ## Layout
 
 - `src/app/`: Expo Router screens. Every file is a route. Keep other code outside.
-  - `(tabs)/`: the native tab bar (`unstable-native-tabs` in SDK 57). Each tab is a folder with
+  - `(tabs)/`: the native tab bar (`expo-router/native-tabs`). Each tab is a folder with
     its own stack (`_layout.tsx`, via `TabStack`); Home is the `(home)` group, so it is `/`.
     `library/` holds the places (`index.tsx`) and each place's list (Inbox, Starred, Archive,
-    Trash, `tags/`, `topics/`, `saved/`); the tab opens on Inbox, pushed by `index.tsx` onto its own stack.
+    Trash, `tags/`, `topics/`, `saved/`); the tab opens on Inbox, which `index.tsx` puts on its own stack.
   - `read/[id].tsx`: the reader, on the root stack over the tabs.
   - `save.tsx`: the sheet to save a link, from the + button on Home and Inbox.
   - `discover.tsx`: the starter texts (`GET /starter-texts`), the guide and shelves by topic, as
@@ -73,9 +73,6 @@ pnpm dlx expo-doctor         # Diagnose dependency and config problems
   `app.json`, a config plugin, or `targets/` instead, then run `pnpm ios` again.
   After a release build (`pnpm ios:device`), a development build can fail to link
   (`RCTPackagerConnection` not found): delete `ios/` and run `pnpm ios` again.
-- `expo-build-properties` sets `ios.enableSceneSupport` in `app.json`: iOS 27 stops an app built
-  with Xcode 27 at launch unless it uses the scene life cycle. SDK 58 does this by default; drop
-  the setting then.
 - `app.config.ts` adds what must stay out of the repo to `app.json`: the Apple team that signs
   device builds, from `APPLE_TEAM_ID` in `apps/mobile/.env.local` (ignored). Simulator builds
   need none.

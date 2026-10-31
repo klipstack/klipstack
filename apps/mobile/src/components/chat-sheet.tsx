@@ -1,7 +1,15 @@
 import type { AiAllowance, AiCitation } from "@klipstack/sdk"
 import { SymbolView, type SymbolViewProps } from "expo-symbols"
 import { useEffect, useRef, useState } from "react"
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
+import {
+	Modal,
+	Pressable,
+	ScrollView,
+	StyleSheet,
+	Text,
+	type ScrollViewInstance,
+	View,
+} from "react-native"
 import { AiAnswer } from "@/components/ai-answer"
 import { QuestionField, Turns, useKeyboardHeight } from "@/components/ai-card"
 import { InkThinking } from "@/components/ink-thinking"
@@ -63,7 +71,7 @@ export function ChatSheet({
 	const keyboard = useKeyboardHeight()
 	// The tools and the field under the turns: the toast shows above them.
 	const [bottomHeight, setBottomHeight] = useState(110)
-	const turns = useRef<ScrollView>(null)
+	const turns = useRef<ScrollViewInstance>(null)
 	// The newest turn in view; the reader scrolling up keeps their place, until they ask again.
 	const pinned = useRef(true)
 	const count = chat?.messages.length ?? 0

@@ -26,7 +26,7 @@ export function forgetReadArticles(): void {
 export function writePage(folder: Directory, html: string): File {
 	const page = new File(folder, "index.html")
 	page.create({ overwrite: true })
-	page.write(html)
+	page.writeSync(html)
 	return page
 }
 
@@ -58,7 +58,7 @@ export async function storeAsset(
 	if (bytes.length === 0) throw new Error(`Image ${assetId} came back empty`)
 	const file = new File(folder, `${assetId}${EXTENSIONS[type] ?? ""}`)
 	file.create({ overwrite: true })
-	file.write(bytes)
+	file.writeSync(bytes)
 	return file.name
 }
 
@@ -82,7 +82,7 @@ function jsonSetting<T>(name: string, parse: (raw: string | null) => T) {
 			try {
 				const saved = file()
 				saved.create({ overwrite: true })
-				saved.write(JSON.stringify(value))
+				saved.writeSync(JSON.stringify(value))
 			} catch {
 				// The setting still applies until the app closes.
 			}
@@ -137,6 +137,6 @@ export function writeShareImage(highlightId: string, shape: string, bytes: Uint8
 	folder.create({ intermediates: true, idempotent: true })
 	const file = new File(folder, `highlight-${highlightId}-${shape}.png`)
 	file.create({ overwrite: true })
-	file.write(bytes)
+	file.writeSync(bytes)
 	return file
 }

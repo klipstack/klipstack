@@ -140,8 +140,7 @@
 				"expo-build-properties",
 				{
 					"ios": {
-						"deploymentTarget": "17.4",
-						"enableSceneSupport": true
+						"deploymentTarget": "17.4"
 					}
 				}
 			],

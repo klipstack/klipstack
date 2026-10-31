@@ -124,10 +124,10 @@ export function LinkArticleSheet({
 							<Text style={[styles.label, { color: colors.mutedFg }]}>
 								{t("reader.linkArticle.recent")}
 							</Text>
-						) : null
+						) : undefined
 					}
 					ListEmptyComponent={
-						hint ? <Text style={[styles.hint, { color: colors.mutedFg }]}>{hint}</Text> : null
+						hint ? <Text style={[styles.hint, { color: colors.mutedFg }]}>{hint}</Text> : undefined
 					}
 					renderItem={({ item }) => (
 						<Pressable

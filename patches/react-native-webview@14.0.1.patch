@@ -1,0 +1,27 @@
+diff --git a/apple/RNCWebViewImpl.m b/apple/RNCWebViewImpl.m
+index 38904266dc37b006274104f4680778ffbfece369..6bc7143951286a26cd79367d100da59b8b3680ce 100644
+--- a/apple/RNCWebViewImpl.m
++++ b/apple/RNCWebViewImpl.m
+@@ -900,6 +900,9 @@ RCTAutoInsetsProtocol>
+ 
+ #if !TARGET_OS_OSX
+ -(void)setMenuItems:(NSArray<NSDictionary *> *)menuItems {
++    // Klipstack: no items is the system's menu (Cut, Copy, Paste). The new architecture sends an
++    // unset prop as an empty array, which would otherwise leave no menu at all.
++    if (menuItems.count == 0) menuItems = nil;
+     _menuItems = menuItems;
+     _webView.menuItems = menuItems;
+ }
+diff --git a/index.d.ts b/index.d.ts
+index 10b9c145b920a6a2ba1fb09bd72150328fafe211..626a67a3d6aca587ee9e74a52b799a2c50b4c52b 100644
+--- a/index.d.ts
++++ b/index.d.ts
+@@ -5,7 +5,7 @@ export { FileDownload, WebViewMessageEvent, WebViewNavigation } from './lib/WebV
+ 
+ export type WebViewProps = IOSWebViewProps & AndroidWebViewProps & WindowsWebViewProps;
+ 
+-declare class WebView<P = undefined> extends Component<WebViewProps & P> {
++declare class WebView<P = {}> extends Component<WebViewProps & P> {
+   /**
+    * Go back one page in the webview's history.
+    */

@@ -14,6 +14,7 @@ import {
 	TextInput,
 	useWindowDimensions,
 	View,
+	type ScrollViewInstance,
 } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { AiAnswer } from "@/components/ai-answer"
@@ -244,7 +245,7 @@ function CardBody({
 	const { none } = questionsLeft(allowance)
 	const { busy, lastAnswer, canRetry, canFollowUp } = cardState(card, none)
 	const left = allowanceMessage(allowance)
-	const turns = useRef<ScrollView>(null)
+	const turns = useRef<ScrollViewInstance>(null)
 	// The newest turn in view; the reader scrolling up keeps their place.
 	const pinned = useRef(true)
 	const cite = canCite ? onCite : undefined

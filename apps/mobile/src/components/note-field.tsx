@@ -10,6 +10,7 @@ import {
 	TextInput,
 	type TextStyle,
 	type ViewStyle,
+	type TextInputInstance,
 } from "react-native"
 import { LinkArticleSheet } from "@/components/link-article-sheet"
 import { t } from "@/lib/i18n"
@@ -115,7 +116,7 @@ export function NoteField({
 		setState(current.current)
 	}, [value])
 
-	const input = useRef<TextInput>(null)
+	const input = useRef<TextInputInstance>(null)
 	const [editing, setEditing] = useState(autoFocus)
 	const selection = useRef({ start: state.text.length, end: state.text.length })
 	// Where the cursor must go once the field shows the text it was just given.

@@ -1,4 +1,4 @@
-import { NativeTabs } from "expo-router/unstable-native-tabs"
+import { NativeTabs } from "expo-router/native-tabs"
 import { DynamicColorIOS } from "react-native"
 import { t } from "@/lib/i18n"
 import { useTabBarHidden } from "@/lib/tab-bar"
