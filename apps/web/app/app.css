@@ -71,6 +71,11 @@
 	/* Navy actions, clearer blue text links, and amber favorites each have their own role. */
 	--k-accent: oklch(0.37 0.085 260);
 	--k-accent-fg: oklch(0.99 0 0);
+	/* Your reading's year of days, from one article to many: navy deepening to the accent, each step
+	   at least 3:1 against the page. */
+	--k-heat-1: oklch(0.64 0.08 260);
+	--k-heat-2: oklch(0.5 0.09 260);
+	--k-heat-3: oklch(0.37 0.085 260);
 	--k-link: oklch(0.48 0.16 257);
 	--k-link-inverse: oklch(0.78 0.105 250);
 	--k-favorite: oklch(0.58 0.12 78);
@@ -122,6 +127,9 @@
 		--k-card: oklch(0.24 0.012 65);
 		--k-accent: oklch(0.74 0.1 255);
 		--k-accent-fg: oklch(0.2 0.02 65);
+		--k-heat-1: oklch(0.5 0.08 255);
+		--k-heat-2: oklch(0.62 0.1 255);
+		--k-heat-3: oklch(0.76 0.1 255);
 		--k-link: oklch(0.78 0.105 250);
 		--k-link-inverse: oklch(0.48 0.16 257);
 		--k-favorite: oklch(0.78 0.12 80);
@@ -162,6 +170,9 @@
 	--k-card: oklch(0.24 0.012 65);
 	--k-accent: oklch(0.74 0.1 255);
 	--k-accent-fg: oklch(0.2 0.02 65);
+	--k-heat-1: oklch(0.5 0.08 255);
+	--k-heat-2: oklch(0.62 0.1 255);
+	--k-heat-3: oklch(0.76 0.1 255);
 	--k-link: oklch(0.78 0.105 250);
 	--k-link-inverse: oklch(0.48 0.16 257);
 	--k-favorite: oklch(0.78 0.12 80);

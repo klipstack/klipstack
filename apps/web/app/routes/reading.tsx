@@ -119,13 +119,11 @@ function Total({ label, totals, testId }: { label: string; totals: ReadTotals; t
 	)
 }
 
-/** The reader's highlighter ink, by articles finished in a day: the more, the more ink. */
-const LEVELS = [
-	"var(--k-muted)",
-	"color-mix(in oklab, var(--hl) 30%, transparent)",
-	"color-mix(in oklab, var(--hl) 60%, transparent)",
-	"var(--hl)",
-] as const
+/**
+ * Navy ink, by articles finished in a day: the more, the deeper. Not the highlighter's colors,
+ * which are too pale to stand apart from the page.
+ */
+const LEVELS = ["var(--k-muted)", "var(--k-heat-1)", "var(--k-heat-2)", "var(--k-heat-3)"] as const
 const level = (count: number) => (count === 0 ? 0 : count === 1 ? 1 : count <= 3 ? 2 : 3)
 
 /**
