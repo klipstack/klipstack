@@ -6,7 +6,7 @@ import {
 	publishEdition,
 	updateEdition,
 	updateItem,
-} from "../../app/commands/editions.server"
+} from "../../app/commands/editions-actions.server"
 import type { State } from "./local"
 
 /**

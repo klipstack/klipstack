@@ -20,7 +20,7 @@ import {
 	createEmptyEdition as insertEdition,
 	publishEdition,
 	updateItem,
-} from "~/commands/editions.server"
+} from "~/commands/editions-actions.server"
 import { AppError } from "~/lib/app-error"
 import {
 	openArticle,

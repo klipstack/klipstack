@@ -6,7 +6,7 @@ import {
 	deleteEdition,
 	publishEdition,
 	unpublishEdition,
-} from "~/commands/editions.server"
+} from "~/commands/editions-actions.server"
 import { getEdition, listEditions, listShortlist } from "~/services/editions.server"
 import { action as createAction, loader as listLoader } from "./editions"
 import { action as editAction, loader as editLoader } from "./editions.edit"

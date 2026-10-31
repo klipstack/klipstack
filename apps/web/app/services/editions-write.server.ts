@@ -1,7 +1,11 @@
 /**
  * The writers of editions: row changes, each in the transaction the caller opened (`tx`). The rules
- * (limits, ownership, refusals) are in `commands/editions.server.ts`; reads are in
+ * (limits, ownership, refusals) are in `commands/editions-actions.server.ts`; reads are in
  * `editions.server.ts`.
+ *
+ * Most writers find their rows by id alone: each says which of the user's rows its caller must have
+ * locked or checked first, the edition (`lockEdition`) or the article. Those that touch library
+ * data also go by the user's id.
  *
  * Every change takes the edition's row lock first, and sets `updatedAt` in database time (`touch`).
  * So a publish sees all of an edit or none of it, and "unpublished changes" never misses one.
@@ -42,7 +46,10 @@ export const EDITED = sql`greatest(${NOW}, coalesce(${editions.republishedAt}, $
 /** A publish's time: not before the last edit, which it includes. */
 export const WRITTEN = sql`greatest(${NOW}, ${editions.updatedAt})`
 
-/** A working-copy change: the public page is now out of date. */
+/**
+ * A working-copy change: the public page is now out of date.
+ * The caller locked the user's edition first (`lockEdition`).
+ */
 export async function touch(tx: Tx, id: string) {
 	await tx.update(editions).set({ updatedAt: EDITED }).where(eq(editions.id, id))
 }
@@ -84,6 +91,7 @@ async function insertCopy(
  * Marking, in the draft in progress (`currentDraft`, locked by the caller first): each article not
  * in it yet goes to the end, from `copies` (`draftCopies`). One without a copy stays out. The
  * articles it added.
+ * The caller locked the user's draft first (`currentDraft`).
  */
 export async function addToDraft(
 	tx: Tx,
@@ -119,6 +127,7 @@ const REMOVED_BUDGET = 32_000
 /**
  * Unmarking, in the draft in progress (locked by the caller first): the articles' items go, and the
  * rest close up. The articles it took out.
+ * The caller locked the user's draft first (`currentDraft`).
  */
 export async function removeFromDraft(
 	tx: Tx,
@@ -160,6 +169,7 @@ async function closeUp(tx: Tx, editionId: string) {
  * Undo of `addToDraft` or `removeFromDraft`: the added items out, the removed ones back where they
  * were (`copies`, from `draftCopies`, for those too big to carry). Only while the edition is still
  * the user's draft; an article in it again is left as it is.
+ * It locks the user's draft itself (`draftOfChange`): the caller only passes the user's own change.
  */
 export async function revertDraftChange(
 	tx: Tx,
@@ -237,7 +247,10 @@ async function articleStillThere(
 	return live?.id ?? null
 }
 
-/** A copy of the article at the end of the edition. */
+/**
+ * A copy of the article at the end of the edition.
+ * The caller locked the user's edition first (`lockEdition`).
+ */
 export async function appendItem(
 	tx: Tx,
 	editionId: string,
@@ -251,7 +264,10 @@ export async function appendItem(
 	return item!
 }
 
-/** Marks the user's article for the next edition, unless it is marked already. */
+/**
+ * Marks the user's article for the next edition, unless it is marked already.
+ * By the user's id as well; the caller locked the user's edition first (`lockEdition`).
+ */
 export async function markArticle(tx: Tx, userId: string, documentId: string) {
 	await tx
 		.update(documents)
@@ -259,7 +275,10 @@ export async function markArticle(tx: Tx, userId: string, documentId: string) {
 		.where(and(eq(documents.id, documentId), eq(documents.userId, userId)))
 }
 
-/** Changes an item's fields. The item as it is now. */
+/**
+ * Changes an item's fields. The item as it is now.
+ * The caller locked the user's edition first and found the item in it (`lockEdition`, `findItem`).
+ */
 export async function writeItem(
 	tx: Tx,
 	itemId: string,
@@ -276,6 +295,7 @@ export async function writeItem(
 /**
  * Swaps two items' places. One statement: the unique constraint on positions is deferrable, so it
  * holds after the swap.
+ * The caller locked the user's edition first and found both items in it (`lockEdition`).
  */
 export async function swapItems(
 	tx: Tx,
@@ -290,7 +310,10 @@ export async function swapItems(
 		.where(inArray(editionItems.id, [item.id, other.id]))
 }
 
-/** Deletes the edition's item, and the rest close up. The item as it was; null without one. */
+/**
+ * Deletes the edition's item, and the rest close up. The item as it was; null without one.
+ * The caller locked the user's edition first (`lockEdition`).
+ */
 export async function deleteItem(
 	tx: Tx,
 	editionId: string,
@@ -308,7 +331,10 @@ export async function deleteItem(
 	return item
 }
 
-/** Takes the article's mark for the next edition off. The mark it had, in Postgres' own text. */
+/**
+ * Takes the article's mark for the next edition off. The mark it had, in Postgres' own text.
+ * By the user's id as well; the caller locked the user's edition first (`lockEdition`).
+ */
 export async function takeMark(tx: Tx, userId: string, documentId: string): Promise<string | null> {
 	const article = and(eq(documents.id, documentId), eq(documents.userId, userId))
 	const [doc] = await tx
@@ -325,6 +351,7 @@ export async function takeMark(tx: Tx, userId: string, documentId: string): Prom
  * A removed item back in the edition, as it was, at its place (`makeRoom`). An article deleted
  * for good meanwhile leaves it without one, as deleting does; else the article gets back the mark
  * it had (Postgres' text), unless it has one again.
+ * The caller locked the user's edition first, and checked the item was one of it (`lockEdition`).
  */
 export async function reinsertItem(
 	tx: Tx,
@@ -342,7 +369,10 @@ export async function reinsertItem(
 			.where(and(eq(documents.id, live), isNull(documents.shortlistedAt)))
 }
 
-/** A draft with no title and no articles, in this time zone and language. */
+/**
+ * A draft with no title and no articles, in this time zone and language.
+ * The edition is the user's: nothing to check first.
+ */
 export async function insertEdition(
 	q: Db | Tx,
 	userId: string,
@@ -355,7 +385,10 @@ export async function insertEdition(
 	return row!
 }
 
-/** The edition's title, intro, language and cover, as edited now. The edition as it is now. */
+/**
+ * The edition's title, intro, language and cover, as edited now. The edition as it is now.
+ * The caller locked the user's edition first (`lockEdition`).
+ */
 export async function writeEdition(
 	tx: Tx,
 	id: string,
@@ -369,7 +402,10 @@ export async function writeEdition(
 	return row!
 }
 
-/** "Not now" on the nudge for a new edition: none until `NUDGE.snoozeDays` from now. */
+/**
+ * "Not now" on the nudge for a new edition: none until `NUDGE.snoozeDays` from now.
+ * By the user's id: only the signed-in user's own preference.
+ */
 export async function writeNudgeSnooze(q: Db | Tx, userId: string) {
 	await q
 		.update(userTable)
@@ -382,14 +418,26 @@ export async function writeNudgeSnooze(q: Db | Tx, userId: string) {
 		.where(eq(userTable.id, userId))
 }
 
-/** The article's note for editions; null for none. */
-export async function writeArticleEditionNote(tx: Tx, documentId: string, note: string | null) {
-	await tx.update(documents).set({ editionNote: note }).where(eq(documents.id, documentId))
+/**
+ * The article's note for editions; null for none.
+ * By the user's id as well; the caller locked the user's live article first (`lockArticleNotes`).
+ */
+export async function writeArticleEditionNote(
+	tx: Tx,
+	userId: string,
+	documentId: string,
+	note: string | null,
+) {
+	await tx
+		.update(documents)
+		.set({ editionNote: note })
+		.where(and(eq(documents.id, documentId), eq(documents.userId, userId)))
 }
 
 /**
  * The drafts' items of the article whose note is still `before` become `after`. The ids of the
  * drafts it changed, once or more.
+ * The caller locked the user's drafts first (`lockDraftsWith`), and passes only their ids.
  */
 export async function rewriteDraftNotes(
 	tx: Tx,
@@ -416,6 +464,7 @@ export async function rewriteDraftNotes(
 /**
  * The page written: `snapshot` becomes what the public page shows, and it is up again. The first
  * time sets `publishedAt`, later ones `republishedAt`.
+ * The caller locked the user's edition first (`lockEdition`).
  */
 export async function writeSnapshot(
 	tx: Tx,
@@ -435,7 +484,10 @@ export async function writeSnapshot(
 	return row!
 }
 
-/** The public page up again, as it was last written. */
+/**
+ * The public page up again, as it was last written.
+ * The caller locked the user's edition first (`lockEdition`).
+ */
 export async function clearUnpublished(tx: Tx, id: string): Promise<EditionRow> {
 	const [row] = await tx
 		.update(editions)
@@ -445,7 +497,10 @@ export async function clearUnpublished(tx: Tx, id: string): Promise<EditionRow> 
 	return row!
 }
 
-/** The public page hidden, from now. */
+/**
+ * The public page hidden, from now.
+ * The caller locked the user's edition first (`lockEdition`).
+ */
 export async function markUnpublished(tx: Tx, id: string): Promise<EditionRow> {
 	const [row] = await tx
 		.update(editions)
@@ -455,7 +510,10 @@ export async function markUnpublished(tx: Tx, id: string): Promise<EditionRow> {
 	return row!
 }
 
-/** The user's articles among `documentIds` off the shortlist. */
+/**
+ * The user's articles among `documentIds` off the shortlist.
+ * By the user's id as well; the caller locked the user's edition first (`lockEdition`).
+ */
 export async function unmarkArticles(tx: Tx, userId: string, documentIds: string[]) {
 	if (documentIds.length === 0) return
 	await tx
@@ -470,7 +528,10 @@ export async function unmarkArticles(tx: Tx, userId: string, documentIds: string
 		)
 }
 
-/** Deletes the user's edition, and its items with it. False when the user has no such edition. */
+/**
+ * Deletes the user's edition, and its items with it. False when the user has no such edition.
+ * By the user's id: refuses another user's edition by finding none (`owned`).
+ */
 export async function deleteEditionRow(q: Db | Tx, userId: string, id: string): Promise<boolean> {
 	const gone = await q.delete(editions).where(owned(userId, id)).returning({ id: editions.id })
 	return gone.length > 0

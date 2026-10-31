@@ -19,8 +19,6 @@ import { purgeArticles, trashArticles } from "~/commands/articles.server"
 import {
 	addItem,
 	addShortlist,
-	changeEdition,
-	createEdition,
 	createEmptyEdition as insertEdition,
 	deleteEdition,
 	moveItem,
@@ -32,7 +30,8 @@ import {
 	unpublishEdition,
 	updateEdition,
 	updateItem,
-} from "~/commands/editions.server"
+} from "~/commands/editions-actions.server"
+import { changeEdition, createEdition } from "~/commands/editions.server"
 import { AppError } from "~/lib/app-error"
 import { hasUnpublishedChanges } from "~/lib/editions"
 import { env } from "~/lib/env.server"

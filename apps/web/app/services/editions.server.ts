@@ -4,7 +4,7 @@
  * renders.
  *
  * This module reads: queries, the snapshot and the views built from them, and the row locks the
- * changes take first. The changes are in `commands/editions.server.ts`, which writes through
+ * changes take first. The changes are in `commands/editions-actions.server.ts`, which writes through
  * `editions-write.server.ts`.
  */
 import {

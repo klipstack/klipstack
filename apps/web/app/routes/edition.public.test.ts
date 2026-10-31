@@ -6,7 +6,7 @@ import {
 	publishEdition,
 	unpublishEdition,
 	updateEdition,
-} from "~/commands/editions.server"
+} from "~/commands/editions-actions.server"
 import { env } from "~/lib/env.server"
 import type { EditionRow, EditionSnapshot } from "~/services/editions.server"
 import { loader as cardLoader } from "./edition.og"
