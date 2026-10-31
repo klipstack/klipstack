@@ -1,4 +1,4 @@
-import { assets, db, eq, sql, type Tx, user as userTable } from "@klipstack/db"
+import { assets, db, dbTimeouts, eq, sql, type Tx, user as userTable } from "@klipstack/db"
 import { getStorage } from "@klipstack/storage"
 
 /**
@@ -22,6 +22,11 @@ export async function deleteAccount(
 	const { revokeAppleSignIn } = await import("../lib/apple-tokens.server")
 	await revokeAppleSignIn(userId)
 	await db.transaction(async (tx) => {
+		// One statement deletes everything the account owns, which on a large account outlasts a web
+		// request's limit; failing here would leave the account without its files. The worker's limit
+		// instead, for this transaction only.
+		const { statementMs } = dbTimeouts("worker")
+		await tx.execute(sql.raw(`set local statement_timeout = ${statementMs}`))
 		await tx.delete(userTable).where(eq(userTable.id, userId))
 		await alongside?.(tx)
 	})
