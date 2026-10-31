@@ -5,10 +5,6 @@ packages:
 # found and pulled within days. To take an urgent security fix sooner, list the package below.
 minimumReleaseAge: 10080
 minimumReleaseAgeExclude:
-  # GHSA-27r3-jxmh-p828 (published 2026-10-22). Remove once 2.4.0 is a week old (2026-10-29).
-  - body-parser@2.4.0
-  # GHSA-w74x-v6f9-j3xg and others (published 2026-10-23). Remove once 3.1.9 is a week old (2026-10-26).
-  - fast-uri@3.1.9
   # GHSA-7wch-p9px-956x and eight others (published 2026-10-30). Remove once 1.4.2 is a week old (2026-11-03).
   - node-forge@1.4.2
 overrides:
