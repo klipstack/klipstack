@@ -96,6 +96,15 @@ test("shared links need confirmation and cross-origin POST cannot save or delete
 		expect(await bulk.json()).toMatchObject({ error: { code: "forbidden" } })
 	}
 	expect((await saved())[0]?.deletedAt).toBeNull()
+	// better-auth's own endpoints are left to its origin check (app/lib/origin.server.ts): a sibling
+	// subdomain can't change the account, while this site can.
+	const rename = (origin: string, name: string) =>
+		page.request.post("/api/auth/update-user", { headers: { origin }, data: { name } })
+	expect((await rename("https://other.localhost", "Hijacked")).status()).toBe(403)
+	const named = () => db.query.user.findFirst({ where: eq(user.id, owner!.id) })
+	expect((await named())?.name).not.toBe("Hijacked")
+	expect((await rename(new URL(baseURL!).origin, "Renamed here")).ok()).toBe(true)
+	expect((await named())?.name).toBe("Renamed here")
 })
 
 test("save via API with captured html → extracted → readable → archive", async ({ page }) => {
