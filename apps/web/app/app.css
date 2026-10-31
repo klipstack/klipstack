@@ -309,6 +309,25 @@ body {
 	border-radius: 0.5rem;
 	margin-inline: auto;
 }
+/* A news entry's screenshot in each theme: only the one for the page's theme shows (and, lazy,
+   loads). The theme is the account's choice, or the system's without one. */
+.theme-dark-only {
+	display: none;
+}
+[data-theme="dark"] .theme-light-only {
+	display: none;
+}
+[data-theme="dark"] .theme-dark-only {
+	display: block;
+}
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme="light"]) .theme-light-only {
+		display: none;
+	}
+	:root:not([data-theme="light"]) .theme-dark-only {
+		display: block;
+	}
+}
 .reader-content pre {
 	overflow-x: auto;
 	font-size: 0.85em;
