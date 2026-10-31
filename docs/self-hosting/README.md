@@ -173,7 +173,14 @@ The `PG_*_MS` settings are milliseconds, up to 2147483647 (about 25 days); `0` t
 and a larger or malformed value stops the process at start. A request that crosses one fails
 with an error in the log instead of hanging, and frees its connection for the next. `migrate` runs
 without them, so a long migration is not cut short. Raise a limit only if the log shows real work
-being cut off (`code=57014` is a statement timeout, `code=55P03` a lock timeout).
+being cut off. The log names each by its code:
+
+| In the log | Limit | What happened |
+| --- | --- | --- |
+| `code=57014` | `PG_STATEMENT_TIMEOUT_MS` (worker: `PG_WORKER_STATEMENT_TIMEOUT_MS`) | A query ran too long and PostgreSQL cancelled it. |
+| `code=55P03` | `PG_LOCK_TIMEOUT_MS` | A query waited too long for a row another transaction held. |
+| `[db] connection lost` with `code=25P03` | `PG_IDLE_IN_TRANSACTION_TIMEOUT_MS` | A transaction sat open with nothing running, and PostgreSQL ended its session. The request using it fails next, logged as a plain `Error`. |
+| `code=pool_timeout` | `PG_CONNECT_TIMEOUT_MS` | Every connection in the pool stayed busy ("timeout exceeded when trying to connect"). Look for slow queries first; `PG_POOL_MAX` adds connections. |
 
 The server-side limits travel in the connection's startup `options`, after any `options` your
 `DATABASE_URL` carries. A connection pooler between Klipstack and PostgreSQL must pass them on:

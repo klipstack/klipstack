@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url"
 import { promisify } from "node:util"
 import { eq } from "drizzle-orm"
 import type pg from "pg"
-import { afterAll, beforeAll, describe, expect, it } from "vitest"
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { createMigrationPool, createPool, db, pool, setDatabaseProcess } from "./client"
 import { user } from "./schema"
 
@@ -125,14 +125,24 @@ describe("the limits", () => {
 	})
 
 	it("ends a transaction left open, without taking the process down, and the pool recovers", async () => {
-		const short = shortPool()
-		const client = await short.connect()
-		await client.query("begin")
-		// Waits for the server to end the session: the point is that time passes.
-		await new Promise((resolve) => setTimeout(resolve, 1000))
-		await expect(client.query("select 1")).rejects.toThrow()
-		client.release()
-		expect((await short.query<{ one: number }>("select 1 as one")).rows).toEqual([{ one: 1 }])
+		const logged = vi.spyOn(console, "error").mockImplementation(() => undefined)
+		try {
+			const short = shortPool()
+			const client = await short.connect()
+			await client.query("begin")
+			// Waits for the server to end the session: the point is that time passes.
+			await new Promise((resolve) => setTimeout(resolve, 1000))
+			await expect(client.query("select 1")).rejects.toThrow()
+			client.release()
+			expect((await short.query<{ one: number }>("select 1 as one")).rows).toEqual([{ one: 1 }])
+			// Once, with the server's reason, though pg reports the loss twice.
+			const lines = logged.mock.calls.map((call) => String(call[0]))
+			expect(lines.filter((line) => line.startsWith("[db] connection lost"))).toEqual([
+				expect.stringContaining("code=25P03"),
+			])
+		} finally {
+			logged.mockRestore()
+		}
 	})
 
 	it("fails a request for a connection once all are taken for longer than the connect timeout", async () => {
@@ -140,10 +150,18 @@ describe("the limits", () => {
 		const held = await short.connect()
 		try {
 			const started = Date.now()
-			await expect(short.query("select 1")).rejects.toThrow(
-				"timeout exceeded when trying to connect",
-			)
-			expect(Date.now() - started).toBeLessThan(3000)
+			// A code, so the log (which leaves messages out) says what happened.
+			await expect(short.query("select 1")).rejects.toMatchObject({
+				code: "pool_timeout",
+				message: "timeout exceeded when trying to connect",
+			})
+			await expect(short.connect()).rejects.toMatchObject({ code: "pool_timeout" })
+			await expect(
+				new Promise((resolve, reject) =>
+					short.connect((error, client, done) => (error ? reject(error) : resolve(done()))),
+				),
+			).rejects.toMatchObject({ code: "pool_timeout" })
+			expect(Date.now() - started).toBeLessThan(5000)
 		} finally {
 			held.release()
 		}
