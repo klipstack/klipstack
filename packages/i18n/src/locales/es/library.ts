@@ -744,14 +744,19 @@ export default {
 		articles_other: "{{n}} artículos",
 		words_one: "{{n}} palabra",
 		words_other: "{{n}} palabras",
-		minutes: "unos {{count}} min",
-		hours: "unas {{hours}} h {{minutes}} min",
+		minutes: "{{count}} min aprox.",
+		hours: "{{hours}} h {{minutes}} min aprox.",
+		wholeHours: "{{hours}} h aprox.",
+		/** An amount of words, then of minutes: each already says its own. */
+		length: "{{words}} · {{minutes}}",
 		longerThan: "Más largo que {{book}}",
 		year: {
 			title: "Tu año",
 			legend: "Un cuadrado por día, con más tinta cuanto más terminaste.",
-			summary_one: "{{count}} artículo terminado en {{days}} días desde el {{from}}.",
-			summary_other: "{{count}} artículos terminados en {{days}} días desde el {{from}}.",
+			summary_one: "{{n}} artículo terminado en {{days}} desde el {{from}}.",
+			summary_other: "{{n}} artículos terminados en {{days}} desde el {{from}}.",
+			days_one: "{{n}} día",
+			days_other: "{{n}} días",
 			day_one: "{{date}}: {{count}} artículo",
 			day_other: "{{date}}: {{count}} artículos",
 			dayNone: "{{date}}: ninguno",
@@ -768,12 +773,12 @@ export default {
 			weekOf: "Semana del {{date}}",
 		},
 		selected: {
-			none: "Nada terminado en este período.",
+			none: "No terminaste nada en este período.",
 			topics: "Sobre qué leíste",
 			range: "{{from}} – {{to}}",
 		},
 		empty:
-			"Todavía no has terminado ningún artículo. Los que termines aparecen aquí, por día, semana y mes.",
+			"Todavía no has terminado ningún artículo. Los que termines aparecerán aquí, por día, semana y mes.",
 		/** Well-known books, to give a sense of a length: longer than the longest one passed. */
 		books: {
 			lottery: "«La lotería»",

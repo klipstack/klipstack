@@ -86,7 +86,9 @@ function useAmounts() {
 		minutes: (count: number) =>
 			count < 60
 				? t("stats.minutes", { count })
-				: t("stats.hours", { hours: Math.floor(count / 60), minutes: count % 60 }),
+				: count % 60
+					? t("stats.hours", { hours: Math.floor(count / 60), minutes: count % 60 })
+					: t("stats.wholeHours", { hours: count / 60 }),
 	}
 }
 
@@ -100,7 +102,12 @@ function Total({ label, totals, testId }: { label: string; totals: ReadTotals; t
 			<p className="mt-1 font-display text-3xl">{amounts.articles(totals.articles)}</p>
 			{totals.articles ? (
 				<p className="mt-1 text-sm text-muted-fg tabular-nums">
-					{amounts.words(totals.words)} · {amounts.minutes(totals.minutes)}
+					{totals.minutes
+						? t("stats.length", {
+								words: amounts.words(totals.words),
+								minutes: amounts.minutes(totals.minutes),
+							})
+						: amounts.words(totals.words)}
 				</p>
 			) : null}
 			{book ? (
@@ -142,7 +149,8 @@ function YearGrid({ stats }: { stats: ReadingStats }) {
 			<p className="sr-only" data-testid="year-summary">
 				{t("stats.year.summary", {
 					count: total,
-					days: counts.length,
+					n: days.number(total),
+					days: t("stats.year.days", { count: counts.length, n: days.number(counts.length) }),
 					from: days.long(stats.from),
 				})}
 			</p>
@@ -253,7 +261,11 @@ function Periods({ by, stats }: { by: "week" | "month"; stats: ReadingStats }) {
 									words: amounts.words(p.words),
 								})}
 								{...tooltip(
-									`${name(p.start)} · ${amounts.articles(p.articles)} · ${amounts.words(p.words)}`,
+									t("stats.periods.bar", {
+										period: name(p.start),
+										articles: amounts.articles(p.articles),
+										words: amounts.words(p.words),
+									}),
 								)}
 								className="group flex h-full flex-col"
 							>
@@ -316,7 +328,9 @@ function Periods({ by, stats }: { by: "week" | "month"; stats: ReadingStats }) {
 						{selected.articles.map((article) => (
 							<li key={article.id} className="flex items-baseline justify-between gap-4 py-2.5">
 								<Link to={`/read/${article.id}`} className="min-w-0 hover:underline">
-									<span className="line-clamp-2">{article.title ?? article.siteName ?? "—"}</span>
+									<span className="line-clamp-2">
+										{article.title ?? article.siteName ?? t("card.untitled")}
+									</span>
 									{article.title && article.siteName ? (
 										<span className="text-sm text-muted-fg">{article.siteName}</span>
 									) : null}

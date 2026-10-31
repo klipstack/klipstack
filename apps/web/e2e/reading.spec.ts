@@ -23,12 +23,13 @@ test("Your reading totals what was finished, by day and by week, from Home's lin
 	const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000)
 	await db.insert(readingCompletions).values([
 		{ userId: owner!.id, documentId: deep, cycle: 0, completedAt: minutesAgo(1), source: "manual" },
-		// 8 days ago: the week before this one, whatever day this is.
+		// 7 days ago: in the week before this one (weeks start on Monday) whatever day this is, and
+		// out of the past 7 days.
 		{
 			userId: owner!.id,
 			documentId: slow,
 			cycle: 0,
-			completedAt: minutesAgo(8 * 24 * 60),
+			completedAt: minutesAgo(7 * 24 * 60),
 			source: "progress",
 		},
 	])

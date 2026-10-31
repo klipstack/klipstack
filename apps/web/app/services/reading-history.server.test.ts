@@ -354,6 +354,7 @@ describe("readingStats", () => {
 		const tidied = await read(owner, "Tidied", 5000)
 		const trashed = await read(owner, "Trashed", 5000)
 		const theirs = await read(someone, "Theirs", 5000)
+		const mine = await read(owner, "Mine, finished by them", 5000)
 		await finished(owner, a.id, "2026-10-25T02:00:00Z")
 		await finished(owner, b.id, "2026-10-25T03:30:00Z")
 		await finished(owner, c.id, "2026-10-27T15:00:00Z", "progress", 0)
@@ -363,7 +364,10 @@ describe("readingStats", () => {
 		await finished(owner, trashed.id, "2026-10-30T15:00:00Z")
 		await db.update(documents).set({ deletedAt: new Date() }).where(eq(documents.id, trashed.id))
 		await finished(someone, theirs.id, "2026-10-30T15:00:00Z")
-		return { owner, a, b, c, e }
+		// Rows that cross owners, which nothing in the schema forbids: neither counts for anyone.
+		await finished(owner, theirs.id, "2026-10-30T15:00:00Z", "manual", 1)
+		await finished(someone, mine.id, "2026-10-30T15:00:00Z")
+		return { owner, someone, a, b, c, e }
 	}
 
 	it("totals the past 7 days, the month and the year in the reader's days, each article once", async () => {
@@ -417,6 +421,13 @@ describe("readingStats", () => {
 		const before = await readingStats(owner, { now, timeZone, by: "week", start: "2026-10-19" })
 		expect(before.selected.end).toBe("2026-10-25")
 		expect(before.selected.articles.map((d) => d.id)).toEqual([b.id, a.id])
+		// Finished again later in the period: listed by its last finish, before one finished between.
+		await finished(owner, a.id, "2026-10-25T20:00:00Z", "manual", 1)
+		const again = await readingStats(owner, { now, timeZone, by: "week", start: "2026-10-19" })
+		expect(again.selected.articles.map((d) => [d.id, d.day])).toEqual([
+			[a.id, "2026-10-25"],
+			[b.id, "2026-10-25"],
+		])
 		const october = await readingStats(owner, { now, timeZone, by: "month", start: "2026-10-01" })
 		expect(october.selected.end).toBe("2026-10-31")
 		// Not one of the periods shown: the current one.
@@ -424,24 +435,44 @@ describe("readingStats", () => {
 		expect(far.selected.start).toBe("2026-10-26")
 	})
 
-	it("names the topics the chosen period's articles are in, not those only suggested", async () => {
-		const { owner, a, b } = await library()
-		const [essays, science] = await db
+	it("names the reader's active topics the chosen period's articles are in, not those only suggested or refused", async () => {
+		const { owner, someone, a, b } = await library()
+		const topic = (userId: string, name: string, status: "active" | "retired" = "active") => ({
+			userId,
+			name,
+			description: name,
+			status,
+			origin: "first" as const,
+		})
+		const [essays, science, refused, retired, foreign] = await db
 			.insert(topics)
-			.values(
-				["Essays", "Science"].map((name) => ({
-					userId: owner,
-					name,
-					description: name,
-					status: "active" as const,
-					origin: "first" as const,
-				})),
-			)
+			.values([
+				topic(owner, "Essays"),
+				topic(owner, "Science"),
+				topic(owner, "Refused"),
+				topic(owner, "Retired", "retired"),
+				topic(someone, "Foreign"),
+			])
 			.returning()
-		await db.insert(documentTopics).values([
-			{ documentId: b.id, topicId: essays!.id, probability: 0.9, level: "applied" },
-			{ documentId: a.id, topicId: science!.id, probability: 0.5, level: "suggested" },
-		])
+		const on = (
+			documentId: string,
+			topicId: string,
+			level: "applied" | "suggested" = "applied",
+		) => ({
+			documentId,
+			topicId,
+			probability: 0.9,
+			level,
+		})
+		await db
+			.insert(documentTopics)
+			.values([
+				on(b.id, essays!.id),
+				on(a.id, science!.id, "suggested"),
+				{ ...on(a.id, refused!.id), refusedAt: new Date() },
+				on(a.id, retired!.id),
+				on(a.id, foreign!.id),
+			])
 		const args = { now, timeZone, by: "week", start: "2026-10-19" } as const
 		expect((await readingStats(owner, { ...args, topics: true })).selected.topics).toEqual([
 			{ id: essays!.id, name: "Essays", articles: 1 },

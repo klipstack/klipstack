@@ -182,8 +182,13 @@ async function statsIn(
 	const chosen = start && periods.includes(start) ? start : periods.at(-1)!
 	const end = endOf(chosen)
 	const inChosen = new Map<string, (typeof rows)[number]>()
-	// Rows come by day: the last one of an article is the day it was last finished.
-	for (const row of rows) if (row.day >= chosen && row.day <= end) inChosen.set(row.id, row)
+	// Rows come by day: each article where it was last finished (a Map keeps a key where it was first
+	// set, so it is taken out first).
+	for (const row of rows) {
+		if (row.day < chosen || row.day > end) continue
+		inChosen.delete(row.id)
+		inChosen.set(row.id, row)
+	}
 	const articles = [...inChosen.values()]
 		.reverse()
 		.map(({ id, title, siteName, words, minutes, day }) => ({
