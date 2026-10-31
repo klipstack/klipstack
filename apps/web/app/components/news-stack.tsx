@@ -6,7 +6,7 @@ import { cn } from "~/lib/utils"
 import type { SidebarNewsItem } from "~/services/news.server"
 import { tooltip } from "./tooltip-host"
 
-/** How many cards show behind the top one, as edges. */
+/** How many cards show behind the top one, as edges above it. */
 const BEHIND = 2
 
 /** "Today", "yesterday", "3 days ago": news is dated by day, so the day it is in UTC. */
@@ -18,10 +18,11 @@ function since(date: string, language: string) {
 
 /**
  * What is new in Klipstack, at the foot of the sidebar: the newest entry on top, the next ones
- * behind it, their edges showing. Opening a card (its page on `/news`, in a new tab) or its ✕
- * closes it for good, and the next one comes forward. The edges are a button: it opens the stack
- * into a list of every card, upward, until Escape or Show less. In the rail: an icon with a dot,
- * which opens the sidebar.
+ * behind it, their edges showing above it. Opening a card (its page on `/news`, in a new tab) or
+ * its ✕ closes it for good, and the next one comes forward. Pointing at the edges (or tabbing to
+ * them, or tapping them) opens them upward into a row per card, its title, each a link to its
+ * page like the top card, and a link to all of them. In the rail: an icon with a dot, which opens
+ * the sidebar.
  */
 export function NewsStack({
 	news,
@@ -36,34 +37,36 @@ export function NewsStack({
 	const fetcher = useFetcher()
 	// Closed here, before the layout's loader says so.
 	const [closed, setClosed] = useState<string[]>([])
-	const [open, setOpen] = useState(false)
-	const toggle = useRef<HTMLButtonElement>(null)
-	const list = useRef<HTMLUListElement>(null)
-	const less = useRef<HTMLButtonElement>(null)
-	// Opened or closed from the keyboard or a click: the button that had the focus is gone.
-	const moved = useRef(false)
+	// Open while the pointer is on the edges, or after the keyboard or a tap went there.
+	const [hover, setHover] = useState(false)
+	const [pinned, setPinned] = useState(false)
+	const edges = useRef<HTMLUListElement>(null)
 	const shown = news.filter((item) => !closed.includes(item.slug))
 	const top = shown[0]
-	// Down to one card, there is nothing left to open.
-	const expanded = open && shown.length > 1
+	const behind = shown.slice(1)
+	const open = (hover || pinned) && behind.length > 0
+	const focusTop = () =>
+		edges.current?.parentElement?.querySelector<HTMLElement>("article a")?.focus()
 	useEffect(() => {
-		// Opened in a short window, the list is taller than the sidebar's room: it scrolls so that
-		// Show less is where the stack's button was, under the pointer.
-		if (expanded) less.current?.scrollIntoView({ block: "nearest" })
-		if (moved.current) {
-			moved.current = false
-			if (expanded) list.current?.querySelector("a")?.focus({ preventScroll: true })
-			else toggle.current?.focus()
-		}
-		if (!expanded) return
+		if (!open) return
 		const onKey = (event: KeyboardEvent) => {
 			if (event.key !== "Escape") return
-			moved.current = true
-			setOpen(false)
+			setHover(false)
+			setPinned(false)
+			// A shut row is invisible: the focus goes on to the top card.
+			if (edges.current?.contains(document.activeElement)) focusTop()
+		}
+		// A tap elsewhere closes what a tap opened.
+		const onDown = (event: PointerEvent) => {
+			if (!edges.current?.contains(event.target as Node)) setPinned(false)
 		}
 		document.addEventListener("keydown", onKey)
-		return () => document.removeEventListener("keydown", onKey)
-	}, [expanded])
+		document.addEventListener("pointerdown", onDown)
+		return () => {
+			document.removeEventListener("keydown", onKey)
+			document.removeEventListener("pointerdown", onDown)
+		}
+	}, [open])
 	if (!top) return null
 	const close = (slug: string) => {
 		setClosed((list) => [...list, slug])
@@ -87,87 +90,88 @@ export function NewsStack({
 		)
 	}
 
-	if (expanded)
-		return (
-			<section data-testid="news-stack" aria-label={t("news.label")} className="mt-4 mb-3">
-				<ul ref={list} className="flex flex-col gap-2">
-					{shown.map((item) => (
-						<li key={item.slug}>
-							<NewsCard item={item} onClose={close} />
-						</li>
-					))}
-				</ul>
-				<div className="mt-1.5 flex items-center justify-between text-xs">
-					<button
-						ref={less}
-						type="button"
-						aria-expanded
-						onClick={() => {
-							moved.current = true
-							setOpen(false)
-						}}
-						className="rounded-md px-1.5 py-1 whitespace-nowrap text-muted-fg hover:bg-hover hover:text-fg"
-					>
-						{t("news.less")}
-					</button>
-					<Link
-						to="/news"
-						target="_blank"
-						rel="noopener"
-						className="rounded-md px-1.5 py-1 whitespace-nowrap text-muted-fg hover:bg-hover hover:text-fg"
-					>
-						{t("news.all")}
-					</Link>
-				</div>
-			</section>
-		)
-
-	const behind = shown.slice(1, 1 + BEHIND)
-	const more = shown.length - 1
 	return (
 		<section
 			data-testid="news-stack"
 			aria-label={t("news.label")}
-			// The edges spread apart on hover, inside the margin below: nothing else moves.
-			className="group/news relative mt-4 mb-3"
-			style={{ paddingBottom: behind.length * 5 }}
+			// The edges' room above the top card; open, the rows rise over what is above, and
+			// nothing else moves.
+			className="relative mt-4 mb-3"
+			style={{ paddingTop: Math.min(behind.length, BEHIND) * 5 }}
 		>
-			{behind.map((item, i) => (
-				<div
-					key={item.slug}
-					aria-hidden
-					// As tall as the top card: the stack's height, less the edges' room below it.
-					style={
-						{ bottom: behind.length * 5, zIndex: BEHIND - i, "--n": i + 1 } as React.CSSProperties
-					}
-					className={cn(
-						"absolute inset-x-0 top-0 rounded-lg border border-border bg-card shadow-sm transition-[translate,scale] duration-200 motion-reduce:transition-none",
-						"translate-y-[calc(var(--n)*5px)] scale-x-[calc(1-var(--n)*0.05)] group-hover/news:translate-y-[calc(var(--n)*9px)]",
-					)}
-				/>
-			))}
-			<div className="relative z-10">
-				<NewsCard item={top} onClose={close} />
+			<div className="relative">
+				{behind.length > 0 ? (
+					<ul
+						ref={edges}
+						data-open={open || undefined}
+						onPointerEnter={(event) => event.pointerType === "mouse" && setHover(true)}
+						onPointerLeave={(event) => event.pointerType === "mouse" && setHover(false)}
+						onFocus={(event) => event.target.matches(":focus-visible") && setPinned(true)}
+						onBlur={(event) => {
+							if (!event.currentTarget.contains(event.relatedTarget)) setPinned(false)
+						}}
+						// A tap on the shut edges, or just above them, opens the rows; the next tap, a row.
+						onClickCapture={(event) => {
+							if (open) return
+							event.preventDefault()
+							event.stopPropagation()
+							setPinned(true)
+						}}
+						// Newest nearest the card; room above the edges to point at or tap them. Its
+						// own layer, under the top card however many rows there are.
+						className="group/edges absolute inset-x-0 bottom-full z-0 flex flex-col-reverse pt-3"
+					>
+						{behind.map((item, i) => (
+							<li
+								key={item.slug}
+								style={{ zIndex: behind.length - i, "--n": i + 1 } as React.CSSProperties}
+								className={cn(
+									"relative overflow-hidden rounded-lg border border-border bg-card shadow-sm transition-[height,margin,scale,opacity,background-color] duration-200 ease-out motion-reduce:transition-none",
+									// Shut: an edge 5px tall, narrower the further back; past BEHIND, none.
+									i < BEHIND
+										? "-mb-[7px] h-3 scale-x-[calc(1-var(--n)*0.05)]"
+										: "-mb-px h-0 scale-x-90 opacity-0",
+									"group-data-open/edges:mb-1 group-data-open/edges:h-8 group-data-open/edges:scale-x-100 group-data-open/edges:opacity-100",
+								)}
+							>
+								<a
+									href={`/news/${item.slug}`}
+									target="_blank"
+									rel="noopener"
+									{...tooltip(item.title)}
+									onClick={(event) => {
+										close(item.slug)
+										// Its row is gone: the focus goes on to the top card, and with no
+										// row left, the stack is shut.
+										if (document.activeElement === event.currentTarget) focusTop()
+										if (behind.length === 1) {
+											setHover(false)
+											setPinned(false)
+										}
+									}}
+									className="flex h-8 items-center px-2.5 text-sm opacity-0 transition-opacity duration-200 group-data-open/edges:opacity-100 hover:bg-hover focus-visible:bg-hover focus-visible:outline-none"
+								>
+									<span className="truncate font-medium">{item.title}</span>
+								</a>
+							</li>
+						))}
+						{/* Open, above the rows: every entry, on its page. */}
+						<li className="h-0 overflow-hidden opacity-0 transition-[height,opacity] duration-200 ease-out group-data-open/edges:h-7 group-data-open/edges:opacity-100 motion-reduce:transition-none">
+							<Link
+								to="/news"
+								target="_blank"
+								rel="noopener"
+								className="flex h-6 items-center rounded-md px-2.5 text-xs whitespace-nowrap text-muted-fg hover:bg-hover hover:text-fg focus-visible:bg-hover focus-visible:outline-none"
+							>
+								{t("news.all")}
+							</Link>
+						</li>
+					</ul>
+				) : null}
+				<div className="relative z-10">
+					<NewsCard item={top} onClose={close} />
+				</div>
 			</div>
-			{more > 0 ? (
-				// The edges and the count are one button: the whole of what is behind opens.
-				<button
-					ref={toggle}
-					type="button"
-					aria-expanded={false}
-					aria-label={t("news.showAll", { count: shown.length })}
-					{...tooltip(t("news.showAll", { count: shown.length }))}
-					onClick={() => {
-						moved.current = true
-						setOpen(true)
-					}}
-					className="group/more absolute inset-x-0 -bottom-2 z-20 flex h-4 justify-end px-2 focus-visible:outline-none"
-				>
-					<span className="rounded-full border border-border bg-card px-1.5 text-[10px] leading-4 font-medium text-muted-fg shadow-sm outline-accent group-hover/news:text-fg group-focus-visible/more:outline-2">
-						{t("news.more", { count: more })}
-					</span>
-				</button>
-			) : null}
 		</section>
 	)
 }
