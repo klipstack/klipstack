@@ -45,6 +45,9 @@ export interface DbTimeouts {
 	idleInTransactionMs: number
 }
 
+/** About 24.8 days: the most PostgreSQL's timeouts and Node's timers accept. */
+const MAX_MILLISECONDS = 2_147_483_647
+
 function milliseconds(
 	env: Record<string, string | undefined>,
 	name: string,
@@ -53,8 +56,10 @@ function milliseconds(
 	const raw = env[name]
 	if (raw === undefined || raw === "") return fallback
 	const value = Number(raw)
-	if (!/^\d+$/.test(raw) || !Number.isSafeInteger(value))
-		throw new Error(`${name} must be a whole number of milliseconds (0 for no limit), not "${raw}"`)
+	if (!/^\d+$/.test(raw) || value > MAX_MILLISECONDS)
+		throw new Error(
+			`${name} must be a whole number of milliseconds from 0 (no limit) to ${MAX_MILLISECONDS}, not "${raw}"`,
+		)
 	return value
 }
 

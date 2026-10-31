@@ -169,7 +169,8 @@ work. Keep the bucket private: the app serves images itself, after checking who 
 | `OPS_UPTIME_URL`, `OPS_BACKUPS_URL` | unset | Links on `/admin/system` to your uptime and backup dashboards. Plain `https` URLs only: no credentials, no query string. |
 | `SUPPYHQ_TENANT` | unset | A [SuppyHQ](https://suppyhq.com) account's tenant (from its embed snippet). The app's sidebar then offers Contact support to every account but admins: it opens SuppyHQ's contact form in a frame, with the account's name and email. Nothing loads from SuppyHQ before that click. |
 
-The `PG_*_MS` settings are milliseconds; `0` turns a limit off. A request that crosses one fails
+The `PG_*_MS` settings are milliseconds, up to 2147483647 (about 25 days); `0` turns a limit off,
+and a larger or malformed value stops the process at start. A request that crosses one fails
 with an error in the log instead of hanging, and frees its connection for the next. `migrate` runs
 without them, so a long migration is not cut short. Raise a limit only if the log shows real work
 being cut off (`code=57014` is a statement timeout, `code=55P03` a lock timeout).

@@ -49,6 +49,11 @@ describe("dbTimeouts", () => {
 			idleInTransactionMs: 30_000,
 		})
 	})
+	it("takes the largest value PostgreSQL and Node's timers both accept", () => {
+		expect(dbTimeouts("web", { PG_STATEMENT_TIMEOUT_MS: "2147483647" }).statementMs).toBe(
+			2147483647,
+		)
+	})
 	it("refuses anything but a whole number of milliseconds", () => {
 		for (const name of [
 			"PG_CONNECT_TIMEOUT_MS",
@@ -57,7 +62,8 @@ describe("dbTimeouts", () => {
 			"PG_LOCK_TIMEOUT_MS",
 			"PG_IDLE_IN_TRANSACTION_TIMEOUT_MS",
 		])
-			for (const value of ["-1", "2.5", "15s", "1e3x"])
+			// Past 2^31 - 1, PostgreSQL refuses the setting and Node's timers fire at once.
+			for (const value of ["-1", "2.5", "15s", "1e3x", "2147483648", "3000000000"])
 				expect(() => {
 					dbTimeouts("web", { [name]: value })
 					dbTimeouts("worker", { [name]: value })
