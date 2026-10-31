@@ -97,7 +97,7 @@ ${shelfHtml(page.topics)}<script type="application/json" id="klip-config">${scri
  */
 function stampHtml(stamp: ReaderPage["stamp"]): string {
 	if (!stamp) return ""
-	return ` <span id="klip-stamp" class="read-stamp" role="img" aria-label="${escapeHtml(t("library.readStampLabel"))}" style="transform: rotate(${stamp.degrees}deg)"${stamp.shown ? "" : " hidden"}><span aria-hidden="true">${escapeHtml(t("library.readStamp"))}</span></span>`
+	return ` <span id="klip-stamp" class="read-stamp" style="transform: rotate(${stamp.degrees}deg)"${stamp.shown ? "" : " hidden"}><span class="sr-only">${escapeHtml(t("library.readStampLabel"))}</span><span class="ink" aria-hidden="true">${escapeHtml(t("library.readStamp"))}</span></span>`
 }
 
 /** The article's topics above its title, strongest first, as a newspaper names its sections. */
@@ -287,12 +287,14 @@ body {
 }
 header h1 { font-family: var(--sans); font-size: 1.875rem; line-height: 1.2; margin: 8px 0 8px; }
 .byline { font-family: var(--sans); font-size: 0.9375rem; color: var(--muted-fg); margin: 0 0 24px; }
-/* The card's ReadStamp (src/components/read-stamp.tsx), in the same ink, sized to the text. */
+/* The card's ReadStamp (src/components/read-stamp.tsx), in the same ink. It grows with the text,
+   but no further than the card's (1.5 times). */
 .read-stamp { display: inline-block; vertical-align: middle; }
 .read-stamp[hidden] { display: none; }
-.read-stamp > span {
+.read-stamp .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.read-stamp .ink {
 	display: block; padding: 0 4px; border: 1.5px solid var(--stamp); border-radius: 3px; opacity: 0.85;
-	color: var(--stamp); font-size: 0.625rem; line-height: 0.8125rem; font-weight: 800; letter-spacing: 0.14em;
+	color: var(--stamp); font-size: min(0.625rem, 15px); line-height: min(0.8125rem, 19.5px); font-weight: 800; letter-spacing: 0.14em;
 	-webkit-user-select: none; user-select: none;
 }
 .via { font-family: var(--sans); font-size: 0.9375rem; line-height: 1.5; margin: -8px 0 24px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; }

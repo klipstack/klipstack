@@ -619,8 +619,9 @@ describe("the reader page: reading and links", () => {
 		const stamp = byline.querySelector<HTMLElement>(".read-stamp")!
 		// Shown from the start, before the app first draws the end.
 		expect(stamp.hidden).toBe(false)
-		expect(stamp.getAttribute("aria-label")).toBe("Finished")
-		expect(stamp.textContent).toBe("READ")
+		// VoiceOver hears the word, not the stamp's capitals.
+		expect(stamp.querySelector(".sr-only")!.textContent).toBe("Finished")
+		expect(stamp.querySelector('[aria-hidden="true"]')!.textContent).toBe("READ")
 		expect(stamp.style.transform).toBe("rotate(3deg)")
 		const end = { archived: true, starred: false, editions: false, shortlisted: false }
 		page.klipEnd({ ...end, state: "kept" })
