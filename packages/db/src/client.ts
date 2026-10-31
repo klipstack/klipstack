@@ -1,6 +1,16 @@
+import { logError } from "@klipstack/log"
 import { drizzle } from "drizzle-orm/node-postgres"
 import pg from "pg"
-import { databaseUrl, loadEnv, poolMax } from "./env"
+import {
+	databaseUrl,
+	type DbProcess,
+	type DbTimeouts,
+	dbTimeouts,
+	loadEnv,
+	poolMax,
+	sessionOptions,
+	withSessionOptions,
+} from "./env"
 import * as schema from "./schema"
 
 loadEnv()
@@ -9,14 +19,89 @@ declare global {
 	var __klipstackPool: pg.Pool | undefined
 }
 
+type ConnectCallback = (
+	error: Error | undefined,
+	client: pg.PoolClient | undefined,
+	done: (release?: unknown) => void,
+) => void
+
+/**
+ * The error pg-pool gives when no connection came within `connectionTimeoutMillis`, with a code:
+ * the log leaves messages out, and would show only `Error`.
+ */
+function withPoolCode<E>(error: E): E {
+	if (error instanceof Error && error.message === "timeout exceeded when trying to connect")
+		Object.assign(error, { code: "pool_timeout" })
+	return error
+}
+
+/** pg's pool, whose connect timeout says so in the log. `query` goes through `connect`. */
+class Pool extends pg.Pool {
+	override connect(): Promise<pg.PoolClient>
+	override connect(callback: ConnectCallback): void
+	override connect(callback?: ConnectCallback): Promise<pg.PoolClient> | void {
+		if (!callback)
+			return super.connect().catch((error: unknown) => {
+				throw withPoolCode(error)
+			})
+		super.connect((error, client, done) => callback(withPoolCode(error), client, done))
+	}
+}
+
+/**
+ * A pool whose connections carry the given limits. Without them, a slow query, a lock wait or a
+ * transaction a bug left open holds its connection for good, and once all are held every request
+ * waits forever, with nothing in the logs. `timeouts: null` sets none: for migrations.
+ */
+export function createPool({ max, timeouts }: { max: number; timeouts: DbTimeouts | null }) {
+	const created = new Pool({
+		...withSessionOptions(databaseUrl(), timeouts ? sessionOptions(timeouts) : ""),
+		max,
+		...(timeouts && { connectionTimeoutMillis: timeouts.connectMs }),
+	})
+	// The server ends a session that sat in a transaction too long while the connection is checked
+	// out and idle. pg then emits `error` on the client, and an `error` nobody listens for stops the
+	// process. The next query on that client fails, and the request with it; this logs why.
+	created.on("connect", (client) => {
+		// pg reports a lost connection twice (the server's reason, then the closed socket): the first
+		// says why.
+		let lost = false
+		client.on("error", (error) => {
+			if (lost) return
+			lost = true
+			logError("[db] connection lost", error)
+		})
+	})
+	// The same error on a connection waiting in the pool: the listener above has logged it, and the
+	// pool drops the connection.
+	created.on("error", () => undefined)
+	return created
+}
+
+/**
+ * The pool `migrate` runs on, without the app's limits: a migration may rewrite a large table, or
+ * wait for the app's transactions to let go of one. One connection, as drizzle's migrator uses.
+ */
+export function createMigrationPool() {
+	return createPool({ max: 1, timeouts: null })
+}
+
 /** One pool per process, surviving Vite HMR reloads in dev. */
 export const pool: pg.Pool =
-	globalThis.__klipstackPool ??
-	new pg.Pool({
-		connectionString: databaseUrl(),
-		max: poolMax(),
-	})
+	globalThis.__klipstackPool ?? createPool({ max: poolMax(), timeouts: dbTimeouts("web") })
 if (process.env.NODE_ENV !== "production") globalThis.__klipstackPool = pool
+
+/**
+ * Gives the pool's connections the limits of another process (the web's are the default). Call it
+ * when the process starts, before the first query: connections already open keep their limits.
+ */
+export function setDatabaseProcess(process: DbProcess, target: pg.Pool = pool) {
+	if (target.totalCount > 0)
+		throw new Error("setDatabaseProcess must be called before the first query")
+	const timeouts = dbTimeouts(process)
+	target.options.connectionTimeoutMillis = timeouts.connectMs
+	target.options.options = withSessionOptions(databaseUrl(), sessionOptions(timeouts)).options
+}
 
 export const db = drizzle({ client: pool, schema, casing: "snake_case" })
 export type Db = typeof db

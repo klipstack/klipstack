@@ -161,10 +161,36 @@ work. Keep the bucket private: the app serves images itself, after checking who 
 | `BILLING_STARTS_AT` | unset | Leave it unset. It is for a server that charges for accounts: from that day, new accounts get a 30-day trial and the rest a free year, each with caps of their own (`LIMIT_TRIAL_*`, `LIMIT_PAID_*` in `.env.example`), and an account past both can read and export but add nothing. Unset, every account has the caps above and none lapses. |
 | `APPLE_TEAM_ID`, `APPLE_BUNDLE_ID` | unset | Your Apple team ID (10 characters), for Sign in with Apple or your own build of the iPhone app, and that build's bundle ID. With both set, `/.well-known/apple-app-site-association` lets that app open its sign-in callback (`/app/oauth/callback`) as a universal link; unset, it answers 404. Klipstack's own app works only with klipstack.com. |
 | `PG_POOL_MAX` | `10` | Database connections per process (web and worker each have a pool). |
+| `PG_CONNECT_TIMEOUT_MS` | `10000` | How long a request or job waits for a database connection before it fails, when all of the pool's are in use. |
+| `PG_STATEMENT_TIMEOUT_MS` | `15000` | How long one query from the web server may run before PostgreSQL cancels it. |
+| `PG_WORKER_STATEMENT_TIMEOUT_MS` | `300000` | The same for the worker, whose jobs (trash purge, feeds, topics) do more work per query. |
+| `PG_LOCK_TIMEOUT_MS` | `5000` | How long a query waits for a row another transaction has locked. |
+| `PG_IDLE_IN_TRANSACTION_TIMEOUT_MS` | `30000` | How long a transaction may sit open with nothing running before PostgreSQL ends it. |
 | `OPS_UPTIME_URL`, `OPS_BACKUPS_URL` | unset | Links on `/admin/system` to your uptime and backup dashboards. Plain `https` URLs only: no credentials, no query string. |
 | `SUPPYHQ_TENANT` | unset | A [SuppyHQ](https://suppyhq.com) account's tenant (from its embed snippet). The app's sidebar then offers Contact support to every account but admins: it opens SuppyHQ's contact form in a frame, with the account's name and email. Nothing loads from SuppyHQ before that click. |
 
-The limits apply to every account, admins too. The image sets `NODE_ENV=production`, `PORT=3000`
+The `PG_*_MS` settings are milliseconds, up to 2147483647 (about 25 days); `0` turns a limit off,
+and a larger or malformed value stops the process at start. A request that crosses one fails
+with an error in the log instead of hanging, and frees its connection for the next. `migrate` runs
+without them, so a long migration is not cut short. Raise a limit only if the log shows real work
+being cut off. The log names each by its code:
+
+| In the log | Limit | What happened |
+| --- | --- | --- |
+| `code=57014` | `PG_STATEMENT_TIMEOUT_MS` (worker: `PG_WORKER_STATEMENT_TIMEOUT_MS`) | A query ran too long and PostgreSQL cancelled it. |
+| `code=55P03` | `PG_LOCK_TIMEOUT_MS` | A query waited too long for a row another transaction held. |
+| `[db] connection lost` with `code=25P03` | `PG_IDLE_IN_TRANSACTION_TIMEOUT_MS` | A transaction sat open with nothing running, and PostgreSQL ended its session. The request using it fails next, logged as a plain `Error`. |
+| `code=pool_timeout` | `PG_CONNECT_TIMEOUT_MS` | Every connection in the pool stayed busy ("timeout exceeded when trying to connect"). Look for slow queries first; `PG_POOL_MAX` adds connections. |
+
+The server-side limits travel in the connection's startup `options`, after any `options` your
+`DATABASE_URL` carries. A connection pooler between Klipstack and PostgreSQL must pass them on:
+PgBouncer refuses `options` unless it is in `ignore_startup_parameters`, and listed there it drops
+them, so the limits do not apply. You can set them on the database role instead
+(`ALTER ROLE klipstack SET lock_timeout = '5s'`, and so on), but then the worker and `migrate`
+get the same values: leave `statement_timeout` off the role, or keep it as long as a migration
+may need.
+
+The `LIMIT_*` caps apply to every account, admins too. The image sets `NODE_ENV=production`, `PORT=3000`
 and `APP_VERSION`; leave them alone. `AI_FAKE` and `API_CHECK_RESPONSES` are for tests: never set
 them on a real server.
 

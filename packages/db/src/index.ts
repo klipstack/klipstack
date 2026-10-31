@@ -1,7 +1,7 @@
 export * from "drizzle-orm"
-export { type Db, db, pool, type Tx } from "./client"
+export { createPool, type Db, db, pool, type Tx, setDatabaseProcess } from "./client"
 export { byName, collationProblems } from "./collation"
-export { databaseUrl, loadEnv, poolMax } from "./env"
+export { databaseUrl, type DbProcess, type DbTimeouts, dbTimeouts, loadEnv, poolMax } from "./env"
 export { type DocumentEvent, listenDocumentEvents, notifyDocumentEvent } from "./events"
 export {
 	feedSubscribers,

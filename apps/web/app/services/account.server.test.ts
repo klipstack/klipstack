@@ -110,4 +110,24 @@ describe("deleteAccount", () => {
 		// Feeds are shared: the feed stays for its other readers.
 		expect(await db.query.feeds.findFirst({ where: eq(feeds.id, feedId) })).toBeDefined()
 	})
+
+	it("deletes with the worker's statement limit: a large account's cascade outlasts a request's", async () => {
+		const id = `test-account-slow-${randomUUID()}`
+		await db.insert(userTable).values({ id, name: "Slow", email: `${id}@example.com` })
+		let limit: string | undefined
+		await deleteAccount(id, async (tx) => {
+			const { rows } = await tx.execute<{ setting: string }>(
+				sql`select setting from pg_settings where name = 'statement_timeout'`,
+			)
+			limit = rows[0]?.setting
+		})
+		// The worker's default, 5 minutes, not the web's 15 s.
+		expect(limit).toBe("300000")
+		expect(await db.query.user.findFirst({ where: eq(userTable.id, id) })).toBeUndefined()
+		// The rest of the process keeps the web limit: `set local` ends with the transaction.
+		const { rows } = await db.execute<{ setting: string }>(
+			sql`select setting from pg_settings where name = 'statement_timeout'`,
+		)
+		expect(rows[0]?.setting).toBe("15000")
+	})
 })

@@ -1,0 +1,1 @@
+CREATE INDEX "document_via_raw_idx" ON "document_via" USING btree ("raw_id");

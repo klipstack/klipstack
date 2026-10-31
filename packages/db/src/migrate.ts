@@ -1,6 +1,10 @@
+import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
-import { db, pool } from "./client"
+import { createMigrationPool } from "./client"
 import { collationProblems } from "./collation"
+
+const pool = createMigrationPool()
+const db = drizzle({ client: pool })
 
 async function main() {
 	await migrate(db, { migrationsFolder: new URL("../drizzle", import.meta.url).pathname })
