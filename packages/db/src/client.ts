@@ -9,6 +9,7 @@ import {
 	loadEnv,
 	poolMax,
 	sessionOptions,
+	withSessionOptions,
 } from "./env"
 import * as schema from "./schema"
 
@@ -25,12 +26,9 @@ declare global {
  */
 export function createPool({ max, timeouts }: { max: number; timeouts: DbTimeouts | null }) {
 	const created = new pg.Pool({
-		connectionString: databaseUrl(),
+		...withSessionOptions(databaseUrl(), timeouts ? sessionOptions(timeouts) : ""),
 		max,
-		...(timeouts && {
-			connectionTimeoutMillis: timeouts.connectMs,
-			options: sessionOptions(timeouts),
-		}),
+		...(timeouts && { connectionTimeoutMillis: timeouts.connectMs }),
 	})
 	// The server ends a session that sat in a transaction too long while the connection is checked
 	// out and idle. pg then emits `error` on the client, and an `error` nobody listens for stops the
@@ -66,7 +64,7 @@ export function setDatabaseProcess(process: DbProcess, target: pg.Pool = pool) {
 		throw new Error("setDatabaseProcess must be called before the first query")
 	const timeouts = dbTimeouts(process)
 	target.options.connectionTimeoutMillis = timeouts.connectMs
-	target.options.options = sessionOptions(timeouts)
+	target.options.options = withSessionOptions(databaseUrl(), sessionOptions(timeouts)).options
 }
 
 export const db = drizzle({ client: pool, schema, casing: "snake_case" })

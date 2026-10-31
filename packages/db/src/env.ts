@@ -92,6 +92,29 @@ export function sessionOptions(
 		.join(" ")
 }
 
+/**
+ * The connection settings for a URL and the limits' options. pg lets an `options` in the URL
+ * replace the one in its config, which would drop every limit without a word; so the URL's
+ * options are taken out of it and the limits follow them.
+ */
+export function withSessionOptions(
+	url: string,
+	limits: string,
+): { connectionString: string; options?: string } {
+	let parsed: URL | undefined
+	try {
+		parsed = new URL(url)
+	} catch {
+		// Not a URL pg would read options from.
+	}
+	const own = parsed?.searchParams.get("options")
+	if (!parsed || own === null || own === undefined)
+		return limits ? { connectionString: url, options: limits } : { connectionString: url }
+	parsed.searchParams.delete("options")
+	const options = [own, limits].filter(Boolean).join(" ")
+	return { connectionString: parsed.toString(), ...(options && { options }) }
+}
+
 export function databaseUrl(): string {
 	const url = process.env.DATABASE_URL
 	if (!url) throw new Error("DATABASE_URL is not set")

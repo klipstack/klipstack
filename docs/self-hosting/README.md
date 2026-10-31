@@ -174,6 +174,14 @@ with an error in the log instead of hanging, and frees its connection for the ne
 without them, so a long migration is not cut short. Raise a limit only if the log shows real work
 being cut off (`code=57014` is a statement timeout, `code=55P03` a lock timeout).
 
+The server-side limits travel in the connection's startup `options`, after any `options` your
+`DATABASE_URL` carries. A connection pooler between Klipstack and PostgreSQL must pass them on:
+PgBouncer refuses `options` unless it is in `ignore_startup_parameters`, and listed there it drops
+them, so the limits do not apply. You can set them on the database role instead
+(`ALTER ROLE klipstack SET lock_timeout = '5s'`, and so on), but then the worker and `migrate`
+get the same values: leave `statement_timeout` off the role, or keep it as long as a migration
+may need.
+
 The `LIMIT_*` caps apply to every account, admins too. The image sets `NODE_ENV=production`, `PORT=3000`
 and `APP_VERSION`; leave them alone. `AI_FAKE` and `API_CHECK_RESPONSES` are for tests: never set
 them on a real server.

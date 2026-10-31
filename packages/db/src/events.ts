@@ -1,7 +1,7 @@
 import { errorLabel } from "@klipstack/log"
 import pg from "pg"
 import { pool } from "./client"
-import { databaseUrl, dbTimeouts, sessionOptions } from "./env"
+import { databaseUrl, dbTimeouts, sessionOptions, withSessionOptions } from "./env"
 
 /**
  * Change notifications over Postgres LISTEN/NOTIFY: the worker and the web app publish, the web
@@ -45,9 +45,8 @@ export function listenDocumentEvents(onEvent: (event: DocumentEvent) => void): (
 		const { connectMs, idleInTransactionMs } = dbTimeouts("web")
 		// Only the idle-in-transaction limit: this connection must stay open to hear notifications.
 		const next = new pg.Client({
-			connectionString: databaseUrl(),
+			...withSessionOptions(databaseUrl(), sessionOptions({ idleInTransactionMs })),
 			connectionTimeoutMillis: connectMs,
-			options: sessionOptions({ idleInTransactionMs }),
 		})
 		client = next
 		next.on("notification", (msg) => {

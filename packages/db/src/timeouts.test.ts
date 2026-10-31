@@ -67,6 +67,28 @@ describe("the process pool", () => {
 		})
 	})
 
+	it("keeps its limits when DATABASE_URL carries options of its own", async () => {
+		const url = process.env.DATABASE_URL!
+		process.env.DATABASE_URL = `${url}${url.includes("?") ? "&" : "?"}options=${encodeURIComponent("-c search_path=public")}`
+		try {
+			const withOptions = shortPool()
+			expect(await settings(withOptions)).toEqual({
+				idle_in_transaction_session_timeout: "300",
+				lock_timeout: "300",
+				statement_timeout: "300",
+			})
+			expect((await withOptions.query("show search_path")).rows).toEqual([
+				{ search_path: "public" },
+			])
+			const worker = shortPool()
+			setDatabaseProcess("worker", worker)
+			expect(await settings(worker)).toMatchObject({ statement_timeout: "300000" })
+			expect((await worker.query("show search_path")).rows).toEqual([{ search_path: "public" }])
+		} finally {
+			process.env.DATABASE_URL = url
+		}
+	})
+
 	it("refuses to change the limits once connections are open", async () => {
 		const opened = shortPool()
 		await opened.query("select 1")

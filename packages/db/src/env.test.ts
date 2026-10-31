@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { dbTimeouts, poolMax, sessionOptions } from "./env"
+import { dbTimeouts, poolMax, sessionOptions, withSessionOptions } from "./env"
 
 describe("poolMax", () => {
 	it("defaults to 10 and reads a whole number", () => {
@@ -75,5 +75,35 @@ describe("sessionOptions", () => {
 		expect(sessionOptions({ idleInTransactionMs: 30_000 })).toBe(
 			"-c idle_in_transaction_session_timeout=30000",
 		)
+	})
+})
+
+describe("withSessionOptions", () => {
+	const limits = "-c statement_timeout=15000"
+	it("adds the limits after the options the URL already carries, and takes them out of the URL", () => {
+		expect(
+			withSessionOptions(
+				"postgres://u:p@db.example.com:5432/app?sslmode=require&options=-c%20search_path%3Dpublic",
+				limits,
+			),
+		).toEqual({
+			connectionString: "postgres://u:p@db.example.com:5432/app?sslmode=require",
+			options: "-c search_path=public -c statement_timeout=15000",
+		})
+	})
+	it("leaves a URL without options as it is", () => {
+		expect(withSessionOptions("postgres://u:p@localhost:5433/app", limits)).toEqual({
+			connectionString: "postgres://u:p@localhost:5433/app",
+			options: limits,
+		})
+	})
+	it("passes the URL's options on alone when there are no limits", () => {
+		expect(withSessionOptions("postgres://localhost/app?options=endpoint%3Dabc", "")).toEqual({
+			connectionString: "postgres://localhost/app",
+			options: "endpoint=abc",
+		})
+		expect(withSessionOptions("postgres://localhost/app", "")).toEqual({
+			connectionString: "postgres://localhost/app",
+		})
 	})
 })
