@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { db, eq, user } from "@klipstack/db"
 import { expect, type Page, test } from "@playwright/test"
-import { signupUser } from "./helpers"
+import { sameOrigin, signupUser } from "./helpers"
 import { insertArticle } from "./seed"
 
 const FIXTURE = join(
@@ -38,6 +38,7 @@ test("a question about a passage streams its answer, with a citation, and is kep
 	await signupUser(page, "Asker", { features: ["ai"] })
 	const id = await saveArticle(page)
 	const res = await page.request.post(`/documents/${id}/ai`, {
+		headers: sameOrigin(),
 		data: { intent: "ask", action: "explain", exact: PASSAGE },
 	})
 	expect(res.status()).toBe(201)
@@ -64,6 +65,7 @@ test("a question about a passage streams its answer, with a citation, and is kep
 	const follow = events(
 		await (
 			await page.request.post(`/documents/${id}/ai`, {
+				headers: sameOrigin(),
 				data: { intent: "follow-up", id: threadId, question: "And then?" },
 			})
 		).text(),
@@ -89,6 +91,7 @@ test("a question about a passage streams its answer, with a citation, and is kep
 	expect(reads).toBeGreaterThan(2)
 
 	const deleted = await page.request.post(`/documents/${id}/ai`, {
+		headers: sameOrigin(),
 		data: { intent: "delete", id: threadId },
 	})
 	expect(await deleted.json()).toEqual({ ok: true, id: threadId })
@@ -100,6 +103,7 @@ test("without the feature, nothing is asked", async ({ page }) => {
 	// Refused before anything reads the article: it need not be extracted.
 	const id = await insertArticle(owner!.id, "No AI", `<p>${PASSAGE}.</p>`)
 	const res = await page.request.post(`/documents/${id}/ai`, {
+		headers: sameOrigin(),
 		data: { intent: "ask", action: "explain", exact: PASSAGE },
 	})
 	expect(res.status()).toBe(403)

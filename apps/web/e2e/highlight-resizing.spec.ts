@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto"
 import { db, documents, documentVersions, eq, highlights, user } from "@klipstack/db"
 import { expect, type Page, test } from "@playwright/test"
-import { paintedHighlights, signupUser, waitForHydration } from "./helpers"
+import { paintedHighlights, sameOrigin, signupUser, waitForHydration } from "./helpers"
 
 // Network-failure tests must intercept the request itself, outside the offline service worker.
 test.use({ serviceWorkers: "block" })
@@ -47,6 +47,7 @@ async function signup(page: Page) {
 }
 async function seed(page: Page, start = START, end = END, note: string | null = null, color = 3) {
 	const res = await page.request.post(`/documents/${docId}/highlights`, {
+		headers: sameOrigin(),
 		data: { intent: "create", start, end, exact: text.slice(start, end), color, note },
 	})
 	expect(res.status()).toBe(201)
@@ -215,6 +216,7 @@ test("toolbar mode, overlap and note paint survive shrinking across links and pa
 	page,
 }) => {
 	await page.request.post(`/documents/${docId}/highlights`, {
+		headers: sameOrigin(),
 		data: { intent: "update", id: highlightId, note: "A retained note" },
 	})
 	await seed(page, START + 8, END + 7, null, 1)

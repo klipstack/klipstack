@@ -258,6 +258,12 @@ export async function login(page: Page, email: string, expectUrl: RegExp = /\/ho
 }
 
 /**
+ * The Origin a browser sends with a write from this site's pages. `page.request` sends none, and the
+ * server refuses a write with the session cookie and no Origin (app/lib/origin.server.ts).
+ */
+export const sameOrigin = () => ({ origin: new URL(test.info().project.use.baseURL!).origin })
+
+/**
  * Logs out from inside the page, so the service worker sees it and forgets the session at once.
  * Not `page.request.post("/logout")`: that logs out behind the worker's back. The next
  * `page.goto` then brings a signed-out response, and the worker tells every tab to reload: this
@@ -268,7 +274,7 @@ export async function login(page: Page, email: string, expectUrl: RegExp = /\/ho
 export async function logout(page: Page) {
 	// Nothing loaded yet (signupUser loads no page): the context's own request is enough.
 	if (page.url() === "about:blank") {
-		await page.request.post("/logout", { maxRedirects: 0 })
+		await page.request.post("/logout", { headers: sameOrigin(), maxRedirects: 0 })
 		return
 	}
 	// A loaded page logs out through its own fetch, as the app does: its service worker sees it.

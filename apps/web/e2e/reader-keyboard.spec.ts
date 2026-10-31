@@ -9,7 +9,7 @@ import {
 	user,
 } from "@klipstack/db"
 import { expect, type Page, test } from "@playwright/test"
-import { applePlatform, signupUser, waitForHydration } from "./helpers"
+import { applePlatform, sameOrigin, signupUser, waitForHydration } from "./helpers"
 import { insertArticle } from "./seed"
 
 const LONG = Array.from(
@@ -160,7 +160,7 @@ test("j and k step through the paragraphs with a marker; Escape leaves", async (
 test("with single-key shortcuts off, the reader's letter keys do nothing", async ({ page }) => {
 	await page.setViewportSize({ width: 1440, height: 900 })
 	await open(page, ["ai"], (ids) => seedThread(ids, "There are two types of schedule.", "Answer."))
-	await page.request.post("/prefs", { form: { shortcuts: "off" } })
+	await page.request.post("/prefs", { headers: sameOrigin(), form: { shortcuts: "off" } })
 	await page.reload()
 	await waitForHydration(page)
 	// `[`/`]` as Option or AltGr types them too.
@@ -414,7 +414,7 @@ test("? lists the reader's shortcuts; so does the button in the top bar", async 
 test("with single-key shortcuts off, the list says so", async ({ page }) => {
 	await page.setViewportSize({ width: 1280, height: 800 })
 	await open(page)
-	await page.request.post("/prefs", { form: { shortcuts: "off" } })
+	await page.request.post("/prefs", { headers: sameOrigin(), form: { shortcuts: "off" } })
 	await page.reload()
 	await waitForHydration(page)
 	await page.keyboard.press("?")

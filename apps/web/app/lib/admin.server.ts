@@ -5,7 +5,7 @@ import { data, type RouterContextProvider, redirect } from "react-router"
 import type { AuditActor } from "~/services/admin-audit.server"
 import { AppError, rateLimited } from "./app-error"
 import type { SessionData } from "./auth.server"
-import { env } from "./env.server"
+import { sameOrigin } from "./origin.server"
 import { RECENT_SIGN_IN_MS, signedInRecently as signedInWithin } from "./recent-sign-in.server"
 import { boundedRequest } from "./request-body.server"
 import { getSession, safeRedirect } from "./session.server"
@@ -120,12 +120,6 @@ export async function requireAdmin(
 export function safeAdminPath(to: string | null | undefined): string {
 	const safe = safeRedirect(to, "/admin")
 	return /^\/admin(?:[/?#]|$)/.test(safe) && !safe.includes("..") ? safe : "/admin"
-}
-
-/** Browsers send Origin on every POST. A missing or foreign one is not our form. */
-export function sameOrigin(request: Request): boolean {
-	const origin = request.headers.get("origin")
-	return !!origin && origin === new URL(env.APP_URL).origin
 }
 
 export function signedInRecently(ctx: AdminContext, now = Date.now()): boolean {

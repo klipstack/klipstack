@@ -11,7 +11,7 @@ import {
 	user,
 } from "@klipstack/db"
 import { expect, type Locator, type Page, test } from "@playwright/test"
-import { signupUser, waitForHydration } from "./helpers"
+import { sameOrigin, signupUser, waitForHydration } from "./helpers"
 import { insertArticle } from "./seed"
 
 const FIXTURE = join(
@@ -49,7 +49,7 @@ async function signup(page: Page) {
 	await page.goto("/library")
 }
 
-test("shared links need confirmation and cross-origin POST cannot save", async ({
+test("shared links need confirmation and cross-origin POST cannot save or delete", async ({
 	page,
 	baseURL,
 }) => {
@@ -84,6 +84,27 @@ test("shared links need confirmation and cross-origin POST cannot save", async (
 	await dialog.getByRole("button", { name: "Save", exact: true }).click()
 	await expect(page.getByRole("status").getByText("Saved to your library.")).toBeVisible()
 	expect(await saved()).toHaveLength(1)
+	// Resource routes (an action, no page) get no check from React Router: the session middleware
+	// refuses them from another origin, a sibling subdomain included, and without one.
+	const id = (await saved())[0]!.id
+	for (const origin of ["https://untrusted.example", "https://other.localhost", undefined]) {
+		const bulk = await page.request.post("/documents/bulk", {
+			headers: origin ? { origin } : {},
+			form: { intent: "delete", ids: id },
+		})
+		expect(bulk.status(), origin).toBe(403)
+		expect(await bulk.json()).toMatchObject({ error: { code: "forbidden" } })
+	}
+	expect((await saved())[0]?.deletedAt).toBeNull()
+	// better-auth's own endpoints are left to its origin check (app/lib/origin.server.ts): a sibling
+	// subdomain can't change the account, while this site can.
+	const rename = (origin: string, name: string) =>
+		page.request.post("/api/auth/update-user", { headers: { origin }, data: { name } })
+	expect((await rename("https://other.localhost", "Hijacked")).status()).toBe(403)
+	const named = () => db.query.user.findFirst({ where: eq(user.id, owner!.id) })
+	expect((await named())?.name).not.toBe("Hijacked")
+	expect((await rename(new URL(baseURL!).origin, "Renamed here")).ok()).toBe(true)
+	expect((await named())?.name).toBe("Renamed here")
 })
 
 test("save via API with captured html → extracted → readable → archive", async ({ page }) => {
@@ -485,7 +506,12 @@ test("restoring a page saved again since keeps it in the trash and offers the sa
 	// Trashed, then the same page saved again: Restore says why it cannot, and links the new one.
 	const first = await save()
 	expect(
-		(await page.request.post(`/documents/${first}/state`, { form: { intent: "delete" } })).ok(),
+		(
+			await page.request.post(`/documents/${first}/state`, {
+				headers: sameOrigin(),
+				form: { intent: "delete" },
+			})
+		).ok(),
 	).toBe(true)
 	const second = await save()
 	await page.goto("/trash")
@@ -532,6 +558,7 @@ test("restoring a page saved again since keeps it in the trash and offers the sa
 
 	// The action answers 409 with the article already saved, never a server error.
 	const refused = await page.request.post(`/documents/${first}/state`, {
+		headers: sameOrigin(),
 		form: { intent: "restore" },
 	})
 	expect(refused.status()).toBe(409)

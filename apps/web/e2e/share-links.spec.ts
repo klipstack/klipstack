@@ -5,6 +5,7 @@ import sharp from "sharp"
 import {
 	lastEmailTo,
 	resetLocalIpLimit,
+	sameOrigin,
 	signupAdmin,
 	signupUser,
 	uniqueEmail,
@@ -34,6 +35,7 @@ async function highlighted(page: Page, note: string) {
 	await page.goto(`/read/${id}`)
 	await expect(page.locator(".reader-content")).toContainText(MAKERS.quote, { timeout: 60_000 })
 	const hl = await page.request.post(`/documents/${id}/highlights`, {
+		headers: sameOrigin(),
 		data: { intent: "create", exact: MAKERS.quote, note },
 	})
 	expect(hl.status()).toBe(201)
@@ -104,6 +106,7 @@ test("a highlight shared at a link: its page, updates, the Notebook's filter, an
 	const highlightId = id!.split("#h=")[1]!
 	const documentId = id!.split("/read/")[1]!.split("#")[0]!
 	await page.request.post(`/documents/${documentId}/highlights`, {
+		headers: sameOrigin(),
 		form: { intent: "update", id: highlightId, note: "Mornings, not meetings." },
 	})
 	await visitor.reload()

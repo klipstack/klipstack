@@ -6,6 +6,7 @@ import {
 	caretToEnd,
 	expectMarked,
 	paintedHighlights,
+	sameOrigin,
 	signupUser,
 	waitForHydration,
 } from "./helpers"
@@ -297,6 +298,7 @@ test("highlight → persists → note → sidebar → highlights page → delete
 	// keyboard: the sidebar takes focus on open; j/k move, Enter jumps and keeps it open, Escape closes
 	const LATER = "each day cut into one hour intervals"
 	const second = await page.request.post(`/documents/${id}/highlights`, {
+		headers: sameOrigin(),
 		data: { intent: "create", exact: LATER, color: 1 },
 	})
 	expect(second.status()).toBe(201)
@@ -326,14 +328,17 @@ test("highlight → persists → note → sidebar → highlights page → delete
 
 	// API: creating by quote alone works; an ambiguous quote is rejected with 409
 	const byQuote = await page.request.post(`/documents/${id}/highlights`, {
+		headers: sameOrigin(),
 		data: { intent: "create", exact: "Maker's Schedule", color: 2 },
 	})
 	expect([201, 409]).toContain(byQuote.status())
 	const ambiguous = await page.request.post(`/documents/${id}/highlights`, {
+		headers: sameOrigin(),
 		data: { intent: "create", exact: "the" },
 	})
 	expect(ambiguous.status()).toBe(409)
 	const missing = await page.request.post(`/documents/${id}/highlights`, {
+		headers: sameOrigin(),
 		data: { intent: "create", exact: "zebra unicorn rainbow" },
 	})
 	expect(missing.status()).toBe(422)
@@ -452,6 +457,7 @@ test("a highlight's color: picked in its toolbar, shown on the text, its note an
 	const id = await signupAndSave(page)
 	const NOTE = "Makers need long blocks."
 	const created = await page.request.post(`/documents/${id}/highlights`, {
+		headers: sameOrigin(),
 		data: { intent: "create", exact: QUOTE, note: NOTE },
 	})
 	expect(created.status()).toBe(201)
@@ -742,6 +748,7 @@ test("a note being written scrolls under the top bar, in the margin and floating
 	test.setTimeout(90_000)
 	const id = await signupAndSave(page)
 	const hl = await page.request.post(`/documents/${id}/highlights`, {
+		headers: sameOrigin(),
 		data: { intent: "create", exact: QUOTE, note: "Makers need long blocks." },
 	})
 	expect(hl.status()).toBe(201)

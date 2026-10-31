@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto"
 import { db, documents, documentVersions, eq, user } from "@klipstack/db"
 import { expect, type Page, test } from "@playwright/test"
 import sharp from "sharp"
-import { paintedHighlights, signupUser, waitForHydration } from "./helpers"
+import { paintedHighlights, sameOrigin, signupUser, waitForHydration } from "./helpers"
 
 /**
  * Highlights are painted as marker ink: one stroke per line over the text (HighlightInk), blended
@@ -52,6 +52,7 @@ async function seed(page: Page, from: string, to: string, color: number) {
 	const start = text.indexOf(from)
 	const end = text.indexOf(to, start) + to.length
 	const res = await page.request.post(`/documents/${docId}/highlights`, {
+		headers: sameOrigin(),
 		data: { intent: "create", start, end, exact: text.slice(start, end), color },
 	})
 	expect(res.status()).toBe(201)
