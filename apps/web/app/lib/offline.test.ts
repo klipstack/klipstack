@@ -31,6 +31,9 @@ function worker() {
 		/** The server's clock for the `Date` header; `null` sends none. */
 		now: Date.now() as number | null,
 		fetched: [] as string[],
+		/** The tabs the worker sees, and what it posted to each. */
+		tabs: [] as string[],
+		posted: [] as { to: string; type: unknown }[],
 	}
 	const sandbox = vm.createContext({
 		URL,
@@ -41,7 +44,15 @@ function worker() {
 		self: {
 			location: { origin: base },
 			navigator: { onLine: true },
-			clients: { matchAll: async () => [], claim: async () => {} },
+			clients: {
+				matchAll: async () =>
+					state.tabs.map((id) => ({
+						id,
+						postMessage: (message: { type: unknown }) =>
+							state.posted.push({ to: id, type: message.type }),
+					})),
+				claim: async () => {},
+			},
 			addEventListener: (name: string, fn: (event: Record<string, unknown>) => void) =>
 				handlers.set(name, fn),
 		},
@@ -73,10 +84,10 @@ function worker() {
 		stores,
 		caches,
 		dispatch,
-		read: (path: string, method = "GET") =>
+		read: (path: string, method = "GET", clientId = "test") =>
 			dispatch("fetch", {
 				request: new Request(new URL(path, base), { method }),
-				clientId: "test",
+				clientId,
 			}) as Promise<Response>,
 	}
 }
@@ -126,6 +137,54 @@ describe("private offline partitions", () => {
 		await warming
 		expect([...w.stores.keys()].some((n) => n.startsWith("private-"))).toBe(false)
 	})
+	describe("reloading other tabs", () => {
+		const reloads = (w: ReturnType<typeof worker>) =>
+			w.state.posted.filter((m) => m.type === "session-changed").map((m) => m.to)
+
+		it("does not reload the consent tab when the same session answers after Allow", async () => {
+			// The consent tab allows; the browser then loads the extension's callback in it. Meanwhile
+			// another tab's request brings back the session the post made the worker forget: a reload
+			// told to the consent tab then cancelled its way to the callback.
+			const w = worker()
+			w.state.tabs = ["consent", "other"]
+			await w.read("/library.data", "GET", "other")
+			await w.read("/oauth/consent.data", "POST", "consent")
+			expect(reloads(w)).toEqual(["other"])
+			await w.read("/home.data", "GET", "other")
+			await w.dispatch("fetch", {
+				request: { url: "http://localhost:5180/home", method: "GET", mode: "navigate" },
+				clientId: "",
+			})
+			expect(reloads(w)).toEqual(["other"])
+		})
+
+		it("reloads them once after a sign-in, from the sign-in itself", async () => {
+			const w = worker()
+			w.state.tabs = ["signing-in", "other"]
+			w.state.owner = "none"
+			await w.read("/library.data", "GET", "other")
+			w.state.owner = "b".repeat(64)
+			await w.read("/login.data", "POST", "signing-in")
+			await w.read("/library.data", "GET", "other")
+			expect(reloads(w)).toEqual(["other"])
+		})
+
+		it("reloads every other tab when the session ends or another one answers", async () => {
+			const w = worker()
+			w.state.tabs = ["one", "other"]
+			await w.read("/library.data", "GET", "one")
+			w.state.posted = []
+			// Another account's session, seen by the worker without a sign-in through it.
+			w.state.owner = "b".repeat(64)
+			await w.read("/library.data", "GET", "one")
+			expect(reloads(w)).toEqual(["other"])
+			// The session ended (expired, or revoked elsewhere).
+			w.state.owner = "none"
+			await w.read("/library.data", "GET", "other")
+			expect(reloads(w)).toEqual(["other", "one"])
+		})
+	})
+
 	it("answers offline with a list's latest full data, not an older prefetched part of it", async () => {
 		const w = worker()
 		const prefetch = "/library.data?_routes=routes%2Flibrary"

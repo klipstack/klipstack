@@ -4,7 +4,7 @@ import { join } from "node:path"
 import { EXTENSION_CLIENT_ID } from "@klipstack/api-contract/auth"
 import { and, db, documents, eq, oauthConsent, sql, user } from "@klipstack/db"
 import { type BrowserContext, chromium, expect, type Page, test } from "@playwright/test"
-import { createInviteCode, uniqueEmail, waitForHydration } from "./helpers"
+import { clientAddress, createInviteCode, uniqueEmail, waitForHydration } from "./helpers"
 
 const FIXTURE = join(
 	import.meta.dirname,
@@ -258,6 +258,13 @@ test("extension signs in on its own where the browser keeps the session from it,
 				body: readFileSync(FIXTURE, "utf8"),
 			}),
 		)
+		// The extension's token requests from an address of this test's own (`ownClientAddress`):
+		// from 127.0.0.1, repeats of this test run into better-auth's limit on /oauth2/token.
+		await context.route(`${APP_URL}/api/auth/oauth2/token`, (route) =>
+			route.continue({
+				headers: { ...route.request().headers(), "x-forwarded-for": clientAddress(test.info()) },
+			}),
+		)
 		const article = await context.newPage()
 		await article.goto(PAGE_URL, { timeout: 20_000 })
 
@@ -284,6 +291,16 @@ test("extension signs in on its own where the browser keeps the session from it,
 		})
 		await expect(consent.getByText("clicked the Klipstack button in Safari")).toBeVisible()
 		await waitForHydration(consent)
+		// The callback answers slowly, as on a busy runner: anything that reloads the tab meanwhile
+		// (the web app's service worker telling its tabs the session changed) cancels the way to it,
+		// and the extension never sees the code.
+		await context.route(
+			(url) => url.pathname === "/extension/connected",
+			async (route) => {
+				await new Promise((resolve) => setTimeout(resolve, 1500))
+				await route.continue()
+			},
+		)
 		await consent.getByRole("button", { name: "Allow" }).click()
 
 		// The extension reads the code from the tab, closes it, and saves the page it was asked to.

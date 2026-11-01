@@ -49,11 +49,19 @@ self.addEventListener("activate", (event) => {
 
 async function changeIdentity(next, source, force = false, notify = true) {
 	if (next === identity && !force) return
+	const previous = identity
 	identity = next
 	generation++
 	for (const name of await caches.keys()) if (name.startsWith(PRIVATE)) await caches.delete(name)
 	await (await caches.open(META)).put("/session", new Response(identity))
 	if (!notify) return
+	// Tabs reload to drop what an ended or replaced session showed. A session answering where the
+	// worker knew none left nothing to drop: an auth request (any of `authChange`'s, which notify
+	// themselves once cookies change) made it forget the session, or it just started. Told then, a
+	// tab reloaded the page it was leaving, which cancels its page load: after Allow on the consent
+	// page, another tab's next request brought the same session back, and the tab never reached the
+	// Safari extension's callback.
+	if (previous === "none" && next !== "none") return
 	for (const client of await self.clients.matchAll({ type: "window", includeUncontrolled: true })) {
 		if (client.id !== source) client.postMessage({ type: "session-changed" })
 	}
