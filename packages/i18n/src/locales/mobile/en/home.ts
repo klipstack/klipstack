@@ -13,6 +13,8 @@ export default {
 		/** Around the title of the one article finished, which Home sets apart. */
 		finishedBefore: "You finished ",
 		finishedAfter: " this past week.",
+		/** Beside the line, to the Your Reading screen. */
+		seeReading: "See your reading",
 		nextEdition: "Your next edition: ",
 		draft_one: "{{count}} article in the draft",
 		draft_other: "{{count}} articles in the draft",

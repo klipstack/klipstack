@@ -15,7 +15,7 @@ import { afterAll, describe, expect, it, vi } from "vitest"
 import { setPrefs } from "~/commands/account.server"
 import { startEdition } from "~/commands/editions.server"
 import { env } from "~/lib/env.server"
-import { apiUsers } from "~/test/api-harness"
+import { apiUsers, request } from "~/test/api-harness"
 import { insertArticle } from "../../e2e/seed"
 
 // Topic models, as on a server with both keys: a topic needs them.
@@ -93,6 +93,151 @@ describe("what was finished lately in the API", () => {
 		const me = await users.create("Zone")
 		const error = await errorOf(me.client.home.finished("Mars/Olympus_Mons"))
 		expect(error.code).toBe("invalid_request")
+	})
+})
+
+describe("Your reading in the API", () => {
+	/**
+	 * A fixed zone where it is about noon now, whatever the hour of the run: a minute ago is today
+	 * there, and so is this week and month. Never UTC itself, so a handler that ignored the zone
+	 * would count other days.
+	 */
+	function noonZone(now: number) {
+		const hour = new Date(now).getUTCHours()
+		const offset = hour === 12 ? 1 : 12 - hour
+		return { zone: `Etc/GMT${offset > 0 ? "-" : "+"}${Math.abs(offset)}`, offset }
+	}
+	const dayIn = (time: number, timeZone: string) =>
+		new Intl.DateTimeFormat("en-CA", {
+			timeZone,
+			year: "numeric",
+			month: "2-digit",
+			day: "2-digit",
+		}).format(time)
+
+	it("counts what the reader read, as the web's page does", async () => {
+		const me = await users.create("Reading")
+		const other = await users.create("Other")
+		const now = Date.now()
+		const { zone } = noonZone(now)
+		const today = dayIn(now, zone)
+		const none = await me.client.reading.get({ timeZone: zone })
+		expect(none.today).toBe(today)
+		expect(none.totals).toEqual({
+			week: { articles: 0, words: 0, minutes: 0 },
+			month: { articles: 0, words: 0, minutes: 0 },
+			year: { articles: 0, words: 0, minutes: 0 },
+		})
+		expect(none.days).toEqual({})
+		expect(none.periods).toHaveLength(12)
+		expect(none.selected).toMatchObject({ start: none.periods.at(-1)!.start, articles: [] })
+
+		const garden = await article(me.id, "Garden", {
+			wordCount: 1200,
+			readingMinutes: 5,
+			siteName: "example.org",
+		})
+		// Read twice: one article.
+		await finish(me.id, garden, new Date(now - 120_000))
+		await finish(me.id, garden, new Date(now - 60_000))
+		// Not reading: finished several at once, or in the trash; nor another's, nor one of mine
+		// recorded on another reader's article.
+		await finish(me.id, await article(me.id, "Tidied", { wordCount: 50 }), new Date(now), "bulk")
+		const trashed = await article(me.id, "Trashed", { wordCount: 70, deletedAt: new Date() })
+		await finish(me.id, trashed, new Date(now - 60_000))
+		await finish(other.id, await article(other.id, "Theirs"), new Date(now - 60_000))
+		const notMine = await article(other.id, "Not mine", { wordCount: 90 })
+		await finish(me.id, notMine, new Date(now - 60_000))
+		// Read 40 days ago: in an earlier month, not in this week's or month's totals.
+		const old = await article(me.id, "Old", { wordCount: 300, readingMinutes: 2 })
+		const oldAt = now - 40 * DAY_MS
+		await finish(me.id, old, new Date(oldAt))
+		const oldDay = dayIn(oldAt, zone)
+
+		const stats = await me.client.reading.get({ timeZone: zone })
+		const read = { articles: 1, words: 1200, minutes: 5 }
+		const year =
+			oldDay.slice(0, 4) === today.slice(0, 4) ? { articles: 2, words: 1500, minutes: 7 } : read
+		expect(stats.totals).toEqual({ week: read, month: read, year })
+		expect(stats.days).toEqual({ [today]: 1, [oldDay]: 1 })
+		expect(stats.periods.at(-1)).toEqual({ start: stats.selected.start, ...read })
+		expect(stats.selected.articles).toEqual([
+			{ id: garden, title: "Garden", siteName: "example.org", words: 1200, minutes: 5, day: today },
+		])
+		expect((await other.client.reading.get({ timeZone: zone })).totals.week.articles).toBe(1)
+
+		// By month, and an earlier month chosen by its first day.
+		const months = await me.client.reading.get({ timeZone: zone, by: "month" })
+		expect(months.periods.at(-1)).toEqual({ start: `${today.slice(0, 7)}-01`, ...read })
+		expect(months.periods.at(-2)!.start).toMatch(/-01$/)
+		const earlier = `${oldDay.slice(0, 7)}-01`
+		const [y, m] = earlier.split("-").map(Number)
+		const lastDay = new Date(Date.UTC(y!, m!, 0)).toISOString().slice(0, 10)
+		const before = await me.client.reading.get({ timeZone: zone, by: "month", start: earlier })
+		expect(before.selected).toMatchObject({
+			start: earlier,
+			end: lastDay,
+			articles: [{ id: old, title: "Old", siteName: null, words: 300, minutes: 2, day: oldDay }],
+		})
+	})
+
+	it("counts the reader's days where they are, not in UTC", async () => {
+		const me = await users.create("Reading zone")
+		const now = Date.now()
+		const { zone, offset } = noonZone(now)
+		// Half an hour either side of midnight there: two days there, one in UTC.
+		const midnight = Math.floor((now + offset * 3_600_000) / DAY_MS) * DAY_MS - offset * 3_600_000
+		const late = midnight - 30 * 60_000
+		const early = midnight + 30 * 60_000
+		await finish(me.id, await article(me.id, "Late"), new Date(late))
+		await finish(me.id, await article(me.id, "Early"), new Date(early))
+		expect(dayIn(late, zone)).not.toBe(dayIn(early, zone))
+
+		const stats = await me.client.reading.get({ timeZone: zone })
+		expect(stats.today).toBe(dayIn(now, zone))
+		expect(stats.days).toEqual({ [dayIn(late, zone)]: 1, [dayIn(early, zone)]: 1 })
+	})
+
+	it("names the topics read about only for a reader who uses topics", async () => {
+		const me = await users.create("Reading topics")
+		const { zone } = noonZone(Date.now())
+		await db.insert(userFeatures).values({ userId: me.id, feature: "topics" })
+		await db
+			.insert(topicLibraries)
+			.values({ userId: me.id, proposedAt: new Date(), confirmedAt: new Date() })
+		const [topic] = await db
+			.insert(topics)
+			.values({
+				userId: me.id,
+				name: "Gardens",
+				description: "d",
+				status: "active",
+				origin: "first",
+			})
+			.returning({ id: topics.id })
+		const garden = await article(me.id, "Garden")
+		await db
+			.insert(documentTopics)
+			.values({ documentId: garden, topicId: topic!.id, probability: 0.9, level: "applied" })
+		await finish(me.id, garden, new Date(Date.now() - 60_000))
+		expect((await me.client.reading.get({ timeZone: zone })).selected.topics).toEqual([
+			{ id: topic!.id, name: "Gardens", articles: 1 },
+		])
+
+		// The same, without topics in use: none named.
+		await db.delete(userFeatures).where(eq(userFeatures.userId, me.id))
+		expect((await me.client.reading.get({ timeZone: zone })).selected.topics).toEqual([])
+	})
+
+	it("refuses what is no time zone, no way to show it or no day", async () => {
+		const me = await users.create("Reading refused")
+		const error = await errorOf(me.client.reading.get({ timeZone: "Mars/Olympus_Mons" }))
+		expect(error.code).toBe("invalid_request")
+		for (const query of ["timeZone=UTC&by=year", "timeZone=UTC&start=2026-1-1", "by=week"]) {
+			const answer = await request(`/api/v1/reading?${query}`, { token: me.token })
+			expect(answer.status, query).toBe(400)
+			expect(await answer.json()).toMatchObject({ error: { code: "invalid_request" } })
+		}
 	})
 })
 

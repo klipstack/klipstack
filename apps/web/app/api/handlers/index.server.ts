@@ -63,6 +63,7 @@ export const handlers: HandlerTable<Endpoints> = {
 	"noteReminders.snooze": notebook.snoozeReminders,
 	"home.finished": home.finished,
 	"home.rediscover": home.rediscover,
+	"reading.get": home.reading,
 	"editions.next": home.nextEdition,
 	"editions.snoozeNudge": home.snoozeNudge,
 	"review.list": review.list,

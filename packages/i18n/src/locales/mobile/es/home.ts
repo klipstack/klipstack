@@ -10,6 +10,7 @@ export default {
 		finishedUntitled: "Terminaste un artículo esta última semana.",
 		finishedBefore: "Terminaste ",
 		finishedAfter: " esta última semana.",
+		seeReading: "Ver tus lecturas",
 		nextEdition: "Tu próxima edición: ",
 		draft_one: "{{count}} artículo en el borrador",
 		draft_other: "{{count}} artículos en el borrador",
