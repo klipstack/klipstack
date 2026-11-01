@@ -148,6 +148,8 @@ describe("private offline partitions", () => {
 			const w = worker()
 			w.state.tabs = ["consent", "other"]
 			await w.read("/library.data", "GET", "other")
+			// A new worker's first session reloads the other tabs (see below): not what this is about.
+			w.state.posted = []
 			await w.read("/oauth/consent.data", "POST", "consent")
 			expect(reloads(w)).toEqual(["other"])
 			await w.read("/home.data", "GET", "other")
@@ -182,6 +184,110 @@ describe("private offline partitions", () => {
 			w.state.owner = "none"
 			await w.read("/library.data", "GET", "other")
 			expect(reloads(w)).toEqual(["other", "one"])
+		})
+
+		describe("from one account to another", () => {
+			const A = "a".repeat(64)
+			const B = "b".repeat(64)
+			const partitions = (w: ReturnType<typeof worker>, id: string) =>
+				[...w.stores.keys()].filter((n) => n.includes(id))
+
+			it("reloads other tabs and drops the first account's copies on a sign-in as another", async () => {
+				const w = worker()
+				w.state.tabs = ["one", "other"]
+				await w.read("/library.data", "GET", "other")
+				w.state.posted = []
+				w.state.owner = B
+				await w.read("/login.data", "POST", "one")
+				expect(reloads(w)).toEqual(["other"])
+				expect(partitions(w, A)).toEqual([])
+				await w.read("/library.data", "GET", "other")
+				expect(reloads(w)).toEqual(["other"])
+				expect(partitions(w, A)).toEqual([])
+				expect(partitions(w, B)).toHaveLength(1)
+			})
+
+			it("reloads other tabs once at logout and once at the next sign-in", async () => {
+				const w = worker()
+				w.state.tabs = ["one", "other"]
+				await w.read("/library.data", "GET", "other")
+				w.state.posted = []
+				w.state.owner = "none"
+				await w.read("/logout.data", "POST", "one")
+				expect(reloads(w)).toEqual(["other"])
+				await w.read("/login.data", "GET", "other")
+				w.state.owner = B
+				await w.read("/login.data", "POST", "one")
+				expect(reloads(w)).toEqual(["other", "other"])
+				expect(partitions(w, A)).toEqual([])
+			})
+
+			it("reloads other tabs once at an account's deletion and once at the next sign-up", async () => {
+				const w = worker()
+				w.state.tabs = ["one", "other"]
+				await w.read("/library.data", "GET", "other")
+				w.state.posted = []
+				w.state.owner = "none"
+				await w.read("/settings/delete.data", "POST", "one")
+				expect(reloads(w)).toEqual(["other"])
+				expect(partitions(w, A)).toEqual([])
+				w.state.owner = B
+				await w.read("/signup.data", "POST", "one")
+				expect(reloads(w)).toEqual(["other", "other"])
+			})
+
+			it("reloads other tabs into the session a two-factor code signs in", async () => {
+				// The password step signs no one in yet (better-auth clears the cookie until the code).
+				const w = worker()
+				w.state.tabs = ["one", "other"]
+				w.state.owner = "none"
+				await w.read("/login.data", "GET", "other")
+				await w.read("/login.data", "POST", "one")
+				expect(reloads(w)).toEqual(["other"])
+				await w.read("/login.data", "GET", "other")
+				w.state.owner = B
+				await w.read("/login/code.data", "POST", "one")
+				await w.read("/library.data", "GET", "one")
+				expect(reloads(w)).toEqual(["other", "other"])
+			})
+
+			it("reloads a tab still showing an account when a new worker first sees another", async () => {
+				// A worker that just started (a first install, a VERSION bump) knows no session, and a
+				// tab rendered before it may show one: a sign-in that skipped the worker told it nothing.
+				const w = worker()
+				w.state.tabs = ["shows-a", "one"]
+				w.state.owner = B
+				await w.read("/library.data", "GET", "one")
+				expect(reloads(w)).toEqual(["shows-a"])
+			})
+
+			it("drops in-flight warming for an account when another appears from none", async () => {
+				const w = worker()
+				w.state.tabs = ["one", "other"]
+				let release!: (response: Response) => void
+				let response!: Response
+				let began!: () => void
+				const started = new Promise<void>((resolve) => {
+					began = resolve
+				})
+				w.state.hold = (r) => {
+					response = r
+					began()
+					return new Promise((resolve) => {
+						release = resolve
+					})
+				}
+				const warming = w.dispatch("message", {
+					data: { type: "warm", identity: A, pages: ["/library?delayed=1"] },
+					source: { id: "other" },
+				})
+				await started
+				w.state.owner = B
+				await w.read("/library.data", "GET", "one")
+				release(response)
+				await warming
+				expect(partitions(w, A)).toEqual([])
+			})
 		})
 	})
 
