@@ -21,6 +21,9 @@ function isNetworkOnly(url) {
 	return ADMIN.test(path) || PUBLIC_PAGE.test(path)
 }
 let identity = "none"
+// An auth request finished since the worker last held a session: it told the other tabs to reload
+// once cookies changed. Not kept across restarts: a worker that just started tells them again.
+let settled = false
 let generation = 0
 let changing = 0
 let serial = Promise.resolve()
@@ -49,11 +52,17 @@ self.addEventListener("activate", (event) => {
 
 async function changeIdentity(next, source, force = false, notify = true) {
 	if (next === identity && !force) return
+	// Tabs reload to drop what an ended or replaced session showed. After an auth request (see
+	// `settled`) they did already, and a second time a tab reloaded the page it was leaving, which
+	// cancels its page load: after Allow on the consent page, another tab's next request brought the
+	// same session back, and the tab never reached the Safari extension's callback.
+	const told = next !== "none" && settled
+	if (next !== "none") settled = false
 	identity = next
 	generation++
 	for (const name of await caches.keys()) if (name.startsWith(PRIVATE)) await caches.delete(name)
 	await (await caches.open(META)).put("/session", new Response(identity))
-	if (!notify) return
+	if (!notify || told) return
 	for (const client of await self.clients.matchAll({ type: "window", includeUncontrolled: true })) {
 		if (client.id !== source) client.postMessage({ type: "session-changed" })
 	}
@@ -61,7 +70,7 @@ async function changeIdentity(next, source, force = false, notify = true) {
 
 function authChange(path, method) {
 	if (path.startsWith("/api/auth/") && /\/(?:magic-link\/verify|callback\/|oauth2\/end-session)/.test(path)) return true
-	return method !== "GET" && (path.startsWith("/api/auth/") || ["/login", "/signup", "/logout", "/reset-password", "/settings/delete", "/oauth/consent", "/settings/reauthenticate"].includes(path.replace(/\.data$/, "")))
+	return method !== "GET" && (path.startsWith("/api/auth/") || ["/login", "/login/code", "/signup", "/signup/confirm", "/logout", "/reset-password", "/settings/delete", "/oauth/consent", "/settings/reauthenticate"].includes(path.replace(/\.data$/, "")))
 }
 
 self.addEventListener("fetch", (event) => {
@@ -79,6 +88,7 @@ self.addEventListener("fetch", (event) => {
 					changing--
 					// Notify after cookies have changed too; in-flight warm work cannot repopulate.
 					await changeIdentity("none", event.clientId, true)
+					settled = true
 				})
 			}
 		})())
