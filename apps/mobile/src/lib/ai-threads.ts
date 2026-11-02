@@ -1,5 +1,5 @@
-import type { AiCitation, AiMessage, AiThreadWithMessages } from "@klipstack/sdk"
-import type { AiFailure, Written } from "./ai"
+import type { AiCitation, AiMessage, AiSource, AiThreadWithMessages } from "@klipstack/sdk"
+import { type AiFailure, NOTHING_WRITTEN, type Written, written } from "./ai"
 
 /**
  * The reader's AI threads on screen, as the web reader keeps them (`use-ai-threads.ts`): what the
@@ -19,11 +19,11 @@ export interface AiPassage {
 }
 
 /** What a draft offers above its question field, sent with one tap. */
-export const DRAFT_CHOICES = ["explain", "define"] as const
+export const DRAFT_CHOICES = ["explain", "define", "check"] as const
 
 /** A thread on screen. */
 export interface AiCard extends AiThreadWithMessages {
-	/** Not sent yet: its question field, with Explain and Define offered above it. */
+	/** Not sent yet: its question field, with Explain, Define and Fact check offered above it. */
 	draft?: { question: string }
 	/**
 	 * The text around a passage asked about here, sent with its first question, and again if that
@@ -38,7 +38,8 @@ export interface AiCard extends AiThreadWithMessages {
 
 /**
  * Asking about a passage, before choosing how: a draft that sends nothing until the reader picks
- * Explain or Define, or sends a question. With no questions left, the card that says why.
+ * Explain, Define or Fact check, or sends a question. With no questions left, the card that says
+ * why.
  */
 export function askCard(id: string, passage: AiPassage, none: boolean): AiCard {
 	return {
@@ -57,7 +58,7 @@ export function askCard(id: string, passage: AiPassage, none: boolean): AiCard {
 	}
 }
 
-/** A draft become an Explain or a Define, being answered. */
+/** A draft become an Explain, a Define or a Fact check, being answered. */
 export function chosen(card: AiCard, action: (typeof DRAFT_CHOICES)[number]): AiCard {
 	return { ...card, action, draft: undefined, messages: [tempQuestion("")], streaming: true }
 }
@@ -149,8 +150,12 @@ export function followingUp(messages: readonly AiMessage[], text: string): AiMes
 	return [...messages.filter((m) => !isTempThread(m.id)), tempQuestion(text)]
 }
 
-/** What the card offers now. */
-export function cardState(card: AiCard, none: boolean) {
+/**
+ * What the card offers now. `none`: no questions left this month, which a fact check does not
+ * count against: its own cap is the server's to say.
+ */
+export function cardState(card: AiCard, noQuestions: boolean) {
+	const none = noQuestions && card.action !== "check"
 	const busy = !!card.streaming
 	const last = card.messages.at(-1)
 	const lastAnswer = card.messages.findLast((m) => m.role === "assistant" && m.status === "done")
@@ -178,12 +183,14 @@ export function createAnswerStore() {
 		else answers.delete(id)
 		for (const listener of listeners) listener()
 	}
-	const at = (id: string) => answers.get(id) ?? { text: "", citations: [] }
+	const at = (id: string) => answers.get(id) ?? NOTHING_WRITTEN
 	return {
 		get: (id: string) => answers.get(id),
-		write: (id: string, text: string) => set(id, { ...at(id), text: at(id).text + text }),
+		write: (id: string, text: string) => set(id, written(at(id), { type: "text", text })),
 		cite: (id: string, citation: AiCitation) =>
-			set(id, { ...at(id), citations: [...at(id).citations, citation] }),
+			set(id, written(at(id), { type: "citation", citation })),
+		search: (id: string, query: string) => set(id, written(at(id), { type: "search", query })),
+		source: (id: string, source: AiSource) => set(id, written(at(id), { type: "source", source })),
 		clear: (id: string) => {
 			if (answers.has(id)) set(id, undefined)
 		},

@@ -5,7 +5,7 @@ export default {
 		define: "Definir",
 		ask: "Preguntar",
 		chat: "Chat",
-		/** A fact check, asked on the web. */
+		/** Checks a passage's claim against the web. */
 		check: "Verificar",
 		/** Asking about a passage, before choosing how. */
 		askAi: "Preguntar a la IA",
@@ -14,6 +14,9 @@ export default {
 		/** The passage asked about, quoted. */
 		passage: "«{{exact}}»",
 		thinking: "Pensando…",
+		searching: "Buscando: {{query}}",
+		checkNotice:
+			"Las verificaciones buscan en la web a través de Anthropic y pueden equivocarse. Abre las fuentes para juzgarlas.",
 		askPlaceholder: "Pregunta sobre este pasaje…",
 		followUpPlaceholder: "Haz otra pregunta…",
 		send: "Enviar",
@@ -30,6 +33,7 @@ export default {
 	answer: {
 		/** A citation's number, for VoiceOver. */
 		citation: "Pasaje {{n}} del artículo",
+		source: "Fuente: {{site}}",
 	},
 	chat: {
 		title: "Chat",
@@ -74,6 +78,8 @@ export default {
 		unavailable: "Las respuestas con IA no están configuradas en este servidor.",
 		tooLarge: "Este artículo es demasiado largo para preguntar sobre él.",
 		alreadyPending: "La última pregunta aún se está respondiendo. Inténtalo de nuevo en un minuto.",
+		factCheckLimit: "Ya usaste las verificaciones de este mes. Se reinician el día 1.",
+		factCheckLimitOn: "Ya usaste las verificaciones de este mes. Se reinician el {{date}}.",
 		other: "No se pudo responder. Inténtalo de nuevo.",
 	},
 }

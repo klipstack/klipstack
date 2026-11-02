@@ -1,38 +1,64 @@
-import type { AiCitation } from "@klipstack/sdk"
+import type { AiCitation, AiSource } from "@klipstack/sdk"
 import { Fragment, useMemo } from "react"
-import { StyleSheet, Text, View } from "react-native"
-import { answerBlocks, type Run } from "@/lib/ai-answer"
+import { Linking, StyleSheet, Text, View } from "react-native"
+import { answerBlocks, type Run, siteOf, webLink } from "@/lib/ai-answer"
 import { t } from "@/lib/i18n"
 import type { Colors } from "@/lib/theme"
 
 /**
  * An answer, in the reader's typeface: its light Markdown, and each citation as its number on a
  * dab of yellow highlighter ink, after the words it supports. Tapping one shows the passage in the
- * article (`onCite`). The web's `AiAnswer`.
+ * article (`onCite`). After the words a fact check's web sources support, the source's site,
+ * which opens the page in Safari. The web's `AiAnswer`.
  */
 export function AiAnswer({
 	text,
 	citations,
+	sources = [],
 	onCite,
 	heading = (title) => title,
 	colors,
 }: {
 	text: string
 	citations: readonly AiCitation[]
+	/** The web pages a fact check cites. */
+	sources?: readonly AiSource[]
 	onCite?: (citation: AiCitation) => void
 	/** A heading as shown: the brief's are in English whatever the language. */
 	heading?: (title: string) => string
 	colors: Colors
 }) {
-	const blocks = useMemo(() => answerBlocks(text, citations), [text, citations])
+	const blocks = useMemo(() => answerBlocks(text, citations, sources), [text, citations, sources])
 	const runs = (list: Run[]) =>
 		list.map((run, i) => {
 			// oxlint-disable-next-line react/no-array-index-key -- a run's place is its identity while it streams
 			if (run.kind === "text") return <Fragment key={i}>{styled(run)}</Fragment>
+			// Two chips side by side stay apart.
+			const before = list[i - 1]
+			const after = before && before.kind !== "text" ? " " : ""
+			if (run.kind === "source") {
+				const source = sources[run.n]
+				if (!source) return null
+				const site = siteOf(source.url)
+				const link = webLink(source.url)
+				return (
+					// oxlint-disable-next-line react/no-array-index-key -- as above
+					<Fragment key={i}>
+						{after}
+						<Text
+							accessibilityRole={link ? "link" : undefined}
+							accessibilityLabel={t("ai.answer.source", { site })}
+							onPress={link ? () => void Linking.openURL(source.url) : undefined}
+							suppressHighlighting={!link}
+							style={[styles.source, { backgroundColor: colors.muted, color: colors.mutedFg }]}
+						>
+							{`\u2009${site}\u2009`}
+						</Text>
+					</Fragment>
+				)
+			}
 			const citation = citations[run.n]
 			if (!citation) return null
-			// Two numbers side by side stay apart.
-			const after = list[i - 1]?.kind === "cite" ? " " : ""
 			return (
 				// oxlint-disable-next-line react/no-array-index-key -- as above
 				<Fragment key={i}>
@@ -106,4 +132,5 @@ const styles = StyleSheet.create({
 	marker: { minWidth: 18, textAlign: "right", fontVariant: ["tabular-nums"] },
 	grow: { flex: 1 },
 	cite: { fontFamily: "System", fontSize: 13, fontWeight: "600", borderRadius: 4 },
+	source: { fontFamily: "System", fontSize: 12, fontWeight: "500" },
 })

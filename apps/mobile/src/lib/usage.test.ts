@@ -74,6 +74,21 @@ describe("usageRows", () => {
 		expect(rows[1]).toMatchObject({ amount: "1,200 of 1,000", share: 1, level: "full" })
 	})
 
+	it("shows fact checks after the AI questions, when the server counts them", () => {
+		const rows = usageRows({ ...usage, factChecks: { used: 3, max: 20 } })
+		expect(rows.map((r) => r.key)).toEqual([
+			"saves",
+			"ai",
+			"factChecks",
+			"editions",
+			"storage",
+			"feeds",
+		])
+		expect(rows[2]).toMatchObject({ label: "Fact checks", amount: "3 of 20", left: "17 left" })
+		// An older server leaves them out; an account without AI has null.
+		expect(usageRows({ ...usage, factChecks: null }).map((r) => r.key)).not.toContain("factChecks")
+	})
+
 	it("shows a small library's storage to a tenth of a megabyte", () => {
 		const storage = (bytes: number) =>
 			usageRows({ ...usage, storage: { used: bytes, max: 250 * MB } }).find(

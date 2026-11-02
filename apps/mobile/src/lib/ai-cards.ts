@@ -22,7 +22,7 @@ import {
 import { language } from "./i18n"
 import type { ReaderAi } from "./reader-ai"
 
-export type AiAction = "explain" | "define" | "ask"
+export type AiAction = "explain" | "define" | "ask" | "check"
 
 /**
  * The article's threads in the reader: the ones it loaded with, and the questions asked since, each
@@ -53,15 +53,17 @@ export function useAiCards(client: KlipstackClient | null, articleId: string, ai
 
 	/**
 	 * Streams the answer into card `id`. `start` swaps a new thread's temporary id for its own, and
-	 * the temporary question for the saved one.
+	 * the temporary question for the saved one. `action`: what a new thread asks, which its card
+	 * may not say yet (a draft chosen this moment).
 	 */
 	const run = useCallback(
-		async (id: string, ask: () => Promise<AsyncIterable<AiAnswerEvent>>) => {
+		async (id: string, ask: () => Promise<AsyncIterable<AiAnswerEvent>>, action?: AiAction) => {
 			let current = id
 			written.clear(id)
-			// A fact check's follow-ups and retries count against a cap of their own: the questions'
+			// A fact check, its follow-ups and retries count against a cap of their own: the questions'
 			// count is neither checked nor changed by them.
-			const check = latest.current.find((c) => c.id === id)?.action === "check"
+			const check =
+				action === "check" || latest.current.find((c) => c.id === id)?.action === "check"
 			const none: AiFailure | null =
 				!check && questionsLeft(allowance.current).none ? { code: "limit_reached" } : null
 			try {
@@ -89,6 +91,12 @@ export function useAiCards(client: KlipstackClient | null, articleId: string, ai
 						case "citation":
 							written.cite(current, event.citation)
 							break
+						case "search":
+							written.search(current, event.query)
+							break
+						case "source":
+							written.source(current, event.source)
+							break
 						case "answer":
 							update(current, (c) => ({
 								...c,
@@ -115,26 +123,30 @@ export function useAiCards(client: KlipstackClient | null, articleId: string, ai
 
 	const askPassage = useCallback(
 		(id: string, passage: AiPassage, action: AiAction, question?: string) =>
-			run(id, () => {
-				if (!client) throw new Error("signed out")
-				return client.ai.ask(articleId, {
-					action,
-					exact: passage.exact,
-					prefix: passage.prefix || undefined,
-					suffix: passage.suffix || undefined,
-					start: passage.start,
-					end: passage.end,
-					highlightId: passage.highlightId,
-					question,
-					language,
-				})
-			}),
+			run(
+				id,
+				() => {
+					if (!client) throw new Error("signed out")
+					return client.ai.ask(articleId, {
+						action,
+						exact: passage.exact,
+						prefix: passage.prefix || undefined,
+						suffix: passage.suffix || undefined,
+						start: passage.start,
+						end: passage.end,
+						highlightId: passage.highlightId,
+						question,
+						language,
+					})
+				},
+				action,
+			),
 		[client, articleId, run],
 	)
 
 	/**
-	 * Asking about a passage opens a draft: nothing is sent until the reader chooses Explain or
-	 * Define (`choose`) or sends a question. With no questions left, the card says so.
+	 * Asking about a passage opens a draft: nothing is sent until the reader chooses Explain, Define
+	 * or Fact check (`choose`) or sends a question. With no questions left, the card says so.
 	 */
 	const start = useCallback((passage: AiPassage) => {
 		const id = tempId("t")
@@ -143,7 +155,7 @@ export function useAiCards(client: KlipstackClient | null, articleId: string, ai
 		setOpenId(id)
 	}, [])
 
-	/** A draft becomes an Explain or a Define of its passage, sent at once. */
+	/** A draft becomes an Explain, a Define or a Fact check of its passage, sent at once. */
 	const choose = useCallback(
 		(id: string, action: (typeof DRAFT_CHOICES)[number]) => {
 			const card = latest.current.find((c) => c.id === id)

@@ -5,7 +5,7 @@ export default {
 		define: "Define",
 		ask: "Ask",
 		chat: "Chat",
-		/** A fact check, asked on the web. */
+		/** Checks a passage's claim against the web. */
 		check: "Fact check",
 		/** Asking about a passage, before choosing how. */
 		askAi: "Ask AI",
@@ -14,6 +14,11 @@ export default {
 		/** The passage asked about, quoted. */
 		passage: "“{{exact}}”",
 		thinking: "Thinking…",
+		/** A fact check's web search, while it runs. */
+		searching: "Searching: {{query}}",
+		/** Under a fact check. */
+		checkNotice:
+			"Fact checks search the web through Anthropic and can be wrong. Open the sources to judge them.",
 		askPlaceholder: "Ask about this passage…",
 		followUpPlaceholder: "Ask a follow-up…",
 		send: "Send",
@@ -30,6 +35,8 @@ export default {
 	answer: {
 		/** A citation's number, for VoiceOver. */
 		citation: "Passage {{n}} of the article",
+		/** A web page a fact check cites, for VoiceOver: its site. */
+		source: "Source: {{site}}",
 	},
 	chat: {
 		title: "Chat",
@@ -71,6 +78,8 @@ export default {
 		unavailable: "AI answers aren't set up on this server.",
 		tooLarge: "This article is too long to ask about.",
 		alreadyPending: "The last question is still being answered. Try again in a minute.",
+		factCheckLimit: "You've used this month's fact checks. They start over on the 1st.",
+		factCheckLimitOn: "You've used this month's fact checks. They start over on {{date}}.",
 		other: "Couldn't answer. Try again.",
 	},
 }

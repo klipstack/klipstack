@@ -63,6 +63,7 @@ export default {
 	usage: {
 		saves: "Saves",
 		ai: "AI questions",
+		factChecks: "Fact checks",
 		topicSorts: "Topic sorting",
 		editions: "Editions published",
 		storage: "Storage",
