@@ -1,9 +1,15 @@
-/** What the reader asks of a passage; `chat` asks about the whole article (its passage is empty). */
-export const AI_ACTIONS = ["explain", "define", "ask", "chat"] as const
+/**
+ * What the reader asks of a passage; `chat` asks about the whole article (its passage is empty);
+ * `check` fact-checks the passage against the web.
+ */
+export const AI_ACTIONS = ["explain", "define", "ask", "chat", "check"] as const
 export type AiAction = (typeof AI_ACTIONS)[number]
 
-/** Quick answers a passage; deep (the whole-article box, later) may think longer. */
-export type AiTier = "quick" | "deep"
+/**
+ * Quick answers a passage; deep (the whole-article box, later) may think longer; check searches
+ * the web.
+ */
+export type AiTier = "quick" | "deep" | "check"
 
 export type AiLanguage = "en" | "es"
 
@@ -15,6 +21,16 @@ export interface Citation {
 	start: number
 	end: number
 	exact: string
+	at: number
+}
+
+/**
+ * A web page an answer draws on, and where in the answer it was cited (`at`, a position in the
+ * answer's text), so its chip goes after those words.
+ */
+export interface WebSource {
+	url: string
+	title: string | null
 	at: number
 }
 
@@ -47,13 +63,20 @@ export interface BriefInput {
 	signal?: AbortSignal
 }
 
-export type AnswerEvent = { type: "text"; text: string } | { type: "citation"; citation: Citation }
+export type AnswerEvent =
+	| { type: "text"; text: string }
+	| { type: "citation"; citation: Citation }
+	/** A web search the model runs, as it starts. */
+	| { type: "search"; query: string }
+	| { type: "source"; source: WebSource }
 
 export interface Usage {
 	inputTokens: number
 	outputTokens: number
 	/** Input tokens read from the provider's cache, part of `inputTokens`. */
 	cacheReadTokens: number
+	/** Web searches run, each priced on its own. */
+	searches?: number
 }
 
 export interface AnswerResult {
@@ -61,6 +84,8 @@ export interface AnswerResult {
 	status: "done" | "refused"
 	text: string
 	citations: Citation[]
+	/** The web pages it cites, for a fact check. */
+	sources: WebSource[]
 	usage: Usage
 	/** `provider:model`, as the tier resolved it. */
 	model: string

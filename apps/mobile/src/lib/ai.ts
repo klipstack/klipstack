@@ -1,4 +1,4 @@
-import type { AiAllowance, AiCitation } from "@klipstack/sdk"
+import type { AiAllowance, AiCitation, AiSource } from "@klipstack/sdk"
 import { KlipstackApiError } from "@klipstack/sdk"
 import { dateLocale, t } from "./i18n"
 
@@ -72,8 +72,14 @@ const FAILURES: Record<string, () => string> = {
 /** What to say for a failure. */
 export function failureMessage(failure: AiFailure, allowance: AiAllowance | null): string {
 	if (failure.code === "limit_reached") {
-		const at = failure.details?.resetsAt
-		return limitMessage(typeof at === "string" ? at : allowance?.resetsAt)
+		const given = failure.details?.resetsAt
+		const at = typeof given === "string" ? given : allowance?.resetsAt
+		// The fact checks' cap starts over on the same day as the questions'.
+		if (failure.details?.limit === "factChecks")
+			return at
+				? t("ai.errors.factCheckLimitOn", { date: resetsOn(at) })
+				: t("ai.errors.factCheckLimit")
+		return limitMessage(at)
 	}
 	return FAILURES[failure.code]?.() ?? t("ai.errors.other")
 }
@@ -86,19 +92,38 @@ export function allowanceMessage(allowance: AiAllowance | null, now = Date.now()
 	return t("ai.left", { count: left })
 }
 
-/** An answer as it is written: its text and citations so far. */
-export type Written = { text: string; citations: AiCitation[] }
+/**
+ * An answer as it is written: its text and citations so far, and a fact check's searches and the
+ * web pages it cites.
+ */
+export type Written = {
+	text: string
+	citations: AiCitation[]
+	searches: string[]
+	sources: AiSource[]
+}
 
-export const NOTHING_WRITTEN: Written = { text: "", citations: [] }
+export const NOTHING_WRITTEN: Written = { text: "", citations: [], searches: [], sources: [] }
 
 /** The answer or brief so far, with one more of its events. */
 export function written(
 	so: Written,
-	event: { type: "text"; text: string } | { type: "citation"; citation: AiCitation },
+	event:
+		| { type: "text"; text: string }
+		| { type: "citation"; citation: AiCitation }
+		| { type: "search"; query: string }
+		| { type: "source"; source: AiSource },
 ): Written {
-	return event.type === "text"
-		? { text: so.text + event.text, citations: so.citations }
-		: { text: so.text, citations: [...so.citations, event.citation] }
+	switch (event.type) {
+		case "text":
+			return { ...so, text: so.text + event.text }
+		case "citation":
+			return { ...so, citations: [...so.citations, event.citation] }
+		case "search":
+			return { ...so, searches: [...so.searches, event.query] }
+		case "source":
+			return { ...so, sources: [...so.sources, event.source] }
+	}
 }
 
 /**

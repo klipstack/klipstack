@@ -42,6 +42,8 @@ export interface Limits {
 	shares: number
 	/** Questions sent to the AI (answers, follow-ups, retries), a calendar month (UTC). */
 	ai: number
+	/** Fact checks (each searches the web, and costs far more than a question), a calendar month. */
+	factChecks: number
 }
 
 export type LimitName = keyof Limits
@@ -81,7 +83,13 @@ export async function planOf(userId: string): Promise<Plan> {
 export function limitsForRole(role: UserRole, state: PlanState = "unbilled"): Limits {
 	const limits =
 		state === "unbilled" ? defaultLimits() : state === "free" ? paidLimits() : trialLimits()
-	return role === "admin" ? { ...limits, ai: env.LIMIT_AI_PER_MONTH_ADMIN } : limits
+	return role === "admin"
+		? {
+				...limits,
+				ai: env.LIMIT_AI_PER_MONTH_ADMIN,
+				factChecks: env.LIMIT_FACT_CHECKS_PER_MONTH_ADMIN,
+			}
+		: limits
 }
 
 /** The caps of an account with nothing special about it while billing is off: the env's numbers. */
@@ -93,6 +101,7 @@ export function defaultLimits(): Limits {
 		editions: env.LIMIT_EDITIONS_PER_MONTH,
 		shares: env.LIMIT_SHARES_PER_MONTH,
 		ai: env.LIMIT_AI_PER_MONTH,
+		factChecks: env.LIMIT_FACT_CHECKS_PER_MONTH,
 	}
 }
 
@@ -105,6 +114,7 @@ function trialLimits(): Limits {
 		editions: env.LIMIT_TRIAL_EDITIONS_PER_MONTH,
 		shares: env.LIMIT_TRIAL_SHARES_PER_MONTH,
 		ai: env.LIMIT_TRIAL_AI_PER_MONTH,
+		factChecks: env.LIMIT_TRIAL_FACT_CHECKS_PER_MONTH,
 	}
 }
 
@@ -117,6 +127,7 @@ function paidLimits(): Limits {
 		editions: env.LIMIT_PAID_EDITIONS_PER_MONTH,
 		shares: env.LIMIT_PAID_SHARES_PER_MONTH,
 		ai: env.LIMIT_PAID_AI_PER_MONTH,
+		factChecks: env.LIMIT_PAID_FACT_CHECKS_PER_MONTH,
 	}
 }
 
@@ -163,6 +174,8 @@ const MESSAGES: Record<LimitName, (max: number, resetsAt?: Date) => string> = {
 		`This account shared ${max} highlights this month, the most it can. Sharing works again on ${day(resetsAt!)}.`,
 	ai: (max, resetsAt) =>
 		`This account asked the AI ${max} times this month, the most it can. Asking works again on ${day(resetsAt!)}.`,
+	factChecks: (max, resetsAt) =>
+		`This account fact-checked ${max} passages this month, the most it can. Fact checks work again on ${day(resetsAt!)}.`,
 }
 
 /** The refusal at a cap. The monthly ones say when the count starts over. */
@@ -211,20 +224,20 @@ async function refuse(userId: string, limit: LimitName, max: number, resetsAt?: 
 }
 
 /**
- * Counts one more `metric` this month in the caller's transaction, and refuses past the cap; the
+ * Counts one more of `limit` this month in the caller's transaction, and refuses past the cap; the
  * refusal rolls the count back with the rest. The row lock makes two at once take turns, so they
  * cannot both take the last one. Answers the count with this one, the cap, and when it starts over.
  */
 export async function countMonthly(
 	tx: Tx,
 	userId: string,
-	metric: "saves" | "editions" | "shares" | "ai",
+	limit: "saves" | "editions" | "shares" | "ai" | "factChecks",
 ): Promise<{ used: number; max: number; resetsAt: Date }> {
-	const max = (await limitsToAdd(userId))[metric]
+	const max = (await limitsToAdd(userId))[limit]
 	// One month for the count and the date it starts over, even at midnight on the 1st.
 	const { month, resetsAt } = monthOf()
-	const used = await bump(tx, userId, metric, month)
-	if (used > max) throw await refuse(userId, metric, max, resetsAt)
+	const used = await bump(tx, userId, limit === "factChecks" ? "fact_checks" : limit, month)
+	if (used > max) throw await refuse(userId, limit, max, resetsAt)
 	return { used, max, resetsAt }
 }
 
@@ -310,6 +323,7 @@ export interface Usage {
 	editions: { used: number; max: number }
 	shares: { used: number; max: number }
 	ai: { used: number; max: number }
+	factChecks: { used: number; max: number }
 	/** Articles sorted into topics this month (`LIMIT_TOPIC_SORTS_PER_MONTH`). */
 	topicSorts: { used: number; max: number }
 	/** Refusals by any cap this month: admins see it, the account does not. */
@@ -338,6 +352,7 @@ export async function usageOf(userId: string): Promise<Usage> {
 		editions: { used: counted("editions"), max: limits.editions },
 		shares: { used: counted("shares"), max: limits.shares },
 		ai: { used: counted("ai"), max: limits.ai },
+		factChecks: { used: counted("fact_checks"), max: limits.factChecks },
 		topicSorts: { used: counted("topic_sorts"), max: topicLimits().sorts },
 		refused: counted("refused"),
 		resetsAt,

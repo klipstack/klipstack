@@ -1,6 +1,9 @@
 import { sentences } from "./sentences"
 import type { AnswerEvent, Citation } from "./types"
 
+/** What the reader yields: text, and the article's sentences it cites. */
+type MarkerEvent = Extract<AnswerEvent, { type: "text" | "citation" }>
+
 /** One marker: sentence numbers in brackets, `[12]`, `[12, 14]` or `[12-14]`. */
 const MARKER = String.raw`\[\d+(?:[ \t]*[,–—-][ \t]*\d+)*\]`
 /** Markers written together, with the spaces before them: they cite together. */
@@ -53,8 +56,8 @@ export function citationReader(article: string) {
 		return out
 	}
 
-	function read(text: string): AnswerEvent[] {
-		const events: AnswerEvent[] = []
+	function read(text: string): MarkerEvent[] {
+		const events: MarkerEvent[] = []
 		const say = (piece: string) => {
 			if (!piece) return
 			events.push({ type: "text", text: piece })
@@ -75,7 +78,7 @@ export function citationReader(article: string) {
 
 	return {
 		/** The text that has come: what can be written of it, and its citations, in order. */
-		push(delta: string): AnswerEvent[] {
+		push(delta: string): MarkerEvent[] {
 			const text = held + delta
 			let from = text.length
 			while (from > text.length - HELD_MAX && from > 0 && IN_RUN.test(text[from - 1]!)) from--
@@ -83,7 +86,7 @@ export function citationReader(article: string) {
 			return read(text.slice(0, from))
 		},
 		/** The answer has ended: the rest of it, without a marker it was cut off in. */
-		end(): AnswerEvent[] {
+		end(): MarkerEvent[] {
 			const text = held.replace(CUT, "")
 			held = ""
 			return read(text)

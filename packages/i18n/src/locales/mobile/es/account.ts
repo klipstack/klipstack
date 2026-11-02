@@ -61,6 +61,7 @@ export default {
 	usage: {
 		saves: "Guardados",
 		ai: "Preguntas a la IA",
+		factChecks: "Verificaciones",
 		topicSorts: "Clasificación en temas",
 		editions: "Ediciones publicadas",
 		storage: "Almacenamiento",

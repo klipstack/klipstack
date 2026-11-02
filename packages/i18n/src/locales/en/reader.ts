@@ -260,7 +260,13 @@ export default {
 		},
 	},
 	ai: {
-		actions: { explain: "Explain", define: "Define", ask: "Ask", chat: "Chat" },
+		actions: {
+			explain: "Explain",
+			define: "Define",
+			ask: "Ask",
+			chat: "Chat",
+			check: "Fact check",
+		},
 		askAi: "Ask AI",
 		chat: {
 			tab: "Ask",
@@ -278,6 +284,10 @@ export default {
 		},
 		collapse: "Collapse",
 		thinking: "Thinking…",
+		searching: "Searching: {{query}}",
+		source: "Source: {{site}}",
+		checkNotice:
+			"Fact checks search the web through Anthropic and can be wrong. Open the sources to judge them.",
 		left_one: "{{count}} question left this month",
 		left_other: "{{count}} questions left this month",
 		noneLeft: "No AI questions left this month",
@@ -322,6 +332,7 @@ export default {
 				"You've asked as many questions as this month allows. It starts over on the 1st.",
 			limit_reached_on:
 				"You've asked as many questions as this month allows. It starts over on {{date}}.",
+			fact_check_limit_on: "You've used this month's fact checks. They start over on {{date}}.",
 			rate_limited: "Too many questions at once. Wait a few minutes and try again.",
 			network: "Klipstack couldn't be reached. Check your connection and try again.",
 			no_match: "That passage isn't in the article anymore.",

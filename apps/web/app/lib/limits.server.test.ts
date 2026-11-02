@@ -57,7 +57,7 @@ describe("countMonthly", () => {
 })
 
 describe("limitsFor", () => {
-	it("gives admins their own AI cap, and everyone else the default one", async () => {
+	it("gives admins their own AI caps, and everyone else the default ones", async () => {
 		const adminId = `${userId}-admin`
 		await db
 			.insert(userTable)
@@ -65,10 +65,13 @@ describe("limitsFor", () => {
 		try {
 			expect((await limitsFor(userId)).ai).toBe(env.LIMIT_AI_PER_MONTH)
 			expect((await limitsFor(adminId)).ai).toBe(env.LIMIT_AI_PER_MONTH_ADMIN)
-			// Only the AI cap differs.
-			expect({ ...(await limitsFor(adminId)), ai: 0 }).toEqual({
+			expect((await limitsFor(userId)).factChecks).toBe(env.LIMIT_FACT_CHECKS_PER_MONTH)
+			expect((await limitsFor(adminId)).factChecks).toBe(env.LIMIT_FACT_CHECKS_PER_MONTH_ADMIN)
+			// Only the AI caps differ.
+			expect({ ...(await limitsFor(adminId)), ai: 0, factChecks: 0 }).toEqual({
 				...(await limitsFor(userId)),
 				ai: 0,
+				factChecks: 0,
 			})
 		} finally {
 			await db.delete(userTable).where(eq(userTable.id, adminId))
@@ -139,6 +142,7 @@ describe("plans", () => {
 			editions: 30,
 			shares: 500,
 			ai: 300,
+			factChecks: 30,
 		})
 		// The year is over: lapsed since it ended.
 		startsAt(400)
@@ -161,6 +165,7 @@ describe("plans", () => {
 			editions: 4,
 			shares: 50,
 			ai: 50,
+			factChecks: 10,
 		})
 		const lapsed = await planOf(ended)
 		expect(lapsed.state).toBe("lapsed")

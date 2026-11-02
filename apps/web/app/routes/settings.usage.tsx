@@ -34,7 +34,7 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 		...(prefs.feeds === "on" ? ["feeds" as const] : []),
 		...(editions ? ["editions" as const] : []),
 		"shares",
-		...(asking ? ["ai" as const] : []),
+		...(asking ? ["ai" as const, "factChecks" as const] : []),
 	]
 	return {
 		rows: limits.map((name) => ({

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto"
-import { FAKE_FAIL, FAKE_REFUSE } from "@klipstack/ai"
+import { FAKE_FAIL, FAKE_REFUSE, FAKE_SOURCES } from "@klipstack/ai"
 import {
 	aiThreads,
 	and,
@@ -200,6 +200,57 @@ describe("askAboutPassage", () => {
 			expect(await db.select().from(aiThreads).where(eq(aiThreads.documentId, id))).toEqual([])
 		} finally {
 			env.LIMIT_AI_PER_MONTH = max
+		}
+	})
+})
+
+describe("fact check", () => {
+	it("counts against its own cap, not the questions', and saves the pages it cites", async () => {
+		const id = await article()
+		const before = await usageOf(userId)
+		const spentBefore = await spent()
+		const asked = await askAboutPassage(
+			userId,
+			id,
+			{ action: "check", exact: "one hour slots" },
+			en,
+		)
+		expect(asked.allowance).toMatchObject({
+			used: before.factChecks.used + 1,
+			max: env.LIMIT_FACT_CHECKS_PER_MONTH,
+		})
+		const { events, answer } = await read(asked)
+		expect(events).toContainEqual({ type: "search", query: "fixed fact check" })
+		expect(answer).toMatchObject({
+			status: "done",
+			sources: FAKE_SOURCES.map((s) => expect.objectContaining(s)),
+		})
+		const after = await usageOf(userId)
+		expect(after.factChecks.used).toBe(before.factChecks.used + 1)
+		expect(after.ai.used).toBe(before.ai.used)
+		// 200 tokens in and 40 out at the fake's $1 a million, and a cent for its one search.
+		expect(await spent()).toBe(spentBefore + 240 + 10_000)
+		// A follow-up searches too: it counts as a fact check.
+		await read(await followUp(userId, asked.thread.id, "And the rest?", en))
+		// So does a retry.
+		await read(await retryAnswer(userId, asked.thread.id, en))
+		const later = await usageOf(userId)
+		expect(later.factChecks.used).toBe(before.factChecks.used + 3)
+		expect(later.ai.used).toBe(before.ai.used)
+	})
+
+	it("is refused at its cap while questions are left", async () => {
+		const id = await article()
+		const max = env.LIMIT_FACT_CHECKS_PER_MONTH
+		env.LIMIT_FACT_CHECKS_PER_MONTH = (await usageOf(userId)).factChecks.used
+		try {
+			expect(
+				await refusal(askAboutPassage(userId, id, { action: "check", exact: "Makers" }, en)),
+			).toMatchObject({ code: "limit_reached", details: { limit: "factChecks" } })
+			const asked = await askAboutPassage(userId, id, { action: "explain", exact: "Makers" }, en)
+			expect((await read(asked)).answer.status).toBe("done")
+		} finally {
+			env.LIMIT_FACT_CHECKS_PER_MONTH = max
 		}
 	})
 })

@@ -9,10 +9,19 @@ import type { AiTier } from "./types"
  */
 export const TIERS: Record<
 	AiTier,
-	{ provider: "anthropic"; model: string; maxOutputTokens: number }
+	{
+		provider: "anthropic"
+		model: string
+		maxOutputTokens: number
+		/** Web searches an answer may run; none without. */
+		searches?: number
+	}
 > = {
 	quick: { provider: "anthropic", model: "claude-haiku-5-5", maxOutputTokens: 2048 },
 	deep: { provider: "anthropic", model: "claude-haiku-5-5", maxOutputTokens: 4096 },
+	// Sonnet: in the spike, Haiku's checks varied more and cited blogs over primary sources. A
+	// third search changed no verdict (`docs/development/fact-check-experiments.md`).
+	check: { provider: "anthropic", model: "claude-sonnet-5-5", maxOutputTokens: 4096, searches: 2 },
 }
 
 export interface AiConfig {

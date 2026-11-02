@@ -2,7 +2,7 @@
  * The providers' list prices, in US dollars per million tokens, for the models in `TIERS`. An
  * estimate for admins: the bills themselves are in the providers' consoles. Cache writes are priced as plain
  * input (they cost a quarter more). A request whose prompt is over `long.over` tokens is priced
- * at `long` for all of it.
+ * at `long` for all of it. Web searches are priced each, on top of their results' tokens.
  */
 interface Price {
 	input: number
@@ -18,6 +18,7 @@ const PRICES: Record<string, Price> = {
 		output: 0.5,
 		long: { over: 100_000, input: 0.5, cacheRead: 0.05, output: 2.5 },
 	},
+	"anthropic:claude-sonnet-5-5": { input: 2, cacheRead: 0.1, output: 10 },
 	// TypeSafe's Jev sorts articles into topics; its output is free.
 	"typesafe:jev-1.13.0": { input: 0.042, cacheRead: 0, output: 0 },
 	// The fake model costs nobody anything; a price lets the tests see answers priced.
@@ -29,7 +30,12 @@ export interface TokenCounts {
 	inputTokens: number
 	outputTokens: number
 	cacheReadTokens: number
+	/** Web searches run. */
+	searches?: number
 }
+
+/** Anthropic's web search: $10 per 1,000. */
+const SEARCH_USD = 0.01
 
 /** What one request's tokens cost with `model` (`provider:model`); nothing for one without a price. */
 export function estimateCostUsd(model: string | null, tokens: TokenCounts): number {
@@ -41,6 +47,7 @@ export function estimateCostUsd(model: string | null, tokens: TokenCounts): numb
 		(uncached * price.input +
 			tokens.cacheReadTokens * price.cacheRead +
 			tokens.outputTokens * price.output) /
-		1_000_000
+			1_000_000 +
+		(tokens.searches ?? 0) * SEARCH_USD
 	)
 }

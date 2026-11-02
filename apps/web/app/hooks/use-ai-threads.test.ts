@@ -18,6 +18,7 @@ const thread = (id: string, answers = 1): AiThreadWithMessages => ({
 		text: `Answer ${i + 1}.`,
 		status: "done" as const,
 		citations: [],
+		sources: [],
 		createdAt: "2026-10-09T00:00:00.000Z",
 	})),
 })
@@ -114,13 +115,17 @@ describe("createAnswerStore", () => {
 		store.write("a", "One ")
 		store.write("a", "two.")
 		store.cite("a", { start: 0, end: 3, exact: "One", at: 4 })
+		store.search("a", "who said it")
+		store.source("a", { url: "https://example.org/", title: null, at: 8 })
 		expect(store.get("a")).toEqual({
 			text: "One two.",
 			citations: [{ start: 0, end: 3, exact: "One", at: 4 }],
+			searches: ["who said it"],
+			sources: [{ url: "https://example.org/", title: null, at: 8 }],
 		})
 		store.clear("a")
 		store.clear("a")
 		expect(store.get("a")).toBeUndefined()
-		expect(heard).toBe(4)
+		expect(heard).toBe(6)
 	})
 })

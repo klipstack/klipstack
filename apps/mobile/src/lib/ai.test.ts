@@ -9,7 +9,15 @@ import {
 	questionsLeft,
 	written,
 } from "./ai"
-import { answerBlocks, answerLead, briefHeading, briefSummary, plainAnswer } from "./ai-answer"
+import {
+	answerBlocks,
+	answerLead,
+	briefHeading,
+	briefSummary,
+	plainAnswer,
+	siteOf,
+	webLink,
+} from "./ai-answer"
 
 const NOW = Date.parse("2026-10-16T12:00:00Z")
 const RESETS = "2026-11-01T00:00:00.000Z"
@@ -52,15 +60,36 @@ describe("questions left", () => {
 		)
 		expect(failureMessage({ code: "teapot" }, null)).toBe("Couldn't answer. Try again.")
 	})
+
+	it("says a fact check's cap is reached, not the questions'", () => {
+		const refused = new KlipstackApiError(403, "limit_reached", "At the cap", {
+			details: { limit: "factChecks", max: 20, resetsAt: "2026-12-01T00:00:00.000Z" },
+		})
+		expect(failureMessage(failureOf(refused), allowance(10))).toBe(
+			"You've used this month's fact checks. They start over on December 1.",
+		)
+		expect(failureMessage({ code: "limit_reached", details: { limit: "factChecks" } }, null)).toBe(
+			"You've used this month's fact checks. They start over on the 1st.",
+		)
+	})
 })
 
 describe("an answer as it is written", () => {
-	it("adds text and citations in order", () => {
+	it("adds text, citations, and a fact check's searches and sources in order", () => {
 		const cite = { start: 4, end: 9, exact: "words", at: 5 }
-		let so = written(NOTHING_WRITTEN, { type: "text", text: "Hello" })
+		const source = { url: "https://example.org/", title: null, at: 11 }
+		let so = written(NOTHING_WRITTEN, { type: "search", query: "who said hello" })
+		so = written(so, { type: "text", text: "Hello" })
 		so = written(so, { type: "citation", citation: cite })
+		so = written(so, { type: "search", query: "hello world origin" })
 		so = written(so, { type: "text", text: " world" })
-		expect(so).toEqual({ text: "Hello world", citations: [cite] })
+		so = written(so, { type: "source", source })
+		expect(so).toEqual({
+			text: "Hello world",
+			citations: [cite],
+			searches: ["who said hello", "hello world origin"],
+			sources: [source],
+		})
 	})
 })
 
@@ -83,6 +112,30 @@ describe("answerBlocks", () => {
 				],
 			},
 		])
+	})
+
+	it("puts each web source after its words, after an article's citation at the same place", () => {
+		const text = "**Partly.** He wrote it. Then more."
+		const source = (at: number, url = "https://www.example.org/a") => ({ url, title: null, at })
+		const blocks = answerBlocks(text, [cite(24)], [source(24), source(text.length, "ftp://x")])
+		expect(blocks).toEqual([
+			{
+				kind: "p",
+				key: "0:0",
+				runs: [
+					{ kind: "text", text: "Partly.", bold: true },
+					{ kind: "text", text: " He wrote it." },
+					{ kind: "cite", n: 0 },
+					{ kind: "source", n: 0 },
+					{ kind: "text", text: " Then more." },
+					{ kind: "source", n: 1 },
+				],
+			},
+		])
+		expect(siteOf("https://www.example.org/a")).toBe("example.org")
+		expect(siteOf("not a url")).toBe("not a url")
+		expect(webLink("https://example.org/a")).toBe(true)
+		expect(webLink("javascript:alert(1)")).toBe(false)
 	})
 
 	it("reads headings, bullets and numbered lists, and a numbered list broken up goes on", () => {

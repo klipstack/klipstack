@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest"
 import { citationReader } from "./markers"
-import type { AnswerEvent } from "./types"
 
 const text =
 	"Makers need long\n\tblocks of time. Managers work in slots. Meetings cost makers more. So they clash."
@@ -13,7 +12,7 @@ const sentence = (exact: string) => ({
 /** The answer as the reader gets it: its text, and each citation where it sits. */
 function read(deltas: string[]) {
 	const reader = citationReader(text)
-	const events: AnswerEvent[] = []
+	const events: ReturnType<ReturnType<typeof citationReader>["end"]> = []
 	for (const delta of deltas) events.push(...reader.push(delta))
 	events.push(...reader.end())
 	let answer = ""

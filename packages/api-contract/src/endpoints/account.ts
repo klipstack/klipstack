@@ -32,6 +32,8 @@ export const Usage = z
 		editions: Against,
 		/** Questions asked of the AI this month; null when the account has no AI, or turned it off. */
 		ai: Against.nullable(),
+		/** Fact checks this month (each searches the web); null when `ai` is. Older servers leave it out. */
+		factChecks: Against.nullable().optional(),
 		/** Articles sorted into topics this month; null while the reader has no topics. */
 		topicSorts: Against.nullable(),
 		/** When the monthly counts start over: the 1st of next month, UTC. */

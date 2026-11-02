@@ -65,12 +65,56 @@ async function select(page: Page, text: string) {
 const marginSlot = (card: Locator) => card.locator("xpath=ancestor::*[@data-note-id][1]")
 const selectionToolbar = (page: Page) => page.getByRole("dialog", { name: "Selected text" })
 /** Ask AI about the selection; then, if given, Explain or Define in the card that opens. */
-async function askAi(page: Page, choice?: "Explain" | "Define") {
+async function askAi(page: Page, choice?: "Explain" | "Define" | "Fact check") {
 	await selectionToolbar(page).getByRole("button", { name: "Ask", exact: true }).click()
 	if (choice) await page.getByTestId("ai-card").getByRole("button", { name: choice }).click()
 }
 const shot = (page: Page, name: string) =>
 	SHOTS ? page.screenshot({ path: `${SHOTS}/${name}.png` }) : Promise.resolve()
+
+test("Fact check answers in the margin with the web pages it cites, kept after a reload", async ({
+	page,
+}) => {
+	test.setTimeout(120_000)
+	await page.setViewportSize({ width: 1440, height: 900 })
+	await open(page)
+	await select(page, PASSAGE)
+	await askAi(page)
+	// The margin card is narrow: the choices wrap rather than spill over each other.
+	const draft = page.getByRole("dialog", { name: "Ask AI" })
+	await expect(draft).toHaveAttribute("data-placement", "margin")
+	const box = (await draft.boundingBox())!
+	for (const name of ["Explain", "Define", "Fact check"]) {
+		const button = draft.getByRole("button", { name })
+		const b = (await button.boundingBox())!
+		expect(b.x + b.width).toBeLessThanOrEqual(box.x + box.width)
+		expect(await button.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true)
+	}
+	const [asked] = await Promise.all([
+		page.waitForRequest((r) => r.url().includes("/ai") && r.method() === "POST"),
+		draft.getByRole("button", { name: "Fact check" }).click(),
+	])
+	expect(asked.postDataJSON()).toMatchObject({ intent: "ask", action: "check", exact: PASSAGE })
+
+	const card = page.getByRole("dialog", { name: "Fact check" })
+	await expect(card).toContainText("Partly supported: a fixed check.")
+	await expect(card).toContainText("Fact checks search the web")
+	// The pages it cites, by their sites; the search result it doesn't cite is left out.
+	const sources = card.getByTestId("ai-source")
+	await expect(sources).toHaveText(["example.org", "example.edu"])
+	await expect(sources.first()).toHaveAttribute("href", "https://example.org/archive/record")
+	await expect(sources.first()).toHaveAttribute("target", "_blank")
+	await shot(page, "check-answer")
+
+	await page.reload()
+	await waitForHydration(page)
+	const collapsed = page
+		.getByRole("region", { name: "Highlight notes" })
+		.getByRole("button", { name: /Fact check/ })
+	await expect(collapsed).toContainText("Partly supported: a fixed check.")
+	await collapsed.click()
+	await expect(card.getByTestId("ai-source")).toHaveText(["example.org", "example.edu"])
+})
 
 test("Explain answers in the margin with a citation; follow-ups, reload and delete", async ({
 	page,

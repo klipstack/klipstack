@@ -27,7 +27,7 @@ export const ERROR_STATUS = {
 	 */
 	two_factor_required: 403,
 	/**
-	 * The account is at one of its caps (`details.limit`: saves, storage, feeds, editions, shares, ai), with
+	 * The account is at one of its caps (`details.limit`: saves, storage, feeds, editions, shares, ai, factChecks), with
 	 * `details.max` and, for the monthly ones, `details.resetsAt`. Waiting a moment does not help.
 	 */
 	limit_reached: 403,

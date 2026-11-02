@@ -23,7 +23,13 @@ article for a few minutes). Three limits keep a mistake or abuse from running up
   `usage_counts` like saves. Retries, follow-ups and article briefs count.
   `LIMIT_AI_PER_MONTH_ADMIN` (default 500) is the same for admin accounts, so you can ask more
   than the people you invite.
-- A rate limit: 30 questions per account per 5 minutes.
+- `LIMIT_FACT_CHECKS_PER_MONTH` (default 30; `LIMIT_FACT_CHECKS_PER_MONTH_ADMIN`, default 100):
+  fact checks per account per month, a cap of their own. A fact check asks Claude Sonnet 5.5,
+  which searches the web (at most twice) with Anthropic's web search tool: about 7 cents each,
+  10 at most in our tests, against a tenth of a cent for a question. Its follow-ups and retries
+  search too, and count as fact checks. Web search must be allowed for your organization in
+  Anthropic's console (it is by default); without it, fact checks fail and questions still work.
+- A rate limit: 30 questions per account per 5 minutes, fact checks included.
 - **A spend limit at Anthropic**, set by you in the console (below). This is the one that holds
   even if Klipstack has a bug. Set it.
 

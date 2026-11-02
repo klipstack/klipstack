@@ -171,6 +171,7 @@ export default {
 		editions: "Editions published this month",
 		shares: "Highlights shared this month",
 		ai: "AI questions this month",
+		factChecks: "Fact checks this month",
 		count: "{{used}} of {{max}}",
 		megabytes: "{{used}} MB of {{max}} MB",
 	},

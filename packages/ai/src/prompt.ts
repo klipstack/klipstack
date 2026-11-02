@@ -22,8 +22,38 @@ export function systemPrompt(language: AiLanguage): string {
 - Answer in ${LANGUAGE_NAMES[language]}, whatever the article's language.`
 }
 
-/** Characters of the article shown on each side of the passage. */
+/**
+ * The fact check's fixed instructions, cacheable like the answers'. Only the language changes
+ * them. Web sources are cited by the provider, not by markers: bracket numbers stay the article's.
+ */
+export function checkSystemPrompt(language: AiLanguage): string {
+	return `You fact-check an article someone is reading in Klipstack, a read-later app. The article is the document in the first message, one sentence per line, each numbered like [12]. The reader selected a passage and asked you to fact-check it.
+
+What to check:
+- The selection points at what the reader wants checked, but it may not cover all of it. Readers often select one line of a claim that runs over several sentences or short paragraphs: a timeline, a list, a set of figures, a quote and its attribution, a study and its findings. When the selection belongs to such a unit, check the whole unit. Widen only when the selection depends on the sentences around it: it sums them up, continues them, or is one item of a list, so it can't be checked on its own. A sentence that makes a claim of its own is self-contained, even when related claims sit next to it: check only that one. Never widen to the rest of the article.
+- Check facts: events, dates, figures, quotes and who said them, what a study found. Not opinions or predictions. If the passage holds nothing checkable, say so and do not search.
+
+How to search:
+- At most two searches. Start with the central claim; check details only if a search is left.
+- Prefer primary and reliable sources: original documents and archives, scholarly work and its abstracts, historians and reference works, official statistics, established news outlets. Treat sources the article itself cites as leads, not confirmation. Do not rely on content farms, listicles, self-help or wellness blogs, or posts that repeat the claim without a source; if that is all you find, say so.
+
+How to answer:
+- First line: "Checked: " and what you checked, in a few words, citing the article's sentences by number like [12][13]. The numbers are only for citing; never mention them in your sentences.
+- Then one sentence in bold with the verdict: Supported, Partly supported, Contradicted, Disputed (reliable sources disagree), or Not enough evidence, and the reason in a few words.
+- Then at most four short sentences: what the sources say, each detail the article gets wrong or leaves out, and what kind of source each is (a primary document, a study, a historian, an agency, a news report, a blog). If you left part of the claim unchecked, say which.
+- Cite a search result for every statement drawn from it, using your citation feature: the reader sees each source as a link. Never write numbers, brackets or links for web sources yourself; bracket numbers are only for the article's sentences, on the "Checked:" line.
+- Keep each cited statement short and in your own words, not a pasted quotation.
+- At most 150 words. Plain prose, no headings, no closing summary.
+- Answer in ${LANGUAGE_NAMES[language]}, whatever the article's language. Write "Checked:" and the verdict's word in that language too.`
+}
+
+/**
+ * Characters of the article shown on each side of the passage. A fact check sees more before it:
+ * what a selected line sums up (a timeline, a list) usually comes first.
+ */
 const AROUND = 400
+const CHECK_BEFORE = 1500
+const CHECK_AFTER = 500
 
 /** The first question: the passage, a little of the text around it, and what the reader wants. */
 export function firstQuestion(input: AnswerInput): string {
@@ -31,13 +61,15 @@ export function firstQuestion(input: AnswerInput): string {
 	if (thread.action === "chat")
 		return `A question about the whole article: ${thread.turns[0]?.text.trim() ?? ""}`
 	const { start, end, exact } = thread.passage
-	const before = article.text.slice(Math.max(0, start - AROUND), start)
-	const after = article.text.slice(end, end + AROUND)
+	const check = thread.action === "check"
+	const before = article.text.slice(Math.max(0, start - (check ? CHECK_BEFORE : AROUND)), start)
+	const after = article.text.slice(end, end + (check ? CHECK_AFTER : AROUND))
 	const asked = thread.turns[0]?.text.trim() ?? ""
 	const request = {
 		explain: "Explain this passage.",
 		define: "Define this word or phrase.",
 		ask: `Question: ${asked}`,
+		check: "Fact-check this.",
 	}[thread.action]
 	const numbers = sentencesIn(article.text, start, end)
 	const where =

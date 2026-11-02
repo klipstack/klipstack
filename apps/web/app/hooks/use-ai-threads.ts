@@ -1,4 +1,4 @@
-import type { AiCitation, AiThreadAction } from "@klipstack/db"
+import type { AiCitation, AiSource, AiThreadAction } from "@klipstack/db"
 import { useCallback, useInsertionEffect, useRef, useState, useSyncExternalStore } from "react"
 import { type AiFailure, changeThread, streamAnswer } from "~/lib/ai-stream.client"
 import type { AiMessageView, AiStreamEvent, AiThreadWithMessages } from "~/lib/ai-threads"
@@ -39,6 +39,7 @@ const question = (text: string): AiMessageView => ({
 	text,
 	status: "done",
 	citations: [],
+	sources: [],
 	createdAt: now(),
 })
 
@@ -82,11 +83,14 @@ export function useAiThreads(
 	const run = useCallback(
 		async (id: string, body: Record<string, unknown>) => {
 			let current = id
+			// A fact check counts against a cap of its own: the questions' count stays as it is.
+			const check =
+				latest.current.find((c) => c.id === id)?.action === "check" || body.action === "check"
 			const onEvent = (event: AiStreamEvent) => {
 				switch (event.type) {
 					case "start": {
 						const { thread, question: saved } = event
-						quota.current?.take(event.allowance)
+						if (!check) quota.current?.take(event.allowance)
 						const was = current
 						current = thread.id
 						asked.current.add(thread.id)
@@ -110,6 +114,12 @@ export function useAiThreads(
 					case "citation":
 						written.cite(current, event.citation)
 						break
+					case "search":
+						written.search(current, event.query)
+						break
+					case "source":
+						written.source(current, event.source)
+						break
 					case "answer":
 						update(current, (c) => ({
 							...c,
@@ -121,12 +131,12 @@ export function useAiThreads(
 				}
 			}
 			written.clear(id)
-			const none = quota.current?.refusal()
+			const none = check ? null : quota.current?.refusal()
 			const result = none
 				? ({ ok: false, error: none } as const)
 				: await streamAnswer(documentId, body, onEvent)
 			written.clear(current)
-			if (!result.ok) quota.current?.refused(result.error)
+			if (!result.ok && !check) quota.current?.refused(result.error)
 			if (!result.ok)
 				// A question the server refused stays where it was asked, with the reason: a new thread's
 				// first question or a follow-up. Answer again asks it; another follow-up takes its place.
@@ -222,7 +232,7 @@ export function useAiThreads(
 
 	/** A draft becomes an Explain or a Define of its passage, sent at once. */
 	const choose = useCallback(
-		(id: string, action: "explain" | "define") => {
+		(id: string, action: "explain" | "define" | "check") => {
 			const card = latest.current.find((c) => c.id === id)
 			if (!card?.draft) return
 			const { prefix, suffix } = card.draft
@@ -394,16 +404,23 @@ export function withQuestion(messages: AiMessageView[], saved: AiMessageView): A
 	return [...(at < 0 ? kept : kept.slice(0, at)), saved]
 }
 
-/** An answer as it is written: its text so far, and the citations given so far. */
+/**
+ * An answer as it is written: its text so far, the citations given so far, and a fact check's
+ * searches and cited pages.
+ */
 export interface Written {
 	text: string
 	citations: AiCitation[]
+	searches: string[]
+	sources: AiSource[]
 }
 
 /**
  * The answers being written, by thread, outside React state: each streamed piece re-renders only
  * the card that reads it (`useWritten`), not the reader with its article and margin.
  */
+const NOTHING_WRITTEN: Written = { text: "", citations: [], searches: [], sources: [] }
+
 export function createAnswerStore() {
 	let answers = new Map<string, Written>()
 	const listeners = new Set<() => void>()
@@ -413,12 +430,16 @@ export function createAnswerStore() {
 		else answers.delete(id)
 		for (const listener of listeners) listener()
 	}
-	const at = (id: string) => answers.get(id) ?? { text: "", citations: [] }
+	const at = (id: string) => answers.get(id) ?? NOTHING_WRITTEN
 	return {
 		get: (id: string) => answers.get(id),
 		write: (id: string, text: string) => set(id, { ...at(id), text: at(id).text + text }),
 		cite: (id: string, citation: AiCitation) =>
 			set(id, { ...at(id), citations: [...at(id).citations, citation] }),
+		search: (id: string, query: string) =>
+			set(id, { ...at(id), searches: [...at(id).searches, query] }),
+		source: (id: string, source: AiSource) =>
+			set(id, { ...at(id), sources: [...at(id).sources, source] }),
 		clear: (id: string) => {
 			if (answers.has(id)) set(id, undefined)
 		},
@@ -430,8 +451,6 @@ export function createAnswerStore() {
 }
 
 export type AnswerStore = ReturnType<typeof createAnswerStore>
-
-const NOTHING_WRITTEN: Written = { text: "", citations: [] }
 
 /** What has been written of a thread's answer so far; re-renders as it grows. */
 export function useWritten(store: AnswerStore, id: string): Written {

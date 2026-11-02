@@ -66,6 +66,7 @@ export default defineConfig({
 			// the local `.env` says.
 			LIMIT_AI_PER_MONTH: "100",
 			LIMIT_AI_PER_MONTH_ADMIN: "500",
+			LIMIT_FACT_CHECKS_PER_MONTH: "30",
 			LIMIT_TOPICS_PER_MONTH: "100",
 			LIMIT_TOPIC_SORTS_PER_MONTH: "1000",
 			NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ""} --import=${fileURLToPath(new URL("./e2e/email-transport.mjs", import.meta.url))}`,

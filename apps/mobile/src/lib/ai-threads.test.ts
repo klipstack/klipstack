@@ -22,6 +22,7 @@ const message = (id: string, role: AiMessage["role"], text = id): AiMessage => (
 	text,
 	status: "done",
 	citations: [],
+	sources: [],
 	createdAt: "2026-10-01T00:00:00.000Z",
 })
 
@@ -148,6 +149,13 @@ describe("cardState", () => {
 		expect(state.lastAnswer?.id).toBe("a1")
 	})
 
+	it("a fact check counts against a cap of its own: no questions left still lets it go on", () => {
+		expect(cardState({ ...answered, action: "check" }, true)).toMatchObject({
+			canRetry: true,
+			canFollowUp: true,
+		})
+	})
+
 	it("a question still waiting for its answer takes no other, unless it failed", () => {
 		const waiting = card({ messages: [message("q1", "user")] })
 		expect(cardState(waiting, false).canFollowUp).toBe(false)
@@ -184,14 +192,22 @@ describe("createAnswerStore", () => {
 		store.write("a", "world")
 		const citation = { start: 0, end: 5, exact: "Alpha", at: 5 }
 		store.cite("a", citation)
-		expect(store.get("a")).toEqual({ text: "Hello world", citations: [citation] })
+		const source = { url: "https://example.org/", title: "Example", at: 11 }
+		store.search("a", "hello world")
+		store.source("a", source)
+		expect(store.get("a")).toEqual({
+			text: "Hello world",
+			citations: [citation],
+			searches: ["hello world"],
+			sources: [source],
+		})
 		expect(store.get("b")?.text).toBe("Other")
 		store.clear("a")
 		expect(store.get("a")).toBeUndefined()
-		expect(heard).toBe(5)
+		expect(heard).toBe(7)
 		stop()
 		store.clear("b")
-		expect(heard).toBe(5)
+		expect(heard).toBe(7)
 	})
 })
 

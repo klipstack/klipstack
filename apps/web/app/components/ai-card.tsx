@@ -1,6 +1,7 @@
 import type { AiCitation } from "@klipstack/db"
 import {
 	ArrowUp,
+	BadgeCheck,
 	BookOpen,
 	BotMessageSquare,
 	ChevronUp,
@@ -32,13 +33,14 @@ export const AI_ACTION_ICONS = {
 	define: BookOpen,
 	ask: MessageCircleQuestion,
 	chat: MessagesSquare,
+	check: BadgeCheck,
 } as const
 
 /** Asking AI about a passage, before choosing how: the reader toolbars' button and the draft's head. */
 export const ASK_AI_ICON = Sparkles
 
 /** What a draft offers above its question field, sent with one press. */
-const CHOICES = ["explain", "define"] as const
+const CHOICES = ["explain", "define", "check"] as const
 
 const FLOATING_WIDTH = 360
 
@@ -58,8 +60,8 @@ interface Props {
 	onClose: () => void
 	/** Missing while AI answers are turned off: the card is read, copied and deleted only. */
 	onSend?: (question: string) => void
-	/** A draft becomes an Explain or a Define. */
-	onChoose?: (action: "explain" | "define") => void
+	/** A draft becomes an Explain, a Define or a Fact check. */
+	onChoose?: (action: (typeof CHOICES)[number]) => void
 	onRetry?: () => void
 	onDelete: () => void
 	onCopy: (text: string) => void
@@ -161,8 +163,10 @@ function OpenCard({
 	const busy = !!card.streaming
 	const last = card.messages.at(-1)
 	const lastAnswer = card.messages.findLast((m) => m.role === "assistant" && m.status === "done")
-	// None left this month: no Retry, no follow-up, and `QuestionsLeft` says why.
-	const { none } = useQuestionsLeft()
+	// None left this month: no Retry, no follow-up, and `QuestionsLeft` says why. A fact check
+	// counts against a cap of its own; the server says when it is reached.
+	const check = card.action === "check"
+	const none = useQuestionsLeft().none && !check
 
 	// Escape closes it, and so does a press outside it.
 	useEffect(() => {
@@ -252,8 +256,10 @@ function OpenCard({
 								<AiAnswer
 									text={message.text}
 									citations={message.citations}
+									sources={message.sources}
 									onCite={canCite ? onCite : undefined}
 									citeLabel={(n) => t("ai.citation", { n })}
+									sourceLabel={(site) => t("ai.source", { site })}
 								/>
 							)}
 						</div>
@@ -264,18 +270,27 @@ function OpenCard({
 						<AiAnswer
 							text={streamed.text}
 							citations={streamed.citations}
+							sources={streamed.sources}
 							onCite={canCite ? onCite : undefined}
 							citeLabel={(n) => t("ai.citation", { n })}
+							sourceLabel={(site) => t("ai.source", { site })}
 						/>
 					) : (
-						<InkThinking label={t("ai.thinking")} />
+						// A fact check says what it searches for while it looks.
+						<InkThinking
+							label={
+								streamed.searches.length
+									? t("ai.searching", { query: streamed.searches.at(-1) })
+									: t("ai.thinking")
+							}
+						/>
 					)
 				) : null}
 				{card.failure ? <Failure {...card.failure} /> : null}
 			</div>
 			{card.draft && onSend ? (
 				<>
-					<div className="mt-2 flex gap-1.5">
+					<div className="mt-2 flex flex-wrap gap-1.5">
 						{CHOICES.map((action) => {
 							const ChoiceIcon = AI_ACTION_ICONS[action]
 							return (
@@ -283,7 +298,7 @@ function OpenCard({
 									key={action}
 									type="button"
 									onClick={() => onChoose?.(action)}
-									className="flex min-w-0 flex-1 items-center justify-center gap-1 rounded-lg border border-border px-2 py-1.5 font-medium text-fg transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+									className="flex grow items-center justify-center gap-1 whitespace-nowrap rounded-lg border border-border px-2 py-1.5 font-medium text-fg transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 								>
 									<ChoiceIcon className="size-3.5 shrink-0 text-accent" aria-hidden />
 									{t(`ai.actions.${action}`)}
@@ -352,7 +367,7 @@ function OpenCard({
 							autoFocus={false}
 						/>
 					)}
-					{!onSend || card.orphaned || busy ? null : (
+					{!onSend || card.orphaned || busy || check ? null : (
 						<>
 							<QuestionsLeft failed={card.failure?.code === "limit_reached"} />
 							{none && onAssistant ? <OwnAssistant onCopy={onAssistant} /> : null}
@@ -360,7 +375,7 @@ function OpenCard({
 					)}
 				</>
 			)}
-			<AiNotice />
+			<AiNotice check={check} />
 		</div>
 	)
 }
@@ -372,9 +387,17 @@ function useLimitMessage(): string | null {
 	return resetsOn ? t("ai.errors.limit_reached_on", { date: resetsOn }) : null
 }
 
-export function Failure({ code }: Pick<AiFailure, "code">) {
+export function Failure({ code, details }: Pick<AiFailure, "code" | "details">) {
 	const { t } = useTranslation("reader")
 	const limit = useLimitMessage()
+	// The fact checks' cap starts over on the same day as the questions'.
+	const resetsOn = useContext(AiResetsOnContext)
+	if (code === "limit_reached" && details?.limit === "factChecks" && resetsOn)
+		return (
+			<p role="alert" className="text-danger">
+				{t("ai.errors.fact_check_limit_on", { date: resetsOn })}
+			</p>
+		)
 	if (code === "limit_reached" && limit)
 		return (
 			<p role="alert" className="text-danger">
@@ -417,11 +440,11 @@ export function QuestionsLeft({ failed }: { failed?: boolean }) {
 }
 
 /** Who wrote the answers, and that they can be wrong: said wherever AI answers. */
-export function AiNotice() {
+export function AiNotice({ check }: { check?: boolean }) {
 	const { t } = useTranslation("reader")
 	return (
 		<p className="mt-2 text-xs text-muted-fg" data-testid="ai-notice">
-			{t("ai.notice")}
+			{t(check ? "ai.checkNotice" : "ai.notice")}
 		</p>
 	)
 }

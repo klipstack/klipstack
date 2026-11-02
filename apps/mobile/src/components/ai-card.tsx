@@ -40,6 +40,7 @@ export const AI_ACTIONS: Record<
 	define: { label: t("ai.actions.define"), symbol: "book" },
 	ask: { label: t("ai.actions.ask"), symbol: "questionmark.bubble" },
 	chat: { label: t("ai.actions.chat"), symbol: "bubble.left.and.text.bubble.right" },
+	check: { label: t("ai.actions.check"), symbol: "checkmark.seal" },
 }
 
 /** Asking AI about a passage, before choosing how: the selection menu's Ask, and the draft's head. */
@@ -73,8 +74,9 @@ const SUGGESTIONS = [
  * A question about a passage and its answers, as a card at the bottom that leaves the article in
  * view, as the highlight's card does: the action, the passage, the turns, the answer streaming in
  * (the pen stroke until its first words), its citations, and Answer Again, Copy and Delete, then
- * a field for a follow-up. Asking opens a draft: Explain and Define, one tap each, above its
- * question field and suggestions; nothing is sent before. Not a modal: the
+ * a field for a follow-up. Asking opens a draft: Explain, Define and Fact check, one tap each,
+ * above its question field and suggestions; nothing is sent before. A fact check says what it
+ * searches for while it looks, puts the sites it cites after their words, and says to judge them. Not a modal: the
  * article above takes touches; a citation flashes its passage there. The web's `AiCard`.
  */
 export function AiCard({
@@ -100,7 +102,7 @@ export function AiCard({
 	onClose: () => void
 	/** Missing while AI answers are turned off: the card is read, copied and deleted only. */
 	onSend?: (question: string) => void
-	/** A draft becomes an Explain or a Define. */
+	/** A draft becomes an Explain, a Define or a Fact check. */
 	onChoose?: (action: (typeof DRAFT_CHOICES)[number]) => void
 	onRetry?: () => void
 	onDelete: () => void
@@ -244,7 +246,9 @@ function CardBody({
 	const streamed = useWritten(written, card.id)
 	const { none } = questionsLeft(allowance)
 	const { busy, lastAnswer, canRetry, canFollowUp } = cardState(card, none)
-	const left = allowanceMessage(allowance)
+	// A fact check counts against a cap of its own, which the server says when it is reached.
+	const check = card.action === "check"
+	const left = check ? null : allowanceMessage(allowance)
 	const turns = useRef<ScrollViewInstance>(null)
 	// The newest turn in view; the reader scrolling up keeps their place.
 	const pinned = useRef(true)
@@ -274,12 +278,17 @@ function CardBody({
 								<AiAnswer
 									text={streamed.text}
 									citations={streamed.citations}
+									sources={streamed.sources}
 									onCite={cite}
 									colors={colors}
 								/>
 							) : (
 								<InkThinking
-									label={t("ai.card.thinking")}
+									label={
+										streamed.searches.length
+											? t("ai.card.searching", { query: streamed.searches.at(-1) })
+											: t("ai.card.thinking")
+									}
 									colors={colors}
 									style={styles.thinking}
 								/>
@@ -382,6 +391,9 @@ function CardBody({
 			{left && !busy && card.failure?.code !== "limit_reached" ? (
 				<Text style={[styles.left, { color: colors.mutedFg }]}>{left}</Text>
 			) : null}
+			{check ? (
+				<Text style={[styles.left, { color: colors.mutedFg }]}>{t("ai.card.checkNotice")}</Text>
+			) : null}
 		</>
 	)
 }
@@ -419,6 +431,7 @@ export function Turns({
 				key={message.id}
 				text={message.text}
 				citations={message.citations}
+				sources={message.sources}
 				onCite={onCite}
 				colors={colors}
 			/>
