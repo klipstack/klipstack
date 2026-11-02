@@ -162,6 +162,42 @@ function trimBoilerplateEdges(root: HTMLElement) {
 	}
 }
 
+const CARD_BLOCKS = "p, div, h2, h3, h4, h5, h6"
+const MEDIA = "img, picture, table, pre, math"
+
+/**
+ * Drop link cards to the site's own posts ("read my other post"): one link wrapping a title and a
+ * description, between paragraphs. Cards to other sites (an embedded tweet, a repository) are
+ * content, and so is a post made mostly of cards (a "best of" list). Runs after links are absolute.
+ */
+function removeSameSiteLinkCards(root: HTMLElement, url: string) {
+	const page = new URL(url)
+	const host = (u: URL) => u.hostname.replace(/^www\./, "")
+	const path = (u: URL) => u.pathname.replace(/\/+$/, "")
+	const cards: Element[] = []
+	for (const a of Array.from(root.querySelectorAll("a[href^='http']"))) {
+		const href = new URL(a.getAttribute("href") as string)
+		if (host(href) !== host(page) || path(href) === path(page)) continue
+		// A list of contents, or a quote of the author's earlier post, is the article's own.
+		if (a.closest("li, blockquote")) continue
+		const texts = Array.from(a.querySelectorAll(CARD_BLOCKS)).filter(
+			(el) => !el.querySelector(CARD_BLOCKS) && textLength(el) > 0,
+		)
+		if (texts.length < 2) continue
+		// The card's box: wrappers around the link that add no text and no media of their own.
+		let card: Element = a
+		const media = a.querySelectorAll(MEDIA).length
+		for (let p = card.parentElement; p && p !== root; p = p.parentElement) {
+			if (textLength(p) !== textLength(a) || p.querySelectorAll(MEDIA).length !== media) break
+			card = p
+		}
+		cards.push(card)
+	}
+	const cardText = cards.reduce((n, card) => n + textLength(card), 0)
+	if (cardText > textLength(root) / 2) return
+	for (const card of cards) card.remove()
+}
+
 /**
  * Normalize extracted article HTML before sanitizing: absolute URLs, lazy images resolved,
  * junk removed, headings demoted, duplicate title header dropped, attributes trimmed.
@@ -288,6 +324,15 @@ export function cleanArticleHtml(
 			if (!["href", "target", "rel", "id", "title", "lang", "dir"].includes(attr.name))
 				a.removeAttribute(attr.name)
 		}
+	}
+
+	removeSameSiteLinkCards(root, url)
+
+	// Figures whose media was removed above (an iframe, a video) leave only their caption.
+	for (const figure of Array.from(root.querySelectorAll("figure"))) {
+		if (figure.querySelector("img, picture, table, pre, math")) continue
+		const caption = figure.querySelector("figcaption")
+		if (caption && textLength(figure) === textLength(caption)) figure.remove()
 	}
 
 	// Drop a leading header/heading that duplicates the title.

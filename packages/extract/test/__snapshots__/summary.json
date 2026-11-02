@@ -385,7 +385,7 @@
     "candidates": [
       {
         "name": "defuddle",
-        "textLength": 13232,
+        "textLength": 13181,
         "junkLength": 114
       },
       {
@@ -436,6 +436,28 @@
         "name": "readability",
         "textLength": 10416,
         "junkLength": 0
+      }
+    ]
+  },
+  "ghuntley-replaced.html": {
+    "title": "if your team is too busy doing their 'normal job' to experiment with AI, you're preparing them to be replaced",
+    "author": "Geoffrey Huntley",
+    "siteName": "Geoffrey Huntley",
+    "language": "en",
+    "publishedAt": "2026-10-09",
+    "leadImage": true,
+    "wordCount": 2600,
+    "extractor": "defuddle",
+    "candidates": [
+      {
+        "name": "defuddle",
+        "textLength": 14606,
+        "junkLength": 181
+      },
+      {
+        "name": "readability",
+        "textLength": 14160,
+        "junkLength": 181
       }
     ]
   }

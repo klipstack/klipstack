@@ -123,7 +123,11 @@ export const fixtures: Fixture[] = [
 		file: "lenny-pmf.html",
 		url: "https://www.lennysnewsletter.com/p/how-to-know-if-youve-got-productmarket",
 		minWords: 1500,
-		quotes: ["product-market fit"],
+		// The second quote is from an embedded tweet: a block-level link to another site.
+		quotes: [
+			"product-market fit",
+			"My number one predictor of whether or not a company will find product-market fit: High shipping cadence.",
+		],
 		title: "product-market fit",
 	},
 	{ file: "github-defuddle.html", url: "https://github.com/kepano/defuddle", minWords: 300, quotes: ["Defuddle"], title: "defuddle" },
@@ -146,5 +150,24 @@ export const fixtures: Fixture[] = [
 		url: "https://nautil.us/a-scientist-walks-into-a-bar-583747/",
 		minWords: 1000,
 		quotes: ["laughter"],
+	},
+	{
+		// Ghost bookmark cards to the author's other posts sit between paragraphs; the tweets
+		// embedded further down are part of the article.
+		file: "ghuntley-replaced.html",
+		url: "https://ghuntley.com/replaced/",
+		minWords: 1500,
+		quotes: [
+			"You should already be putting your employees on a vitality curve and ranking them.",
+			"I've never seen this before in my career: 28-30 year olds who refuse to use AI coding tools.",
+		],
+		mustNotContain: [
+			"Two weeks ago a student anonymously emailed me",
+			"This is the eighteen-month recap: the talk I gave",
+			"I closed off the post with the following quote",
+			"It's not that hard to build a coding agent",
+			// The caption of a YouTube embed, left alone once the iframe is gone.
+			"in video form",
+		],
 	},
 ]
