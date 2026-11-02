@@ -169,16 +169,17 @@ function ReviewRow({
 			data-testid="review-item"
 		>
 			<div className="min-w-0 flex-1">
-				<p className="truncate text-xs text-muted-fg">
-					{[
-						sourceLabel(doc),
-						t("review.saved", { when: relativeTime(doc.createdAt, i18n.language) }),
-						doc.type === "article" && doc.readingMinutes
-							? t("review.minutes", { count: doc.readingMinutes })
-							: null,
-					]
-						.filter(Boolean)
-						.join(" · ")}
+				<p className="flex gap-1 text-xs text-muted-fg">
+					{/* Always readable: when and how long. A long source gives way first. */}
+					<span className="truncate">{sourceLabel(doc)}</span>
+					<span className="shrink-0">
+						{`· ${t("review.saved", { when: relativeTime(doc.createdAt, i18n.language) })}`}
+					</span>
+					{doc.type === "article" && doc.readingMinutes ? (
+						<span className="shrink-0">
+							{`· ${t("review.minutes", { count: doc.readingMinutes })}`}
+						</span>
+					) : null}
 				</p>
 				<Link
 					to={`/read/${doc.id}`}

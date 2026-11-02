@@ -4,6 +4,7 @@ import type { NoteSaveStatus } from "@klipstack/sdk/note-autosave"
 import { SymbolView } from "expo-symbols"
 import { useRef } from "react"
 import { Keyboard, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
+import { MetaLine } from "@/components/article-card"
 import { MarkerText } from "@/components/marker-text"
 import {
 	LinkArticleButton,
@@ -12,6 +13,7 @@ import {
 	type NoteLinking,
 } from "@/components/note-field"
 import { PostIt, postItText } from "@/components/post-it"
+import type { Meta } from "@/lib/article-meta"
 import { withDictated } from "@/lib/dictated-note"
 import { useDictation } from "@/lib/dictation"
 import { t } from "@/lib/i18n"
@@ -44,7 +46,7 @@ export function NotesSheet({
 }: {
 	visible: boolean
 	/** The article the notes are on: its title, and site · author · minutes. */
-	article: { title: string; byline: string; description: string | null }
+	article: { title: string; byline: Meta; description: string | null }
 	onClose: () => void
 	/** After the sheet is gone, however it was closed. */
 	onDismiss: () => void
@@ -114,11 +116,7 @@ export function NotesSheet({
 						<Text style={[styles.articleTitle, { color: colors.fg }]} numberOfLines={3}>
 							{article.title}
 						</Text>
-						{article.byline ? (
-							<Text style={[styles.byline, { color: colors.mutedFg }]} numberOfLines={1}>
-								{article.byline}
-							</Text>
-						) : null}
+						<MetaLine meta={article.byline} color={colors.mutedFg} style={styles.byline} />
 						{article.description ? (
 							<Text style={[styles.description, { color: colors.mutedFg }]} numberOfLines={3}>
 								{article.description}

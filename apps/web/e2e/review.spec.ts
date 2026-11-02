@@ -34,6 +34,8 @@ test("old saves never opened come up for review, to archive, keep or delete, wit
 					sourceUrl: url,
 					urlHash: urlHash(url),
 					title: s.title,
+					// Too long for the line: it is cut, not when it was saved or how long it takes.
+					siteName: s.age === 90 ? "A site with a very long name ".repeat(8) : null,
 					status: "ready" as const,
 					readingMinutes: 8,
 					createdAt: new Date(Date.now() - s.age * day),
@@ -90,8 +92,15 @@ test("old saves never opened come up for review, to archive, keep or delete, wit
 	const prefs = await db.query.user.findFirst({ where: eq(user.id, owner!.id) })
 	expect(prefs?.prefs.reviewSuggestAfter).toBeTruthy()
 
-	// One at a time: archive, and undo.
 	const row = (title: string) => items.filter({ has: link(title) })
+	const meta = row("Three months old").locator("p").first()
+	const line = await meta.boundingBox()
+	for (const text of ["· Saved 3 months ago", "· 8 min"]) {
+		const part = await meta.getByText(text, { exact: true }).boundingBox()
+		expect(part!.x + part!.width).toBeLessThanOrEqual(line!.x + line!.width + 1)
+	}
+
+	// One at a time: archive, and undo.
 	await row("Three months old").getByRole("button", { name: "Archive" }).click()
 	await expect(link("Three months old")).toHaveCount(0)
 	await expect(page.getByText("Archived", { exact: true })).toBeVisible()

@@ -10,7 +10,7 @@ import {
 	useWindowDimensions,
 	View,
 } from "react-native"
-import { CardPicture } from "@/components/article-card"
+import { CardPicture, MetaLine } from "@/components/article-card"
 import { articleMeta } from "@/lib/article-meta"
 import { t } from "@/lib/i18n"
 import { type ReviewAction, savedAgo, swipeDecision } from "@/lib/review"
@@ -221,11 +221,12 @@ function Card({
 				</View>
 			) : null}
 			<View style={styles.words}>
-				<Text style={[styles.meta, { color: colors.mutedFg }]} numberOfLines={2}>
-					{articleMeta(item)}
-					{"\n"}
-					{savedAgo(item.savedAt)}
-				</Text>
+				<View>
+					<MetaLine meta={articleMeta(item)} color={colors.mutedFg} style={styles.meta} />
+					<Text style={[styles.meta, { color: colors.mutedFg }]} numberOfLines={1}>
+						{savedAgo(item.savedAt)}
+					</Text>
+				</View>
 				<Text style={[styles.title, { color: colors.fg }]} numberOfLines={4}>
 					{item.title ?? item.url}
 				</Text>

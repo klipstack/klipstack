@@ -3,19 +3,24 @@ import { minutesLeft } from "./home"
 import { dateLocale, t } from "./i18n"
 
 /**
+ * A card's line in two parts: where it is from, cut when long, and the reading time, which always
+ * shows (`MetaLine`).
+ */
+export type Meta = { source: string | null; time: string | null }
+
+/**
  * Site and reading time, as the cards show them. On X the site says nothing about who wrote the
  * post, so the author comes along: "X.com · Jane Doe · 3 min".
  */
 export function articleMeta(
 	item: Pick<ArticleSummary, "site" | "author" | "url" | "readingMinutes">,
-): string {
-	return [
-		siteName(item),
-		hostOf(item.url) === "x.com" ? item.author : null,
-		item.readingMinutes ? t("library.meta.minutes", { count: item.readingMinutes }) : null,
-	]
-		.filter(Boolean)
-		.join(" · ")
+): Meta {
+	return {
+		source: [siteName(item), hostOf(item.url) === "x.com" ? item.author : null]
+			.filter(Boolean)
+			.join(" · "),
+		time: item.readingMinutes ? t("library.meta.minutes", { count: item.readingMinutes }) : null,
+	}
 }
 
 /** The site's name, or its host without one. */
@@ -29,19 +34,17 @@ export function siteName(item: Pick<ArticleSummary, "site" | "url">): string {
  */
 export function articleByline(
 	item: Pick<ArticleSummary, "author" | "readingMinutes" | "progress" | "status">,
-): string {
+): Meta {
 	const left = item.status === "ready" && item.progress > 0 && item.progress < 1
 	const minutes = left ? minutesLeft(item) : item.readingMinutes
-	return [
-		item.author,
-		minutes
+	return {
+		source: item.author,
+		time: minutes
 			? left
 				? t("library.meta.minutesLeft", { count: minutes })
 				: t("library.meta.minutes", { count: minutes })
 			: null,
-	]
-		.filter(Boolean)
-		.join(" · ")
+	}
 }
 
 /** A date as a row shows it: "Sep 21", with the year when it isn't this one. */

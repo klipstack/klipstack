@@ -50,6 +50,7 @@ import { useTagSheet } from "@/components/tag-sheet"
 import { useAiCards } from "@/lib/ai-cards"
 import { createConsentGate } from "@/lib/ai-consent"
 import { showToast, track } from "@/lib/article-changes"
+import type { Meta } from "@/lib/article-meta"
 import { retagged } from "@/lib/article-tags"
 import { useAuth } from "@/lib/auth"
 import { copyText } from "@/lib/clipboard"
@@ -465,11 +466,12 @@ export default function Reader() {
 				const html = localImages(stored.html, sizes)
 				if (!live) return
 				const folder = readerFolder(id)
+				const byline = bylineOf(details)
 				const file = writePage(
 					folder,
 					readerHtml({
 						title: details.title ?? details.url,
-						byline: bylineOf(details),
+						byline: [byline.source, byline.time].filter(Boolean).join(" · "),
 						stamp: { degrees: stampDegrees(details.id), shown: details.finished },
 						via: details.via,
 						topics,
@@ -1693,15 +1695,12 @@ export default function Reader() {
 	)
 }
 
-function bylineOf(a: ArticleDetails): string {
-	const site = a.site ?? hostOf(a.url)
-	return [
-		site,
-		a.author,
-		a.readingMinutes ? t("reader.html.minutes", { count: a.readingMinutes }) : null,
-	]
-		.filter(Boolean)
-		.join(" · ")
+/** The site and author, and the reading time apart, so a one-line byline cuts the site first. */
+function bylineOf(a: ArticleDetails): Meta {
+	return {
+		source: [a.site ?? hostOf(a.url), a.author].filter(Boolean).join(" · "),
+		time: a.readingMinutes ? t("reader.html.minutes", { count: a.readingMinutes }) : null,
+	}
 }
 
 function statusMessage(a: ArticleDetails): string {

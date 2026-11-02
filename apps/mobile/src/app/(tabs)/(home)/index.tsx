@@ -28,6 +28,7 @@ import {
 	CARD_FRAME,
 	type CardMenu,
 	CardPicture,
+	MetaLine,
 	ProgressBar,
 	Starred,
 	Tappable,
@@ -943,9 +944,7 @@ function Hero({
 				{item.title ?? item.url}
 			</Text>
 			<Starred item={item} colors={colors}>
-				<Text style={[styles.meta, styles.shrink, { color: colors.mutedFg }]} numberOfLines={1}>
-					{articleMeta(item)}
-				</Text>
+				<MetaLine meta={articleMeta(item)} color={colors.mutedFg} style={styles.meta} />
 			</Starred>
 			{started ? (
 				<View style={styles.progressRow}>
