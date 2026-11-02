@@ -13,6 +13,7 @@ import {
 	type StyleProp,
 	StyleSheet,
 	Text,
+	type TextStyle,
 	useWindowDimensions,
 	View,
 	type ViewStyle,
@@ -23,7 +24,7 @@ import { MotionCell } from "@/components/list-motion"
 import { Grain } from "@/components/paper"
 import { ReadStamp } from "@/components/read-stamp"
 import { SiteCover } from "@/components/site-cover"
-import { articleByline, articleMeta, shortDate, siteName } from "@/lib/article-meta"
+import { articleByline, articleMeta, type Meta, shortDate, siteName } from "@/lib/article-meta"
 import { useAuth } from "@/lib/auth"
 import { copyText } from "@/lib/clipboard"
 import { inSections } from "@/lib/date-groups"
@@ -115,9 +116,7 @@ export function ArticleCard({
 				{item.title ?? item.url}
 			</Text>
 			<Starred item={item} colors={colors}>
-				<Text style={[styles.meta, styles.shrink, { color: colors.mutedFg }]} numberOfLines={1}>
-					{metaLine(item)}
-				</Text>
+				<MetaLine meta={withStatus(articleMeta(item), item)} color={colors.mutedFg} />
 			</Starred>
 			{reading(item) ? <ProgressBar progress={item.progress} colors={colors} /> : null}
 		</Tappable>
@@ -184,9 +183,7 @@ export function ArticleRow({
 								{description}
 							</Text>
 						) : null}
-						<Text style={[styles.meta, { color: colors.fg }]} numberOfLines={1}>
-							{withStatus(articleByline(item), item)}
-						</Text>
+						<MetaLine meta={withStatus(articleByline(item), item)} color={colors.fg} />
 					</View>
 					<RowPicture item={item} colors={colors} headers={headers} />
 				</View>
@@ -493,16 +490,41 @@ function openReader(item: ArticleSummary) {
 	router.push({ pathname: "/read/[id]", params: { id: item.id } })
 }
 
-/** A card's line: the site and reading time, and how the save went. */
-function metaLine(item: ArticleSummary): string {
-	return withStatus(articleMeta(item), item)
+/**
+ * A line of where an article is from and how long it takes, on one line: a long site or author is
+ * cut, so the reading time after it always shows.
+ */
+export function MetaLine({
+	meta,
+	color,
+	style = styles.meta,
+}: {
+	meta: Meta
+	color: string
+	style?: StyleProp<TextStyle>
+}) {
+	const { source, time } = meta
+	return (
+		<View style={[styles.metaLine, styles.shrink]}>
+			{source ? (
+				<Text style={[style, styles.shrink, { color }]} numberOfLines={1}>
+					{source}
+				</Text>
+			) : null}
+			{time ? (
+				<Text style={[style, { color }]} numberOfLines={1}>
+					{source ? ` · ${time}` : time}
+				</Text>
+			) : null}
+		</View>
+	)
 }
 
 /**
- * The line with how the save went, when it isn't simply ready, or that it is in the trash. A
- * finished article says so with its stamp (`ReadStamp`).
+ * The line with how the save went, when it isn't simply ready, or that it is in the trash, after
+ * the time. A finished article says so with its stamp (`ReadStamp`).
  */
-function withStatus(line: string, item: ArticleSummary): string {
+function withStatus(meta: Meta, item: ArticleSummary): Meta {
 	const status = item.trashedAt
 		? t("library.card.inTrash")
 		: item.status === "failed"
@@ -510,7 +532,7 @@ function withStatus(line: string, item: ArticleSummary): string {
 			: item.status === "ready"
 				? null
 				: t("library.card.saving")
-	return status ? [line, status].filter(Boolean).join(" · ") : line
+	return status ? { ...meta, time: [meta.time, status].filter(Boolean).join(" · ") } : meta
 }
 
 function reading(item: ArticleSummary): boolean {
@@ -799,6 +821,7 @@ const styles = StyleSheet.create({
 	displayTitle: { fontFamily: fonts.display, fontSize: 18, lineHeight: 22, fontWeight: undefined },
 	rowTitle: { fontFamily: fonts.serif, fontSize: 19, lineHeight: 24, fontWeight: "600" },
 	meta: { fontSize: 13 },
+	metaLine: { flexDirection: "row" },
 	description: { fontSize: 14, lineHeight: 19 },
 	check: {
 		width: 24,
