@@ -158,6 +158,7 @@ work. Keep the bucket private: the app serves images itself, after checking who 
 | `LIMIT_SHARES_PER_MONTH` | `100` | Highlights shared at a new public link, per account per month. |
 | `LIMIT_AI_PER_MONTH` | `100` | AI questions per account per month. |
 | `LIMIT_AI_PER_MONTH_ADMIN` | `500` | AI questions per admin account per month. |
+| `LIMIT_FACT_CHECKS_PER_MONTH` | `30` | Fact checks (which search the web) per account per month; `LIMIT_FACT_CHECKS_PER_MONTH_ADMIN` (`100`) for admins. |
 | `BILLING_STARTS_AT` | unset | Leave it unset. It is for a server that charges for accounts: from that day, new accounts get a 30-day trial and the rest a free year, each with caps of their own (`LIMIT_TRIAL_*`, `LIMIT_PAID_*` in `.env.example`), and an account past both can read and export but add nothing. Unset, every account has the caps above and none lapses. |
 | `APPLE_TEAM_ID`, `APPLE_BUNDLE_ID` | unset | Your Apple team ID (10 characters), for Sign in with Apple or your own build of the iPhone app, and that build's bundle ID. With both set, `/.well-known/apple-app-site-association` lets that app open its sign-in callback (`/app/oauth/callback`) as a universal link; unset, it answers 404. Klipstack's own app works only with klipstack.com. |
 | `PG_POOL_MAX` | `10` | Database connections per process (web and worker each have a pool). |

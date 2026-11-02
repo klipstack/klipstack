@@ -31,6 +31,25 @@ describe("AiAnswer", () => {
 		expect(html).not.toContain("##")
 	})
 
+	it("puts a fact check's sources after their words as their sites, linking only to web pages", () => {
+		const text = "**Partly supported.** He worked a third session. Another claim."
+		const html = renderToStaticMarkup(
+			<AiAnswer
+				text={text}
+				citations={[]}
+				sources={[
+					{ url: "https://www.darwinproject.ac.uk/day", title: "Darwin's day", at: 48 },
+					{ url: "javascript:alert(1)", title: null, at: text.length },
+				]}
+				citeLabel={(n) => `${n}`}
+			/>,
+		)
+		expect(html).toMatch(
+			/third session\.<a href="https:\/\/www\.darwinproject\.ac\.uk\/day"[^>]*target="_blank"[^>]*rel="noopener noreferrer nofollow"[^>]*>darwinproject\.ac\.uk<\/a> Another/,
+		)
+		expect(html).not.toContain("javascript:")
+	})
+
 	it("goes on counting a numbered list broken up by blank lines", () => {
 		const html = render("1. One.\n\n2. Two.\n\n3. Three.")
 		expect(html.match(/<ol[^>]*>/g)).toEqual([

@@ -254,7 +254,13 @@ export default {
 		},
 	},
 	ai: {
-		actions: { explain: "Explicar", define: "Definir", ask: "Preguntar", chat: "Chat" },
+		actions: {
+			explain: "Explicar",
+			define: "Definir",
+			ask: "Preguntar",
+			chat: "Chat",
+			check: "Verificar",
+		},
 		askAi: "Preguntar a la IA",
 		chat: {
 			tab: "Preguntar",
@@ -277,6 +283,10 @@ export default {
 		},
 		collapse: "Contraer",
 		thinking: "Pensando…",
+		searching: "Buscando: {{query}}",
+		source: "Fuente: {{site}}",
+		checkNotice:
+			"Las verificaciones buscan en la web a través de Anthropic y pueden equivocarse. Abre las fuentes para juzgarlas.",
 		left_one: "Te queda {{count}} pregunta este mes",
 		left_other: "Te quedan {{count}} preguntas este mes",
 		noneLeft: "No te quedan preguntas a la IA este mes",
@@ -320,6 +330,7 @@ export default {
 			limit_reached: "Ya hiciste todas las preguntas que permite este mes. Se reinicia el día 1.",
 			limit_reached_on:
 				"Ya hiciste todas las preguntas que permite este mes. Se reinicia el {{date}}.",
+			fact_check_limit_on: "Ya usaste las verificaciones de este mes. Se reinician el {{date}}.",
 			rate_limited: "Demasiadas preguntas seguidas. Espera unos minutos e inténtalo de nuevo.",
 			network: "No se pudo conectar con Klipstack. Revisa tu conexión e inténtalo de nuevo.",
 			no_match: "Ese pasaje ya no está en el artículo.",

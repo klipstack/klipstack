@@ -40,6 +40,7 @@ export const AI_ACTIONS: Record<
 	define: { label: t("ai.actions.define"), symbol: "book" },
 	ask: { label: t("ai.actions.ask"), symbol: "questionmark.bubble" },
 	chat: { label: t("ai.actions.chat"), symbol: "bubble.left.and.text.bubble.right" },
+	check: { label: t("ai.actions.check"), symbol: "checkmark.seal" },
 }
 
 /** Asking AI about a passage, before choosing how: the selection menu's Ask, and the draft's head. */

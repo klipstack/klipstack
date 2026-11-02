@@ -67,6 +67,77 @@ export function fakeModel(input: AnswerInput) {
 	})
 }
 
+/** The pages the fake fact check cites. */
+export const FAKE_SOURCES = [
+	{ url: "https://example.org/archive/record", title: "A primary record" },
+	{ url: "https://example.edu/study", title: "A study" },
+] as const
+
+/**
+ * A fixed fact check: one search, then, after `thinkMs` (the search taking its time), a verdict
+ * whose two blocks each cite a page, as the provider sends them. A result it does not cite comes
+ * as a source too, without cited text.
+ */
+export function fakeCheck(input: AnswerInput, thinkMs = 0) {
+	const { start, end } = input.thread.passage
+	const cited = sentencesIn(input.article.text, start, end)
+	const asked = input.thread.turns.at(-1)?.text ?? ""
+	const usage = {
+		inputTokens: { total: 200, noCache: 200, cacheRead: 0, cacheWrite: 0 },
+		outputTokens: { total: 40, text: 40, reasoning: 0 },
+	}
+	const source = (n: number, citedText?: string) => ({
+		type: "source" as const,
+		sourceType: "url" as const,
+		id: `s${n}`,
+		url: n < FAKE_SOURCES.length ? FAKE_SOURCES[n]!.url : `https://example.com/blog-${n}`,
+		title: n < FAKE_SOURCES.length ? FAKE_SOURCES[n]!.title : "An uncited result",
+		providerMetadata: citedText ? { anthropic: { citedText } } : undefined,
+	})
+	const block = (
+		id: string,
+		...parts: LanguageModelV4StreamPart[]
+	): LanguageModelV4StreamPart[] => [{ type: "text-start", id }, ...parts, { type: "text-end", id }]
+	const delta = (id: string, d: string) => ({ type: "text-delta" as const, id, delta: d })
+	const search: LanguageModelV4StreamPart[] = [
+		{
+			type: "tool-call",
+			toolCallId: "search-1",
+			toolName: "web_search",
+			input: JSON.stringify({ query: "fixed fact check" }),
+			providerExecuted: true,
+		},
+		{ type: "tool-result", toolCallId: "search-1", toolName: "web_search", result: [] },
+		source(2),
+	]
+	const chunks: LanguageModelV4StreamPart[] = asked.includes(FAKE_FAIL)
+		? [...search, { type: "error", error: new Error("fake provider failure") }]
+		: [
+				...search,
+				...block("a", delta("a", `Checked: the passage${markers(cited)}\n\n`)),
+				...block("b", source(0, "a record"), delta("b", "**Partly supported: a fixed check.**")),
+				...block("c", delta("c", " ")),
+				...block("d", source(1, "a finding"), delta("d", "A study found otherwise.")),
+				{ type: "finish", usage, finishReason: { unified: "stop", raw: "end_turn" } },
+			]
+	const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+	return new MockLanguageModelV4({
+		provider: "fake",
+		modelId: "check",
+		doStream: async () => ({
+			stream: new ReadableStream<LanguageModelV4StreamPart>({
+				async start(controller) {
+					for (const [i, chunk] of chunks.entries()) {
+						await pause(i === search.length ? thinkMs : 30)
+						controller.enqueue(chunk)
+					}
+					controller.close()
+				},
+			}),
+		}),
+	})
+}
+
 /** How long the demo's model thinks before its first word, as a provider does. */
 export const DEMO_THINK_MS = 3000
 

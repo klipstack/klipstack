@@ -32,6 +32,7 @@ export const usageMetrics = [
 	"editions",
 	"shares",
 	"ai",
+	"fact_checks",
 	"refused",
 	"ai_spend",
 	"topics",

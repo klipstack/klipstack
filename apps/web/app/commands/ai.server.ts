@@ -103,9 +103,17 @@ export interface Asked {
 	allowance: AiAllowance
 }
 
-/** Counts a question against the monthly cap, and says where the account stands after it. */
-async function countQuestion(tx: Tx, userId: string): Promise<AiAllowance> {
-	const { used, max, resetsAt } = await countMonthly(tx, userId, "ai")
+/**
+ * Counts a question against the monthly cap, and says where the account stands after it. A fact
+ * check's questions (its follow-ups and retries search too) count against a cap of their own.
+ */
+async function countQuestion(
+	tx: Tx,
+	userId: string,
+	action: AiThreadAction = "ask",
+): Promise<AiAllowance> {
+	const limit = action === "check" ? "factChecks" : "ai"
+	const { used, max, resetsAt } = await countMonthly(tx, userId, limit)
 	return { used, max, resetsAt: resetsAt.toISOString() }
 }
 
@@ -185,7 +193,7 @@ export async function askAboutPassage(
 			if (highlight?.documentId !== documentId) throw notFound("No highlight with that id.")
 		}
 		const { thread, turn, allowance } = await db.transaction(async (tx) => {
-			const allowance = await countQuestion(tx, userId)
+			const allowance = await countQuestion(tx, userId, action)
 			const thread = await insertThread(tx, {
 				userId,
 				documentId,
@@ -276,7 +284,7 @@ export async function followUp(
 	const limited = await mayAsk(userId)
 	try {
 		const { turn, allowance } = await db.transaction(async (tx) => {
-			const allowance = await countQuestion(tx, userId)
+			const allowance = await countQuestion(tx, userId, thread.action)
 			const turn = await insertMessage(tx, { threadId: thread.id, role: "user", text: question })
 			return { turn, allowance }
 		})
@@ -312,7 +320,7 @@ export async function retryAnswer(
 	try {
 		// Counted, and the old answer gone, together: a refusal keeps the answer.
 		const allowance = await db.transaction(async (tx) => {
-			const allowance = await countQuestion(tx, userId)
+			const allowance = await countQuestion(tx, userId, thread.action)
 			if (last?.role === "assistant") await deleteMessage(last.id, tx)
 			return allowance
 		})
@@ -473,7 +481,7 @@ function answerThread(
 		.filter((m) => m.role === "user" || m.status !== "failed")
 		.map((m) => ({ role: m.role, text: m.text }))
 	const answer = ai.answer({
-		tier: "quick",
+		tier: thread.action === "check" ? "check" : "quick",
 		article: {
 			title: doc.title ?? "",
 			author: doc.author,
@@ -498,6 +506,7 @@ function answerThread(
 				text: result.text,
 				status: result.status,
 				citations: result.citations,
+				sources: result.sources,
 				model: result.model,
 				inputTokens: result.usage.inputTokens,
 				outputTokens: result.usage.outputTokens,

@@ -5,6 +5,8 @@ export default {
 		define: "Definir",
 		ask: "Preguntar",
 		chat: "Chat",
+		/** A fact check, asked on the web. */
+		check: "Verificar",
 		/** Asking about a passage, before choosing how. */
 		askAi: "Preguntar a la IA",
 	},

@@ -5,6 +5,7 @@ import {
 	type AiCitation,
 	aiBriefs,
 	type AiMessage,
+	type AiSource,
 	type AiThread,
 	type AiThreadAction,
 	aiMessages,
@@ -65,6 +66,7 @@ export interface NewMessage {
 	text: string
 	status?: "done" | "failed" | "refused"
 	citations?: AiCitation[]
+	sources?: AiSource[]
 	model?: string
 	inputTokens?: number
 	outputTokens?: number

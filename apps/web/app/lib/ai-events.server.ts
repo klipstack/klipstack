@@ -44,7 +44,9 @@ export async function* briefEvents(briefing: AiBrief | Briefing): AsyncGenerator
 	}
 	yield { type: "allowance", allowance: briefing.allowance }
 	try {
-		for await (const event of briefing.events) yield event
+		// A brief never searches: only its text and citations.
+		for await (const event of briefing.events)
+			if (event.type === "text" || event.type === "citation") yield event
 	} catch {
 		// Failed: `brief` below says so.
 	}

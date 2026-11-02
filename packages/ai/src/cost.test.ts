@@ -32,6 +32,18 @@ describe("estimateCostUsd", () => {
 		).toBeCloseTo(0.05 + 0.005 + 0.0025, 10)
 	})
 
+	it("adds a cent for each web search to its tokens", () => {
+		// Sonnet: 10K uncached at $2 a million, 10K cached at $0.10, 1K out at $10; two searches.
+		expect(
+			estimateCostUsd("anthropic:claude-sonnet-5-5", {
+				inputTokens: 20_000,
+				cacheReadTokens: 10_000,
+				outputTokens: 1000,
+				searches: 2,
+			}),
+		).toBeCloseTo(0.02 + 0.001 + 0.01 + 0.02, 10)
+	})
+
 	it("knows the price of every model a tier uses", () => {
 		for (const { provider, model } of Object.values(TIERS))
 			expect(

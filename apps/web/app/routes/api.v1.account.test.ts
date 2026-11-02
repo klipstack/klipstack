@@ -56,6 +56,7 @@ describe("GET /usage", () => {
 		const { month } = monthOf()
 		await db.insert(usageCounts).values([
 			{ userId: me.id, metric: "ai", month, count: 7 },
+			{ userId: me.id, metric: "fact_checks", month, count: 3 },
 			{ userId: me.id, metric: "topic_sorts", month, count: 42 },
 			// Last month's counts are not this month's.
 			{ userId: me.id, metric: "saves", month: "2020-01-01", count: 99 },
@@ -74,7 +75,7 @@ describe("GET /usage", () => {
 		expect(plain.storage.max).toBe(env.LIMIT_STORAGE_MB * 1024 * 1024)
 		// The captured page and its extracted text, at least.
 		expect(plain.storage.used).toBeGreaterThan(10_000)
-		expect([plain.ai, plain.topicSorts]).toEqual([null, null])
+		expect([plain.ai, plain.factChecks, plain.topicSorts]).toEqual([null, null, null])
 		expect(plain.resetsAt).toBe(monthOf().resetsAt.toISOString())
 
 		// Topics turned on, but no longer offered to the account: no sorting.
@@ -90,6 +91,7 @@ describe("GET /usage", () => {
 		await db.insert(topicLibraries).values({ userId: me.id })
 		const full = await me.client.usage()
 		expect(full.ai).toEqual({ used: 7, max: env.LIMIT_AI_PER_MONTH })
+		expect(full.factChecks).toEqual({ used: 3, max: env.LIMIT_FACT_CHECKS_PER_MONTH })
 		expect(full.topicSorts).toEqual({ used: 42, max: topicLimits().sorts })
 	})
 })

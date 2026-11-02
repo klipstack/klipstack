@@ -24,8 +24,11 @@ const inAppAi: OnlyClients = {
 	note: "Whoever connects through the API brings their own AI.",
 }
 
-/** What the reader asks of a passage; `chat` asks about the whole article. */
-export const AI_THREAD_ACTIONS = ["explain", "define", "ask", "chat"] as const
+/**
+ * What the reader asks of a passage; `chat` asks about the whole article; `check` fact-checks the
+ * passage against the web.
+ */
+export const AI_THREAD_ACTIONS = ["explain", "define", "ask", "chat", "check"] as const
 
 /** The account's AI questions this month, against its cap. */
 export const AiAllowance = z
@@ -53,6 +56,16 @@ export const AiCitation = z
 	.meta({ id: "AiCitation" })
 export type AiCitation = z.infer<typeof AiCitation>
 
+/** A web page a fact check cites, and where in the answer's text (`at`), after the words it supports. */
+export const AiSource = z
+	.object({
+		url: z.string(),
+		title: z.string().nullable(),
+		at: z.number().int().nonnegative(),
+	})
+	.meta({ id: "AiSource" })
+export type AiSource = z.infer<typeof AiSource>
+
 /** One turn: the reader's question (empty for a plain Explain or Define), or an answer. */
 export const AiMessage = z
 	.object({
@@ -63,6 +76,8 @@ export const AiMessage = z
 		/** `failed`: no answer came (try again); `refused`: the model declined to answer. */
 		status: z.enum(["done", "failed", "refused"]),
 		citations: z.array(AiCitation),
+		/** The web pages a fact check's answer cites; empty for other answers. */
+		sources: z.array(AiSource).default([]),
 		createdAt: Time,
 	})
 	.meta({ id: "AiMessage" })
@@ -103,7 +118,8 @@ export type AiBrief = z.infer<typeof AiBrief>
 
 /**
  * An answer as it is written: the thread and the question first, with where the account stands
- * against its cap with it counted; then text and citations as they come; then the answer as saved
+ * against its cap with it counted (a fact check's, against the fact-check cap); then text,
+ * citations, and a fact check's searches and cited pages as they come; then the answer as saved
  * (its `status` says whether it failed).
  */
 export const AiAnswerEvent = z
@@ -116,6 +132,9 @@ export const AiAnswerEvent = z
 		}),
 		z.object({ type: z.literal("text"), text: z.string() }),
 		z.object({ type: z.literal("citation"), citation: AiCitation }),
+		/** A fact check's web search, as it starts. */
+		z.object({ type: z.literal("search"), query: z.string() }),
+		z.object({ type: z.literal("source"), source: AiSource }),
 		z.object({ type: z.literal("answer"), message: AiMessage }),
 	])
 	.meta({ id: "AiAnswerEvent" })
@@ -217,11 +236,11 @@ export const askAi = defineEndpoint({
 	scope: "write",
 	clients: inAppAi,
 	summary:
-		"Explains, defines or answers a question about a passage, found by its place (`start`, `end`) or its text and context. Answers as server-sent events.",
+		"Explains, defines, answers a question about or fact-checks a passage, found by its place (`start`, `end`) or its text and context. A fact check searches the web and counts against the monthly fact-check cap, not the questions'. Answers as server-sent events.",
 	params,
 	body: z
 		.object({
-			action: z.enum(["explain", "define", "ask"]),
+			action: z.enum(["explain", "define", "ask", "check"]),
 			/** The passage as selected: any length, one word included. */
 			exact: z.string().max(QUOTE_MAX),
 			prefix: z.string().max(200).optional(),

@@ -1,4 +1,11 @@
-import type { AiBrief, AiCitation, AiMessage, AiThread, AiThreadAction } from "@klipstack/db"
+import type {
+	AiBrief,
+	AiCitation,
+	AiMessage,
+	AiSource,
+	AiThread,
+	AiThreadAction,
+} from "@klipstack/db"
 
 /** A thread as the reader shows it. Safe to import from client code. */
 export interface AiThreadView {
@@ -20,6 +27,8 @@ export interface AiMessageView {
 	text: string
 	status: "done" | "failed" | "refused"
 	citations: AiCitation[]
+	/** The web pages a fact check cites. */
+	sources: AiSource[]
 	createdAt: string
 }
 
@@ -46,6 +55,7 @@ export function messageView(message: AiMessage): AiMessageView {
 		text: message.text,
 		status: message.status,
 		citations: message.citations,
+		sources: message.sources,
 		createdAt: message.createdAt.toISOString(),
 	}
 }
@@ -77,6 +87,9 @@ export type AiStreamEvent =
 	| { type: "start"; thread: AiThreadView; question: AiMessageView; allowance: AiAllowance }
 	| { type: "text"; text: string }
 	| { type: "citation"; citation: AiCitation }
+	/** A fact check's web search, as it starts. */
+	| { type: "search"; query: string }
+	| { type: "source"; source: AiSource }
 	| { type: "answer"; message: AiMessageView }
 
 /** A brief as the reader shows it. */

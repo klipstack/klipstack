@@ -59,16 +59,18 @@ export function useAiCards(client: KlipstackClient | null, articleId: string, ai
 		async (id: string, ask: () => Promise<AsyncIterable<AiAnswerEvent>>) => {
 			let current = id
 			written.clear(id)
-			const none: AiFailure | null = questionsLeft(allowance.current).none
-				? { code: "limit_reached" }
-				: null
+			// A fact check's follow-ups and retries count against a cap of their own: the questions'
+			// count is neither checked nor changed by them.
+			const check = latest.current.find((c) => c.id === id)?.action === "check"
+			const none: AiFailure | null =
+				!check && questionsLeft(allowance.current).none ? { code: "limit_reached" } : null
 			try {
 				if (none) throw none
 				for await (const event of await ask()) {
 					switch (event.type) {
 						case "start": {
 							const { thread, question } = event
-							setAllowance(event.allowance)
+							if (!check) setAllowance(event.allowance)
 							const was = current
 							current = thread.id
 							setCards((prev) =>
@@ -99,7 +101,7 @@ export function useAiCards(client: KlipstackClient | null, articleId: string, ai
 				}
 			} catch (error) {
 				const failure = error === none && none ? none : failureOf(error)
-				failed(failure)
+				if (!check) failed(failure)
 				written.clear(current)
 				update(current, (c) => afterRefusal(c, failure))
 				return

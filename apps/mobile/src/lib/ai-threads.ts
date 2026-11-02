@@ -91,6 +91,7 @@ export function tempQuestion(text: string): AiMessage {
 		text,
 		status: "done",
 		citations: [],
+		sources: [],
 		createdAt: new Date().toISOString(),
 	}
 }

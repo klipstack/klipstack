@@ -22,6 +22,7 @@ const message = (id: string, role: AiMessage["role"], text = id): AiMessage => (
 	text,
 	status: "done",
 	citations: [],
+	sources: [],
 	createdAt: "2026-10-01T00:00:00.000Z",
 })
 

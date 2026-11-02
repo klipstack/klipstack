@@ -1,31 +1,44 @@
-import type { AiCitation } from "@klipstack/db"
+import type { AiCitation, AiSource } from "@klipstack/db"
 import { Fragment } from "react"
 import { cn } from "~/lib/utils"
 
-/** Stands for citation `n` inside the text while it is parsed: no answer contains it. */
+/**
+ * Stands for citation `n` (or web source `sn`) inside the text while it is parsed: no answer
+ * contains it.
+ */
 const MARK = "\u{E000}"
 
 /**
  * An answer's text with its light Markdown (paragraphs, "- " and "1. " lists, "## " headings,
  * **bold**, *italics*) and a number on a stroke of highlighter ink after the words each citation
- * supports.
+ * supports; after the words a fact check's web sources support, a link with the site's name.
  */
 export function AiAnswer({
 	text,
 	citations,
+	sources = [],
 	onCite,
 	citeLabel,
+	sourceLabel = (site) => site,
 	heading = (title) => title,
 }: {
 	text: string
 	citations: AiCitation[]
+	sources?: AiSource[]
+	/** The source link's accessible name, from its site. */
+	sourceLabel?: (site: string) => string
 	onCite?: (citation: AiCitation) => void
 	citeLabel: (n: number) => string
 	/** A heading's title as shown: the brief's are in English whatever the language. */
 	heading?: (title: string) => string
 }) {
-	const marked = withMarks(text, citations)
-	const chip = (n: number) => {
+	const marked = withMarks(text, citations, sources)
+	const chip = (part: string) => {
+		if (part.startsWith("s")) {
+			const source = sources[Number(part.slice(1))]
+			return source ? <SourceLink source={source} label={sourceLabel} /> : null
+		}
+		const n = Number(part)
 		const citation = citations[n]
 		if (!citation) return null
 		return (
@@ -82,7 +95,7 @@ const BULLET = /^\s*[-*]\s+/
 /** A numbered item's start: "1. ". */
 const NUMBERED = /^\s*\d+[.)]\s+/
 const HEADING = /^#{1,3}\s+/
-const MARKS = new RegExp(`${MARK}\\d+${MARK}`, "g")
+const MARKS = new RegExp(`${MARK}s?\\d+${MARK}`, "g")
 
 type Block = { kind: "heading" | "p" | "ul" | "ol"; lines: string[]; start?: number }
 
@@ -116,16 +129,56 @@ function paragraphs(text: string): Array<{ at: number; text: string }> {
 	return out
 }
 
-/** Puts a mark for each citation at its place in the text, last first so earlier places hold. */
-function withMarks(text: string, citations: AiCitation[]): string {
+/**
+ * Puts a mark for each citation and source at its place in the text, last first so earlier places
+ * hold. At one place, the article's citations come before the web's.
+ */
+function withMarks(text: string, citations: AiCitation[], sources: AiSource[]): string {
 	let out = text
-	const order = citations.map((c, n) => ({ at: Math.min(c.at, text.length), n }))
-	order.sort((a, b) => b.at - a.at || b.n - a.n)
-	for (const { at, n } of order) out = `${out.slice(0, at)}${MARK}${n}${MARK}${out.slice(at)}`
+	const order = [
+		...citations.map((c, n) => ({ at: Math.min(c.at, text.length), rank: n, id: `${n}` })),
+		...sources.map((s, n) => ({
+			at: Math.min(s.at, text.length),
+			rank: citations.length + n,
+			id: `s${n}`,
+		})),
+	]
+	order.sort((a, b) => b.at - a.at || b.rank - a.rank)
+	for (const { at, id } of order) out = `${out.slice(0, at)}${MARK}${id}${MARK}${out.slice(at)}`
 	return out
 }
 
-type Chip = (n: number) => React.ReactNode
+/** The site a page is on, without `www.`. */
+export function siteOf(url: string): string {
+	try {
+		return new URL(url).hostname.replace(/^www\./, "")
+	} catch {
+		return url
+	}
+}
+
+/** A web source after the words it supports: its site, linking to the page. Only http(s) links. */
+function SourceLink({ source, label }: { source: AiSource; label: (site: string) => string }) {
+	const site = siteOf(source.url)
+	const className =
+		"mx-0.5 inline-block rounded-full border border-border px-1.5 align-baseline text-[0.7rem] leading-4 text-muted-fg"
+	if (!/^https?:\/\//i.test(source.url)) return <span className={className}>{site}</span>
+	return (
+		<a
+			href={source.url}
+			target="_blank"
+			rel="noopener noreferrer nofollow"
+			aria-label={label(site)}
+			title={source.title ?? source.url}
+			data-testid="ai-source"
+			className={`${className} transition-colors hover:border-accent hover:text-fg`}
+		>
+			{site}
+		</a>
+	)
+}
+
+type Chip = (part: string) => React.ReactNode
 
 /** **bold** and *italics*, and the citation marks within them. */
 function inline(text: string, chip: Chip): React.ReactNode[] {
@@ -149,7 +202,7 @@ function marks(text: string, chip: Chip, key: number): React.ReactNode[] {
 	// Odd parts are citation numbers.
 	text.split(MARK).forEach((part, i) => {
 		const id = `${key}:${at}`
-		nodes.push(<Fragment key={id}>{i % 2 ? chip(Number(part)) : part}</Fragment>)
+		nodes.push(<Fragment key={id}>{i % 2 ? chip(part) : part}</Fragment>)
 		at += part.length + 1
 	})
 	return nodes

@@ -16,8 +16,9 @@ import { user } from "./auth"
 
 /**
  * What the reader asked of a passage, or `chat`: the article's one conversation, about all of it.
+ * `check` fact-checks the passage against the web.
  */
-export const aiActions = ["explain", "define", "ask", "chat"] as const
+export const aiActions = ["explain", "define", "ask", "chat", "check"] as const
 export type AiThreadAction = (typeof aiActions)[number]
 
 /** A passage of the article an answer cites: a range of its version's text, and where in the answer. */
@@ -26,6 +27,13 @@ export interface AiCitation {
 	end: number
 	exact: string
 	/** Position in the answer's text, right after the words it supports. */
+	at: number
+}
+
+/** A web page a fact check cites, and where in the answer: after the words it supports. */
+export interface AiSource {
+	url: string
+	title: string | null
 	at: number
 }
 
@@ -84,6 +92,8 @@ export const aiMessages = pgTable(
 		role: text("role", { enum: ["user", "assistant"] }).notNull(),
 		text: text("text").notNull(),
 		citations: jsonb("citations").$type<AiCitation[]>().notNull().default([]),
+		/** The web pages a fact check cites. */
+		sources: jsonb("sources").$type<AiSource[]>().notNull().default([]),
 		status: text("status", { enum: ["done", "failed", "refused"] })
 			.notNull()
 			.default("done"),

@@ -8,6 +8,7 @@ import {
 	createAi,
 	FAKE_FAIL,
 	FAKE_REFUSE,
+	FAKE_SOURCES,
 	systemPrompt,
 } from "./index"
 
@@ -140,6 +141,41 @@ describe("answer, with the fake model", () => {
 	it("is unavailable without a key or the fake", () => {
 		expect(createAi({}).available).toBe(false)
 		expect(createAi({ anthropicApiKey: "k" }).available).toBe(true)
+	})
+})
+
+describe("fact check, with the fake model", () => {
+	const check = (turns: AnswerInput["thread"]["turns"]) =>
+		({
+			...input(turns),
+			tier: "check",
+			thread: { action: "check", passage, turns },
+		}) satisfies AnswerInput
+
+	it("says what it searches for, and keeps only the pages it cites, after their words", async () => {
+		const answer = createAi({ fake: true }).answer(check([{ role: "user", text: "" }]))
+		const events = await collect(answer.events)
+		const result = await answer.done
+		expect(events[0]).toEqual({ type: "search", query: "fixed fact check" })
+		const verdict = "**Partly supported: a fixed check.**"
+		const finding = "A study found otherwise."
+		expect(result.text).toBe(`Checked: the passage\n\n${verdict} ${finding}`)
+		// The uncited search result is not among them.
+		expect(result.sources).toEqual([
+			{ ...FAKE_SOURCES[0], at: result.text.indexOf(verdict) + verdict.length },
+			{ ...FAKE_SOURCES[1], at: result.text.length },
+		])
+		expect(events.filter((e) => e.type === "source").map((e) => e.source)).toEqual(result.sources)
+		// The article's sentences are still cited by their markers.
+		expect(result.citations).toEqual([
+			expect.objectContaining({ exact: "Managers work in one hour slots." }),
+		])
+		expect(result.usage.searches).toBe(1)
+	})
+
+	it("fails with AiError when the provider breaks off after a search", async () => {
+		const answer = createAi({ fake: true }).answer(check([{ role: "user", text: FAKE_FAIL }]))
+		await expect(collect(answer.events)).rejects.toBeInstanceOf(AiError)
 	})
 })
 
