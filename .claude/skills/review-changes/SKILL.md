@@ -26,8 +26,13 @@ Don't include your opinion of the code.
 
 Start one subagent for each review below. Each gets the brief, the diff commands and its own
 instructions. Each reports findings as file and line, what is wrong, a concrete scenario where it
-goes wrong, and a severity. "None" is a valid answer. Style that the linter owns is not a
-finding.
+goes wrong, a severity, and its kind (step 3): behavior, rule or taste. "None" is a valid answer.
+Style that the linter owns is not a finding, nor is anything `pnpm verify` already refuses.
+
+Put this in every brief: a behavior finding comes with the run that shows it, a failing test or
+a script that runs the real code in the reviewer's own worktree, with the command and its output.
+One the reviewer could not show that way is reported as unproven, with the run that would show
+it.
 
 The reviewers run at the same time in one working tree. Subagents see only their brief, not this
 skill, so put this rule in every brief. The shared tree is read-only: no edits, no restores, no
@@ -72,7 +77,18 @@ Reviewers are wrong too. A finding is only as sure as its evidence. From weakest
 4. A test or script that runs the real code shows it.
 5. It reproduces in the running app.
 
-Take each finding to step 3 at least before acting on it, and to step 4 when that is cheap.
+How much evidence is enough depends on the kind of finding:
+
+- **Behavior**: a wrong result, a race, a crash, a leak to another user. Act only when a run of
+  the real code shows it: step 4 or 5. Rerun the reviewer's test or script yourself; if it
+  brought none, write one. A trace through the code is a reason to write the run, not a reason to
+  change the code. A finding no run shows is dropped.
+- **Rule**: a check file's rule broken, such as a missing Spanish string, something private in
+  the public repository, a write outside a command. The rule is the expected result, so reading
+  the code or a grep is real proof: step 3 is enough.
+- **Taste**: naming, structure, wording, another way to do it. Don't act on it. At most, list it
+  in the pull request.
+
 Dismiss false ones with a one-line reason.
 
 ## 4. Fix, then verify again
@@ -85,8 +101,9 @@ Dismiss false ones with a one-line reason.
 
 In the pull request's Verification section, say:
 - that the review ran
-- what it found and fixed
-- what was dismissed, and why
+- what it found and fixed, with the run behind each behavior fix
+- what was dismissed, and why (a behavior finding no run showed counts here)
+- taste findings, if any, as a short list
 
 A finding that meets the bar in "Tell the owner before the pull request" (`AGENTS.md`) goes to
 the owner before the pull request is opened.

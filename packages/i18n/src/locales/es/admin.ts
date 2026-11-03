@@ -24,6 +24,7 @@ export default {
 		unavailableDetail: "No se pudo leer ahora mismo. No es cero: es desconocido.",
 		next: "Página siguiente",
 		first: "Primera página",
+		pages: "Páginas",
 		yes: "Sí",
 		no: "No",
 		none: "Ninguno",

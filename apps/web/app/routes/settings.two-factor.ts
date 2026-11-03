@@ -73,6 +73,7 @@ export async function action({ context, request }: Route.ActionArgs) {
 				.join("; ")
 			const renewed = await auth.api.getSession({ headers: new Headers({ cookie }) })
 			// Every other session ends; should the new one not be found, this one ends too.
+			// oxlint-disable-next-line klipstack/adapter-writes-through-commands -- sessions stay with the auth code, not user data (AGENTS.md, Commands)
 			await db
 				.delete(sessions)
 				.where(

@@ -17,4 +17,4 @@ article HTML, images, exports or anything that reads another user's data, report
 - Secrets, tokens, emails or article content written to logs (`@klipstack/log` keeps messages out
   on purpose).
 - A boundary whose behavior changed while its row in `docs/security.md`, or the tests that row
-  names, did not.
+  names, did not. (That every test a row names exists is `scripts/check-rules.mjs`.)

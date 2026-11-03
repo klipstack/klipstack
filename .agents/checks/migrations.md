@@ -13,9 +13,11 @@ For changes under `packages/db/` (the schema and `drizzle/`), report:
 - A new `NOT NULL` column without a default or a backfill, on a table that has rows.
 - An index on a large table created without `CONCURRENTLY` where a lock would block writes, or a
   long backfill inside the migration's transaction.
-- A schema change without its generated migration and snapshot, or a migration edited after it
-  was merged to `main`.
 - A change the running version cannot survive. A deploy migrates first and restarts the app
   after, so for a moment the old web app and worker run on the new schema: a dropped or renamed
   column they still read breaks them. Split such changes: stop using it in one release, drop it
   in a later one.
+
+Scripts already refuse a schema change without its migration (`scripts/check-migrations`), a
+migration merged into `main` that was edited or deleted, and a journal entry, SQL file or snapshot
+missing its others (`scripts/check-rules.mjs`).

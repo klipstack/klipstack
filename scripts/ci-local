@@ -12,7 +12,7 @@ Usage: pnpm ci:local [--base REF] [--only STEP[,STEP…]]
 Runs the checks of .github/workflows/ci.yml, stopping at the first failure:
 
   install   pnpm install --frozen-lockfile, and the Playwright browsers
-  static    pnpm audit, lint, typecheck, migrations matching the schema
+  static    pnpm audit, the repository rules, lint, typecheck, migrations matching the schema
   build     the production build, and a boot of the server bundle
   e2e       Playwright, every project, against the production build (one retry, as in CI)
   unit      pnpm test
@@ -25,7 +25,8 @@ Runs the checks of .github/workflows/ci.yml, stopping at the first failure:
             the server entry, the admin CLI.
 
   --base REF   what the work is compared with (default: main). When every file changed since REF
-               is Markdown or under docs/, nothing runs: no check reads them.
+               is Markdown or under docs/, only the repository rules run: no other check
+               reads them.
   --only LIST  run only these steps, e.g. --only static,unit
 
 Each step writes to a log file; a failure prints the end of it. Needs the local PostgreSQL
@@ -94,10 +95,11 @@ run() {
 
 port_in_use() { lsof -nP -iTCP:"$1" -sTCP:LISTEN >/dev/null 2>&1; }
 
-# No check reads Markdown or docs/: a change of only those has nothing to check.
+# Only the repository rules read Markdown or docs/: a change of only those has nothing else to check.
 changed=$({ git diff --name-only "$base"...HEAD; git diff --name-only HEAD; git ls-files --others --exclude-standard; } | sort -u)
 if [ -n "$changed" ] && ! printf '%s\n' "$changed" | grep -Ev '^docs/|\.md$' >/dev/null; then
-  echo "Only Markdown and docs/ changed since $base. Nothing to check."
+  echo "Only Markdown and docs/ changed since $base. Nothing else reads them."
+  run "static: repository rules" node scripts/check-rules.mjs --base "$base"
   exit 0
 fi
 
@@ -134,6 +136,8 @@ fi
 
 if wanted static; then
   run "static: audit" pnpm audit --audit-level moderate
+  # CI also checks the pull request's title and description (--pr), which exist only there.
+  run "static: repository rules" node scripts/check-rules.mjs --base "$base"
   run "static: lint" pnpm lint
   run "static: typecheck" pnpm typecheck
   run "static: migrations match schema" scripts/check-migrations
