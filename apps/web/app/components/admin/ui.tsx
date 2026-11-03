@@ -180,7 +180,7 @@ export function Pager({
 		return text ? `${path}?${text}` : path
 	}
 	return (
-		<nav className="mt-4 flex gap-4 text-sm" aria-label="pagination">
+		<nav className="mt-4 flex gap-4 text-sm" aria-label={t("common.pages")}>
 			<Link to={query()} prefetch="none" className="text-link hover:underline">
 				{t("common.first")}
 			</Link>

@@ -288,6 +288,7 @@ export function CommandPalette() {
 					onClick={close}
 					className="hidden rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-fg hover:bg-hover md:block"
 				>
+					{/* oxlint-disable-next-line klipstack/ui-text-translated -- the Esc key's name, as Spanish keyboards print it too */}
 					esc
 				</button>
 			</div>

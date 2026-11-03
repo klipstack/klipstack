@@ -24,6 +24,7 @@ export default {
 		unavailableDetail: "This could not be read just now. It is not zero: it is unknown.",
 		next: "Next page",
 		first: "First page",
+		pages: "Pages",
 		yes: "Yes",
 		no: "No",
 		none: "None",

@@ -15,7 +15,8 @@ Each layer catches what the one before can't. The lower down, the more certain.
 │ Skills               .claude/skills/*  loaded when a task matches: verify, fix-bug,   │
 │                      refactor, build-feature, write-tests, review-changes, learn …    │
 ├──────────────────────────────────────────────────────────────────────────────────────┤
-│ pnpm verify          scripts/verify: lint, typecheck and the tests a change reaches   │
+│ pnpm verify          scripts/verify: repository rules, lint, typecheck and the tests  │
+│                      a change reaches                                                 │
 ├──────────────────────────────────────────────────────────────────────────────────────┤
 │ Agent hooks          .claude/settings.json and .amp/plugins/ → scripts/agent-hook.mjs │
 │                      no commit on main, no push to main, no --no-verify; a turn that  │
@@ -23,7 +24,8 @@ Each layer catches what the one before can't. The lower down, the more certain.
 ├──────────────────────────────────────────────────────────────────────────────────────┤
 │ Git hook             .githooks/pre-commit: no commit on main; lint on staged files    │
 ├──────────────────────────────────────────────────────────────────────────────────────┤
-│ Review               review-changes skill: fresh subagents, the task + .agents/checks │
+│ Review               review-changes skill: fresh subagents, the task + .agents/checks;│
+│                      a behavior finding counts only when a run of the code shows it   │
 ├──────────────────────────────────────────────────────────────────────────────────────┤
 │ CI                   every check on every pull request; nothing merges red            │
 └──────────────────────────────────────────────────────────────────────────────────────┘
@@ -40,15 +42,24 @@ Each layer catches what the one before can't. The lower down, the more certain.
 | A turn that changed code ends with `pnpm verify` passed, or says why not | Agent hooks (Claude Code, Amp) | Enforced once per turn. The agent is sent back; it may then stop, but must say so. |
 | Typecheck, unit tests, build, browser tests | `pnpm verify`; CI, whose checks the ruleset requires | Enforced before merge |
 | A bug is reproduced before it is fixed; tests are seen failing | Skills | Asked. Checked by the review (`.agents/checks/tests.md`) |
-| Tests are not weakened to pass | Skills, review check, AGENTS.md | Asked, and reviewed |
-| Commands own user-data changes; strings in both languages; security docs current | Review checks | Reviewed by a fresh agent per check |
+| No focused or skipped tests (`.only`, `.skip`, `.todo`, `.fixme`, `xit`) | Lint (`klipstack/no-skipped-tests`), git hook, CI | Enforced |
+| Tests are not otherwise weakened to pass | Skills, review check, AGENTS.md | Asked, and reviewed |
+| Adapters don't write through `db` or `tx`, open transactions or import `commands/*-actions.server.ts` | Lint (`klipstack/adapter-writes-through-commands`) | Enforced; each `oxlint-disable` is reviewed |
+| Commands own the rest of user-data changes: no writing service called from an adapter, rules in the command | Review check (`commands`) | Reviewed by a fresh agent |
+| UI text in JSX and its `aria-label`, `title`, `alt`, `placeholder` comes from the translations | Lint (`klipstack/ui-text-translated`) | Enforced; each `oxlint-disable` is reviewed |
+| English and Spanish have the same keys and placeholders | Unit test (`packages/i18n/src/index.test.ts`) | Enforced |
+| The Spanish is Spanish; text outside the JSX is translated | Review check (`i18n`) | Reviewed by a fresh agent |
+| No secrets of known shapes, no `.env` file, no agent credited in files or the pull request | `scripts/check-rules.mjs` in `pnpm verify` and CI | Enforced. Other secrets and private details are reviewed (`public-repo`). |
+| A migration merged into `main` is never edited; journal, SQL and snapshots match | `scripts/check-rules.mjs`, `scripts/check-migrations` | Enforced. Whether a migration is safe to deploy is reviewed (`migrations`). |
+| Every test `docs/security.md` names exists | `scripts/check-rules.mjs` | Enforced. Whether the row is still true is reviewed (`security`). |
 | The owner hears about judgment calls before a pull request | AGENTS.md, release skill | Asked |
 | A skill's steps go in the todo list; a skipped one shows its reason | AGENTS.md | Asked |
 | A question that running something can answer is not put to the owner | `build-feature` skill | Asked |
 
 Instructions are advice that an agent follows most of the time. Hooks and CI always hold. When a
 rule matters and a script can check it, it belongs in a script: that is the job of the `learn`
-skill.
+skill. The check files in `.agents/checks/` keep only what needs judgment, and say which script
+holds the rest.
 
 ## A typical task
 
@@ -60,7 +71,9 @@ skill.
    `skip:` with a reason. It works in slices and runs `pnpm verify` as it goes.
 4. If it tries to finish with unverified code, the hook sends it back once.
 5. When you say the work is ready for a pull request, `review-changes` has fresh agents read the
-   diff. It runs once per pull request, not during the work.
+   diff. It runs once per pull request, not during the work. A finding about behavior is acted on
+   only when a test or script shows it; a broken rule needs only the line that breaks it; a
+   matter of taste is at most listed in the pull request.
 6. `release` opens the pull request with the evidence under Verification and turns on
    auto-merge: GitHub merges it when CI passes, and no agent waits for it.
 
@@ -126,7 +139,9 @@ The setup adapts principles from published work rather than copying any of it:
 
 - **Proof means the real thing.** "It compiles" is not evidence. Repeated mistakes become checks.
   An instruction you had to write twice is a sign a check is missing. A change is usually safe
-  because of one fact; prove that fact by running code. Skipped steps stay visible.
+  because of one fact; prove that fact by running code. Skipped steps stay visible. A review
+  finding about behavior is kept only when a rerun of the code proves it, as pstack's
+  `interrogate` does.
   - Source: Lauren Tan's [pstack](https://github.com/cursor/plugins/tree/main/pstack).
 - **Feedback loops are the speed limit.**
   - A red reproduction before any fix.

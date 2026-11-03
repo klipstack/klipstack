@@ -29,6 +29,7 @@ export async function action({ context, request }: Route.ActionArgs) {
 			methods.linked.length - 1 + (methods.hasPassword ? 1 : 0) + (emailEnabled ? 1 : 0)
 		if (others === 0) return data({ result: "last-method" as const }, { status: 409 })
 		if (provider === "apple") await revokeAppleSignIn(user.id)
+		// oxlint-disable-next-line klipstack/adapter-writes-through-commands -- a way to sign in, which stays with the auth code, not user data (AGENTS.md, Commands)
 		await db
 			.delete(account)
 			.where(and(eq(account.userId, user.id), eq(account.providerId, provider)))

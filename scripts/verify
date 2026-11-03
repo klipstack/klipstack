@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# The fast check of a change, for people and agents: lint, the typecheck of every workspace the
-# change can affect, the migrations check when the schema changed, and the unit tests that import
+# The fast check of a change, for people and agents: the repository rules (scripts/check-rules.mjs),
+# lint, the typecheck of every workspace the change can affect, the migrations check when the schema changed, and the unit tests that import
 # a changed file. Minutes at most, where `pnpm ci:local` takes ten; CI still runs everything.
 #
 # Usage: pnpm verify [--base REF] [--full]
@@ -65,16 +65,20 @@ if [ -z "$changed" ]; then
   verified "Nothing differs from $(git rev-parse --short "$base"). Nothing to check."
   exit 0
 fi
-# As scripts/ci-local: no check reads Markdown or docs/.
+echo "Verifying $(wc -l <<<"$changed" | tr -d ' ') changed files against $(git rev-parse --short "$base")"
+
+# The rules a script decides (.agents/checks/): secrets, agent credits, merged migrations, the tests
+# docs/security.md names. They read Markdown too, so they run before the exit for docs below.
+run "repository rules" node scripts/check-rules.mjs --base "$base"
+
+# As scripts/ci-local: no other check reads Markdown or docs/.
 code=$(grep -Ev '^docs/|\.md$' <<<"$changed" || true)
 if [ -z "$code" ]; then
-  verified "Only Markdown and docs/ changed. Nothing to check."
+  verified "Only Markdown and docs/ changed. Nothing else to check."
   exit 0
 fi
 # A here-string, not a pipe: under pipefail, `grep -q` closing a long pipe early reads as no match.
 has() { grep -qE "$1" <<<"$code"; }
-
-echo "Verifying $(wc -l <<<"$changed" | tr -d ' ') changed files against $(git rev-parse --short "$base")"
 
 run "lint" pnpm lint
 

@@ -132,6 +132,28 @@
 			}
 		},
 		{
+			"files": ["**/*.test.*", "**/*.spec.*", "apps/web/e2e/**"],
+			"rules": {
+				"klipstack/no-skipped-tests": "error"
+			}
+		},
+		{
+			"files": [
+				"apps/web/app/routes/**",
+				"apps/web/app/api/handlers/**",
+				"apps/web/app/services/mcp/**"
+			],
+			"rules": {
+				"klipstack/adapter-writes-through-commands": "error"
+			}
+		},
+		{
+			"files": ["apps/web/app/**/*.tsx", "apps/mobile/src/**/*.tsx"],
+			"rules": {
+				"klipstack/ui-text-translated": "error"
+			}
+		},
+		{
 			"files": ["apps/mobile/src/page/**"],
 			"rules": {
 				"no-redeclare": "error",
