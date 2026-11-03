@@ -50,7 +50,10 @@ function AppVersion() {
 	const { version, newer } = useAppVersion()
 	return (
 		<div className="flex flex-wrap items-center gap-3">
-			<code className="rounded-lg bg-muted px-2 py-1 text-sm">{version || "dev"}</code>
+			<code className="rounded-lg bg-muted px-2 py-1 text-sm">
+				{/* oxlint-disable-next-line klipstack/ui-text-translated -- a build's name, like the version */}
+				{version || "dev"}
+			</code>
 			{newer ? (
 				<button
 					type="button"

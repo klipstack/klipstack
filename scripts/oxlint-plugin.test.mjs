@@ -89,6 +89,7 @@ describe("klipstack/no-skipped-tests", () => {
 			`test.describe.only("a", () => {})`,
 			`it.only.each([1])("a %s", () => {})`,
 			`fit("a", () => {})`,
+			`fdescribe("a", () => {})`,
 		])
 			assert.match(lint(code).join(), /`\.only` runs this test alone/, code)
 	})
@@ -105,6 +106,10 @@ describe("klipstack/no-skipped-tests", () => {
 			[`test("a", async () => { test.skip() })`, "skip"],
 			[`test("a", async () => { test.fixme(true, "later") })`, "fixme"],
 			[`xit("a", () => {})`, "skip"],
+			[`xtest("a", () => {})`, "skip"],
+			[`xdescribe("a", () => {})`, "skip"],
+			[`const name = "a"; test.skip(name, async () => {})`, "skip"],
+			[`for (const c of cases) test.fixme(c.title, async ({ page }) => {})`, "fixme"],
 		])
 			assert.match(lint(code).join(), new RegExp(`\`\\.${how}\` turns this test off`), code)
 	})
@@ -132,6 +137,14 @@ describe("klipstack/adapter-writes-through-commands", () => {
 			["await tx.delete(highlights).where(x)", "tx.delete"],
 			["await db.transaction(async (tx) => {})", "db.transaction"],
 			[`await db.execute(sql\`UPDATE documents SET title = \${title}\`)`, "db.execute"],
+			["await tx.execute(sql`TRUNCATE tags`)", "tx.execute"],
+			["await db.execute(sql`MERGE INTO tags USING x ON true`)", "db.execute"],
+			['await db.execute(sql.raw("DELETE FROM documents"))', "db.execute"],
+			["const q = sql`delete from tags`; await db.execute(q)", "db.execute"],
+			[
+				'import { db as database } from "@klipstack/db"\nawait database.insert(tags).values(row)',
+				"database.insert",
+			],
 		])
 			assert.match(lint(code).join(), new RegExp(`Move this \`${what}\` into a command`), code)
 	})
@@ -141,12 +154,17 @@ describe("klipstack/adapter-writes-through-commands", () => {
 		assert.match(message, /skips the feature check and the input caps/)
 		assert.equal(lint(`export { publish } from "../commands/editions-actions.server.ts"`).length, 1)
 		assert.equal(lint(`await import("~/commands/editions-actions.server")`).length, 1)
+		assert.equal(lint(`export * from "~/commands/editions-actions.server"`).length, 1)
 	})
 
 	test("accepts reads, commands and other objects' methods", () => {
 		assert.deepEqual(lint(`import { publish } from "~/commands/editions.server"`), [])
 		assert.deepEqual(lint("await db.select().from(tags); await db.query.user.findFirst()"), [])
 		assert.deepEqual(lint("await db.execute(sql`select 1`)"), [])
+		assert.deepEqual(
+			lint("await db.execute(sql`select id from audit where action = 'delete'`)"),
+			[],
+		)
 		assert.deepEqual(lint(`params.delete("time"); cache.delete(key); map.update(x)`), [])
 	})
 
@@ -163,6 +181,10 @@ describe("klipstack/ui-text-translated", () => {
 		assert.match(lint(`<p>Saved to your library</p>`).join(), /"Saved to your library" is shown/)
 		assert.equal(lint(`<button type="button">\n\t\tDelete\n\t</button>`).length, 1)
 		assert.equal(lint(`<p>{count} artículos</p>`).length, 1)
+		assert.equal(lint(`<p>{"Nothing saved yet"}</p>`).length, 1)
+		assert.equal(lint(`<button type="button">{open ? "Close" : "Open"}</button>`).length, 2)
+		assert.equal(lint(`<p>{error || "Something went wrong"}</p>`).length, 1)
+		assert.equal(lint(`<label>email:</label>`).length, 1)
 	})
 
 	test("reports text in the attributes readers see or hear", () => {
@@ -172,13 +194,17 @@ describe("klipstack/ui-text-translated", () => {
 			`<input placeholder={"Search"} />`,
 			"<abbr title={`Words per minute`} />",
 			`<Pressable accessibilityLabel="Close" />`,
+			`<Pressable accessibilityHint="Opens the article" />`,
 		])
 			assert.equal(lint(jsx).length, 1, jsx)
+		assert.equal(lint(`<button type="button" aria-label={open ? "Close" : "Open"} />`).length, 2)
 	})
 
 	test("accepts translations, glyphs, the name and addresses", () => {
 		assert.deepEqual(lint(`<p aria-label={t("nav.label")}>{t("nav.title")}</p>`), [])
 		assert.deepEqual(lint(`<p>· — × A 3</p>`), [])
+		assert.deepEqual(lint(`<span>&times;</span>`), [])
+		assert.deepEqual(lint(`<p className={open ? "block" : "hidden"}>{title}</p>`), [])
 		assert.deepEqual(lint(`<svg aria-label="Klipstack" />`), [])
 		assert.deepEqual(lint(`<input placeholder="https://" />`), [])
 		assert.deepEqual(lint(`<div className="text-sm" data-state="open" id="main" />`), [])

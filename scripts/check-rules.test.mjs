@@ -27,6 +27,14 @@ describe("textProblems", () => {
 		])
 		for (const secret of [
 			`AKIA${"ABCDEFGHIJKLMNOP"}`,
+			`ASIA${"ABCDEFGHIJKLMNOP"}`,
+			`github_pat_${"A1b2_".repeat(9)}`,
+			`sk-${"A1b2C3d4".repeat(5)}`,
+			`sk-proj-${"Ab3_dE5f-".repeat(5)}`,
+			`sk-svcacct-${"A1b2C3d4".repeat(4)}`,
+			`sk_live_${"A1b2C3d4".repeat(3)}`,
+			`const key = \`-----BEGIN ${"PRIVATE"} KEY-----`,
+			`APPLE_KEY="-----BEGIN ${"PRIVATE"} KEY-----`,
 			`sk-ant-api03-${"x".repeat(30)}`,
 			`AIza${"S".repeat(35)}`,
 			`xoxb-${"1234567890"}-abc`,
@@ -64,6 +72,7 @@ describe("textProblems", () => {
 			"no agent as author or `Co-authored-by`, no links to agent sessions (ampcode.com, claude.ai)",
 			"A branch's commits may keep the `Co-authored-by: Amp` and `Amp-Thread-ID` lines",
 			"Source: Amp's [review checks](https://ampcode.com/news/liberating-code-review).",
+			`- \`Amp-${"Thread-ID"}: …\` lines are fine on a branch.`,
 		])
 			assert.deepEqual(textProblems(text), [], text)
 	})
@@ -165,11 +174,13 @@ describe("the script", () => {
 
 		write("packages/db/drizzle/0000_a.sql", "CREATE TABLE a (b int);")
 		write("notes.md", `Line one\nSee ${thread}\n`)
+		write("apps/web/.env.production", "DATABASE_URL=x\n")
 		const broken = run("--base", "main")
 		assert.equal(broken.status, 1)
 		assert.match(broken.stderr, /^notes\.md:2: a link to an agent's thread/m)
 		assert.match(broken.stderr, /0000_a\.sql: a merged migration was edited/)
-		assert.match(broken.stderr, /2 problems/)
+		assert.match(broken.stderr, /^apps\/web\/\.env\.production: an environment file/m)
+		assert.match(broken.stderr, /3 problems/)
 	})
 
 	test("--pr checks a pull request's text from stdin", () => {

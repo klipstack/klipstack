@@ -11,7 +11,7 @@ Report:
   moved behind a condition, a `test.skip(condition, …)` or `skipIf` whose condition is true where
   CI runs. Unless the behavior it pinned changed on purpose and the change says so, this is the
   most serious finding. (Lint refuses `.only`, `.skip`, `.todo`, `.fixme` and `xit` themselves:
-  `klipstack/no-skipped-tests`.)
+  `klipstack/no-skipped-tests` and the `vitest/` rules.)
 - Changed behavior with no test that would fail without it: a new command, branch, limit or
   refusal; a bug fix with no regression test.
 - A test that would pass if the code under test returned `undefined` or an empty list, or whose

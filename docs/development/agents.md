@@ -42,7 +42,7 @@ Each layer catches what the one before can't. The lower down, the more certain.
 | A turn that changed code ends with `pnpm verify` passed, or says why not | Agent hooks (Claude Code, Amp) | Enforced once per turn. The agent is sent back; it may then stop, but must say so. |
 | Typecheck, unit tests, build, browser tests | `pnpm verify`; CI, whose checks the ruleset requires | Enforced before merge |
 | A bug is reproduced before it is fixed; tests are seen failing | Skills | Asked. Checked by the review (`.agents/checks/tests.md`) |
-| No focused or skipped tests (`.only`, `.skip`, `.todo`, `.fixme`, `xit`) | Lint (`klipstack/no-skipped-tests`), git hook, CI | Enforced |
+| No focused or skipped tests (`.only`, `.skip`, `.todo`, `.fixme`, `xit`) | Lint (`klipstack/no-skipped-tests`, for Playwright too; `vitest/no-focused-tests`, `vitest/no-disabled-tests`), git hook, CI | Enforced |
 | Tests are not otherwise weakened to pass | Skills, review check, AGENTS.md | Asked, and reviewed |
 | Adapters don't write through `db` or `tx`, open transactions or import `commands/*-actions.server.ts` | Lint (`klipstack/adapter-writes-through-commands`) | Enforced; each `oxlint-disable` is reviewed |
 | Commands own the rest of user-data changes: no writing service called from an adapter, rules in the command | Review check (`commands`) | Reviewed by a fresh agent |

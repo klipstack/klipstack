@@ -19,15 +19,12 @@ import { join } from "node:path"
 
 /** What looks like a real secret. Placeholders such as `-----BEGIN PRIVATE KEY-----\n…` pass. */
 const SECRETS = [
-	[
-		"a private key",
-		/^\W*-----BEGIN [A-Z ]*PRIVATE KEY-----\W*$|PRIVATE KEY-----\\n[A-Za-z0-9+/]{20}/,
-	],
+	["a private key", /-----BEGIN [A-Z ]*PRIVATE KEY-----(["'`]?\s*$|\\n[A-Za-z0-9+/]{20})/],
 	["an AWS access key", /\b(AKIA|ASIA)[0-9A-Z]{16}\b/],
 	["a GitHub token", /\b(gh[pousr]_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{40,})\b/],
 	["a Slack token", /\bxox[abeprs]-[A-Za-z0-9-]{10,}/],
 	["an Anthropic key", /\bsk-ant-[A-Za-z0-9_-]{20,}/],
-	["an OpenAI key", /\bsk-(proj-)?[A-Za-z0-9]{32,}/],
+	["an OpenAI key", /\bsk-((proj|svcacct|admin)-[A-Za-z0-9_-]{20,}|[A-Za-z0-9]{32,})/],
 	["a Google API key", /\bAIza[0-9A-Za-z_-]{35}\b/],
 	["a Stripe key", /\b[sr]k_live_[0-9A-Za-z]{20,}/],
 ]
@@ -48,6 +45,8 @@ const CREDITS = [
 export function textProblems(text) {
 	const problems = []
 	text.split("\n").forEach((line, i) => {
+		// Code in backticks names a credit, as the rules about credits do; it gives none.
+		const prose = line.replace(/`[^`]*`/g, "")
 		for (const [what, pattern] of SECRETS)
 			if (pattern.test(line))
 				problems.push({
@@ -55,7 +54,7 @@ export function textProblems(text) {
 					message: `${what}. This repository is public: take it out, and revoke it if it is real.`,
 				})
 		for (const [what, pattern] of CREDITS)
-			if (pattern.test(line))
+			if (pattern.test(prose))
 				problems.push({
 					line: i + 1,
 					message: `${what}. Agents are not credited here; credit the humans who did the work.`,

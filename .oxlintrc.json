@@ -139,6 +139,7 @@
 		},
 		{
 			"files": [
+				"apps/web/app/root.tsx",
 				"apps/web/app/routes/**",
 				"apps/web/app/api/handlers/**",
 				"apps/web/app/services/mcp/**"

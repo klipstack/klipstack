@@ -95,13 +95,14 @@ const noSkippedTests = {
 						: TEST_ROOTS.has(names[0]) && names.slice(1).find((n) => n === "only" || OFF.has(n))
 				if (!how) return
 				// Playwright's conditional form, `test.skip(condition, reason)` or `test.fixme(() => …)`:
-				// not a test's name, nor nothing or a plain `true`.
-				const [first] = node.arguments
+				// not a test's name and body, nor nothing or a plain `true`.
+				const [first, second] = node.arguments
 				const defines =
 					names.at(-1) === "each" ||
 					!first ||
 					(first.type === "Literal" && (typeof first.value === "string" || first.value === true)) ||
-					first.type === "TemplateLiteral"
+					first.type === "TemplateLiteral" ||
+					FUNCTION.has(second?.type)
 				if (how !== "only" && how !== "todo" && !defines) return
 				context.report({
 					node: node.callee,
@@ -115,14 +116,17 @@ const noSkippedTests = {
 
 const WRITES = new Set(["insert", "update", "delete", "transaction"])
 const WRITE_SQL = /\b(insert|update|delete|truncate|merge)\b/i
+/** A quoted SQL value, whose words are data, not statements: `action = 'delete'`. */
+const SQL_STRING = /'(?:[^']|'')*'/g
 const ACTIONS_MODULE = /(^|\/)commands\/[^/]+-actions\.server(\.ts)?$/
 
 /**
  * Web route actions, API handlers and MCP tools change user data only by calling a command
  * (`apps/web/app/commands`, "Commands" in AGENTS.md). This reports what can be read from the code:
- * an adapter that writes through `db` or `tx` itself, opens a transaction, runs writing SQL, or
- * imports an ungated per-action module (`commands/*-actions.server.ts`). A writing service called
- * from an adapter is left to the review (.agents/checks/commands.md).
+ * an adapter that writes through `db` or `tx` itself (under any name it imports `db` as), opens a
+ * transaction, runs SQL that writes or that the rule cannot read (`sql.raw`, a query built
+ * elsewhere), or imports an ungated per-action module (`commands/*-actions.server.ts`). A writing
+ * service called from an adapter is left to the review (.agents/checks/commands.md).
  */
 const adapterWritesThroughCommands = {
 	meta: {
@@ -142,21 +146,30 @@ const adapterWritesThroughCommands = {
 			if (source?.type === "Literal" && ACTIONS_MODULE.test(String(source.value)))
 				context.report({ node: source, messageId: "actions", data: { source: source.value } })
 		}
+		const handles = new Set(["db", "tx"])
 		return {
-			ImportDeclaration: (node) => checkSource(node.source),
+			ImportDeclaration(node) {
+				checkSource(node.source)
+				if (node.source.value !== "@klipstack/db") return
+				for (const s of node.specifiers)
+					if (s.type === "ImportSpecifier" && s.imported.name === "db") handles.add(s.local.name)
+			},
 			ImportExpression: (node) => checkSource(node.source),
 			ExportNamedDeclaration: (node) => checkSource(node.source),
 			ExportAllDeclaration: (node) => checkSource(node.source),
 			CallExpression(node) {
 				const callee = node.callee
 				if (callee.type !== "MemberExpression" || callee.object.type !== "Identifier") return
-				if (callee.object.name !== "db" && callee.object.name !== "tx") return
+				if (!handles.has(callee.object.name)) return
 				const method = callee.property.type === "Identifier" ? callee.property.name : ""
 				const [first] = node.arguments
+				const sqlText =
+					first?.type === "TaggedTemplateExpression"
+						? first.quasi.quasis.map((q) => q.value.raw).join(" ")
+						: null
 				const writingSql =
 					method === "execute" &&
-					first?.type === "TaggedTemplateExpression" &&
-					first.quasi.quasis.some((q) => WRITE_SQL.test(q.value.raw))
+					(sqlText === null || WRITE_SQL.test(sqlText.replace(SQL_STRING, "''")))
 				if (!WRITES.has(method) && !writingSql) return
 				context.report({
 					node: callee,
@@ -181,12 +194,15 @@ const UI_TEXT_ATTRIBUTES = new Set([
 	"accessibilityHint",
 	"accessibilityLabel",
 ])
-/** Text that reads the same in every language: the name, and an address or its scheme. */
-const UNTRANSLATED = /^(Klipstack|[a-z][a-z+.-]*:(\/\/\S*)?)$/
+/** Text that reads the same in every language: the name, and a web address or its start. */
+const UNTRANSLATED = /^(Klipstack|https?:\/\/\S*)$/
+/** Character references, which stand for one character: `&times;`, `&#215;`. */
+const ENTITY = /&(#\d+|#x[\da-f]+|[a-z]+\d*);/gi
 
 /**
- * Text a reader sees or hears, written in a component as a literal: in the JSX, or in an
- * attribute screen readers or browsers show (`aria-label`, `title`, `placeholder`…). It belongs in
+ * Text a reader sees or hears, written in a component as a literal: in the JSX, as JSX text or a
+ * string in braces (`{"Saved"}`, `{open ? "Close" : "Open"}`), or in an attribute screen readers
+ * or browsers show (`aria-label`, `title`, `placeholder`…). It belongs in
  * the locales of both languages (`packages/i18n/src/locales`), read with `t()`. Text with fewer
  * than two letters (a glyph, "A" as a size sample) and the brand's name pass.
  */
@@ -204,7 +220,7 @@ const uiTextTranslated = {
 		if (TEST_FILE.test(context.filename)) return {}
 		const check = (node, text) => {
 			const trimmed = text.trim().replace(/\s+/g, " ")
-			if (!LETTERS.test(trimmed) || UNTRANSLATED.test(trimmed)) return
+			if (!LETTERS.test(trimmed.replace(ENTITY, "")) || UNTRANSLATED.test(trimmed)) return
 			const shown = trimmed.length > 40 ? `${trimmed.slice(0, 40)}…` : trimmed
 			// At the text's first character, not the line break before it, so that a disable comment
 			// goes on the line above the text.
@@ -213,15 +229,26 @@ const uiTextTranslated = {
 			const loc = { start, end: source.getLocFromIndex(node.range[1]) }
 			context.report({ loc, messageId: "literal", data: { text: shown } })
 		}
+		/** The strings `value` can be: itself, or the branches of a `?:`, `&&` or `||`. */
+		const checkValue = (value) => {
+			if (value?.type === "Literal" && typeof value.value === "string") check(value, value.value)
+			else if (value?.type === "TemplateLiteral" && value.expressions.length === 0)
+				check(value, value.quasis[0].value.cooked ?? "")
+			else if (value?.type === "ConditionalExpression") {
+				checkValue(value.consequent)
+				checkValue(value.alternate)
+			} else if (value?.type === "LogicalExpression") checkValue(value.right)
+		}
 		return {
 			JSXText: (node) => check(node, node.value),
+			JSXExpressionContainer(node) {
+				if (node.parent?.type === "JSXElement" || node.parent?.type === "JSXFragment")
+					checkValue(node.expression)
+			},
 			JSXAttribute(node) {
 				if (node.name.type !== "JSXIdentifier" || !UI_TEXT_ATTRIBUTES.has(node.name.name)) return
-				let value = node.value
-				if (value?.type === "JSXExpressionContainer") value = value.expression
-				if (value?.type === "Literal" && typeof value.value === "string") check(value, value.value)
-				else if (value?.type === "TemplateLiteral" && value.expressions.length === 0)
-					check(value, value.quasis[0].value.cooked ?? "")
+				const value = node.value
+				checkValue(value?.type === "JSXExpressionContainer" ? value.expression : value)
 			},
 		}
 	},
