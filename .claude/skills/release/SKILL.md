@@ -16,7 +16,8 @@ description: Release a branch of this repository. Pushes it, opens a pull reques
   that counts.
 - Auto-merge squashes the pull request into one commit on `main` once its checks pass, without
   anyone waiting for it. That push runs CI again and, when app code changed, deploys klipstack.com.
-- CI skips `apps/mobile`. `pnpm ci:local` checks it on this machine.
+- CI's `mobile` job typechecks the mobile app and runs its tests on every pull request. Nothing in
+  CI builds the app or shows it.
 
 ## Rules
 
@@ -68,7 +69,8 @@ Commit these on the branch:
   change needs: a spec, the page, the API. The pull request reports it.
 - The `review-changes` skill has run on the branch, and its real findings are fixed. Skip the
   review only for a change of a few lines, or of docs only.
-- The branch touches `apps/mobile`: run `pnpm ci:local`. CI does not check the mobile app.
+- The branch touches `apps/mobile`: use the app in the simulator (the `verify` skill). CI checks
+  only its types and tests.
 - Otherwise CI is the gate. `pnpm ci:local --only static,unit` finds most failures sooner.
 - `pnpm ci:local` needs the local PostgreSQL (`pnpm db:up`) and `.env`, and port 5180 free (stop
   `pnpm dev`). It tests on an empty database of its own.
