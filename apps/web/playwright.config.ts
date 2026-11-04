@@ -33,7 +33,14 @@ export default defineConfig({
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 1 : 0,
 	workers: 1,
-	reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : [["list"]],
+	// In CI the JSON results name the tests that passed only on retry (the e2e job's summary).
+	reporter: process.env.CI
+		? [
+				["github"],
+				["html", { open: "never" }],
+				["json", { outputFile: "test-results/results.json" }],
+			]
+		: [["list"]],
 	timeout: 30_000,
 	use: { baseURL, trace: "retain-on-failure" },
 	projects: [
