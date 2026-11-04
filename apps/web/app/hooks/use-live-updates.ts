@@ -1,4 +1,4 @@
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 import { useRevalidator } from "react-router"
 import { prepareMotion } from "~/lib/motion"
 
@@ -27,9 +27,14 @@ export function refreshAbout(documents: ReadonlySet<string> | null, revalidate: 
  * Keeps the current view fresh: a server-sent event stream announces document changes (saves
  * from the extension, extraction finishing…) and the page refreshes its data; on becoming
  * visible again it refreshes once to cover anything missed while the stream was suspended.
+ * `since` is when the server read the page's data: the stream opens later, and says whether
+ * anything changed in between.
  */
-export function useLiveUpdates(enabled: boolean) {
+export function useLiveUpdates(enabled: boolean, since: number) {
 	const { revalidate } = useRevalidator()
+	// The page's first load: the root's data loads again after actions, and the stream need not
+	// open again for that. Older than what a page shows later, it can only ask for one refresh more.
+	const sinceRef = useRef(since)
 	useEffect(() => {
 		if (!enabled || typeof EventSource === "undefined") return
 		let timer: number | undefined
@@ -54,7 +59,7 @@ export function useLiveUpdates(enabled: boolean) {
 			everything = true
 			refresh()
 		}
-		const source = new EventSource("/api/events")
+		const source = new EventSource(`/api/events?since=${sinceRef.current}`)
 		source.addEventListener("document", onDocument)
 		source.addEventListener("feed", () => refresh())
 		const onVisible = () => {
