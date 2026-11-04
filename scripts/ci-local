@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # Run on this machine every job of .github/workflows/ci.yml: `pnpm ci:local`. CI runs them all on
 # every pull request; this finds a failure before the push. Keep it in step with ci.yml: a check
-# added there belongs here too. One difference on purpose: CI leaves out the mobile app (its
-# install, typecheck and tests, which double the install); here it is checked with the rest.
+# added there belongs here too.
 set -euo pipefail
 
 usage() {
@@ -15,7 +14,8 @@ Runs the checks of .github/workflows/ci.yml, stopping at the first failure:
   static    pnpm audit, the repository rules, lint, typecheck, migrations matching the schema
   build     the production build, and a boot of the server bundle
   e2e       Playwright, every project, against the production build (one retry, as in CI)
-  unit      pnpm test
+  unit      the tests of every workspace but the mobile app
+  mobile    the mobile app's tests (its typecheck is part of static)
 
   As in CI, unit and build run only when something they read changed, and e2e only when
   something it reads changed (scripts/ci-needs), unless named in --only.
@@ -206,7 +206,12 @@ fi
 
 if [ "$unit" = true ]; then
   # CI=1 as on GitHub: Vitest then refuses a stray .only instead of running just that test.
-  run "unit: tests" env CI=1 pnpm test
+  run "unit: tests" env CI=1 pnpm -r --filter '!klipstack' --filter '!@klipstack/mobile' test
+fi
+
+# On every run, as in CI: a change to a package the app uses can break it as surely as one to the app.
+if wanted mobile; then
+  run "mobile: tests" env CI=1 pnpm --filter @klipstack/mobile test
 fi
 
 # The image boots against the empty database above, which it migrates itself. Its containers

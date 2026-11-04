@@ -64,7 +64,7 @@ pnpm dev         # Start web (localhost:5180) and worker
   changes without one (`scripts/check-migrations`).
 - `pnpm ci:local` (`scripts/ci-local`): run every job of `.github/workflows/ci.yml` (about ten
   minutes), on an empty database of its own. Stop `pnpm dev` first. `--only static,unit` runs a
-  part. Change it and `ci.yml` together. CI skips `apps/mobile`; run this when a change touches it.
+  part. Change it and `ci.yml` together.
 - `pnpm --filter @klipstack/extension dev`: develop the extension separately.
 - `pnpm orb:app` (Amp orbs only): runs the app for a person to try, behind a portal, with the
   demo account (`reader@demo.klipstack.test`, password `local-reader-only`) in place. It prints

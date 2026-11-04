@@ -28,5 +28,5 @@ How to write this description (people and agents alike):
 ## Risk and follow-ups
 
 <!-- Only if there are any: migrations, configuration or environment changes, security boundaries
-     (docs/security.md), self-hosting impact, the mobile app (CI skips it), API breaking changes,
+     (docs/security.md), self-hosting impact, the mobile app (CI only typechecks and tests it), API breaking changes,
      known gaps, work left for later. -->
