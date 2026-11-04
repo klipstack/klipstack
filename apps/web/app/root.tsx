@@ -43,6 +43,9 @@ export const links: Route.LinksFunction = () => [
 ]
 
 export async function loader({ context, request }: Route.LoaderArgs) {
+	// Before the page's loaders read anything: they start after this one, which runs first. The live
+	// stream asks the server what changed for the reader since then (`useLiveUpdates`).
+	const liveSince = Date.now()
 	const user = getUser(context)
 	const prefs = user?.prefs as { theme?: string; shortcuts?: string } | undefined
 	const theme = prefs?.theme
@@ -56,6 +59,7 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 		sidebar: parseSidebarCookie(request.headers.get("cookie")),
 		theme: theme === "light" || theme === "dark" ? theme : null,
 		loggedIn: Boolean(user),
+		liveSince,
 		cacheIdentity: cacheIdentity(getSession(context)?.session.id),
 		titles: Object.fromEntries(PAGE_TITLES.map((key) => [key, i18n.t(key)])),
 	}
@@ -125,7 +129,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 	)
 }
 
-export default function App({ loaderData: { locale, loggedIn } }: Route.ComponentProps) {
+export default function App({ loaderData: { locale, loggedIn, liveSince } }: Route.ComponentProps) {
 	const { i18n } = useTranslation()
 	useEffect(() => {
 		if (i18n.language !== locale) void i18n.changeLanguage(locale)
@@ -134,7 +138,7 @@ export default function App({ loaderData: { locale, loggedIn } }: Route.Componen
 		// Lets tests and progressive enhancements know client JS is live.
 		document.documentElement.dataset.hydrated = "1"
 	}, [])
-	useLiveUpdates(loggedIn)
+	useLiveUpdates(loggedIn, liveSince)
 	useStandaloneTitle()
 	useRememberSettingsOrigin()
 	return (

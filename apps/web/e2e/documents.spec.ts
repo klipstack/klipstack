@@ -6,13 +6,14 @@ import {
 	documents,
 	documentTopics,
 	eq,
+	notifyDocumentEvent,
 	readingCompletions,
 	topics,
 	user,
 } from "@klipstack/db"
 import { expect, type Locator, type Page, test } from "@playwright/test"
 import { sameOrigin, signupUser, waitForHydration } from "./helpers"
-import { insertArticle } from "./seed"
+import { insertArticle, urlHash } from "./seed"
 
 const FIXTURE = join(
 	import.meta.dirname,
@@ -376,6 +377,53 @@ test("an open library sees saves from elsewhere and their extraction finishing (
 	expect(Math.abs((menuBox?.x ?? 0) - ((box?.x ?? 0) + 10))).toBeLessThan(2)
 	await page.keyboard.press("Escape")
 	await expect(menu).toHaveCount(0)
+})
+
+test("a library loaded before its live stream connects still sees what changed meanwhile", async ({
+	page,
+}) => {
+	const email = await signupUser(page, "Live updates")
+	const owner = await db.query.user.findFirst({ where: eq(user.email, email) })
+	const url = `https://example.com/live-${Date.now()}`
+	// Saved, waiting for the worker, which never gets a job for it: the test plays its part.
+	const [doc] = await db
+		.insert(documents)
+		.values({ userId: owner!.id, sourceUrl: url, urlHash: urlHash(url), status: "queued" })
+		.returning({ id: documents.id })
+	// The server listens for events already, as it does once any page is open: otherwise its first
+	// LISTEN refreshes every stream, whatever it heard. A stream that says it may have missed
+	// something (since=0) answers only once LISTEN is in place.
+	await page.goto("/healthcheck")
+	await page.evaluate(
+		() =>
+			new Promise<void>((resolve) => {
+				const source = new EventSource("/api/events?since=0")
+				source.addEventListener("document", () => {
+					source.close()
+					resolve()
+				})
+			}),
+	)
+	// The stream connects late, as on a slow connection or a busy server.
+	let connect!: () => void
+	const late = new Promise<void>((resolve) => (connect = resolve))
+	await page.route(
+		(url) => url.pathname === "/api/events",
+		async (route) => {
+			await late
+			await route.continue()
+		},
+	)
+	await page.goto("/library")
+	await expect(page.getByRole("listitem").filter({ hasText: url })).toContainText("Queued")
+	// The extraction finishes meanwhile, and says so before the stream listens.
+	await db
+		.update(documents)
+		.set({ status: "ready", title: "Ready while connecting" })
+		.where(eq(documents.id, doc!.id))
+	await notifyDocumentEvent({ userId: owner!.id, documentId: doc!.id, kind: "ready" })
+	connect()
+	await expect(page.getByRole("link", { name: "Ready while connecting" })).toBeVisible()
 })
 
 test("invalid and unsupported links are rejected with a message", async ({ page }) => {

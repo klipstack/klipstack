@@ -33,9 +33,14 @@ export async function notifyDocumentEvent(event: DocumentEvent): Promise<void> {
 
 /**
  * Subscribes to document events on a dedicated connection (LISTEN needs one outside the pool).
- * Reconnects with backoff if the connection drops. Returns a function that stops listening.
+ * Reconnects with backoff if the connection drops. `onListening` runs each time LISTEN is in place,
+ * the first and after a reconnect: events sent before then were not heard. Returns a function that
+ * stops listening.
  */
-export function listenDocumentEvents(onEvent: (event: DocumentEvent) => void): () => void {
+export function listenDocumentEvents(
+	onEvent: (event: DocumentEvent) => void,
+	onListening?: () => void,
+): () => void {
 	let client: pg.Client | null = null
 	let stopped = false
 	let attempt = 0
@@ -67,6 +72,7 @@ export function listenDocumentEvents(onEvent: (event: DocumentEvent) => void): (
 			await next.connect()
 			await next.query(`listen ${DOCUMENT_EVENTS_CHANNEL}`)
 			attempt = 0
+			onListening?.()
 		} catch {
 			void reconnect()
 		}
