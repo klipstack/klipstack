@@ -1,6 +1,13 @@
 name: Set up the workspace
 description: Install pnpm, Node and the workspace dependencies. Needs the repository checked out.
 
+inputs:
+  filter:
+    description: The workspaces to install, as pnpm's --filter.
+    # Not the mobile app: Expo and React Native double the install, and only the `mobile` job in
+    # ci.yml reads it. That job installs the app and the packages it uses instead.
+    default: "!@klipstack/mobile"
+
 runs:
   using: composite
   steps:
@@ -9,7 +16,7 @@ runs:
       with:
         node-version-file: .nvmrc
         cache: pnpm
-    # Not the mobile app: Expo and React Native double the install, and nothing in CI builds it.
-    # `scripts/ci-local` installs and checks it on the developer's machine instead.
-    - run: pnpm install --frozen-lockfile --filter '!@klipstack/mobile'
+    - run: pnpm install --frozen-lockfile --filter "$FILTER"
       shell: bash
+      env:
+        FILTER: ${{ inputs.filter }}

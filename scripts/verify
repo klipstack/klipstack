@@ -146,7 +146,7 @@ notes=()
 has '^apps/web/(app/(routes|components|hooks)/|app/app\.css|app/root\.tsx|e2e/)' &&
   notes+=("The web UI changed: run its Playwright specs and look at the page (.claude/skills/verify/SKILL.md).")
 has '^apps/mobile/' &&
-  notes+=("The mobile app changed and CI skips it: run \`pnpm ci:local\`.")
+  notes+=("The mobile app changed: CI typechecks and tests it, but nothing renders it. Check the screens in the simulator.")
 has '^apps/extension/' &&
   notes+=("The extension changed: \`pnpm --filter @klipstack/web exec playwright test e2e/extension.spec.ts\` builds it for the local server and loads it in Chromium.")
 has '^(Dockerfile|\.dockerignore|apps/web/(server|security-middleware)\.js)$' &&

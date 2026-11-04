@@ -58,8 +58,8 @@ jobs:
           BODY: ${{ github.event.pull_request.body }}
         run: printf '%s\n\n%s\n' "$TITLE" "$BODY" | node scripts/check-rules.mjs --pr
       - run: pnpm lint
-      # Every workspace but the mobile app, whose dependencies the setup leaves out (and the root,
-      # whose own `typecheck` would check it again). `scripts/ci-local` checks the mobile app too.
+      # Every workspace but the mobile app, whose dependencies the setup leaves out (the `mobile`
+      # job checks it), and the root, whose own `typecheck` would check it again.
       - run: pnpm -r --filter '!klipstack' --filter '!@klipstack/mobile' typecheck
       - run: scripts/check-migrations
       - run: for f in scripts/image-smoke scripts/verify scripts/test-database .githooks/pre-commit; do bash -n "$f"; done
@@ -92,7 +92,7 @@ jobs:
       - run: pnpm db:migrate
       # Fails if the database sorts text with the OS's collation again (POSTGRES_INITDB_ARGS above).
       - run: pnpm db:check-collation
-      # Not the mobile app's tests: the setup leaves its dependencies out (see the static job).
+      # Not the mobile app's tests: the `mobile` job runs them.
       - run: pnpm -r --filter '!klipstack' --filter '!@klipstack/mobile' test
       - run: pnpm build
       - name: Boot the production server bundle
@@ -108,6 +108,21 @@ jobs:
           code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Host: example.test' \
             -H 'Origin: https://example.test' -H 'X-Forwarded-Proto: https' http://localhost:3999/logout.data)
           [ "$code" = "202" ] || { echo "proxied form post returned $code"; exit 1; }
+
+  # The iPhone app's typecheck and unit tests, on every pull request: they take about a minute, and
+  # a change to a package it uses (the contract, the SDK, the translations) can break it as surely
+  # as a change to the app. Nothing here builds or renders the app. The deploy doesn't wait for it:
+  # the app ships through TestFlight, not with klipstack.com.
+  mobile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: ./.github/actions/setup
+        with:
+          filter: "@klipstack/mobile..."
+      - run: pnpm --filter @klipstack/mobile typecheck
+      - run: pnpm --filter @klipstack/mobile test
 
   # The browser tests run one at a time against one server and database, so they are split over
   # several runners, each with its own. Playwright shards by file and by test count, not by time.
