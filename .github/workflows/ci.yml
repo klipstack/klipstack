@@ -152,8 +152,31 @@ jobs:
       - name: Install Playwright browsers
         run: pnpm --filter @klipstack/web exec playwright install --with-deps ${{ matrix.browsers }}
       - run: pnpm --filter @klipstack/web exec playwright test ${{ matrix.args }}
+      # A test that failed and then passed on its retry leaves the run green: name each one in the
+      # run's summary and as a warning on the pull request, so a new flake is seen, not waved away.
+      - name: Tests that passed only on retry
+        id: flaky
+        if: ${{ !cancelled() }}
+        working-directory: apps/web
+        run: |
+          results=test-results/results.json
+          [ -f "$results" ] || { echo "count=0" >> "$GITHUB_OUTPUT"; exit 0; }
+          flaky=$(jq -r '[.. | objects | select(has("specs")) | .specs[]
+            | . as $s | .tests[] | select(.status == "flaky")
+            | "[\(.projectName)] e2e/\($s.file):\($s.line) › \($s.title)"] | unique | .[]' "$results")
+          echo "count=$(grep -c . <<<"$flaky" || true)" >> "$GITHUB_OUTPUT"
+          [ -n "$flaky" ] || exit 0
+          {
+            echo "### Passed only on retry (${{ matrix.name }})"
+            echo
+            echo "These failed once. Find the cause: the retry hides it."
+            echo
+            sed 's/^/- /' <<<"$flaky"
+          } >> "$GITHUB_STEP_SUMMARY"
+          while IFS= read -r test; do echo "::warning title=Flaky test::$test"; done <<<"$flaky"
+      # On failure, and on a flaky test too: the report keeps the failed attempt's trace.
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        if: failure()
+        if: failure() || steps.flaky.outputs.count != '0'
         with:
           name: playwright-report-${{ matrix.name }}
           path: apps/web/playwright-report
