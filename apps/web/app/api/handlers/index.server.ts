@@ -114,4 +114,7 @@ export const handlers: HandlerTable<Endpoints> = {
 	"ai.brief": ai.brief,
 	"ai.translate": ai.translate,
 	"ai.showOriginal": ai.original,
+	"ai.translation": ai.translation,
+	"translation.languages": ai.translationLanguages,
+	"translation.setLanguage": ai.setTranslationLanguageHandler,
 }

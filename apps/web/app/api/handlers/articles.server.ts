@@ -35,6 +35,7 @@ import {
 } from "~/services/links.server"
 import { searchDocuments } from "~/services/search.server"
 import { readerTopics, topicAsked } from "~/services/topics.server"
+import { originalVersion } from "~/services/translation.server"
 import { articleCursor } from "../cursors.server"
 import { ApiError, notFound, rateLimited } from "../errors.server"
 import type { Handler } from "../handler.server"
@@ -205,11 +206,17 @@ export const markdown: Handler<typeof articleMarkdown> = async ({ userId, params
 }
 
 /** The stored HTML, as the web reader shows it: highlight offsets index its text. */
-export const html: Handler<typeof articleHtml> = async ({ userId, params }) => {
+export const html: Handler<typeof articleHtml> = async ({ userId, params, query }) => {
 	const found = await getDocumentForReader(userId, params.id)
 	if (!found) throw notFound(NO_ARTICLE)
 	if (!found.version) throw ApiError.of("not_ready", "The article text is not available yet.")
-	return { versionId: found.version.id, html: found.version.html }
+	const { originalVersionId } = found.document
+	const version =
+		query.original && originalVersionId
+			? await originalVersion(found.document.id, originalVersionId)
+			: found.version
+	if (!version) throw ApiError.of("not_ready", "The article text is not available yet.")
+	return { versionId: version.id, html: version.html }
 }
 
 /** The reader's topics and shelf, as the web reader shows them: only with the feature and models. */

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto"
 import { AiAnswerEvent, QUESTION_MAX } from "@klipstack/api-contract"
 import { CLI_CLIENT_ID, MOBILE_CLIENT_ID } from "@klipstack/api-contract/auth"
-import { db, documents, documentVersions, eq, userFeatures } from "@klipstack/db"
+import { db, documents, documentVersions, eq, showVersion, userFeatures } from "@klipstack/db"
 import { stopBoss } from "@klipstack/queue"
 import type { KlipstackApiError } from "@klipstack/sdk"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
@@ -445,6 +445,83 @@ describe("the reader's AI in the API", () => {
 		const other = await captured(reader.id, FIXTURES.joel)
 		expect(await cli.ai.showOriginal(other)).toEqual({ changed: false })
 		const theirs = await errorOf(me.app.ai.translate(id))
+		expect([theirs.status, theirs.code]).toEqual([404, "not_found"])
+	})
+
+	it("tells the iPhone app what to offer, shows the original, and keeps its languages", async () => {
+		const reader = await appUser("Políglota")
+		await db.insert(userFeatures).values({ userId: reader.id, feature: "ai" })
+		const id = await captured(reader.id, FIXTURES.makers)
+		// As detection marks a French article.
+		const [doc] = await db
+			.update(documents)
+			.set({ language: "fr" })
+			.where(eq(documents.id, id))
+			.returning()
+		await db
+			.update(documentVersions)
+			.set({ language: "fr" })
+			.where(eq(documentVersions.id, doc!.currentVersionId!))
+		expect(await reader.app.ai.translation(id)).toMatchObject({
+			available: true,
+			target: "en",
+			language: "fr",
+			translated: false,
+			status: null,
+			credits: 2,
+			left: env.LIMIT_TRANSLATIONS_PER_MONTH,
+		})
+		// The original HTML of an article not translated is its own.
+		const shown = await reader.app.articles.html(id)
+		expect(await reader.app.articles.html(id, { original: true })).toEqual(shown)
+
+		// As the worker shows a translation of it.
+		const [original] = await db
+			.select()
+			.from(documentVersions)
+			.where(eq(documentVersions.id, doc!.currentVersionId!))
+		const { id: _, createdAt: __, ...copy } = original!
+		const [translation] = await db
+			.insert(documentVersions)
+			.values({
+				...copy,
+				version: copy.version + 1,
+				html: "<p>Traduit.</p>",
+				text: "Traduit.",
+				textHash: randomUUID(),
+				language: "en",
+				translatedFromId: original!.id,
+			})
+			.returning()
+		await db.transaction((tx) => showVersion(tx, id, translation!.id, original!.id))
+		expect(await reader.app.ai.translation(id)).toMatchObject({
+			translated: true,
+			language: "en",
+			from: "fr",
+			stale: false,
+		})
+		expect(await reader.app.articles.html(id)).toEqual({
+			versionId: translation!.id,
+			html: "<p>Traduit.</p>",
+		})
+		expect(await reader.app.articles.html(id, { original: true })).toEqual(shown)
+
+		// Read with any token; set with a write one, a language in one list at most.
+		const cli = sdk(await oauthToken(reader.id, CLI_CLIENT_ID))
+		expect(await cli.translationLanguages.get()).toEqual({ never: [], always: [] })
+		await cli.translationLanguages.set("fr", "never")
+		expect(await reader.app.translationLanguages.set("fr", "always")).toEqual({
+			never: [],
+			always: ["fr"],
+		})
+		const bad = await request("/api/v1/translation/languages", {
+			method: "POST",
+			token: reader.token,
+			body: JSON.stringify({ language: "French", choice: "always" }),
+			headers: { "content-type": "application/json" },
+		})
+		expect(bad.status).toBe(400)
+		const theirs = await errorOf(me.app.ai.translation(id))
 		expect([theirs.status, theirs.code]).toEqual([404, "not_found"])
 	})
 })

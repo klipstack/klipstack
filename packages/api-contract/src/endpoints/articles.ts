@@ -171,8 +171,10 @@ export const articleHtml = defineEndpoint({
 	method: "GET",
 	path: "/articles/:id/html",
 	scope: "read",
-	summary: "The article's text as the reader shows it: the stored, sanitized HTML.",
+	summary:
+		"The article's text as the reader shows it: the stored, sanitized HTML. `original`: a translated article's original instead, as \"Show original text\" shows it (the translation's own when not translated).",
 	params: z.object({ id: Id }),
+	query: z.object({ original: z.stringbool().default(false) }),
 	response: json(
 		z.object({
 			/** The version the HTML is from. Highlight offsets index its text. */

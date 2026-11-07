@@ -38,7 +38,8 @@ export function createClient(options: ClientOptions) {
 		markdown: (id: string, query: QueryOf<"articles.markdown"> = {}) =>
 			call("articles.markdown", { params: { id }, query }),
 		/** The stored HTML the reader shows; highlight offsets index its text. */
-		html: (id: string) => call("articles.html", { params: { id } }),
+		html: (id: string, query: QueryOf<"articles.html"> = {}) =>
+			call("articles.html", { params: { id }, query }),
 		/** Its automatic topics, and up to 3 unread articles of its strongest topic to read next. */
 		topics: (id: string) => call("articles.topics", { params: { id } }),
 		/** Saves a page; with `html`, the server extracts that capture instead of fetching the URL. */
@@ -231,6 +232,8 @@ export function createClient(options: ClientOptions) {
 		translate: (articleId: string) => call("ai.translate", { params: { id: articleId } }),
 		/** Shows the original again; for every client, as it spends nothing. */
 		showOriginal: (articleId: string) => call("ai.showOriginal", { params: { id: articleId } }),
+		/** What the reader needs to offer, show and switch the article's translation. */
+		translation: (articleId: string) => call("ai.translation", { params: { id: articleId } }),
 	}
 
 	return {
@@ -341,6 +344,13 @@ export function createClient(options: ClientOptions) {
 		},
 		/** Where the account stands against each of its caps this month. */
 		usage: () => call("usage.get"),
+		translationLanguages: {
+			/** The languages the account never translates, and those it always translates. */
+			get: () => call("translation.languages"),
+			/** Never, always or ask (the default) for a language; answers both lists. */
+			set: (language: string, choice: BodyOf<"translation.setLanguage">["choice"]) =>
+				call("translation.setLanguage", { body: { language, choice } }),
+		},
 		account: {
 			/**
 			 * Deletes the account and everything in it, for good. `confirmEmail` must be its email.
@@ -460,6 +470,9 @@ export const FACADE: Record<EndpointId, string> = {
 	"ai.brief": "ai.brief",
 	"ai.translate": "ai.translate",
 	"ai.showOriginal": "ai.showOriginal",
+	"ai.translation": "ai.translation",
+	"translation.languages": "translationLanguages.get",
+	"translation.setLanguage": "translationLanguages.set",
 	"usage.get": "usage",
 	"account.delete": "account.delete",
 }

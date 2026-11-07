@@ -3,7 +3,13 @@ import { IN_APP_AI_CLIENTS } from "../auth"
 import { defineEndpoint, empty, events, json, type OnlyClients } from "../endpoint"
 import { NUL_REFUSED, QUESTION_MAX, QUOTE_MAX, withoutNul } from "../names"
 import { Id, Time } from "../schemas"
-import { TRANSLATION_CREDIT_WORDS, TRANSLATION_WORDS_MAX } from "../translation"
+import {
+	LanguageCode,
+	TRANSLATION_CHOICES,
+	TRANSLATION_CREDIT_WORDS,
+	TRANSLATION_LANGUAGES,
+	TRANSLATION_WORDS_MAX,
+} from "../translation"
 
 /**
  * Questions about an article and its passages, answered by an AI model, and the article's brief.
@@ -376,4 +382,76 @@ export const showOriginal = defineEndpoint({
 	params,
 	response: json(z.object({ changed: z.boolean() })),
 	errors: ["not_found", "already_pending"],
+})
+
+/** What the reader needs to offer, show and switch an article's translation. */
+export const ArticleTranslation = z
+	.object({
+		/** Translating is on: the server has AI, and the account has it and didn't turn it off. */
+		available: z.boolean(),
+		/** The account's language, which articles are translated into. */
+		target: z.enum(TRANSLATION_LANGUAGES),
+		/** The language of the text shown, when known. */
+		language: LanguageCode.nullable(),
+		/** Shown in a translation; GET /articles/{id}/html?original=true has the original. */
+		translated: z.boolean(),
+		/** The original's language, when translated and known. */
+		from: LanguageCode.nullable(),
+		/** The original was captured again after the translation was made: POST translates it again. */
+		stale: z.boolean(),
+		/** A translation on its way, or one that failed (its credits were given back). */
+		status: z.enum(["pending", "failed"]).nullable(),
+		/** What POST costs now (0 when one was made before), and the credits left this month. */
+		credits: z.number().int().nonnegative(),
+		left: z.number().int().nonnegative(),
+		/** Over the words a translation takes: say so instead of offering it. */
+		tooLong: z.boolean(),
+		/** Highlights on the original, while the translation is shown, or the other way round. */
+		elsewhere: z.number().int().nonnegative(),
+	})
+	.meta({ id: "ArticleTranslation" })
+export type ArticleTranslation = z.infer<typeof ArticleTranslation>
+
+export const getTranslation = defineEndpoint({
+	id: "ai.translation",
+	method: "GET",
+	path: "/articles/:id/translation",
+	scope: "read",
+	summary:
+		"The article's translation, as the reader offers and shows it. Offer one when `available`, not `translated`, no `status`, and `language` is known, isn't `target` and isn't one the account never translates (GET /translation/languages).",
+	params,
+	response: json(ArticleTranslation),
+	errors: ["not_found", "not_ready"],
+})
+
+/** The account's languages by what it does with them. */
+export const TranslationLanguages = z
+	.object({
+		/** Never offered a translation: languages the reader reads. */
+		never: z.array(LanguageCode),
+		/** Translated as articles the reader saves are (not feed items), credits allowing. */
+		always: z.array(LanguageCode),
+	})
+	.meta({ id: "TranslationLanguages" })
+
+export const getTranslationLanguages = defineEndpoint({
+	id: "translation.languages",
+	method: "GET",
+	path: "/translation/languages",
+	scope: "read",
+	summary: "The languages the account never translates, and those it always translates.",
+	response: json(TranslationLanguages),
+	errors: [],
+})
+
+export const setTranslationLanguage = defineEndpoint({
+	id: "translation.setLanguage",
+	method: "POST",
+	path: "/translation/languages",
+	scope: "write",
+	summary:
+		"What the account does with articles in a language: `never` offered a translation, `always` translated as they are saved, or `ask` (the default). A language is in one list at most; translations made stay. Answers both lists.",
+	body: z.object({ language: LanguageCode, choice: z.enum(TRANSLATION_CHOICES) }),
+	response: json(TranslationLanguages),
+	errors: [],
 })

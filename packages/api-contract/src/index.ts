@@ -33,6 +33,9 @@ import {
 	retryAi,
 	translateArticle,
 	showOriginal,
+	getTranslation,
+	getTranslationLanguages,
+	setTranslationLanguage,
 } from "./endpoints/ai"
 import {
 	articleHtml,
@@ -227,6 +230,9 @@ export const endpoints = {
 	"ai.brief": briefAi,
 	"ai.translate": translateArticle,
 	"ai.showOriginal": showOriginal,
+	"ai.translation": getTranslation,
+	"translation.languages": getTranslationLanguages,
+	"translation.setLanguage": setTranslationLanguage,
 	"usage.get": getUsage,
 	"account.delete": deleteAccount,
 	"openapi.get": getOpenApi,
