@@ -107,6 +107,7 @@ describe("the reader's AI in the API", () => {
 			["POST", `/ai/threads/${threadId}/retry`, json({})],
 			["DELETE", `/ai/threads/${threadId}`],
 			["POST", `/ai/threads/${threadId}/restore`],
+			["POST", `/articles/${articleId}/translation`],
 		]
 		const refused = {
 			"the CLI": await oauthToken(me.id, CLI_CLIENT_ID),
@@ -416,5 +417,24 @@ describe("the reader's AI in the API", () => {
 			expect(line.startsWith("data: ")).toBe(true)
 			expect(AiAnswerEvent.safeParse(JSON.parse(line.slice(6))).success).toBe(true)
 		}
+	})
+
+	it("translates for the iPhone app, for its credits, and puts the original back for anyone", async () => {
+		const reader = await appUser("Translator")
+		await db.insert(userFeatures).values({ userId: reader.id, feature: "ai" })
+		const id = await captured(reader.id, FIXTURES.makers)
+		// About 1,600 words: two started thousands.
+		expect(await reader.app.ai.translate(id)).toEqual({ status: "pending", credits: 2 })
+		const again = await errorOf(reader.app.ai.translate(id))
+		expect([again.status, again.code]).toEqual([409, "already_pending"])
+		expect((await reader.app.usage()).translations).toMatchObject({
+			used: 2,
+			max: env.LIMIT_TRANSLATIONS_PER_MONTH,
+		})
+		// Not translated yet: nothing to put back, from the CLI too.
+		const cli = sdk(await oauthToken(reader.id, CLI_CLIENT_ID))
+		expect(await cli.ai.showOriginal(id)).toEqual({ changed: false })
+		const theirs = await errorOf(me.app.ai.translate(id))
+		expect([theirs.status, theirs.code]).toEqual([404, "not_found"])
 	})
 })

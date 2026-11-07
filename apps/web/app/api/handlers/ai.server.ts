@@ -9,6 +9,8 @@ import type {
 	restoreAiThread,
 	retryAi,
 	setAiConsent as setAiConsentEndpoint,
+	translateArticle as translateEndpoint,
+	showOriginal as showOriginalEndpoint,
 } from "@klipstack/api-contract"
 import {
 	type AskOptions,
@@ -23,6 +25,7 @@ import {
 	setAiConsent,
 } from "~/commands/ai.server"
 import { NO_ARTICLE } from "~/commands/articles.server"
+import { translateArticle, showOriginal } from "~/commands/translation.server"
 import { answerEvents, briefEvents } from "~/lib/ai-events.server"
 import { briefView, messageView, threadView } from "~/lib/ai-threads"
 import { ai } from "~/lib/ai.server"
@@ -104,3 +107,9 @@ export const restore: Handler<typeof restoreAiThread> = async ({ userId, params 
 
 export const brief: Handler<typeof briefAi> = async ({ userId, params, body }) =>
 	briefEvents(await briefArticle(userId, params.id, options(body.language)))
+
+export const translate: Handler<typeof translateEndpoint> = ({ userId, params }) =>
+	translateArticle(userId, { id: params.id })
+
+export const original: Handler<typeof showOriginalEndpoint> = ({ userId, params }) =>
+	showOriginal(userId, { id: params.id })

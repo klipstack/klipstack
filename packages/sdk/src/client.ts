@@ -224,6 +224,13 @@ export function createClient(options: ClientOptions) {
 		/** The article's brief: the kept one at no cost (only a `brief` event), or a new one. */
 		brief: (articleId: string, { language, signal }: Language = {}) =>
 			call("ai.brief", { params: { id: articleId }, body: { language }, signal }),
+		/**
+		 * Translates the article into the account's language, for credits; `pending` until the
+		 * worker is done, when the article's `language` changes.
+		 */
+		translate: (articleId: string) => call("ai.translate", { params: { id: articleId } }),
+		/** Shows the original again; for every client, as it spends nothing. */
+		showOriginal: (articleId: string) => call("ai.showOriginal", { params: { id: articleId } }),
 	}
 
 	return {
@@ -451,6 +458,8 @@ export const FACADE: Record<EndpointId, string> = {
 	"ai.delete": "ai.delete",
 	"ai.restore": "ai.restore",
 	"ai.brief": "ai.brief",
+	"ai.translate": "ai.translate",
+	"ai.showOriginal": "ai.showOriginal",
 	"usage.get": "usage",
 	"account.delete": "account.delete",
 }

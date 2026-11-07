@@ -3,6 +3,7 @@ import { IN_APP_AI_CLIENTS } from "../auth"
 import { defineEndpoint, empty, events, json, type OnlyClients } from "../endpoint"
 import { NUL_REFUSED, QUESTION_MAX, QUOTE_MAX, withoutNul } from "../names"
 import { Id, Time } from "../schemas"
+import { TRANSLATION_CREDIT_WORDS, TRANSLATION_WORDS_MAX } from "../translation"
 
 /**
  * Questions about an article and its passages, answered by an AI model, and the article's brief.
@@ -338,4 +339,41 @@ export const briefAi = defineEndpoint({
 	response: events(AiBriefEvent),
 	/** `already_pending`: one is being written for this text already. */
 	errors: [...ASK_ERRORS, "not_found", "not_ready", "already_pending"],
+})
+
+export const translateArticle = defineEndpoint({
+	id: "ai.translate",
+	method: "POST",
+	path: "/articles/:id/translation",
+	scope: "write",
+	clients: inAppAi,
+	summary: `Translates the article into the account's language, with AI: the translation becomes the version it shows (its title, language, highlights and search), and the original stays. It costs a credit per started ${TRANSLATION_CREDIT_WORDS} words of the original, from the month's translations (\`translations\` in GET /usage), up to ${TRANSLATION_WORDS_MAX} words. \`pending\`: the worker translates it, and the article's \`language\` changes once it is done; \`translated\`: one made before is shown again, at no cost. DELETE puts the original back; credits are not given back.`,
+	params,
+	response: json(
+		z.object({
+			status: z.enum(["pending", "translated"]),
+			credits: z.number().int().nonnegative(),
+		}),
+	),
+	/** `invalid_request`: over the words a translation takes. `not_ready`: no text yet. */
+	errors: [
+		"forbidden",
+		"unavailable",
+		"limit_reached",
+		"not_found",
+		"not_ready",
+		"already_pending",
+	],
+})
+
+export const showOriginal = defineEndpoint({
+	id: "ai.showOriginal",
+	method: "DELETE",
+	path: "/articles/:id/translation",
+	scope: "write",
+	summary:
+		"Shows the article's original again, with its title and language. The translation is kept: POST shows it again at no cost. `changed`: false when the article was not translated.",
+	params,
+	response: json(z.object({ changed: z.boolean() })),
+	errors: ["not_found"],
 })
