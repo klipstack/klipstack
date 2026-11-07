@@ -35,6 +35,20 @@ describe("extractXPost", () => {
 		expect(body.querySelector("strong")?.textContent).toBe("very strongly against MCP")
 	})
 
+	it("takes the post's language from X, and from its text when X gives none", () => {
+		const url = "https://x.com/jescalan/status/2098166165000306728"
+		const body = JSON.parse(fixture("thread-jescalan"))
+		// The thread is in English: X's tag wins over what the text says.
+		expect(
+			extractXPost(JSON.stringify({ ...body, status: { ...body.status, lang: "es" } }), url)
+				.language,
+		).toBe("es")
+		expect(
+			extractXPost(JSON.stringify({ ...body, status: { ...body.status, lang: undefined } }), url)
+				.language,
+		).toBe("en")
+	})
+
 	it("renders a quoted post as a blockquote with its author", () => {
 		const a = extractXPost(
 			fixture("quote-tegmark"),

@@ -6,6 +6,7 @@ import { cleanArticleHtml } from "./clean"
 import { ExtractError } from "./errors"
 import { defuddleExtractor, readabilityExtractor } from "./extractors"
 import type { Extractor, ExtractorResult } from "./extractors/types"
+import { detectLanguage } from "./language"
 import { cleanTitle, extractMetadata, parseDate } from "./metadata"
 import { sanitizeHtml } from "./sanitize"
 
@@ -226,7 +227,41 @@ export type ArticleFields = Pick<
 	| "canonicalUrl"
 >
 
-/** Sanitize cleaned content and derive the canonical text every reader offset points into. */
+/** An article body as the reader shows it, and the canonical text every reader offset points into. */
+export interface ArticleBody {
+	html: string
+	text: string
+	textHash: string
+	wordCount: number
+	readingMinutes: number
+	/** The language the text is written in, detected from it (`detectLanguage`). */
+	detectedLanguage: string | null
+}
+
+/** Sanitizes HTML and derives its text, as extraction and translation store a version. */
+export function articleBody(html: string): ArticleBody {
+	const safe = sanitizeHtml(html)
+	// Compute text exactly the way the reader's DOM will see it.
+	const body = new JSDOM(`<!doctype html><body>${safe}</body>`).window.document.body
+	const text = canonicalText(body)
+	const plain = plainText(body)
+	const wordCount = countWords(plain)
+	return {
+		html: safe,
+		text,
+		textHash: createHash("sha256").update(text).digest("hex"),
+		wordCount,
+		readingMinutes: Math.max(1, Math.round(wordCount / WORDS_PER_MINUTE)),
+		detectedLanguage: detectLanguage(plain),
+	}
+}
+
+/**
+ * Sanitize cleaned content and derive the canonical text every reader offset points into. The
+ * language is the one detected from the text; the page's own (`fields.language`, from `<html
+ * lang>`, often missing or wrong) only when the text can't tell, unless `languageTrusted` says the
+ * source knows it (X's `lang`).
+ */
 export function finishArticle({
 	html,
 	fields,
@@ -234,6 +269,7 @@ export function finishArticle({
 	candidates = [],
 	minWords = MIN_WORDS,
 	type = "article",
+	languageTrusted = false,
 }: {
 	type?: ExtractedArticle["type"]
 	html: string
@@ -241,25 +277,20 @@ export function finishArticle({
 	extractor: { name: string; version: string }
 	candidates?: ExtractedArticle["candidates"]
 	minWords?: number
+	languageTrusted?: boolean
 }): ExtractedArticle {
-	const safe = sanitizeHtml(html)
-
-	// Compute text exactly the way the reader's DOM will see it.
-	const body = new JSDOM(`<!doctype html><body>${safe}</body>`).window.document.body
-	const text = canonicalText(body)
-	const plain = plainText(body)
-	const wordCount = countWords(plain)
-	if (wordCount < minWords)
-		throw new ExtractError("no_content", `Only ${wordCount} words extracted`)
+	const { detectedLanguage, ...body } = articleBody(html)
+	if (body.wordCount < minWords)
+		throw new ExtractError("no_content", `Only ${body.wordCount} words extracted`)
+	const language = languageTrusted
+		? (fields.language ?? detectedLanguage)
+		: (detectedLanguage ?? fields.language)
 
 	return {
 		...fields,
+		language,
 		type,
-		html: safe,
-		text,
-		textHash: createHash("sha256").update(text).digest("hex"),
-		wordCount,
-		readingMinutes: Math.max(1, Math.round(wordCount / WORDS_PER_MINUTE)),
+		...body,
 		extractor: { name: extractor.name, version: extractor.version },
 		candidates,
 	}

@@ -100,3 +100,37 @@ describe("extractCapture", () => {
 		expect(used).toBe("rendered")
 	})
 })
+
+describe("the article's language", () => {
+	const url = "https://example.com/story"
+	const page = (lang: string | null, paragraphs: string[]) =>
+		`<!doctype html><html${lang ? ` lang="${lang}"` : ""}><title>Story</title><body><article><h1>Story</h1>${paragraphs.map((p) => `<p>${p}</p>`).join("")}</article></body></html>`
+	const spanish = [
+		"Cada vez me parece más claro que en la industria de la inteligencia artificial está ocurriendo algo muy absurdo.",
+		"Por un lado, el mundo tecnológico debate a diario cuándo estallará la burbuja y si las inversiones se podrán recuperar.",
+		"Por otro lado, muchísimas empresas tradicionales todavía no tienen claro qué problemas concretos puede resolverles.",
+	]
+	const french = [
+		"Je pense de plus en plus que quelque chose de vraiment absurde se passe dans l'industrie de l'intelligence artificielle.",
+		"D'un côté, le monde de la technologie se demande chaque jour quand la bulle va éclater et si les investissements seront rentables.",
+		"De l'autre, beaucoup d'entreprises traditionnelles ne savent toujours pas quels problèmes elle pourrait résoudre pour elles.",
+	]
+
+	it("comes from the text when the page's tag says otherwise", async () => {
+		expect((await extractArticle({ html: page("en", spanish), url })).language).toBe("es")
+	})
+
+	it("comes from the text when the page has no tag", async () => {
+		expect((await extractArticle({ html: page(null, french), url })).language).toBe("fr")
+	})
+
+	it("is the page's tag when the text is in a language detection doesn't know", async () => {
+		// Esperanto: franc knows it, the languages detection answers don't include it.
+		const esperanto = [
+			"Mi pli kaj pli sentas, ke io vere absurda okazas en la industrio de artefarita inteligenteco nuntempe.",
+			"Unuflanke, la teknologia mondo ĉiutage diskutas, kiam la veziko krevos kaj ĉu la investoj iam revenos.",
+			"Aliflanke, multaj tradiciaj entreprenoj ankoraŭ ne komprenas, kiujn problemojn ĝi povus solvi por ili.",
+		]
+		expect((await extractArticle({ html: page("eo", esperanto), url })).language).toBe("eo")
+	})
+})

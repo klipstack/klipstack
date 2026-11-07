@@ -223,6 +223,8 @@ export function extractXPost(json: string, url: string): ExtractedArticle {
 		},
 		extractor: EXTRACTOR,
 		type: isArticle ? "article" : "post",
+		// X tags every post with its language.
+		languageTrusted: true,
 		minWords: 1,
 	})
 }
