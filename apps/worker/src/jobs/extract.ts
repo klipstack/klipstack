@@ -16,6 +16,7 @@ import { log } from "../log"
 import { publishExtraction } from "../publish"
 import { absorbSharedPosts, notifyJoined, saveSharedArticle } from "../shared-via"
 import { queueTopicsAfterSave } from "./topics"
+import { translateAsSaved } from "./translate"
 
 /** Errors that will not get better by retrying. */
 const PERMANENT: ReadonlySet<ExtractErrorCode> = new Set([
@@ -126,6 +127,7 @@ export async function handleExtract(job: JobWithMetadata<JobPayloads["extract"]>
 					.where(eq(documentRaw.id, raw.id))
 			// The image job exists only if this version does: same transaction, shared admission.
 			await admitImages(tx, versionId)
+			await translateAsSaved(tx, documentId)
 			// Posts kept because this article couldn't be opened from them join it now.
 			return { absorbed: await absorbSharedPosts(tx, doc) }
 		})

@@ -12,8 +12,10 @@ import {
 	monthOf,
 	pool,
 	sql,
+	showVersion,
 	usageCounts,
 	user,
+	userFeatures,
 } from "@klipstack/db"
 import { stopBoss } from "@klipstack/queue"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
@@ -159,6 +161,117 @@ describe("handleTranslate", () => {
 		expect(after!.currentVersionId).not.toBe(doc.original)
 		expect(after).toMatchObject({ originalVersionId: null, translationStatus: "failed" })
 		expect(await credits()).toBe(before - 2)
+	})
+})
+
+describe("Always translate, as an article is saved", () => {
+	const readers: string[] = []
+	afterAll(async () => {
+		for (const id of readers) {
+			await db.execute(
+				sql`delete from pgboss.job where data->>'documentId' in (select id::text from documents where user_id = ${id})`,
+			)
+			await db.delete(user).where(eq(user.id, id))
+		}
+	})
+
+	/** A reader of the app in Spanish who always translates English, with AI. */
+	async function reader(prefs: Record<string, unknown> = { alwaysTranslate: ["en"] }, ai = true) {
+		const id = `always-${randomUUID()}`
+		await db
+			.insert(user)
+			.values({ id, name: "Lectora", email: `${id}@example.com`, locale: "es", prefs })
+		if (ai) await db.insert(userFeatures).values({ userId: id, feature: "ai" })
+		readers.push(id)
+		return id
+	}
+
+	/** An English article of about 132 words, saved by `owner` and extracted. */
+	async function saved(owner: string, captureSource: "extension" | "feed" = "extension") {
+		const [doc] = await db
+			.insert(documents)
+			.values({
+				userId: owner,
+				sourceUrl: `https://example.com/${randomUUID()}`,
+				urlHash: randomUUID(),
+				captureSource,
+			})
+			.returning()
+		await capture(doc!.id, "Two questions", "Makers need long blocks of time to do their work well")
+		await handleExtract(extractJob(doc!.id))
+		return doc!.id
+	}
+
+	const queuedFor = async (id: string) =>
+		(
+			await db.execute<{ data: { language: string; credits: number } }>(
+				sql`select data from pgboss.job where name = 'translate' and data->>'documentId' = ${id}`,
+			)
+		).rows.map((r) => r.data)
+
+	const used = async (owner: string) => {
+		const [row] = await db
+			.select({ count: usageCounts.count })
+			.from(usageCounts)
+			.where(
+				and(
+					eq(usageCounts.userId, owner),
+					eq(usageCounts.metric, "translations"),
+					eq(usageCounts.month, month),
+				),
+			)
+		return row?.count ?? 0
+	}
+
+	it("queues the translation into the reader's language, for its credits", async () => {
+		const owner = await reader()
+		const id = await saved(owner)
+		expect((await read(id))?.translationStatus).toBe("pending")
+		expect(await queuedFor(id)).toMatchObject([{ language: "es", credits: 1 }])
+		expect(await used(owner)).toBe(1)
+	})
+
+	it("leaves a feed item, another language, an account without AI or out of credits offered", async () => {
+		const always = await reader()
+		const other = await reader({ alwaysTranslate: ["fr"] })
+		const noAi = await reader({ alwaysTranslate: ["en"] }, false)
+		const turnedOff = await reader({ alwaysTranslate: ["en"], ai: "off" })
+		const spent = await reader()
+		await addUsage(db, spent, "translations", 30, month)
+		const ids = [
+			await saved(always, "feed"),
+			await saved(other),
+			await saved(noAi),
+			await saved(turnedOff),
+			await saved(spent),
+		]
+		for (const id of ids) {
+			expect((await read(id))?.translationStatus).toBeNull()
+			expect(await queuedFor(id)).toEqual([])
+		}
+		// Nothing taken past the cap.
+		expect(await used(spent)).toBe(30)
+		expect(await used(always)).toBe(0)
+	})
+
+	it("doesn't translate again an article that was, once its original is put back", async () => {
+		const owner = await reader()
+		const id = await saved(owner)
+		const [job] = await queuedFor(id)
+		await handleTranslate({
+			data: { ...(job as object), documentId: id },
+			retryCount: 0,
+			retryLimit: 2,
+		} as Parameters<typeof handleTranslate>[0])
+		const translated = await read(id)
+		expect(translated?.originalVersionId).not.toBeNull()
+		// "Use original", then a new capture of it.
+		await db.transaction((tx) => showVersion(tx, id, translated!.originalVersionId!, null))
+		await capture(id, "Two questions", "Makers need long blocks of time to do their work well")
+		await handleExtract(extractJob(id))
+		expect((await read(id))?.originalVersionId).toBeNull()
+		expect(await queuedFor(id)).toHaveLength(1)
+		expect(await used(owner)).toBe(1)
 	})
 })
 
