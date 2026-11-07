@@ -248,7 +248,9 @@ export async function handleTranslate(job: JobWithMetadata<JobPayloads["translat
 		const micros = Math.round(estimateCostUsd(translation.model, translation.usage) * 1_000_000)
 		if (micros > 0) await addUsage(db, doc.userId, "ai_spend", micros)
 
-		const body = articleBody(translation.parts.join(""))
+		// The original's stored images (`/assets/<id>`) too: the check below holds them to the ones
+		// the original has.
+		const body = articleBody(translation.parts.join(""), { storedImages: true })
 		// Sanitized, as the parts sent were: the same elements, with the same links and images.
 		if (!sameMarkup(body.html, parts.join("")))
 			throw new Error("the translation changed the article's markup")

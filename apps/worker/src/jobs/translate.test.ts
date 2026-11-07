@@ -18,6 +18,7 @@ import {
 	user,
 	userFeatures,
 } from "@klipstack/db"
+import { articleBody } from "@klipstack/extract"
 import { stopBoss } from "@klipstack/queue"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 
@@ -134,6 +135,27 @@ describe("handleTranslate", () => {
 		// Found by the translation's words and the original's.
 		expect(await found(doc.id, "traducido")).toBe(true)
 		expect(await found(doc.id, "makers")).toBe(true)
+	})
+
+	it("keeps the original's stored images", async () => {
+		const doc = await waiting()
+		// As the images job leaves the original: a stored copy, and one it couldn't store.
+		const stored = `<img src="/assets/${randomUUID()}" data-original-src="https://example.com/a.png" alt="A chart">`
+		const original = await db.query.documentVersions.findFirst({
+			where: eq(documentVersions.id, doc.original),
+		})
+		await db
+			.update(documentVersions)
+			.set({
+				html: `${stored}${original!.html}<img src="https://example.com/b.png">`,
+				imagesDone: true,
+			})
+			.where(eq(documentVersions.id, doc.original))
+		await handleTranslate(doc.job())
+		expect(await read(doc.id)).toMatchObject({ language: "es", translationStatus: null })
+		const translation = await current(doc.id)
+		expect(translation!.html).toContain(stored)
+		expect(translation!.html).toContain('<img src="https://example.com/b.png">')
 	})
 
 	it("gives the credits back and leaves the original shown when the last try fails", async () => {
@@ -385,6 +407,17 @@ describe("sameMarkup", () => {
 				'<p>See <a id="cite-1" title=">" href="https://attacker.example/phish">note 1</a>, <abbr id="mw1">13th</abbr> and <img src="https://example.com/cat.png" alt=">" srcset="https://attacker.example/pixel.png 1x">.</p>',
 				original,
 			),
+		).toBe(false)
+	})
+
+	it("holds stored images, which the worker's sanitizing keeps, to the original's", () => {
+		const [a, b] = [randomUUID(), randomUUID()]
+		const sent = `<p>Hello there friend.</p><img src="/assets/${a}" alt="A chart">`
+		const back = (html: string) => sameMarkup(articleBody(html, { storedImages: true }).html, sent)
+		expect(back(`<p>Hola, amigo.</p><img src="/assets/${a}" alt="Un gráfico">`)).toBe(true)
+		expect(back(`<p>Hola, amigo.</p><img src="/assets/${b}" alt="Un gráfico">`)).toBe(false)
+		expect(
+			back(`<p>Hola, <img src="/assets/${b}"> amigo.</p><img src="/assets/${a}" alt="Un gráfico">`),
 		).toBe(false)
 	})
 
