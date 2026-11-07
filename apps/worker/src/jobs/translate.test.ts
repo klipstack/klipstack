@@ -136,6 +136,27 @@ describe("handleTranslate", () => {
 		expect(await found(doc.id, "makers")).toBe(true)
 	})
 
+	it("keeps the original's stored images", async () => {
+		const doc = await waiting()
+		// As the images job leaves the original: a stored copy, and one it couldn't store.
+		const stored = `<img src="/assets/${randomUUID()}" data-original-src="https://example.com/a.png" alt="A chart">`
+		const original = await db.query.documentVersions.findFirst({
+			where: eq(documentVersions.id, doc.original),
+		})
+		await db
+			.update(documentVersions)
+			.set({
+				html: `${stored}${original!.html}<img src="https://example.com/b.png">`,
+				imagesDone: true,
+			})
+			.where(eq(documentVersions.id, doc.original))
+		await handleTranslate(doc.job())
+		expect(await read(doc.id)).toMatchObject({ language: "es", translationStatus: null })
+		const translation = await current(doc.id)
+		expect(translation!.html).toContain(stored)
+		expect(translation!.html).toContain('<img src="https://example.com/b.png">')
+	})
+
 	it("gives the credits back and leaves the original shown when the last try fails", async () => {
 		const doc = await waiting(`Broken ${FAKE_FAIL}`)
 		const before = await credits()

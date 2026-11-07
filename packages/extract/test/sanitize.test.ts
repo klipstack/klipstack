@@ -59,6 +59,24 @@ describe("sanitizeHtml", () => {
 		expect(imgs[0]?.hasAttribute("srcset")).toBe(false)
 	})
 
+	it("keeps a stored image only when asked, and only its exact address", () => {
+		const id = "01a123cf-a166-7175-8748-59097805bbe4"
+		const html =
+			`<img src="/assets/${id}" alt="kept"><a href="/assets/${id}">l</a>` +
+			`<img src="/assets/${id}/../../logout"><img src="/assets/${id}?x=1">` +
+			`<img src="//evil.example/assets/${id}"><img src="/assets/not-an-id">`
+		const srcs = (out: string) =>
+			Array.from(
+				new JSDOM(`<!doctype html><body>${out}</body>`).window.document.querySelectorAll("img"),
+				(img) => img.getAttribute("src"),
+			)
+		const kept = sanitizeHtml(html, { storedImages: true })
+		expect(srcs(kept)).toEqual([`/assets/${id}`])
+		expect(kept).not.toContain("href")
+		// Not asked, and not by the next call either.
+		expect(srcs(sanitizeHtml(html))).toEqual([])
+	})
+
 	it("checks the original image URL that Markdown exports use", () => {
 		const body = parse(
 			'<img src="https://example.com/a.png" data-original-src="javascript:alert(1)">' +

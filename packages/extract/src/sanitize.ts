@@ -190,14 +190,24 @@ const ALLOWED_ATTR = [
 
 let purify: ReturnType<typeof createDOMPurify> | undefined
 
+/** How the images job points an article at a stored copy (`/assets/<id>`), and nothing else. */
+const STORED_IMAGE = /^\/assets\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+/** Set for the length of one `sanitizeHtml` call (it runs synchronously). */
+let keepStoredImages = false
+
 function getPurify() {
 	if (!purify) {
 		purify = createDOMPurify(new JSDOM("").window)
 		// Only http(s), mailto and in-page anchors survive on href/src; anything else is dropped.
-		purify.addHook("uponSanitizeAttribute", (_node, data) => {
+		purify.addHook("uponSanitizeAttribute", (node, data) => {
 			if (data.attrName === "href" || data.attrName === "src") {
 				const v = data.attrValue.trim()
-				const ok = /^(https?:|mailto:|#)/i.test(v)
+				const ok =
+					/^(https?:|mailto:|#)/i.test(v) ||
+					(keepStoredImages &&
+						node.tagName === "IMG" &&
+						data.attrName === "src" &&
+						STORED_IMAGE.test(data.attrValue))
 				if (!ok) data.keepAttr = false
 			}
 			if (data.attrName === "srcset" && /\bdata:|javascript:/i.test(data.attrValue))
@@ -230,16 +240,24 @@ function getPurify() {
  * Sanitize article HTML for storage. Output is what the reader renders verbatim, inside the app's
  * own page. The lists above are the whole policy: DOMPurify's `USE_PROFILES` would replace them
  * with its full HTML profile (forms, styles, `background`), so it must not be set here.
+ *
+ * `storedImages` also keeps an image whose `src` is exactly a stored copy, `/assets/<id>`: HTML
+ * that was stored before (a translation of it) has them, a page from the web never does.
  */
-export function sanitizeHtml(html: string): string {
-	return getPurify().sanitize(html, {
-		ALLOWED_TAGS,
-		ALLOWED_ATTR,
-		FORBID_TAGS,
-		FORBID_ATTR: ["style", "background", "ping", "formaction", "srcdoc"],
-		ALLOW_DATA_ATTR: false,
-		ALLOW_ARIA_ATTR: false,
-		KEEP_CONTENT: true,
-		WHOLE_DOCUMENT: false,
-	}) as string
+export function sanitizeHtml(html: string, { storedImages = false } = {}): string {
+	keepStoredImages = storedImages
+	try {
+		return getPurify().sanitize(html, {
+			ALLOWED_TAGS,
+			ALLOWED_ATTR,
+			FORBID_TAGS,
+			FORBID_ATTR: ["style", "background", "ping", "formaction", "srcdoc"],
+			ALLOW_DATA_ATTR: false,
+			ALLOW_ARIA_ATTR: false,
+			KEEP_CONTENT: true,
+			WHOLE_DOCUMENT: false,
+		}) as string
+	} finally {
+		keepStoredImages = false
+	}
 }

@@ -238,9 +238,12 @@ export interface ArticleBody {
 	detectedLanguage: string | null
 }
 
-/** Sanitizes HTML and derives its text, as extraction and translation store a version. */
-export function articleBody(html: string): ArticleBody {
-	const safe = sanitizeHtml(html)
+/**
+ * Sanitizes HTML and derives its text, as extraction and translation store a version.
+ * `storedImages`: see `sanitizeHtml`.
+ */
+export function articleBody(html: string, options?: { storedImages?: boolean }): ArticleBody {
+	const safe = sanitizeHtml(html, options)
 	// Compute text exactly the way the reader's DOM will see it.
 	const body = new JSDOM(`<!doctype html><body>${safe}</body>`).window.document.body
 	const text = canonicalText(body)
