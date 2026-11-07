@@ -260,26 +260,29 @@ describe("using the original, and translating again", () => {
 	})
 })
 
-describe("setNeverTranslate", () => {
-	it("adds a language once, takes it out again, and refuses what is not a language code", async () => {
+describe("setTranslationChoice", () => {
+	it("keeps a language in one list at most, takes it out with ask, and refuses what is not a code", async () => {
 		const userId = await newUser()
-		const { setNeverTranslate } = await import("./translation.server")
-		expect(await setNeverTranslate(userId, { language: "fr", never: true })).toEqual(["fr"])
-		expect(await setNeverTranslate(userId, { language: "fr", never: true })).toEqual(["fr"])
-		expect(await setNeverTranslate(userId, { language: "zh", never: true })).toEqual(["fr", "zh"])
-		expect(await setNeverTranslate(userId, { language: "fr", never: false })).toEqual(["zh"])
-		expect(await refusal(setNeverTranslate(userId, { language: "Chinese", never: true }))).toBe(
-			"invalid_request",
-		)
-		// Up to NEVER_TRANSLATE_MAX: 50 with "zh".
+		const { setTranslationChoice } = await import("./translation.server")
+		const set = (language: string, choice: "never" | "always" | "ask") =>
+			setTranslationChoice(userId, { language, choice })
+		expect(await set("fr", "never")).toEqual({ never: ["fr"], always: [] })
+		expect(await set("fr", "never")).toEqual({ never: ["fr"], always: [] })
+		expect(await set("zh", "always")).toEqual({ never: ["fr"], always: ["zh"] })
+		// Always after never: the one choice.
+		expect(await set("fr", "always")).toEqual({ never: [], always: ["zh", "fr"] })
+		expect(await set("zh", "never")).toEqual({ never: ["zh"], always: ["fr"] })
+		expect(await set("zh", "ask")).toEqual({ never: [], always: ["fr"] })
+		expect(await refusal(set("Chinese", "never"))).toBe("invalid_request")
+		// Up to TRANSLATION_LANGUAGES_MAX a list: 49 more after "fr".
 		const codes = Array.from(
 			{ length: 49 },
 			(_, i) =>
 				`a${String.fromCharCode(97 + (i % 26))}${String.fromCharCode(97 + Math.floor(i / 26))}`,
 		)
-		for (const language of codes) await setNeverTranslate(userId, { language, never: true })
-		expect(await refusal(setNeverTranslate(userId, { language: "de", never: true }))).toBe(
-			"invalid_request",
-		)
+		for (const language of codes) await set(language, "always")
+		expect(await refusal(set("de", "always"))).toBe("invalid_request")
+		// The other list has room.
+		expect((await set("de", "never")).never).toEqual(["de"])
 	})
 })

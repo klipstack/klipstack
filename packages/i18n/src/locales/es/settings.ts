@@ -35,6 +35,13 @@ export default {
 			empty: "Para añadir un idioma, elige No traducir nunca en un artículo escrito en él.",
 			remove: "Quitar {{language}}",
 		},
+		alwaysTranslation: {
+			title: "Traducir siempre",
+			description:
+				"Los artículos en estos idiomas se traducen al guardarlos, mientras te queden créditos. Los que guardas desde tus feeds, no.",
+			empty: "Para añadir un idioma, elige Traducir siempre en un artículo traducido de él.",
+			remove: "Quitar {{language}}",
+		},
 		editions: {
 			title: "Ediciones",
 			label: "Hacer ediciones",

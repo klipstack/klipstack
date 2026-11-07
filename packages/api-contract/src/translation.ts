@@ -12,8 +12,15 @@ export const TRANSLATION_CREDIT_WORDS = 1000
 /** Longest original that can be translated, in words: 20 credits. */
 export const TRANSLATION_WORDS_MAX = 20_000
 
-/** Most languages an account can list as never translated (the ones it reads). */
-export const NEVER_TRANSLATE_MAX = 50
+/** Most languages an account can list as never translated, and as always translated. */
+export const TRANSLATION_LANGUAGES_MAX = 50
+
+/**
+ * What the account does with articles in a language: never offered a translation (one it reads),
+ * always translated as they are saved (credits allowing), or offered one (the default).
+ */
+export const TRANSLATION_CHOICES = ["never", "always", "ask"] as const
+export type TranslationChoice = (typeof TRANSLATION_CHOICES)[number]
 
 /** An article's language: ISO 639-1, or 639-3 where a language has no two-letter code. */
 export const LanguageCode = z

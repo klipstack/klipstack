@@ -57,17 +57,25 @@ export function useTranslationAction(documentId: string) {
 export function ReaderTranslation({
 	documentId,
 	translation,
-	neverTranslate,
+	languages,
 }: {
 	documentId: string
 	translation: Translation
-	neverTranslate: readonly string[]
+	/** The account's languages never translated, and always. */
+	languages: { never: readonly string[]; always: readonly string[] }
 }) {
 	const { t, i18n } = useTranslation("reader")
 	const name = (code: string | null) => (code ? languageName(code, i18n.language) : "")
 	const target = name(translation.target)
 	const action = useTranslationAction(documentId)
-	const never = useFetcher()
+	const choice = useFetcher()
+	const choose = (language: string, value: "never" | "always") =>
+		void choice.submit(
+			{ language, choice: value },
+			{ method: "post", action: "/translation/languages" },
+		)
+	// Chosen here: gone at once, as the reader's prefs are its own copy until it loads again.
+	const [chosenAlways, setChosenAlways] = useState(false)
 	// Hidden until the browser says it wasn't dismissed: no offer that flashes and goes.
 	const stored = useClientValue(() => localStorage.getItem(dismissedKey(documentId)) === "1", true)
 	const [dismissedNow, setDismissed] = useState(false)
@@ -109,6 +117,25 @@ export function ReaderTranslation({
 					<Link to="?original=1" replace preventScrollReset className={linkClass}>
 						{t("translation.showOriginal")}
 					</Link>
+					{translation.from &&
+					translation.available &&
+					!chosenAlways &&
+					!languages.always.includes(translation.from) ? (
+						<Button
+							size="sm"
+							variant="ghost"
+							disabled={choice.state !== "idle"}
+							onClick={() => {
+								choose(translation.from!, "always")
+								setChosenAlways(true)
+								showToast({
+									message: t("translation.alwaysDone", { language: name(translation.from) }),
+								})
+							}}
+						>
+							{t("translation.always", { language: name(translation.from) })}
+						</Button>
+					) : null}
 					{translation.stale && translation.available && translation.status !== "pending" ? (
 						<Button
 							size="sm"
@@ -152,7 +179,7 @@ export function ReaderTranslation({
 			</Bar>
 		)
 
-	if (!offersTranslation(translation, neverTranslate) || dismissed) return null
+	if (!offersTranslation(translation, languages.never) || dismissed) return null
 	const language = name(translation.language)
 	const enough = translation.credits <= translation.left
 	const notNow = () => {
@@ -160,10 +187,7 @@ export function ReaderTranslation({
 		setDismissed(true)
 	}
 	const neverAgain = () => {
-		void never.submit(
-			{ language: translation.language!, never: "true" },
-			{ method: "post", action: "/translation/never" },
-		)
+		choose(translation.language!, "never")
 		// Gone at once: the reader's prefs are its own copy until it loads again.
 		setDismissed(true)
 		showToast({ message: t("translation.neverDone", { language }) })
@@ -194,7 +218,7 @@ export function ReaderTranslation({
 				<Button size="sm" variant="ghost" onClick={notNow}>
 					{t("translation.notNow")}
 				</Button>
-				<Button size="sm" variant="ghost" disabled={never.state !== "idle"} onClick={neverAgain}>
+				<Button size="sm" variant="ghost" disabled={choice.state !== "idle"} onClick={neverAgain}>
 					{t("translation.never", { language })}
 				</Button>
 			</Actions>

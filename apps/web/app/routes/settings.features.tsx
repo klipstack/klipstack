@@ -41,6 +41,7 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 		ai: aiFlag && aiModule.available ? prefs.ai !== "off" : null,
 		topics: topicsUsable || topicsOn ? { on: topicsOn, usable: topicsUsable } : null,
 		neverTranslate: prefs.neverTranslate,
+		alwaysTranslate: prefs.alwaysTranslate,
 	}
 }
 
@@ -58,7 +59,10 @@ export default function FeaturesSettings({ loaderData }: Route.ComponentProps) {
 				/>
 			) : null}
 			{loaderData.ai !== null || loaderData.neverTranslate.length > 0 ? (
-				<NeverTranslate languages={loaderData.neverTranslate} />
+				<TranslationLanguages choice="never" languages={loaderData.neverTranslate} />
+			) : null}
+			{loaderData.ai !== null || loaderData.alwaysTranslate.length > 0 ? (
+				<TranslationLanguages choice="always" languages={loaderData.alwaysTranslate} />
 			) : null}
 			<PrefSwitch
 				name="editions"
@@ -121,22 +125,29 @@ function PrefSwitch({
 	)
 }
 
-/** The languages the account reads: articles in them are not offered a translation. */
-function NeverTranslate({ languages }: { languages: readonly string[] }) {
+/**
+ * The languages never translated (the account reads them: not offered a translation), or always
+ * (translated as they are saved). Removing one puts it back to being offered.
+ */
+function TranslationLanguages({
+	choice,
+	languages,
+}: {
+	choice: "never" | "always"
+	languages: readonly string[]
+}) {
 	const { t, i18n } = useTranslation("settings")
+	const key = choice === "never" ? "translation" : "alwaysTranslation"
 	const fetcher = useFetcher()
 	// Gone as soon as it is removed, while the server forgets it.
 	const removing = fetcher.formData?.get("language")
 	const shown = languages.filter((code) => code !== removing)
 	return (
-		<SettingsCard
-			title={t("features.translation.title")}
-			description={t("features.translation.description")}
-		>
+		<SettingsCard title={t(`features.${key}.title`)} description={t(`features.${key}.description`)}>
 			{shown.length === 0 ? (
-				<p className="mt-3 text-sm text-muted-fg">{t("features.translation.empty")}</p>
+				<p className="mt-3 text-sm text-muted-fg">{t(`features.${key}.empty`)}</p>
 			) : (
-				<ul data-testid="never-translate" className="mt-3 flex flex-wrap gap-2">
+				<ul data-testid={`${choice}-translate`} className="mt-3 flex flex-wrap gap-2">
 					{shown.map((code) => {
 						const name = languageName(code, i18n.language)
 						return (
@@ -147,12 +158,12 @@ function NeverTranslate({ languages }: { languages: readonly string[] }) {
 								{name}
 								<button
 									type="button"
-									aria-label={t("features.translation.remove", { language: name })}
-									{...tooltip(t("features.translation.remove", { language: name }))}
+									aria-label={t(`features.${key}.remove`, { language: name })}
+									{...tooltip(t(`features.${key}.remove`, { language: name }))}
 									onClick={() =>
 										void fetcher.submit(
-											{ language: code, never: "false" },
-											{ method: "post", action: "/translation/never" },
+											{ language: code, choice: "ask" },
+											{ method: "post", action: "/translation/languages" },
 										)
 									}
 									className="rounded-full p-1 text-muted-fg hover:bg-fg/10 hover:text-fg"

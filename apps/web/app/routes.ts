@@ -102,7 +102,7 @@ export default [
 	route("documents/:id/highlights", "routes/documents.highlights.ts"),
 	route("documents/:id/ai", "routes/documents.ai.ts"),
 	route("documents/:id/translation", "routes/documents.translation.ts"),
-	route("translation/never", "routes/translation.never.ts"),
+	route("translation/languages", "routes/translation.languages.ts"),
 	route("documents/:id/note", "routes/documents.note.ts"),
 	route("home/highlights", "routes/home.highlights.ts"),
 	route("home/notes", "routes/home.notes.ts"),

@@ -1,7 +1,8 @@
 import {
 	Id,
 	LanguageCode,
-	NEVER_TRANSLATE_MAX,
+	TRANSLATION_CHOICES,
+	TRANSLATION_LANGUAGES_MAX,
 	TRANSLATION_WORDS_MAX,
 	type TranslationLanguage,
 } from "@klipstack/api-contract"
@@ -130,18 +131,25 @@ export async function showOriginal(userId: string, input: unknown): Promise<{ ch
 	return { changed }
 }
 
-const NeverTranslate = z.object({ language: LanguageCode, never: z.boolean() })
+const Choice = z.object({ language: LanguageCode, choice: z.enum(TRANSLATION_CHOICES) })
+
+/** The account's languages by what it does with them: never translated, and always. */
+export interface TranslationLanguages {
+	never: string[]
+	always: string[]
+}
 
 /**
- * Adds a language to the ones the account reads ("Never translate Chinese"), or takes it out
- * (Settings → Features). Articles in them are no longer offered a translation; translations
- * already made stay. Answers the list.
+ * What the account does with articles in a language: never offered a translation ("Never
+ * translate Chinese", for a language it reads), always translated as they are saved, credits
+ * allowing ("Always translate Chinese"), or offered one (`ask`, the default). A language is in
+ * one list at most. Translations already made stay. Answers both lists.
  */
-export async function setNeverTranslate(
+export async function setTranslationChoice(
 	userId: string,
-	input: z.input<typeof NeverTranslate>,
-): Promise<string[]> {
-	const { language, never } = parseInput(NeverTranslate, input)
+	input: z.input<typeof Choice>,
+): Promise<TranslationLanguages> {
+	const { language, choice } = parseInput(Choice, input)
 	return db.transaction(async (tx) => {
 		const [row] = await tx
 			.select({ prefs: userTable.prefs })
@@ -149,18 +157,24 @@ export async function setNeverTranslate(
 			.where(eq(userTable.id, userId))
 			.for("update")
 		const prefs = row?.prefs ?? {}
-		const before = prefs.neverTranslate ?? []
-		const after = never
-			? [...new Set([...before, language])]
-			: before.filter((code) => code !== language)
-		if (after.length > NEVER_TRANSLATE_MAX)
+		const without = (list: string[] | undefined) => (list ?? []).filter((c) => c !== language)
+		const keep = (list: string[] | undefined, on: boolean) =>
+			on && list?.includes(language) ? list : [...without(list), ...(on ? [language] : [])]
+		const after = {
+			never: keep(prefs.neverTranslate, choice === "never"),
+			always: keep(prefs.alwaysTranslate, choice === "always"),
+		}
+		if (
+			after.never.length > TRANSLATION_LANGUAGES_MAX ||
+			after.always.length > TRANSLATION_LANGUAGES_MAX
+		)
 			throw new AppError(
 				"invalid_request",
-				`An account can list up to ${NEVER_TRANSLATE_MAX} languages it reads.`,
+				`An account can list up to ${TRANSLATION_LANGUAGES_MAX} languages for each choice.`,
 			)
 		await tx
 			.update(userTable)
-			.set({ prefs: { ...prefs, neverTranslate: after } })
+			.set({ prefs: { ...prefs, neverTranslate: after.never, alwaysTranslate: after.always } })
 			.where(eq(userTable.id, userId))
 		return after
 	})
