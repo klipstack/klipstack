@@ -13,6 +13,7 @@
 		"test": "vitest run --passWithNoTests"
 	},
 	"dependencies": {
+		"@klipstack/api-contract": "workspace:*",
 		"@klipstack/db": "workspace:*",
 		"@klipstack/log": "workspace:*",
 		"pg-boss": "^12.35.1"

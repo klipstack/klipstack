@@ -4,14 +4,11 @@ import {
 	NEVER_TRANSLATE_MAX,
 	TRANSLATION_WORDS_MAX,
 	type TranslationLanguage,
-	translationCredits,
-	translationWords,
 } from "@klipstack/api-contract"
 import {
 	and,
 	db,
 	documents,
-	documentVersions,
 	eq,
 	isNull,
 	notifyDocumentEvent,
@@ -19,7 +16,7 @@ import {
 	type Tx,
 	user as userTable,
 } from "@klipstack/db"
-import { sendInTransaction } from "@klipstack/queue"
+import { admitTranslation } from "@klipstack/queue"
 import { z } from "zod"
 import { AppError, notFound, parseInput } from "~/lib/app-error"
 import { countMonthly } from "~/lib/limits.server"
@@ -81,65 +78,33 @@ export async function translateArticle(userId: string, input: unknown): Promise<
 	const language = await languageOf(userId)
 	const outcome = await db.transaction(async (tx) => {
 		const doc = await lockArticle(tx, userId, id)
-		if (doc.status !== "ready" || !doc.currentVersionId)
-			throw new AppError("not_ready", "The article text is not available yet. Try again later.")
-		if (doc.translationStatus === "pending")
-			throw new AppError("already_pending", "The article is being translated.")
-		// Not translated: only an article known to be in another language, as the reader offers.
-		if (!doc.originalVersionId && doc.language !== null && doc.language === language)
-			throw new AppError("invalid_request", `The article is already in ${language}.`)
-		if (!doc.originalVersionId && doc.language === null)
-			throw new AppError("invalid_request", "The article's language is not known.")
-		const sourceId = doc.originalVersionId ?? doc.currentVersionId
-		if (doc.originalVersionId && doc.language === language) {
-			const [shown] = await tx
-				.select({ from: documentVersions.translatedFromId })
-				.from(documentVersions)
-				.where(eq(documentVersions.id, doc.currentVersionId))
-			if (shown?.from === sourceId) return { status: "translated", credits: 0 } as const
-		}
-		// Made before (then the original was put back): shown again for free.
-		const [made] = await tx
-			.select({ id: documentVersions.id })
-			.from(documentVersions)
-			.where(
-				and(
-					eq(documentVersions.documentId, doc.id),
-					eq(documentVersions.translatedFromId, sourceId),
-					eq(documentVersions.language, language),
-				),
-			)
-			.limit(1)
-		if (made) {
-			await showVersion(tx, doc.id, made.id, sourceId)
-			await tx.update(documents).set({ translationStatus: null }).where(eq(documents.id, doc.id))
-			return { status: "translated", credits: 0 } as const
-		}
-
-		const [source] = await tx
-			.select({ text: documentVersions.text })
-			.from(documentVersions)
-			.where(eq(documentVersions.id, sourceId))
-		if (!source)
-			throw new AppError("not_ready", "The article text is not available yet. Try again later.")
-		const words = translationWords(source.text)
-		if (words > TRANSLATION_WORDS_MAX)
-			throw new AppError(
-				"invalid_request",
-				`The article has ${words} words; translations take up to ${TRANSLATION_WORDS_MAX}.`,
-				{ details: { words, max: TRANSLATION_WORDS_MAX } },
-			)
-		const credits = translationCredits(words)
-		const { month } = await countMonthly(tx, userId, "translations", credits)
-		await tx.update(documents).set({ translationStatus: "pending" }).where(eq(documents.id, doc.id))
-		await sendInTransaction(tx, "translate", {
-			documentId: doc.id,
-			sourceVersionId: sourceId,
-			language,
-			credits,
-			month,
+		const admitted = await admitTranslation(tx, doc, language, async (credits) => {
+			const { month } = await countMonthly(tx, userId, "translations", credits)
+			return month
 		})
-		return { status: "pending", credits } as const
+		switch (admitted.status) {
+			case "translated":
+				return { status: "translated", credits: 0 } as const
+			case "pending":
+				return admitted
+			case "not_ready":
+				throw new AppError("not_ready", "The article text is not available yet. Try again later.")
+			case "already_pending":
+				throw new AppError("already_pending", "The article is being translated.")
+			case "same_language":
+				throw new AppError("invalid_request", `The article is already in ${language}.`)
+			case "unknown_language":
+				throw new AppError("invalid_request", "The article's language is not known.")
+			case "too_long":
+				throw new AppError(
+					"invalid_request",
+					`The article has ${admitted.words} words; translations take up to ${TRANSLATION_WORDS_MAX}.`,
+					{ details: { words: admitted.words, max: TRANSLATION_WORDS_MAX } },
+				)
+			case "no_credits":
+				// `countMonthly` refuses past the cap itself; this one never answers null.
+				throw new Error("no credits without a refusal")
+		}
 	})
 	if (outcome.status === "translated")
 		await notifyDocumentEvent({ userId, documentId: id, kind: "ready" })

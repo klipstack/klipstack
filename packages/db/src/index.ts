@@ -29,6 +29,7 @@ export {
 	TOPIC_SORTS_PER_MONTH,
 	TOPICS_PER_MONTH,
 	topicLimits,
+	translationCap,
 	usageThisMonth,
 } from "./usage"
 export { showVersion } from "./translation"

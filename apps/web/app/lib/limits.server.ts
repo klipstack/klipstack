@@ -12,6 +12,7 @@ import {
 	sql,
 	subscriptions,
 	topicLimits,
+	translationCap,
 	type Tx,
 	type UsageMetric,
 	type UserRole,
@@ -90,7 +91,7 @@ export function limitsForRole(role: UserRole, state: PlanState = "unbilled"): Li
 				...limits,
 				ai: env.LIMIT_AI_PER_MONTH_ADMIN,
 				factChecks: env.LIMIT_FACT_CHECKS_PER_MONTH_ADMIN,
-				translations: env.LIMIT_TRANSLATIONS_PER_MONTH_ADMIN,
+				translations: translationCap(role, state),
 			}
 		: limits
 }
@@ -105,7 +106,7 @@ export function defaultLimits(): Limits {
 		shares: env.LIMIT_SHARES_PER_MONTH,
 		ai: env.LIMIT_AI_PER_MONTH,
 		factChecks: env.LIMIT_FACT_CHECKS_PER_MONTH,
-		translations: env.LIMIT_TRANSLATIONS_PER_MONTH,
+		translations: translationCap("user", "unbilled"),
 	}
 }
 
@@ -119,7 +120,7 @@ function trialLimits(): Limits {
 		shares: env.LIMIT_TRIAL_SHARES_PER_MONTH,
 		ai: env.LIMIT_TRIAL_AI_PER_MONTH,
 		factChecks: env.LIMIT_TRIAL_FACT_CHECKS_PER_MONTH,
-		translations: env.LIMIT_TRIAL_TRANSLATIONS_PER_MONTH,
+		translations: translationCap("user", "trial"),
 	}
 }
 
@@ -133,7 +134,7 @@ function paidLimits(): Limits {
 		shares: env.LIMIT_PAID_SHARES_PER_MONTH,
 		ai: env.LIMIT_PAID_AI_PER_MONTH,
 		factChecks: env.LIMIT_PAID_FACT_CHECKS_PER_MONTH,
-		translations: env.LIMIT_PAID_TRANSLATIONS_PER_MONTH,
+		translations: translationCap("user", "free"),
 	}
 }
 

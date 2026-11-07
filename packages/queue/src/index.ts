@@ -9,6 +9,11 @@ export {
 } from "./admission"
 export { enqueue, ensureQueues, getBoss, stopBoss } from "./boss"
 export {
+	admitTranslation,
+	type TranslatableArticle,
+	type TranslationAdmission,
+} from "./translation"
+export {
 	FAILED_RETENTION_DAYS,
 	type JobPayloads,
 	QUEUE_OPTIONS,
