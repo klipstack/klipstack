@@ -27,7 +27,13 @@ export default {
 			title: "Respuestas de IA",
 			label: "Preguntar a la IA mientras lees",
 			description:
-				"Pregunta por un pasaje, conversa sobre un artículo y obtén un resumen, respondidos por IA. Desactivadas, las respuestas que ya tienes se quedan, para leerlas y borrarlas.",
+				"Pregunta por un pasaje, conversa sobre un artículo, obtén un resumen y traduce artículos, con IA. Desactivadas, las respuestas y traducciones que ya tienes se quedan.",
+		},
+		translation: {
+			title: "No traducir nunca",
+			description: "A los artículos en estos idiomas no se les ofrece traducción.",
+			empty: "Para añadir un idioma, elige No traducir nunca en un artículo escrito en él.",
+			remove: "Quitar {{language}}",
 		},
 		editions: {
 			title: "Ediciones",

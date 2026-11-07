@@ -134,6 +134,23 @@ describe("translateArticle", () => {
 		expect((await jobs(short.id)).rows).toHaveLength(0)
 	})
 
+	it("refuses an article already in the account's language, or in one not known, counting nothing", async () => {
+		const userId = await newUser("es")
+		const spanish = await article(userId, 1500)
+		await db.update(documents).set({ language: "es" }).where(eq(documents.id, spanish.id))
+		const unknown = await article(userId, 1500)
+		await db.update(documents).set({ language: null }).where(eq(documents.id, unknown.id))
+		expect(await refusal(translateArticle(userId, { id: spanish.id }))).toBe("invalid_request")
+		expect(await refusal(translateArticle(userId, { id: unknown.id }))).toBe("invalid_request")
+		expect((await usageOf(userId)).translations.used).toBe(0)
+		expect((await jobs(spanish.id)).rows).toHaveLength(0)
+		// A Chinese one, for the same Spanish account, is translated.
+		expect(await translateArticle(userId, { id: (await article(userId, 10)).id })).toEqual({
+			status: "pending",
+			credits: 1,
+		})
+	})
+
 	it("is not_found for another account's article, and forbidden with AI turned off", async () => {
 		const owner = await newUser()
 		const other = await newUser()
@@ -208,5 +225,19 @@ describe("using the original, and translating again", () => {
 		expect((await read(doc.id))?.title).toBe("My title")
 		await showOriginal(userId, { id: doc.id })
 		expect((await read(doc.id))?.title).toBe("My title")
+	})
+})
+
+describe("setNeverTranslate", () => {
+	it("adds a language once, takes it out again, and refuses what is not a language code", async () => {
+		const userId = await newUser()
+		const { setNeverTranslate } = await import("./translation.server")
+		expect(await setNeverTranslate(userId, { language: "fr", never: true })).toEqual(["fr"])
+		expect(await setNeverTranslate(userId, { language: "fr", never: true })).toEqual(["fr"])
+		expect(await setNeverTranslate(userId, { language: "zh", never: true })).toEqual(["fr", "zh"])
+		expect(await setNeverTranslate(userId, { language: "fr", never: false })).toEqual(["zh"])
+		expect(await refusal(setNeverTranslate(userId, { language: "Chinese", never: true }))).toBe(
+			"invalid_request",
+		)
 	})
 })

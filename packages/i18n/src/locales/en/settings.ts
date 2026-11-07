@@ -27,7 +27,13 @@ export default {
 			title: "AI answers",
 			label: "Ask AI while reading",
 			description:
-				"Ask about a passage, chat with an article and get a summary, answered by AI. Turned off, the answers you already have stay, to read and delete.",
+				"Ask about a passage, chat with an article, get a summary and translate articles, with AI. Turned off, the answers and translations you already have stay.",
+		},
+		translation: {
+			title: "Never translate",
+			description: "Articles in these languages are not offered a translation.",
+			empty: "To add a language, choose Never translate on an article written in it.",
+			remove: "Remove {{language}}",
 		},
 		editions: {
 			title: "Editions",

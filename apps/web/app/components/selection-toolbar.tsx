@@ -23,9 +23,10 @@ export function SelectionToolbar({
 	rect: DOMRect
 	/** The page's scroll offset at that moment. */
 	scrollY: number
-	onHighlight: () => void
+	/** Absent where nothing can be highlighted (a translated article's original text). */
+	onHighlight?: () => void
 	/** Highlights it and opens its note. */
-	onHighlightWithNote: () => void
+	onHighlightWithNote?: () => void
 	onCopy: () => void
 	onClose: () => void
 	disabled?: boolean
@@ -40,37 +41,41 @@ export function SelectionToolbar({
 			label={t("highlights.selection.label")}
 			rect={rect}
 			scrollY={scrollY}
-			width={onAsk ? 290 : 190}
+			width={(onHighlight ? 150 : 40) + (onAsk ? 100 : 0)}
 			onClose={onClose}
 			disabled={disabled}
 		>
-			<button
-				type="button"
-				disabled={disabled}
-				// Not `disabled`: a disabled button gets no hover, and its tooltip says why it can't be used.
-				aria-disabled={!canHighlight || undefined}
-				onClick={canHighlight ? onHighlight : undefined}
-				className={TOOLBAR_LABEL_BUTTON}
-				{...(canHighlight ? {} : tooltip(t("highlights.selection.oneWord")))}
-			>
-				<Highlighter className="size-4" aria-hidden />
-				{t("highlights.selection.highlight")}
-			</button>
-			<button
-				type="button"
-				disabled={disabled}
-				aria-disabled={!canHighlight || undefined}
-				onClick={canHighlight ? onHighlightWithNote : undefined}
-				className={TOOLBAR_ICON_BUTTON}
-				aria-label={t("highlights.selection.highlightWithNote")}
-				{...tooltip(
-					canHighlight
-						? t("highlights.selection.highlightWithNote")
-						: t("highlights.selection.oneWord"),
-				)}
-			>
-				<MessageSquarePlus className="size-4" aria-hidden />
-			</button>
+			{onHighlight ? (
+				<>
+					<button
+						type="button"
+						disabled={disabled}
+						// Not `disabled`: a disabled button gets no hover, and its tooltip says why it can't be used.
+						aria-disabled={!canHighlight || undefined}
+						onClick={canHighlight ? onHighlight : undefined}
+						className={TOOLBAR_LABEL_BUTTON}
+						{...(canHighlight ? {} : tooltip(t("highlights.selection.oneWord")))}
+					>
+						<Highlighter className="size-4" aria-hidden />
+						{t("highlights.selection.highlight")}
+					</button>
+					<button
+						type="button"
+						disabled={disabled}
+						aria-disabled={!canHighlight || undefined}
+						onClick={canHighlight ? onHighlightWithNote : undefined}
+						className={TOOLBAR_ICON_BUTTON}
+						aria-label={t("highlights.selection.highlightWithNote")}
+						{...tooltip(
+							canHighlight
+								? t("highlights.selection.highlightWithNote")
+								: t("highlights.selection.oneWord"),
+						)}
+					>
+						<MessageSquarePlus className="size-4" aria-hidden />
+					</button>
+				</>
+			) : null}
 			<button
 				type="button"
 				disabled={disabled}

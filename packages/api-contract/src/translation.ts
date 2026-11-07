@@ -1,3 +1,5 @@
+import { z } from "zod"
+
 /**
  * Translating an article costs credits from a monthly allowance, by its length: one per started
  * thousand words of the original, so a short post costs one and a long essay several. The web
@@ -9,6 +11,14 @@ export const TRANSLATION_CREDIT_WORDS = 1000
 
 /** Longest original that can be translated, in words: 20 credits. */
 export const TRANSLATION_WORDS_MAX = 20_000
+
+/** Most languages an account can list as never translated (the ones it reads). */
+export const NEVER_TRANSLATE_MAX = 50
+
+/** An article's language: ISO 639-1, or 639-3 where a language has no two-letter code. */
+export const LanguageCode = z
+	.string()
+	.regex(/^[a-z]{2,3}$/, "A two- or three-letter language code.")
 
 /** The languages articles are translated into: the app's. */
 export const TRANSLATION_LANGUAGES = ["en", "es"] as const

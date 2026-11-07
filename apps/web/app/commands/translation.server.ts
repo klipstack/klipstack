@@ -1,5 +1,7 @@
 import {
 	Id,
+	LanguageCode,
+	NEVER_TRANSLATE_MAX,
 	TRANSLATION_WORDS_MAX,
 	type TranslationLanguage,
 	translationCredits,
@@ -83,6 +85,11 @@ export async function translateArticle(userId: string, input: unknown): Promise<
 			throw new AppError("not_ready", "The article text is not available yet. Try again later.")
 		if (doc.translationStatus === "pending")
 			throw new AppError("already_pending", "The article is being translated.")
+		// Not translated: only an article known to be in another language, as the reader offers.
+		if (!doc.originalVersionId && doc.language !== null && doc.language === language)
+			throw new AppError("invalid_request", `The article is already in ${language}.`)
+		if (!doc.originalVersionId && doc.language === null)
+			throw new AppError("invalid_request", "The article's language is not known.")
 		const sourceId = doc.originalVersionId ?? doc.currentVersionId
 		if (doc.originalVersionId && doc.language === language) {
 			const [shown] = await tx
@@ -154,4 +161,40 @@ export async function showOriginal(userId: string, input: unknown): Promise<{ ch
 	})
 	if (changed) await notifyDocumentEvent({ userId, documentId: id, kind: "ready" })
 	return { changed }
+}
+
+const NeverTranslate = z.object({ language: LanguageCode, never: z.boolean() })
+
+/**
+ * Adds a language to the ones the account reads ("Never translate Chinese"), or takes it out
+ * (Settings → Features). Articles in them are no longer offered a translation; translations
+ * already made stay. Answers the list.
+ */
+export async function setNeverTranslate(
+	userId: string,
+	input: z.input<typeof NeverTranslate>,
+): Promise<string[]> {
+	const { language, never } = parseInput(NeverTranslate, input)
+	return db.transaction(async (tx) => {
+		const [row] = await tx
+			.select({ prefs: userTable.prefs })
+			.from(userTable)
+			.where(eq(userTable.id, userId))
+			.for("update")
+		const prefs = row?.prefs ?? {}
+		const before = prefs.neverTranslate ?? []
+		const after = never
+			? [...new Set([...before, language])]
+			: before.filter((code) => code !== language)
+		if (after.length > NEVER_TRANSLATE_MAX)
+			throw new AppError(
+				"invalid_request",
+				`An account can list up to ${NEVER_TRANSLATE_MAX} languages it reads.`,
+			)
+		await tx
+			.update(userTable)
+			.set({ prefs: { ...prefs, neverTranslate: after } })
+			.where(eq(userTable.id, userId))
+		return after
+	})
 }

@@ -6,6 +6,7 @@ import {
 	ExternalLink,
 	EyeOff,
 	Keyboard,
+	Languages,
 	Link2,
 	MessagesSquare,
 	Newspaper,
@@ -61,6 +62,7 @@ export function ReaderTopBar({
 	onTags,
 	onShortcuts,
 	outline,
+	translate,
 }: {
 	headerRef: React.RefObject<HTMLElement | null>
 	ready: boolean
@@ -92,6 +94,8 @@ export function ReaderTopBar({
 	onShortcuts?: () => void
 	/** The article's contents: no button for an article without them. `open`: docked or slid in. */
 	outline?: { open: boolean; onToggle: () => void }
+	/** "Translate to …" or "Use original language": none where the article has neither. */
+	translate?: { label: string; onClick: () => void }
 }) {
 	const { t } = useTranslation("reader")
 	const { t: tl } = useTranslation("library")
@@ -267,6 +271,14 @@ export function ReaderTopBar({
 								onClick={onTags}
 							>
 								{tl("tags.edit")}
+							</MenuButton>
+						) : null}
+						{translate ? (
+							<MenuButton
+								icon={<Languages className="size-4" aria-hidden />}
+								onClick={translate.onClick}
+							>
+								{translate.label}
 							</MenuButton>
 						) : null}
 						<MenuSeparator />

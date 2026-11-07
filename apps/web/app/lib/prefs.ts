@@ -18,6 +18,7 @@ export const DEFAULT_PREFS: Required<UserPrefs> = {
 	feeds: "off",
 	onboarding: {},
 	newsClosed: [],
+	neverTranslate: [],
 }
 
 export function resolvePrefs(prefs: UserPrefs | null | undefined): Required<UserPrefs> {

@@ -78,6 +78,11 @@ export interface UserPrefs {
 	 */
 	aiConsentAt?: string | null
 	/**
+	 * Languages the account reads: articles in them are not offered a translation ("Never
+	 * translate"). ISO 639-1 codes, as articles' `language`.
+	 */
+	neverTranslate?: string[]
+	/**
 	 * Public editions link to the author's previous and next ones. Off by default: each edition was
 	 * published as unlisted on its own.
 	 */
