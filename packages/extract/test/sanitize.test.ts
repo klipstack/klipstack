@@ -64,7 +64,8 @@ describe("sanitizeHtml", () => {
 		const html =
 			`<img src="/assets/${id}" alt="kept"><a href="/assets/${id}">l</a>` +
 			`<img src="/assets/${id}/../../logout"><img src="/assets/${id}?x=1">` +
-			`<img src="//evil.example/assets/${id}"><img src="/assets/not-an-id">`
+			`<img src="//evil.example/assets/${id}"><img src="/assets/not-an-id">` +
+			`<picture><source src="/assets/${id}"></picture>`
 		const srcs = (out: string) =>
 			Array.from(
 				new JSDOM(`<!doctype html><body>${out}</body>`).window.document.querySelectorAll("img"),
@@ -73,7 +74,8 @@ describe("sanitizeHtml", () => {
 		const kept = sanitizeHtml(html, { storedImages: true })
 		expect(srcs(kept)).toEqual([`/assets/${id}`])
 		expect(kept).not.toContain("href")
-		// Not asked, and not by the next call either.
+		expect(kept).toContain("<source>")
+		// Not asked.
 		expect(srcs(sanitizeHtml(html))).toEqual([])
 	})
 

@@ -18,6 +18,7 @@ import {
 	user,
 	userFeatures,
 } from "@klipstack/db"
+import { articleBody } from "@klipstack/extract"
 import { stopBoss } from "@klipstack/queue"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 
@@ -406,6 +407,17 @@ describe("sameMarkup", () => {
 				'<p>See <a id="cite-1" title=">" href="https://attacker.example/phish">note 1</a>, <abbr id="mw1">13th</abbr> and <img src="https://example.com/cat.png" alt=">" srcset="https://attacker.example/pixel.png 1x">.</p>',
 				original,
 			),
+		).toBe(false)
+	})
+
+	it("holds stored images, which the worker's sanitizing keeps, to the original's", () => {
+		const [a, b] = [randomUUID(), randomUUID()]
+		const sent = `<p>Hello there friend.</p><img src="/assets/${a}" alt="A chart">`
+		const back = (html: string) => sameMarkup(articleBody(html, { storedImages: true }).html, sent)
+		expect(back(`<p>Hola, amigo.</p><img src="/assets/${a}" alt="Un gráfico">`)).toBe(true)
+		expect(back(`<p>Hola, amigo.</p><img src="/assets/${b}" alt="Un gráfico">`)).toBe(false)
+		expect(
+			back(`<p>Hola, <img src="/assets/${b}"> amigo.</p><img src="/assets/${a}" alt="Un gráfico">`),
 		).toBe(false)
 	})
 
