@@ -7,6 +7,7 @@ import {
 	documentVersions,
 	eq,
 	sql,
+	storedSearchVector,
 	type Tx,
 } from "@klipstack/db"
 import type { ExtractedArticle } from "@klipstack/extract"
@@ -23,7 +24,7 @@ export async function publishExtraction(
 	// The document row first, as admission and image publication take it: version numbers
 	// and the current version change one job at a time.
 	const [live] = await tx
-		.select({ id: documents.id })
+		.select({ id: documents.id, originalVersionId: documents.originalVersionId })
 		.from(documents)
 		.where(eq(documents.id, doc.id))
 		.for("update")
@@ -54,9 +55,38 @@ export async function publishExtraction(
 			textHash: article.textHash,
 			extractor: article.extractor.name,
 			extractorVersion: article.extractor.version,
+			language: article.language,
+			title: article.title,
+			description: article.description,
+			wordCount: article.wordCount,
 		})
 		.returning({ id: documentVersions.id })
 	if (!version) throw new Error("version insert returned nothing")
+
+	if (live.originalVersionId) {
+		// A translation is current: it stays, with its title, language and highlights. The new
+		// capture becomes the original it shows on request, and the reader offers to translate
+		// again (`translationStale`).
+		await tx
+			.update(documents)
+			.set({
+				type: article.type,
+				author: article.author,
+				siteName: article.siteName,
+				publishedAt: article.publishedAt,
+				canonicalUrl: article.canonicalUrl,
+				status: "ready",
+				failureReason: null,
+				originalVersionId: version.id,
+			})
+			.where(eq(documents.id, doc.id))
+		await tx
+			.update(documents)
+			.set({ search: storedSearchVector(documents) })
+			.where(eq(documents.id, doc.id))
+		await syncOutlinks(tx, doc, article.html, url)
+		return version.id
+	}
 
 	await tx
 		.update(documents)

@@ -10,6 +10,7 @@ import {
 	checkSystemPrompt,
 	systemPrompt,
 } from "./prompt"
+import { type TranslateInput, translateArticle } from "./translate"
 import {
 	AiError,
 	type Answer,
@@ -26,6 +27,7 @@ export { citationRange } from "./citations"
 export { FAKE_FAIL, FAKE_REFUSE, FAKE_SOURCES } from "./fake"
 export { estimateCostUsd, type TokenCounts } from "./cost"
 export * from "./topic-models"
+export { tagShape, type TranslateInput, type Translation } from "./translate"
 export * from "./topics"
 export { DecisionError, decide, decisionBody, JEV_MODEL } from "./typesafe"
 export { type AiConfig, TIERS } from "./models"
@@ -75,6 +77,8 @@ export function createAi(config: AiConfig) {
 				article: input.article.text,
 				signal: input.signal,
 			}),
+		/** An article translated, part by part, with the tags it came with (`translate.ts`). */
+		translate: (input: TranslateInput) => translateArticle(config, input),
 	}
 }
 

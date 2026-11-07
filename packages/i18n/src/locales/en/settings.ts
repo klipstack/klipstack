@@ -172,6 +172,7 @@ export default {
 		shares: "Highlights shared this month",
 		ai: "AI questions this month",
 		factChecks: "Fact checks this month",
+		translations: "Translation credits this month",
 		count: "{{used}} of {{max}}",
 		megabytes: "{{used}} MB of {{max}} MB",
 	},

@@ -3,7 +3,7 @@ import {
 	and,
 	db,
 	documentRaw,
-	documentSearchVector,
+	storedSearchVector,
 	documents,
 	documentVia,
 	eq,
@@ -384,11 +384,12 @@ function titleSet(title: string) {
 	return {
 		title,
 		titleEdited: true,
-		search: documentSearchVector({
-			title,
-			author: sql`${documents.author}`,
-			body: sql`(select v.text from document_versions v where v.id = ${documents.currentVersionId})`,
-			language: sql`${documents.language}`,
+		search: storedSearchVector({
+			title: sql`${title}`,
+			author: documents.author,
+			language: documents.language,
+			currentVersionId: documents.currentVersionId,
+			originalVersionId: documents.originalVersionId,
 		}),
 	}
 }

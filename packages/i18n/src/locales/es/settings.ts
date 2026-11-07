@@ -176,6 +176,7 @@ export default {
 		shares: "Subrayados compartidos este mes",
 		ai: "Preguntas a la IA este mes",
 		factChecks: "Verificaciones de datos este mes",
+		translations: "Créditos de traducción este mes",
 		count: "{{used}} de {{max}}",
 		megabytes: "{{used}} MB de {{max}} MB",
 	},

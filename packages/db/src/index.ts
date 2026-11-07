@@ -31,10 +31,12 @@ export {
 	topicLimits,
 	usageThisMonth,
 } from "./usage"
+export { showVersion } from "./translation"
 export * from "./schema"
 export {
 	anyWordQuery,
 	documentSearchVector,
+	storedSearchVector,
 	FALLBACK_STEM_CONFIGS,
 	fallbackWords,
 	HIGHLIGHT_OWN_WEIGHTS,

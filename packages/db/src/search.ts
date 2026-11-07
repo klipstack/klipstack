@@ -45,9 +45,9 @@ const GAP = sql.raw(`'_:16'::tsvector`)
  * The SQL function `search_part` (drizzle/0043_annotation_search.sql) builds the same vector for
  * highlights and notes: change both together (annotation-search.server.test.ts compares them).
  */
-export function textSearchVector(text: SQL, language: SQL): SQL {
+export function textSearchVector(text: SQL, language: SQL, stemMax = STEM_TEXT_MAX): SQL {
 	const plain = sql`unaccent(coalesce(${text}, ''))`
-	const stemmed = sql`left(${plain}, ${sql.raw(String(STEM_TEXT_MAX))})`
+	const stemmed = sql`left(${plain}, ${sql.raw(String(stemMax))})`
 	const known = Object.entries(STEM_CONFIGS).map(
 		([lang, config]) =>
 			sql`when ${sql.raw(`'${lang}'`)} then to_tsvector(${regconfig(config)}, ${stemmed})`,
@@ -62,6 +62,8 @@ export function textSearchVector(text: SQL, language: SQL): SQL {
 /**
  * The `documents.search` vector: title (A), author (B), body (D). Every place that writes the
  * column builds it here. The backfill in drizzle/0016_search_stemming.sql repeats it in SQL.
+ * A translated article also holds its original: title (C) and body (D), each in its own language,
+ * so it is found in either. The two bodies then share the room one has alone.
  */
 export function documentSearchVector(fields: {
 	title: SQL | string
@@ -69,14 +71,63 @@ export function documentSearchVector(fields: {
 	body: SQL | string
 	/** Two-letter code, or null. */
 	language: SQL | string | null
+	original?: { title: SQL | string | null; body: SQL | string; language: SQL | string | null }
 }): SQL {
 	const lang = sql`f.lang`
-	return sql`(select setweight(${textSearchVector(sql`f.title`, lang)}, 'A')
+	const { original } = fields
+	const share = original ? 2 : 1
+	const textMax = sql.raw(String(SEARCH_TEXT_MAX / share))
+	const stemMax = STEM_TEXT_MAX / share
+	const shown = sql`setweight(${textSearchVector(sql`f.title`, lang)}, 'A')
 		|| setweight(${textSearchVector(sql`f.author`, lang)}, 'B')
-		|| setweight(${textSearchVector(sql`f.body`, lang)}, 'D')
+		|| setweight(${textSearchVector(sql`f.body`, lang, stemMax)}, 'D')`
+	if (!original)
+		return sql`(select ${shown}
 		from (select (${fields.title})::text as title, (${fields.author})::text as author,
-			left((${fields.body})::text, ${sql.raw(String(SEARCH_TEXT_MAX))}) as body,
+			left((${fields.body})::text, ${textMax}) as body,
 			(${fields.language})::text as lang) f)`
+	const olang = sql`f.olang`
+	return sql`(select ${shown} || ${GAP}
+		|| setweight(${textSearchVector(sql`f.otitle`, olang)}, 'C')
+		|| setweight(${textSearchVector(sql`f.obody`, olang, stemMax)}, 'D')
+		from (select (${fields.title})::text as title, (${fields.author})::text as author,
+			left((${fields.body})::text, ${textMax}) as body,
+			(${fields.language})::text as lang, (${original.title})::text as otitle,
+			left((${original.body})::text, ${textMax}) as obody,
+			(${original.language})::text as olang) f)`
+}
+
+/**
+ * The `documents.search` vector rebuilt from what the row holds: its title, author and language,
+ * the current version's text, and, while a translation is current, the original version's
+ * title, text and language. For an UPDATE of `documents`: it reads the row's values before the
+ * update.
+ */
+export function storedSearchVector(documents: {
+	title: SQLWrapper
+	author: SQLWrapper
+	language: SQLWrapper
+	currentVersionId: SQLWrapper
+	originalVersionId: SQLWrapper
+}): SQL {
+	const translated = documentSearchVector({
+		title: sql`${documents.title}`,
+		author: sql`${documents.author}`,
+		body: sql`(select v.text from document_versions v where v.id = ${documents.currentVersionId})`,
+		language: sql`${documents.language}`,
+		original: {
+			title: sql`(select v.title from document_versions v where v.id = ${documents.originalVersionId})`,
+			body: sql`(select v.text from document_versions v where v.id = ${documents.originalVersionId})`,
+			language: sql`(select v.language from document_versions v where v.id = ${documents.originalVersionId})`,
+		},
+	})
+	const plain = documentSearchVector({
+		title: sql`${documents.title}`,
+		author: sql`${documents.author}`,
+		body: sql`(select v.text from document_versions v where v.id = ${documents.currentVersionId})`,
+		language: sql`${documents.language}`,
+	})
+	return sql`case when ${documents.originalVersionId} is null then ${plain} else ${translated} end`
 }
 
 /**
