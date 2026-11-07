@@ -35,6 +35,13 @@ export default {
 			empty: "To add a language, choose Never translate on an article written in it.",
 			remove: "Remove {{language}}",
 		},
+		alwaysTranslation: {
+			title: "Always translate",
+			description:
+				"Articles in these languages are translated when you save them, while your credits last. Articles saved from your feeds are not.",
+			empty: "To add a language, choose Always translate on an article translated from it.",
+			remove: "Remove {{language}}",
+		},
 		editions: {
 			title: "Editions",
 			label: "Make editions",

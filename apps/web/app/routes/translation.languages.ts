@@ -1,20 +1,20 @@
-import { setNeverTranslate } from "~/commands/translation.server"
+import { setTranslationChoice } from "~/commands/translation.server"
 import { readForm } from "~/lib/request-body.server"
 import { requireUser } from "~/lib/session.server"
 import { answer } from "~/lib/web-action.server"
-import type { Route } from "./+types/translation.never"
+import type { Route } from "./+types/translation.languages"
 
 /**
- * POST /translation/never (form: `language`, `never`: "true" or "false"). The languages the
- * account reads, which articles are not offered a translation in. Answers the list.
+ * POST /translation/languages (form: `language`, `choice`: never, always or ask). What the account
+ * does with articles in a language. Answers both lists.
  */
 export async function action({ request, context }: Route.ActionArgs) {
 	const user = requireUser(context, request)
 	const form = await readForm(request)
 	return answer(async () => ({
-		neverTranslate: await setNeverTranslate(user.id, {
+		languages: await setTranslationChoice(user.id, {
 			language: String(form.get("language") ?? ""),
-			never: form.get("never") !== "false",
+			choice: String(form.get("choice") ?? "") as "never",
 		}),
 	}))
 }

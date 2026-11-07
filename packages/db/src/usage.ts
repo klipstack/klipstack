@@ -1,6 +1,7 @@
 import { and, eq, sql } from "drizzle-orm"
 import type { Tx } from "./client"
-import { type UsageMetric, usageCounts } from "./schema"
+import type { PlanState } from "./plan"
+import { type UsageMetric, type UserRole, usageCounts } from "./schema"
 
 /** The month a count goes to (its first day, UTC), and when the next one starts. */
 export function monthOf(now = new Date()): { month: string; resetsAt: Date } {
@@ -83,4 +84,25 @@ export function topicLimits(source: Record<string, string | undefined> = process
 		topics: read("LIMIT_TOPICS_PER_MONTH", TOPICS_PER_MONTH),
 		sorts: read("LIMIT_TOPIC_SORTS_PER_MONTH", TOPIC_SORTS_PER_MONTH),
 	}
+}
+
+/**
+ * An account's translation credits a month, for the web and the worker alike: by plan (with
+ * billing off, `LIMIT_TRANSLATIONS_PER_MONTH`; on, the trial's or the paid plan's), and more for
+ * admins whatever the plan. Unset or not a whole number, the default. The web validates them when
+ * it starts.
+ */
+export function translationCap(
+	role: UserRole,
+	state: PlanState,
+	source: Record<string, string | undefined> = process.env,
+): number {
+	const read = (name: string, fallback: number) => {
+		const raw = source[name]?.trim()
+		return raw && /^\d+$/.test(raw) ? Number(raw) : fallback
+	}
+	if (role === "admin") return read("LIMIT_TRANSLATIONS_PER_MONTH_ADMIN", 300)
+	if (state === "unbilled") return read("LIMIT_TRANSLATIONS_PER_MONTH", 30)
+	if (state === "free") return read("LIMIT_PAID_TRANSLATIONS_PER_MONTH", 100)
+	return read("LIMIT_TRIAL_TRANSLATIONS_PER_MONTH", 30)
 }

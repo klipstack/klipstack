@@ -4,7 +4,16 @@ import {
 	translationCredits,
 	translationWords,
 } from "@klipstack/api-contract"
-import { and, db, type Document, documentVersions, eq, monthOf, usageCounts } from "@klipstack/db"
+import {
+	and,
+	db,
+	type Document,
+	documentVersions,
+	eq,
+	monthOf,
+	usageCounts,
+	user,
+} from "@klipstack/db"
 import { limitsFor } from "~/lib/limits.server"
 import { highlightsElsewhere } from "./highlights.server"
 
@@ -14,6 +23,19 @@ export async function originalVersion(documentId: string, versionId: string) {
 		where: and(eq(documentVersions.id, versionId), eq(documentVersions.documentId, documentId)),
 		columns: { id: true, version: true, html: true, imagesDone: true, title: true, language: true },
 	})
+}
+
+/** The account's language, which articles are translated into, and its never and always lists. */
+export async function translationAccount(userId: string) {
+	const [row] = await db
+		.select({ locale: user.locale, prefs: user.prefs })
+		.from(user)
+		.where(eq(user.id, userId))
+	return {
+		target: (row?.locale === "es" ? "es" : "en") as TranslationLanguage,
+		never: row?.prefs?.neverTranslate ?? [],
+		always: row?.prefs?.alwaysTranslate ?? [],
+	}
 }
 
 export interface ReaderTranslation {

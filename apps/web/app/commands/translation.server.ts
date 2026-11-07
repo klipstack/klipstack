@@ -1,17 +1,15 @@
 import {
 	Id,
 	LanguageCode,
-	NEVER_TRANSLATE_MAX,
+	TRANSLATION_CHOICES,
+	TRANSLATION_LANGUAGES_MAX,
 	TRANSLATION_WORDS_MAX,
 	type TranslationLanguage,
-	translationCredits,
-	translationWords,
 } from "@klipstack/api-contract"
 import {
 	and,
 	db,
 	documents,
-	documentVersions,
 	eq,
 	isNull,
 	notifyDocumentEvent,
@@ -19,7 +17,7 @@ import {
 	type Tx,
 	user as userTable,
 } from "@klipstack/db"
-import { sendInTransaction } from "@klipstack/queue"
+import { admitTranslation } from "@klipstack/queue"
 import { z } from "zod"
 import { AppError, notFound, parseInput } from "~/lib/app-error"
 import { countMonthly } from "~/lib/limits.server"
@@ -81,65 +79,33 @@ export async function translateArticle(userId: string, input: unknown): Promise<
 	const language = await languageOf(userId)
 	const outcome = await db.transaction(async (tx) => {
 		const doc = await lockArticle(tx, userId, id)
-		if (doc.status !== "ready" || !doc.currentVersionId)
-			throw new AppError("not_ready", "The article text is not available yet. Try again later.")
-		if (doc.translationStatus === "pending")
-			throw new AppError("already_pending", "The article is being translated.")
-		// Not translated: only an article known to be in another language, as the reader offers.
-		if (!doc.originalVersionId && doc.language !== null && doc.language === language)
-			throw new AppError("invalid_request", `The article is already in ${language}.`)
-		if (!doc.originalVersionId && doc.language === null)
-			throw new AppError("invalid_request", "The article's language is not known.")
-		const sourceId = doc.originalVersionId ?? doc.currentVersionId
-		if (doc.originalVersionId && doc.language === language) {
-			const [shown] = await tx
-				.select({ from: documentVersions.translatedFromId })
-				.from(documentVersions)
-				.where(eq(documentVersions.id, doc.currentVersionId))
-			if (shown?.from === sourceId) return { status: "translated", credits: 0 } as const
-		}
-		// Made before (then the original was put back): shown again for free.
-		const [made] = await tx
-			.select({ id: documentVersions.id })
-			.from(documentVersions)
-			.where(
-				and(
-					eq(documentVersions.documentId, doc.id),
-					eq(documentVersions.translatedFromId, sourceId),
-					eq(documentVersions.language, language),
-				),
-			)
-			.limit(1)
-		if (made) {
-			await showVersion(tx, doc.id, made.id, sourceId)
-			await tx.update(documents).set({ translationStatus: null }).where(eq(documents.id, doc.id))
-			return { status: "translated", credits: 0 } as const
-		}
-
-		const [source] = await tx
-			.select({ text: documentVersions.text })
-			.from(documentVersions)
-			.where(eq(documentVersions.id, sourceId))
-		if (!source)
-			throw new AppError("not_ready", "The article text is not available yet. Try again later.")
-		const words = translationWords(source.text)
-		if (words > TRANSLATION_WORDS_MAX)
-			throw new AppError(
-				"invalid_request",
-				`The article has ${words} words; translations take up to ${TRANSLATION_WORDS_MAX}.`,
-				{ details: { words, max: TRANSLATION_WORDS_MAX } },
-			)
-		const credits = translationCredits(words)
-		const { month } = await countMonthly(tx, userId, "translations", credits)
-		await tx.update(documents).set({ translationStatus: "pending" }).where(eq(documents.id, doc.id))
-		await sendInTransaction(tx, "translate", {
-			documentId: doc.id,
-			sourceVersionId: sourceId,
-			language,
-			credits,
-			month,
+		const admitted = await admitTranslation(tx, doc, language, async (credits) => {
+			const { month } = await countMonthly(tx, userId, "translations", credits)
+			return month
 		})
-		return { status: "pending", credits } as const
+		switch (admitted.status) {
+			case "translated":
+				return { status: "translated", credits: 0 } as const
+			case "pending":
+				return admitted
+			case "not_ready":
+				throw new AppError("not_ready", "The article text is not available yet. Try again later.")
+			case "already_pending":
+				throw new AppError("already_pending", "The article is being translated.")
+			case "same_language":
+				throw new AppError("invalid_request", `The article is already in ${language}.`)
+			case "unknown_language":
+				throw new AppError("invalid_request", "The article's language is not known.")
+			case "too_long":
+				throw new AppError(
+					"invalid_request",
+					`The article has ${admitted.words} words; translations take up to ${TRANSLATION_WORDS_MAX}.`,
+					{ details: { words: admitted.words, max: TRANSLATION_WORDS_MAX } },
+				)
+			case "no_credits":
+				// `countMonthly` refuses past the cap itself; this one never answers null.
+				throw new Error("no credits without a refusal")
+		}
 	})
 	if (outcome.status === "translated")
 		await notifyDocumentEvent({ userId, documentId: id, kind: "ready" })
@@ -165,18 +131,25 @@ export async function showOriginal(userId: string, input: unknown): Promise<{ ch
 	return { changed }
 }
 
-const NeverTranslate = z.object({ language: LanguageCode, never: z.boolean() })
+const Choice = z.object({ language: LanguageCode, choice: z.enum(TRANSLATION_CHOICES) })
+
+/** The account's languages by what it does with them: never translated, and always. */
+export interface TranslationLanguages {
+	never: string[]
+	always: string[]
+}
 
 /**
- * Adds a language to the ones the account reads ("Never translate Chinese"), or takes it out
- * (Settings → Features). Articles in them are no longer offered a translation; translations
- * already made stay. Answers the list.
+ * What the account does with articles in a language: never offered a translation ("Never
+ * translate Chinese", for a language it reads), always translated as they are saved, credits
+ * allowing ("Always translate Chinese"), or offered one (`ask`, the default). A language is in
+ * one list at most. Translations already made stay. Answers both lists.
  */
-export async function setNeverTranslate(
+export async function setTranslationChoice(
 	userId: string,
-	input: z.input<typeof NeverTranslate>,
-): Promise<string[]> {
-	const { language, never } = parseInput(NeverTranslate, input)
+	input: z.input<typeof Choice>,
+): Promise<TranslationLanguages> {
+	const { language, choice } = parseInput(Choice, input)
 	return db.transaction(async (tx) => {
 		const [row] = await tx
 			.select({ prefs: userTable.prefs })
@@ -184,18 +157,24 @@ export async function setNeverTranslate(
 			.where(eq(userTable.id, userId))
 			.for("update")
 		const prefs = row?.prefs ?? {}
-		const before = prefs.neverTranslate ?? []
-		const after = never
-			? [...new Set([...before, language])]
-			: before.filter((code) => code !== language)
-		if (after.length > NEVER_TRANSLATE_MAX)
+		const without = (list: string[] | undefined) => (list ?? []).filter((c) => c !== language)
+		const keep = (list: string[] | undefined, on: boolean) =>
+			on && list?.includes(language) ? list : [...without(list), ...(on ? [language] : [])]
+		const after = {
+			never: keep(prefs.neverTranslate, choice === "never"),
+			always: keep(prefs.alwaysTranslate, choice === "always"),
+		}
+		if (
+			after.never.length > TRANSLATION_LANGUAGES_MAX ||
+			after.always.length > TRANSLATION_LANGUAGES_MAX
+		)
 			throw new AppError(
 				"invalid_request",
-				`An account can list up to ${NEVER_TRANSLATE_MAX} languages it reads.`,
+				`An account can list up to ${TRANSLATION_LANGUAGES_MAX} languages for each choice.`,
 			)
 		await tx
 			.update(userTable)
-			.set({ prefs: { ...prefs, neverTranslate: after } })
+			.set({ prefs: { ...prefs, neverTranslate: after.never, alwaysTranslate: after.always } })
 			.where(eq(userTable.id, userId))
 		return after
 	})

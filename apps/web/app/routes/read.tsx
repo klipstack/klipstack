@@ -654,7 +654,7 @@ function Reader({ loaderData }: Route.ComponentProps) {
 								<ReaderTranslation
 									documentId={doc.id}
 									translation={tr}
-									neverTranslate={prefs.neverTranslate}
+									languages={{ never: prefs.neverTranslate, always: prefs.alwaysTranslate }}
 								/>
 							) : null}
 							{doc.type === "post" && doc.sharedUrl ? (

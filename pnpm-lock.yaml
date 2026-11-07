@@ -696,6 +696,9 @@ importers:
 
   packages/queue:
     dependencies:
+      '@klipstack/api-contract':
+        specifier: workspace:*
+        version: link:../api-contract
       '@klipstack/db':
         specifier: workspace:*
         version: link:../db

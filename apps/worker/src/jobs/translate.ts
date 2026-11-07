@@ -1,21 +1,93 @@
 import { createAi, elementShape, estimateCostUsd } from "@klipstack/ai"
 import { translationWords } from "@klipstack/api-contract"
 import {
+	accountBilling,
 	addUsage,
 	and,
+	billingStartsAt,
+	count,
 	db,
 	documents,
 	documentVersions,
 	eq,
+	isNull,
+	monthOf,
 	notifyDocumentEvent,
+	planColumns,
 	showVersion,
 	sql,
+	translationCap,
+	type Tx,
+	user,
+	userFeatures,
+	type UserPrefs,
 } from "@klipstack/db"
 import { articleBody } from "@klipstack/extract"
-import { admitImages, type JobPayloads, QUEUES } from "@klipstack/queue"
+import { admitImages, admitTranslation, type JobPayloads, QUEUES } from "@klipstack/queue"
 import { JSDOM } from "jsdom"
 import type { JobWithMetadata } from "pg-boss"
 import { log } from "../log"
+
+/**
+ * "Always translate": as an article the reader saved is first extracted, in a language they
+ * always translate, it is translated into the account's language, for its credits, in the
+ * extraction's transaction. Never a feed item, an account without AI or one that can't add to its
+ * library; out of credits, it is left for the reader to offer. Later captures leave it to them too.
+ */
+export async function translateAsSaved(tx: Tx, documentId: string): Promise<boolean> {
+	const fake = process.env.AI_FAKE === "1" || process.env.AI_FAKE === "demo"
+	if (!process.env.ANTHROPIC_API_KEY && !fake) return false
+	const plan = planColumns(billingStartsAt())
+	const [doc] = await tx
+		.select({
+			id: documents.id,
+			userId: documents.userId,
+			captureSource: documents.captureSource,
+			status: documents.status,
+			language: documents.language,
+			currentVersionId: documents.currentVersionId,
+			originalVersionId: documents.originalVersionId,
+			translationStatus: documents.translationStatus,
+			locale: user.locale,
+			prefs: user.prefs,
+			role: user.role,
+			state: plan.state,
+			ai: userFeatures.userId,
+		})
+		.from(documents)
+		.innerJoin(user, eq(user.id, documents.userId))
+		.leftJoin(accountBilling, eq(accountBilling.userId, user.id))
+		.leftJoin(userFeatures, and(eq(userFeatures.userId, user.id), eq(userFeatures.feature, "ai")))
+		.where(and(eq(documents.id, documentId), isNull(documents.deletedAt)))
+		.for("update", { of: documents })
+	if (!doc || !doc.ai || doc.captureSource === "feed" || doc.state === "lapsed") return false
+	const prefs = (doc.prefs ?? {}) as UserPrefs
+	if (prefs.ai === "off" || !doc.language || !prefs.alwaysTranslate?.includes(doc.language))
+		return false
+	// The first capture only: one put back to its original, or captured again, is the reader's.
+	const [versions] = await tx
+		.select({ n: count() })
+		.from(documentVersions)
+		.where(eq(documentVersions.documentId, documentId))
+	if ((versions?.n ?? 0) !== 1) return false
+
+	const cap = translationCap(doc.role, doc.state)
+	const admitted = await admitTranslation(
+		tx,
+		doc,
+		doc.locale === "es" ? "es" : "en",
+		async (credits) => {
+			const { month } = monthOf()
+			const used = await addUsage(tx, doc.userId, "translations", credits, month)
+			if (used <= cap) return month
+			await addUsage(tx, doc.userId, "translations", -credits, month)
+			return null
+		},
+	)
+	if (admitted.status === "pending")
+		log.info("translate: always, as saved", { documentId, language: doc.language })
+	return admitted.status === "pending"
+}
 
 /** About this many words of the original go in one request: a few minutes of the model at most. */
 export const PART_WORDS = 1500

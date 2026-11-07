@@ -35,6 +35,11 @@ test("translates an article, shows its original to read, and puts the original b
 	await expect(content(page)).toContainText("translated text")
 	await expect(content(page).locator('a[href="https://example.com/kipferl"]')).toHaveCount(1)
 
+	// Always, from now on: the button goes, and Settings lists it.
+	await bar(page).getByRole("button", { name: "Always translate French" }).click()
+	await expect(page.getByText("Articles in French you save will be translated")).toBeVisible()
+	await expect(bar(page).getByRole("button", { name: "Always translate French" })).toHaveCount(0)
+
 	// The original, to read: copying works, highlighting doesn't.
 	await bar(page).getByRole("link", { name: "Show original text" }).click()
 	await expect(page).toHaveURL(/\?original=1$/)
@@ -54,6 +59,13 @@ test("translates an article, shows its original to read, and puts the original b
 	await page.getByRole("menuitem", { name: "Use original language" }).click()
 	await expect(content(page)).toContainText("Le croissant est une viennoiserie")
 	await expect(offer).toContainText("It was translated before: no credits needed.")
+
+	await page.goto("/settings/features")
+	await waitForHydration(page)
+	const always = page.getByTestId("always-translate")
+	await expect(always).toContainText("French")
+	await always.getByRole("button", { name: "Remove French" }).click()
+	await expect(page.getByText("To add a language, choose Always translate")).toBeVisible()
 })
 
 test("never offers a language the reader reads, until Settings takes it out", async ({ page }) => {

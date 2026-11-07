@@ -83,6 +83,11 @@ export interface UserPrefs {
 	 */
 	neverTranslate?: string[]
 	/**
+	 * Languages whose articles are translated as they are saved, credits allowing ("Always
+	 * translate"). Never feed items. Never also in `neverTranslate`.
+	 */
+	alwaysTranslate?: string[]
+	/**
 	 * Public editions link to the author's previous and next ones. Off by default: each edition was
 	 * published as unlisted on its own.
 	 */

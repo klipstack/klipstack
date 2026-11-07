@@ -426,6 +426,9 @@ export default {
 		tooLong: "This article is too long to translate.",
 		notNow: "Not now",
 		never: "Never translate {{language}}",
+		always: "Always translate {{language}}",
+		alwaysDone:
+			"Articles in {{language}} you save will be translated, while your credits last. Change this in Settings → Features.",
 		neverDone:
 			"Articles in {{language}} won't be offered a translation. Change this in Settings → Features.",
 		pending: "Translating to {{language}}…",

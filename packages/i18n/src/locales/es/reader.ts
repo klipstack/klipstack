@@ -425,6 +425,9 @@ export default {
 		tooLong: "Este artículo es demasiado largo para traducirlo.",
 		notNow: "Ahora no",
 		never: "No traducir nunca del {{language}}",
+		always: "Traducir siempre del {{language}}",
+		alwaysDone:
+			"Los artículos en {{language}} que guardes se traducirán, mientras te queden créditos. Puedes cambiarlo en Ajustes → Funciones.",
 		neverDone:
 			"Ya no se ofrecerá traducir artículos en {{language}}. Puedes cambiarlo en Ajustes → Funciones.",
 		pending: "Traduciendo al {{language}}…",

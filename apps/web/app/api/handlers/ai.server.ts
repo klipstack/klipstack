@@ -11,6 +11,9 @@ import type {
 	setAiConsent as setAiConsentEndpoint,
 	translateArticle as translateEndpoint,
 	showOriginal as showOriginalEndpoint,
+	getTranslation,
+	getTranslationLanguages,
+	setTranslationLanguage,
 } from "@klipstack/api-contract"
 import {
 	type AskOptions,
@@ -25,7 +28,7 @@ import {
 	setAiConsent,
 } from "~/commands/ai.server"
 import { NO_ARTICLE } from "~/commands/articles.server"
-import { translateArticle, showOriginal } from "~/commands/translation.server"
+import { setTranslationChoice, showOriginal, translateArticle } from "~/commands/translation.server"
 import { answerEvents, briefEvents } from "~/lib/ai-events.server"
 import { briefView, messageView, threadView } from "~/lib/ai-threads"
 import { ai } from "~/lib/ai.server"
@@ -34,7 +37,8 @@ import { aiAllowance } from "~/lib/limits.server"
 import { aiConsentedAt } from "~/services/account.server"
 import { getBrief, getThread, listDocumentThreads } from "~/services/ai-threads.server"
 import { getDocument } from "~/services/documents.server"
-import { notFound } from "../errors.server"
+import { readerTranslation, translationAccount } from "~/services/translation.server"
+import { ApiError, notFound } from "../errors.server"
 import type { Handler } from "../handler.server"
 
 /**
@@ -113,3 +117,26 @@ export const translate: Handler<typeof translateEndpoint> = ({ userId, params })
 
 export const original: Handler<typeof showOriginalEndpoint> = ({ userId, params }) =>
 	showOriginal(userId, { id: params.id })
+
+/** The article's translation, as the web reader offers and shows it. */
+export const translation: Handler<typeof getTranslation> = async ({ userId, params }) => {
+	const doc = await getDocument(userId, params.id)
+	if (!doc) throw notFound(NO_ARTICLE)
+	if (!doc.currentVersionId)
+		throw ApiError.of("not_ready", "The article text is not available yet.")
+	const [account, on] = await Promise.all([translationAccount(userId), aiOn(userId)])
+	return {
+		available: ai.available && on,
+		...(await readerTranslation(userId, account.target, doc, doc.currentVersionId)),
+	}
+}
+
+export const translationLanguages: Handler<typeof getTranslationLanguages> = async ({ userId }) => {
+	const { never, always } = await translationAccount(userId)
+	return { never, always }
+}
+
+export const setTranslationLanguageHandler: Handler<typeof setTranslationLanguage> = ({
+	userId,
+	body,
+}) => setTranslationChoice(userId, body)
