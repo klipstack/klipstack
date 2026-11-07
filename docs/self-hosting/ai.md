@@ -39,7 +39,9 @@ With the same key and the same `ai` flag, the reader offers to translate an arti
 another language than the one the account uses Klipstack in (English or Spanish). The worker
 sends the article's text to Claude Sonnet 5.5, which costs more than the answers above (Haiku
 misread figures in tests): about 2 to 3 cents per thousand words. The translation is kept, so
-reopening the article costs nothing.
+reopening the article costs nothing. A reader can also choose to always translate a language:
+articles they save in it are then translated as they are saved, without a click, while credits
+last. Feed items never are.
 
 - `LIMIT_TRANSLATIONS_PER_MONTH` (default 30): translation credits per account per month. An
   article costs one credit per started thousand words, so a short post costs 1 and a
