@@ -109,6 +109,7 @@ describe("the reader's AI in the API", () => {
 			["DELETE", `/ai/threads/${threadId}`],
 			["POST", `/ai/threads/${threadId}/restore`],
 			["POST", `/articles/${articleId}/translation`],
+			["POST", "/translation/languages", json({ language: "fr", choice: "always" })],
 		]
 		const refused = {
 			"the CLI": await oauthToken(me.id, CLI_CLIENT_ID),
@@ -506,10 +507,13 @@ describe("the reader's AI in the API", () => {
 		})
 		expect(await reader.app.articles.html(id, { original: true })).toEqual(shown)
 
-		// Read with any token; set with a write one, a language in one list at most.
+		// Read with any token; set by the app, a language in one list at most.
 		const cli = sdk(await oauthToken(reader.id, CLI_CLIENT_ID))
 		expect(await cli.translationLanguages.get()).toEqual({ never: [], always: [] })
-		await cli.translationLanguages.set("fr", "never")
+		expect(await reader.app.translationLanguages.set("fr", "never")).toEqual({
+			never: ["fr"],
+			always: [],
+		})
 		expect(await reader.app.translationLanguages.set("fr", "always")).toEqual({
 			never: [],
 			always: ["fr"],
@@ -523,5 +527,8 @@ describe("the reader's AI in the API", () => {
 		expect(bad.status).toBe(400)
 		const theirs = await errorOf(me.app.ai.translation(id))
 		expect([theirs.status, theirs.code]).toEqual([404, "not_found"])
+		// AI turned off: nothing to offer.
+		await setPrefs(reader.id, { ai: "off" })
+		expect(await reader.app.ai.translation(id)).toMatchObject({ available: false })
 	})
 })

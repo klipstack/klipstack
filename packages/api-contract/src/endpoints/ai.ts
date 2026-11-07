@@ -391,12 +391,12 @@ export const ArticleTranslation = z
 		available: z.boolean(),
 		/** The account's language, which articles are translated into. */
 		target: z.enum(TRANSLATION_LANGUAGES),
-		/** The language of the text shown, when known. */
-		language: LanguageCode.nullable(),
+		/** The language of the text shown, when known: usually ISO 639-1, as the article's. */
+		language: z.string().nullable(),
 		/** Shown in a translation; GET /articles/{id}/html?original=true has the original. */
 		translated: z.boolean(),
 		/** The original's language, when translated and known. */
-		from: LanguageCode.nullable(),
+		from: z.string().nullable(),
 		/** The original was captured again after the translation was made: POST translates it again. */
 		stale: z.boolean(),
 		/** A translation on its way, or one that failed (its credits were given back). */
@@ -449,9 +449,11 @@ export const setTranslationLanguage = defineEndpoint({
 	method: "POST",
 	path: "/translation/languages",
 	scope: "write",
+	// `always` spends the account's AI on later saves, from any client.
+	clients: inAppAi,
 	summary:
 		"What the account does with articles in a language: `never` offered a translation, `always` translated as they are saved, or `ask` (the default). A language is in one list at most; translations made stay. Answers both lists.",
 	body: z.object({ language: LanguageCode, choice: z.enum(TRANSLATION_CHOICES) }),
 	response: json(TranslationLanguages),
-	errors: [],
+	errors: ["forbidden"],
 })

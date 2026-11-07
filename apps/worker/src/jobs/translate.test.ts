@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto"
 import { gzipSync } from "node:zlib"
 import { FAKE_FAIL } from "@klipstack/ai"
 import {
+	accountBilling,
 	addUsage,
 	and,
 	db,
@@ -229,6 +230,32 @@ describe("Always translate, as an article is saved", () => {
 		expect((await read(id))?.translationStatus).toBe("pending")
 		expect(await queuedFor(id)).toMatchObject([{ language: "es", credits: 1 }])
 		expect(await used(owner)).toBe(1)
+	})
+
+	it("takes the last credit, and no more when two articles share it", async () => {
+		const owner = await reader()
+		await addUsage(db, owner, "translations", 29, month)
+		const first = await saved(owner)
+		const second = await saved(owner)
+		expect(await queuedFor(first)).toHaveLength(1)
+		expect(await queuedFor(second)).toEqual([])
+		expect(await used(owner)).toBe(30)
+	})
+
+	it("leaves an account that can't add to its library offered", async () => {
+		const owner = await reader()
+		// An admin's date in the past, with billing on: lapsed.
+		await db
+			.insert(accountBilling)
+			.values({ userId: owner, freeUntil: new Date(Date.now() - 86_400_000) })
+		process.env.BILLING_STARTS_AT = new Date(Date.now() - 90 * 86_400_000).toISOString()
+		try {
+			const id = await saved(owner)
+			expect(await queuedFor(id)).toEqual([])
+			expect(await used(owner)).toBe(0)
+		} finally {
+			delete process.env.BILLING_STARTS_AT
+		}
 	})
 
 	it("leaves a feed item, another language, an account without AI or out of credits offered", async () => {

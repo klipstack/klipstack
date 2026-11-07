@@ -35,7 +35,8 @@ import { log } from "../log"
  * library; out of credits, it is left for the reader to offer. Later captures leave it to them too.
  */
 export async function translateAsSaved(tx: Tx, documentId: string): Promise<boolean> {
-	if (!process.env.ANTHROPIC_API_KEY && !process.env.AI_FAKE) return false
+	const fake = process.env.AI_FAKE === "1" || process.env.AI_FAKE === "demo"
+	if (!process.env.ANTHROPIC_API_KEY && !fake) return false
 	const plan = planColumns(billingStartsAt())
 	const [doc] = await tx
 		.select({
