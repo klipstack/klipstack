@@ -23,6 +23,7 @@ import type {
 	PageSelection,
 	PageThread,
 	Sentence,
+	TranslationAction,
 } from "./messages"
 import { type Endpoint, moveEnd, type Offsets, wordEdges } from "./resize"
 import { splitSentences } from "./sentences"
@@ -56,6 +57,8 @@ import { createTakeaway } from "./takeaway"
  * - Scrolling tells the app where the reader is (`{ type: "reading", position, ended, moved }`:
  *   `ended`, the end of the article is on screen; `moved`, a screen or more since opening). It
  *   opens at the saved position, or at a highlight.
+ * - Under the byline, the translation bar (`translationHtml`), which `klipTranslation(html)` draws
+ *   again; its buttons go to the app (`{ type: "translation", action }`).
  * - Above the title, the article's topics; after the end block, the shelf of what to read next
  *   (`readerHtml`), whose cards are links to the library's reader pages. Reading progress is
  *   measured to the end block, not through it or the shelf (`readingSpan`).
@@ -471,6 +474,13 @@ export function startReaderPage(): void {
 		const target = event.target instanceof Element ? event.target : null
 		// The end block's buttons answer for themselves.
 		if (target?.closest("#klip-end")) return
+		// The translation bar's buttons are the app's; a tap elsewhere in it does nothing.
+		if (target?.closest(".tr-bar")) {
+			const button = target.closest<HTMLButtonElement>("button[data-translation]")
+			if (button && !button.disabled)
+				post({ type: "translation", action: button.dataset.translation as TranslationAction })
+			return
+		}
 		// A noted highlight's tab opens it.
 		const tab = target?.closest<HTMLElement>(".hl-tab[data-id]")
 		if (tab) return post({ type: "highlight", id: tab.dataset.id! })
@@ -502,6 +512,13 @@ export function startReaderPage(): void {
 		)
 		if (index !== -1) post({ type: "sentence", index })
 	})
+
+	// ---- the translation bar ----
+
+	const translationBar = document.getElementById("klip-translation")
+	page.klipTranslation = (html) => {
+		if (translationBar) translationBar.innerHTML = html
+	}
 
 	// ---- the end of the article ----
 

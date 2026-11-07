@@ -190,6 +190,11 @@ export default function Account() {
 						}
 						onPress={changeConsent}
 					/>
+					<Row
+						label={t("account.translation.title")}
+						push
+						onPress={() => router.push("/account/translation")}
+					/>
 				</Section>
 			) : null}
 

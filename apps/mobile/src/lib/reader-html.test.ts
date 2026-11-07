@@ -44,7 +44,7 @@ describe("readerHtml", () => {
 			],
 		})
 		expect(html).toContain(
-			'<p class="byline">example.com · 5 min</p>\n<aside class="via"><p class="via-by">Shared by Ann &lt;b&gt; · X.com</p><p>Read <a href="https://e.com">this</a></p></aside>\n</header>',
+			'<p class="byline">example.com · 5 min</p>\n<aside class="via"><p class="via-by">Shared by Ann &lt;b&gt; · X.com</p><p>Read <a href="https://e.com">this</a></p></aside>\n<div id="klip-translation"></div>\n</header>',
 		)
 		expect(readerHtml(page)).not.toContain('class="via"')
 	})

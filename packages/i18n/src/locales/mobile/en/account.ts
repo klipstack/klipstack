@@ -12,6 +12,24 @@ export default {
 		title: "Account",
 		deleteAccount: "Delete account",
 	},
+	/** Account › Translation: the languages never translated, and always, as the web's Features. */
+	translation: {
+		title: "Translation",
+		never: {
+			title: "Never translate",
+			description: "Articles in these languages are not offered a translation.",
+			empty: "To add a language, choose Never translate on an article written in it.",
+		},
+		always: {
+			title: "Always translate",
+			description:
+				"Articles in these languages are translated when you save them, while your credits last. Articles saved from your feeds are not.",
+			empty: "To add a language, choose Always translate on an article translated from it.",
+		},
+		remove: "Remove {{language}}",
+		loadFailed: "Couldn't load your languages. Try again",
+		failed: "Couldn't remove it",
+	},
 	account: {
 		who: "{{name}}, {{email}}, signed in to {{host}}",
 		signedInTo: "Signed in to {{host}}",
@@ -64,6 +82,7 @@ export default {
 		saves: "Saves",
 		ai: "AI questions",
 		factChecks: "Fact checks",
+		translations: "Translation credits",
 		topicSorts: "Topic sorting",
 		editions: "Editions published",
 		storage: "Storage",

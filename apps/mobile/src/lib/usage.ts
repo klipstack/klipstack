@@ -3,11 +3,19 @@ import { dateLocale, t } from "./i18n"
 
 /** One cap on Account's Usage: what it counts, how much is used of it, and how full it is. */
 export type UsageRow = {
-	key: "saves" | "ai" | "factChecks" | "topicSorts" | "storage" | "feeds" | "editions"
+	key:
+		| "saves"
+		| "ai"
+		| "factChecks"
+		| "translations"
+		| "topicSorts"
+		| "storage"
+		| "feeds"
+		| "editions"
 	label: string
 	/** "12 of 500", in megabytes for storage. */
 	amount: string
-	/** What is left, where that is what the reader watches (AI questions and fact checks). */
+	/** What is left, where that is what the reader watches (AI questions, fact checks, translations). */
 	left: string | null
 	/** Used over the cap, 0–1. */
 	share: number
@@ -53,8 +61,8 @@ function row(
 
 /**
  * The caps as Account lists them: the monthly ones first, then what the account holds. AI (its
- * questions and fact checks) and topic sorting only when the account has them (the server sends
- * null otherwise, and an older server no fact checks); editions and feeds only while they are
+ * questions, fact checks and translation credits) and topic sorting only when the account has them
+ * (the server sends null otherwise, and an older server no fact checks or translations); editions and feeds only while they are
  * turned on.
  */
 export function usageRows(usage: Usage, { editions = true, feeds = true } = {}): UsageRow[] {
@@ -63,6 +71,13 @@ export function usageRows(usage: Usage, { editions = true, feeds = true } = {}):
 		...(usage.ai ? [row("ai", t("account.usage.ai"), usage.ai, count, { left: true })] : []),
 		...(usage.factChecks
 			? [row("factChecks", t("account.usage.factChecks"), usage.factChecks, count, { left: true })]
+			: []),
+		...(usage.translations
+			? [
+					row("translations", t("account.usage.translations"), usage.translations, count, {
+						left: true,
+					}),
+				]
 			: []),
 		...(usage.topicSorts
 			? [row("topicSorts", t("account.usage.topicSorts"), usage.topicSorts)]

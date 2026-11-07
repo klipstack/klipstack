@@ -89,6 +89,29 @@ describe("usageRows", () => {
 		expect(usageRows({ ...usage, factChecks: null }).map((r) => r.key)).not.toContain("factChecks")
 	})
 
+	it("shows translation credits after the fact checks, with what is left, when counted", () => {
+		const rows = usageRows({
+			...usage,
+			factChecks: { used: 3, max: 20 },
+			translations: { used: 26, max: 30 },
+		})
+		expect(rows.map((r) => r.key).slice(0, 4)).toEqual([
+			"saves",
+			"ai",
+			"factChecks",
+			"translations",
+		])
+		expect(rows[3]).toMatchObject({
+			label: "Translation credits",
+			amount: "26 of 30",
+			left: "4 left",
+			level: "near",
+		})
+		expect(usageRows({ ...usage, translations: null }).map((r) => r.key)).not.toContain(
+			"translations",
+		)
+	})
+
 	it("shows a small library's storage to a tenth of a megabyte", () => {
 		const storage = (bytes: number) =>
 			usageRows({ ...usage, storage: { used: bytes, max: 250 * MB } }).find(

@@ -4,6 +4,7 @@ import type {
 	AiCitation,
 	ArticleDetails,
 	ArticleTopics,
+	ArticleTranslation,
 	Highlight,
 	KlipstackClient,
 } from "@klipstack/sdk"
@@ -76,6 +77,8 @@ import { stampDegrees } from "@/lib/post-it"
 import { useReadAloud } from "@/lib/read-aloud"
 import { useReaderAi } from "@/lib/reader-ai"
 import {
+	dismissTranslation,
+	isTranslationDismissed,
 	loadColorScheme,
 	loadTypePrefs,
 	readerFolder,
@@ -84,11 +87,24 @@ import {
 	storeAsset,
 	writePage,
 } from "@/lib/reader-files"
-import { clampScale, highlightsJson, localImages, readerHtml, sampleText } from "@/lib/reader-html"
+import {
+	clampScale,
+	highlightsJson,
+	localImages,
+	readerHtml,
+	sampleText,
+	translationHtml,
+} from "@/lib/reader-html"
 import { type ReaderAction, readerActions } from "@/lib/reader-menu"
 import { textScale, type TypePrefs } from "@/lib/reader-type"
 import { createReadingSync } from "@/lib/reading-sync"
 import { applyColorScheme, useColors } from "@/lib/theme"
+import {
+	languageName,
+	type TranslationLanguages,
+	translationBar,
+	translationMenu,
+} from "@/lib/translation"
 import type {
 	ContentsEntry,
 	EndAction,
@@ -96,6 +112,7 @@ import type {
 	PageMessage,
 	PageNote,
 	PageSelection,
+	TranslationAction,
 } from "@/page/messages"
 import { dictation } from "../../../modules/klip-dictation"
 import { canLookUp, lookUp } from "../../../modules/klip-lookup"
@@ -127,6 +144,14 @@ export default function Reader() {
 	const [generation, setGeneration] = useState(0)
 	// A failed save being read again (Try Again).
 	const [retrying, setRetrying] = useState(false)
+	// Its translation (`GET /articles/{id}/translation`), as the web reader offers and shows it: null
+	// offline, or from a server without one. `original`: "Show original text", the original on
+	// screen to read, without highlighting or AI. `dismissed`: "Not now", kept on the phone.
+	const [translation, setTranslation] = useState<ArticleTranslation | null>(null)
+	const [languages, setLanguages] = useState<TranslationLanguages>(NO_LANGUAGES)
+	const [original, setOriginal] = useState(false)
+	const [dismissed, setDismissed] = useState(() => isTranslationDismissed(id))
+	const [translating, setTranslating] = useState(false)
 	// The controls at the top float over the page, which runs under them; they hide while the reader
 	// scrolls down, and the page says when (`controlsStep` in src/page/controls.ts). Shown while
 	// loading.
@@ -220,7 +245,8 @@ export default function Reader() {
 	// Reading aloud: its language is guessed from the text when the article has none.
 	const text = useRef("")
 	const listen = useReadAloud({
-		article,
+		// The original's language is the translation's `from`, or guessed from its text.
+		article: original && article ? { ...article, language: translation?.from ?? null } : article,
 		textSample: () => text.current,
 		inject: (script) => web.current?.injectJavaScript(script),
 		// Listened to the end: so recorded, also with the screen locked, as reading to it is.
@@ -328,13 +354,43 @@ export default function Reader() {
 
 	// Repaint when the highlights change after the page is up (it paints the first ones itself).
 	// Only whether each has a note is painted (its tab): a note saved repaints when it starts or empties.
-	const painted = article ? highlightsJson(article.highlights) : null
+	// The original text, shown to read, has none: they are on the translation.
+	const painted = article && !original ? highlightsJson(article.highlights) : null
 	useEffect(() => {
 		if (!painted || !loaded.current) return
 		web.current?.injectJavaScript(
 			`window.klipHighlights && window.klipHighlights(${painted}); true;`,
 		)
 	}, [painted])
+
+	// The translation bar under the byline, drawn again as it changes after the page is up.
+	const bar = translation
+		? translationBar(translation, { languages, dismissed, original, busy: translating })
+		: null
+	const barHtml = translationHtml(bar)
+	useEffect(() => {
+		if (!loaded.current) return
+		web.current?.injectJavaScript(
+			`window.klipTranslation && window.klipTranslation(${JSON.stringify(barHtml)}); true;`,
+		)
+	}, [barHtml])
+	// A translation on its way: asked after every few seconds. Done, the article opens again,
+	// translated (its title, text and highlights); failed, the bar says so.
+	const pendingTranslation = translation?.status === "pending"
+	useEffect(() => {
+		if (!client || !pendingTranslation) return
+		const timer = setInterval(() => {
+			void client.ai.translation(id).then(
+				(next) => {
+					if (next.status === "pending") return
+					if (next.translated && !next.status) reopen()
+					else setTranslation(next)
+				},
+				() => {},
+			)
+		}, TRANSLATION_POLL_MS)
+		return () => clearInterval(timer)
+	}, [client, id, pendingTranslation])
 
 	// The highlight in the card, if open, is marked in the page.
 	const [editing, setEditing] = useState<string | null>(null)
@@ -409,14 +465,20 @@ export default function Reader() {
 				// Its topics and what to read next in them, online only: a kept copy's would go stale.
 				// Without them (an older server, a failed or slow call) the article opens all the same.
 				let topics: ArticleTopics | null = null
+				// Its translation and the account's languages: none offline, or from an older server.
+				let translated: ArticleTranslation | null = null
+				let chosen: TranslationLanguages | null = null
 				try {
 					details = await client.articles.get(id)
 					if (details.status === "ready") {
-						;[stored, topics] = await Promise.all([
-							client.articles.html(id),
+						;[stored, topics, translated, chosen] = await Promise.all([
+							client.articles.html(id, original ? { original: true } : {}),
 							inTime(client.articles.topics(id), TOPICS_WAIT_MS),
+							inTime(client.ai.translation(id), TOPICS_WAIT_MS),
+							inTime(client.translationLanguages.get(), TOPICS_WAIT_MS),
 						])
-						saveArticle(details, stored)
+						// The copy kept for offline reading is the version the article shows.
+						if (!original) saveArticle(details, stored)
 					}
 				} catch (e) {
 					const kept = canUseOffline(e) ? loadArticle(id) : null
@@ -426,6 +488,8 @@ export default function Reader() {
 				}
 				if (!live) return
 				setArticle(details)
+				setTranslation(translated)
+				if (chosen) setLanguages(chosen)
 				setNote(details.note ?? "")
 				noteSaveFrom.current(client, details.note ?? "", details.noteUpdatedAt)
 				setEditionNote(details.editionNote ?? "")
@@ -475,8 +539,15 @@ export default function Reader() {
 						stamp: { degrees: stampDegrees(details.id), shown: details.finished },
 						via: details.via,
 						topics,
+						translation: translated
+							? translationBar(translated, {
+									languages: chosen ?? NO_LANGUAGES,
+									dismissed: isTranslationDismissed(id),
+									original,
+								})
+							: null,
 						html: html.html,
-						highlights: details.highlights,
+						highlights: original ? [] : details.highlights,
 						fontScale: textScale(typeAtLoad.current.size, PixelRatio.getFontScale()),
 						sans: typeAtLoad.current.sans,
 						position,
@@ -503,7 +574,7 @@ export default function Reader() {
 		return () => {
 			live = false
 		}
-	}, [client, id, openAt, openNotes, generation])
+	}, [client, id, openAt, openNotes, generation, original])
 
 	/**
 	 * The article was saved through a post that shared it: read the post instead. The server
@@ -520,6 +591,89 @@ export default function Reader() {
 			Alert.alert(t("reader.failed.switchToPost"), errorMessage(e))
 		}
 		setGeneration((n) => n + 1)
+	}
+
+	/**
+	 * Opens the article again as the server now shows it (translated, or its original back), or
+	 * its original text to read (`showOriginal`). The page is written anew, so it goes first.
+	 */
+	function reopen(showOriginal = false) {
+		setPage(null)
+		setOriginal(showOriginal)
+		setGeneration((n) => n + 1)
+	}
+
+	/** Translates the article (again), for credits; a translation made before shows at once. */
+	async function translate() {
+		if (!client) return
+		setTranslating(true)
+		try {
+			const { status } = await client.ai.translate(id)
+			if (status === "translated") reopen()
+			else setTranslation((tr) => tr && { ...tr, status: "pending" })
+		} catch (e) {
+			const code = (e as { code?: unknown } | null)?.code
+			showToast({
+				message:
+					code === "limit_reached"
+						? t("reader.translation.noCredits")
+						: code === "already_pending"
+							? t("reader.translation.pending", {
+									language: languageName(translation?.target ?? "en"),
+								})
+							: t("reader.translation.error"),
+			})
+		} finally {
+			setTranslating(false)
+		}
+	}
+
+	/** Puts the original back as the version the article shows, as the web's menu does. */
+	async function originalLanguage() {
+		if (!client) return
+		try {
+			await client.ai.showOriginal(id)
+			reopen()
+		} catch (e) {
+			showToast({ message: errorMessage(e) })
+		}
+	}
+
+	/** Never or always translate a language: in the bar at once, then on the account. */
+	async function chooseLanguage(language: string, choice: "never" | "always") {
+		if (!client) return
+		setLanguages((l) => ({ ...l, [choice]: [...l[choice], language] }))
+		showToast({
+			message: t(
+				choice === "never" ? "reader.translation.neverDone" : "reader.translation.alwaysDone",
+				{ language: languageName(language) },
+			),
+		})
+		try {
+			setLanguages(await client.translationLanguages.set(language, choice))
+		} catch {
+			setLanguages((l) => ({ ...l, [choice]: l[choice].filter((code) => code !== language) }))
+			showToast({ message: t("reader.translation.languageFailed") })
+		}
+	}
+
+	function translationAction(action: TranslationAction) {
+		switch (action) {
+			case "translate":
+				return void translate()
+			case "not-now":
+				dismissTranslation(id)
+				return setDismissed(true)
+			case "never":
+				if (translation?.language) void chooseLanguage(translation.language, "never")
+				return
+			case "always":
+				if (translation?.from) void chooseLanguage(translation.from, "always")
+				return
+			case "original":
+			case "translation":
+				return reopen(action === "original")
+		}
 	}
 
 	/** The save failed: the server reads the page again; the reader loads again once it is done. */
@@ -767,6 +921,9 @@ export default function Reader() {
 				break
 			case "selection":
 				selection.current = message.selection
+				break
+			case "translation":
+				translationAction(message.action)
 				break
 			case "contents":
 				setContents(message.entries)
@@ -1094,6 +1251,8 @@ export default function Reader() {
 
 	// What the ⋯ offers for the article as it is (in the trash, failed, ready).
 	const can = article ? readerActions(article) : new Set<ReaderAction>()
+	// Translate it, or put its original language back.
+	const translateMenu = translationMenu(translation)
 
 	return (
 		<View style={[styles.screen, { backgroundColor: colors.bg }]}>
@@ -1112,7 +1271,7 @@ export default function Reader() {
 							onPress={() => (listen.status ? listen.close() : void listen.start())}
 						/>
 					) : null}
-					{page && ai.enabled && (briefShown || chatShown) ? (
+					{page && ai.enabled && !original && (briefShown || chatShown) ? (
 						<Stack.Toolbar.Menu
 							icon="sparkles"
 							accessibilityLabel={t("reader.menu.askAi")}
@@ -1235,6 +1394,18 @@ export default function Reader() {
 							</Stack.Toolbar.MenuAction>
 						</Stack.Toolbar.Menu>
 						<Stack.Toolbar.Menu inline>
+							{page && !original && translateMenu ? (
+								<Stack.Toolbar.MenuAction
+									icon="translate"
+									onPress={() =>
+										translateMenu.action === "translate"
+											? void translate()
+											: void originalLanguage()
+									}
+								>
+									{translateMenu.label}
+								</Stack.Toolbar.MenuAction>
+							) : null}
 							{page ? (
 								<Stack.Toolbar.MenuAction
 									icon="textformat.size"
@@ -1303,15 +1474,22 @@ export default function Reader() {
 					menuItems={
 						noteFocused
 							? undefined
-							: [
-									// Highlight, Copy and Ask (none with AI off) first; iOS pages the rest as they fit.
-									{ label: t("reader.selection.highlight"), key: "highlight" },
-									{ label: t("reader.selection.copy"), key: "copy" },
-									...(ai.asking ? [{ label: t("reader.selection.ask"), key: "ask" }] : []),
-									{ label: t("reader.selection.addNote"), key: "note" },
-									...(canLookUp ? [{ label: t("reader.selection.lookUp"), key: "lookup" }] : []),
-									{ label: t("common.actions.share"), key: "share" },
-								]
+							: original
+								? // The original text is to read: no highlighting, notes or AI.
+									[
+										{ label: t("reader.selection.copy"), key: "copy" },
+										...(canLookUp ? [{ label: t("reader.selection.lookUp"), key: "lookup" }] : []),
+										{ label: t("common.actions.share"), key: "share" },
+									]
+								: [
+										// Highlight, Copy and Ask (none with AI off) first; iOS pages the rest as they fit.
+										{ label: t("reader.selection.highlight"), key: "highlight" },
+										{ label: t("reader.selection.copy"), key: "copy" },
+										...(ai.asking ? [{ label: t("reader.selection.ask"), key: "ask" }] : []),
+										{ label: t("reader.selection.addNote"), key: "note" },
+										...(canLookUp ? [{ label: t("reader.selection.lookUp"), key: "lookup" }] : []),
+										{ label: t("common.actions.share"), key: "share" },
+									]
 					}
 					onCustomMenuSelection={(event) => {
 						const { key, selectedText } = event.nativeEvent
@@ -1324,6 +1502,9 @@ export default function Reader() {
 					}}
 					onLoadEnd={() => {
 						loaded.current = true
+						web.current?.injectJavaScript(
+							`window.klipTranslation && window.klipTranslation(${JSON.stringify(barHtml)}); true;`,
+						)
 						if (endJson)
 							web.current?.injectJavaScript(`window.klipEnd && window.klipEnd(${endJson}); true;`)
 						if (noteJson)
@@ -1720,8 +1901,14 @@ function escapeRegExp(text: string): string {
 	return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 }
 
-// How long the reader waits for an article's topics before opening without them.
+// How long the reader waits for an article's topics, and its translation, before opening without
+// them.
 const TOPICS_WAIT_MS = 1500
+
+// How often the reader asks whether a translation on its way is done.
+const TRANSLATION_POLL_MS = 4000
+
+const NO_LANGUAGES: TranslationLanguages = { never: [], always: [] }
 
 // The navigation bar's height below the status bar (portrait).
 const NAV_BAR = 44

@@ -23,6 +23,8 @@ export default {
 		openOriginal: "Open Original",
 		copyLink: "Copy Link",
 		readPost: "Read the Post Instead",
+		translate: "Translate to {{language}}",
+		useOriginal: "Use Original Language",
 	},
 	/** The menu over text selected in the article. */
 	selection: {
@@ -303,5 +305,47 @@ export default {
 	draftUndo: {
 		removed: "Removed from your next edition",
 		lost: "Couldn't put it back in your next edition.",
+	},
+	/**
+	 * The bar above the article that offers to translate it, says it is on its way, or that it is
+	 * a translation, as the web reader's. `{{language}}` is a language's name, in the app's language.
+	 */
+	translation: {
+		offer: "This article is in {{language}}.",
+		translate: "Translate to {{language}}",
+		cost_one: "Uses {{count}} translation credit.",
+		cost_other: "Uses {{count}} translation credits.",
+		short_one: "This article needs {{count}} credit.",
+		short_other: "This article needs {{count}} credits.",
+		creditsLeft_one: "{{count}} credit left this month.",
+		creditsLeft_other: "{{count}} credits left this month.",
+		free: "It was translated before: no credits needed.",
+		tooLong: "This article is too long to translate.",
+		notNow: "Not now",
+		never: "Never translate {{language}}",
+		always: "Always translate {{language}}",
+		alwaysDone:
+			"Articles in {{language}} you save will be translated, while your credits last. Change this in Account.",
+		neverDone: "Articles in {{language}} won't be offered a translation. Change this in Account.",
+		pending: "Translating to {{language}}…",
+		pendingHint: "This can take a minute. You can keep reading.",
+		failed: "The article couldn't be translated. Your credits are back.",
+		retry: "Try again",
+		translated: "Translated from {{language}}.",
+		translatedUnknown: "Translated by AI.",
+		showOriginal: "Show original text",
+		viewingOriginal: "You're reading the original text, in {{language}}.",
+		viewingOriginalUnknown: "You're reading the original text.",
+		showTranslation: "Show translation",
+		readOnly: "To highlight or ask AI, go back to the translation.",
+		onOriginal_one: "{{count}} highlight is on the original text.",
+		onOriginal_other: "{{count}} highlights are on the original text.",
+		onTranslation_one: "{{count}} highlight is on the translation.",
+		onTranslation_other: "{{count}} highlights are on the translation.",
+		stale: "The original text changed after this translation.",
+		translateAgain: "Translate again",
+		noCredits: "Not enough translation credits left this month for this article.",
+		error: "Couldn't translate this article. Try again later.",
+		languageFailed: "Couldn't change it. Try again.",
 	},
 }

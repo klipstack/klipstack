@@ -104,8 +104,18 @@ export type PageNote = {
  */
 export type ContentsEntry = { key: string; text: string; depth: 0 | 1 }
 
+/** A button of the translation bar (`translationHtml`), tapped. */
+export type TranslationAction =
+	| "translate"
+	| "not-now"
+	| "never"
+	| "always"
+	| "original"
+	| "translation"
+
 export type PageMessage =
 	| { type: "selection"; selection: PageSelection | null }
+	| { type: "translation"; action: TranslationAction }
 	/** `ended`: the end of the article (the end block's top) is on screen. */
 	| { type: "reading"; position: number; ended: boolean; moved: boolean }
 	| { type: "end"; action: EndAction }
@@ -163,4 +173,6 @@ export type PageApi = {
 	klipNoteLink(article: { id: string; title: string } | null): void
 	/** Scrolls to a heading in the contents (its index), and reads aloud from it while reading. */
 	klipSection(index: number): void
+	/** Draws the translation bar under the byline again (`translationHtml`); "" takes it away. */
+	klipTranslation(html: string): void
 }

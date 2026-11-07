@@ -5,6 +5,7 @@ import { useEffect, useMemo } from "react"
 import { useColorScheme } from "react-native"
 import { ToastHost } from "@/components/toast-host"
 import { AuthProvider, useAuth } from "@/lib/auth"
+import { installLanguageNames } from "@/lib/display-names"
 import { t } from "@/lib/i18n"
 import { loadColorScheme } from "@/lib/reader-files"
 import { applyColorScheme, headerType, useColors } from "@/lib/theme"
@@ -15,6 +16,8 @@ void SplashScreen.preventAutoHideAsync()
 // Light or dark as chosen in the reader's Appearance, before the first screen draws.
 applyColorScheme(loadColorScheme())
 SplashScreen.setOptions({ duration: 250, fade: true })
+// Languages' names (the reader's translation bar), which Hermes's Intl can't give.
+installLanguageNames()
 
 // A link that opens the app on an article (the home screen widget's) puts the tabs under the
 // reader, so its back button leads somewhere.

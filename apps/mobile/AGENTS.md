@@ -42,7 +42,8 @@ pnpm dlx expo-doctor         # Diagnose dependency and config problems
   - `discover.tsx`: the starter texts (`GET /starter-texts`), the guide and shelves by topic, as
     the web's Discover, from the Library and Home's empty state, which offers a few itself.
   - `account/`: Account, a sheet with its own stack, from the header's account button: who is
-    signed in, usage (`GET /usage`), appearance, Voices, the library's export, links to the web,
+    signed in, usage (`GET /usage`), appearance, Voices, the languages never or always translated
+    (`translation.tsx`), the library's export, links to the web,
     signing out and deleting the account (`POST /account/delete`, which may ask to sign in again).
 - `src/components/`: pieces shared by screens (the article row, a library list, the tab stack).
 - `src/lib/`: auth, API client, storage, and the reader's pure code (tested with Vitest).
@@ -52,8 +53,9 @@ pnpm dlx expo-doctor         # Diagnose dependency and config problems
   stale. `messages.ts` holds what the app and the page tell each other.
 - `modules/`: local native modules: `klip-lookup` (the dictionary sheet), `klip-pasteboard`
   (whether the clipboard holds a link, without reading it, and the system's Paste button),
-  `klip-speech` (reading aloud; see its README) and `klip-dictation` (dictating a note, recognized
-  on the device; see its README).
+  `klip-speech` (reading aloud; see its README), `klip-dictation` (dictating a note, recognized
+  on the device; see its README) and `klip-language` (languages' names from iOS, installed at launch
+  as the `Intl.DisplayNames` Hermes lacks: `src/lib/display-names.ts`).
 - `targets/share/`: the iOS share extension, in Swift. `@bacons/apple-targets` links it into
   the Xcode project at prebuild.
 - `targets/widget/`: the home screen's "Next up" widget, in Swift: Home's big card (and, in the

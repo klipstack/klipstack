@@ -123,6 +123,21 @@ const notebookZoom = jsonSetting("notebook-zoom.json", parseZoomed)
 export const loadNotebookZoom = notebookZoom.load
 export const saveNotebookZoom = notebookZoom.save
 
+/**
+ * The articles whose translation was declined with "Not now": not offered again on this phone, as
+ * the web keeps it in the browser. The latest few hundred.
+ */
+const translationDismissed = jsonSetting("translation-dismissed.json", (raw): string[] => {
+	const ids: unknown = raw ? JSON.parse(raw) : []
+	return Array.isArray(ids) ? ids.filter((id): id is string => typeof id === "string") : []
+})
+export const isTranslationDismissed = (articleId: string): boolean =>
+	translationDismissed.load().includes(articleId)
+export function dismissTranslation(articleId: string): void {
+	const ids = translationDismissed.load().filter((id) => id !== articleId)
+	translationDismissed.save([...ids.slice(-299), articleId])
+}
+
 /** The Share sheet's tab chosen last: text, link or image. */
 const shareTab = jsonSetting("share-tab.json", parseShareTab)
 export const loadShareTab = shareTab.load
