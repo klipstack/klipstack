@@ -3,6 +3,7 @@ import type { ArticleTopics } from "@klipstack/sdk"
 import type { PageConfig, PageHighlight } from "@/page/messages"
 import { t } from "./i18n"
 import { pageScript, pageScriptHash } from "./reader-page.generated"
+import type { TranslationBar } from "./translation"
 
 /** A highlight as the API gives it: where it is, and its quote with the text around it. */
 export type ReaderHighlight = {
@@ -36,6 +37,11 @@ export type ReaderPage = {
 	 * read next after the end block. Nothing when unset (offline, or an account without topics).
 	 */
 	topics?: ArticleTopics | null
+	/**
+	 * The translation bar under the byline (`translationBar`): the offer to translate it, or where
+	 * a translation came from. Nothing when unset; `klipTranslation` draws it again.
+	 */
+	translation?: TranslationBar | null
 	/** The article's stored HTML (`GET /articles/{id}/html`), its images made local (`localImages`). */
 	html: string
 	highlights: ReadonlyArray<ReaderHighlight>
@@ -82,6 +88,7 @@ export function readerHtml(page: ReaderPage): string {
 ${kickerHtml(page.topics)}<h1>${escapeHtml(page.title)}</h1>
 ${page.byline ? `<p class="byline">${escapeHtml(page.byline)}${stampHtml(page.stamp)}</p>` : ""}
 ${(page.via ?? []).map(viaHtml).join("")}
+<div id="klip-translation">${translationHtml(page.translation ?? null)}</div>
 </header>
 <article>${page.html}</article>
 <section id="klip-end" data-after-reading></section>
@@ -98,6 +105,23 @@ ${shelfHtml(page.topics)}<script type="application/json" id="klip-config">${scri
 function stampHtml(stamp: ReaderPage["stamp"]): string {
 	if (!stamp) return ""
 	return ` <span id="klip-stamp" class="read-stamp" style="transform: rotate(${stamp.degrees}deg)"${stamp.shown ? "" : " hidden"}><span class="sr-only">${escapeHtml(t("library.readStampLabel"))}</span><span class="ink" aria-hidden="true">${escapeHtml(t("library.readStamp"))}</span></span>`
+}
+
+/**
+ * The translation bar's insides, for `#klip-translation` in the header: its words, and buttons the
+ * page's script tells the app about (`{ type: "translation", action }`). Empty for none.
+ */
+export function translationHtml(bar: TranslationBar | null): string {
+	if (!bar) return ""
+	const spinner = bar.pending ? '<span class="tr-spinner" aria-hidden="true"></span>' : ""
+	const note = bar.note ? ` <span class="tr-note">${escapeHtml(bar.note)}</span>` : ""
+	const buttons = bar.actions
+		.map(
+			(a) =>
+				`<button type="button" data-translation="${a.action}"${a.primary ? ' class="primary"' : ""}${a.disabled ? " disabled" : ""}>${escapeHtml(a.label)}</button>`,
+		)
+		.join("")
+	return `<div class="tr-bar"${bar.pending ? ' role="status"' : ""}><p>${spinner}<span>${escapeHtml(bar.text)}${note}</span></p>${buttons ? `<div class="tr-actions">${buttons}</div>` : ""}</div>`
 }
 
 /** The article's topics above its title, strongest first, as a newspaper names its sections. */
@@ -301,6 +325,27 @@ header h1 { font-family: var(--sans); font-size: 1.875rem; line-height: 1.2; mar
 .via p, .via blockquote { margin: 0 0 0.5em; }
 .via > :last-child { margin-bottom: 0; }
 .via .via-by { font-size: 0.8125rem; color: var(--muted-fg); margin-bottom: 4px; }
+/* The translation bar (translationHtml): as the web reader's, under the byline. */
+.tr-bar {
+	font-family: var(--sans); font-size: 0.9375rem; line-height: 1.45; margin: -8px 0 24px; padding: 12px 14px;
+	border: 1px solid var(--border); border-radius: 10px; background: color-mix(in oklch, var(--fg) 3%, transparent);
+	-webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+}
+.tr-bar p { margin: 0; display: flex; gap: 8px; align-items: baseline; }
+.tr-note { color: var(--muted-fg); }
+.tr-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.tr-actions button {
+	font: inherit; font-weight: 600; color: var(--fg); background: var(--muted); border: 0;
+	border-radius: 999px; padding: 7px 14px; cursor: pointer;
+}
+.tr-actions button.primary { background: var(--accent); color: var(--accent-fg); }
+.tr-actions button:disabled { opacity: 0.45; }
+.tr-spinner {
+	flex: none; width: 14px; height: 14px; align-self: center; border-radius: 50%;
+	border: 2px solid var(--border); border-top-color: var(--fg); animation: tr-spin 0.8s linear infinite;
+}
+@keyframes tr-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .tr-spinner { animation-duration: 2.4s; } }
 h2, h3, h4, h5, h6 { font-family: var(--sans); line-height: 1.3; margin: 1.6em 0 0.6em; }
 h2 { font-size: 1.3em; } h3 { font-size: 1.15em; } h4, h5, h6 { font-size: 1em; }
 /* A heading picked in the contents takes the focus, for VoiceOver: no ring around it. */

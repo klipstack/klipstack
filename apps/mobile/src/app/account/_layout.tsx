@@ -35,6 +35,7 @@ export default function AccountLayout() {
 				}}
 			/>
 			<Stack.Screen name="voices" options={{ title: t("account.account.voices") }} />
+			<Stack.Screen name="translation" options={{ title: t("account.translation.title") }} />
 			<Stack.Screen name="delete" options={{ title: t("account.layout.deleteAccount") }} />
 		</Stack>
 	)

@@ -10,6 +10,23 @@ export default {
 		title: "Cuenta",
 		deleteAccount: "Eliminar cuenta",
 	},
+	translation: {
+		title: "Traducción",
+		never: {
+			title: "No traducir nunca",
+			description: "A los artículos en estos idiomas no se les ofrece traducción.",
+			empty: "Para añadir un idioma, elige No traducir nunca en un artículo escrito en él.",
+		},
+		always: {
+			title: "Traducir siempre",
+			description:
+				"Los artículos en estos idiomas se traducen al guardarlos, mientras te queden créditos. Los que guardas desde tus feeds, no.",
+			empty: "Para añadir un idioma, elige Traducir siempre en un artículo traducido de él.",
+		},
+		remove: "Quitar {{language}}",
+		loadFailed: "No se pudieron cargar tus idiomas. Reintentar",
+		failed: "No se pudo quitar",
+	},
 	account: {
 		who: "{{name}}, {{email}}, sesión iniciada en {{host}}",
 		signedInTo: "Sesión iniciada en {{host}}",
@@ -62,6 +79,7 @@ export default {
 		saves: "Guardados",
 		ai: "Preguntas a la IA",
 		factChecks: "Verificaciones",
+		translations: "Créditos de traducción",
 		topicSorts: "Clasificación en temas",
 		editions: "Ediciones publicadas",
 		storage: "Almacenamiento",

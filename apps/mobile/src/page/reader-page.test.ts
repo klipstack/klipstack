@@ -632,6 +632,35 @@ describe("the reader page: reading and links", () => {
 		expect(stamp.hidden).toBe(true)
 	})
 
+	it("shows the translation bar under the byline, hands its buttons to the app, and redraws it", () => {
+		const offer = {
+			text: "This article is in French.",
+			note: "Uses 1 translation credit.",
+			pending: false,
+			actions: [
+				{ action: "translate", label: "Translate to English", primary: true, disabled: true },
+				{ action: "not-now", label: "Not now", primary: false, disabled: false },
+			],
+		} as const
+		const { window, messages } = openPage("<p>Text.</p>", [], { translation: offer })
+		const doc = window.document
+		const bar = doc.querySelector("header #klip-translation")!
+		expect(bar.textContent).toContain("This article is in French. Uses 1 translation credit.")
+		const tap = (action: string) =>
+			doc
+				.querySelector(`[data-translation="${action}"]`)!
+				.dispatchEvent(new window.MouseEvent("click", { bubbles: true }))
+		tap("not-now")
+		// A disabled button says nothing; neither hides nor shows the controls.
+		tap("translate")
+		expect(messages.filter((m) => m.type === "translation" || m.type === "controls")).toEqual([
+			{ type: "translation", action: "not-now" },
+		])
+		const page = window as unknown as { klipTranslation: (html: string) => void }
+		page.klipTranslation("")
+		expect(bar.innerHTML).toBe("")
+	})
+
 	it("opens without the Read stamp on an article not finished", () => {
 		const { window } = openPage("<p>Text.</p>", [], {
 			byline: "example.com",
