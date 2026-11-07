@@ -123,15 +123,20 @@ describe("translateArticle", () => {
 		const userId = await newUser()
 		const long = await article(userId, 20_001)
 		expect(await refusal(translateArticle(userId, { id: long.id }))).toBe("invalid_request")
-		// 29 credits used: an article of 2 credits doesn't fit in the 30.
-		await translateArticle(userId, { id: (await article(userId, 29_000 / 2)).id })
-		await translateArticle(userId, { id: (await article(userId, 14_500)).id })
-		expect((await usageOf(userId)).translations.used).toBe(30)
+		// 29 credits used: an article of 2 credits doesn't fit in the 30, one of 1 does.
+		await translateArticle(userId, { id: (await article(userId, 15_000)).id })
+		await translateArticle(userId, { id: (await article(userId, 14_000)).id })
+		expect((await usageOf(userId)).translations.used).toBe(29)
 		const short = await article(userId, 1500)
 		expect(await refusal(translateArticle(userId, { id: short.id }))).toBe("limit_reached")
-		expect((await usageOf(userId)).translations.used).toBe(30)
+		expect((await usageOf(userId)).translations.used).toBe(29)
 		expect((await read(short.id))?.translationStatus).toBeNull()
 		expect((await jobs(short.id)).rows).toHaveLength(0)
+		expect(await translateArticle(userId, { id: (await article(userId, 1000)).id })).toEqual({
+			status: "pending",
+			credits: 1,
+		})
+		expect((await usageOf(userId)).translations.used).toBe(30)
 	})
 
 	it("refuses an article already in the account's language, or in one not known, counting nothing", async () => {
@@ -156,6 +161,11 @@ describe("translateArticle", () => {
 		const other = await newUser()
 		const doc = await article(owner)
 		expect(await refusal(translateArticle(other, { id: doc.id }))).toBe("not_found")
+		expect(await refusal(showOriginal(other, { id: doc.id }))).toBe("not_found")
+		const trashed = await article(owner)
+		await db.update(documents).set({ deletedAt: new Date() }).where(eq(documents.id, trashed.id))
+		expect(await refusal(translateArticle(owner, { id: trashed.id }))).toBe("not_found")
+		expect(await refusal(showOriginal(owner, { id: trashed.id }))).toBe("not_found")
 		await db
 			.update(userTable)
 			.set({ prefs: { ai: "off" } })
@@ -209,6 +219,28 @@ describe("using the original, and translating again", () => {
 		})
 	})
 
+	it("translates a new original again, for its credits, and keeps the shown one until it is done", async () => {
+		const userId = await newUser()
+		const doc = await article(userId)
+		const translated = await version(doc.id, 2, "Bubble", {
+			translatedFromId: doc.original,
+			language: "en",
+			title: "Two questions",
+		})
+		await db.transaction((tx) => showVersion(tx, doc.id, translated, doc.original))
+		// A new capture of the original, as publishing a translated article keeps it.
+		const newer = await version(doc.id, 3, "泡沫".repeat(10), {})
+		await db.update(documents).set({ originalVersionId: newer }).where(eq(documents.id, doc.id))
+		expect(await translateArticle(userId, { id: doc.id })).toEqual({
+			status: "pending",
+			credits: 1,
+		})
+		expect((await jobs(doc.id)).rows.map((r) => r.data.sourceVersionId)).toEqual([newer])
+		expect((await read(doc.id))?.currentVersionId).toBe(translated)
+		// The original can't be put back while it is on its way: the translation would replace it.
+		expect(await refusal(showOriginal(userId, { id: doc.id }))).toBe("already_pending")
+	})
+
 	it("keeps a title the reader set, whichever version shows", async () => {
 		const userId = await newUser()
 		const doc = await article(userId)
@@ -237,6 +269,16 @@ describe("setNeverTranslate", () => {
 		expect(await setNeverTranslate(userId, { language: "zh", never: true })).toEqual(["fr", "zh"])
 		expect(await setNeverTranslate(userId, { language: "fr", never: false })).toEqual(["zh"])
 		expect(await refusal(setNeverTranslate(userId, { language: "Chinese", never: true }))).toBe(
+			"invalid_request",
+		)
+		// Up to NEVER_TRANSLATE_MAX: 50 with "zh".
+		const codes = Array.from(
+			{ length: 49 },
+			(_, i) =>
+				`a${String.fromCharCode(97 + (i % 26))}${String.fromCharCode(97 + Math.floor(i / 26))}`,
+		)
+		for (const language of codes) await setNeverTranslate(userId, { language, never: true })
+		expect(await refusal(setNeverTranslate(userId, { language: "de", never: true }))).toBe(
 			"invalid_request",
 		)
 	})

@@ -73,24 +73,46 @@ const FORMATTING = new Set([
 	"u",
 ])
 /** What names or styles a tag without pointing anywhere: Wikipedia gives every tag an `id`. */
-const NAMING = /^(id|class|lang|dir)=/
+const NAMING = /^(id|class|lang|dir)$/
 
 /**
- * The tags of an HTML fragment, in order, with their attributes except `title` and `alt`, which
- * are translated: a translation must give back the same list. Plain formatting (`FORMATTING`)
- * is not part of it.
+ * One element's part of an article's shape: its name and attributes but `title` and `alt`, which
+ * are translated; null for plain formatting (`FORMATTING`), which a translation may drop or add.
+ * The AI's check (`tagShape`) and the worker's, on the parsed HTML, both use it.
+ */
+export function elementShape(name: string, attrs: [string, string][]): string | null {
+	const kept = attrs
+		.filter(([attr]) => !/^(title|alt)$/i.test(attr))
+		.map(([attr, value]) => [attr.toLowerCase(), value])
+	if (FORMATTING.has(name.toLowerCase()) && kept.every(([attr]) => NAMING.test(attr!))) return null
+	// As JSON: a value can't pass for another attribute or element, whatever it holds.
+	return JSON.stringify([name.toLowerCase(), kept])
+}
+
+/**
+ * The tags of an HTML fragment, in order (`elementShape`, and closing tags but plain formatting's):
+ * a translation must give back the same list. A quick check of each part, to ask again; the
+ * worker checks the whole article, parsed, before it keeps it. A `>` inside a quoted value does
+ * not end its tag.
  */
 export function tagShape(html: string): string[] {
 	const tags: string[] = []
-	for (const [, close, tag, attrs] of html.matchAll(/<(\/?)([a-zA-Z][\w-]*)([^>]*)>/g)) {
+	for (const [, close, tag, attrs] of html.matchAll(
+		/<(\/?)([a-zA-Z][\w-]*)((?:"[^"]*"|'[^']*'|[^"'>])*)>/g,
+	)) {
 		const name = tag!.toLowerCase()
-		const kept = Array.from(
-			(attrs ?? "").matchAll(/([^\s"'=<>/]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+)))?/g),
+		if (close) {
+			if (!FORMATTING.has(name)) tags.push(`/${name}`)
+			continue
+		}
+		const shape = elementShape(
+			name,
+			Array.from(
+				(attrs ?? "").matchAll(/([^\s"'=<>/]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+)))?/g),
+				([, attr, a, b, c]) => [attr!, a ?? b ?? c ?? ""] as [string, string],
+			),
 		)
-			.filter(([, attr]) => !/^(title|alt)$/i.test(attr!))
-			.map(([, attr, a, b, c]) => `${attr!.toLowerCase()}=${a ?? b ?? c ?? ""}`)
-		if (FORMATTING.has(name) && (close || kept.every((attr) => NAMING.test(attr)))) continue
-		tags.push(`${close}${name} ${kept.join(" ")}`)
+		if (shape) tags.push(shape)
 	}
 	return tags
 }

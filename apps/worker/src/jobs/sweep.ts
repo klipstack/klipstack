@@ -1,11 +1,15 @@
 import { db, notifyDocumentEvent, sql } from "@klipstack/db"
 import { QUEUES } from "@klipstack/queue"
 import { log } from "../log"
+import { settleStuckTranslations } from "./translate"
 
 export async function handleSweep() {
 	const settled = await settleStuckExtractions()
 	if (settled.length > 0)
 		log.warn("sweep: settled extractions whose job was gone", { count: settled.length })
+	const translations = await settleStuckTranslations()
+	if (translations.length > 0)
+		log.warn("sweep: failed translations whose job was gone", { count: translations.length })
 }
 
 /**

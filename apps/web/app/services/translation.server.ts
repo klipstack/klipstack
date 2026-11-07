@@ -29,7 +29,10 @@ export interface ReaderTranslation {
 	stale: boolean
 	/** A translation on its way, or one that failed. */
 	status: "pending" | "failed" | null
-	/** What translating the newest original costs, and the credits left this month. */
+	/**
+	 * What translating the newest original costs (0 when it was translated before), and the
+	 * credits left this month.
+	 */
 	credits: number
 	left: number
 	/** Over the word cap: the reader says so instead of offering it. */
@@ -52,7 +55,8 @@ export async function readerTranslation(
 	shown: string,
 ): Promise<ReaderTranslation> {
 	const sourceId = doc.originalVersionId ?? doc.currentVersionId!
-	const [source, current, limits, used, elsewhere] = await Promise.all([
+	const target: TranslationLanguage = locale === "es" ? "es" : "en"
+	const [source, current, limits, used, elsewhere, made] = await Promise.all([
 		db.query.documentVersions.findFirst({
 			where: eq(documentVersions.id, sourceId),
 			columns: { text: true, language: true },
@@ -75,18 +79,27 @@ export async function readerTranslation(
 				),
 			),
 		highlightsElsewhere(userId, doc.id, shown),
+		// Made before, then the original put back: shown again at no cost.
+		db.query.documentVersions.findFirst({
+			where: and(
+				eq(documentVersions.documentId, doc.id),
+				eq(documentVersions.translatedFromId, sourceId),
+				eq(documentVersions.language, target),
+			),
+			columns: { id: true },
+		}),
 	])
 	const words = translationWords(source?.text ?? "")
 	return {
-		target: locale === "es" ? "es" : "en",
+		target,
 		language: doc.language,
 		translated: Boolean(doc.originalVersionId),
 		from: doc.originalVersionId ? (source?.language ?? null) : null,
 		stale: Boolean(current && current.translatedFromId !== doc.originalVersionId),
 		status: doc.translationStatus,
-		credits: translationCredits(words),
+		credits: made ? 0 : translationCredits(words),
 		left: Math.max(0, limits.translations - (used[0]?.count ?? 0)),
-		tooLong: words > TRANSLATION_WORDS_MAX,
+		tooLong: !made && words > TRANSLATION_WORDS_MAX,
 		elsewhere,
 	}
 }

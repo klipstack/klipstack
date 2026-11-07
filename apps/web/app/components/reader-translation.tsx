@@ -29,10 +29,16 @@ export function offersTranslation(translation: Translation, neverTranslate: read
 /** The fetcher that asks for a translation, or the original back, and says when it can't. */
 export function useTranslationAction(documentId: string) {
 	const { t } = useTranslation("reader")
-	const fetcher = useFetcher<{ ok: boolean }>()
+	const fetcher = useFetcher<{ ok: boolean; error?: { code: string } }>()
 	useEffect(() => {
 		if (fetcher.state === "idle" && fetcher.data && !fetcher.data.ok)
-			showToast({ message: t("translation.error") })
+			showToast({
+				message: t(
+					fetcher.data.error?.code === "limit_reached"
+						? "translation.noCredits"
+						: "translation.error",
+				),
+			})
 	}, [fetcher.state, fetcher.data, t])
 	return {
 		busy: fetcher.state !== "idle",
@@ -158,6 +164,8 @@ export function ReaderTranslation({
 			{ language: translation.language!, never: "true" },
 			{ method: "post", action: "/translation/never" },
 		)
+		// Gone at once: the reader's prefs are its own copy until it loads again.
+		setDismissed(true)
 		showToast({ message: t("translation.neverDone", { language }) })
 	}
 	return (
@@ -167,7 +175,9 @@ export function ReaderTranslation({
 				<span className="text-muted-fg">
 					{translation.tooLong
 						? t("translation.tooLong")
-						: `${t(enough ? "translation.cost" : "translation.short", { count: translation.credits })} ${t("translation.creditsLeft", { count: translation.left })}`}
+						: translation.credits === 0
+							? t("translation.free")
+							: `${t(enough ? "translation.cost" : "translation.short", { count: translation.credits })} ${t("translation.creditsLeft", { count: translation.left })}`}
 				</span>
 			</p>
 			<Actions>

@@ -1,4 +1,4 @@
-import { createAi, estimateCostUsd } from "@klipstack/ai"
+import { createAi, elementShape, estimateCostUsd } from "@klipstack/ai"
 import { translationWords } from "@klipstack/api-contract"
 import {
 	addUsage,
@@ -12,7 +12,7 @@ import {
 	sql,
 } from "@klipstack/db"
 import { articleBody } from "@klipstack/extract"
-import { admitImages, type JobPayloads } from "@klipstack/queue"
+import { admitImages, type JobPayloads, QUEUES } from "@klipstack/queue"
 import { JSDOM } from "jsdom"
 import type { JobWithMetadata } from "pg-boss"
 import { log } from "../log"
@@ -25,6 +25,28 @@ const escapeText = (text: string) =>
 
 /** Containers whose parts are translated one by one when they are too long for one request. */
 const OPEN_UP = new Set(["DIV", "SECTION", "ARTICLE", "MAIN"])
+
+/**
+ * The elements of an article's HTML as the reader's browser parses it (`elementShape`). The
+ * model's quick check reads tags with a pattern; this one is what decides that a translation
+ * added or changed no link, image or attribute.
+ */
+export function parsedShape(html: string): string[] {
+	const body = new JSDOM(`<!doctype html><body>${html}</body>`).window.document.body
+	const shape: string[] = []
+	for (const element of Array.from(body.querySelectorAll("*"))) {
+		const kept = elementShape(
+			element.localName,
+			Array.from(element.attributes, (a) => [a.name, a.value] as [string, string]),
+		)
+		if (kept) shape.push(kept)
+	}
+	return shape
+}
+
+/** Whether a translation has the same elements and attributes as what was sent (`parsedShape`). */
+export const sameMarkup = (translation: string, sent: string) =>
+	JSON.stringify(parsedShape(translation)) === JSON.stringify(parsedShape(sent))
 
 /**
  * The article's HTML in parts of about `PART_WORDS` words, cut between top-level blocks. A
@@ -84,6 +106,41 @@ async function fail(job: JobPayloads["translate"], userId: string) {
 }
 
 /**
+ * Translations still pending with no job waiting or running: pg-boss failed the job after a
+ * timeout or a crash on its last attempt, so the handler never gave the credits back. They fail
+ * now, as the last attempt would have, with the credits of their newest job. The sweep runs it;
+ * `owners` limits it to those users' articles (tests).
+ */
+export async function settleStuckTranslations(owners?: string[]): Promise<string[]> {
+	const { rows } = await db.execute<{ id: string; user_id: string; data: unknown }>(sql`
+		select d.id, d.user_id, (
+			select j.data from pgboss.job j
+			where j.name = ${QUEUES.translate} and j.data->>'documentId' = d.id::text
+			order by j.created_on desc limit 1
+		) as data
+		from documents d
+		where d.translation_status = 'pending'
+			and ${owners ? sql`d.user_id in ${owners}` : sql`true`}
+			and not exists (
+				select 1 from pgboss.job j
+				where j.name = ${QUEUES.translate}
+					and j.data->>'documentId' = d.id::text
+					and j.state in ('created', 'retry', 'active')
+			)`)
+	for (const row of rows) {
+		const job = row.data as JobPayloads["translate"] | null
+		if (job) await fail(job, row.user_id)
+		else
+			await db
+				.update(documents)
+				.set({ translationStatus: "failed" })
+				.where(and(eq(documents.id, row.id), eq(documents.translationStatus, "pending")))
+		await notifyDocumentEvent({ userId: row.user_id, documentId: row.id, kind: "ready" })
+	}
+	return rows.map((row) => row.id)
+}
+
+/**
  * Translates an article's original (`sourceVersionId`) and shows the translation, as long as the
  * article still waits for it and that original is still its newest. The output must keep the
  * article's markup (the AI module checks each part) and be in the language asked for. A failure
@@ -108,8 +165,9 @@ export async function handleTranslate(job: JobWithMetadata<JobPayloads["translat
 		return
 	}
 	try {
+		const parts = splitParts(source.html)
 		const translation = await ai().translate({
-			parts: splitParts(source.html),
+			parts,
 			title: source.title ?? doc.title ?? "",
 			description: source.title ? source.description : doc.description,
 			from: source.language ?? doc.language,
@@ -119,6 +177,9 @@ export async function handleTranslate(job: JobWithMetadata<JobPayloads["translat
 		if (micros > 0) await addUsage(db, doc.userId, "ai_spend", micros)
 
 		const body = articleBody(translation.parts.join(""))
+		// Sanitized, as the parts sent were: the same elements, with the same links and images.
+		if (!sameMarkup(body.html, parts.join("")))
+			throw new Error("the translation changed the article's markup")
 		if (body.detectedLanguage && body.detectedLanguage !== language)
 			throw new Error(`the translation came back in ${body.detectedLanguage}`)
 

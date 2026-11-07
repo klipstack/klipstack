@@ -372,8 +372,8 @@ export const showOriginal = defineEndpoint({
 	path: "/articles/:id/translation",
 	scope: "write",
 	summary:
-		"Shows the article's original again, with its title and language. The translation is kept: POST shows it again at no cost. `changed`: false when the article was not translated.",
+		"Shows the article's original again, with its title and language. The translation is kept: POST shows it again at no cost. `changed`: false when the article was not translated. Refused while a translation is on its way (`already_pending`).",
 	params,
 	response: json(z.object({ changed: z.boolean() })),
-	errors: ["not_found"],
+	errors: ["not_found", "already_pending"],
 })

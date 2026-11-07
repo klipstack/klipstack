@@ -155,6 +155,8 @@ export async function showOriginal(userId: string, input: unknown): Promise<{ ch
 	const { id } = parseInput(ArticleInput, input)
 	const changed = await db.transaction(async (tx) => {
 		const doc = await lockArticle(tx, userId, id)
+		if (doc.translationStatus === "pending")
+			throw new AppError("already_pending", "The article is being translated.")
 		if (!doc.originalVersionId) return false
 		await showVersion(tx, doc.id, doc.originalVersionId, null)
 		return true

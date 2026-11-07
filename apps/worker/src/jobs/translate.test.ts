@@ -27,7 +27,8 @@ vi.mock("@klipstack/db", async (original) => ({
 }))
 
 const { handleExtract } = await import("./extract")
-const { handleTranslate, splitParts } = await import("./translate")
+const { handleTranslate, sameMarkup, settleStuckTranslations, splitParts } =
+	await import("./translate")
 
 const userId = `translate-${randomUUID()}`
 const { month } = monthOf()
@@ -161,6 +162,32 @@ describe("handleTranslate", () => {
 	})
 })
 
+describe("settleStuckTranslations", () => {
+	/** The job as pg-boss leaves it: `state`, without the handler having run. */
+	async function queued(data: Record<string, unknown>, state: "failed" | "active") {
+		await db.execute(
+			sql`insert into pgboss.job (name, data, state) values ('translate', ${JSON.stringify(data)}::jsonb, ${state})`,
+		)
+	}
+
+	it("fails a translation whose job pg-boss gave up on, and gives its credits back", async () => {
+		const doc = await waiting()
+		const running = await waiting()
+		await queued(doc.job().data, "failed")
+		await queued(running.job().data, "active")
+		const before = await credits()
+		const settled = await settleStuckTranslations([userId])
+		expect(settled).toContain(doc.id)
+		expect(settled).not.toContain(running.id)
+		expect((await read(doc.id))?.translationStatus).toBe("failed")
+		expect(await credits()).toBe(before - 2)
+		// One still running is left to its job.
+		expect((await read(running.id))?.translationStatus).toBe("pending")
+		await db.execute(sql`delete from pgboss.job where data->>'documentId' = ${running.id}`)
+		await settleStuckTranslations([userId])
+	})
+})
+
 describe("extracting a translated article again", () => {
 	it("keeps the translation shown, and makes the new capture its original", async () => {
 		const doc = await waiting()
@@ -196,5 +223,37 @@ describe("splitParts", () => {
 	it("opens up a container too long for one part, and keeps a short one whole", () => {
 		expect(splitParts(`<div>${p(40)}${p(40)}</div>`, 100)).toEqual([`<div>${p(40)}${p(40)}</div>`])
 		expect(splitParts(`<div>${p(80)}${p(80)}</div>`, 100)).toEqual([p(80), p(80)])
+	})
+})
+
+describe("sameMarkup", () => {
+	const original =
+		'<p>See <a id="cite-1">note 1</a>, <abbr id="mw1">XIII<sup>e</sup></abbr> and <img src="https://example.com/cat.png" alt="Un gato">.</p>'
+
+	it("is true for a translation that only translates, and drops plain formatting", () => {
+		expect(
+			sameMarkup(
+				'<p>See <a id="cite-1">note 1</a>, <abbr id="mw1">13th</abbr> and <img src="https://example.com/cat.png" alt="A cat">.</p>',
+				original,
+			),
+		).toBe(true)
+	})
+
+	it("tells a link or image source added after a quoted >, as the browser parses it", () => {
+		expect(
+			sameMarkup(
+				'<p>See <a id="cite-1" title=">" href="https://attacker.example/phish">note 1</a>, <abbr id="mw1">13th</abbr> and <img src="https://example.com/cat.png" alt=">" srcset="https://attacker.example/pixel.png 1x">.</p>',
+				original,
+			),
+		).toBe(false)
+	})
+
+	it("keeps each value in its own attribute: a newline in one can't pass for another element", () => {
+		expect(
+			sameMarkup(
+				'<p lang="en x">Lea más.</p><a href="https://attacker.example/phish">Verifique su cuenta</a>',
+				'<p lang="en x&#10;a href=https://attacker.example/phish">Read more.</p>',
+			),
+		).toBe(false)
 	})
 })

@@ -421,6 +421,7 @@ export default {
 		short_other: "Este artículo necesita {{count}} créditos.",
 		creditsLeft_one: "Te queda {{count}} crédito este mes.",
 		creditsLeft_other: "Te quedan {{count}} créditos este mes.",
+		free: "Ya se tradujo antes: no usa créditos.",
 		tooLong: "Este artículo es demasiado largo para traducirlo.",
 		notNow: "Ahora no",
 		never: "No traducir nunca del {{language}}",
@@ -444,6 +445,7 @@ export default {
 		stale: "El texto original cambió después de esta traducción.",
 		translateAgain: "Volver a traducir",
 		useOriginal: "Usar el idioma original",
+		noCredits: "No te quedan créditos de traducción suficientes este mes para este artículo.",
 		error: "No se pudo traducir este artículo. Vuelve a intentarlo más tarde.",
 	},
 } satisfies typeof import("../en/reader").default

@@ -48,6 +48,20 @@ describe("tagShape", () => {
 		expect(tagShape(part)).not.toEqual(tagShape("<p>A bubble can burst.</p>"))
 	})
 
+	it("reads a > inside a quoted value as part of its tag, so no attribute hides after it", () => {
+		const original = '<p>See <a id="cite-1">note 1</a> and <img src="/cat.png" alt="Un gato">.</p>'
+		expect(
+			tagShape(
+				'<p>See <a id="cite-1" title=">" href="https://attacker.example/">note 1</a> and <img src="/cat.png" alt=">" srcset="https://attacker.example/p.png 1x">.</p>',
+			),
+		).not.toEqual(tagShape(original))
+		expect(
+			tagShape(
+				'<p>See <a id="cite-1" title="a > b">note 1</a> and <img src="/cat.png" alt="A cat">.</p>',
+			),
+		).toEqual(tagShape(original))
+	})
+
 	it("lets plain inline formatting go, as a translation of French ordinals does", () => {
 		const french =
 			'<p>Au <abbr title="13ᵉ siècle" id="mw1"><span>XIII</span><sup id="mw2">e</sup></abbr> siècle, <a href="/k">le kipferl</a>.</p>'

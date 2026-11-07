@@ -422,6 +422,7 @@ export default {
 		short_other: "This article needs {{count}} credits.",
 		creditsLeft_one: "{{count}} credit left this month.",
 		creditsLeft_other: "{{count}} credits left this month.",
+		free: "It was translated before: no credits needed.",
 		tooLong: "This article is too long to translate.",
 		notNow: "Not now",
 		never: "Never translate {{language}}",
@@ -445,6 +446,7 @@ export default {
 		stale: "The original text changed after this translation.",
 		translateAgain: "Translate again",
 		useOriginal: "Use original language",
+		noCredits: "Not enough translation credits left this month for this article.",
 		error: "Couldn't translate this article. Try again later.",
 	},
 }
