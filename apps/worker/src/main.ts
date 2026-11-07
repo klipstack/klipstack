@@ -13,6 +13,7 @@ import { handlePurge } from "./jobs/purge"
 import { handleReportDigest } from "./jobs/report-digest"
 import { handleSweep } from "./jobs/sweep"
 import { handleTopics, handleTopicsMonth } from "./jobs/topics"
+import { handleTranslate } from "./jobs/translate"
 import { handleWelcomeEmail } from "./jobs/welcome-email"
 import { log } from "./log"
 
@@ -68,6 +69,9 @@ async function main() {
 	})
 	await boss.work(QUEUES.topics, WORK_OPTIONS, async ([job]: Batch<"topics">) => {
 		if (job) await handleTopics(job)
+	})
+	await boss.work(QUEUES.translate, WORK_OPTIONS, async ([job]: Batch<"translate">) => {
+		if (job) await handleTranslate(job)
 	})
 	await boss.work(QUEUES.topicsMonth, WORK_OPTIONS, async () => {
 		log.info("topics: the month's runs", await handleTopicsMonth())

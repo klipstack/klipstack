@@ -7,9 +7,9 @@ export type AiAction = (typeof AI_ACTIONS)[number]
 
 /**
  * Quick answers a passage; deep (the whole-article box, later) may think longer; check searches
- * the web.
+ * the web; translate translates articles, where a wrong figure misleads the reader.
  */
-export type AiTier = "quick" | "deep" | "check"
+export type AiTier = "quick" | "deep" | "check" | "translate"
 
 export type AiLanguage = "en" | "es"
 

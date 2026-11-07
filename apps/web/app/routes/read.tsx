@@ -5,6 +5,7 @@ import {
 	ExternalLink,
 	EyeOff,
 	Keyboard,
+	Languages,
 	Link2,
 	Loader2,
 	MessagesSquare,
@@ -39,6 +40,7 @@ import { useOutline } from "~/components/reader-outline"
 import type { SidebarTab } from "~/components/reader-sidebar"
 import { ReaderTopBar } from "~/components/reader-top-bar"
 import { TopicKicker, TopicShelf } from "~/components/reader-topics"
+import { ReaderTranslation, useTranslationAction } from "~/components/reader-translation"
 import { SharedLinkBlocked, SharedVia } from "~/components/shared-via"
 import { ShortcutsDialog } from "~/components/shortcuts-dialog"
 import { TagChips, TagDialog } from "~/components/tag-dialog"
@@ -66,6 +68,7 @@ import { formatDay, timeZoneFromCookie } from "~/lib/date-groups"
 import { hasFeature } from "~/lib/features.server"
 import { supportsHighlightApi } from "~/lib/highlights.client"
 import { getLocale } from "~/lib/i18n.server"
+import { languageName } from "~/lib/languages"
 import { aiAllowance } from "~/lib/limits.server"
 import { extractLinkIds } from "~/lib/note-links"
 import { isUuid } from "~/lib/page-cursor"
@@ -86,6 +89,7 @@ import { getDocumentForReader, joinedArticleId, savedLinksIn } from "~/services/
 import { listDocumentHighlights } from "~/services/highlights.server"
 import { linkTargetStatus, listBacklinks, listContentLinks } from "~/services/links.server"
 import { type ReaderTopics, readerTopics } from "~/services/topics.server"
+import { originalVersion, readerTranslation } from "~/services/translation.server"
 import type { Route } from "./+types/read"
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -101,6 +105,25 @@ export async function loader({ context, request, params }: Route.LoaderArgs) {
 		if (joined) throw redirect(`/read/${joined}`)
 		throw data({ message: "not_found" }, { status: 404 })
 	}
+	// "Show original text": a translated article's original on screen, to read, not to highlight.
+	const viewingOriginal =
+		new URL(request.url).searchParams.get("original") === "1" &&
+		Boolean(result.document.originalVersionId)
+	if (viewingOriginal) {
+		const original = await originalVersion(params.id, result.document.originalVersionId!)
+		if (original) {
+			const { title, language, ...version } = original
+			result.version = version
+			result.document = {
+				...result.document,
+				currentVersionId: original.id,
+				title: result.document.titleEdited
+					? result.document.title
+					: (title ?? result.document.title),
+				language,
+			}
+		}
+	}
 	// A new capture being processed leaves the current version readable.
 	const readable = Boolean(result.version)
 	// The service worker warms articles for offline reading; that is not the user opening them.
@@ -111,13 +134,18 @@ export async function loader({ context, request, params }: Route.LoaderArgs) {
 		// saves use the right cycle, and delayed saves from older tabs can be ignored.
 		Object.assign(result.document, await openArticle(user.id, params.id))
 	}
-	const highlights = readable ? await listDocumentHighlights(user.id, params.id) : []
-	// AI answers: with the feature, a provider set up, and the article's text to ask about.
-	const aiEnabled =
+	const shownId = result.document.currentVersionId
+	const highlights = readable
+		? await listDocumentHighlights(user.id, params.id, shownId ?? undefined)
+		: []
+	// AI answers: with the feature, a provider set up, and the article's text to ask about. Not on
+	// the original of a translated article, shown to read.
+	const aiFeature =
 		readable &&
 		result.document.status === "ready" &&
 		aiModule.available &&
 		(await hasFeature(user.id, "ai"))
+	const aiEnabled = aiFeature && !viewingOriginal
 	const versionId = result.document.currentVersionId
 	const [listed, kept, allowance] = aiEnabled
 		? await Promise.all([
@@ -153,6 +181,12 @@ export async function loader({ context, request, params }: Route.LoaderArgs) {
 	])
 	// Asking more: not turned off in Settings → Features. Off, the answers kept still show.
 	const asking = aiEnabled && resolvePrefs(user.prefs).ai !== "off"
+	// Translating: with AI on, as asking. A translated article keeps its switch to the original.
+	const translating = aiFeature && resolvePrefs(user.prefs).ai !== "off"
+	const translation =
+		(translating || result.document.originalVersionId) && shownId
+			? await readerTranslation(user.id, user.locale ?? "en", result.document, shownId)
+			: null
 	const { publishedAt } = result.document
 	const day = (at: Date) =>
 		formatDay(at, getLocale(context), timeZoneFromCookie(request.headers.get("cookie")))
@@ -183,6 +217,7 @@ export async function loader({ context, request, params }: Route.LoaderArgs) {
 		backlinks,
 		contentLinks,
 		topics,
+		translation: translation ? { ...translation, available: translating, viewingOriginal } : null,
 	}
 }
 
@@ -245,7 +280,7 @@ export default function Read(props: Route.ComponentProps) {
 }
 
 function Reader({ loaderData }: Route.ComponentProps) {
-	const { t } = useTranslation("reader")
+	const { t, i18n } = useTranslation("reader")
 	const { t: tl } = useTranslation("library")
 	const { t: tc } = useTranslation()
 	const { document: doc, html } = loaderData
@@ -402,6 +437,23 @@ function Reader({ loaderData }: Route.ComponentProps) {
 	// The keyboard shortcuts' list: `?` (ReaderArticle) or the top bar's button.
 	const [shortcutsOpen, setShortcutsOpen] = useState(false)
 
+	// Translating it, or putting its original language back: the top bar's menu and the palette.
+	const translationAction = useTranslationAction(doc.id)
+	const tr = loaderData.translation
+	const translate =
+		ready && tr && !tr.viewingOriginal && tr.status !== "pending"
+			? tr.translated
+				? { label: t("translation.useOriginal"), onClick: () => translationAction.run("original") }
+				: tr.available && tr.language && tr.language !== tr.target && !tr.tooLong
+					? {
+							label: t("translation.translate", {
+								language: languageName(tr.target, i18n.language),
+							}),
+							onClick: () => translationAction.run("translate"),
+						}
+					: undefined
+			: undefined
+
 	// ---- command palette: this article's actions ----
 	useCommands(() => ({
 		heading: tc("palette.article"),
@@ -479,6 +531,16 @@ function Reader({ loaderData }: Route.ComponentProps) {
 						},
 					]
 				: []),
+			...(translate
+				? [
+						{
+							id: "article-translate",
+							label: translate.label,
+							icon: Languages,
+							run: translate.onClick,
+						},
+					]
+				: []),
 			{
 				id: "article-original",
 				label: t("original"),
@@ -531,6 +593,7 @@ function Reader({ loaderData }: Route.ComponentProps) {
 				onChat={chatting ? () => showSidebarTab("chat") : undefined}
 				onTags={() => setTagging(true)}
 				onShortcuts={ready ? () => setShortcutsOpen(true) : undefined}
+				translate={translate}
 				outline={
 					outline.available
 						? {
@@ -545,6 +608,7 @@ function Reader({ loaderData }: Route.ComponentProps) {
 					data={loaderData}
 					prefs={prefs}
 					updating={updating}
+					readOnly={Boolean(tr?.viewingOriginal)}
 					headerRef={headerRef}
 					sidebarOpen={sidebarOpen}
 					setSidebarOpen={setSidebarOpen}
@@ -586,6 +650,13 @@ function Reader({ loaderData }: Route.ComponentProps) {
 								</button>
 							</div>
 							<SharedVia documentId={doc.id} posts={loaderData.via} />
+							{tr ? (
+								<ReaderTranslation
+									documentId={doc.id}
+									translation={tr}
+									neverTranslate={prefs.neverTranslate}
+								/>
+							) : null}
 							{doc.type === "post" && doc.sharedUrl ? (
 								<SharedLinkBlocked url={doc.sharedUrl} />
 							) : null}

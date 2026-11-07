@@ -9,7 +9,12 @@ import {
 	user as userTable,
 } from "@klipstack/db"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
-import { createHighlight, listDocumentHighlights, listUserHighlights } from "./highlights.server"
+import {
+	createHighlight,
+	highlightsElsewhere,
+	listDocumentHighlights,
+	listUserHighlights,
+} from "./highlights.server"
 
 const userId = `test-hl-${Date.now()}`
 let documentId: string
@@ -114,6 +119,71 @@ describe("highlights: anchoring across versions", () => {
 				input: { exact: "dup", prefix: "dup ", suffix: " dup" },
 			}),
 		).toMatchObject({ ok: true })
+	})
+})
+
+describe("highlights: a translated article", () => {
+	it("keeps the original's highlights on the original, not orphaned, and each version's apart", async () => {
+		const [d] = await db
+			.insert(documents)
+			.values({
+				userId,
+				sourceUrl: "https://example.com/zh",
+				urlHash: `${userId}-zh`,
+				status: "ready",
+			})
+			.returning({ id: documents.id })
+		const id = d!.id
+		const version = async (n: number, text: string, translatedFromId?: string) => {
+			const [v] = await db
+				.insert(documentVersions)
+				.values({
+					documentId: id,
+					version: n,
+					html: `<p>${text}</p>`,
+					text,
+					textHash: createHash("sha256").update(text).digest("hex"),
+					extractor: "test",
+					extractorVersion: "0",
+					translatedFromId,
+					language: translatedFromId ? "en" : "zh",
+				})
+				.returning({ id: documentVersions.id })
+			await db.update(documents).set({ currentVersionId: v!.id }).where(eq(documents.id, id))
+			return v!.id
+		}
+		const original = await version(1, "泡沫可以破裂，但真实的需求不会消失。")
+		const onOriginal = await createHighlight({
+			userId,
+			documentId: id,
+			input: { exact: "真实的需求" },
+		})
+		expect(onOriginal.ok).toBe(true)
+		const translation = await version(
+			2,
+			"A bubble can burst, but real demand won't vanish.",
+			original,
+		)
+		const onTranslation = await createHighlight({
+			userId,
+			documentId: id,
+			input: { exact: "real demand" },
+		})
+		expect(onTranslation.ok).toBe(true)
+
+		const shown = await listDocumentHighlights(userId, id)
+		expect(shown.map((h) => h.exact)).toEqual(["real demand"])
+		expect(await highlightsElsewhere(userId, id, translation)).toBe(1)
+		const onTheOriginal = await listDocumentHighlights(userId, id, original)
+		expect(onTheOriginal).toEqual([
+			expect.objectContaining({ exact: "真实的需求", versionId: original, orphaned: false }),
+		])
+		// Listing the translation left the original's highlight as it was.
+		const [stored] = await db
+			.select({ orphaned: highlights.orphaned })
+			.from(highlights)
+			.where(eq(highlights.versionId, original))
+		expect(stored?.orphaned).toBe(false)
 	})
 })
 

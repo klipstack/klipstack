@@ -85,6 +85,7 @@ describe("the reader's AI in the API", () => {
 		)
 		expect([error.status, error.code]).toEqual([403, "forbidden"])
 		expect((await errorOf(off.app.ai.article(theirs))).code).toBe("forbidden")
+		expect((await off.app.usage()).translations).toBeNull()
 		const { enabled, allowance } = await me.app.ai.status()
 		expect(enabled).toBe(true)
 		expect(allowance).toMatchObject({ max: env.LIMIT_AI_PER_MONTH })
@@ -107,6 +108,7 @@ describe("the reader's AI in the API", () => {
 			["POST", `/ai/threads/${threadId}/retry`, json({})],
 			["DELETE", `/ai/threads/${threadId}`],
 			["POST", `/ai/threads/${threadId}/restore`],
+			["POST", `/articles/${articleId}/translation`],
 		]
 		const refused = {
 			"the CLI": await oauthToken(me.id, CLI_CLIENT_ID),
@@ -416,5 +418,33 @@ describe("the reader's AI in the API", () => {
 			expect(line.startsWith("data: ")).toBe(true)
 			expect(AiAnswerEvent.safeParse(JSON.parse(line.slice(6))).success).toBe(true)
 		}
+	})
+
+	it("translates for the iPhone app, for its credits, and puts the original back for anyone", async () => {
+		const reader = await appUser("Translator")
+		await db.insert(userFeatures).values({ userId: reader.id, feature: "ai" })
+		const id = await captured(reader.id, FIXTURES.makers)
+		// In English, as the account reads: nothing to translate.
+		const same = await errorOf(reader.app.ai.translate(id))
+		expect([same.status, same.code]).toEqual([400, "invalid_request"])
+		// As detection marks a French article.
+		await db.update(documents).set({ language: "fr" }).where(eq(documents.id, id))
+		// About 1,600 words: two started thousands.
+		expect(await reader.app.ai.translate(id)).toEqual({ status: "pending", credits: 2 })
+		const again = await errorOf(reader.app.ai.translate(id))
+		expect([again.status, again.code]).toEqual([409, "already_pending"])
+		expect((await reader.app.usage()).translations).toMatchObject({
+			used: 2,
+			max: env.LIMIT_TRANSLATIONS_PER_MONTH,
+		})
+		// The CLI may put the original back, but not while a translation is on its way.
+		const cli = sdk(await oauthToken(reader.id, CLI_CLIENT_ID))
+		const waiting = await errorOf(cli.ai.showOriginal(id))
+		expect([waiting.status, waiting.code]).toEqual([409, "already_pending"])
+		// Nothing translated yet: nothing to put back.
+		const other = await captured(reader.id, FIXTURES.joel)
+		expect(await cli.ai.showOriginal(other)).toEqual({ changed: false })
+		const theirs = await errorOf(me.app.ai.translate(id))
+		expect([theirs.status, theirs.code]).toEqual([404, "not_found"])
 	})
 })

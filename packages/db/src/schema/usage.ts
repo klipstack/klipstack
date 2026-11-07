@@ -20,7 +20,8 @@ export const topicUseMetrics = [
 export type TopicUseMetric = (typeof topicUseMetrics)[number]
 
 /**
- * What a monthly cap counts (`shares`: new public addresses for highlights; `topics`: Haiku's work on an account's topics, proposing, growing
+ * What a monthly cap counts (`shares`: new public addresses for highlights; `translations`:
+ * translation credits, one per started thousand words of the original; `topics`: Haiku's work on an account's topics, proposing, growing
  * and reviewing them; `topic_sorts`: articles Jev sorted into them, first sorts and re-sorts
  * alike), and for admins: `refused`, how often a cap, any of them, refused the account (who keeps
  * hitting caps); `ai_spend`, what its AI answers cost, and `topic_spend`, what its topics cost
@@ -33,6 +34,7 @@ export const usageMetrics = [
 	"shares",
 	"ai",
 	"fact_checks",
+	"translations",
 	"refused",
 	"ai_spend",
 	"topics",

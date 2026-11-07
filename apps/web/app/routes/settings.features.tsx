@@ -1,10 +1,13 @@
+import { X } from "lucide-react"
 import { useId, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link, useFetcher } from "react-router"
 import { SettingsCard, SettingsPage } from "~/components/settings-page"
+import { tooltip } from "~/components/tooltip-host"
 import { Button } from "~/components/ui/button"
 import { ai as aiModule, topicModels } from "~/lib/ai.server"
 import { hasFeature } from "~/lib/features.server"
+import { languageName } from "~/lib/languages"
 import type { PageBarHandle } from "~/lib/page-bar"
 import { pageTitle } from "~/lib/page-title"
 import { resolvePrefs } from "~/lib/prefs"
@@ -37,6 +40,7 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 		feeds: prefs.feeds === "on",
 		ai: aiFlag && aiModule.available ? prefs.ai !== "off" : null,
 		topics: topicsUsable || topicsOn ? { on: topicsOn, usable: topicsUsable } : null,
+		neverTranslate: prefs.neverTranslate,
 	}
 }
 
@@ -52,6 +56,9 @@ export default function FeaturesSettings({ loaderData }: Route.ComponentProps) {
 					label={t("features.ai.label")}
 					description={t("features.ai.description")}
 				/>
+			) : null}
+			{loaderData.ai !== null || loaderData.neverTranslate.length > 0 ? (
+				<NeverTranslate languages={loaderData.neverTranslate} />
 			) : null}
 			<PrefSwitch
 				name="editions"
@@ -110,6 +117,53 @@ function PrefSwitch({
 			<p id={helpId} className="mt-2 text-sm text-muted-fg">
 				{description}
 			</p>
+		</SettingsCard>
+	)
+}
+
+/** The languages the account reads: articles in them are not offered a translation. */
+function NeverTranslate({ languages }: { languages: readonly string[] }) {
+	const { t, i18n } = useTranslation("settings")
+	const fetcher = useFetcher()
+	// Gone as soon as it is removed, while the server forgets it.
+	const removing = fetcher.formData?.get("language")
+	const shown = languages.filter((code) => code !== removing)
+	return (
+		<SettingsCard
+			title={t("features.translation.title")}
+			description={t("features.translation.description")}
+		>
+			{shown.length === 0 ? (
+				<p className="mt-3 text-sm text-muted-fg">{t("features.translation.empty")}</p>
+			) : (
+				<ul data-testid="never-translate" className="mt-3 flex flex-wrap gap-2">
+					{shown.map((code) => {
+						const name = languageName(code, i18n.language)
+						return (
+							<li
+								key={code}
+								className="inline-flex items-center gap-1 rounded-full border border-border py-0.5 pr-1 pl-3 text-sm"
+							>
+								{name}
+								<button
+									type="button"
+									aria-label={t("features.translation.remove", { language: name })}
+									{...tooltip(t("features.translation.remove", { language: name }))}
+									onClick={() =>
+										void fetcher.submit(
+											{ language: code, never: "false" },
+											{ method: "post", action: "/translation/never" },
+										)
+									}
+									className="rounded-full p-1 text-muted-fg hover:bg-fg/10 hover:text-fg"
+								>
+									<X className="size-3.5" aria-hidden />
+								</button>
+							</li>
+						)
+					})}
+				</ul>
+			)}
 		</SettingsCard>
 	)
 }

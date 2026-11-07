@@ -33,6 +33,21 @@ article for a few minutes). Three limits keep a mistake or abuse from running up
 - **A spend limit at Anthropic**, set by you in the console (below). This is the one that holds
   even if Klipstack has a bug. Set it.
 
+## Translating articles
+
+With the same key and the same `ai` flag, the reader offers to translate an article written in
+another language than the one the account uses Klipstack in (English or Spanish). The worker
+sends the article's text to Claude Sonnet 5.5, which costs more than the answers above (Haiku
+misread figures in tests): about 2 to 3 cents per thousand words. The translation is kept, so
+reopening the article costs nothing.
+
+- `LIMIT_TRANSLATIONS_PER_MONTH` (default 30): translation credits per account per month. An
+  article costs one credit per started thousand words, so a short post costs 1 and a
+  3,500-word essay 4. `LIMIT_TRANSLATIONS_PER_MONTH_ADMIN` (default 300) is the same for admins.
+- Articles over 20,000 words are not translated.
+- A translation that fails gives its credits back. What it cost is in `/admin/usage` with the
+  other AI spend.
+
 ## Watch what it costs
 
 `/admin/usage`, ranked by "AI questions this month", shows each account's questions against its cap
@@ -57,12 +72,12 @@ number to trust.
    ANTHROPIC_API_KEY=sk-ant-...
    ```
 
-5. Recreate the web container so it reads the new value. `docker compose restart` keeps the old
-   environment; `up` recreates a container whose settings changed. For answers in the reader,
-   the worker does not use the key; automatic topics (below) do.
+5. Recreate the web and worker containers so they read the new value. `docker compose restart`
+   keeps the old environment; `up` recreates a container whose settings changed. The web server
+   answers questions; the worker translates articles and, with TypeSafe's key, sorts topics.
 
    ```sh
-   docker compose up -d web
+   docker compose up -d web worker
    ```
 
 6. Turn the `ai` flag on for your own account in `/admin`, open an article, select a passage and

@@ -113,6 +113,7 @@ export function ReaderArticle({
 	data,
 	prefs,
 	updating,
+	readOnly = false,
 	headerRef,
 	sidebarOpen,
 	setSidebarOpen,
@@ -128,6 +129,8 @@ export function ReaderArticle({
 	prefs: ReturnType<typeof resolvePrefs>
 	/** A new capture is being processed: no new highlights or resizes until it lands. */
 	updating: boolean
+	/** A translated article's original text, on screen to read: no new highlights or resizes. */
+	readOnly?: boolean
 	headerRef: React.RefObject<HTMLElement | null>
 	sidebarOpen: boolean
 	setSidebarOpen: React.Dispatch<React.SetStateAction<boolean>>
@@ -865,7 +868,7 @@ export function ReaderArticle({
 							articleRef={articleRef}
 							rootRef={contentRef}
 							headerRef={headerRef}
-							disabled={updating || highlights.pending}
+							disabled={updating || readOnly || highlights.pending}
 							onFocus={focusResize}
 							focusId={resizeFocus}
 							onFocused={() => setResizeFocus(null)}
@@ -917,8 +920,10 @@ export function ReaderArticle({
 						rect={selection.rect}
 						scrollY={selection.scrollY}
 						disabled={updating || highlights.pending}
-						onHighlight={() => highlightSelection(selection.selection)}
-						onHighlightWithNote={() => highlightSelection(selection.selection, { note: true })}
+						onHighlight={readOnly ? undefined : () => highlightSelection(selection.selection)}
+						onHighlightWithNote={
+							readOnly ? undefined : () => highlightSelection(selection.selection, { note: true })
+						}
 						canHighlight={isHighlightable(selection.selection.selector.exact)}
 						onAsk={asking ? () => askAboutSelection(selection.selection, "ask") : undefined}
 						onCopy={() => copySelection(selection.selection)}

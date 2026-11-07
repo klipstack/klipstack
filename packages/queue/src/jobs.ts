@@ -17,6 +17,7 @@ export const QUEUES = {
 	topics: "topics",
 	topicsMonth: "topics-month",
 	welcomeEmail: "welcome-email",
+	translate: "translate",
 } as const
 
 export type QueueName = (typeof QUEUES)[keyof typeof QUEUES]
@@ -46,6 +47,18 @@ export interface JobPayloads {
 	"topics-month": Record<string, never>
 	/** Scheduled every minute: the welcome email, to new accounts whose address is now verified. */
 	"welcome-email": Record<string, never>
+	/**
+	 * Translates the article's version `sourceVersionId` into `language`. The `credits` were taken
+	 * from the account's month `month` when it was asked for; a translation that fails for good
+	 * gives them back.
+	 */
+	translate: {
+		documentId: string
+		sourceVersionId: string
+		language: "en" | "es"
+		credits: number
+		month: string
+	}
 }
 
 export const QUEUE_OPTIONS: Record<
@@ -85,4 +98,7 @@ export const QUEUE_OPTIONS: Record<
 	"topics-month": { retryLimit: 2, retryDelay: 300, retryBackoff: false, expireInSeconds: 600 },
 	// No retries: the next minute's run sends what is still due.
 	"welcome-email": { retryLimit: 0, retryDelay: 60, retryBackoff: false, expireInSeconds: 120 },
+	// 20 parts of an article, four at a time, each up to a few minutes when the provider is slow.
+	// A retry translates it all again: the reader waits, and pays nothing more.
+	translate: { retryLimit: 2, retryDelay: 30, retryBackoff: true, expireInSeconds: 1800 },
 }

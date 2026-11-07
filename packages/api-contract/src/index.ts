@@ -17,6 +17,7 @@ export * from "./enums"
 export * from "./errors"
 export * from "./names"
 export * from "./schemas"
+export * from "./translation"
 
 import { deleteAccount, getMe, getUsage } from "./endpoints/account"
 import {
@@ -30,6 +31,8 @@ import {
 	setAiConsent,
 	restoreAiThread,
 	retryAi,
+	translateArticle,
+	showOriginal,
 } from "./endpoints/ai"
 import {
 	articleHtml,
@@ -222,6 +225,8 @@ export const endpoints = {
 	"ai.delete": deleteAiThread,
 	"ai.restore": restoreAiThread,
 	"ai.brief": briefAi,
+	"ai.translate": translateArticle,
+	"ai.showOriginal": showOriginal,
 	"usage.get": getUsage,
 	"account.delete": deleteAccount,
 	"openapi.get": getOpenApi,

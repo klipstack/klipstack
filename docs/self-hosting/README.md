@@ -147,7 +147,7 @@ work. Keep the bucket private: the app serves images itself, after checking who 
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | unset | Google sign-in. See [sign-in-providers.md](sign-in-providers.md). |
 | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | unset | GitHub sign-in. |
 | `APPLE_SERVICES_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY` | unset | With `APPLE_TEAM_ID`, Sign in with Apple. All four or none. See [sign-in-providers.md](sign-in-providers.md#sign-in-with-apple). |
-| `ANTHROPIC_API_KEY` | unset | AI answers in the reader. See [ai.md](ai.md). |
+| `ANTHROPIC_API_KEY` | unset | AI answers in the reader, and translating articles. See [ai.md](ai.md). |
 | `TYPESAFE_API_KEY` | unset | With `ANTHROPIC_API_KEY`, automatic topics. See [ai.md](ai.md#automatic-topics). |
 | `LIMIT_TOPICS_PER_MONTH` | `100` | Haiku's work on one account's topics per month. |
 | `LIMIT_TOPIC_SORTS_PER_MONTH` | `1000` | Articles sorted into one account's topics per month, first sorts and re-sorts alike; the library's first sort, re-sorts, growing and reviewing stop at three quarters, keeping the rest for new saves. |
@@ -159,6 +159,8 @@ work. Keep the bucket private: the app serves images itself, after checking who 
 | `LIMIT_AI_PER_MONTH` | `100` | AI questions per account per month. |
 | `LIMIT_AI_PER_MONTH_ADMIN` | `500` | AI questions per admin account per month. |
 | `LIMIT_FACT_CHECKS_PER_MONTH` | `30` | Fact checks (which search the web) per account per month; `LIMIT_FACT_CHECKS_PER_MONTH_ADMIN` (`100`) for admins. |
+| `LIMIT_TRANSLATIONS_PER_MONTH` | `30` | Translation credits per account per month: one per started thousand words of an article translated. See [ai.md](ai.md#translating-articles). |
+| `LIMIT_TRANSLATIONS_PER_MONTH_ADMIN` | `300` | The same for admin accounts. |
 | `BILLING_STARTS_AT` | unset | Leave it unset. It is for a server that charges for accounts: from that day, new accounts get a 30-day trial and the rest a free year, each with caps of their own (`LIMIT_TRIAL_*`, `LIMIT_PAID_*` in `.env.example`), and an account past both can read and export but add nothing. Unset, every account has the caps above and none lapses. |
 | `APPLE_TEAM_ID`, `APPLE_BUNDLE_ID` | unset | Your Apple team ID (10 characters), for Sign in with Apple or your own build of the iPhone app, and that build's bundle ID. With both set, `/.well-known/apple-app-site-association` lets that app open its sign-in callback (`/app/oauth/callback`) as a universal link; unset, it answers 404. Klipstack's own app works only with klipstack.com. |
 | `PG_POOL_MAX` | `10` | Database connections per process (web and worker each have a pool). |

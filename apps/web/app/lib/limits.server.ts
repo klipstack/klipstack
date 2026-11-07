@@ -44,6 +44,8 @@ export interface Limits {
 	ai: number
 	/** Fact checks (each searches the web, and costs far more than a question), a calendar month. */
 	factChecks: number
+	/** Translation credits, a calendar month (UTC): one per started thousand words translated. */
+	translations: number
 }
 
 export type LimitName = keyof Limits
@@ -88,6 +90,7 @@ export function limitsForRole(role: UserRole, state: PlanState = "unbilled"): Li
 				...limits,
 				ai: env.LIMIT_AI_PER_MONTH_ADMIN,
 				factChecks: env.LIMIT_FACT_CHECKS_PER_MONTH_ADMIN,
+				translations: env.LIMIT_TRANSLATIONS_PER_MONTH_ADMIN,
 			}
 		: limits
 }
@@ -102,6 +105,7 @@ export function defaultLimits(): Limits {
 		shares: env.LIMIT_SHARES_PER_MONTH,
 		ai: env.LIMIT_AI_PER_MONTH,
 		factChecks: env.LIMIT_FACT_CHECKS_PER_MONTH,
+		translations: env.LIMIT_TRANSLATIONS_PER_MONTH,
 	}
 }
 
@@ -115,6 +119,7 @@ function trialLimits(): Limits {
 		shares: env.LIMIT_TRIAL_SHARES_PER_MONTH,
 		ai: env.LIMIT_TRIAL_AI_PER_MONTH,
 		factChecks: env.LIMIT_TRIAL_FACT_CHECKS_PER_MONTH,
+		translations: env.LIMIT_TRIAL_TRANSLATIONS_PER_MONTH,
 	}
 }
 
@@ -128,6 +133,7 @@ function paidLimits(): Limits {
 		shares: env.LIMIT_PAID_SHARES_PER_MONTH,
 		ai: env.LIMIT_PAID_AI_PER_MONTH,
 		factChecks: env.LIMIT_PAID_FACT_CHECKS_PER_MONTH,
+		translations: env.LIMIT_PAID_TRANSLATIONS_PER_MONTH,
 	}
 }
 
@@ -176,6 +182,8 @@ const MESSAGES: Record<LimitName, (max: number, resetsAt?: Date) => string> = {
 		`This account asked the AI ${max} times this month, the most it can. Asking works again on ${day(resetsAt!)}.`,
 	factChecks: (max, resetsAt) =>
 		`This account fact-checked ${max} passages this month, the most it can. Fact checks work again on ${day(resetsAt!)}.`,
+	translations: (max, resetsAt) =>
+		`This account has too few of its ${max} translation credits left this month for this article. Translating works again on ${day(resetsAt!)}.`,
 }
 
 /** The refusal at a cap. The monthly ones say when the count starts over. */
@@ -224,21 +232,23 @@ async function refuse(userId: string, limit: LimitName, max: number, resetsAt?: 
 }
 
 /**
- * Counts one more of `limit` this month in the caller's transaction, and refuses past the cap; the
- * refusal rolls the count back with the rest. The row lock makes two at once take turns, so they
- * cannot both take the last one. Answers the count with this one, the cap, and when it starts over.
+ * Counts `by` more of `limit` (one) this month in the caller's transaction, and refuses past the
+ * cap; the refusal rolls the count back with the rest. The row lock makes two at once take turns,
+ * so they cannot both take the last one. Answers the count with this one, the cap, the month
+ * counted in, and when it starts over.
  */
 export async function countMonthly(
 	tx: Tx,
 	userId: string,
-	limit: "saves" | "editions" | "shares" | "ai" | "factChecks",
-): Promise<{ used: number; max: number; resetsAt: Date }> {
+	limit: "saves" | "editions" | "shares" | "ai" | "factChecks" | "translations",
+	by = 1,
+): Promise<{ used: number; max: number; month: string; resetsAt: Date }> {
 	const max = (await limitsToAdd(userId))[limit]
 	// One month for the count and the date it starts over, even at midnight on the 1st.
 	const { month, resetsAt } = monthOf()
-	const used = await bump(tx, userId, limit === "factChecks" ? "fact_checks" : limit, month)
+	const used = await bump(tx, userId, limit === "factChecks" ? "fact_checks" : limit, month, by)
 	if (used > max) throw await refuse(userId, limit, max, resetsAt)
-	return { used, max, resetsAt }
+	return { used, max, month, resetsAt }
 }
 
 /** The account's AI questions this month against its cap, for the reader. */
@@ -324,6 +334,7 @@ export interface Usage {
 	shares: { used: number; max: number }
 	ai: { used: number; max: number }
 	factChecks: { used: number; max: number }
+	translations: { used: number; max: number }
 	/** Articles sorted into topics this month (`LIMIT_TOPIC_SORTS_PER_MONTH`). */
 	topicSorts: { used: number; max: number }
 	/** Refusals by any cap this month: admins see it, the account does not. */
@@ -353,6 +364,7 @@ export async function usageOf(userId: string): Promise<Usage> {
 		shares: { used: counted("shares"), max: limits.shares },
 		ai: { used: counted("ai"), max: limits.ai },
 		factChecks: { used: counted("fact_checks"), max: limits.factChecks },
+		translations: { used: counted("translations"), max: limits.translations },
 		topicSorts: { used: counted("topic_sorts"), max: topicLimits().sorts },
 		refused: counted("refused"),
 		resetsAt,

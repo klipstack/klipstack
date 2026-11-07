@@ -34,6 +34,8 @@ export const Usage = z
 		ai: Against.nullable(),
 		/** Fact checks this month (each searches the web); null when `ai` is. Older servers leave it out. */
 		factChecks: Against.nullable().optional(),
+		/** Translation credits used this month (one per started 1,000 words); null when `ai` is. Older servers leave it out. */
+		translations: Against.nullable().optional(),
 		/** Articles sorted into topics this month; null while the reader has no topics. */
 		topicSorts: Against.nullable(),
 		/** When the monthly counts start over: the 1st of next month, UTC. */

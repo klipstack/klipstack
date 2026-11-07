@@ -1,5 +1,6 @@
 import { relations, sql } from "drizzle-orm"
 import {
+	type AnyPgColumn,
 	boolean,
 	check,
 	date,
@@ -30,6 +31,7 @@ const timestamps = {
 }
 
 export const documentStatus = ["queued", "processing", "ready", "failed"] as const
+export const translationStatus = ["pending", "failed"] as const
 /** What was saved: a long-form article, or a short-form post (on X). Extraction decides. */
 export const documentType = ["article", "post"] as const
 export type DocumentStatus = (typeof documentStatus)[number]
@@ -69,6 +71,14 @@ export const documents = pgTable(
 		failureReason: text("failure_reason"),
 		captureSource: text("capture_source", { enum: captureSource }).notNull().default("web"),
 		currentVersionId: uuid("current_version_id"),
+		/**
+		 * While a translation is the current version: the newest original version, what "Show
+		 * original" shows and "Use original" puts back. Null while the original is shown. Extraction
+		 * of a translated article moves it to the new original and leaves the translation current.
+		 */
+		originalVersionId: uuid("original_version_id"),
+		/** A translation asked for and not done (`pending`), or one that failed (`failed`). */
+		translationStatus: text("translation_status", { enum: translationStatus }),
 		/** In the archive since; null while in the inbox. */
 		archivedAt: timestamp("archived_at", { withTimezone: true }),
 		starredAt: timestamp("starred_at", { withTimezone: true }),
@@ -209,10 +219,31 @@ export const documentVersions = pgTable(
 		extractor: text("extractor").notNull(),
 		extractorVersion: text("extractor_version").notNull(),
 		imagesDone: boolean("images_done").notNull().default(false),
+		/**
+		 * The version this one translates, null for what extraction made. A translation's
+		 * `extractor` is `translation` and its `extractorVersion` the model.
+		 */
+		translatedFromId: uuid("translated_from_id").references(
+			(): AnyPgColumn => documentVersions.id,
+			{ onDelete: "cascade" },
+		),
+		/**
+		 * The language of the version's text, and the title, description and length that go with
+		 * it: what the article shows while this version is current. Null on versions extracted before they
+		 * were kept.
+		 */
+		language: text("language"),
+		title: text("title"),
+		description: text("description"),
+		wordCount: integer("word_count"),
 		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 	},
 	(t) => [
 		uniqueIndex("document_versions_document_version_unique").on(t.documentId, t.version),
+		// A translation already made from a version into a language is used again.
+		index("document_versions_translated_from_idx")
+			.on(t.translatedFromId, t.language)
+			.where(sql`${t.translatedFromId} is not null`),
 		// Deleting a raw capture (with its document) finds the versions made from it.
 		index("document_versions_raw_idx").on(t.rawId),
 	],

@@ -22,6 +22,9 @@ export const TIERS: Record<
 	// Sonnet: in the spike, Haiku's checks varied more and cited blogs over primary sources. A
 	// third search changed no verdict (`docs/development/fact-check-experiments.md`).
 	check: { provider: "anthropic", model: "claude-sonnet-5-5", maxOutputTokens: 4096, searches: 2 },
+	// Haiku misread amounts in tests (几百亿, "tens of billions", as "several billion"); Sonnet
+	// didn't. A part of an article is about 1,500 words, and a translation can run longer.
+	translate: { provider: "anthropic", model: "claude-sonnet-5-5", maxOutputTokens: 16_000 },
 }
 
 export interface AiConfig {

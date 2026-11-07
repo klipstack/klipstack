@@ -112,4 +112,6 @@ export const handlers: HandlerTable<Endpoints> = {
 	"ai.delete": ai.remove,
 	"ai.restore": ai.restore,
 	"ai.brief": ai.brief,
+	"ai.translate": ai.translate,
+	"ai.showOriginal": ai.original,
 }

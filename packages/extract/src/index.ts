@@ -31,12 +31,15 @@ export {
 	isPrivateAddress,
 	parseRetryAfter,
 } from "./fetch"
+export { detectLanguage } from "./language"
 export { htmlToMarkdown } from "./markdown"
 export { cleanTitle, extractMetadata, type PageMetadata, parseDate } from "./metadata"
 export { buildOpml, type OpmlFeed, parseOpml } from "./opml"
 export { articleOutlinks, OUTLINKS_MAX, outlinkHashes } from "./outlinks"
 export {
+	type ArticleBody,
 	type ArticleFields,
+	articleBody,
 	type ExtractedArticle,
 	type ExtractInput,
 	extractArticle,

@@ -67,11 +67,13 @@ describe("limitsFor", () => {
 			expect((await limitsFor(adminId)).ai).toBe(env.LIMIT_AI_PER_MONTH_ADMIN)
 			expect((await limitsFor(userId)).factChecks).toBe(env.LIMIT_FACT_CHECKS_PER_MONTH)
 			expect((await limitsFor(adminId)).factChecks).toBe(env.LIMIT_FACT_CHECKS_PER_MONTH_ADMIN)
+			expect((await limitsFor(userId)).translations).toBe(env.LIMIT_TRANSLATIONS_PER_MONTH)
+			expect((await limitsFor(adminId)).translations).toBe(env.LIMIT_TRANSLATIONS_PER_MONTH_ADMIN)
 			// Only the AI caps differ.
-			expect({ ...(await limitsFor(adminId)), ai: 0, factChecks: 0 }).toEqual({
+			const aiCaps = { ai: 0, factChecks: 0, translations: 0 }
+			expect({ ...(await limitsFor(adminId)), ...aiCaps }).toEqual({
 				...(await limitsFor(userId)),
-				ai: 0,
-				factChecks: 0,
+				...aiCaps,
 			})
 		} finally {
 			await db.delete(userTable).where(eq(userTable.id, adminId))
@@ -90,6 +92,7 @@ describe("aiAllowance", () => {
 		expect(await db.transaction((tx) => countMonthly(tx, userId, "ai"))).toEqual({
 			used: before.used + 1,
 			max: env.LIMIT_AI_PER_MONTH,
+			month: monthOf().month,
 			resetsAt: monthOf().resetsAt,
 		})
 		expect((await aiAllowance(userId)).used).toBe(before.used + 1)
@@ -143,6 +146,7 @@ describe("plans", () => {
 			shares: 500,
 			ai: 300,
 			factChecks: 30,
+			translations: 100,
 		})
 		// The year is over: lapsed since it ended.
 		startsAt(400)
@@ -166,6 +170,7 @@ describe("plans", () => {
 			shares: 50,
 			ai: 50,
 			factChecks: 10,
+			translations: 30,
 		})
 		const lapsed = await planOf(ended)
 		expect(lapsed.state).toBe("lapsed")

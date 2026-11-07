@@ -220,16 +220,40 @@ export function clampColor(color: number | undefined): number {
 }
 
 /**
- * Highlights for a document, re-anchored to the current version when the document was
- * re-extracted since they were made. Unresolvable ones are flagged orphaned but still returned.
+ * Which versions of an article a highlight can move between: the originals, and each language's
+ * translations. A highlight made on a translation never moves onto the original (its words are
+ * not there), nor the other way: it stays where it was made, to see when that version shows.
+ */
+async function trackOf(documentId: string): Promise<(versionId: string) => string> {
+	const versions = await db
+		.select({
+			id: documentVersions.id,
+			translatedFromId: documentVersions.translatedFromId,
+			language: documentVersions.language,
+		})
+		.from(documentVersions)
+		.where(eq(documentVersions.documentId, documentId))
+	const tracks = new Map(
+		versions.map((v) => [v.id, v.translatedFromId ? `translation:${v.language}` : "original"]),
+	)
+	return (versionId) => tracks.get(versionId) ?? "original"
+}
+
+/**
+ * Highlights for a document, re-anchored to the version shown (the current one, unless `shown`
+ * names another, as "Show original text" does) when the document was re-extracted since they
+ * were made. Unresolvable ones are flagged orphaned but still returned. Only the highlights of
+ * the shown version's track (`trackOf`): a translated article's highlights on its original are
+ * left out, and left as they are.
  */
 export async function listDocumentHighlights(
 	userId: string,
 	documentId: string,
+	shown?: string,
 ): Promise<Highlight[]> {
 	const doc = await getDocument(userId, documentId)
 	if (!doc) return []
-	const rows = await db.query.highlights.findMany({
+	const all = await db.query.highlights.findMany({
 		columns: { search: false },
 		where: and(
 			eq(highlights.documentId, documentId),
@@ -238,10 +262,14 @@ export async function listDocumentHighlights(
 		),
 		orderBy: [asc(highlights.startOffset), asc(highlights.createdAt)],
 	})
-	const stale = rows.filter((h) => h.versionId !== doc.currentVersionId)
-	if (stale.length === 0 || !doc.currentVersionId) return rows
+	const shownId = shown ?? doc.currentVersionId
+	if (!shownId) return all
+	const track = await trackOf(documentId)
+	const rows = all.filter((h) => track(h.versionId) === track(shownId))
+	const stale = rows.filter((h) => h.versionId !== shownId)
+	if (stale.length === 0) return rows
 
-	const version = await currentText(documentId, doc.currentVersionId)
+	const version = await currentText(documentId, shownId)
 	if (!version) return rows
 	const updated = new Map<string, Highlight>()
 	for (const h of stale) {
@@ -297,6 +325,29 @@ export async function listDocumentHighlights(
 		}
 	}
 	return rows.map((h) => updated.get(h.id) ?? h).sort((a, b) => a.startOffset - b.startOffset)
+}
+
+/**
+ * How many of the article's highlights are on other versions than the one shown: a translated
+ * article's highlights on its original, or the other way. The reader says so beside the switch.
+ */
+export async function highlightsElsewhere(
+	userId: string,
+	documentId: string,
+	shown: string,
+): Promise<number> {
+	const rows = await db
+		.select({ versionId: highlights.versionId })
+		.from(highlights)
+		.where(
+			and(
+				eq(highlights.documentId, documentId),
+				eq(highlights.userId, userId),
+				isNull(highlights.deletedAt),
+			),
+		)
+	const track = await trackOf(documentId)
+	return rows.filter((h) => track(h.versionId) !== track(shown)).length
 }
 
 export async function updateHighlight(

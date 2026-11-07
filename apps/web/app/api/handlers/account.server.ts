@@ -52,6 +52,7 @@ export const usage: Handler<typeof getUsage> = async ({ userId }) => {
 		editions: counts.editions,
 		ai: ai.available && aiOn ? counts.ai : null,
 		factChecks: ai.available && aiOn ? counts.factChecks : null,
+		translations: ai.available && aiOn ? counts.translations : null,
 		topicSorts: offered && topicsOn ? counts.topicSorts : null,
 		resetsAt: counts.resetsAt.toISOString(),
 	}
