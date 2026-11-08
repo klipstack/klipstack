@@ -45,6 +45,7 @@ import { SharedLinkBlocked, SharedVia } from "~/components/shared-via"
 import { ShortcutsDialog } from "~/components/shortcuts-dialog"
 import { TagChips, TagDialog } from "~/components/tag-dialog"
 import { tooltip } from "~/components/tooltip-host"
+import { buttonVariants } from "~/components/ui/button"
 import { useClientValue } from "~/hooks/use-client-value"
 import { type StateIntent, useDocumentState } from "~/hooks/use-document-state"
 import { useFinishOnLeave } from "~/hooks/use-finish-on-leave"
@@ -694,7 +695,7 @@ function Reader({ loaderData }: Route.ComponentProps) {
 					<button
 						type="button"
 						onClick={() => state.change("retry")}
-						className="mt-6 inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-fg"
+						className={cn(buttonVariants(), "mt-6")}
 					>
 						<RotateCcw className="size-4" aria-hidden />
 						{t("failed.retry")}

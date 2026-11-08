@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next"
 import { SettingsCard, SettingsPage } from "~/components/settings-page"
+import { buttonVariants } from "~/components/ui/button"
 import type { PageBarHandle } from "~/lib/page-bar"
 import { pageTitle } from "~/lib/page-title"
 import { requireUser } from "~/lib/session.server"
@@ -24,14 +25,14 @@ export default function DataSettings() {
 				<div className="flex flex-wrap gap-2">
 					<a
 						href="/export?format=zip"
-						className="rounded-lg bg-muted px-3 py-2 text-sm font-medium hover:bg-border"
+						className={buttonVariants({ variant: "secondary" })}
 						download
 					>
 						{t("data.zip")}
 					</a>
 					<a
 						href="/export?format=json"
-						className="rounded-lg bg-muted px-3 py-2 text-sm font-medium hover:bg-border"
+						className={buttonVariants({ variant: "secondary" })}
 						download
 					>
 						{t("data.json")}

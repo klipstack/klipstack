@@ -15,6 +15,7 @@ import {
 } from "lucide-react"
 import { useContext, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { iconButton } from "~/components/ui/button"
 import { AiResetsOnContext, useQuestionsLeft } from "~/hooks/use-ai-allowance"
 import { type AnswerStore, type AiCard as Card, useWritten } from "~/hooks/use-ai-threads"
 import type { AiFailure } from "~/lib/ai-stream.client"
@@ -224,7 +225,7 @@ function OpenCard({
 					onClick={onClose}
 					aria-label={t("ai.collapse")}
 					{...tooltip(t("ai.collapse"))}
-					className="-mr-1 ml-auto rounded-md p-1 text-muted-fg hover:bg-hover hover:text-fg"
+					className={cn(iconButton, "-my-1.5 -mr-1.5 ml-auto pointer-coarse:-my-2.5")}
 				>
 					<ChevronUp className="size-3.5" aria-hidden />
 				</button>
@@ -326,7 +327,7 @@ function OpenCard({
 									onClick={onRetry}
 									aria-label={t("ai.retry")}
 									{...tooltip(t("ai.retry"))}
-									className="rounded-md p-1.5 text-muted-fg hover:bg-hover hover:text-fg"
+									className={iconButton}
 								>
 									<RotateCcw className="size-3.5" aria-hidden />
 								</button>
@@ -337,7 +338,7 @@ function OpenCard({
 									onClick={() => onCopy(plainAnswer(lastAnswer.text))}
 									aria-label={t("ai.copy")}
 									{...tooltip(t("ai.copy"))}
-									className="rounded-md p-1.5 text-muted-fg hover:bg-hover hover:text-fg"
+									className={iconButton}
 								>
 									<Copy className="size-3.5" aria-hidden />
 								</button>
@@ -348,7 +349,7 @@ function OpenCard({
 								onClick={onDelete}
 								aria-label={t("ai.delete")}
 								{...tooltip(t("ai.delete"))}
-								className="rounded-md p-1.5 text-muted-fg hover:bg-hover hover:text-danger"
+								className={cn(iconButton, "hover:text-danger")}
 							>
 								<Trash2 className="size-3.5" aria-hidden />
 							</button>
@@ -458,7 +459,7 @@ export function ContinueInAssistant({ onClick }: { onClick: () => void }) {
 			onClick={onClick}
 			aria-label={t("ai.assistant.continue")}
 			{...tooltip(t("ai.assistant.continue"))}
-			className="rounded-md p-1.5 text-muted-fg hover:bg-hover hover:text-fg"
+			className={iconButton}
 		>
 			<BotMessageSquare className="size-3.5" aria-hidden />
 		</button>

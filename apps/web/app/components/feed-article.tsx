@@ -5,6 +5,7 @@ import { Link, useFetcher } from "react-router"
 import { FeedArticlePopover } from "~/components/feed-article-popover"
 import { SiteStamp } from "~/components/site-stamp"
 import { tooltip } from "~/components/tooltip-host"
+import { iconButton } from "~/components/ui/button"
 import { relativeTime } from "~/lib/relative-time"
 import { showToast } from "~/lib/toast"
 import { cn } from "~/lib/utils"
@@ -303,6 +304,3 @@ export function FeedArticle({
 		</li>
 	)
 }
-
-const iconButton =
-	"inline-flex size-11 items-center justify-center rounded-md hover:bg-hover hover:text-fg disabled:opacity-50 md:size-8 [@media(pointer:coarse)]:size-11"

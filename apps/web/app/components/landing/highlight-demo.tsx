@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next"
 import { HighlightToolbar } from "~/components/highlight-toolbar"
 import { MARGIN_NOTE } from "~/components/margin-notes"
 import { PostIt } from "~/components/post-it"
+import { buttonVariants } from "~/components/ui/button"
 import { cn } from "~/lib/utils"
 import { ESSAY_MINUTES, HL_BG, type Marks, NOTED, PARAGRAPHS, type SentenceId } from "./sample"
 
@@ -74,7 +75,7 @@ export function HighlightDemo({
 						onChange({})
 					}}
 					disabled={Object.keys(marks).length === 0}
-					className="shrink-0 rounded-md px-2 py-1 text-sm text-muted-fg hover:bg-hover hover:text-fg disabled:opacity-40 disabled:hover:bg-transparent"
+					className={cn(buttonVariants({ variant: "quiet", size: "sm" }), "shrink-0 px-2")}
 				>
 					{t("home.demo.clear")}
 				</button>

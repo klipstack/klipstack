@@ -1,5 +1,6 @@
 import { Trans, useTranslation } from "react-i18next"
 import { isRouteErrorResponse, Link, useRouteLoaderData } from "react-router"
+import { buttonVariants } from "~/components/ui/button"
 import { useClientValue } from "~/hooks/use-client-value"
 import type { loader as rootLoader } from "~/root"
 import { BrandLogo } from "./brand-mark"
@@ -71,24 +72,15 @@ function NotFound({ brand }: { brand: boolean }) {
 			<div className="mt-8 flex flex-wrap gap-3">
 				{loggedIn ? (
 					<>
-						<Link
-							to="/home"
-							className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-fg hover:bg-accent/90"
-						>
+						<Link to="/home" className={buttonVariants()}>
 							{t("errors.notFound.home")}
 						</Link>
-						<Link
-							to="/search"
-							className="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-hover"
-						>
+						<Link to="/search" className={buttonVariants({ variant: "secondary" })}>
 							{t("errors.notFound.search")}
 						</Link>
 					</>
 				) : (
-					<Link
-						to="/"
-						className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-fg hover:bg-accent/90"
-					>
+					<Link to="/" className={buttonVariants()}>
 						{t("errors.notFound.landing")}
 					</Link>
 				)}

@@ -34,6 +34,7 @@ import {
 import { SearchField } from "~/components/search-field"
 import { SelectButton } from "~/components/select-button"
 import { SelectionBar } from "~/components/selection-bar"
+import { buttonVariants } from "~/components/ui/button"
 import { Page } from "~/components/ui/page"
 import { useListCursor } from "~/hooks/use-list-cursor"
 import { useCommands } from "~/lib/commands"
@@ -220,7 +221,7 @@ export default function SearchPage({ loaderData }: Route.ComponentProps) {
 					<Link
 						to={`${searchPath(query)}&page=${loaderData.nextPage}`}
 						state={location.state}
-						className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-hover"
+						className={buttonVariants({ variant: "secondary" })}
 					>
 						{t("loadMore")}
 					</Link>

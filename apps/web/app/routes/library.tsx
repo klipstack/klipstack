@@ -32,7 +32,7 @@ import { SaveLinkButton } from "~/components/save-link-dialog"
 import { SelectionBar } from "~/components/selection-bar"
 import { StarterOffer } from "~/components/starter-texts"
 import { tooltip } from "~/components/tooltip-host"
-import { iconButton } from "~/components/ui/button"
+import { iconButton, buttonVariants } from "~/components/ui/button"
 import { Page } from "~/components/ui/page"
 import { useListCursor } from "~/hooks/use-list-cursor"
 import { AppError } from "~/lib/app-error"
@@ -434,7 +434,7 @@ export default function Library({ loaderData }: Route.ComponentProps) {
 				<div className="mt-6 flex justify-center">
 					<Link
 						to={`${viewPath(loaderData.view)}${nextPageSearch(filter, sort, loaderData.nextCursor, topic)}`}
-						className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-hover"
+						className={buttonVariants({ variant: "secondary" })}
 					>
 						{t("loadMore")}
 					</Link>
@@ -565,7 +565,7 @@ function ListControls({
 					<button
 						type="submit"
 						disabled={fetcher.state !== "idle"}
-						className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-hover disabled:opacity-50"
+						className={buttonVariants({ variant: "secondary", size: "sm" })}
 					>
 						<Archive className="size-4" aria-hidden />
 						{t("filters.archiveRead")}
