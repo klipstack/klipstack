@@ -3,6 +3,7 @@ import { Plus, Tag, X } from "lucide-react"
 import { useEffect, useId, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link, useLocation } from "react-router"
+import { iconButton } from "~/components/ui/button"
 import { useMutationQueue } from "~/hooks/use-mutation-queue"
 import { useTagList } from "~/hooks/use-tag-list"
 import { tagSearchPath } from "~/lib/search-page"
@@ -237,7 +238,7 @@ export function TagDialog({
 					<button
 						type="button"
 						onClick={() => dialogRef.current?.close()}
-						className="rounded-md p-1.5 text-muted-fg hover:bg-hover"
+						className={iconButton}
 						aria-label={t("tags.close")}
 					>
 						<X className="size-4" aria-hidden />

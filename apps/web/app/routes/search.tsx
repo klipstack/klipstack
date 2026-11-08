@@ -607,6 +607,7 @@ function TopicChip({ q, topics }: { q: string; topics: string[] }) {
 			<MoreMenu
 				label={chosen ? t("topicFilter.chosen", { topic: chosen }) : t("topicFilter.choose")}
 				align="start"
+				trigger="own"
 				className={cn(CHIP, chosen && CHIP_ON, chosen && "rounded-r-none! pr-2")}
 				icon={
 					<>
@@ -700,6 +701,7 @@ function SaveSearch({ q }: { q: string }) {
 							<span className="hidden sm:inline">{t("savedSearches.saved")}</span>
 						</>
 					}
+					trigger="own"
 					className={`${SAVE_BUTTON} text-fg`}
 				>
 					<SavedSearchMenuItems

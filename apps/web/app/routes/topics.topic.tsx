@@ -118,7 +118,7 @@ export default function TopicPage({ loaderData }: Route.ComponentProps) {
 					<h1 data-testid="topic-name" className="min-w-0 flex-1 page-title">
 						{actions.name}
 					</h1>
-					<LayoutToggle className="hidden md:block" />
+					<LayoutToggle className="hidden md:inline-flex" />
 					<TopicMenu actions={actions} className="shrink-0 text-muted-fg" />
 				</div>
 			)}

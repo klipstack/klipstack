@@ -710,6 +710,7 @@ function TopicChoice({
 						<MoreMenu
 							label={t("home.topics.moreLabel")}
 							align="start"
+							trigger="own"
 							className={cn(CHIP, "flex items-center gap-1 text-fg!")}
 							icon={
 								<>

@@ -2,7 +2,7 @@ import { Plus, Rss, X } from "lucide-react"
 import { useEffect, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import { useFetcher } from "react-router"
-import { Button } from "~/components/ui/button"
+import { Button, iconButton } from "~/components/ui/button"
 import { Field } from "~/components/ui/field"
 import { showToast } from "~/lib/toast"
 import type { WebResult } from "~/lib/web-result"
@@ -95,7 +95,7 @@ export function AddFeedDialog({ className }: { className?: string }) {
 						<button
 							type="button"
 							onClick={close}
-							className="rounded-md p-1.5 text-muted-fg hover:bg-hover"
+							className={iconButton}
 							aria-label={t("add.cancel")}
 						>
 							<X className="size-4" aria-hidden />

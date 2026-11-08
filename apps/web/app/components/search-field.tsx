@@ -119,7 +119,7 @@ export function SearchField({
 					{...field}
 					initialValue={value}
 					hasClear={Boolean(value)}
-					className={cn("h-10 pl-8", value && "pr-8")}
+					className={cn("h-8 pl-8 pointer-coarse:h-10", value && "pr-8")}
 				/>
 			) : (
 				<Input
@@ -128,7 +128,7 @@ export function SearchField({
 					defaultValue={value}
 					autoComplete="off"
 					className={cn(
-						"h-10 w-44 pl-8 transition-[width] focus:w-64 sm:w-56 sm:focus:w-80",
+						"h-8 w-44 pl-8 pointer-coarse:h-10 transition-[width] focus:w-64 sm:w-56 sm:focus:w-80",
 						value && "pr-8",
 						inputClassName,
 					)}

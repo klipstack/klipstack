@@ -93,7 +93,7 @@ export function FeedMenu({
 	return (
 		<>
 			{input}
-			<MoreMenu ref={ref} label={t("menu")} className="p-2">
+			<MoreMenu ref={ref} label={t("menu")}>
 				<MenuButton icon={<Rss className="size-4" aria-hidden />} onClick={onFollowing}>
 					{t("following.title")}
 				</MenuButton>

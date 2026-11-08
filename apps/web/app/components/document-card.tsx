@@ -646,7 +646,7 @@ export function DocumentCard({
 							)}
 						</IconButton>
 					</fetcher.Form>
-					<MoreMenu ref={menuRef} label={t("card.more")} className={reveal}>
+					<MoreMenu trigger="own" ref={menuRef} label={t("card.more")} className={reveal}>
 						{canFinish ? (
 							<MenuButton
 								icon={<CheckCircle2 className="size-4" aria-hidden />}

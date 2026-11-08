@@ -1,5 +1,6 @@
 import { LayoutGrid, List } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import { iconButton } from "~/components/ui/button"
 import { useMediaQuery } from "~/hooks/use-media-query"
 import { setListLayout, useListLayout } from "~/lib/list-layout"
 import { cn } from "~/lib/utils"
@@ -20,13 +21,9 @@ export function LayoutToggle({ className }: { className?: string }) {
 			aria-label={label}
 			{...tooltip(label)}
 			data-testid="layout-toggle"
-			className={cn("rounded-md p-2.5 text-muted-fg hover:bg-hover hover:text-fg", className)}
+			className={cn(iconButton, className)}
 		>
-			{next === "grid" ? (
-				<LayoutGrid className="size-5" aria-hidden />
-			) : (
-				<List className="size-5" aria-hidden />
-			)}
+			{next === "grid" ? <LayoutGrid aria-hidden /> : <List aria-hidden />}
 		</button>
 	)
 }

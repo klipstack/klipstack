@@ -12,7 +12,7 @@ import { CreditLine } from "./credit-line"
 import { NoteText } from "./note-text"
 import { PostIt, tiltFor } from "./post-it"
 import { ShareHighlightImage, useDrawnPictures } from "./share-highlight-image"
-import { Button } from "./ui/button"
+import { Button, iconButton } from "./ui/button"
 
 export interface ShareHighlight {
 	id: string
@@ -132,7 +132,7 @@ export function ShareHighlightDialog({
 						<button
 							type="button"
 							onClick={() => dialogRef.current?.close()}
-							className="rounded-md p-1.5 text-muted-fg hover:bg-hover"
+							className={iconButton}
 							aria-label={t("highlights.share.close")}
 						>
 							<X className="size-4" aria-hidden />

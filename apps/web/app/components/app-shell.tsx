@@ -21,6 +21,7 @@ import {
 import { useCallback, useEffect, useId, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link, NavLink, useFetcher, useLocation, useNavigate } from "react-router"
+import { iconButton } from "~/components/ui/button"
 import { useKeyTranslation } from "~/lib/i18n-keys"
 import { isLibraryPath } from "~/lib/library-views"
 import { usePageBar } from "~/lib/page-bar"
@@ -219,7 +220,7 @@ function SidebarContent({
 							type="button"
 							onClick={onClose}
 							aria-label={t("actions.close")}
-							className="rounded-md p-2 text-muted-fg hover:bg-hover"
+							className={iconButton}
 						>
 							<X className="size-5" aria-hidden />
 						</button>
@@ -619,7 +620,7 @@ export function AppShell({
 								type="button"
 								onClick={closeSearch}
 								aria-label={t("actions.back")}
-								className="rounded-md p-2.5 text-muted-fg hover:bg-hover hover:text-fg"
+								className={iconButton}
 							>
 								<ArrowLeft className="size-5" aria-hidden />
 							</button>
@@ -649,7 +650,7 @@ export function AppShell({
 								aria-label={t("nav.menu")}
 								aria-expanded={open}
 								aria-controls="mobile-drawer"
-								className="rounded-md p-2.5 text-muted-fg hover:bg-hover hover:text-fg"
+								className={iconButton}
 							>
 								<Menu className="size-5" aria-hidden />
 							</button>
@@ -661,7 +662,7 @@ export function AppShell({
 									to={bar.search.to}
 									state={{ from: location.pathname + location.search }}
 									aria-label={tk(bar.search.labelKey)}
-									className="rounded-md p-2.5 text-muted-fg hover:bg-hover hover:text-fg"
+									className={iconButton}
 								>
 									<Search className="size-5" aria-hidden />
 								</Link>
@@ -670,7 +671,7 @@ export function AppShell({
 									type="button"
 									onClick={() => setSearchFor(routeKey)}
 									aria-label={tk(field.labelKey)}
-									className="rounded-md p-2.5 text-muted-fg hover:bg-hover hover:text-fg"
+									className={iconButton}
 								>
 									<Search className="size-5" aria-hidden />
 								</button>

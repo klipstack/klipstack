@@ -50,6 +50,7 @@ export function AccountMenu({
 
 	return (
 		<MoreMenu
+			trigger="own"
 			label={t("nav.account", { name })}
 			tooltipSide="right"
 			className={cn(

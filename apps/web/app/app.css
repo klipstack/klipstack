@@ -622,7 +622,8 @@ body {
 }
 /* A filter chip: just its words, `ink-hover` when pointed at, `marked` when current. */
 @utility chip {
-	padding: 0.25rem 0.75rem;
+	/* As tall as the buttons beside it (32px): a row of filters is one height. */
+	padding: 0.375rem 0.75rem;
 	font-size: var(--text-sm);
 	line-height: var(--text-sm--line-height);
 	color: var(--k-muted-fg);

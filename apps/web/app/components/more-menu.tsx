@@ -10,6 +10,7 @@ import {
 } from "react"
 import { createPortal } from "react-dom"
 import { type FetcherWithComponents, Link } from "react-router"
+import { iconButton } from "~/components/ui/button"
 import { cn } from "~/lib/utils"
 import { tooltip } from "./tooltip-host"
 
@@ -52,6 +53,7 @@ export function MoreMenu({
 	side,
 	align,
 	icon,
+	trigger = "icon",
 	className,
 	children,
 }: {
@@ -65,6 +67,11 @@ export function MoreMenu({
 	align?: "start"
 	/** Replaces the "…" icon. */
 	icon?: React.ReactNode
+	/**
+	 * `icon`: an icon button, as tall as the others (`iconButton`). `own`: a trigger the caller's
+	 * `className` shapes, such as a chip, a labelled button or a card's small action.
+	 */
+	trigger?: "icon" | "own"
 	className?: string
 	children: React.ReactNode
 }) {
@@ -263,7 +270,12 @@ export function MoreMenu({
 					firstFocus.current = e.key === "ArrowUp" ? "last" : "first"
 					setOpen(true)
 				}}
-				className={cn("rounded-md p-1.5 text-muted-fg hover:bg-hover hover:text-fg", className)}
+				className={cn(
+					trigger === "icon"
+						? iconButton
+						: "rounded-md p-1.5 text-muted-fg hover:bg-hover hover:text-fg",
+					className,
+				)}
 			>
 				{icon ?? <MoreHorizontal className="size-4" aria-hidden />}
 			</button>

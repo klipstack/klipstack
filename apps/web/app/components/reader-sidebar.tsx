@@ -4,6 +4,7 @@ import { Share, X } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router"
+import { iconButton } from "~/components/ui/button"
 import { highlightColor, highlightColorName } from "~/lib/highlight-colors"
 import type { RenderableHighlight } from "~/lib/highlights.client"
 import type { LinkTargets } from "~/lib/note-links"
@@ -185,7 +186,7 @@ export function ReaderSidebar({
 					<button
 						type="button"
 						onClick={onClose}
-						className="rounded-md p-1.5 text-muted-fg hover:bg-hover"
+						className={iconButton}
 						aria-label={t("highlights.toolbar.close")}
 					>
 						<X className="size-4" aria-hidden />

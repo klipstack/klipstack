@@ -202,7 +202,7 @@ function ReviewRow({
 					<Check className="size-4" aria-hidden />
 					{t("review.keep")}
 				</Button>
-				<MoreMenu label={t("review.more", { title })} className="p-2">
+				<MoreMenu label={t("review.more", { title })}>
 					<MenuButton
 						danger
 						icon={<Trash2 className="size-4" aria-hidden />}

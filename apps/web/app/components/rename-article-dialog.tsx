@@ -3,7 +3,7 @@ import { X } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useFetcher } from "react-router"
-import { Button } from "~/components/ui/button"
+import { Button, iconButton } from "~/components/ui/button"
 import { Field } from "~/components/ui/field"
 
 /**
@@ -73,7 +73,7 @@ export function RenameArticleDialog({
 					<button
 						type="button"
 						onClick={() => dialogRef.current?.close()}
-						className="rounded-md p-1.5 text-muted-fg hover:bg-hover"
+						className={iconButton}
 						aria-label={tc("actions.close")}
 					>
 						<X className="size-4" aria-hidden />

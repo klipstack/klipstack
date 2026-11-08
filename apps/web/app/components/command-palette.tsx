@@ -28,6 +28,7 @@ import {
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useFetcher, useNavigate, useRouteLoaderData, useSubmit } from "react-router"
+import { iconButton } from "~/components/ui/button"
 import { useTagList } from "~/hooks/use-tag-list"
 import {
 	type CommandGroup,
@@ -279,9 +280,9 @@ export function CommandPalette() {
 					type="button"
 					onClick={close}
 					aria-label={t("actions.close")}
-					className="-mr-1.5 rounded-md p-2 text-muted-fg hover:bg-hover hover:text-fg md:hidden"
+					className={cn(iconButton, "-mr-1.5 md:hidden")}
 				>
-					<X className="size-5" aria-hidden />
+					<X aria-hidden />
 				</button>
 				<button
 					type="button"

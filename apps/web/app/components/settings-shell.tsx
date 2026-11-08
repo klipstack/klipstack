@@ -15,6 +15,7 @@ import {
 import { useId } from "react"
 import { useTranslation } from "react-i18next"
 import { Link, NavLink } from "react-router"
+import { iconButton } from "~/components/ui/button"
 import { useKeyTranslation } from "~/lib/i18n-keys"
 import { usePageBar } from "~/lib/page-bar"
 import { useSettingsOrigin } from "~/lib/settings-origin"
@@ -95,7 +96,7 @@ function SettingsNav({ onNavigate, onClose }: { onNavigate?: () => void; onClose
 						type="button"
 						onClick={onClose}
 						aria-label={tc("actions.close")}
-						className="rounded-md p-2 text-muted-fg hover:bg-hover"
+						className={iconButton}
 					>
 						<X className="size-5" aria-hidden />
 					</button>
@@ -160,7 +161,7 @@ export function SettingsShell({ children }: { children: React.ReactNode }) {
 						aria-label={t("nav.menu")}
 						aria-expanded={open}
 						aria-controls="mobile-drawer"
-						className="rounded-md p-2.5 text-muted-fg hover:bg-hover hover:text-fg"
+						className={iconButton}
 					>
 						<Menu className="size-5" aria-hidden />
 					</button>

@@ -24,13 +24,14 @@ import { OUTLINE_ID, OUTLINE_TOGGLE } from "~/components/reader-outline"
 import { ReaderPrefs } from "~/components/reader-prefs"
 import type { SidebarTab } from "~/components/reader-sidebar"
 import { tooltip } from "~/components/tooltip-host"
+import { iconButton } from "~/components/ui/button"
 import type { StateIntent } from "~/hooks/use-document-state"
 import { copyLink } from "~/lib/copy-link"
 import type { resolvePrefs } from "~/lib/prefs"
 import { CHAT_HINT, HIGHLIGHTS_HINT, READER_HINTS, SHORTCUT_HINTS } from "~/lib/shortcuts"
 import { cn } from "~/lib/utils"
 
-const BUTTON = "rounded-md p-2 text-muted-fg hover:bg-hover hover:text-fg"
+const BUTTON = iconButton
 
 /**
  * The reader's sticky top bar: back, reading settings, star, the chat and the highlights sidebar,
@@ -226,7 +227,7 @@ export function ReaderTopBar({
 							)}
 						</button>
 					) : null}
-					<MoreMenu label={t("actions.more")} className="p-2">
+					<MoreMenu label={t("actions.more")}>
 						<MenuButton
 							icon={
 								archived ? (

@@ -5,7 +5,7 @@ import { Link, useFetcher, useLocation, useNavigate, useRouteLoaderData } from "
 import type { LinkResult } from "~/commands/saving.server"
 import { LinkResults, LinksField } from "~/components/links-field"
 import { tooltip } from "~/components/tooltip-host"
-import { Button } from "~/components/ui/button"
+import { Button, iconButton } from "~/components/ui/button"
 import { prepareMotion } from "~/lib/motion"
 import { showToast } from "~/lib/toast"
 import { cn } from "~/lib/utils"
@@ -41,15 +41,15 @@ export function SaveLinkButton({ className }: { className?: string }) {
 	return (
 		<Button
 			type="button"
-			variant="ghost"
+			variant="quiet"
 			size="icon"
 			onClick={() => openSaveLink() || navigate(saveLinkPath())}
 			aria-haspopup="dialog"
 			aria-label={t("add.button")}
 			{...tooltip(t("add.button"))}
-			className={cn("size-10 rounded-md text-accent", className)}
+			className={cn("text-accent hover:text-accent", className)}
 		>
-			<Plus className="size-5" aria-hidden />
+			<Plus aria-hidden />
 		</Button>
 	)
 }
@@ -220,7 +220,7 @@ export function SaveLinkDialog() {
 						<button
 							type="button"
 							onClick={() => dialogRef.current?.close()}
-							className="-mt-1 -mr-1 rounded-md p-1.5 text-muted-fg hover:bg-hover"
+							className={cn(iconButton, "-mt-1 -mr-1")}
 							aria-label={t("add.cancel")}
 						>
 							<X className="size-4" aria-hidden />

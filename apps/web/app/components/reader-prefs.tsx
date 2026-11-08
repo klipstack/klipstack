@@ -3,6 +3,7 @@ import { ALargeSmall } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useFetcher } from "react-router"
+import { iconButton } from "~/components/ui/button"
 import { cn } from "~/lib/utils"
 import { tooltip } from "./tooltip-host"
 
@@ -90,9 +91,9 @@ export function ReaderPrefs({
 				aria-haspopup="dialog"
 				{...tooltip(t("actions.prefs"))}
 				aria-label={t("actions.prefs")}
-				className="rounded-md p-2 text-muted-fg hover:bg-hover hover:text-fg"
+				className={iconButton}
 			>
-				<ALargeSmall className="size-5" aria-hidden />
+				<ALargeSmall aria-hidden />
 			</button>
 			{open ? (
 				<div

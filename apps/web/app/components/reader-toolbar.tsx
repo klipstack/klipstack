@@ -1,7 +1,9 @@
 import { X } from "lucide-react"
 import { useEffect, useRef } from "react"
 import { useTranslation } from "react-i18next"
+import { iconButton } from "~/components/ui/button"
 import { useMediaQuery } from "~/hooks/use-media-query"
+import { cn } from "~/lib/utils"
 
 /**
  * The frame of the reader's small toolbars (a selection's, a highlight's): above the first line
@@ -95,8 +97,9 @@ const DISABLED =
 	" disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-fg aria-disabled:cursor-not-allowed aria-disabled:opacity-40 aria-disabled:hover:bg-transparent aria-disabled:hover:text-muted-fg"
 
 /** A text button in a reader toolbar: an icon and a label. */
-export const TOOLBAR_LABEL_BUTTON = `flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium whitespace-nowrap text-muted-fg hover:bg-hover hover:text-fg${
+export const TOOLBAR_LABEL_BUTTON = `flex h-8 items-center gap-1.5 rounded-lg px-2 text-sm pointer-coarse:h-10 font-medium whitespace-nowrap text-muted-fg hover:bg-hover hover:text-fg${
 	DISABLED
 }`
 /** An icon button in a reader toolbar. */
-export const TOOLBAR_ICON_BUTTON = `rounded-md p-1.5 text-muted-fg hover:bg-hover hover:text-fg${DISABLED}`
+// The label buttons' disabled look over the icon button's own, which hides the cursor.
+export const TOOLBAR_ICON_BUTTON = cn(iconButton, `disabled:pointer-events-auto${DISABLED}`)

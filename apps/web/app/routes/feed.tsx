@@ -752,7 +752,7 @@ function SubscriptionHeader({
 					</button>
 				</div>
 			) : (
-				<MoreMenu label={t("section.menu")} className="shrink-0 p-2">
+				<MoreMenu label={t("section.menu")} className="shrink-0">
 					{sub.trouble ? (
 						<div role="none" className="max-w-64 px-2 py-1.5 text-xs text-muted-fg">
 							{troubleDetails}
