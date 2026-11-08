@@ -1,6 +1,6 @@
 import { TAG_NAME_MAX } from "@klipstack/api-contract/names"
 import { Pencil, Trash2 } from "lucide-react"
-import { useEffect, useEffectEvent, useId, useRef, useState } from "react"
+import { useEffect, useId, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
 	type FetcherWithComponents,
@@ -15,6 +15,7 @@ import { MenuButton, MoreMenu, type MoreMenuHandle } from "~/components/more-men
 import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
 import { Page } from "~/components/ui/page"
+import { useFetcherAnswer } from "~/hooks/use-fetcher-answer"
 import { AppError } from "~/lib/app-error"
 import type { PageBarHandle } from "~/lib/page-bar"
 import { pageTitle } from "~/lib/page-title"
@@ -187,11 +188,10 @@ function TagRowItem({
 			setArmed(true)
 	}
 	// Anything else closes the field.
-	const onAnswer = useEffectEvent((result: typeof fetcher.data) => {
-		if (result && !result.ok && result.error.code === "tag_in_saved_searches") void revalidate()
-		if (result?.ok && editing) close()
+	useFetcherAnswer(fetcher, (result) => {
+		if (!result.ok && result.error.code === "tag_in_saved_searches") void revalidate()
+		if (result.ok && editing) close()
 	})
-	useEffect(() => onAnswer(fetcher.data), [fetcher.data])
 
 	if (fetcher.formData?.get("intent") === "delete") return null
 	const renamingTo =

@@ -1,9 +1,12 @@
-import { useCallback, useEffect, useInsertionEffect, useRef } from "react"
+import { useCallback, useInsertionEffect, useRef } from "react"
 import { useTranslation } from "react-i18next"
+import { useFetcherAnswer } from "~/hooks/use-fetcher-answer"
 import { showToast } from "~/lib/toast"
 
 /** What unmarking answers when it took the article out of the draft in progress. */
 type DraftUndo = { undo: { intent: string; fields: Record<string, string> } }
+
+const NO_FETCHER = { state: "idle", data: undefined }
 
 function draftUndo(answer: unknown): DraftUndo["undo"] | null {
 	if (!answer || typeof answer !== "object" || !("undo" in answer)) return null
@@ -14,9 +17,9 @@ function draftUndo(answer: unknown): DraftUndo["undo"] | null {
 /**
  * The toast after unmarking took an article out of the draft in progress: its copy there may hold
  * the user's edits, and Undo puts it back as it was. `show(answer)` for one answer at a time; the
- * hook's argument, for a fetcher's latest. Once per answer.
+ * hook's argument, for a fetcher's answers. Once per answer.
  */
-export function useDraftUndoToast(answer?: unknown) {
+export function useDraftUndoToast(fetcher: { state: string; data: unknown } = NO_FETCHER) {
 	const { t } = useTranslation("library")
 	const text = useRef({ message: t("toast.unshortlisted"), label: t("toast.undo") })
 	useInsertionEffect(() => {
@@ -30,8 +33,6 @@ export function useDraftUndoToast(answer?: unknown) {
 			undo: { action: "/documents/bulk", ...undo, label: text.current.label },
 		})
 	}, [])
-	useEffect(() => {
-		show(answer)
-	}, [answer, show])
+	useFetcherAnswer(fetcher, show)
 	return show
 }

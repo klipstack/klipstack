@@ -57,7 +57,7 @@ export function ToastHost() {
 	const [hovered, setHovered] = useState(false)
 	const [focused, setFocused] = useState(false)
 	// Undoing a delete can fail when the same page was saved again meanwhile.
-	useRestoreConflictToast(fetcher.data)
+	useRestoreConflictToast(fetcher)
 	const current = toasts[0]
 
 	useEffect(() => {

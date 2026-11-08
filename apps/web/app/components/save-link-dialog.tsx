@@ -6,6 +6,7 @@ import type { LinkResult } from "~/commands/saving.server"
 import { LinkResults, LinksField } from "~/components/links-field"
 import { tooltip } from "~/components/tooltip-host"
 import { Button, iconButton } from "~/components/ui/button"
+import { useFetcherAnswer } from "~/hooks/use-fetcher-answer"
 import { prepareMotion } from "~/lib/motion"
 import { showToast } from "~/lib/toast"
 import { cn } from "~/lib/utils"
@@ -105,9 +106,6 @@ export function SaveLinkDialog() {
 	// The last answer's refusal or outcomes, until the dialog opens again: then they are old news.
 	const [seen, setSeen] = useState<typeof fetcher.data>()
 	const latest = useRef(fetcher.data)
-	useEffect(() => {
-		latest.current = fetcher.data
-	}, [fetcher.data])
 	const answered = fetcher.data !== undefined && fetcher.data !== seen
 	const error = answered && fetcher.data?.ok === false ? fetcher.data.error : null
 	// Several links, some refused: the dialog stays, with each link's outcome.
@@ -166,8 +164,9 @@ export function SaveLinkDialog() {
 
 	// Saved: the dialog goes and the page stays, with the article in it once its data reloads. An
 	// error keeps the dialog open, with the message under the field.
-	const onAnswer = useEffectEvent((answer: typeof fetcher.data) => {
-		if (!answer?.ok) return
+	useFetcherAnswer(fetcher, (answer) => {
+		latest.current = answer
+		if (!answer.ok) return
 		// Several links, some refused: those are what is left to save.
 		const left = "batch" in answer ? answer.batch.filter((result) => !result.ok) : []
 		if (left.length) {
@@ -187,7 +186,6 @@ export function SaveLinkDialog() {
 			clip: location.pathname !== "/library" || location.search !== "",
 		})
 	})
-	useEffect(() => onAnswer(fetcher.data), [fetcher.data])
 
 	return (
 		<dialog

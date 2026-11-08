@@ -26,6 +26,7 @@ import {
 import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
 import { Page } from "~/components/ui/page"
+import { useFetcherAnswer } from "~/hooks/use-fetcher-answer"
 import { topicModels } from "~/lib/ai.server"
 import { AppError } from "~/lib/app-error"
 import { hash, siteHue } from "~/lib/book-hue"
@@ -193,7 +194,7 @@ export default function Topics({ loaderData }: Route.ComponentProps) {
 function TurnOn({ state, invited }: { state: TopicsState; invited: boolean }) {
 	const { t } = useTranslation("library")
 	const fetcher = useFetcher<typeof action>()
-	useTopicRefusals(fetcher.data)
+	useTopicRefusals(fetcher)
 	// Seeing this offer ends Home's invitation to it.
 	const ended = useFetcher()
 	const endInvitation = useEffectEvent(() =>
@@ -227,7 +228,7 @@ function TurnOn({ state, invited }: { state: TopicsState; invited: boolean }) {
 function Proposal({ state }: { state: TopicsState }) {
 	const { t } = useTranslation("library")
 	const fetcher = useFetcher<typeof action>()
-	useTopicRefusals(fetcher.data)
+	useTopicRefusals(fetcher)
 	// Opening the proposal is seeing it: the sidebar's dot and Home's card go.
 	const seen = useFetcher()
 	const unseen = state.unseen
@@ -522,7 +523,7 @@ function MoreBooks({
 function TurnOff() {
 	const { t, i18n } = useTranslation("library")
 	const fetcher = useFetcher<typeof action>()
-	useTopicRefusals(fetcher.data)
+	useTopicRefusals(fetcher)
 	const [armed, setArmed] = useState(false)
 	// Saved searches that name topics would find nothing in them: the second tap says which.
 	const layout = useRouteLoaderData<typeof layoutLoader>("routes/app-layout")
@@ -534,10 +535,9 @@ function TurnOff() {
 		const id = window.setTimeout(() => setArmed(false), naming.length ? 10000 : 4000)
 		return () => window.clearTimeout(id)
 	}, [armed, naming.length])
-	const onAnswer = useEffectEvent((result: typeof fetcher.data) => {
-		if (result?.ok && "disabled" in result) showToast({ message: t("topics.turnedOff") })
+	useFetcherAnswer(fetcher, (result) => {
+		if (result.ok && "disabled" in result) showToast({ message: t("topics.turnedOff") })
 	})
-	useEffect(() => onAnswer(fetcher.data), [fetcher.data])
 	return (
 		<fetcher.Form
 			method="post"

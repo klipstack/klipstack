@@ -16,6 +16,7 @@ import { useEffect, useInsertionEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useFetcher } from "react-router"
 import { useEditions } from "~/hooks/use-editions"
+import { useFetcherAnswer } from "~/hooks/use-fetcher-answer"
 import type { ListSelection } from "~/hooks/use-list-cursor"
 import { BULK_ACTION, BULK_FETCHER, type BulkAction, bulkActions, MOVES } from "~/lib/bulk-actions"
 import { useCommands } from "~/lib/commands"
@@ -139,9 +140,7 @@ export function SelectionBar({
 	useInsertionEffect(() => {
 		uncheck.current = selection.uncheck
 	})
-	useEffect(() => {
-		const data = bulk.data
-		if (!data) return
+	useFetcherAnswer(bulk, (data) => {
 		if (!data.ok) {
 			const tagError = TAG_ERRORS[data.error.code]
 			showToast({ message: tagError ? t(tagError) : t("bulk.failed"), warn: true })
@@ -171,7 +170,7 @@ export function SelectionBar({
 					}
 				: undefined,
 		})
-	}, [bulk.data, t])
+	})
 
 	// Toasts stack above the bar while it is up (app.css).
 	useEffect(() => {

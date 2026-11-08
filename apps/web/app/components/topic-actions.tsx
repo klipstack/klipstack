@@ -1,11 +1,12 @@
 import { TOPIC_NAME_MAX } from "@klipstack/api-contract/names"
 import { topicKey, topicsNamedIn } from "@klipstack/api-contract/search-query"
 import { Pencil, Trash2 } from "lucide-react"
-import { useEffect, useEffectEvent, useState } from "react"
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useFetcher, useRouteLoaderData } from "react-router"
 import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
+import { useFetcherAnswer } from "~/hooks/use-fetcher-answer"
 import { showToast } from "~/lib/toast"
 import type { loader as layoutLoader } from "~/routes/app-layout"
 import type { action } from "~/routes/topics"
@@ -15,7 +16,7 @@ import { MenuButton, MoreMenu } from "./more-menu"
 type Answered = { ok: true } | { ok: false; error: { code: string; message: string } }
 
 /** Says a refusal of the Topics action in the reader's words. */
-export function useTopicRefusals(data: Answered | undefined) {
+export function useTopicRefusals(fetcher: { state: string; data: Answered | undefined }) {
 	const { t } = useTranslation("library")
 	const { t: tc } = useTranslation()
 	const words = {
@@ -26,11 +27,10 @@ export function useTopicRefusals(data: Answered | undefined) {
 		forbidden: t("topics.errors.forbidden"),
 		unavailable: t("topics.errors.unavailable"),
 	} as Record<string, string>
-	const onData = useEffectEvent((result: Answered | undefined) => {
-		if (!result || result.ok) return
+	useFetcherAnswer(fetcher, (result) => {
+		if (result.ok) return
 		showToast({ message: words[result.error.code] ?? tc("errors.generic") })
 	})
-	useEffect(() => onData(data), [data])
 }
 
 interface Topic {
@@ -49,16 +49,15 @@ export type TopicActions = ReturnType<typeof useTopicActions>
 export function useTopicActions(topic: Topic, { onRemoved }: { onRemoved?: () => void } = {}) {
 	const { t } = useTranslation("library")
 	const fetcher = useFetcher<typeof action>()
-	useTopicRefusals(fetcher.data)
+	useTopicRefusals(fetcher)
 	const [mode, setMode] = useState<"rename" | "remove" | null>(null)
-	const onAnswer = useEffectEvent((result: typeof fetcher.data) => {
-		if (!result?.ok) return
+	useFetcherAnswer(fetcher, (result) => {
+		if (!result.ok) return
 		if ("removed" in result) {
 			showToast({ message: t("topics.removed", { name: result.removed }) })
 			onRemoved?.()
 		}
 	})
-	useEffect(() => onAnswer(fetcher.data), [fetcher.data])
 	const intent = fetcher.formData?.get("intent")
 	return {
 		topic,
