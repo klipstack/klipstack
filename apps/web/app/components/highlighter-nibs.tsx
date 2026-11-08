@@ -39,6 +39,7 @@ export function HighlighterNibs({
 						<span
 							aria-hidden
 							className={cn(
+								// oxlint-disable-next-line klipstack/design-scale -- a highlighter's tip, drawn to scale
 								"block h-[17px] w-4 overflow-hidden rounded-b-[3px] motion-safe:transition-transform motion-safe:duration-180 motion-safe:ease-[cubic-bezier(0.3,0.7,0.2,1)] pointer-coarse:h-[25px] pointer-coarse:w-6",
 								pressed
 									? "-translate-y-1 pointer-coarse:-translate-y-[5px]"

@@ -480,6 +480,7 @@ function Book({ book, className }: { book: TopicBook; className?: string }) {
 				{...tooltip(title)}
 				style={style}
 				className={cn(
+					// oxlint-disable-next-line klipstack/design-scale -- a book on the shelf, drawn to scale
 					"block h-[calc(92px+var(--h)*1px)] w-[calc(14px+var(--k)*6px)] overflow-hidden rounded-t-[3px] rounded-b-[1px] bg-[oklch(var(--k-book-l)_var(--k-book-c)_var(--hue))] py-2 text-[11px] leading-none font-medium text-ellipsis whitespace-nowrap text-book-fg [writing-mode:vertical-rl] motion-safe:transition-transform hover:-translate-y-1 focus-visible:-translate-y-1 md:h-[calc(104px+var(--h)*1px)] md:w-[calc(18px+var(--k)*14px)]",
 					book.recent
 						? "pt-3 shadow-[inset_0_4px_0_var(--color-link)]"
@@ -511,6 +512,7 @@ function MoreBooks({
 				onClick={opened}
 				aria-label={label}
 				{...tooltip(label)}
+				// oxlint-disable-next-line klipstack/design-scale -- a book on the shelf, drawn to scale
 				className="grid h-24 w-[34px] place-items-center rounded-t-[3px] border border-dashed border-muted-fg/50 bg-muted text-[13px] font-semibold"
 			>
 				+{count}

@@ -234,6 +234,7 @@ export function ReaderOutline({
 									if (floating) setPeek(false)
 								}}
 								className={cn(
+									// oxlint-disable-next-line klipstack/design-scale -- the outline, a step under the reader's sidebar text
 									"-ml-px block w-full border-l-2 border-transparent py-1 pr-2 text-left text-[13px] leading-snug text-muted-fg transition-colors hover:text-fg",
 									entry.depth === 0 ? "pl-3" : "pl-6",
 									i === active && "border-fg font-medium text-fg",

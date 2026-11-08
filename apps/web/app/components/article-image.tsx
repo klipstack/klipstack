@@ -54,14 +54,17 @@ function Cover({ site, title, shelf }: { site: string; title: string; shelf: str
 		>
 			<p
 				data-site={site}
+				// oxlint-disable-next-line klipstack/design-scale -- type sized to the cover's width (container units)
 				className="truncate text-[max(0.625rem,4cqw)] leading-tight font-medium tracking-[0.12em] uppercase opacity-75 before:content-[attr(data-site)]"
 			/>
 			<p
 				data-initial={(Array.from(site)[0] ?? "").toUpperCase()}
+				// oxlint-disable-next-line klipstack/design-scale -- type sized to the cover's width (container units)
 				className="font-display text-[42cqw] leading-[0.8] font-medium before:content-[attr(data-initial)] @min-[12rem]:hidden"
 			/>
 			<p
 				data-title={title}
+				// oxlint-disable-next-line klipstack/design-scale -- type sized to the cover's width (container units)
 				className="line-clamp-4 hidden border-t wrap-anywhere border-current/25 pt-[3cqw] font-display text-[7.5cqw] leading-[1.1] font-medium text-balance before:content-[attr(data-title)] @min-[12rem]:block"
 			/>
 		</div>

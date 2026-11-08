@@ -113,6 +113,7 @@ export function ChatPanel({
 						</p>
 					) : (
 						// The answer, a short passage in the reader's own typeface.
+						// oxlint-disable-next-line klipstack/design-scale -- the reader's body size, so the answer reads as the article
 						<div key={message.id} className="reader-type text-[1.0625rem] leading-[1.6]">
 							{message.status === "failed" ? (
 								<p className="text-danger">{t("ai.failed")}</p>
@@ -131,6 +132,7 @@ export function ChatPanel({
 				)}
 				{busy ? (
 					streamed.text ? (
+						// oxlint-disable-next-line klipstack/design-scale -- the reader's body size, so the answer reads as the article
 						<div className="reader-type text-[1.0625rem] leading-[1.6]">
 							<AiAnswer
 								text={streamed.text}

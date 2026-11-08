@@ -40,6 +40,7 @@ export function KeepDemo({
 	const sentence = (id: SentenceId) => t(`home.demo.sentences.${id}`)
 	const shownQuotes = highlights.filter((id) => quoted.includes(id))
 	const full = shownQuotes.length >= EDITION_HIGHLIGHTS_MAX
+	// oxlint-disable-next-line klipstack/design-scale -- the landing page's demo, in the reader's type
 	const quote = "border-l-[3px] pl-3 font-display text-[1.02rem] leading-relaxed"
 
 	return (

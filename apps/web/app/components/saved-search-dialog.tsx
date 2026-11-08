@@ -112,6 +112,7 @@ export function SavedSearchDialog({
 				<div className="flex items-start justify-between gap-4">
 					<div className="min-w-0">
 						<h2 className="text-lg font-semibold">{title}</h2>
+						{/* oxlint-disable-next-line klipstack/design-scale -- a query in monospace, which looks larger than sans */}
 						<p className="mt-1 truncate font-mono text-[0.8125rem] text-muted-fg">
 							{saved?.query ?? query}
 						</p>

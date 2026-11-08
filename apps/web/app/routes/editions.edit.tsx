@@ -425,7 +425,7 @@ function SidePane({
 				<div
 					className={cn(
 						phone &&
-							"mx-auto my-6 w-[390px] max-w-[calc(100%-2rem)] overflow-hidden rounded-[2rem] border border-border shadow-xl",
+							"mx-auto my-6 w-[390px] max-w-[calc(100%-2rem)] overflow-hidden rounded-4xl border border-border shadow-xl",
 					)}
 				>
 					<EditionPage view={view} newTab />

@@ -121,6 +121,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 					<p className={eyebrow}>
 						{t(inviteOnly ? "home.hero.eyebrowInvite" : "home.hero.eyebrow")}
 					</p>
+					{/* oxlint-disable-next-line klipstack/design-scale -- the landing page's headline, fluid between phone and desktop */}
 					<h1 className="mt-4 max-w-5xl font-display text-[clamp(2.75rem,6.6vw,6rem)] leading-[0.98] font-[620] tracking-[-0.03em] text-balance">
 						<Trans
 							i18nKey="home.headline"

@@ -15,7 +15,7 @@ import {
 } from "lucide-react"
 import { useContext, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { iconButton } from "~/components/ui/button"
+import { Button, iconButton } from "~/components/ui/button"
 import { AiResetsOnContext, useQuestionsLeft } from "~/hooks/use-ai-allowance"
 import { type AnswerStore, type AiCard as Card, useWritten } from "~/hooks/use-ai-threads"
 import type { AiFailure } from "~/lib/ai-stream.client"
@@ -543,15 +543,15 @@ export function QuestionField({
 				}}
 				className="field-sizing-content max-h-32 min-h-6 flex-1 resize-none bg-transparent py-0.5 text-sm outline-none placeholder:text-muted-fg"
 			/>
-			<button
-				type="button"
+			<Button
+				size="icon"
 				onClick={send}
 				disabled={!value.trim()}
 				aria-label={t("ai.send")}
-				className="mb-0.5 rounded-md bg-accent p-1 text-accent-fg disabled:opacity-40"
+				className="-my-1"
 			>
-				<ArrowUp className="size-3.5" aria-hidden />
-			</button>
+				<ArrowUp aria-hidden />
+			</Button>
 		</div>
 	)
 	if (!suggestions.length || value.trim()) return field

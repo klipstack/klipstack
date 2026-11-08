@@ -168,6 +168,7 @@ function Editor({
 				style={large ? { width: "100%" } : undefined}
 				className={cn(
 					"leading-snug focus-within:ring-2 focus-within:ring-ring",
+					// oxlint-disable-next-line klipstack/design-scale -- a note in the reader's type
 					large ? "text-lg" : "text-[0.9375rem]",
 				)}
 			>

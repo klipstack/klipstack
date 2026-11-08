@@ -161,6 +161,7 @@ function NoteReminderItem({
 				</p>
 			</div>
 			{item.highlights.length ? (
+				// oxlint-disable-next-line klipstack/design-scale -- a quote in the reader's type
 				<ul className="grid gap-1.5 border-l-2 border-border pl-3 font-serif text-[0.95rem] leading-relaxed">
 					{item.highlights.map((h) => (
 						<li key={h.id} {...highlightColor(h.color)} className="line-clamp-2">

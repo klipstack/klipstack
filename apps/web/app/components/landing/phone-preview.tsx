@@ -7,9 +7,11 @@ import { useTranslation } from "react-i18next"
  */
 export function PhonePreview() {
 	const { t } = useTranslation()
+	// oxlint-disable-next-line klipstack/design-scale -- an iPhone's screen corners
 	const shot = "aspect-[1206/2622] w-full rounded-[2.4rem] object-cover"
 	return (
 		<figure className="flex flex-col items-center gap-4">
+			{/* oxlint-disable-next-line klipstack/design-scale -- an iPhone's screen corners */}
 			<div className="relative w-[15.5rem] shrink-0 rounded-[2.9rem] border border-border bg-fg/90 p-2.5 shadow-[0_24px_48px_-24px_rgb(0_0_0/0.45)] sm:w-[17rem]">
 				<div className="relative">
 					<img
