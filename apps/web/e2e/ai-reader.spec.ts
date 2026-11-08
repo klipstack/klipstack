@@ -388,9 +388,14 @@ test("asking for the brief and reading it leaves a new article new; reading its 
 	await page.clock.pauseAt(Date.now() + 1000)
 	const textTop = () =>
 		page.evaluate(() => document.querySelector(".reader-content")!.getBoundingClientRect().top)
-	// A screen scrolled through the brief to read it, and a long while there: the text is below.
-	await page.mouse.wheel(0, 600)
-	await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(600)
+	// The title and the brief take more than the window: the text starts below it.
+	const start = await textTop()
+	expect(start).toBeGreaterThan(600)
+	// Scrolled through the brief to read it, and a long while there: the text is still below the
+	// top 15% of the window, where reading it starts (use-reading-progress.ts).
+	const through = Math.floor(start - 600 * 0.3)
+	await page.mouse.wheel(0, through)
+	await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(through)
 	expect(await textTop()).toBeGreaterThan(600 * 0.15)
 	await page.clock.runFor(30_000)
 	await page.waitForTimeout(500)
