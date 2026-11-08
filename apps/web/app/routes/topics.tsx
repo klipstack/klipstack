@@ -25,6 +25,7 @@ import {
 } from "~/components/topic-actions"
 import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
+import { Page } from "~/components/ui/page"
 import { topicModels } from "~/lib/ai.server"
 import { AppError } from "~/lib/app-error"
 import { hash, siteHue } from "~/lib/book-hue"
@@ -142,7 +143,7 @@ export default function Topics({ loaderData }: Route.ComponentProps) {
 		return () => window.clearInterval(id)
 	}, [busy, revalidate])
 	return (
-		<main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-3 pb-8 md:px-8 md:pt-4 md:pb-8">
+		<Page className="pb-8">
 			<h1 className="hidden page-title md:block md:leading-10">{tc("nav.topics")}</h1>
 			<p className="max-w-2xl text-sm text-muted-fg md:mt-2">{t("topics.description")}</p>
 			{paused ? (
@@ -185,7 +186,7 @@ export default function Topics({ loaderData }: Route.ComponentProps) {
 				<Shelves state={state} sortsPaused={sortsPaused} />
 			) : null}
 			{state.stage === "off" ? null : <TurnOff />}
-		</main>
+		</Page>
 	)
 }
 

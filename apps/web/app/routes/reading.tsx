@@ -2,6 +2,7 @@ import { longerThan } from "@klipstack/api-contract/reading"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router"
 import { tooltip } from "~/components/tooltip-host"
+import { Page } from "~/components/ui/page"
 import { knownTimeZone } from "~/lib/date-groups"
 import type { PageBarHandle } from "~/lib/page-bar"
 import { pageTitle } from "~/lib/page-title"
@@ -58,7 +59,7 @@ export default function Reading({ loaderData: { by, stats } }: Route.ComponentPr
 	const days = useDays()
 	const read = Object.keys(stats.days).length > 0 || stats.periods.some((p) => p.articles > 0)
 	return (
-		<main className="mx-auto w-full max-w-4xl flex-1 px-4 pt-3 pb-12 md:px-8 md:pt-4">
+		<Page className="pb-12 md:pb-12">
 			<h1 className="hidden page-title md:block md:leading-10">{tc("nav.reading")}</h1>
 			<p className="text-sm text-muted-fg md:mt-2">{t("stats.description")}</p>
 			{read ? null : (
@@ -73,7 +74,7 @@ export default function Reading({ loaderData: { by, stats } }: Route.ComponentPr
 			</div>
 			<YearGrid stats={stats} />
 			<Periods by={by} stats={stats} />
-		</main>
+		</Page>
 	)
 }
 

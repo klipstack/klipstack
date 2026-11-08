@@ -32,6 +32,7 @@ import { SaveLinkButton } from "~/components/save-link-dialog"
 import { SelectionBar } from "~/components/selection-bar"
 import { StarterOffer } from "~/components/starter-texts"
 import { tooltip } from "~/components/tooltip-host"
+import { Page } from "~/components/ui/page"
 import { useListCursor } from "~/hooks/use-list-cursor"
 import { AppError } from "~/lib/app-error"
 import { useCommands } from "~/lib/commands"
@@ -332,7 +333,7 @@ export default function Library({ loaderData }: Route.ComponentProps) {
 	}, [navigate, searchPath, from])
 
 	return (
-		<main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-3 pb-6 md:px-8 md:pt-4 md:pb-8">
+		<Page>
 			<div className="hidden min-h-10 flex-wrap items-center justify-between gap-3 md:flex">
 				<h1 className="page-title">{t("heading")}</h1>
 				<div className="flex items-center gap-2">
@@ -439,7 +440,7 @@ export default function Library({ loaderData }: Route.ComponentProps) {
 				</div>
 			) : null}
 			<SelectionBar items={loaderData.items} selection={selection} />
-		</main>
+		</Page>
 	)
 }
 

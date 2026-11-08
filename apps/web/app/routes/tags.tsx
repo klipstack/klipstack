@@ -14,6 +14,7 @@ import { EmptyDrawing } from "~/components/empty-drawing"
 import { MenuButton, MoreMenu, type MoreMenuHandle } from "~/components/more-menu"
 import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
+import { Page } from "~/components/ui/page"
 import { AppError } from "~/lib/app-error"
 import type { PageBarHandle } from "~/lib/page-bar"
 import { pageTitle } from "~/lib/page-title"
@@ -86,7 +87,7 @@ export default function Tags({ loaderData }: Route.ComponentProps) {
 			showToast({ message: t("tags.page.merged", { name: renamed.name }) })
 	}, [renamed, t])
 	return (
-		<main className="mx-auto w-full max-w-2xl flex-1 px-4 pt-3 pb-8 md:pt-4 md:pb-8">
+		<Page narrow className="pb-8">
 			<h1 className="hidden page-title md:block md:leading-10">{tc("nav.tags")}</h1>
 			<p className="text-sm text-muted-fg md:mt-2">{t("tags.page.description")}</p>
 			{tags.length === 0 ? (
@@ -110,7 +111,7 @@ export default function Tags({ loaderData }: Route.ComponentProps) {
 					))}
 				</ul>
 			)}
-		</main>
+		</Page>
 	)
 }
 

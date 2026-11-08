@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next"
 import { Form, Link, useFetcher, useLocation } from "react-router"
 import { Button } from "~/components/ui/button"
 import { Field } from "~/components/ui/field"
+import { Page } from "~/components/ui/page"
 
 /** A section of Settings: its title (in the phone bar instead, below `md`), and what it holds. */
 export function SettingsPage({
@@ -18,7 +19,7 @@ export function SettingsPage({
 	children: React.ReactNode
 }) {
 	return (
-		<main className="mx-auto w-full max-w-2xl flex-1 px-4 pt-4 pb-8">
+		<Page narrow className="pt-4 pb-8 md:pt-4 md:pb-8">
 			{back ? (
 				<Link
 					to={back.to}
@@ -31,7 +32,7 @@ export function SettingsPage({
 			<h1 className="hidden page-title md:block md:leading-10">{title}</h1>
 			{description ? <p className="text-sm text-muted-fg md:mt-1">{description}</p> : null}
 			{children}
-		</main>
+		</Page>
 	)
 }
 

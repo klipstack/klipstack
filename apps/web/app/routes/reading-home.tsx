@@ -24,6 +24,7 @@ import { MenuNavLink, MenuSeparator, MoreMenu } from "~/components/more-menu"
 import { openSaveLink } from "~/components/save-link-dialog"
 import { StarterOffer } from "~/components/starter-texts"
 import { Button, buttonVariants } from "~/components/ui/button"
+import { Page } from "~/components/ui/page"
 import { type Welcome, WelcomeNote } from "~/components/welcome-note"
 import { useFeedReader } from "~/hooks/use-feed-reader"
 import { topicModels } from "~/lib/ai.server"
@@ -282,7 +283,7 @@ export default function ReadingHome({
 	}, [navigate])
 
 	return (
-		<main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-5 pb-12 md:px-8 md:pt-4 md:pb-8">
+		<Page className="pt-5 pb-12">
 			<HomeMasthead
 				{...masthead}
 				deck={finished ? <FinishedLately {...finished} /> : null}
@@ -418,7 +419,7 @@ export default function ReadingHome({
 					</div>
 				) : null}
 			</div>
-		</main>
+		</Page>
 	)
 }
 

@@ -253,10 +253,13 @@ test("the sidebar's edge resizes it, within limits, and the width is remembered"
 	await expect.poll(width).toBe(240)
 })
 
-test("every page's header row lines up with the sidebar's", async ({ page }) => {
+test("every page's header row lines up with the sidebar's and starts at one left edge", async ({
+	page,
+}) => {
 	await signupUser(page, "Aligned", { editions: true, feeds: true })
 	await page.setViewportSize({ width: 1280, height: 800 })
 	const middle = (box: { y: number; height: number } | null) => box!.y + box!.height / 2
+	const edges = new Map<string, number>()
 	for (const path of [
 		"/home",
 		"/library",
@@ -280,5 +283,8 @@ test("every page's header row lines up with the sidebar's", async ({ page }) => 
 		// The page's first visible row: its title, and the buttons or field beside it.
 		const row = await page.locator("main > :not(.sr-only)").first().boundingBox()
 		expect(middle(row), path).toBeCloseTo(middle(sidebar), 0)
+		edges.set(path, Math.round(row!.x))
 	}
+	// The title stays where it was going from page to page: one frame, not a width per page.
+	expect(new Set(edges.values()).size, JSON.stringify(Object.fromEntries(edges))).toBe(1)
 })

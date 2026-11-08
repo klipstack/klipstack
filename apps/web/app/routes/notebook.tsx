@@ -10,6 +10,7 @@ import { tiltFor } from "~/components/post-it"
 import { ArticleThumb, QuoteCard } from "~/components/quote-card"
 import { SearchField } from "~/components/search-field"
 import { tooltip } from "~/components/tooltip-host"
+import { Page } from "~/components/ui/page"
 import { HIGHLIGHT_COLOR_NAMES, HIGHLIGHT_SWATCH, highlightColor } from "~/lib/highlight-colors"
 import { extractLinkIds, type LinkTargets } from "~/lib/note-links"
 import {
@@ -223,7 +224,7 @@ export default function Notebook({ loaderData }: Route.ComponentProps) {
 	const title = q ? t("notebook.search.results", { q }) : tc("nav.notebook")
 
 	return (
-		<main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-3 pb-6 md:pt-4 md:pb-8">
+		<Page>
 			<div className="hidden min-h-10 flex-wrap items-center justify-between gap-3 md:flex">
 				<h1 className="page-title">{title}</h1>
 				{blank ? null : (
@@ -316,7 +317,7 @@ export default function Notebook({ loaderData }: Route.ComponentProps) {
 					{board.kind === "stream" ? <More state={state} cursor={board.nextCursor} /> : null}
 				</>
 			)}
-		</main>
+		</Page>
 	)
 }
 
