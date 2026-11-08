@@ -10,6 +10,7 @@ import { tiltFor } from "~/components/post-it"
 import { ArticleThumb, QuoteCard } from "~/components/quote-card"
 import { SearchField } from "~/components/search-field"
 import { tooltip } from "~/components/tooltip-host"
+import { buttonVariants } from "~/components/ui/button"
 import { Page } from "~/components/ui/page"
 import { HIGHLIGHT_COLOR_NAMES, HIGHLIGHT_SWATCH, highlightColor } from "~/lib/highlight-colors"
 import { extractLinkIds, type LinkTargets } from "~/lib/note-links"
@@ -257,7 +258,7 @@ export default function Notebook({ loaderData }: Route.ComponentProps) {
 					<h2 className="font-serif text-xl italic">{t("notebook.shuffle.title")}</h2>
 					<Link
 						to={notebookHref(state, { shuffle: "new" })}
-						className="flex items-center gap-1.5 rounded-full bg-accent px-3 py-1 text-sm text-accent-fg hover:opacity-90"
+						className={cn(buttonVariants({ size: "sm" }), "gap-1.5")}
 					>
 						<Shuffle className="size-3.5" aria-hidden />
 						{t("notebook.shuffle.again")}
@@ -335,7 +336,7 @@ function More({ state, cursor }: { state: NotebookState; cursor: string | null }
 		<div className="mt-8 flex justify-center">
 			<Link
 				to={notebookHref(state, { cursor })}
-				className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-hover"
+				className={buttonVariants({ variant: "secondary" })}
 			>
 				{t("notebook.loadMore")}
 			</Link>
@@ -745,10 +746,7 @@ function EmptyNotebook() {
 			<BlankPostIt />
 			<h2 className="mt-2 text-lg font-medium text-fg">{t("notebook.empty.title")}</h2>
 			<p className="max-w-sm text-sm">{t("notebook.empty.description")}</p>
-			<Link
-				to="/library"
-				className="mt-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-fg hover:opacity-90"
-			>
+			<Link to="/library" className={cn(buttonVariants(), "mt-2")}>
 				{t("notebook.empty.action")}
 			</Link>
 		</div>

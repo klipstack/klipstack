@@ -1,6 +1,8 @@
 import { parse } from "@klipstack/api-contract/note-links"
 import { Fragment } from "react"
+import { buttonVariants } from "~/components/ui/button"
 import { safeHost } from "~/lib/site-label"
+import { cn } from "~/lib/utils"
 import type { ShareSnapshot } from "~/services/highlight-shares.server"
 import { BrandMarkSmall } from "./brand-mark"
 import { ClippingPaper } from "./clipping"
@@ -129,11 +131,7 @@ export function SharedHighlightPage({
 					</figcaption>
 				</figure>
 				{web ? (
-					<a
-						href={article.url}
-						rel={OUTBOUND}
-						className="mt-8 self-center rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-accent-fg hover:opacity-90"
-					>
+					<a href={article.url} rel={OUTBOUND} className={cn(buttonVariants(), "mt-8 self-center")}>
 						{labels.readArticle}
 					</a>
 				) : null}

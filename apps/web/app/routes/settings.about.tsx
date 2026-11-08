@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router"
 import { SettingsCard, SettingsPage } from "~/components/settings-page"
+import { Button } from "~/components/ui/button"
 import { useAppVersion } from "~/lib/app-version"
 import type { PageBarHandle } from "~/lib/page-bar"
 import { pageTitle } from "~/lib/page-title"
@@ -55,13 +56,9 @@ function AppVersion() {
 				{version || "dev"}
 			</code>
 			{newer ? (
-				<button
-					type="button"
-					onClick={() => window.location.reload()}
-					className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-accent-fg"
-				>
+				<Button type="button" onClick={() => window.location.reload()}>
 					{t("about.update")}
-				</button>
+				</Button>
 			) : null}
 		</div>
 	)

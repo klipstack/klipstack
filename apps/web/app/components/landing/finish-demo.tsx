@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next"
 import { ArticleNoteLabel } from "~/components/note-status"
 import { PostIt, useGrowingFit } from "~/components/post-it"
 import { ReadStamp } from "~/components/read-stamp"
+import { buttonVariants } from "~/components/ui/button"
 import { editionNoteFromNote } from "~/lib/edition-text"
 import { cn } from "~/lib/utils"
 
@@ -87,7 +88,11 @@ export function FinishDemo({
 						type="button"
 						aria-pressed={state.starred}
 						onClick={() => set({ starred: !state.starred })}
-						className="flex items-center justify-center gap-2 rounded-xl bg-muted px-3 py-2.5 text-sm text-fg hover:bg-fg/10"
+						// Two to a row: a longer label (Spanish) wraps inside its half.
+						className={cn(
+							buttonVariants({ variant: "secondary" }),
+							"h-auto min-h-10 py-2 whitespace-normal",
+						)}
 					>
 						<Star
 							className={cn(
@@ -103,10 +108,9 @@ export function FinishDemo({
 						aria-pressed={state.shortlisted}
 						onClick={() => set({ shortlisted: !state.shortlisted })}
 						className={cn(
-							"flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm",
-							state.shortlisted
-								? "bg-accent text-accent-fg"
-								: "bg-muted text-fg hover:bg-fg/10 [&>svg]:text-muted-fg",
+							buttonVariants({ variant: state.shortlisted ? "primary" : "secondary" }),
+							"h-auto min-h-10 py-2 whitespace-normal",
+							!state.shortlisted && "[&>svg]:text-muted-fg",
 						)}
 					>
 						<Newspaper className="size-4" aria-hidden />

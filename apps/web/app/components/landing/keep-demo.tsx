@@ -2,6 +2,7 @@ import { Lock, Newspaper } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { MARGIN_NOTE } from "~/components/margin-notes"
 import { PostIt } from "~/components/post-it"
+import { buttonVariants } from "~/components/ui/button"
 import { cn } from "~/lib/utils"
 import type { FinishState } from "./finish-demo"
 import {
@@ -180,7 +181,7 @@ export function KeepDemo({
 					<button
 						type="button"
 						onClick={onShortlist}
-						className="mt-4 inline-flex items-center gap-2 rounded-xl bg-muted px-3 py-2 text-sm text-fg hover:bg-fg/10"
+						className={cn(buttonVariants({ variant: "secondary" }), "mt-4")}
 					>
 						<Newspaper className="size-4 text-muted-fg" aria-hidden />
 						{tr("end.shortlist")}

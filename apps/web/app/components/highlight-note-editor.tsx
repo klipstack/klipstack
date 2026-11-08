@@ -2,6 +2,7 @@ import { HIGHLIGHT_NOTE_MAX } from "@klipstack/api-contract/names"
 import { Check, X } from "lucide-react"
 import { useEffect, useInsertionEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { buttonVariants } from "~/components/ui/button"
 import { highlightColor, highlightColorName } from "~/lib/highlight-colors"
 import type { LinkTargets } from "~/lib/note-links"
 import { cn } from "~/lib/utils"
@@ -162,7 +163,7 @@ export function HighlightNoteEditor({
 						onClick={onCancel}
 						aria-label={t("highlights.popover.cancel")}
 						{...tooltip(t("highlights.popover.cancel"))}
-						className={cn("rounded-lg p-1.5", PAPER_BUTTON)}
+						className={cn(buttonVariants({ variant: "ghost", size: "icon" }), PAPER_BUTTON)}
 					>
 						<X className="size-4" aria-hidden />
 					</button>
@@ -172,7 +173,11 @@ export function HighlightNoteEditor({
 						onClick={() => onSave(note)}
 						aria-label={t("highlights.popover.save")}
 						{...tooltip(t("highlights.popover.save"), "⌘↵")}
-						className="rounded-lg bg-accent p-1.5 text-accent-fg disabled:opacity-50"
+						// Disabled until the note changes: still under the pointer, so its tooltip tells the shortcut.
+						className={cn(
+							buttonVariants({ size: "icon" }),
+							"disabled:pointer-events-auto disabled:cursor-not-allowed disabled:hover:opacity-50",
+						)}
 					>
 						<Check className="size-4" aria-hidden />
 					</button>

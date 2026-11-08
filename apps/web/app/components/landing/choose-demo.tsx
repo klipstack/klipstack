@@ -1,6 +1,7 @@
 import { ArrowDown } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
+import { buttonVariants } from "~/components/ui/button"
 import { REDISCOVER_AFTER_DAYS, TIME_CHOICES } from "~/lib/inbox-filters"
 import { cn } from "~/lib/utils"
 import { type SampleSave, sampleShelves } from "./sample"
@@ -55,10 +56,7 @@ export function ChooseDemo({ readHref }: { readHref: string }) {
 					)}
 				</div>
 				{essay ? (
-					<a
-						href={readHref}
-						className="inline-flex shrink-0 items-center gap-1 rounded-full bg-accent px-3 py-1.5 text-sm font-medium text-accent-fg"
-					>
+					<a href={readHref} className={cn(buttonVariants({ size: "sm" }), "shrink-0 gap-1")}>
 						{t("home.choose.readIt")}
 						<ArrowDown className="size-3.5" aria-hidden />
 					</a>

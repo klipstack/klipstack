@@ -12,6 +12,7 @@ import { ArticleNoteLabel, NoteStatus } from "~/components/note-status"
 import { PostIt, tiltFor, useGrowingFit } from "~/components/post-it"
 import { ReadStamp } from "~/components/read-stamp"
 import { tooltip } from "~/components/tooltip-host"
+import { buttonVariants } from "~/components/ui/button"
 import { useAutosaveText } from "~/hooks/use-autosave-text"
 import type { StateIntent } from "~/hooks/use-document-state"
 import type { ArticleNote } from "~/hooks/use-note-autosave"
@@ -177,7 +178,7 @@ export function ReaderEnd({
 					type="button"
 					data-testid="reader-end-finish"
 					onClick={onFinish}
-					className="inline-flex items-center justify-center gap-2 justify-self-start rounded-full bg-accent px-4 py-2 text-sm font-medium text-accent-fg"
+					className={cn(buttonVariants(), "justify-self-start")}
 				>
 					<Check className="size-4" aria-hidden />
 					{t("end.finish")}
@@ -215,7 +216,11 @@ export function ReaderEnd({
 					onClick={() => onChange(starred ? "unstar" : "star")}
 					{...tooltip(starred ? t("actions.unstar") : t("actions.star"), SHORTCUT_HINTS.star)}
 					aria-pressed={starred}
-					className="flex items-center justify-center gap-2 rounded-xl bg-muted px-3 py-2.5 text-sm text-fg hover:bg-fg/10"
+					// Two to a row: a longer label (Spanish) wraps inside its half.
+					className={cn(
+						buttonVariants({ variant: "secondary" }),
+						"h-auto min-h-10 py-2 whitespace-normal",
+					)}
 				>
 					<Star
 						className={cn("size-4", starred ? "fill-favorite text-favorite" : "text-muted-fg")}
@@ -237,10 +242,9 @@ export function ReaderEnd({
 						)}
 						aria-pressed={shortlisted}
 						className={cn(
-							"flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm",
-							shortlisted
-								? "bg-accent text-accent-fg"
-								: "bg-muted text-fg hover:bg-fg/10 [&>svg]:text-muted-fg",
+							buttonVariants({ variant: shortlisted ? "primary" : "secondary" }),
+							"h-auto min-h-10 py-2 whitespace-normal",
+							!shortlisted && "[&>svg]:text-muted-fg",
 						)}
 					>
 						<Newspaper className="size-4" aria-hidden />
@@ -312,7 +316,7 @@ export function ReaderEnd({
 							data-testid="reader-end-done"
 							onClick={edition.flush}
 							{...tooltip(t("end.done"), SUBMIT_HINT)}
-							className="rounded-full bg-accent px-4 py-1.5 text-sm font-medium text-accent-fg"
+							className={buttonVariants({ size: "sm" })}
 						>
 							{t("end.done")}
 						</Link>
