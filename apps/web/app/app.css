@@ -271,7 +271,8 @@ body {
 }
 
 .reader-title {
-	font-family: var(--font-sans);
+	/* The reader's font, as the byline and the text under it: a sans title read as another voice. */
+	font-family: var(--reader-font);
 	font-size: calc(var(--reader-size) * 1.9);
 }
 
