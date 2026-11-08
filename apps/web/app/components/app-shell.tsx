@@ -85,6 +85,34 @@ export const linkClass =
 					: "hover:[&_[data-nav-ink]]:ink-hover-item",
 		)
 
+/** Folds the desktop sidebar to a rail of icons, or opens it again: the app's and Settings'. */
+export function SidebarToggle({
+	collapsed,
+	onToggle,
+}: {
+	collapsed: boolean
+	onToggle: () => void
+}) {
+	const { t } = useTranslation()
+	const label = collapsed ? t("nav.expand") : t("nav.collapse")
+	return (
+		<button
+			type="button"
+			onClick={onToggle}
+			aria-label={label}
+			aria-expanded={!collapsed}
+			{...tooltip(label, undefined, "right")}
+			className="rounded-md p-2 text-muted-fg hover:bg-fg/10 hover:text-fg"
+		>
+			{collapsed ? (
+				<PanelLeftOpen className="size-5" aria-hidden />
+			) : (
+				<PanelLeftClose className="size-5" aria-hidden />
+			)}
+		</button>
+	)
+}
+
 /** Icon centered in a slot as wide as the brand mark, so nav labels align with the app name. */
 export function NavIcon({ icon: Icon }: { icon: typeof Inbox }) {
 	return (
@@ -181,7 +209,6 @@ function SidebarContent({
 }) {
 	const { t } = useTranslation()
 	const headingId = useId()
-	const toggleLabel = collapsed ? t("nav.expand") : t("nav.collapse")
 	const library = isLibraryPath(useLocation().pathname)
 	return (
 		<>
@@ -199,22 +226,7 @@ function SidebarContent({
 					</NavLink>
 				)}
 				<div className="flex items-center">
-					{onToggle ? (
-						<button
-							type="button"
-							onClick={onToggle}
-							aria-label={toggleLabel}
-							aria-expanded={!collapsed}
-							{...tooltip(toggleLabel, undefined, "right")}
-							className="rounded-md p-2 text-muted-fg hover:bg-fg/10 hover:text-fg"
-						>
-							{collapsed ? (
-								<PanelLeftOpen className="size-5" aria-hidden />
-							) : (
-								<PanelLeftClose className="size-5" aria-hidden />
-							)}
-						</button>
-					) : null}
+					{onToggle ? <SidebarToggle collapsed={collapsed} onToggle={onToggle} /> : null}
 					{onClose ? (
 						<button
 							type="button"

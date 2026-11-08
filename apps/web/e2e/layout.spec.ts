@@ -288,3 +288,29 @@ test("every page's header row lines up with the sidebar's and starts at one left
 	// The title stays where it was going from page to page: one frame, not a width per page.
 	expect(new Set(edges.values()).size, JSON.stringify(Object.fromEntries(edges))).toBe(1)
 })
+
+test("with the sidebar folded, Settings folds its own and starts where the app's pages do", async ({
+	page,
+}) => {
+	await signupUser(page, "Folded")
+	await page.setViewportSize({ width: 1280, height: 800 })
+	await page.goto("/library")
+	await waitForHydration(page)
+	await page.getByRole("button", { name: "Collapse sidebar" }).click()
+	// The sidebar narrows over 150ms: measure once it is a rail.
+	const aside = page.locator("aside").first()
+	await expect.poll(() => aside.evaluate((e) => e.getBoundingClientRect().width)).toBe(64)
+	const edge = async () =>
+		Math.round((await page.locator("main > :not(.sr-only)").first().boundingBox())!.x)
+	const library = await edge()
+
+	await page.goto("/settings/account")
+	await waitForHydration(page)
+	expect(await edge()).toBe(library)
+	// Its rail names each section for the pointer and screen readers, and opens again.
+	await expect(page.getByRole("link", { name: "Usage" })).toBeVisible()
+	await page.getByRole("button", { name: "Expand sidebar" }).click()
+	await expect(page.getByRole("heading", { level: 2, name: "Settings" })).toBeVisible()
+	await page.goto("/library")
+	await expect(page.getByRole("button", { name: "Collapse sidebar" })).toBeVisible()
+})

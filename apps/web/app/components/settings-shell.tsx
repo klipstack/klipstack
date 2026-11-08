@@ -19,9 +19,11 @@ import { iconButton } from "~/components/ui/button"
 import { useKeyTranslation } from "~/lib/i18n-keys"
 import { usePageBar } from "~/lib/page-bar"
 import { useSettingsOrigin } from "~/lib/settings-origin"
-import { useSidebar } from "~/lib/sidebar"
-import { linkClass, NavItemInk } from "./app-shell"
+import { setSidebar, useSidebar } from "~/lib/sidebar"
+import { cn } from "~/lib/utils"
+import { linkClass, NavIcon, NavItemInk, SidebarToggle } from "./app-shell"
 import { MobileDrawer, useMobileDrawer } from "./mobile-drawer"
+import { tooltip } from "./tooltip-host"
 
 /** One route per section, under `/settings/`; their pages are `routes/settings.<slug>.tsx`. */
 const GROUPS = [
@@ -54,11 +56,13 @@ function SectionLink({
 	slug,
 	label,
 	icon,
+	collapsed = false,
 	onNavigate,
 }: {
 	slug: string
 	label: string
 	icon: typeof Info
+	collapsed?: boolean
 	onNavigate?: () => void
 }) {
 	return (
@@ -66,15 +70,28 @@ function SectionLink({
 			to={`/settings/${slug}`}
 			prefetch="intent"
 			onClick={onNavigate}
-			className={linkClass(false)}
+			className={linkClass(collapsed)}
+			// A rail shows icons only: the name is still there for screen readers.
+			{...(collapsed ? { "aria-label": label, ...tooltip(label, undefined, "right") } : {})}
 		>
-			<NavItemInk icon={icon}>{label}</NavItemInk>
+			{collapsed ? <NavIcon icon={icon} /> : <NavItemInk icon={icon}>{label}</NavItemInk>}
 		</NavLink>
 	)
 }
 
-/** The way back, then the sections: shared by the desktop sidebar and the phone drawer. */
-function SettingsNav({ onNavigate, onClose }: { onNavigate?: () => void; onClose?: () => void }) {
+/**
+ * The way back, then the sections: shared by the desktop sidebar and the phone drawer. Folded to a
+ * rail as the app's sidebar is, so the page beside it starts where the app's pages do.
+ */
+function SettingsNav({
+	collapsed = false,
+	onNavigate,
+	onClose,
+}: {
+	collapsed?: boolean
+	onNavigate?: () => void
+	onClose?: () => void
+}) {
 	const { t } = useTranslation("settings")
 	const { t: tc } = useTranslation()
 	const origin = useSettingsOrigin()
@@ -82,33 +99,54 @@ function SettingsNav({ onNavigate, onClose }: { onNavigate?: () => void; onClose
 	return (
 		<>
 			{/* 40px tall, as the main sidebar's brand row: each page's title lines up with it. */}
-			<div className="mb-6 flex min-h-10 items-center justify-between gap-1">
-				<Link
-					to={origin}
-					onClick={onNavigate}
-					data-testid="settings-back"
-					className="flex min-w-0 flex-1 items-center rounded-lg px-2 py-2 text-sm font-medium hover:[&_[data-nav-ink]]:ink-hover-item md:py-1.5"
-				>
-					<NavItemInk icon={ArrowLeft}>{tc("actions.back")}</NavItemInk>
-				</Link>
-				{onClose ? (
-					<button
-						type="button"
-						onClick={onClose}
-						aria-label={tc("actions.close")}
-						className={iconButton}
+			{collapsed ? (
+				<div className="mb-6 flex min-h-10 items-center justify-center">
+					<SidebarToggle collapsed onToggle={() => setSidebar({ collapsed: false })} />
+				</div>
+			) : (
+				<div className="mb-6 flex min-h-10 items-center justify-between gap-1">
+					<Link
+						to={origin}
+						onClick={onNavigate}
+						data-testid="settings-back"
+						className="flex min-w-0 flex-1 items-center rounded-lg px-2 py-2 text-sm font-medium hover:[&_[data-nav-ink]]:ink-hover-item md:py-1.5"
 					>
-						<X className="size-5" aria-hidden />
-					</button>
-				) : null}
-			</div>
+						<NavItemInk icon={ArrowLeft}>{tc("actions.back")}</NavItemInk>
+					</Link>
+					{onClose ? (
+						<button
+							type="button"
+							onClick={onClose}
+							aria-label={tc("actions.close")}
+							className={iconButton}
+						>
+							<X className="size-5" aria-hidden />
+						</button>
+					) : null}
+				</div>
+			)}
 			<nav aria-labelledby={headingId} className="flex flex-1 flex-col gap-4">
-				<h2 id={headingId} className="px-2 text-lg font-semibold">
+				{collapsed ? (
+					<Link
+						to={origin}
+						data-testid="settings-back"
+						aria-label={tc("actions.back")}
+						{...tooltip(tc("actions.back"), undefined, "right")}
+						className={linkClass(true)({ isActive: false })}
+					>
+						<NavIcon icon={ArrowLeft} />
+					</Link>
+				) : null}
+				<h2 id={headingId} className={cn("px-2 text-lg font-semibold", collapsed && "sr-only")}>
 					{t("title")}
 				</h2>
 				{GROUPS.map((group) => (
 					<section key={group.key} aria-label={t(`nav.${group.key}`)}>
-						<h3 className="px-2 pb-1 text-xs font-medium text-muted-fg">{t(`nav.${group.key}`)}</h3>
+						<h3
+							className={cn("px-2 pb-1 text-xs font-medium text-muted-fg", collapsed && "sr-only")}
+						>
+							{t(`nav.${group.key}`)}
+						</h3>
 						<ul className="flex flex-col gap-1">
 							{group.sections.map((section) => (
 								<li key={section.slug}>
@@ -116,6 +154,7 @@ function SettingsNav({ onNavigate, onClose }: { onNavigate?: () => void; onClose
 										slug={section.slug}
 										label={t(section.key)}
 										icon={section.icon}
+										collapsed={collapsed}
 										onNavigate={onNavigate}
 									/>
 								</li>
@@ -124,7 +163,13 @@ function SettingsNav({ onNavigate, onClose }: { onNavigate?: () => void; onClose
 					</section>
 				))}
 				<div className="mt-auto border-t border-border pt-3">
-					<SectionLink slug="about" label={t("about.title")} icon={Info} onNavigate={onNavigate} />
+					<SectionLink
+						slug="about"
+						label={t("about.title")}
+						icon={Info}
+						collapsed={collapsed}
+						onNavigate={onNavigate}
+					/>
 				</div>
 			</nav>
 		</>
@@ -146,11 +191,14 @@ export function SettingsShell({ children }: { children: React.ReactNode }) {
 	return (
 		<div className="flex min-h-dvh">
 			<aside
-				// As wide as the app's sidebar when it is open, so the switch does not jump.
-				style={{ width: sidebar.width }}
-				className="hidden shrink-0 flex-col border-r border-border bg-muted/40 p-4 md:sticky md:top-0 md:flex md:h-dvh md:overflow-y-auto"
+				// As wide as the app's sidebar, open or folded to a rail, so the switch does not jump.
+				style={sidebar.collapsed ? undefined : { width: sidebar.width }}
+				className={cn(
+					"hidden shrink-0 flex-col border-r border-border bg-muted/40 p-4 md:sticky md:top-0 md:flex md:h-dvh md:overflow-y-auto",
+					sidebar.collapsed && "w-16 px-2",
+				)}
 			>
-				<SettingsNav />
+				<SettingsNav collapsed={sidebar.collapsed} />
 			</aside>
 			<div inert={open} className="flex min-w-0 flex-1 flex-col">
 				<header className="safe-top sticky top-0 z-20 flex min-h-13 items-center gap-1 border-b border-border bg-bg/90 px-2 py-1.5 backdrop-blur md:hidden">
