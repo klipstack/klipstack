@@ -174,11 +174,13 @@ function Item({
 				<article data-edition-item className="flex items-start gap-4 @xl:gap-6">
 					<div className="min-w-0 flex-1">
 						{kicker}
+						{/* oxlint-disable-next-line klipstack/design-scale -- the edition's newspaper type, between the scale's steps */}
 						<h2 className="font-serif text-xl leading-snug text-balance @xl:text-[1.375rem]">
 							{title}
 						</h2>
 						{meta}
 						{item.description ? (
+							// oxlint-disable-next-line klipstack/design-scale -- the edition's newspaper type, between the scale's steps
 							<p className="mt-2.5 line-clamp-3 text-[0.9375rem] leading-relaxed text-muted-fg">
 								{item.description}
 							</p>
@@ -200,6 +202,7 @@ function Item({
 					) : null}
 					<Commentary item={item} index={index} anchors={anchors} newTab={newTab}>
 						{kicker}
+						{/* oxlint-disable-next-line klipstack/design-scale -- the edition's newspaper type, between the scale's steps */}
 						<h2 className="font-serif text-[1.75rem] leading-tight tracking-tight text-balance @xl:text-[2.25rem]">
 							{title}
 						</h2>
@@ -220,6 +223,7 @@ function Item({
 					<div className="flex flex-col-reverse gap-5 @xl:flex-row @xl:items-start @xl:gap-6">
 						<div className="min-w-0 flex-1">
 							{kicker}
+							{/* oxlint-disable-next-line klipstack/design-scale -- the edition's newspaper type, between the scale's steps */}
 							<h2 className="font-serif text-2xl leading-tight text-balance @xl:text-[1.75rem]">
 								{title}
 							</h2>
@@ -299,6 +303,7 @@ function Commentary({
 						text={item.note}
 						anchors={anchors}
 						newTab={newTab}
+						// oxlint-disable-next-line klipstack/design-scale -- the edition's newspaper type, between the scale's steps
 						className="text-[1.0625rem] leading-relaxed @6xl:text-base"
 					/>
 				</PostIt>
@@ -336,7 +341,8 @@ function Commentary({
 										"font-serif whitespace-pre-wrap break-words",
 										pull
 											? "text-lg leading-snug text-pretty @xl:text-xl"
-											: "text-[1.0625rem] leading-relaxed",
+											: // oxlint-disable-next-line klipstack/design-scale -- the edition's newspaper type, between the scale's steps
+												"text-[1.0625rem] leading-relaxed",
 									)}
 								>
 									{highlight.exact}

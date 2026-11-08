@@ -88,9 +88,11 @@ export function HomeArticle({
 					className={cn(
 						"mt-1.5 font-display text-balance group-hover:text-link",
 						lead
-							? "text-4xl leading-[1.08] font-[520] tracking-[-0.015em] md:text-[2.75rem]"
+							? // oxlint-disable-next-line klipstack/design-scale -- Home's front page type, between the scale's steps
+								"text-4xl leading-[1.08] font-[520] tracking-[-0.015em] md:text-[2.75rem]"
 							: column
-								? "text-xl leading-tight font-medium md:text-[1.375rem]"
+								? // oxlint-disable-next-line klipstack/design-scale -- Home's front page type, between the scale's steps
+									"text-xl leading-tight font-medium md:text-[1.375rem]"
 								: "text-xl leading-snug font-medium",
 					)}
 				>

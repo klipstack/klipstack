@@ -34,6 +34,7 @@ export function ChooseDemo({ readHref }: { readHref: string }) {
 			>
 				<div className="min-w-0 flex-1">
 					<p className="truncate text-xs text-muted-fg">{t(`home.choose.items.${save.id}.site`)}</p>
+					{/* oxlint-disable-next-line klipstack/design-scale -- the landing page's demo, in the reader's type */}
 					<p className="mt-0.5 font-display text-[1.05rem] leading-snug">
 						{t(`home.choose.items.${save.id}.title`)}
 					</p>

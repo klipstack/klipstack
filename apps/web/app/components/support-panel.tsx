@@ -168,6 +168,7 @@ export function SupportPanel({
 			className="fixed inset-x-4 bottom-[max(env(safe-area-inset-bottom),1rem)] z-50 mx-auto max-w-[340px] md:right-auto md:left-4 md:mx-0 md:w-[340px]"
 		>
 			{state === "ready" ? null : (
+				// oxlint-disable-next-line klipstack/design-scale -- the support widget's own frame, which it draws inside
 				<div className="relative flex min-h-40 flex-col items-center justify-center gap-3 rounded-[18px] border border-border bg-card p-6 text-center text-sm shadow-2xl">
 					<button
 						type="button"
@@ -212,6 +213,7 @@ export function SupportPanel({
 				referrerPolicy="no-referrer"
 				style={{ height, colorScheme: theme }}
 				className={cn(
+					// oxlint-disable-next-line klipstack/design-scale -- the support widget's own frame, which it draws inside
 					"block w-full rounded-[18px] border-0 bg-transparent shadow-2xl ring-1 ring-fg/5",
 					// Drawn off-screen until ready: the frame loads, but its empty box never shows.
 					state === "ready" ? "" : "pointer-events-none fixed -left-[9999px] w-[340px] opacity-0",

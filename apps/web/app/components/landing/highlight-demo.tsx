@@ -91,6 +91,7 @@ export function HighlightDemo({
 					</p>
 				</div>
 			</div>
+			{/* oxlint-disable-next-line klipstack/design-scale -- the landing page's demo, in the reader's type */}
 			<div className="mt-4 space-y-4 font-display text-[1.08rem] leading-relaxed">
 				{PARAGRAPHS.map((sentences) => {
 					const hasNote = noted !== undefined && (sentences as readonly string[]).includes(NOTED)
@@ -116,7 +117,7 @@ export function HighlightDemo({
 													}
 												}}
 												className={cn(
-													"cursor-pointer rounded-[2px] box-decoration-clone transition-[background-color,box-shadow] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+													"cursor-pointer rounded-xs box-decoration-clone transition-[background-color,box-shadow] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
 													mark ? HL_BG : "hover:bg-hover",
 													mark && open?.id === id ? "hl-pop" : null,
 													id === NOTED && mark

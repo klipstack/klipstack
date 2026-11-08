@@ -42,6 +42,7 @@ export function ReadStamp({
 			<span
 				aria-hidden="true"
 				style={{ maskImage: WORN, WebkitMaskImage: WORN }}
+				// oxlint-disable-next-line klipstack/design-scale -- a rubber stamp, drawn to scale
 				className="inline-block rounded-[3px] border-[1.5px] border-current px-1 font-sans text-[10px] leading-[13px] font-bold tracking-[0.14em] text-stamp uppercase opacity-85 select-none"
 			>
 				{t("card.stamp")}

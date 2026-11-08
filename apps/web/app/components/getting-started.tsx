@@ -83,6 +83,7 @@ export function GettingStarted({
 				className="relative mx-auto my-3 flex size-9 items-center justify-center rounded-lg border border-dashed border-accent/50 text-accent hover:bg-accent/10"
 			>
 				<ListChecks className="size-4" aria-hidden />
+				{/* oxlint-disable-next-line klipstack/design-scale -- a count badge on an icon */}
 				<span className="absolute -top-1.5 -right-1.5 rounded-full bg-accent px-1 text-[10px] leading-4 font-medium text-accent-fg tabular-nums">
 					{t("gettingStarted.badge", { done, total })}
 				</span>
@@ -127,7 +128,7 @@ export function GettingStarted({
 				role="img"
 				aria-label={isDone ? t("gettingStarted.done") : t("gettingStarted.toDo")}
 				className={cn(
-					"mt-0.5 flex size-3.5 shrink-0 items-center justify-center rounded-[4px]",
+					"mt-0.5 flex size-3.5 shrink-0 items-center justify-center rounded-sm",
 					isDone ? "bg-accent text-accent-fg" : "ring-1 ring-muted-fg ring-inset",
 				)}
 			>

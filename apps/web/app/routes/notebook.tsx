@@ -511,6 +511,7 @@ function Controls({
 							aria-label={label}
 							aria-current={v === view && !shuffling ? "true" : undefined}
 							{...tooltip(label)}
+							// oxlint-disable-next-line klipstack/design-scale -- the view switch's segments, inside its rounded-lg frame
 							className="flex size-7 items-center justify-center rounded-[7px] text-muted-fg hover:text-fg aria-[current]:bg-fg/10 aria-[current]:text-fg pointer-coarse:size-9"
 						>
 							<Icon className="size-4" aria-hidden />

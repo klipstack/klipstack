@@ -65,6 +65,7 @@ export function HomeMasthead({
 			>
 				<div className="space-y-2 md:text-center">
 					{/* Phones name the page in the top bar's heading: there, the greeting is a line of text. */}
+					{/* oxlint-disable-next-line klipstack/design-scale -- Home's masthead, between the scale's steps */}
 					<h1 className="page-title hidden text-balance md:block md:text-[3.25rem] md:leading-[1.1]">
 						<HomeGreeting part={part} />
 					</h1>

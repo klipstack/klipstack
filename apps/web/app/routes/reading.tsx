@@ -156,6 +156,7 @@ function YearGrid({ stats }: { stats: ReadingStats }) {
 			{/* Right to left, so a narrow screen opens on this week and scrolls back in time. */}
 			<div className="mt-3 overflow-x-auto pb-2" dir="rtl" aria-hidden>
 				<div className="min-w-[680px]" dir="ltr">
+					{/* oxlint-disable-next-line klipstack/design-scale -- the reading calendar's labels, under any text */}
 					<div className="grid gap-[3px] text-[10px] text-muted-fg" style={columns}>
 						{weeks.map((week) => {
 							const first = week.find((d) => d.endsWith("-01"))
@@ -178,7 +179,7 @@ function YearGrid({ stats }: { stats: ReadingStats }) {
 									key={day}
 									data-day={day}
 									data-count={count}
-									className="aspect-square rounded-[2px]"
+									className="aspect-square rounded-xs"
 									style={{
 										backgroundColor: LEVELS[level(count)],
 										// The first week starts on its weekday's row.
@@ -199,11 +200,7 @@ function YearGrid({ stats }: { stats: ReadingStats }) {
 				<span className="mr-1">{t("stats.year.legend")}</span>
 				<span>{t("stats.year.less")}</span>
 				{LEVELS.map((color) => (
-					<span
-						key={color}
-						className="size-[11px] rounded-[2px]"
-						style={{ backgroundColor: color }}
-					/>
+					<span key={color} className="size-[11px] rounded-xs" style={{ backgroundColor: color }} />
 				))}
 				<span>{t("stats.year.more")}</span>
 			</div>
@@ -281,6 +278,7 @@ function Periods({ by, stats }: { by: "week" | "month"; stats: ReadingStats }) {
 								</span>
 								<span
 									className={cn(
+										// oxlint-disable-next-line klipstack/design-scale -- the reading calendar's labels, under any text
 										"mt-1 text-center text-[10px] leading-tight tabular-nums sm:text-xs",
 										chosen ? "font-medium text-fg" : "text-muted-fg",
 									)}

@@ -374,6 +374,7 @@ function HighlightGroup({ group, q }: { group: Group<HighlightHit>; q: string })
 							<Link
 								to={`/read/${h.documentId}#h=${h.id}`}
 								state={{ from }}
+								// oxlint-disable-next-line klipstack/design-scale -- a quote in the reader's type
 								className="block text-[0.95rem] leading-relaxed after:absolute after:inset-0 after:content-['']"
 							>
 								{/* The quote as it is marked in the article: in its color. */}
@@ -767,6 +768,7 @@ function Tips() {
 							<Link
 								to={searchPath(example)}
 								state={location.state}
+								// oxlint-disable-next-line klipstack/design-scale -- a query in monospace, which looks larger than sans
 								className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-[0.8125rem] text-fg hover:underline"
 							>
 								{example}

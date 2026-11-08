@@ -161,6 +161,7 @@ export function siteOf(url: string): string {
 function SourceLink({ source, label }: { source: AiSource; label: (site: string) => string }) {
 	const site = siteOf(source.url)
 	const className =
+		// oxlint-disable-next-line klipstack/design-scale -- a source's site, set inside a line of the answer
 		"mx-0.5 inline-block rounded-full border border-border px-1.5 align-baseline text-[0.7rem] leading-4 text-muted-fg"
 	if (!/^https?:\/\//i.test(source.url)) return <span className={className}>{site}</span>
 	return (

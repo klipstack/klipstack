@@ -111,7 +111,8 @@ export function StarterGuide({ item, className }: { item: StarterItem; className
 			{/* The house's own book, in its colors. */}
 			<span
 				aria-hidden
-				className="flex h-16 w-12 shrink-0 items-end rounded-l-[2px] rounded-r bg-accent p-1.5 text-[9px] leading-tight text-accent-fg shadow-[inset_3px_0_0_rgb(0_0_0/0.08),0_1px_2px_rgb(0_0_0/0.12)]"
+				// oxlint-disable-next-line klipstack/design-scale -- a book's cover, drawn to scale
+				className="flex h-16 w-12 shrink-0 items-end rounded-l-xs rounded-r bg-accent p-1.5 text-[9px] leading-tight text-accent-fg shadow-[inset_3px_0_0_rgb(0_0_0/0.08),0_1px_2px_rgb(0_0_0/0.12)]"
 			>
 				Klipstack
 			</span>
@@ -168,6 +169,7 @@ function StarterBook({
 		"--hue": (hash(item.slug) % 12) * 30,
 	} as React.CSSProperties
 	const cover = cn(
+		// oxlint-disable-next-line klipstack/design-scale -- a book's cover, drawn to scale
 		"relative flex flex-col rounded-l-[3px] rounded-r-md p-3 pl-4 text-left motion-safe:transition-transform hover:-translate-y-1 focus-visible:-translate-y-1",
 		wide
 			? "h-[calc(208px+var(--h)*1px)] w-40 sm:h-[calc(232px+var(--h)*1px)] sm:w-44"
@@ -192,6 +194,7 @@ function StarterBook({
 					{item.description}
 				</span>
 			) : null}
+			{/* oxlint-disable-next-line klipstack/design-scale -- a book's cover, drawn to scale */}
 			<span className="mt-auto pt-2 pr-7 text-[11px] leading-tight opacity-80">
 				{item.author}
 				<span className="block opacity-80">{t("starter.minutes", { count: item.minutes })}</span>

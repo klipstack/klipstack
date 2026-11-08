@@ -187,6 +187,7 @@ function NewsCard({ item, onClose }: { item: SidebarNewsItem; onClose: (slug: st
 			className="relative rounded-lg border border-border bg-card p-2.5 text-sm shadow-sm transition-colors hover:bg-hover"
 		>
 			<div className="flex items-center gap-2">
+				{/* oxlint-disable-next-line klipstack/design-scale -- a kicker, smaller than any text */}
 				<p className="flex-1 truncate text-[11px] font-medium tracking-wide text-accent uppercase">
 					{t("news.kicker")} · {since(item.date, i18n.language)}
 				</p>

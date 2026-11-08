@@ -257,6 +257,7 @@ export function ReaderSidebar({
 									)}
 								>
 									<ClippingPaper id={h.id} />
+									{/* oxlint-disable-next-line klipstack/design-scale -- a quote in the reader's type */}
 									<span className="reader-type line-clamp-6 text-[0.95rem] leading-normal text-fg">
 										<span data-testid="highlight-quote" className="marker">
 											{h.exact}
@@ -269,6 +270,7 @@ export function ReaderSidebar({
 											fit={h.note}
 											color={highlightColorName(h.color)}
 											tilt={tiltFor(h.id)}
+											// oxlint-disable-next-line klipstack/design-scale -- a quote in the reader's type
 											className="mt-3 -mr-2 ml-auto text-[0.95rem] leading-snug"
 										>
 											<NoteText text={h.note} linkTargets={linkTargets} plainLinks />

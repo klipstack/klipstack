@@ -254,6 +254,105 @@ const uiTextTranslated = {
 	},
 }
 
+/** A radius or a font size off Tailwind's scale, after any variants: `rounded-t-[3px]`, `sm:text-[13px]`. */
+const OFF_SCALE =
+	/(?<=^|[\s:"'`!])(rounded(?:-(?:[trblse]|tl|tr|br|bl|ss|se|es|ee))?-(?:\[[^\]\s]+\]|\([^)\s]+\))|text-(?:\[(?:length:|[\d.]|clamp\(|calc\(|min\(|max\()[^\]\s]*\]|\(length:[^)\s]+\)))/g
+/** A Button variant's fill, copied by hand: its background with its text colour. */
+const BUTTON_FILLS = [
+	["bg-accent", "text-accent-fg", "primary"],
+	["bg-danger", "text-danger-fg", "danger"],
+]
+const BUTTON_LIKE = new Set(["button", "a", "Link", "NavLink"])
+
+/**
+ * The classes `value` always applies: its strings, and those passed straight to `cn()`. Not those
+ * under a condition (`checked && "bg-accent"`): a state of a toggle, not the look of a button.
+ */
+function alwaysApplied(value, out = []) {
+	if (value?.type === "JSXExpressionContainer") return alwaysApplied(value.expression, out)
+	if (value?.type === "Literal" && typeof value.value === "string") out.push(value.value)
+	else if (value?.type === "TemplateLiteral")
+		for (const q of value.quasis) out.push(q.value.cooked ?? q.value.raw)
+	else if (value?.type === "CallExpression")
+		for (const arg of value.arguments) alwaysApplied(arg, out)
+	return out
+}
+
+/**
+ * The look of the web app comes from its scale. A radius or a font size written as an arbitrary
+ * value (`rounded-[7px]`, `text-[13px]`) drifts from it a pixel at a time. A drawing that needs its
+ * own value (a book's spine, the phone in the landing page) says why in a disable comment.
+ */
+const designScale = {
+	meta: {
+		type: "suggestion",
+		docs: { description: "Radii and font sizes from the scale" },
+		messages: {
+			offScale:
+				"`{{token}}` is off the design scale. Use the scale (rounded-xs…rounded-4xl, rounded-full; text-xs…text-9xl), or say why this one differs in a disable comment.",
+		},
+		schema: [],
+	},
+	create(context) {
+		if (TEST_FILE.test(context.filename)) return {}
+		const source = context.sourceCode
+		/** In the source as written, at the token itself: a disable comment goes on the line above. */
+		const check = (node) => {
+			const [from, to] = node.range
+			for (const match of source.text.slice(from, to).matchAll(OFF_SCALE)) {
+				const start = from + match.index
+				context.report({
+					loc: {
+						start: source.getLocFromIndex(start),
+						end: source.getLocFromIndex(start + match[0].length),
+					},
+					messageId: "offScale",
+					data: { token: match[0] },
+				})
+			}
+		}
+		return {
+			Literal(node) {
+				if (typeof node.value === "string") check(node)
+			},
+			TemplateElement: check,
+		}
+	},
+}
+
+/**
+ * A `<button>` or a link that copies Button's primary or danger fill drifts from Button. Use it, or
+ * `buttonVariants` on a link. Only the classes always applied count: a toggle's checked state is
+ * not a button's look.
+ */
+const handMadeButton = {
+	meta: {
+		type: "suggestion",
+		docs: { description: "Buttons from Button, not its fill copied by hand" },
+		messages: {
+			handMade:
+				'This copies Button\'s {{variant}} look by hand. Use <Button variant="{{variant}}">, or buttonVariants({ variant: "{{variant}}" }) on a link.',
+		},
+		schema: [],
+	},
+	create(context) {
+		if (TEST_FILE.test(context.filename)) return {}
+		return {
+			JSXOpeningElement(node) {
+				if (node.name.type !== "JSXIdentifier" || !BUTTON_LIKE.has(node.name.name)) return
+				const className = node.attributes.find(
+					(a) => a.type === "JSXAttribute" && a.name.name === "className",
+				)
+				if (!className?.value) return
+				const classes = new Set(alwaysApplied(className.value).join(" ").split(/\s+/))
+				const fill = BUTTON_FILLS.find(([bg, fg]) => classes.has(bg) && classes.has(fg))
+				if (fill)
+					context.report({ node: className, messageId: "handMade", data: { variant: fill[2] } })
+			},
+		}
+	},
+}
+
 export default {
 	meta: { name: "klipstack" },
 	rules: {
@@ -261,5 +360,7 @@ export default {
 		"no-skipped-tests": noSkippedTests,
 		"adapter-writes-through-commands": adapterWritesThroughCommands,
 		"ui-text-translated": uiTextTranslated,
+		"design-scale": designScale,
+		"hand-made-button": handMadeButton,
 	},
 }

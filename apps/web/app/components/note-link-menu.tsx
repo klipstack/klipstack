@@ -94,6 +94,7 @@ export function NoteLinkMenu({ rect, items, selected, recent, onPick, onHover }:
 										) : null}
 									</span>
 									{item.archived ? (
+										// oxlint-disable-next-line klipstack/design-scale -- a tag inside a line of the menu
 										<span className="shrink-0 rounded border border-border px-1 text-[0.65rem] text-muted-fg">
 											{t("noteLinks.archived")}
 										</span>

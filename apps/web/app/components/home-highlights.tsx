@@ -101,6 +101,7 @@ function HighlightCard({ h, linkTargets }: { h: ResurfacedHighlight; linkTargets
 			<Link
 				to={href}
 				state={{ from: "/home" }}
+				// oxlint-disable-next-line klipstack/design-scale -- a quote in the reader's type
 				className="group block font-serif text-[1.05rem] leading-relaxed text-fg"
 			>
 				<span

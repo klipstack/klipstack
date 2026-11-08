@@ -214,3 +214,85 @@ describe("klipstack/ui-text-translated", () => {
 		assert.deepEqual(lint(`<p>Saved</p>`, "c.test.tsx"), [])
 	})
 })
+
+describe("klipstack/design-scale", () => {
+	const lint = (jsx, name = "c.tsx") =>
+		lintWith("design-scale", `export const C = () => (\n\t${jsx}\n)\n`, name)
+
+	test("reports a radius or a font size off the scale, in any spelling, after any variant", () => {
+		assert.match(lint(`<div className="rounded-[7px]" />`).join(), /`rounded-\[7px\]` is off/)
+		for (const jsx of [
+			`<div className="flex rounded-t-[3px] p-2" />`,
+			`<div className="md:text-[13px]" />`,
+			`<div className="!rounded-[3px]" />`,
+			`<div className="text-[length:13px]" />`,
+			`<div className="rounded-(--r)" />`,
+			`<div className="text-(length:--size)" />`,
+			`<div className={cn("text-[0.95rem]", open && "block")} />`,
+			// oxlint-disable-next-line no-template-curly-in-string -- JSX under test, a template literal
+			"<div className={`text-[clamp(1rem,2vw,2rem)] ${x}`} />",
+			`<div className="group-hover:rounded-bl-[1px]" />`,
+		])
+			assert.equal(lint(jsx).length, 1, jsx)
+		assert.equal(lint(`<p className="rounded-[2px] text-[10px]" />`).length, 2)
+	})
+
+	test("points at the token's line, and survives escapes", () => {
+		// The disable comment sits above the string's second line, where the token is, not its first.
+		const source = `export const c = cn(\n\t"flex",\n\t// oxlint-disable-next-line klipstack/design-scale -- why\n\t"p-2 rounded-[7px]",\n)\n`
+		assert.deepEqual(lintWith("design-scale", source, "at.tsx"), [])
+		const template = "export const c = `flex\n\tp-2 rounded-[7px]`\n"
+		assert.equal(lintWith("design-scale", template, "tpl.tsx").length, 1)
+		assert.equal(lint(`<div className={"rounded-\\u005b3px] text-[10px]"} />`).length, 1)
+	})
+
+	test("accepts the scale, colours and other arbitrary values", () => {
+		for (const jsx of [
+			`<div className="rounded-sm rounded-t-2xl rounded-full text-xs md:text-5xl" />`,
+			`<div className="text-[#333] text-[var(--ink)] text-(--ink) w-[13px] leading-[1.6]" />`,
+			`<div className="bg-[oklch(var(--l)_0.1_var(--hue))]" />`,
+		])
+			assert.deepEqual(lint(jsx), [], jsx)
+	})
+
+	test("leaves tests alone, and a disable comment says why", () => {
+		assert.deepEqual(lint(`<div className="rounded-[7px]" />`, "c.test.tsx"), [])
+		const disabled = `<div\n\t\t// oxlint-disable-next-line klipstack/design-scale -- a book's spine\n\t\tclassName="rounded-[7px]"\n\t/>`
+		assert.deepEqual(lint(disabled), [])
+	})
+})
+
+describe("klipstack/hand-made-button", () => {
+	const lint = (jsx) =>
+		lintWith("hand-made-button", `export const C = () => (\n\t${jsx}\n)\n`, "c.tsx")
+
+	test("reports a button or a link that copies a Button variant's fill", () => {
+		assert.match(
+			lint(`<button className="rounded-md bg-accent px-3 text-accent-fg">Go</button>`).join(),
+			/Button's primary look by hand/,
+		)
+		assert.match(
+			lint(`<Link className={cn("bg-danger text-danger-fg", className)} to="/" />`).join(),
+			/Button's danger look/,
+		)
+		// oxlint-disable-next-line no-template-curly-in-string -- JSX under test, a template literal
+		assert.equal(lint("<a className={`bg-accent ${size} text-accent-fg`} />").length, 1)
+	})
+
+	test("accepts a fill under a condition, on hover or tinted, elsewhere, and from buttonVariants", () => {
+		for (const jsx of [
+			`<button className={cn("border", checked && "bg-accent text-accent-fg")} />`,
+			`<button className={on ? "bg-accent text-accent-fg" : "bg-card"} />`,
+			`<button className="hover:bg-accent hover:text-accent-fg" />`,
+			`<button className="bg-accent/10 text-accent-fg" />`,
+			`<span className="rounded-full bg-accent text-accent-fg" />`,
+			`<a className={buttonVariants({ variant: "primary" })} />`,
+		])
+			assert.deepEqual(lint(jsx), [], jsx)
+	})
+
+	test("a disable for the scale does not silence it", () => {
+		const jsx = `<button\n\t\t// oxlint-disable-next-line klipstack/design-scale -- a key cap\n\t\tclassName="bg-accent text-accent-fg text-[10px]"\n\t/>`
+		assert.equal(lint(jsx).length, 1)
+	})
+})

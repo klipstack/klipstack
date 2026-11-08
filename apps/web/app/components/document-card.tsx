@@ -503,7 +503,7 @@ export function DocumentCard({
 				{doc.readAt ? (
 					<ReadStamp
 						tilt={tiltFor(doc.id)}
-						className="absolute top-5 right-13 layout-grid:top-4 layout-grid:right-4 layout-grid:rounded-[4px] layout-grid:bg-bg/90 layout-grid:p-[3px] layout-grid:shadow-sm"
+						className="absolute top-5 right-13 layout-grid:top-4 layout-grid:right-4 layout-grid:rounded-sm layout-grid:bg-bg/90 layout-grid:p-[3px] layout-grid:shadow-sm"
 					/>
 				) : null}
 				{description || picture ? (

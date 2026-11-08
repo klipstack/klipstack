@@ -238,6 +238,7 @@ export function HighlightMap({
 						style={{ top: `${((mark.top + mark.bottom) / 2) * 100}%`, height: px }}
 					>
 						<span
+							// oxlint-disable-next-line klipstack/design-scale -- a mark on the minimap, a few pixels wide
 							className="flex w-2 flex-col overflow-hidden rounded-[1px] opacity-85 transition-[width,opacity] duration-150 group-hover/map:w-2.5 group-hover/map:opacity-100 hover:!w-3.5"
 							style={{ height: px }}
 						>
