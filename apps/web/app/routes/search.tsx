@@ -34,6 +34,7 @@ import {
 import { SearchField } from "~/components/search-field"
 import { SelectButton } from "~/components/select-button"
 import { SelectionBar } from "~/components/selection-bar"
+import { Page } from "~/components/ui/page"
 import { useListCursor } from "~/hooks/use-list-cursor"
 import { useCommands } from "~/lib/commands"
 import { timeZoneFromCookie } from "~/lib/date-groups"
@@ -141,7 +142,7 @@ export default function SearchPage({ loaderData }: Route.ComponentProps) {
 	)
 	const { cursorId, listRef, onVanish, selection } = useListCursor(ids, sections)
 	return (
-		<main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-3 pb-6 md:px-8 md:pt-4 md:pb-8">
+		<Page>
 			<h1 className="sr-only">{t("search.title")}</h1>
 			<div className="hidden min-h-10 items-center gap-2 md:flex">
 				<SearchField
@@ -256,7 +257,7 @@ export default function SearchPage({ loaderData }: Route.ComponentProps) {
 				</section>
 			) : null}
 			<SelectionBar items={cards} selection={selection} />
-		</main>
+		</Page>
 	)
 }
 
@@ -606,6 +607,7 @@ function TopicChip({ q, topics }: { q: string; topics: string[] }) {
 			<MoreMenu
 				label={chosen ? t("topicFilter.chosen", { topic: chosen }) : t("topicFilter.choose")}
 				align="start"
+				trigger="own"
 				className={cn(CHIP, chosen && CHIP_ON, chosen && "rounded-r-none! pr-2")}
 				icon={
 					<>
@@ -699,6 +701,7 @@ function SaveSearch({ q }: { q: string }) {
 							<span className="hidden sm:inline">{t("savedSearches.saved")}</span>
 						</>
 					}
+					trigger="own"
 					className={`${SAVE_BUTTON} text-fg`}
 				>
 					<SavedSearchMenuItems

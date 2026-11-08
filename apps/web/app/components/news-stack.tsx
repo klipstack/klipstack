@@ -134,6 +134,7 @@ export function NewsStack({
 									"group-data-open/edges:mb-1 group-data-open/edges:h-8 group-data-open/edges:scale-x-100 group-data-open/edges:opacity-100",
 								)}
 							>
+								{/* Its card clips it: focus shows as a ring inside the row, not an outline. */}
 								<a
 									href={`/news/${item.slug}`}
 									target="_blank"
@@ -149,7 +150,7 @@ export function NewsStack({
 											setPinned(false)
 										}
 									}}
-									className="flex h-8 items-center px-2.5 text-sm opacity-0 transition-opacity duration-200 group-data-open/edges:opacity-100 hover:bg-hover focus-visible:bg-hover focus-visible:outline-none"
+									className="flex h-8 items-center px-2.5 text-sm opacity-0 transition-opacity duration-200 group-data-open/edges:opacity-100 hover:bg-hover focus-visible:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset rounded-lg"
 								>
 									<span className="truncate font-medium">{item.title}</span>
 								</a>
@@ -161,7 +162,7 @@ export function NewsStack({
 								to="/news"
 								target="_blank"
 								rel="noopener"
-								className="flex h-6 items-center rounded-md px-2.5 text-xs whitespace-nowrap text-muted-fg hover:bg-hover hover:text-fg focus-visible:bg-hover focus-visible:outline-none"
+								className="flex h-6 items-center rounded-md px-2.5 text-xs whitespace-nowrap text-muted-fg hover:bg-hover hover:text-fg focus-visible:bg-hover focus-visible:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
 							>
 								{t("news.all")}
 							</Link>
@@ -194,7 +195,7 @@ function NewsCard({ item, onClose }: { item: SidebarNewsItem; onClose: (slug: st
 					onClick={() => onClose(item.slug)}
 					aria-label={t("news.close")}
 					{...tooltip(t("news.close"))}
-					className="relative z-10 -my-1 -mr-1 rounded-md p-1 text-muted-fg hover:bg-hover hover:text-fg"
+					className="relative z-10 -my-1 -mr-1 inline-flex size-6 items-center justify-center rounded-md text-muted-fg hover:bg-hover hover:text-fg"
 				>
 					<X className="size-3.5" aria-hidden />
 				</button>

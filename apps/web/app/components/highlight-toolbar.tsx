@@ -1,8 +1,10 @@
 import { Copy, MessageSquarePlus, Share, SquarePen, Trash2 } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import { iconButton } from "~/components/ui/button"
 import { HIGHLIGHT_COLOR_NAMES, highlightColorName } from "~/lib/highlight-colors"
 import type { RenderableHighlight } from "~/lib/highlights.client"
 import { COPY_HINT } from "~/lib/shortcuts"
+import { cn } from "~/lib/utils"
 import { AiToolbarButtons } from "./ai-toolbar-buttons"
 import { HighlighterNibs } from "./highlighter-nibs"
 import { ReaderToolbar, TOOLBAR_ICON_BUTTON } from "./reader-toolbar"
@@ -109,7 +111,7 @@ export function HighlightToolbar({
 				type="button"
 				disabled={disabled}
 				onClick={onDelete}
-				className="rounded-md p-1.5 text-muted-fg hover:bg-hover hover:text-danger"
+				className={cn(iconButton, "hover:text-danger")}
 				aria-label={t("highlights.popover.delete")}
 				{...tooltip(t("highlights.popover.delete"))}
 			>

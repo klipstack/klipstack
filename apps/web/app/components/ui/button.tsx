@@ -12,17 +12,26 @@ export const buttonVariants = cva(
 				ghost: "hover:bg-hover",
 				link: "text-link underline-offset-4 hover:underline",
 				danger: "bg-danger text-danger-fg hover:opacity-90",
+				// An icon in a header or a toolbar: muted until the pointer is on it.
+				quiet: "text-muted-fg hover:bg-hover hover:text-fg",
 			},
 			size: {
 				sm: "h-8 px-3",
 				md: "h-10 px-4",
 				lg: "h-11 px-6 text-base",
-				icon: "h-9 w-9",
+				// As tall as `sm`, beside it in a row; a finger gets 40px.
+				icon: "size-8 pointer-coarse:size-10 [&_svg]:size-4 pointer-coarse:[&_svg]:size-5",
 			},
 		},
 		defaultVariants: { variant: "primary", size: "md" },
 	},
 )
+
+/**
+ * An icon button's classes, for what is not a `Button`: a link, or another component's trigger.
+ * Every icon button in a page header, a toolbar, a dialog's header and the phone's bar uses it.
+ */
+export const iconButton = buttonVariants({ variant: "quiet", size: "icon" })
 
 export interface ButtonProps
 	extends React.ComponentProps<"button">, VariantProps<typeof buttonVariants> {}

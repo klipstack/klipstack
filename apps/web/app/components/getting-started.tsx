@@ -99,7 +99,7 @@ export function GettingStarted({
 			}}
 			aria-label={t("gettingStarted.dismiss")}
 			{...tooltip(t("gettingStarted.dismiss"))}
-			className="-mr-1 rounded-md p-1 text-muted-fg hover:bg-hover hover:text-fg"
+			className="-mr-1 inline-flex size-6 items-center justify-center rounded-md text-muted-fg hover:bg-hover hover:text-fg"
 		>
 			<X className="size-3.5" aria-hidden />
 		</button>

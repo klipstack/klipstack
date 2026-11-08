@@ -3,6 +3,8 @@ import { useEffect, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import { Link, useRouteLoaderData } from "react-router"
 import { ShortcutList } from "~/components/shortcut-list"
+import { iconButton } from "~/components/ui/button"
+import { cn } from "~/lib/utils"
 import type { loader as rootLoader } from "~/root"
 
 /**
@@ -51,7 +53,7 @@ export function ShortcutsDialog({
 						<button
 							type="button"
 							onClick={onClose}
-							className="-m-1 rounded-md p-1.5 text-muted-fg hover:bg-hover"
+							className={cn(iconButton, "-m-1")}
 							aria-label={t("actions.close")}
 						>
 							<X className="size-4" aria-hidden />

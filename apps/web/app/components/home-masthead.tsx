@@ -2,6 +2,7 @@ import { Search } from "lucide-react"
 import type { ReactNode } from "react"
 import { Trans, useTranslation } from "react-i18next"
 import { Link } from "react-router"
+import { iconButton } from "~/components/ui/button"
 import type { EditionEar, PartOfDay } from "~/lib/home-masthead"
 import { cn } from "~/lib/utils"
 import { HomeGreeting } from "./home-greeting"
@@ -46,12 +47,11 @@ export function HomeMasthead({
 							to="/search"
 							state={{ from: "/home" }}
 							aria-label={t("search.label")}
-							className="rounded-md p-2 text-muted-fg hover:bg-hover hover:text-fg"
+							className={iconButton}
 						>
-							<Search className="size-5" aria-hidden />
+							<Search aria-hidden />
 						</Link>
-						{/* As big as the search button beside it, inside the row's rule. */}
-						<SaveLinkButton className="size-9" />
+						<SaveLinkButton />
 					</div>
 				</div>
 			</div>

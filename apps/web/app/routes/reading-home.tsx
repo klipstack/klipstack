@@ -24,6 +24,7 @@ import { MenuNavLink, MenuSeparator, MoreMenu } from "~/components/more-menu"
 import { openSaveLink } from "~/components/save-link-dialog"
 import { StarterOffer } from "~/components/starter-texts"
 import { Button, buttonVariants } from "~/components/ui/button"
+import { Page } from "~/components/ui/page"
 import { type Welcome, WelcomeNote } from "~/components/welcome-note"
 import { useFeedReader } from "~/hooks/use-feed-reader"
 import { topicModels } from "~/lib/ai.server"
@@ -282,7 +283,7 @@ export default function ReadingHome({
 	}, [navigate])
 
 	return (
-		<main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-5 pb-12 md:px-8 md:pt-4 md:pb-8">
+		<Page className="pt-5 pb-12">
 			<HomeMasthead
 				{...masthead}
 				deck={finished ? <FinishedLately {...finished} /> : null}
@@ -418,7 +419,7 @@ export default function ReadingHome({
 					</div>
 				) : null}
 			</div>
-		</main>
+		</Page>
 	)
 }
 
@@ -709,6 +710,7 @@ function TopicChoice({
 						<MoreMenu
 							label={t("home.topics.moreLabel")}
 							align="start"
+							trigger="own"
 							className={cn(CHIP, "flex items-center gap-1 text-fg!")}
 							icon={
 								<>
@@ -869,7 +871,8 @@ function FrontPage({
 function Kicker({ id, title, to }: { id: string; title: string; to?: string }) {
 	const { t } = useTranslation("library")
 	return (
-		<div className="mb-3 flex items-baseline justify-between gap-4">
+		// As tall as its link, with or without one: kickers side by side share a line.
+		<div className="mb-3 flex h-7 items-center justify-between gap-4">
 			<h2 id={id} className="text-xs font-medium tracking-[0.08em] text-muted-fg uppercase">
 				{title}
 			</h2>

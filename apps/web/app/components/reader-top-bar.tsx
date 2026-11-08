@@ -24,13 +24,14 @@ import { OUTLINE_ID, OUTLINE_TOGGLE } from "~/components/reader-outline"
 import { ReaderPrefs } from "~/components/reader-prefs"
 import type { SidebarTab } from "~/components/reader-sidebar"
 import { tooltip } from "~/components/tooltip-host"
+import { iconButton } from "~/components/ui/button"
 import type { StateIntent } from "~/hooks/use-document-state"
 import { copyLink } from "~/lib/copy-link"
 import type { resolvePrefs } from "~/lib/prefs"
 import { CHAT_HINT, HIGHLIGHTS_HINT, READER_HINTS, SHORTCUT_HINTS } from "~/lib/shortcuts"
 import { cn } from "~/lib/utils"
 
-const BUTTON = "rounded-md p-2 text-muted-fg hover:bg-hover hover:text-fg"
+const BUTTON = iconButton
 
 /**
  * The reader's sticky top bar: back, reading settings, star, the chat and the highlights sidebar,
@@ -131,16 +132,18 @@ export function ReaderTopBar({
 					</div>
 				</div>
 			) : null}
-			<div className="relative mx-auto flex max-w-5xl items-center justify-between gap-2 px-3 py-2">
+			{/* Across the whole reader: the groups on the lines the contents (left) and the highlight
+			    map (right) hang from, 24px in, which the map keeps beside the open sidebar too. */}
+			<div className="relative flex items-center justify-between gap-2 px-2 py-2 md:px-4">
 				{ready ? (
-					// Centered on the bar, clear of the widest button group (right, ~11rem) on both sides.
+					// Centered on the bar, clear of the widest button group (~9rem) on both sides.
 					<button
 						type="button"
 						onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
 						aria-hidden={!titleShown}
 						tabIndex={titleShown ? 0 : -1}
 						className={cn(
-							"absolute left-1/2 hidden max-w-[calc(100%-24rem)] -translate-x-1/2 truncate rounded-md px-2 py-1 text-sm font-medium text-fg transition-opacity duration-200 hover:bg-hover md:block",
+							"absolute left-1/2 hidden max-w-[calc(100%-20rem)] -translate-x-1/2 pointer-coarse:max-w-[calc(100%-24rem)] truncate rounded-md px-2 py-1 text-sm font-medium text-fg transition-opacity duration-200 hover:bg-hover md:block",
 							titleShown ? "opacity-100" : "pointer-events-none opacity-0",
 						)}
 					>
@@ -180,7 +183,7 @@ export function ReaderTopBar({
 							onClick={onShortcuts}
 							aria-label={tc("shortcuts.show")}
 							{...tooltip(tc("shortcuts.show"), READER_HINTS.help)}
-							className={cn(BUTTON, "hidden md:block")}
+							className={cn(BUTTON, "hidden md:inline-flex")}
 						>
 							<Keyboard className="size-5" aria-hidden />
 						</button>
@@ -226,7 +229,7 @@ export function ReaderTopBar({
 							)}
 						</button>
 					) : null}
-					<MoreMenu label={t("actions.more")} className="p-2">
+					<MoreMenu label={t("actions.more")}>
 						<MenuButton
 							icon={
 								archived ? (

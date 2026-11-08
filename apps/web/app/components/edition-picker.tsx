@@ -7,7 +7,7 @@ import { cn } from "~/lib/utils"
 import type { WebResult } from "~/lib/web-result"
 import type { PickerDocuments, SuggestedDocument } from "~/services/editions.server"
 import { errorText } from "./edition-item-card"
-import { Button } from "./ui/button"
+import { Button, iconButton } from "./ui/button"
 
 interface Found {
 	id: string
@@ -152,9 +152,9 @@ function PickerDialog({
 					type="button"
 					onClick={onClose}
 					aria-label={tc("actions.close")}
-					className="-mr-1.5 rounded-md p-2 text-muted-fg hover:bg-hover hover:text-fg"
+					className={cn(iconButton, "-mr-1.5")}
 				>
-					<X className="size-5 md:size-4" aria-hidden />
+					<X aria-hidden />
 				</button>
 			</div>
 			<Command.List

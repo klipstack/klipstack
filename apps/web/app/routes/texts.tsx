@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next"
 import { Link, redirect } from "react-router"
 import { saveStarterText } from "~/commands/saving.server"
 import { StarterGuide, StarterShelf } from "~/components/starter-texts"
+import { Page } from "~/components/ui/page"
 import { AppError } from "~/lib/app-error"
 import type { PageBarHandle } from "~/lib/page-bar"
 import { pageTitle } from "~/lib/page-title"
@@ -55,7 +56,7 @@ export default function Texts({ loaderData, actionData }: Route.ComponentProps) 
 	// A book from here, Home, the library or the guide that could not be added: why.
 	const error = actionData?.ok === false ? actionData.error : null
 	return (
-		<main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-4 pb-16 md:px-8">
+		<Page className="pt-4 pb-16 md:pt-4 md:pb-16">
 			<div className="flex flex-wrap items-center justify-between gap-3">
 				{/* Phones name the page in the top bar. */}
 				<h1 id="starter-title" className="hidden page-title md:block md:leading-10">
@@ -88,7 +89,7 @@ export default function Texts({ loaderData, actionData }: Route.ComponentProps) 
 				</section>
 			))}
 			{guideFirst ? null : <StarterGuide item={guide} className="mt-12 max-w-xl" />}
-		</main>
+		</Page>
 	)
 }
 

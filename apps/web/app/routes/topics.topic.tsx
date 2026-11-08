@@ -18,6 +18,7 @@ import {
 	TopicRenameForm,
 	useTopicActions,
 } from "~/components/topic-actions"
+import { Page } from "~/components/ui/page"
 import { useListCursor } from "~/hooks/use-list-cursor"
 import { topicModels } from "~/lib/ai.server"
 import { AppError } from "~/lib/app-error"
@@ -100,7 +101,7 @@ export default function TopicPage({ loaderData }: Route.ComponentProps) {
 	// A topic's page has no selection bar: the cursor only.
 	const { cursorId, listRef, onVanish } = useListCursor(ids, undefined, { select: false })
 	return (
-		<main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-3 pb-6 md:px-8 md:pt-4 md:pb-8">
+		<Page>
 			<Link
 				to="/topics"
 				className="inline-flex items-center gap-1 text-sm text-muted-fg hover:underline"
@@ -117,7 +118,7 @@ export default function TopicPage({ loaderData }: Route.ComponentProps) {
 					<h1 data-testid="topic-name" className="min-w-0 flex-1 page-title">
 						{actions.name}
 					</h1>
-					<LayoutToggle className="hidden md:block" />
+					<LayoutToggle className="hidden md:inline-flex" />
 					<TopicMenu actions={actions} className="shrink-0 text-muted-fg" />
 				</div>
 			)}
@@ -150,6 +151,6 @@ export default function TopicPage({ loaderData }: Route.ComponentProps) {
 					/>
 				</div>
 			)}
-		</main>
+		</Page>
 	)
 }

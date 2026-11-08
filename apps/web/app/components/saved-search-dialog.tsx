@@ -4,7 +4,7 @@ import { Pencil, Trash2, X } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { type FetcherWithComponents, useFetcher } from "react-router"
-import { Button } from "~/components/ui/button"
+import { Button, iconButton } from "~/components/ui/button"
 import { Field } from "~/components/ui/field"
 import { showToast } from "~/lib/toast"
 import type { action } from "~/routes/saved-searches"
@@ -119,7 +119,7 @@ export function SavedSearchDialog({
 					<button
 						type="button"
 						onClick={() => dialogRef.current?.close()}
-						className="rounded-md p-1.5 text-muted-fg hover:bg-hover"
+						className={iconButton}
 						aria-label={t("actions.close")}
 					>
 						<X className="size-4" aria-hidden />

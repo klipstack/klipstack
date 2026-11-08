@@ -10,6 +10,7 @@ import { tiltFor } from "~/components/post-it"
 import { ArticleThumb, QuoteCard } from "~/components/quote-card"
 import { SearchField } from "~/components/search-field"
 import { tooltip } from "~/components/tooltip-host"
+import { Page } from "~/components/ui/page"
 import { HIGHLIGHT_COLOR_NAMES, HIGHLIGHT_SWATCH, highlightColor } from "~/lib/highlight-colors"
 import { extractLinkIds, type LinkTargets } from "~/lib/note-links"
 import {
@@ -223,7 +224,7 @@ export default function Notebook({ loaderData }: Route.ComponentProps) {
 	const title = q ? t("notebook.search.results", { q }) : tc("nav.notebook")
 
 	return (
-		<main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-3 pb-6 md:pt-4 md:pb-8">
+		<Page>
 			<div className="hidden min-h-10 flex-wrap items-center justify-between gap-3 md:flex">
 				<h1 className="page-title">{title}</h1>
 				{blank ? null : (
@@ -316,7 +317,7 @@ export default function Notebook({ loaderData }: Route.ComponentProps) {
 					{board.kind === "stream" ? <More state={state} cursor={board.nextCursor} /> : null}
 				</>
 			)}
-		</main>
+		</Page>
 	)
 }
 
@@ -490,14 +491,14 @@ function Controls({
 				aria-current={shuffling ? "true" : undefined}
 				aria-label={t("notebook.shuffle.action")}
 				{...tooltip(t("notebook.shuffle.action"))}
-				className="flex shrink-0 items-center gap-1.5 rounded-lg border border-border p-1.5 text-sm text-muted-fg hover:text-fg aria-[current]:bg-fg/10 aria-[current]:text-fg md:px-2.5"
+				className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-border px-2 text-sm text-muted-fg hover:text-fg aria-[current]:bg-fg/10 aria-[current]:text-fg pointer-coarse:h-10 md:px-2.5"
 			>
 				<Shuffle className="size-4" aria-hidden />
 				<span className="hidden md:inline">{t("notebook.shuffle.action")}</span>
 			</Link>
 			<fieldset
 				aria-label={t("notebook.views.label")}
-				className="flex shrink-0 rounded-lg border border-border p-0.5"
+				className="flex h-8 shrink-0 items-center rounded-lg border border-border p-px pointer-coarse:h-10"
 			>
 				{views.map((v) => {
 					const label = t(`notebook.views.${v}`)
@@ -509,7 +510,7 @@ function Controls({
 							aria-label={label}
 							aria-current={v === view && !shuffling ? "true" : undefined}
 							{...tooltip(label)}
-							className="rounded-md p-1.5 text-muted-fg hover:text-fg aria-[current]:bg-fg/10 aria-[current]:text-fg"
+							className="flex size-7 items-center justify-center rounded-[7px] text-muted-fg hover:text-fg aria-[current]:bg-fg/10 aria-[current]:text-fg pointer-coarse:size-9"
 						>
 							<Icon className="size-4" aria-hidden />
 						</Link>
@@ -533,6 +534,7 @@ function TagChoice({ state, tags }: { state: NotebookState; tags: NotebookTag[] 
 						: t("notebook.filters.tagChoose")
 				}
 				align="start"
+				trigger="own"
 				className={cn(CHIP, chosen && CHIP_ON, chosen && "rounded-r-none! pr-2")}
 				icon={
 					<>

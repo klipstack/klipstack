@@ -5,6 +5,7 @@ import { Link, redirect, useFetcher } from "react-router"
 import { snoozeReviewSuggestion } from "~/commands/review.server"
 import { MenuButton, MoreMenu } from "~/components/more-menu"
 import { Button, buttonVariants } from "~/components/ui/button"
+import { Page } from "~/components/ui/page"
 import { BULK_ACTION } from "~/lib/bulk-actions"
 import type { PageBarHandle } from "~/lib/page-bar"
 import { pageTitle } from "~/lib/page-title"
@@ -78,7 +79,7 @@ export default function Review({ loaderData: { items, more } }: Route.ComponentP
 	)
 
 	return (
-		<main className="mx-auto w-full max-w-3xl flex-1 px-4 pt-3 pb-12 md:px-8 md:pt-4">
+		<Page narrow className="pb-12 md:pb-12">
 			<h1 className="hidden page-title md:block">{t("review.title")}</h1>
 			<p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-fg md:mt-3">
 				{t("review.description")}
@@ -145,7 +146,7 @@ export default function Review({ loaderData: { items, more } }: Route.ComponentP
 					) : null}
 				</>
 			)}
-		</main>
+		</Page>
 	)
 }
 
@@ -201,7 +202,7 @@ function ReviewRow({
 					<Check className="size-4" aria-hidden />
 					{t("review.keep")}
 				</Button>
-				<MoreMenu label={t("review.more", { title })} className="p-2">
+				<MoreMenu label={t("review.more", { title })}>
 					<MenuButton
 						danger
 						icon={<Trash2 className="size-4" aria-hidden />}

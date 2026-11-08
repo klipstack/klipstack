@@ -32,6 +32,8 @@ import { SaveLinkButton } from "~/components/save-link-dialog"
 import { SelectionBar } from "~/components/selection-bar"
 import { StarterOffer } from "~/components/starter-texts"
 import { tooltip } from "~/components/tooltip-host"
+import { iconButton } from "~/components/ui/button"
+import { Page } from "~/components/ui/page"
 import { useListCursor } from "~/hooks/use-list-cursor"
 import { AppError } from "~/lib/app-error"
 import { useCommands } from "~/lib/commands"
@@ -332,7 +334,7 @@ export default function Library({ loaderData }: Route.ComponentProps) {
 	}, [navigate, searchPath, from])
 
 	return (
-		<main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-3 pb-6 md:px-8 md:pt-4 md:pb-8">
+		<Page>
 			<div className="hidden min-h-10 flex-wrap items-center justify-between gap-3 md:flex">
 				<h1 className="page-title">{t("heading")}</h1>
 				<div className="flex items-center gap-2">
@@ -439,7 +441,7 @@ export default function Library({ loaderData }: Route.ComponentProps) {
 				</div>
 			) : null}
 			<SelectionBar items={loaderData.items} selection={selection} />
-		</main>
+		</Page>
 	)
 }
 
@@ -530,8 +532,8 @@ function ListControls({
 				{view === "inbox" ? (
 					<MoreMenu
 						label={`${t("sort.label")}: ${t(`sort.${sort}`)}`}
-						icon={<ArrowDownUp className="size-4" aria-hidden />}
-						className="shrink-0 p-2"
+						icon={<ArrowDownUp aria-hidden />}
+						className="shrink-0"
 					>
 						{LIST_SORTS.map((s) => (
 							<MenuButton
@@ -550,9 +552,9 @@ function ListControls({
 						to="/library/review"
 						aria-label={t("review.open")}
 						{...tooltip(t("review.open"))}
-						className="shrink-0 rounded-md p-2 text-muted-fg hover:bg-hover hover:text-fg"
+						className={cn(iconButton, "shrink-0")}
 					>
-						<History className="size-4" aria-hidden />
+						<History aria-hidden />
 					</Link>
 				) : null}
 			</div>
@@ -616,6 +618,7 @@ function TopicChoice({
 			<MoreMenu
 				label={chosen ? t("topicFilter.chosen", { topic: chosen }) : t("topicFilter.choose")}
 				align="start"
+				trigger="own"
 				className={cn(CHIP, chosen && CHIP_ON, chosen && "rounded-r-none! pr-2")}
 				icon={
 					<>
@@ -701,9 +704,9 @@ function SearchLink({ view, label }: { view: LibraryView; label: string }) {
 			state={{ from: location.pathname + location.search }}
 			aria-label={label}
 			{...tooltip(label, SEARCH_HINT)}
-			className="rounded-md p-2.5 text-muted-fg hover:bg-hover hover:text-fg"
+			className={iconButton}
 		>
-			<Search className="size-5" aria-hidden />
+			<Search aria-hidden />
 		</Link>
 	)
 }

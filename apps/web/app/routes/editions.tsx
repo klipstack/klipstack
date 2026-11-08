@@ -9,6 +9,7 @@ import { EmptyDrawing } from "~/components/empty-drawing"
 import { MenuRadio, MoreMenu } from "~/components/more-menu"
 import { tooltip } from "~/components/tooltip-host"
 import { Button, buttonVariants } from "~/components/ui/button"
+import { Page } from "~/components/ui/page"
 import { copyText } from "~/lib/copy-link"
 import { timeZoneFromCookie } from "~/lib/date-groups"
 import { plainEditionText } from "~/lib/edition-text"
@@ -154,7 +155,7 @@ export default function Editions({ loaderData }: Route.ComponentProps) {
 	const { t: tc } = useTranslation()
 	const { desk, shortlist, nudge, linked, otherDrafts, past } = loaderData
 	return (
-		<main className="mx-auto w-full max-w-2xl flex-1 px-4 pt-3 pb-8 md:pt-4 md:pb-8">
+		<Page narrow className="pb-8">
 			<h1 className="hidden page-title md:block md:leading-10">{tc("nav.editions")}</h1>
 			<p className="text-sm text-muted-fg md:mt-2">{t("description")}</p>
 			{desk ? (
@@ -180,7 +181,7 @@ export default function Editions({ loaderData }: Route.ComponentProps) {
 				</section>
 			) : null}
 			<PastEditions editions={past} linked={linked} />
-		</main>
+		</Page>
 	)
 }
 

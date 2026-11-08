@@ -2,6 +2,7 @@ import { cleanTagName, TAG_NAME_MAX } from "@klipstack/api-contract/names"
 import { Plus, Tag, X } from "lucide-react"
 import { useEffect, useId, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { iconButton } from "~/components/ui/button"
 import { useTagList } from "~/hooks/use-tag-list"
 import { cn } from "~/lib/utils"
 import type { LibraryCard } from "~/services/documents.server"
@@ -129,7 +130,7 @@ export function BulkTagDialog({
 					<button
 						type="button"
 						onClick={() => dialogRef.current?.close()}
-						className="rounded-md p-1.5 text-muted-fg hover:bg-hover"
+						className={iconButton}
 						aria-label={t("tags.close")}
 					>
 						<X className="size-4" aria-hidden />
