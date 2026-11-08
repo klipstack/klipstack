@@ -1,6 +1,7 @@
-import { useEffect, useEffectEvent } from "react"
+import { useEffect } from "react"
 import { useTranslation } from "react-i18next"
 import { useFetcher, useLocation } from "react-router"
+import { useFetcherAnswer } from "~/hooks/use-fetcher-answer"
 import { prepareMotion } from "~/lib/motion"
 import { saveErrorKey } from "~/lib/save-errors"
 import { pastedLink } from "~/lib/shortcuts"
@@ -30,8 +31,7 @@ export function PasteToSave() {
 		return () => document.removeEventListener("paste", onPaste)
 	}, [submit])
 
-	const onAnswer = useEffectEvent((answer: Saved | undefined) => {
-		if (!answer) return
+	useFetcherAnswer(fetcher, (answer) => {
 		if (!answer.ok) {
 			showToast({ message: t(saveErrorKey(answer.error)), warn: true })
 			return
@@ -53,6 +53,5 @@ export function PasteToSave() {
 			},
 		})
 	})
-	useEffect(() => onAnswer(fetcher.data), [fetcher.data])
 	return null
 }

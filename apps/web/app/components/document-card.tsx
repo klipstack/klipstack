@@ -150,9 +150,9 @@ export function DocumentCard({
 		return () => window.clearTimeout(id)
 	}, [armed])
 	// A restore refused because the page was saved again: say so, and offer that article.
-	useRestoreConflictToast(fetcher.data)
+	useRestoreConflictToast(fetcher)
 	// Unmarked out of the draft in progress: Undo puts its copy back.
-	useDraftUndoToast(fetcher.data)
+	useDraftUndoToast(fetcher)
 	const title = doc.title ?? (pending ? doc.sourceUrl : t("card.untitled"))
 	const host = safeHost(doc.sourceUrl)
 	const image = doc.leadImageAssetId ? `/assets/${doc.leadImageAssetId}` : doc.leadImageUrl
