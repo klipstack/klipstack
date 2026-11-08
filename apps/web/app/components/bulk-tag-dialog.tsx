@@ -2,7 +2,7 @@ import { cleanTagName, TAG_NAME_MAX } from "@klipstack/api-contract/names"
 import { Plus, Tag, X } from "lucide-react"
 import { useEffect, useId, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { iconButton } from "~/components/ui/button"
+import { iconButton, Button } from "~/components/ui/button"
 import { useTagList } from "~/hooks/use-tag-list"
 import { cn } from "~/lib/utils"
 import type { LibraryCard } from "~/services/documents.server"
@@ -242,21 +242,12 @@ export function BulkTagDialog({
 					</div>
 				</div>
 				<div className="flex justify-end gap-2">
-					<button
-						type="button"
-						onClick={() => dialogRef.current?.close()}
-						className="rounded-lg border border-border px-3.5 py-2 text-sm font-medium hover:bg-hover"
-					>
+					<Button type="button" variant="secondary" onClick={() => dialogRef.current?.close()}>
 						{t("bulkTags.cancel")}
-					</button>
-					<button
-						type="button"
-						onClick={apply}
-						disabled={names.length === 0}
-						className="rounded-lg bg-accent px-3.5 py-2 text-sm font-medium text-accent-fg hover:bg-accent/90 disabled:opacity-50"
-					>
+					</Button>
+					<Button type="button" onClick={apply} disabled={names.length === 0}>
 						{t("bulkTags.add")}
-					</button>
+					</Button>
 				</div>
 			</div>
 		</dialog>

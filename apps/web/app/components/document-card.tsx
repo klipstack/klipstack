@@ -19,6 +19,7 @@ import {
 import { useEffect, useInsertionEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link, useFetcher, useLocation, useNavigate, useRevalidator } from "react-router"
+import { buttonVariants, iconButton } from "~/components/ui/button"
 import { useDraftUndoToast } from "~/hooks/use-draft-undo-toast"
 import { useEditions } from "~/hooks/use-editions"
 import { useRestoreConflictToast } from "~/hooks/use-restore-conflict-toast"
@@ -595,9 +596,12 @@ export function DocumentCard({
 							type="submit"
 							{...tooltip(armed ? t("card.deleteForeverConfirm") : t("card.deleteForever"))}
 							aria-label={armed ? t("card.deleteForeverConfirm") : t("card.deleteForever")}
+							// An icon until it asks to confirm, then as wide as its question.
 							className={cn(
-								"flex items-center gap-1 rounded-md p-1.5 text-muted-fg hover:bg-hover hover:text-fg",
-								armed && "bg-danger/10 text-danger hover:bg-danger/20 hover:text-danger",
+								buttonVariants({ variant: "quiet", size: armed ? "sm" : "icon" }),
+								// Its question wraps inside the card rather than over the one beside it.
+								armed &&
+									"h-auto min-h-8 gap-1 bg-danger/10 px-2 py-1 text-left whitespace-normal text-danger hover:bg-danger/20 hover:text-danger",
 							)}
 						>
 							<Trash2 className="size-4" aria-hidden />
@@ -646,7 +650,7 @@ export function DocumentCard({
 							)}
 						</IconButton>
 					</fetcher.Form>
-					<MoreMenu trigger="own" ref={menuRef} label={t("card.more")} className={reveal}>
+					<MoreMenu ref={menuRef} label={t("card.more")} className={reveal}>
 						{canFinish ? (
 							<MenuButton
 								icon={<CheckCircle2 className="size-4" aria-hidden />}
@@ -804,12 +808,7 @@ function IconButton({
 	children: React.ReactNode
 }) {
 	return (
-		<button
-			type="submit"
-			{...tooltip(label, hint)}
-			aria-label={label}
-			className="rounded-md p-1.5 text-muted-fg hover:bg-hover hover:text-fg"
-		>
+		<button type="submit" {...tooltip(label, hint)} aria-label={label} className={iconButton}>
 			{children}
 		</button>
 	)

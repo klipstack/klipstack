@@ -3,6 +3,7 @@ import { BookOpen, ClipboardPen, Copy, Link2, Share, StickyNote, Trash2 } from "
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link, useFetcher } from "react-router"
+import { iconButton } from "~/components/ui/button"
 import { copyRich, copyText } from "~/lib/copy-link"
 import { highlightColor, highlightColorName } from "~/lib/highlight-colors"
 import type { LinkTargets } from "~/lib/note-links"
@@ -18,7 +19,8 @@ import { ShareHighlightDialog } from "./share-highlight-dialog"
 import { tooltip } from "./tooltip-host"
 
 /** A button of the card's toolbar. */
-const ACTION = "rounded-md bg-card/80 p-1.5 text-muted-fg hover:bg-hover hover:text-fg"
+// Over the quote: a little of the card behind each, so the text under it does not show through.
+const ACTION = cn(iconButton, "bg-card/80")
 
 /** Short quotes read large; long ones step down so a card stays a card. */
 export function quoteSize(text: string): string {

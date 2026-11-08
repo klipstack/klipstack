@@ -1,6 +1,7 @@
 import type { AiCitation } from "@klipstack/db"
 import { ChevronUp, Copy, RotateCcw, ScrollText } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import { iconButton } from "~/components/ui/button"
 import { useQuestionsLeft } from "~/hooks/use-ai-allowance"
 import { type AnswerStore, useWritten } from "~/hooks/use-ai-threads"
 import { BRIEF } from "~/hooks/use-brief"
@@ -100,7 +101,7 @@ export function BriefCard({
 						onClick={() => onOpen(false)}
 						aria-label={t("ai.collapse")}
 						{...tooltip(t("ai.collapse"))}
-						className="-mr-1 ml-auto rounded-md p-1 text-muted-fg hover:bg-hover hover:text-fg"
+						className={cn(iconButton, "-my-1.5 -mr-1.5 ml-auto pointer-coarse:-my-2.5")}
 					>
 						<ChevronUp className="size-3.5" aria-hidden />
 					</button>
@@ -142,7 +143,7 @@ export function BriefCard({
 							onClick={() => onCopy(plainAnswer(brief.text))}
 							aria-label={t("ai.copy")}
 							{...tooltip(t("ai.copy"))}
-							className="rounded-md p-1.5 text-muted-fg hover:bg-hover hover:text-fg"
+							className={iconButton}
 						>
 							<Copy className="size-3.5" aria-hidden />
 						</button>
@@ -152,7 +153,7 @@ export function BriefCard({
 							onClick={onMake}
 							aria-label={t("ai.retry")}
 							{...tooltip(t("ai.retry"))}
-							className="rounded-md p-1.5 text-muted-fg hover:bg-hover hover:text-fg"
+							className={iconButton}
 						>
 							<RotateCcw className="size-3.5" aria-hidden />
 						</button>
