@@ -195,6 +195,8 @@ export function SettingsShell({ children }: { children: React.ReactNode }) {
 				style={sidebar.collapsed ? undefined : { width: sidebar.width }}
 				className={cn(
 					"hidden shrink-0 flex-col border-r border-border bg-muted/40 p-4 md:sticky md:top-0 md:flex md:h-dvh md:overflow-y-auto",
+					// It slides open and shut as the app's does.
+					"transition-[width] duration-150",
 					sidebar.collapsed && "w-16 px-2",
 				)}
 			>
