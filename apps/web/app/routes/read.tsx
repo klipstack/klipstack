@@ -643,7 +643,7 @@ function Reader({ loaderData }: Route.ComponentProps) {
 									onClick={() => setTagging(true)}
 									{...tooltip(tl("tags.add"), SHORTCUT_HINTS.tags)}
 									aria-label={tl("tags.add")}
-									className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-2 py-0.5 text-xs text-muted-fg hover:bg-fg/10 hover:text-fg"
+									className="inline-flex h-6 items-center gap-1 rounded-full border border-dashed border-border px-2 text-xs text-muted-fg hover:bg-fg/10 hover:text-fg"
 								>
 									<Tag className="size-3" aria-hidden />
 									{doc.tags.length === 0 ? tl("tags.add") : null}

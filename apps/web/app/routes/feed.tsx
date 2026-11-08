@@ -368,7 +368,7 @@ function SiteList({
 					<button
 						type="button"
 						onClick={onManage}
-						className="rounded-sm text-sm text-muted-fg hover:text-fg focus-visible:outline-2 focus-visible:outline-accent"
+						className="-m-1 rounded-md p-1 text-sm text-muted-fg hover:bg-hover hover:text-fg focus-visible:outline-2 focus-visible:outline-accent"
 					>
 						{t("rail.manage")}
 					</button>

@@ -67,7 +67,7 @@ export function TagChips({
 							to={tagSearchPath(name)}
 							state={{ from }}
 							aria-label={t("tags.open", { name })}
-							className={cn(chip, "relative z-10 hover:bg-fg/10 hover:text-fg")}
+							className={cn(chip, "relative z-10 py-0 leading-[22px] hover:bg-fg/10 hover:text-fg")}
 						>
 							{name}
 						</Link>

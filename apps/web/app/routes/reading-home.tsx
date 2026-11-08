@@ -871,7 +871,8 @@ function FrontPage({
 function Kicker({ id, title, to }: { id: string; title: string; to?: string }) {
 	const { t } = useTranslation("library")
 	return (
-		<div className="mb-3 flex items-baseline justify-between gap-4">
+		// As tall as its link, with or without one: kickers side by side share a line.
+		<div className="mb-3 flex h-7 items-center justify-between gap-4">
 			<h2 id={id} className="text-xs font-medium tracking-[0.08em] text-muted-fg uppercase">
 				{title}
 			</h2>
