@@ -353,6 +353,89 @@ const handMadeButton = {
 	},
 }
 
+/** The status columns that have a machine in packages/db/src/machines.ts, by table. */
+const MACHINE_COLUMNS = {
+	documents: new Set(["status", "translationStatus"]),
+	topics: new Set(["status"]),
+}
+
+/** The write each method follows: `update(t).set()`, `insert(t).values()`, its upsert's `set`. */
+const WRITER = { set: "update", values: "insert", onConflictDoUpdate: "insert" }
+
+/** A literal, or a choice between literals (`final ? "failed" : "queued"`, `x ?? "ready"`). */
+function literal(node) {
+	while (node.type === "TSAsExpression" || node.type === "TSSatisfiesExpression")
+		node = node.expression
+	if (node.type === "Literal" || node.type === "TemplateLiteral") return true
+	if (node.type === "ConditionalExpression")
+		return literal(node.consequent) || literal(node.alternate)
+	if (node.type === "LogicalExpression") return literal(node.right)
+	return false
+}
+
+/** Every node under `node` (not `node` itself), without climbing back to parents. */
+function* descendants(node) {
+	for (const [key, value] of Object.entries(node)) {
+		if (key === "parent" || !value || typeof value !== "object") continue
+		for (const child of Array.isArray(value) ? value : [value])
+			if (child && typeof child.type === "string") {
+				yield child
+				yield* descendants(child)
+			}
+	}
+}
+
+/**
+ * A status kept in a column with a machine (packages/db/src/machines.ts) changes through one of
+ * its transitions: `.set({ status: extractionMachine.transitions.publish.to })`, not
+ * `.set({ status: "ready" })`. The machine then lists every move and every writer finds it. The
+ * rule reads `.set()` after `update(documents)` or `update(topics)`, and `.values()` after their
+ * `insert` and its `onConflictDoUpdate`. Hand-written SQL, and a status passed in a variable or a
+ * spread, are not checked.
+ */
+const statusThroughMachine = {
+	meta: {
+		type: "problem",
+		docs: { description: "A status with a machine changes through one of its transitions" },
+		messages: {
+			literal:
+				"{{table}}.{{column}} has a machine: write one of its transitions' `to` (packages/db/src/machines.ts), adding the transition there if it is new, not a literal.",
+		},
+		schema: [],
+	},
+	create(context) {
+		if (TEST_FILE.test(context.filename)) return {}
+		return {
+			CallExpression(node) {
+				const callee = node.callee
+				if (callee.type !== "MemberExpression" || callee.property.type !== "Identifier") return
+				const writer = WRITER[callee.property.name]
+				if (!writer) return
+				// Down the chain to the update or insert: `.values(…).onConflictDoUpdate(…)`.
+				let write = callee.object
+				while (
+					write.type === "CallExpression" &&
+					write.callee.type === "MemberExpression" &&
+					write.callee.property.name !== writer
+				)
+					write = write.callee.object
+				if (write.type !== "CallExpression" || write.callee.type !== "MemberExpression") return
+				const table = write.arguments[0]?.type === "Identifier" ? write.arguments[0].name : ""
+				const columns = MACHINE_COLUMNS[table]
+				if (!columns) return
+				for (const arg of node.arguments)
+					for (const n of descendants(arg)) {
+						if (n.type !== "Property" || n.computed) continue
+						const column = n.key.type === "Identifier" ? n.key.name : n.key.value
+						if (!columns.has(column)) continue
+						if (literal(n.value))
+							context.report({ node: n, messageId: "literal", data: { table, column } })
+					}
+			},
+		}
+	},
+}
+
 export default {
 	meta: { name: "klipstack" },
 	rules: {
@@ -362,5 +445,6 @@ export default {
 		"ui-text-translated": uiTextTranslated,
 		"design-scale": designScale,
 		"hand-made-button": handMadeButton,
+		"status-through-machine": statusThroughMachine,
 	},
 }

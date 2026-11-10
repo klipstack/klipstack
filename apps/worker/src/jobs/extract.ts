@@ -1,5 +1,15 @@
 import { gunzipSync, gzipSync } from "node:zlib"
-import { and, db, desc, documentRaw, documents, eq, notifyDocumentEvent, sql } from "@klipstack/db"
+import {
+	and,
+	db,
+	desc,
+	documentRaw,
+	documents,
+	eq,
+	extractionMachine,
+	notifyDocumentEvent,
+	sql,
+} from "@klipstack/db"
 import {
 	ExtractError,
 	type ExtractErrorCode,
@@ -61,7 +71,7 @@ export async function handleExtract(job: JobWithMetadata<JobPayloads["extract"]>
 	}
 	await db
 		.update(documents)
-		.set({ status: "processing", failureReason: null })
+		.set({ status: extractionMachine.transitions.start.to, failureReason: null })
 		.where(eq(documents.id, documentId))
 
 	try {
@@ -152,10 +162,11 @@ export async function handleExtract(job: JobWithMetadata<JobPayloads["extract"]>
 		// Only while the status is still the one this job set: a capture saved meanwhile was admitted
 		// its own job, which owns the status now (and may have published already). An article with a
 		// readable version stays readable; the failed attempt is only noted.
+		const { fail, retryLater, keep } = extractionMachine.transitions
 		const [after] = await db
 			.update(documents)
 			.set({
-				status: sql`case when ${documents.currentVersionId} is null then ${final ? "failed" : "queued"} else 'ready' end`,
+				status: sql`case when ${documents.currentVersionId} is null then ${final ? fail.to : retryLater.to} else ${keep.to} end`,
 				failureReason: reason,
 			})
 			.where(and(eq(documents.id, documentId), eq(documents.status, "processing")))
@@ -165,14 +176,14 @@ export async function handleExtract(job: JobWithMetadata<JobPayloads["extract"]>
 				documentId,
 				reason,
 				exhausted,
-				kept: after?.status === "ready",
+				kept: after?.status === keep.to,
 				error,
 			})
 			if (after)
 				await notifyDocumentEvent({
 					userId: doc.userId,
 					documentId,
-					kind: after.status === "failed" ? "failed" : "ready",
+					kind: after.status === fail.to ? "failed" : "ready",
 				})
 			return
 		}

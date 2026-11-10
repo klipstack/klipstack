@@ -162,6 +162,12 @@
 			}
 		},
 		{
+			"files": ["apps/web/app/**", "apps/worker/src/**", "packages/*/src/**"],
+			"rules": {
+				"klipstack/status-through-machine": "error"
+			}
+		},
+		{
 			"files": ["apps/mobile/src/page/**"],
 			"rules": {
 				"no-redeclare": "error",

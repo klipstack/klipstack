@@ -4,17 +4,29 @@ import {
 	translationCredits,
 	translationWords,
 } from "@klipstack/api-contract"
-import { and, documents, documentVersions, eq, showVersion, type Tx } from "@klipstack/db"
+import {
+	and,
+	can,
+	documents,
+	documentVersions,
+	eq,
+	extractionMachine,
+	type ExtractionStatus,
+	showVersion,
+	translationMachine,
+	type TranslationState,
+	type Tx,
+} from "@klipstack/db"
 import { sendInTransaction } from "./admission"
 
 /** What admission needs to know of the article, read under its row lock by the caller. */
 export interface TranslatableArticle {
 	id: string
-	status: string
+	status: ExtractionStatus
 	language: string | null
 	currentVersionId: string | null
 	originalVersionId: string | null
-	translationStatus: string | null
+	translationStatus: TranslationState
 }
 
 export type TranslationAdmission =
@@ -43,8 +55,10 @@ export async function admitTranslation(
 	language: TranslationLanguage,
 	take: (credits: number) => Promise<string | null>,
 ): Promise<TranslationAdmission> {
-	if (doc.status !== "ready" || !doc.currentVersionId) return { status: "not_ready" }
-	if (doc.translationStatus === "pending") return { status: "already_pending" }
+	if (doc.status !== extractionMachine.transitions.publish.to || !doc.currentVersionId)
+		return { status: "not_ready" }
+	if (!can(translationMachine, "request", doc.translationStatus))
+		return { status: "already_pending" }
 	// Not translated: only an article known to be in another language, as the reader offers.
 	if (!doc.originalVersionId && doc.language === null) return { status: "unknown_language" }
 	if (!doc.originalVersionId && doc.language === language) return { status: "same_language" }
@@ -70,7 +84,10 @@ export async function admitTranslation(
 		.limit(1)
 	if (made) {
 		await showVersion(tx, doc.id, made.id, sourceId)
-		await tx.update(documents).set({ translationStatus: null }).where(eq(documents.id, doc.id))
+		await tx
+			.update(documents)
+			.set({ translationStatus: translationMachine.transitions.reuse.to })
+			.where(eq(documents.id, doc.id))
 		return { status: "translated" }
 	}
 
@@ -84,7 +101,10 @@ export async function admitTranslation(
 	const credits = translationCredits(words)
 	const month = await take(credits)
 	if (!month) return { status: "no_credits", credits }
-	await tx.update(documents).set({ translationStatus: "pending" }).where(eq(documents.id, doc.id))
+	await tx
+		.update(documents)
+		.set({ translationStatus: translationMachine.transitions.request.to })
+		.where(eq(documents.id, doc.id))
 	await sendInTransaction(tx, "translate", {
 		documentId: doc.id,
 		sourceVersionId: sourceId,

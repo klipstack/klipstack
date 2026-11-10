@@ -40,6 +40,7 @@ import {
 	type Tx,
 	topicLibraries,
 	topicSorts,
+	topicMachine,
 	topics,
 	usageThisMonth,
 	user,
@@ -214,7 +215,7 @@ class Run {
 							name: t.name,
 							description: t.description,
 							boundary: t.boundary,
-							status: "proposed" as const,
+							status: topicMachine.transitions.propose.to,
 							origin: "first" as const,
 						})),
 					)
@@ -746,7 +747,7 @@ class Run {
 						name: t.name,
 						description: t.description,
 						boundary: t.boundary,
-						status: "active" as const,
+						status: topicMachine.transitions.grow.to,
 						origin,
 					})),
 				)
@@ -777,7 +778,7 @@ class Run {
 	async end(tx: Tx, topicIds: string[]) {
 		await tx
 			.update(topics)
-			.set({ status: "retired", endedAt: new Date() })
+			.set({ status: topicMachine.transitions.retire.to, endedAt: new Date() })
 			.where(inArray(topics.id, topicIds))
 		await tx.delete(documentTopics).where(inArray(documentTopics.topicId, topicIds))
 	}

@@ -16,6 +16,7 @@ import {
 	planColumns,
 	showVersion,
 	sql,
+	translationMachine,
 	translationCap,
 	type Tx,
 	user,
@@ -170,7 +171,7 @@ async function fail(job: JobPayloads["translate"], userId: string) {
 	await db.transaction(async (tx) => {
 		const [doc] = await tx
 			.update(documents)
-			.set({ translationStatus: "failed" })
+			.set({ translationStatus: translationMachine.transitions.fail.to })
 			.where(and(eq(documents.id, job.documentId), eq(documents.translationStatus, "pending")))
 			.returning({ id: documents.id })
 		if (doc) await addUsage(tx, userId, "translations", -job.credits, job.month)
@@ -205,7 +206,7 @@ export async function settleStuckTranslations(owners?: string[]): Promise<string
 		else
 			await db
 				.update(documents)
-				.set({ translationStatus: "failed" })
+				.set({ translationStatus: translationMachine.transitions.fail.to })
 				.where(and(eq(documents.id, row.id), eq(documents.translationStatus, "pending")))
 		await notifyDocumentEvent({ userId: row.user_id, documentId: row.id, kind: "ready" })
 	}
@@ -298,7 +299,7 @@ export async function handleTranslate(job: JobWithMetadata<JobPayloads["translat
 			await showVersion(tx, documentId, version!.id, sourceVersionId)
 			await tx
 				.update(documents)
-				.set({ translationStatus: null })
+				.set({ translationStatus: translationMachine.transitions.finish.to })
 				.where(eq(documents.id, documentId))
 			if (!source.imagesDone) await admitImages(tx, version!.id)
 			return version!.id
