@@ -2,7 +2,7 @@ import { data, redirect } from "react-router"
 import { EditionPage } from "~/components/edition-page"
 import { CARD_HEIGHT, CARD_WIDTH, canDraw, cardVersion } from "~/lib/edition-card.server"
 import { editionDescription, editionView } from "~/lib/edition-view"
-import { editionSlug } from "~/lib/editions"
+import { editionSlug, editionState } from "~/lib/editions"
 import { env } from "~/lib/env.server"
 import { getInstance } from "~/lib/i18n.server"
 import { shareCard } from "~/lib/share-card.server"
@@ -15,8 +15,9 @@ export async function loader({ params, request, context }: Route.LoaderArgs) {
 	const edition = await getPublicEdition(params.publicId)
 	if (!edition) throw data(null, { status: 404 })
 	// Taken down by an admin, the page says so: not that its author did.
-	if (edition.removedAt) throw data({ removed: true }, { status: 410 })
-	if (edition.unpublishedAt) throw data(null, { status: 410 })
+	const state = editionState(edition)
+	if (state === "removed") throw data({ removed: true }, { status: 410 })
+	if (state !== "live") throw data(null, { status: 410 })
 	const snapshot = parseSnapshot(edition.published)
 	if (!snapshot) throw new Error(`Edition ${params.publicId}: a snapshot this code cannot read`)
 	// Never null here: `getPublicEdition` finds published editions only.

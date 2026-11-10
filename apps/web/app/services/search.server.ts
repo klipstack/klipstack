@@ -31,6 +31,7 @@ import {
 } from "@klipstack/db"
 import { isTimeZone } from "~/lib/date-groups"
 import {
+	ARTICLE_IN,
 	finished,
 	INBOX_FILTER_WHERE,
 	libraryCardColumns as cardColumns,
@@ -89,9 +90,9 @@ export interface SearchResult {
 const notDeleted = isNull(documents.deletedAt)
 
 const LOCATION_WHERE: Record<SearchLocation, SQL> = {
-	library: and(notDeleted, isNull(documents.archivedAt)) as SQL,
-	archive: and(notDeleted, isNotNull(documents.archivedAt)) as SQL,
-	trash: isNotNull(documents.deletedAt),
+	library: ARTICLE_IN.inbox,
+	archive: ARTICLE_IN.archive,
+	trash: ARTICLE_IN.trash,
 	anywhere: sql`true`,
 }
 

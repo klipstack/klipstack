@@ -33,8 +33,9 @@ transactions) live in the command.
   per-item outcomes (not found, already saved, refused) are part of the result, not errors.
 - A status column with a machine (`packages/db/src/machines.ts`: articles' extraction and
   translation, topics) changes only through one of its transitions; a new move is a new transition
-  there first. `docs/development/state-machines.md` lists the machines and the lifecycles still
-  implicit.
+  there first. A state derived from timestamps (inbox, archive or trash; finished; an edition's
+  state) is read through its one named definition. `docs/development/state-machines.md` lists
+  the machines and those definitions.
 - The API answers an `AppError` with `{error: {code, message, …}}`, web actions with
   `{ok: false, error: {…}}`, MCP with a tool error. Admin changes stay in
   `services/admin-*.server.ts` (checked and audited by `adminMutation`); sign-in stays with

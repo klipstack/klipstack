@@ -1,5 +1,6 @@
 import { data, redirect } from "react-router"
 import { canDraw, cachedCard, cardFor, cardVersion } from "~/lib/edition-card.server"
+import { editionState } from "~/lib/editions"
 import { getInstance } from "~/lib/i18n.server"
 import { shareCard } from "~/lib/share-card.server"
 import { getPublicEdition, parseSnapshot } from "~/services/editions.server"
@@ -13,7 +14,7 @@ import type { Route } from "./+types/edition.og"
 export async function loader({ params, context }: Route.LoaderArgs) {
 	const edition = await getPublicEdition(params.publicId)
 	if (!edition) throw data(null, { status: 404 })
-	if (edition.removedAt || edition.unpublishedAt) throw data(null, { status: 410 })
+	if (editionState(edition) !== "live") throw data(null, { status: 410 })
 	const snapshot = parseSnapshot(edition.published)
 	if (!snapshot) throw new Error(`Edition ${params.publicId}: a snapshot this code cannot read`)
 	if (snapshot.title !== null && !canDraw(snapshot.title))

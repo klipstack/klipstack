@@ -15,6 +15,7 @@ import {
 } from "@klipstack/db"
 import { REVIEW } from "~/lib/review"
 import {
+	ARTICLE_IN,
 	finished,
 	INBOX_FILTER_WHERE,
 	type LibraryCard,
@@ -35,8 +36,7 @@ export function reviewWhere(userId: string, now: Date): SQL {
 	const keptBefore = new Date(now.getTime() - REVIEW.keepDays * DAY_MS)
 	return and(
 		eq(documents.userId, userId),
-		isNull(documents.deletedAt),
-		isNull(documents.archivedAt),
+		ARTICLE_IN.inbox,
 		eq(documents.status, "ready"),
 		INBOX_FILTER_WHERE.unread,
 		not(finished),

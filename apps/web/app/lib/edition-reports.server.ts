@@ -13,6 +13,7 @@ import {
 	sql,
 	type Tx,
 } from "@klipstack/db"
+import { liveEdition } from "~/services/editions.server"
 import { checkAuthLimit, trustedAuthAddress } from "./auth-limits.server"
 import { checkFormToken } from "./invite-requests.server"
 import { limitAddress } from "./limit-address"
@@ -50,14 +51,7 @@ export function reportEdition(input: ReportInput, headers: Headers, tx: Db | Tx 
 		const [edition] = await tx
 			.select({ id: editions.id })
 			.from(editions)
-			.where(
-				and(
-					eq(editions.publicId, publicId),
-					isNotNull(editions.publishedAt),
-					isNull(editions.unpublishedAt),
-					isNull(editions.removedAt),
-				),
-			)
+			.where(and(eq(editions.publicId, publicId), liveEdition))
 		return edition ? { editionId: edition.id } : null
 	})
 }

@@ -9,8 +9,8 @@ import { topicStatus } from "./schema/topics"
  * a literal, so a search for the transition finds every writer (`pnpm lint`:
  * `klipstack/status-through-machine`). A `from` lists where the move can happen in the running
  * system; the writer's own guards (row locks, `where status = …`) are what enforce it, and `can`
- * asks the same question in code. docs/development/state-machines.md lists these machines and the
- * lifecycles still implicit (nullable timestamps, client state).
+ * asks the same question in code. docs/development/state-machines.md lists these machines, and the
+ * lifecycles kept in nullable timestamps (`lifecycles.ts` and others) or in client state.
  */
 export interface Machine<S, E extends string> {
 	readonly states: readonly S[]

@@ -19,6 +19,7 @@ import {
 	not,
 	sql,
 	topicLibraries,
+	topicLibraryStage,
 	topicLimits,
 	topicSorts,
 	topics,
@@ -29,6 +30,7 @@ import { topicModels } from "~/lib/ai.server"
 import { hasFeature } from "~/lib/features.server"
 import type { FilterableView, ListFilter } from "~/lib/inbox-filters"
 import {
+	ARTICLE_IN,
 	filterWhere,
 	finished,
 	type LibraryCard,
@@ -141,16 +143,17 @@ export async function topicsState(
 		library.proposedAtCount === null
 			? TOPIC_RULES.bootstrapSize
 			: library.proposedAtCount + TOPIC_RULES.poolSize
-	if (!library.proposedAt)
+	const stage = topicLibraryStage(library)
+	if (stage === "proposing")
 		return { ...empty, stage: total >= needed ? "proposing" : "waiting", count: total, needed }
-	const status = library.confirmedAt ? "active" : "proposed"
+	const status = stage === "confirmed" ? "active" : "proposed"
 	const sorting = status === "active" ? total - (await sortedCount(userId)) : 0
 	return {
 		stage: status,
 		count: total,
 		needed,
 		topics: await summaries(userId, status, { shelves }),
-		unseen: !library.confirmedAt && !library.seenAt,
+		unseen: stage === "proposed" && !library.seenAt,
 		sorting,
 		sortsPaused: sorting > 0 ? await sortsPaused(userId, library, sorting) : null,
 	}
@@ -195,7 +198,7 @@ async function summaries(
 ): Promise<TopicShelf[]> {
 	const articles = sql<number>`count(${documents.id})::int`
 	const recent = sql<number>`(count(${documents.id}) filter (where ${savedThisWeek}))::int`
-	const toRead = sql<number>`(count(${documents.id}) filter (where ${documents.archivedAt} is null and not ${finished}))::int`
+	const toRead = sql<number>`(count(${documents.id}) filter (where ${ARTICLE_IN.inbox} and not ${finished}))::int`
 	const lastRead = sql<
 		string | null
 	>`greatest(max(${documents.lastReadAt}), max(${documents.readAt}))`
@@ -485,7 +488,6 @@ export async function listTopics(
 ): Promise<ListTopics> {
 	const scope = and(
 		eq(documents.userId, userId),
-		isNull(documents.deletedAt),
 		viewWhere(view),
 		filter ? filterWhere(view, filter) : undefined,
 	)
@@ -619,7 +621,7 @@ export async function readerTopics(userId: string, documentId: string): Promise<
 			eq(documentTopics.level, "applied"),
 			isNull(documentTopics.refusedAt),
 			inLibrary(userId),
-			isNull(documents.archivedAt),
+			ARTICLE_IN.inbox,
 			not(finished),
 			ne(documents.id, documentId),
 		)
@@ -664,7 +666,7 @@ export interface HomeTopic {
 export async function homeTopics(
 	userId: string,
 ): Promise<{ topics: HomeTopic[]; different: string | null }> {
-	const toRead = sql<number>`count(${documents.id}) filter (where ${documents.archivedAt} is null and not ${finished})::int`
+	const toRead = sql<number>`count(${documents.id}) filter (where ${ARTICLE_IN.inbox} and not ${finished})::int`
 	const lastRead = sql<Date | null>`greatest(max(${documents.lastReadAt}), max(${documents.readAt}))`
 	const rows = await db
 		.select({ id: topics.id, name: topics.name, toRead, lastRead })

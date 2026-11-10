@@ -13,6 +13,7 @@ export {
 	storeFeedEntries,
 } from "./feeds"
 export { newId, newPublicId } from "./ids"
+export { type TopicLibraryStage, topicLibraryStage } from "./lifecycles"
 export {
 	can,
 	EXTRACTION_PENDING,

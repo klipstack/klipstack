@@ -488,7 +488,8 @@ function PublishPanel({ data }: { data: Route.ComponentProps["loaderData"] }) {
 						state === "live" ? "bg-accent text-accent-fg" : "bg-muted text-muted-fg",
 					)}
 				>
-					{t(`state.${state}`)}
+					{/* Removed by an admin, it is unpublished; the notice below says why. */}
+					{t(`state.${state === "removed" ? "unpublished" : state}`)}
 				</span>
 				{publishedOn ? (
 					<span className="text-sm text-muted-fg">

@@ -26,6 +26,7 @@ import {
 	isNull,
 	lt,
 	ne,
+	type SQL,
 	sql,
 	type Tx,
 	user as userTable,
@@ -94,6 +95,13 @@ export function checkId(id: string) {
 
 export const owned = (userId: string, id: string) =>
 	and(eq(editions.id, id), eq(editions.userId, userId))
+
+/** A live edition, in SQL: `editionState` is "live" (lib/editions.ts). */
+export const liveEdition = and(
+	isNotNull(editions.publishedAt),
+	isNull(editions.unpublishedAt),
+	isNull(editions.removedAt),
+) as SQL
 
 export async function findEdition(userId: string, id: string): Promise<EditionRow> {
 	checkId(id)
@@ -924,9 +932,7 @@ export async function editionNeighbors(
 				and(
 					eq(editions.userId, userId),
 					ne(editions.id, edition.id),
-					isNotNull(editions.published),
-					isNull(editions.unpublishedAt),
-					isNull(editions.removedAt),
+					liveEdition,
 					later
 						? gt(editions.publishedAt, edition.publishedAt)
 						: lt(editions.publishedAt, edition.publishedAt),

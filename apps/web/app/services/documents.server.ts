@@ -291,7 +291,10 @@ export function decodeCursor(value: string | null | undefined): Cursor | null {
 	return { k: c.k, t: c.t, id: c.id }
 }
 
-/** Shared with the search operators (`is:finished`, `is:quick`, `is:long`). */
+/**
+ * Finished in this reading, as `isFinished` (lib/inbox-filters.ts) says. Shared with the search
+ * operators (`is:finished`, `is:quick`, `is:long`).
+ */
 export const finished = or(
 	isNotNull(documents.readAt),
 	gte(documents.readingProgress, READ_PROGRESS),
@@ -340,16 +343,25 @@ export function filterWhere(view: ListView, filter: ListFilter): SQL | undefined
 	return undefined
 }
 
-const inInbox = isNull(documents.archivedAt)
-const inArchive = isNotNull(documents.archivedAt)
+const notTrashed = isNull(documents.deletedAt)
+
+/**
+ * Where an article is: the library (`inbox`), the archive or the trash, from `archivedAt` and
+ * `deletedAt`. The trash wins: a trashed article keeps its `archivedAt` for when it is restored.
+ */
+export const ARTICLE_IN = {
+	inbox: and(notTrashed, isNull(documents.archivedAt)) as SQL,
+	archive: and(notTrashed, isNotNull(documents.archivedAt)) as SQL,
+	trash: isNotNull(documents.deletedAt),
+}
 
 /** What a list view holds, out of the trash. */
 export function viewWhere(view: FilterableView): SQL {
 	return view === "archive"
-		? inArchive
+		? ARTICLE_IN.archive
 		: view === "starred"
-			? isNotNull(documents.starredAt)
-			: inInbox
+			? (and(notTrashed, isNotNull(documents.starredAt)) as SQL)
+			: ARTICLE_IN.inbox
 }
 
 /** A topic of the reader's (its id), or no topic: what the lists narrow to (`?topic=`). */
@@ -397,16 +409,7 @@ export async function listDocuments({
 	excludeIds?: string[]
 }): Promise<{ items: LibraryCard[]; nextCursor: string | null }> {
 	const viewFilter =
-		view === "trash"
-			? isNotNull(documents.deletedAt)
-			: view === "starred"
-				? isNotNull(documents.starredAt)
-				: view === "archive"
-					? inArchive
-					: view === "all"
-						? undefined
-						: inInbox
-	const deletedFilter = view === "trash" ? undefined : isNull(documents.deletedAt)
+		view === "trash" ? ARTICLE_IN.trash : view === "all" ? notTrashed : viewWhere(view)
 	const { key, dir } = SORT_KEY[sort]
 	// Recent reading falls back for older/imported articles without a last-read timestamp.
 	const time =
@@ -439,7 +442,6 @@ export async function listDocuments({
 		.where(
 			and(
 				eq(documents.userId, userId),
-				deletedFilter,
 				viewFilter,
 				readyOnly ? eq(documents.status, "ready") : undefined,
 				excludeIds.length ? notInArray(documents.id, excludeIds) : undefined,
@@ -480,12 +482,7 @@ export async function countFilters(
 		)
 		.from(documents)
 		.where(
-			and(
-				eq(documents.userId, userId),
-				isNull(documents.deletedAt),
-				viewWhere(view),
-				topic ? topicWhere(topic) : undefined,
-			),
+			and(eq(documents.userId, userId), viewWhere(view), topic ? topicWhere(topic) : undefined),
 		)
 	return Object.fromEntries(filters.map((f) => [f, Number(row?.[f] ?? 0)]))
 }

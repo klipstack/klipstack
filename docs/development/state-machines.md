@@ -92,23 +92,29 @@ A failed resize starts nothing, neither a retry nor a new resize, until the high
 loaded again: `revalidate()`'s promise says when, not `useRevalidator().state`, which is still
 `idle` in the render that asked for it.
 
-## Lifecycles still implicit
+## Lifecycles kept in timestamps
 
 These are encoded as nullable timestamps, often with more than one column. The timestamps carry
 the time as well as the state, and readers filter on them in SQL. A status column would need a
 migration and would change the API, so they stay as they are. Their rules live in the command
-that writes them.
+that writes them. Where a state is derived from more than one column, it has one named
+definition, in TypeScript, in SQL, or both; read the state through it rather than the columns.
 
-| Lifecycle | Columns | Writes |
-| --- | --- | --- |
-| Inbox, archive, trash | `documents.archivedAt`, `deletedAt` | `apps/web/app/commands/articles.server.ts`, `services/documents.server.ts` (restore), `apps/worker/src/jobs/purge.ts` |
-| Reading | `firstOpenedAt`, `readAt`, `lastReadAt`, `readingProgress`, `readingCycle`, `reading_completions` | `commands/articles.server.ts`; "finished" is `READ_PROGRESS` in `lib/inbox-filters.ts` |
-| Editions | `publishedAt`, `republishedAt`, `unpublishedAt`, `removedAt` | `commands/editions-actions.server.ts`, `services/editions-write.server.ts`, `services/admin-reports.server.ts`; `editionState()` in `apps/web/app/lib/editions.ts` |
-| Highlight shares | `published`, `removedAt` | `commands/highlight-shares.server.ts`, `services/admin-reports.server.ts` |
-| Topic library | `topicLibraries.proposedAt`, `seenAt`, `confirmedAt`, … | `commands/topics.server.ts`, `apps/worker/src/topics.ts` (`run`) |
-| Invites | `usedAt`, `expiresAt`, `revokedAt` | `lib/invites.server.ts`, `services/admin-invites.server.ts` |
-| Feed fetching | `nextFetchAt`, `errorCount`, `lastSuccessAt` | `apps/worker/src/jobs/feeds.ts` |
-| Images | `documentVersions.imagesDone` | `packages/queue/src/admission.ts`, `apps/worker/src/jobs/images.ts` |
+| Lifecycle | Columns | Named states | Writes |
+| --- | --- | --- | --- |
+| Inbox, archive, trash | `documents.archivedAt`, `deletedAt` | `ARTICLE_IN` (inbox, archive, trash) in `services/documents.server.ts` | `apps/web/app/commands/articles.server.ts`, `services/documents.server.ts` (restore), `apps/worker/src/jobs/purge.ts` |
+| Reading | `firstOpenedAt`, `readAt`, `lastReadAt`, `readingProgress`, `readingCycle`, `reading_completions` | finished: `isFinished` in `lib/inbox-filters.ts`, `finished` (SQL) in `services/documents.server.ts` | `commands/articles.server.ts` |
+| Editions | `publishedAt`, `republishedAt`, `unpublishedAt`, `removedAt` | `editionState()` (draft, live, unpublished, removed) in `apps/web/app/lib/editions.ts`; `liveEdition` (SQL) in `services/editions.server.ts` | `commands/editions-actions.server.ts`, `services/editions-write.server.ts`, `services/admin-reports.server.ts` |
+| Highlight shares | `published`, `removedAt` | | `commands/highlight-shares.server.ts`, `services/admin-reports.server.ts` |
+| Topic library | `topicLibraries.proposedAt`, `seenAt`, `confirmedAt`, … | `topicLibraryStage()` (proposing, proposed, confirmed) in `packages/db/src/lifecycles.ts` | `commands/topics.server.ts`, `apps/worker/src/topics.ts` (`run`) |
+| Invites | `usedAt`, `expiresAt`, `revokedAt` | `STATUS_SQL` in `services/admin-invites.server.ts`; `findUsableInvite` in `lib/invites.server.ts` | `lib/invites.server.ts`, `services/admin-invites.server.ts` |
+| Feed fetching | `nextFetchAt`, `errorCount`, `lastSuccessAt` | | `apps/worker/src/jobs/feeds.ts` |
+| Images | `documentVersions.imagesDone` | | `packages/queue/src/admission.ts`, `apps/worker/src/jobs/images.ts` |
+
+An edition an admin removed is also unpublished: removal sets `unpublishedAt` as well, publishing
+refuses a removed edition, and restoring leaves it unpublished until its author publishes it again.
+`editionState()` says `removed` first; the editor and the list show it as unpublished, with the
+removal notice.
 
 ## Known gaps
 
@@ -124,5 +130,4 @@ behavior:
 - Retiring a topic has no status guard in its update. Its callers pick active topics.
 - The web client counts an article as finished on `readAt` alone; the server also counts
   `readingProgress >= 0.95`.
-- `editionState()` has no `removed` state, and "live edition" is checked three different ways.
 - `noteSkippedAt` is not cleared when an article is read again.

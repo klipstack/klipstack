@@ -45,6 +45,17 @@ export const LONG_MIN_MINUTES = 30
 /** Scrolled this far (0..1), an article counts as read even if never marked finished. */
 export const READ_PROGRESS = 0.95
 
+/**
+ * Finished in this reading: marked finished, or read to the end (`READ_PROGRESS`). `finished` in
+ * services/documents.server.ts is the same in SQL.
+ */
+export function isFinished(doc: {
+	readAt: Date | string | null
+	readingProgress: number
+}): boolean {
+	return doc.readAt !== null || doc.readingProgress >= READ_PROGRESS
+}
+
 export function parseFilter(value: string | null, view: FilterableView): ListFilter | null {
 	return (filtersFor(view) as readonly string[]).includes(value ?? "")
 		? (value as ListFilter)

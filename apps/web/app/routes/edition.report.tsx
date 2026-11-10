@@ -7,7 +7,7 @@ import { Field } from "~/components/ui/field"
 import { Label } from "~/components/ui/label"
 import { REPORT_REASONS, REPORT_TRAP } from "~/lib/edition-reports"
 import { reportEdition } from "~/lib/edition-reports.server"
-import { editionSlug, editionTitle } from "~/lib/editions"
+import { editionSlug, editionState, editionTitle } from "~/lib/editions"
 import { useIsNsKey, useKeyTranslation } from "~/lib/i18n-keys"
 import { getInstance, getLocale } from "~/lib/i18n.server"
 import { reportAction, reportLoader } from "~/lib/report-form.server"
@@ -27,8 +27,9 @@ async function publicEdition(publicId: string) {
 	const edition = await getPublicEdition(publicId)
 	if (!edition) throw data(null, { status: 404 })
 	// Taken down by an admin, the page says so: not that its author did.
-	if (edition.removedAt) throw data({ removed: true }, { status: 410 })
-	if (edition.unpublishedAt) throw data(null, { status: 410 })
+	const state = editionState(edition)
+	if (state === "removed") throw data({ removed: true }, { status: 410 })
+	if (state !== "live") throw data(null, { status: 410 })
 	const snapshot = parseSnapshot(edition.published)
 	if (!snapshot) throw new Error(`Edition ${publicId}: a snapshot this code cannot read`)
 	// Never null here: `getPublicEdition` finds published editions only.
