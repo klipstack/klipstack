@@ -14,6 +14,16 @@ export {
 } from "./feeds"
 export { newId, newPublicId } from "./ids"
 export {
+	can,
+	EXTRACTION_PENDING,
+	type ExtractionStatus,
+	extractionMachine,
+	type Machine,
+	type TranslationState,
+	topicMachine,
+	translationMachine,
+} from "./machines"
+export {
 	billingStartsAt,
 	FOUNDING_FREE_DAYS,
 	mayAddSql,

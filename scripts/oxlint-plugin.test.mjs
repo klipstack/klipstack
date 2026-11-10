@@ -296,3 +296,41 @@ describe("klipstack/hand-made-button", () => {
 		assert.equal(lint(jsx).length, 1)
 	})
 })
+
+describe("klipstack/status-through-machine", () => {
+	const lint = (code) => lintWith("status-through-machine", `${code}\n`, "writer.ts")
+
+	test("reports a literal status written to a column with a machine", () => {
+		for (const code of [
+			`await tx.update(documents).set({ status: "ready", failureReason: null })`,
+			`await db.update(documents).set({ translationStatus: null }).where(x)`,
+			`await tx.insert(documents).values({ userId, status: "queued" })`,
+			`await tx.insert(topics).values(specs.map((t) => ({ name: t.name, status: "active" as const })))`,
+			`await tx.update(topics).set({ status: \`removed\` })`,
+			`await tx.update(documents).set({ status: final ? "failed" : "queued" })`,
+			`await tx.insert(documents).values(v).onConflictDoUpdate({ target: documents.id, set: { status: "queued" } })`,
+		])
+			assert.match(lint(code).join(), /has a machine/, code)
+	})
+
+	test("accepts a transition, another table or column, a read, and a test", () => {
+		for (const code of [
+			`await tx.update(documents).set({ status: extractionMachine.transitions.publish.to })`,
+			`await tx.update(documents).set({ status: final ? fail.to : retryLater.to })`,
+			`await tx.update(documents).set({ status: sql\`case when x then 'a' else 'b' end\` })`,
+			`await tx.insert(aiMessages).values({ status: "failed" })`,
+			`await tx.update(documents).set({ archivedAt: null })`,
+			`const answer = { status: "pending" }`,
+			`await tx.select().from(documents).where(eq(documents.status, "ready"))`,
+		])
+			assert.deepEqual(lint(code), [], code)
+		assert.deepEqual(
+			lintWith(
+				"status-through-machine",
+				`await db.update(documents).set({ status: "failed" })\n`,
+				"extract.test.ts",
+			),
+			[],
+		)
+	})
+})

@@ -1,4 +1,4 @@
-import { db, notifyDocumentEvent, sql } from "@klipstack/db"
+import { db, EXTRACTION_PENDING, extractionMachine, notifyDocumentEvent, sql } from "@klipstack/db"
 import { QUEUES } from "@klipstack/queue"
 import { log } from "../log"
 import { settleStuckTranslations } from "./translate"
@@ -23,11 +23,12 @@ export async function handleSweep() {
  * articles (tests).
  */
 export async function settleStuckExtractions(owners?: string[]): Promise<string[]> {
+	const { fail, keep } = extractionMachine.transitions
 	const { rows } = await db.execute<{ id: string; user_id: string; status: string }>(sql`
 		update documents d
-		set status = case when d.current_version_id is null then 'failed' else 'ready' end,
+		set status = case when d.current_version_id is null then ${fail.to} else ${keep.to} end,
 			failure_reason = 'timeout'
-		where d.status in ('queued', 'processing')
+		where d.status in ${EXTRACTION_PENDING}
 			and d.deleted_at is null
 			and ${owners ? sql`d.user_id in ${owners}` : sql`true`}
 			and not exists (
@@ -41,7 +42,7 @@ export async function settleStuckExtractions(owners?: string[]): Promise<string[
 		await notifyDocumentEvent({
 			userId: row.user_id,
 			documentId: row.id,
-			kind: row.status === "failed" ? "failed" : "ready",
+			kind: row.status === fail.to ? "failed" : "ready",
 		})
 	return rows.map((row) => row.id)
 }

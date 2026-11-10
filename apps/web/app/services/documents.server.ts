@@ -22,6 +22,8 @@ import {
 	notInArray,
 	notifyDocumentEvent,
 	or,
+	EXTRACTION_PENDING,
+	extractionMachine,
 	type SQL,
 	sql,
 	type Tx,
@@ -165,7 +167,7 @@ export async function saveDocument({
 					sourceUrl: normalized,
 					fetchUrl,
 					urlHash: hash,
-					status: "queued",
+					status: extractionMachine.transitions.save.to,
 					captureSource: source,
 				})
 				.onConflictDoNothing({
@@ -575,7 +577,7 @@ export async function countPending(userId: string): Promise<number> {
 			and(
 				eq(documents.userId, userId),
 				isNull(documents.deletedAt),
-				or(eq(documents.status, "queued"), eq(documents.status, "processing")),
+				inArray(documents.status, EXTRACTION_PENDING),
 			),
 		)
 	return Number(row?.n ?? 0)
@@ -745,8 +747,7 @@ export async function restoreDocument(userId: string, id: string): Promise<boole
 			)
 			.returning({ status: documents.status, currentVersionId: documents.currentVersionId })
 		if (!row) return false
-		if (row.status === "queued" || row.status === "processing")
-			await admitExtract(tx, id, "refresh")
+		if (EXTRACTION_PENDING.some((s) => s === row.status)) await admitExtract(tx, id, "refresh")
 		else if (row.currentVersionId) await admitImages(tx, row.currentVersionId)
 		return true
 	})

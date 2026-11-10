@@ -15,6 +15,7 @@ import {
 	inArray,
 	isNull,
 	topicLibraries,
+	topicMachine,
 	topicSorts,
 	topics,
 	rewriteSavedQueries,
@@ -193,7 +194,7 @@ export async function confirmTopics(userId: string, input: ConfirmationInput): P
 			if (!kept.has(topic.id)) {
 				await tx
 					.update(topics)
-					.set({ status: "removed", endedAt: now })
+					.set({ status: topicMachine.transitions.reject.to, endedAt: now })
 					.where(eq(topics.id, topic.id))
 				continue
 			}
@@ -202,7 +203,7 @@ export async function confirmTopics(userId: string, input: ConfirmationInput): P
 			await tx
 				.update(topics)
 				.set({
-					status: "active",
+					status: topicMachine.transitions.confirm.to,
 					name,
 					namedByReader: name !== topic.name,
 					rewordPending: renamesMeaning(topic.name, name),
@@ -268,7 +269,7 @@ export async function removeTopic(userId: string, id: string) {
 	return db.transaction(async (tx) => {
 		const [removed] = await tx
 			.update(topics)
-			.set({ status: "removed", endedAt: new Date() })
+			.set({ status: topicMachine.transitions.remove.to, endedAt: new Date() })
 			.where(and(eq(topics.id, topicId), eq(topics.userId, userId), eq(topics.status, "active")))
 			.returning({ id: topics.id, name: topics.name })
 		if (!removed) throw notFound(NO_TOPIC)

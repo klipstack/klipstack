@@ -1,9 +1,11 @@
 import {
 	and,
+	can,
 	documentRaw,
 	documents,
 	documentVersions,
 	eq,
+	extractionMachine,
 	notExists,
 	sql,
 	type Tx,
@@ -58,6 +60,9 @@ export type ExtractAdmissionMode =
 	/** A new capture was stored: run again unless a job that has not started will pick it up. */
 	| "capture"
 
+/** The transition of `extraction` (@klipstack/db) each mode asks for. */
+const EVENT = { failed: "retry", refresh: "refresh", capture: "capture" } as const
+
 export type ExtractAdmission =
 	| { outcome: "admitted"; jobId: string; userId: string }
 	| { outcome: "missing" | "trashed" | "not_failed" | "already_pending"; userId?: string }
@@ -84,7 +89,8 @@ export async function admitExtract(
 	if (!doc) return { outcome: "missing" }
 	const { userId } = doc
 	if (doc.deletedAt) return { outcome: "trashed", userId }
-	if (mode === "failed" && doc.status !== "failed") return { outcome: "not_failed", userId }
+	const event = EVENT[mode]
+	if (!can(extractionMachine, event, doc.status)) return { outcome: "not_failed", userId }
 
 	const pending = await pendingStates(tx, QUEUES.extract, { documentId })
 	// A job that has not started reads the newest capture. A failed document's job may still be
@@ -115,7 +121,7 @@ export async function admitExtract(
 			)
 	await tx
 		.update(documents)
-		.set({ status: "queued", failureReason: null })
+		.set({ status: extractionMachine.transitions[event].to, failureReason: null })
 		.where(eq(documents.id, documentId))
 	const jobId = await sendInTransaction(tx, QUEUES.extract, { documentId })
 	return { outcome: "admitted", jobId, userId }

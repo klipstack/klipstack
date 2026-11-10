@@ -46,6 +46,7 @@ Each layer catches what the one before can't. The lower down, the more certain.
 | Tests are not otherwise weakened to pass | Skills, review check, AGENTS.md | Asked, and reviewed |
 | Adapters don't write through `db` or `tx`, open transactions or import `commands/*-actions.server.ts` | Lint (`klipstack/adapter-writes-through-commands`) | Enforced; each `oxlint-disable` is reviewed |
 | Commands own the rest of user-data changes: no writing service called from an adapter, rules in the command | Review check (`commands`) | Reviewed by a fresh agent |
+| A status with a machine (`packages/db/src/machines.ts`) is written as one of its transitions, not a literal | Lint (`klipstack/status-through-machine`), `machines.test.ts` | Enforced for Drizzle writes; hand-written SQL is reviewed |
 | UI text in JSX and its `aria-label`, `title`, `alt`, `placeholder` comes from the translations | Lint (`klipstack/ui-text-translated`) | Enforced; each `oxlint-disable` is reviewed |
 | English and Spanish have the same keys and placeholders | Unit test (`packages/i18n/src/index.test.ts`) | Enforced |
 | The Spanish is Spanish; text outside the JSX is translated | Review check (`i18n`) | Reviewed by a fresh agent |

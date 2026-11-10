@@ -6,6 +6,7 @@ import {
 	documents,
 	documentVersions,
 	eq,
+	extractionMachine,
 	sql,
 	storedSearchVector,
 	type Tx,
@@ -75,7 +76,7 @@ export async function publishExtraction(
 				siteName: article.siteName,
 				publishedAt: article.publishedAt,
 				canonicalUrl: article.canonicalUrl,
-				status: "ready",
+				status: extractionMachine.transitions.publish.to,
 				failureReason: null,
 				originalVersionId: version.id,
 			})
@@ -105,7 +106,7 @@ export async function publishExtraction(
 			// (No picture comes as "" or null.)
 			leadImageAssetId: sql`case when coalesce(${documents.leadImageUrl}, '') <> coalesce(${article.leadImageUrl}, '') then null else ${documents.leadImageAssetId} end`,
 			canonicalUrl: article.canonicalUrl,
-			status: "ready",
+			status: extractionMachine.transitions.publish.to,
 			failureReason: null,
 			currentVersionId: version.id,
 			search: documentSearchVector({
