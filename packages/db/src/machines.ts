@@ -81,8 +81,12 @@ export const translationMachine = machine({
 		reuse: { from: [null, "failed"], to: null },
 		/** The translation is shown. */
 		finish: { from: ["pending"], to: null },
-		/** Out of attempts, superseded by a newer capture, trashed, or its job lost (the sweep). */
+		/** A newer capture landed meanwhile: nothing failed, the reader may ask again. */
+		supersede: { from: ["pending"], to: null },
+		/** Out of attempts, trashed, or its job lost (the sweep). */
 		fail: { from: ["pending"], to: "failed" },
+		/** A failure put behind: the original shown again ("Use original"), or a new capture read. */
+		clear: { from: ["failed"], to: null },
 	},
 })
 

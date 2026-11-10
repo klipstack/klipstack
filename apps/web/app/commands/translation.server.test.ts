@@ -241,6 +241,21 @@ describe("using the original, and translating again", () => {
 		expect(await refusal(showOriginal(userId, { id: doc.id }))).toBe("already_pending")
 	})
 
+	it("forgets a failed Translate again once the original is back", async () => {
+		const userId = await newUser()
+		const doc = await article(userId)
+		const translated = await version(doc.id, 2, "Bubble", {
+			translatedFromId: doc.original,
+			language: "en",
+			title: "Two questions",
+		})
+		await db.transaction((tx) => showVersion(tx, doc.id, translated, doc.original))
+		// As the worker leaves a translation of a newer capture that failed for good.
+		await db.update(documents).set({ translationStatus: "failed" }).where(eq(documents.id, doc.id))
+		await showOriginal(userId, { id: doc.id })
+		expect(await read(doc.id)).toMatchObject({ originalVersionId: null, translationStatus: null })
+	})
+
 	it("keeps a title the reader set, whichever version shows", async () => {
 		const userId = await newUser()
 		const doc = await article(userId)

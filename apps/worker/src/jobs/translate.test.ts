@@ -182,8 +182,18 @@ describe("handleTranslate", () => {
 		await handleTranslate(doc.job())
 		const after = await read(doc.id)
 		expect(after!.currentVersionId).not.toBe(doc.original)
-		expect(after).toMatchObject({ originalVersionId: null, translationStatus: "failed" })
+		// Nothing failed: the reader offers to translate the new version, not to retry.
+		expect(after).toMatchObject({ originalVersionId: null, translationStatus: null })
 		expect(await credits()).toBe(before - 2)
+	})
+
+	it("forgets a failed translation once a new capture is read", async () => {
+		const doc = await waiting(`Broken ${FAKE_FAIL}`)
+		await handleTranslate(doc.job(2))
+		expect((await read(doc.id))?.translationStatus).toBe("failed")
+		await capture(doc.id, "Two questions, revised", "Managers work in one hour slots all day long")
+		await handleExtract(extractJob(doc.id))
+		expect((await read(doc.id))?.translationStatus).toBeNull()
 	})
 })
 
