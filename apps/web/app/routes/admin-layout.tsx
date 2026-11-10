@@ -146,7 +146,7 @@ function Frame({ children }: { children: React.ReactNode }) {
  * tab (offline.client.ts).
  */
 function useFreshOnly() {
-	const [state, setState] = useState<"ok" | "checking" | "failed" | "offline">("ok")
+	const [state, setState] = useState<"ok" | "failed" | "offline">("ok")
 	// Already offline when the page opened. It stays that way: coming back online reloads the page.
 	const offlineNow = useClientValue(() => !navigator.onLine, false)
 	if (offlineNow && state !== "offline") setState("offline")
