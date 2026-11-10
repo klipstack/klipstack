@@ -364,4 +364,26 @@ describe("saving with the extension's own sign-in", () => {
 		await vi.advanceTimersByTimeAsync(60_000)
 		expect(bg.state.badge.get(1)).toBe("")
 	})
+
+	it("saves the link, not the page, once the reader signs in again", async () => {
+		const bg = await loadBackground({ tokenAuth: true })
+		Object.assign(bg.state.storage, signedIn)
+		bg.server.answerTokens(() => Response.json({ error: "invalid_grant" }, { status: 400 }))
+		bg.saveLink(1, "https://c.example/linked")
+		await settle()
+		bg.server.saves[0]!.release(Response.json({ error: { code: "unauthorized" } }, { status: 401 }))
+		await settle()
+
+		bg.server.answerTokens(() =>
+			Response.json({ access_token: "a1", refresh_token: "r1", expires_in: 3600 }),
+		)
+		const state = new URL(bg.state.opened[0]!).searchParams.get("state")
+		bg.navigate(901, `${APP}/extension/connected?code=c1&state=${state}`)
+		await settle()
+		expect(bg.state.captures).toBe(0)
+		expect(bg.server.saves.map((s) => s.body.url)).toEqual([
+			"https://c.example/linked",
+			"https://c.example/linked",
+		])
+	})
 })

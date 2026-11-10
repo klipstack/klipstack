@@ -80,7 +80,7 @@ async function savePage(tab: Browser.tabs.Tab): Promise<SaveOutcome> {
 	const payload = captured
 		? { url: captured.url, html: captured.html, servedHtml: captured.servedHtml }
 		: { url: tab.url }
-	const result = await send(tab.id, (token) => sendPage(APP_URL, payload, fetch, token))
+	const result = await send({ tabId: tab.id }, (token) => sendPage(APP_URL, payload, fetch, token))
 	if (!result) return { ok: false, status: 0, error: "not_connected" }
 	await flash(tab.id, result.ok ? "✓" : "!", result.ok ? "#15803d" : "#b91c1c")
 	await toast(tab.id, outcomeToast(result, APP_URL))
@@ -107,7 +107,9 @@ async function saveUrlOnly(url: string, tabId: number) {
 	if (TOKEN_AUTH && !(await tokenStore.get())) return connect({ tabId, link: url })
 	await setBadge(tabId, "…", "#243f6c")
 	void toast(tabId, { kind: "saving", title: msg("toastSaving") })
-	const result = await send(tabId, (token) => saveToKlipstack(APP_URL, { url }, fetch, token))
+	const result = await send({ tabId, link: url }, (token) =>
+		saveToKlipstack(APP_URL, { url }, fetch, token),
+	)
 	if (!result) return
 	await flash(tabId, result.ok ? "✓" : "!", result.ok ? "#15803d" : "#b91c1c")
 	await toast(tabId, outcomeToast(result, APP_URL))
@@ -156,7 +158,7 @@ const tokenStore: TokenStore = {
  * the extension): it starts again, and the save follows it.
  */
 async function send(
-	tabId: number,
+	{ tabId, link }: { tabId: number; link?: string },
 	save: (token?: string) => Promise<SaveOutcome>,
 ): Promise<SaveOutcome | null> {
 	if (!TOKEN_AUTH) return save()
@@ -175,7 +177,7 @@ async function send(
 	}
 	// No "…" while the save waits for the sign-in: the reader may never finish it.
 	await setBadge(tabId, "", "#243f6c")
-	await connect({ tabId })
+	await connect({ tabId, link })
 	return null
 }
 
