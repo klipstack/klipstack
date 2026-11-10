@@ -51,6 +51,25 @@ topic        propose ──► proposed ──confirm──► active ──reti
   fixtures, e2e specs and seed scripts (`apps/web/scripts`) write literals on purpose and are
   not checked.
 
+## The extension's save
+
+The browser extension keeps no rows: each tab's save is a status in the background's memory.
+`apps/extension/lib/save-flow.ts` holds it as a union (`TabStatus`: idle, starting, saving,
+signingIn, saved, failed) and a pure `transition(status, event)`, unit-tested in
+`save-flow.test.ts`. The background (`entrypoints/background.ts`) dispatches events and draws the
+toolbar badge and the in-page toast from the status a tab enters; nothing else sets them.
+
+```text
+idle|saved|failed|signingIn ──clicked──► starting ──sending──► saving ──answered──► saved|failed
+starting ──refused──► failed           starting|saving ──signInNeeded──► signingIn
+signingIn ──signInFailed──► failed     signingIn ──signInAbandoned──► idle
+saved|failed ──faded (2.5 s)──► idle   starting|saving ──clicked──► same (one save per tab)
+```
+
+The sign-in the extension opens (Safari's build) is one at a time, in `storage.local` (`signIn`):
+its tab, its PKCE verifier and state, and the saves waiting for it.
+`lib/background.test.ts` runs the background through its listeners with a fake browser and server.
+
 ## Lifecycles still implicit
 
 These are encoded as nullable timestamps, often with more than one column. The timestamps carry
