@@ -122,6 +122,35 @@ describe("star", () => {
 		expect((await read(c)).starredAt).toBeNull()
 	})
 
+	it("undo leaves an article trashed since alone, as every change does", async () => {
+		const [a, b] = ids as [string, string]
+		const { undo } = await updateArticles(userId, {
+			ids: [a, b],
+			starred: true,
+			finished: true,
+			addTags: ["undone"],
+		})
+		await trashArticles(userId, [b])
+		expect(await undoChanges(userId, undo)).toEqual([a])
+		expect(await read(a)).toMatchObject({ starredAt: null, readAt: null })
+		// Restored, it is whole as it was when it went to the trash: its finish, its tag.
+		await restoreArticles(userId, [b])
+		expect(await read(b)).toMatchObject({
+			starredAt: expect.any(String),
+			readAt: expect.any(String),
+		})
+		const completions = await db
+			.select({ id: readingCompletions.id })
+			.from(readingCompletions)
+			.where(eq(readingCompletions.documentId, b))
+		expect(completions).toHaveLength(1)
+		const links = await db
+			.select({ tagId: documentTags.tagId })
+			.from(documentTags)
+			.where(eq(documentTags.documentId, b))
+		expect(links).toHaveLength(1)
+	})
+
 	it("undo of unstar puts back the exact time", async () => {
 		const [a] = ids as [string]
 		await db
