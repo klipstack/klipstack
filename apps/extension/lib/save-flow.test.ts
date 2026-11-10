@@ -30,6 +30,13 @@ describe("a tab's save", () => {
 		expect(transition(signingIn, { type: "faded" })).toBe(signingIn)
 	})
 
+	it("goes back to idle, quietly, when the reader closes the sign-in", () => {
+		expect(after({ type: "signInNeeded" }, { type: "signInAbandoned" })).toBe(IDLE)
+		// A save that started again meanwhile is not the closed sign-in's.
+		const saving = after({ type: "signInNeeded" }, { type: "sending" })
+		expect(transition(saving, { type: "signInAbandoned" })).toBe(saving)
+	})
+
 	it("waits for the sign-in, and fails when it does", () => {
 		expect(after({ type: "sending" }, { type: "signInNeeded" })).toEqual({ phase: "signingIn" })
 		expect(after({ type: "signInNeeded" }, { type: "signInFailed" })).toEqual({

@@ -36,6 +36,8 @@ export type TabEvent =
 	| { type: "answered"; result: SaveResult }
 	| { type: "signInNeeded" }
 	| { type: "signInFailed" }
+	/** The reader closed the sign-in unfinished: nothing to say, the next click opens one again. */
+	| { type: "signInAbandoned" }
 	/** The outcome has been shown long enough. */
 	| { type: "faded" }
 
@@ -64,6 +66,8 @@ export function transition(status: TabStatus, event: TabEvent): TabStatus {
 			return { phase: "signingIn" }
 		case "signInFailed":
 			return { phase: "failed", failure: { reason: "not_connected" } }
+		case "signInAbandoned":
+			return status.phase === "signingIn" ? IDLE : status
 		case "faded":
 			return status.phase === "saved" || status.phase === "failed" ? IDLE : status
 	}

@@ -16,9 +16,6 @@ import {
 /** What the extension keeps of a sign-in. `expiresAt` is in milliseconds. */
 export type Tokens = { accessToken: string; refreshToken: string; expiresAt: number }
 
-/** A sign-in started and not finished: the tab it was started from gets the save once it is. */
-export type Pending = { verifier: string; state: string; tabId: number }
-
 /** Where the tokens are kept (`browser.storage.local` in the extension). */
 export interface TokenStore {
 	get(): Promise<Tokens | null>

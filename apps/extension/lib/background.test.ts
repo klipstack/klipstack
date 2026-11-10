@@ -34,6 +34,10 @@ function fakeBrowser() {
 		/** Tabs the extension opened: their addresses. */
 		opened: [] as string[],
 		closed: [] as number[],
+		/** Tabs the extension brought to the front. */
+		activated: [] as number[],
+		/** The address of each tab the reader clicked on. */
+		urls: new Map<number, string>(),
 		captures: 0,
 	}
 	const browser = {
@@ -55,15 +59,26 @@ function fakeBrowser() {
 				remove: async (key: string) => void delete state.storage[key],
 			},
 		},
+		windows: { update: async () => ({}) },
 		tabs: {
 			onUpdated: on(),
+			onRemoved: on(),
 			create: async ({ url }: { url: string }) => {
 				state.opened.push(url)
 				return { id: 900 + state.opened.length, url }
 			},
-			remove: async (tabId: number) => void state.closed.push(tabId),
-			update: async () => ({}),
-			get: async (tabId: number) => ({ id: tabId, url: PAGE }),
+			remove: async (tabId: number) => {
+				state.closed.push(tabId)
+				for (const fn of browser.tabs.onRemoved.listeners) (fn as (id: number) => void)(tabId)
+			},
+			update: async (tabId: number, props: { active?: boolean }) => {
+				if (props.active) state.activated.push(tabId)
+				return {}
+			},
+			get: async (tabId: number) => {
+				if (state.closed.includes(tabId)) throw new Error(`No tab with id: ${tabId}`)
+				return { id: tabId, url: state.urls.get(tabId) ?? PAGE, windowId: 1 }
+			},
 		},
 		scripting: {
 			executeScript: async ({
@@ -80,7 +95,8 @@ function fakeBrowser() {
 					return [{ result: undefined }]
 				}
 				state.captures++
-				return [{ result: { url: PAGE, title: "Story", html: "<html></html>", servedHtml: null } }]
+				const url = state.urls.get(target.tabId) ?? PAGE
+				return [{ result: { url, title: "Story", html: "<html></html>", servedHtml: null } }]
 			},
 		},
 	}
@@ -160,7 +176,12 @@ async function loadBackground({ tokenAuth }: { tokenAuth: boolean }) {
 		state,
 		server,
 		/** The reader clicks the toolbar button on `tabId`. */
-		click: (tabId: number, url = PAGE) => fire(browser.action.onClicked, { id: tabId, url }),
+		click: (tabId: number, url = PAGE) => {
+			state.urls.set(tabId, url)
+			fire(browser.action.onClicked, { id: tabId, url })
+		},
+		/** The reader closes a tab. */
+		closeTab: (tabId: number) => void browser.tabs.remove(tabId),
 		/** The reader saves a link from the page in `tabId`, with its context menu. */
 		saveLink: (tabId: number, linkUrl: string) =>
 			fire(browser.contextMenus.onClicked, { menuItemId: "save-link", linkUrl }, { id: tabId }),
@@ -385,6 +406,52 @@ describe("saving with the extension's own sign-in", () => {
 			"https://c.example/linked",
 			"https://c.example/linked",
 		])
+	})
+
+	it("opens one sign-in for two saves, and saves both once the reader finishes it", async () => {
+		const bg = await loadBackground({ tokenAuth: true })
+		bg.click(1)
+		await settle()
+		bg.click(2, "https://b.example/other")
+		await settle()
+		// The second save joins the sign-in already open, and brings its tab to the front.
+		expect(bg.state.opened).toHaveLength(1)
+		expect(bg.state.activated).toEqual([901])
+		expect(bg.toastsOf(2)).toEqual([{ kind: "saving", title: "toastConnect", ms: 20000 }])
+
+		const state = new URL(bg.state.opened[0]!).searchParams.get("state")
+		bg.navigate(901, `${APP}/extension/connected?code=c1&state=${state}`)
+		await settle()
+		expect(bg.server.tokenRequests.map((r) => r.get("code"))).toEqual(["c1"])
+		expect(bg.state.closed).toEqual([901])
+		expect(bg.state.captures).toBe(2)
+		expect(bg.server.saves.map((s) => s.body.url).sort()).toEqual(
+			[PAGE, "https://b.example/other"].sort(),
+		)
+		for (const save of bg.server.saves) save.release(bg.server.saved())
+		await settle()
+		expect(bg.toastsOf(1).at(-1)).toMatchObject({ kind: "saved" })
+		expect(bg.toastsOf(2).at(-1)).toMatchObject({ kind: "saved" })
+	})
+
+	it("opens a new sign-in when the reader closed the last one unfinished", async () => {
+		const bg = await loadBackground({ tokenAuth: true })
+		bg.click(1)
+		await settle()
+		bg.closeTab(901)
+		await settle()
+		// Nothing more to say: the reader closed it.
+		expect(bg.toastsOf(1)).toEqual([{ kind: "saving", title: "toastConnect", ms: 20000 }])
+		expect(bg.state.badge.get(1)).toBe("")
+
+		bg.click(1)
+		await settle()
+		expect(bg.state.opened).toHaveLength(2)
+		const state = new URL(bg.state.opened[1]!).searchParams.get("state")
+		bg.navigate(902, `${APP}/extension/connected?code=c2&state=${state}`)
+		await settle()
+		expect(bg.server.tokenRequests.map((r) => r.get("code"))).toEqual(["c2"])
+		expect(bg.server.saves).toHaveLength(1)
 	})
 })
 

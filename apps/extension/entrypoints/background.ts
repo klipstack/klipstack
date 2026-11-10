@@ -14,7 +14,6 @@ import {
 	authorizeUrl,
 	callbackOf,
 	exchangeCode,
-	type Pending,
 	startSignIn,
 	type Tokens,
 	type TokenStore,
@@ -55,6 +54,7 @@ export default defineBackground(() => {
 			const url = change.url ?? (change.status === "complete" ? tab.url : undefined)
 			if (url) void finishSignIn(tabId, url)
 		})
+	if (TOKEN_AUTH) browser.tabs.onRemoved.addListener((tabId) => void signInClosed(tabId))
 })
 
 /** The page in the tab the reader clicked on. */
@@ -179,19 +179,59 @@ async function send(save: (token?: string) => Promise<SaveResult>): Promise<Save
 	return null
 }
 
-/** A sign-in the reader is going through in another tab, by its state. */
-type PendingSignIn = Pending & { link?: string }
+/**
+ * The sign-in the reader is going through, in the tab `tab`: one at a time. The saves `waiting`
+ * for it happen once it is done (`finishSignIn`). Kept in storage: the background may stop while
+ * the reader signs in.
+ */
+type SignIn = { verifier: string; state: string; tab: number; waiting: SaveRequest[] }
+
+const readSignIn = async () =>
+	((await browser.storage.local.get("signIn")) as { signIn?: SignIn }).signIn ?? null
+
+/** One change of the sign-in at a time: two saves at once must not open two. */
+let signInQueue: Promise<unknown> = Promise.resolve()
+function withSignIn<T>(change: () => Promise<T>): Promise<T> {
+	const done = signInQueue.then(change)
+	signInQueue = done.catch(() => {})
+	return done
+}
 
 /**
- * Opens the server's sign-in and consent in a new tab. The save that needed it (the page in
- * `tabId`, or `link`) happens once it is done (`finishSignIn`).
+ * Opens the server's sign-in and consent in a new tab, or brings back the one already open. The
+ * save that needed it (the page in `tabId`, or `link`) waits for it.
  */
-async function connect({ tabId, link }: SaveRequest) {
-	const { verifier, challenge, state } = await startSignIn()
-	const pending: PendingSignIn = { verifier, state, tabId, ...(link ? { link } : {}) }
-	await browser.storage.local.set({ pending })
-	await browser.tabs.create({ url: authorizeUrl(APP_URL, { challenge, state }) })
-	await dispatch(tabId, { type: "signInNeeded" })
+async function connect(request: SaveRequest) {
+	await withSignIn(async () => {
+		const open = await readSignIn()
+		const tab = open && (await browser.tabs.get(open.tab).catch(() => null))
+		if (open && tab) {
+			// One save per tab, as the badge shows one: the newest.
+			const waiting = [...open.waiting.filter((w) => w.tabId !== request.tabId), request]
+			await browser.storage.local.set({ signIn: { ...open, waiting } })
+			await browser.tabs.update(open.tab, { active: true }).catch(() => {})
+			if (tab.windowId !== undefined)
+				await browser.windows.update(tab.windowId, { focused: true }).catch(() => {})
+			return
+		}
+		const { verifier, challenge, state } = await startSignIn()
+		const created = await browser.tabs.create({ url: authorizeUrl(APP_URL, { challenge, state }) })
+		if (created.id === undefined) throw new Error("The sign-in's tab did not open.")
+		const signIn: SignIn = { verifier, state, tab: created.id, waiting: [request] }
+		await browser.storage.local.set({ signIn })
+	})
+	await dispatch(request.tabId, { type: "signInNeeded" })
+}
+
+/** The reader closed the sign-in's tab unfinished: its saves wait no more. */
+async function signInClosed(tabId: number) {
+	const closed = await withSignIn(async () => {
+		const open = await readSignIn()
+		if (open?.tab !== tabId) return null
+		await browser.storage.local.remove("signIn")
+		return open
+	})
+	for (const { tabId } of closed?.waiting ?? []) await dispatch(tabId, { type: "signInAbandoned" })
 }
 
 /** States whose code is being exchanged: a tab reports its address more than once. */
@@ -203,26 +243,31 @@ async function finishSignIn(callbackTab: number, url: string) {
 	// Claimed before any await: the tab reports its address twice, and a code works once.
 	finishing.add(callback.state)
 	try {
-		const { pending } = (await browser.storage.local.get("pending")) as {
-			pending?: PendingSignIn
-		}
-		// Another sign-in's end, or one this extension didn't start: never exchange it.
-		if (!pending || pending.state !== callback.state) return
-		await browser.storage.local.remove("pending")
+		const signIn = await withSignIn(async () => {
+			const open = await readSignIn()
+			// Another sign-in's end, or one this extension didn't start: never exchange it.
+			if (!open || open.state !== callback.state) return null
+			await browser.storage.local.remove("signIn")
+			return open
+		})
+		if (!signIn) return
 		const tokens = callback.code
-			? await exchangeCode(APP_URL, { code: callback.code, verifier: pending.verifier }).catch(
+			? await exchangeCode(APP_URL, { code: callback.code, verifier: signIn.verifier }).catch(
 					() => null,
 				)
 			: null
 		await tokenStore.set(tokens)
 		await browser.tabs.remove(callbackTab).catch(() => {})
-		await browser.tabs.update(pending.tabId, { active: true }).catch(() => {})
-		if (!tokens) return dispatch(pending.tabId, { type: "signInFailed" })
-		if (pending.link) await saveLink({ tabId: pending.tabId, link: pending.link })
-		else {
-			const tab = await browser.tabs.get(pending.tabId).catch(() => null)
-			if (tab) await savePage(tab)
-		}
+		const last = signIn.waiting.at(-1)
+		if (last) await browser.tabs.update(last.tabId, { active: true }).catch(() => {})
+		await Promise.all(
+			signIn.waiting.map(async (request) => {
+				if (!tokens) return dispatch(request.tabId, { type: "signInFailed" })
+				if (request.link) return saveLink({ tabId: request.tabId, link: request.link })
+				const tab = await browser.tabs.get(request.tabId).catch(() => null)
+				if (tab) await savePage(tab)
+			}),
+		)
 	} finally {
 		finishing.delete(callback.state)
 	}
