@@ -344,4 +344,24 @@ describe("saving with the extension's own sign-in", () => {
 		await settle()
 		expect(bg.state.badge.get(1)).toBe("✓")
 	})
+
+	it("clears the badge when the sign-in is gone and the save waits for a new one", async () => {
+		const bg = await loadBackground({ tokenAuth: true })
+		Object.assign(bg.state.storage, signedIn)
+		// The reader disconnected the extension: the server refuses the token and its refresh.
+		bg.server.answerTokens(() => Response.json({ error: "invalid_grant" }, { status: 400 }))
+		bg.click(1)
+		await settle()
+		expect(bg.state.badge.get(1)).toBe("…")
+		bg.server.saves[0]!.release(Response.json({ error: { code: "unauthorized" } }, { status: 401 }))
+		await settle()
+
+		// It opened the sign-in, and says so; the reader then abandons that tab.
+		expect(bg.state.opened).toHaveLength(1)
+		expect(bg.toastsOf(1).at(-1)).toMatchObject({ kind: "saving", title: "toastConnect" })
+		// No badge while the save waits for the sign-in, as when the first one opens it.
+		expect(bg.state.badge.get(1)).toBe("")
+		await vi.advanceTimersByTimeAsync(60_000)
+		expect(bg.state.badge.get(1)).toBe("")
+	})
 })

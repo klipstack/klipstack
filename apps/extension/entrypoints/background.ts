@@ -173,6 +173,8 @@ async function send(
 		// The token endpoint unreachable: as any save that can't reach the server.
 		return { ok: false, status: 0, error: "network" }
 	}
+	// No "…" while the save waits for the sign-in: the reader may never finish it.
+	await setBadge(tabId, "", "#243f6c")
 	await connect({ tabId })
 	return null
 }
