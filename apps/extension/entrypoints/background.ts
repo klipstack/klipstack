@@ -5,6 +5,7 @@ import {
 	capturePage,
 	isCapturableUrl,
 	isServerCapturedUrl,
+	type SaveResult,
 	savePage as sendPage,
 	saveToKlipstack,
 } from "../lib/capture"
@@ -18,18 +19,10 @@ import {
 	type Tokens,
 	type TokenStore,
 } from "../lib/connect"
+import { IDLE, type TabEvent, type TabStatus, transition } from "../lib/save-flow"
 import { showToast, type ToastOptions } from "../lib/toast"
 
 const BADGE_RESET_MS = 2500
-
-type SaveOutcome = {
-	ok: boolean
-	status: number
-	id?: string
-	readUrl?: string
-	error?: string
-	limit?: string
-}
 
 export default defineBackground(() => {
 	browser.runtime.onInstalled.addListener(() => {
@@ -51,8 +44,8 @@ export default defineBackground(() => {
 
 	browser.contextMenus.onClicked.addListener((info, tab) => {
 		if (info.menuItemId === "save-page" && tab) void savePage(tab)
-		if (info.menuItemId === "save-link" && info.linkUrl && tab?.id !== undefined)
-			void saveUrlOnly(info.linkUrl, tab.id)
+		if (info.menuItemId === "save-link" && isCapturableUrl(info.linkUrl) && tab?.id !== undefined)
+			void save({ tabId: tab.id, link: info.linkUrl }, info.linkUrl)
 	})
 
 	// The extension's sign-in ends on a page of the server: read the code from the tab's address.
@@ -63,28 +56,35 @@ export default defineBackground(() => {
 		})
 })
 
-async function savePage(tab: Browser.tabs.Tab): Promise<SaveOutcome> {
-	if (tab.id === undefined || !isCapturableUrl(tab.url)) {
-		await flash(tab.id, "!", "#b91c1c")
-		return { ok: false, status: 0, error: "not_capturable" }
-	}
-	if (!(await serverAccess(tab.id))) return { ok: false, status: 0, error: "no_access" }
-	if (TOKEN_AUTH && !(await tokenStore.get())) {
-		await connect({ tabId: tab.id })
-		return { ok: false, status: 0, error: "not_connected" }
-	}
-	await setBadge(tab.id, "…", "#243f6c")
+/** The page in the tab the reader clicked on. */
+async function savePage(tab: Browser.tabs.Tab) {
+	if (tab.id === undefined) return
+	if (!isCapturableUrl(tab.url))
+		return dispatch(tab.id, { type: "refused", failure: { reason: "not_capturable" } })
+	await save({ tabId: tab.id }, tab.url)
+}
+
+/** A save the reader asked for in a tab: its page, or `link` from it. */
+type SaveRequest = { tabId: number; link?: string }
+
+async function save(request: SaveRequest, url: string) {
+	const { tabId, link } = request
+	if (!(await serverAccess()))
+		return dispatch(tabId, { type: "refused", failure: { reason: "no_access" } })
+	if (TOKEN_AUTH && !(await tokenStore.get())) return connect(request)
 	// Shown before the capture, which fetches the page again: that can take a few seconds.
-	void toast(tab.id, { kind: "saving", title: msg("toastSaving") })
-	const captured = isServerCapturedUrl(tab.url) ? null : await captureTab(tab.id)
+	await dispatch(tabId, { type: "sending" })
+	const captured = link || isServerCapturedUrl(url) ? null : await captureTab(tabId)
 	const payload = captured
 		? { url: captured.url, html: captured.html, servedHtml: captured.servedHtml }
-		: { url: tab.url }
-	const result = await send({ tabId: tab.id }, (token) => sendPage(APP_URL, payload, fetch, token))
-	if (!result) return { ok: false, status: 0, error: "not_connected" }
-	await flash(tab.id, result.ok ? "✓" : "!", result.ok ? "#15803d" : "#b91c1c")
-	await toast(tab.id, outcomeToast(result, APP_URL))
-	return result
+		: { url }
+	const result = await send((token) =>
+		link
+			? saveToKlipstack(APP_URL, payload, fetch, token)
+			: sendPage(APP_URL, payload, fetch, token),
+	)
+	if (result) await dispatch(tabId, { type: "answered", result })
+	else await connect(request)
 }
 
 type Capture = Awaited<ReturnType<typeof capturePage>>
@@ -101,20 +101,6 @@ async function captureTab(tabId: number): Promise<Capture | null> {
 	}
 }
 
-async function saveUrlOnly(url: string, tabId: number) {
-	if (!isCapturableUrl(url)) return
-	if (!(await serverAccess(tabId))) return
-	if (TOKEN_AUTH && !(await tokenStore.get())) return connect({ tabId, link: url })
-	await setBadge(tabId, "…", "#243f6c")
-	void toast(tabId, { kind: "saving", title: msg("toastSaving") })
-	const result = await send({ tabId, link: url }, (token) =>
-		saveToKlipstack(APP_URL, { url }, fetch, token),
-	)
-	if (!result) return
-	await flash(tabId, result.ok ? "✓" : "!", result.ok ? "#15803d" : "#b91c1c")
-	await toast(tabId, outcomeToast(result, APP_URL))
-}
-
 /**
  * Whether the extension may reach the server, asking the reader when it may not. Chrome grants it
  * at install; Safari only when the reader allows it, and a reader can withhold it in either. A save
@@ -122,22 +108,12 @@ async function saveUrlOnly(url: string, tabId: number) {
  * error, as if the server were down. First, while the click still counts as the reader's gesture,
  * which the browser's prompt requires; already granted, it answers at once.
  */
-async function serverAccess(tabId: number): Promise<boolean> {
-	let granted = false
+async function serverAccess(): Promise<boolean> {
 	try {
-		granted = await browser.permissions.request({ origins: [HOST_PERMISSION] })
+		return await browser.permissions.request({ origins: [HOST_PERMISSION] })
 	} catch {
-		granted = await browser.permissions.contains({ origins: [HOST_PERMISSION] }).catch(() => false)
+		return browser.permissions.contains({ origins: [HOST_PERMISSION] }).catch(() => false)
 	}
-	if (!granted) {
-		await flash(tabId, "!", "#b91c1c")
-		await toast(tabId, {
-			kind: "error",
-			title: msg("toastNoAccess", new URL(APP_URL).hostname),
-			ms: 10000,
-		})
-	}
-	return granted
 }
 
 /** The extension's own sign-in, kept across restarts of the background. */
@@ -155,12 +131,9 @@ const tokenStore: TokenStore = {
 /**
  * Sends a save: with the browser's session, or in a TOKEN_AUTH build with the extension's sign-in,
  * refreshed once when the API refuses it. Null when that sign-in is gone (the reader disconnected
- * the extension): it starts again, and the save follows it.
+ * the extension): the save then waits for a new one.
  */
-async function send(
-	{ tabId, link }: { tabId: number; link?: string },
-	save: (token?: string) => Promise<SaveOutcome>,
-): Promise<SaveOutcome | null> {
+async function send(save: (token?: string) => Promise<SaveResult>): Promise<SaveResult | null> {
 	if (!TOKEN_AUTH) return save()
 	let token: string | null
 	try {
@@ -175,9 +148,6 @@ async function send(
 		// The token endpoint unreachable: as any save that can't reach the server.
 		return { ok: false, status: 0, error: "network" }
 	}
-	// No "…" while the save waits for the sign-in: the reader may never finish it.
-	await setBadge(tabId, "", "#243f6c")
-	await connect({ tabId, link })
 	return null
 }
 
@@ -188,12 +158,12 @@ type PendingSignIn = Pending & { link?: string }
  * Opens the server's sign-in and consent in a new tab. The save that needed it (the page in
  * `tabId`, or `link`) happens once it is done (`finishSignIn`).
  */
-async function connect({ tabId, link }: { tabId: number; link?: string }) {
+async function connect({ tabId, link }: SaveRequest) {
 	const { verifier, challenge, state } = await startSignIn()
 	const pending: PendingSignIn = { verifier, state, tabId, ...(link ? { link } : {}) }
 	await browser.storage.local.set({ pending })
 	await browser.tabs.create({ url: authorizeUrl(APP_URL, { challenge, state }) })
-	await toast(tabId, { kind: "saving", title: msg("toastConnect"), ms: 20000 })
+	await dispatch(tabId, { type: "signInNeeded" })
 }
 
 /** States whose code is being exchanged: a tab reports its address more than once. */
@@ -219,12 +189,8 @@ async function finishSignIn(callbackTab: number, url: string) {
 		await tokenStore.set(tokens)
 		await browser.tabs.remove(callbackTab).catch(() => {})
 		await browser.tabs.update(pending.tabId, { active: true }).catch(() => {})
-		if (!tokens) {
-			await flash(pending.tabId, "!", "#b91c1c")
-			await toast(pending.tabId, { kind: "error", title: msg("toastNotConnected"), ms: 8000 })
-			return
-		}
-		if (pending.link) await saveUrlOnly(pending.link, pending.tabId)
+		if (!tokens) return dispatch(pending.tabId, { type: "signInFailed" })
+		if (pending.link) await save({ tabId: pending.tabId, link: pending.link }, pending.link)
 		else {
 			const tab = await browser.tabs.get(pending.tabId).catch(() => null)
 			if (tab) await savePage(tab)
@@ -237,7 +203,79 @@ async function finishSignIn(callbackTab: number, url: string) {
 type MessageKey = Parameters<typeof browser.i18n.getMessage>[0]
 const msg = (key: MessageKey, ...subs: string[]) => browser.i18n.getMessage(key, subs) || key
 
-function outcomeToast(result: SaveOutcome, appUrl: string): ToastOptions {
+/** Each tab's save, while it has one (`lib/save-flow.ts`). */
+const statuses = new Map<number, TabStatus>()
+/** The pending fade of each tab's outcome. */
+const fades = new Map<number, ReturnType<typeof setTimeout>>()
+
+/** Moves a tab's save on, and shows where it is now. */
+async function dispatch(tabId: number, event: TabEvent) {
+	const status = statuses.get(tabId) ?? IDLE
+	const next = transition(status, event)
+	if (next === status) return
+	if (next.phase === "idle") statuses.delete(tabId)
+	else statuses.set(tabId, next)
+	clearTimeout(fades.get(tabId))
+	fades.delete(tabId)
+	if (next.phase === "saved" || next.phase === "failed")
+		fades.set(
+			tabId,
+			setTimeout(() => void dispatch(tabId, { type: "faded" }), BADGE_RESET_MS),
+		)
+	await show(tabId, next)
+}
+
+const BADGES: Record<TabStatus["phase"], { text: string; color: string }> = {
+	idle: { text: "", color: "#243f6c" },
+	saving: { text: "…", color: "#243f6c" },
+	signingIn: { text: "", color: "#243f6c" },
+	saved: { text: "✓", color: "#15803d" },
+	failed: { text: "!", color: "#b91c1c" },
+}
+
+/** The badge for a tab's status, and the toast for the status it just entered. */
+async function show(tabId: number, status: TabStatus) {
+	const { text, color } = BADGES[status.phase]
+	try {
+		await browser.action.setBadgeBackgroundColor({ tabId, color })
+		await browser.action.setBadgeText({ tabId, text })
+	} catch {
+		// tab may be gone; the badge is cosmetic
+	}
+	const notice = toastFor(status)
+	if (notice) await toast(tabId, notice)
+}
+
+function toastFor(status: TabStatus): ToastOptions | null {
+	switch (status.phase) {
+		case "idle":
+			return null
+		case "saving":
+			return { kind: "saving", title: msg("toastSaving") }
+		case "signingIn":
+			return { kind: "saving", title: msg("toastConnect"), ms: 20000 }
+		case "saved":
+			return outcomeToast(status.result)
+		case "failed":
+			switch (status.failure.reason) {
+				// Pages the extension can't capture can't show one either: the badge says it.
+				case "not_capturable":
+					return null
+				case "no_access":
+					return {
+						kind: "error",
+						title: msg("toastNoAccess", new URL(APP_URL).hostname),
+						ms: 10000,
+					}
+				case "not_connected":
+					return { kind: "error", title: msg("toastNotConnected"), ms: 8000 }
+				case "refused":
+					return outcomeToast(status.failure.result)
+			}
+	}
+}
+
+function outcomeToast(result: SaveResult): ToastOptions {
 	if (result.ok) {
 		const link = result.readUrl ? { label: msg("toastOpen"), href: result.readUrl } : undefined
 		return { kind: "saved", title: msg("toastSaved"), link }
@@ -247,7 +285,7 @@ function outcomeToast(result: SaveOutcome, appUrl: string): ToastOptions {
 		return {
 			kind: "error",
 			title: msg(result.limit === "storage" ? "toastLibraryFull" : "toastSaveLimit"),
-			link: { label: msg("toastUsage"), href: `${appUrl}/settings/usage` },
+			link: { label: msg("toastUsage"), href: `${APP_URL}/settings/usage` },
 			ms: 8000,
 		}
 	// With its own sign-in, the website's login doesn't help: the next click connects again.
@@ -257,7 +295,7 @@ function outcomeToast(result: SaveOutcome, appUrl: string): ToastOptions {
 		return {
 			kind: "error",
 			title: msg("toastLogin"),
-			link: { label: msg("toastLoginAction"), href: `${appUrl}/login` },
+			link: { label: msg("toastLoginAction"), href: `${APP_URL}/login` },
 			ms: 8000,
 		}
 	if (result.status === 0) return { kind: "error", title: msg("toastUnreachable"), ms: 6000 }
@@ -271,28 +309,4 @@ async function toast(tabId: number, opts: ToastOptions) {
 	} catch {
 		// not injectable here
 	}
-}
-
-/** The pending fade of each tab's last outcome: a newer badge cancels it. */
-const fades = new Map<number, ReturnType<typeof setTimeout>>()
-
-async function setBadge(tabId: number | undefined, text: string, color: string) {
-	if (tabId === undefined) return
-	clearTimeout(fades.get(tabId))
-	fades.delete(tabId)
-	try {
-		await browser.action.setBadgeBackgroundColor({ tabId, color })
-		await browser.action.setBadgeText({ tabId, text })
-	} catch {
-		// tab may be gone; the badge is cosmetic
-	}
-}
-
-async function flash(tabId: number | undefined, text: string, color: string) {
-	await setBadge(tabId, text, color)
-	if (tabId !== undefined)
-		fades.set(
-			tabId,
-			setTimeout(() => void setBadge(tabId, "", color), BADGE_RESET_MS),
-		)
 }
