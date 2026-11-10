@@ -26,7 +26,8 @@ Apple's premium voices. The web app doesn't read aloud.
    download on first use into Application Support (left out of backups), pinned to one commit of
    each repository. Only Kokoro's `vocab.json` (1 KB) comes with the app, in `ios/Resources`.
 
-The app side: `src/lib/read-aloud.ts` (the reader's hook), `src/components/listen-bar.tsx`,
+The app side: `src/lib/read-aloud.ts` (the reader's hook, which runs the phases and transitions of
+`src/lib/read-aloud-machine.ts`, a pure state machine tested with Vitest), `src/components/listen-bar.tsx`,
 `src/app/voices.tsx`, and the page's `klipSentences` / `klipSpeaking` in `src/lib/reader-html.ts`.
 
 ## Third-party code and data
