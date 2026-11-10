@@ -223,11 +223,15 @@ test("save via API with captured html → extracted → readable → archive", a
 	await waitForHydration(page)
 	await page.getByRole("link", { name: "Makers vs managers" }).click()
 	await expect(page).toHaveURL(new RegExp(`/read/${body.id}$`))
+	const stamp = page.getByTestId("reader-meta").getByTestId("read-stamp")
+	await expect(stamp).toBeVisible()
 	await page.getByRole("button", { name: "More actions" }).click()
 	await Promise.all([
 		stateSaved(page, "unarchive"),
 		page.getByRole("menuitem", { name: "Move to Inbox" }).click(),
 	])
+	// Back in the library it is no longer finished: the reader says so without a reload.
+	await expect(stamp).toHaveCount(0)
 	expect(await completionHistory()).toEqual(finishedHistory)
 	await page.goto("/library")
 	await waitForHydration(page)

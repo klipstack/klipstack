@@ -128,6 +128,7 @@ behavior:
 - `translationStatus: failed` stays after "Use original" and new captures; a translation
   superseded by a newer capture is also recorded as `failed`.
 - Retiring a topic has no status guard in its update. Its callers pick active topics.
-- The web client counts an article as finished on `readAt` alone; the server also counts
-  `readingProgress >= 0.95`.
+- The web client counts an article as finished on `readAt` alone (the reader's stamp and end, the
+  cards' stamp); the server and `isFinished` also count `readingProgress >= 0.95`. An article
+  read to the end and kept in the library is "read" in the lists and the API, without the stamp.
 - `noteSkippedAt` is not cleared when an article is read again.

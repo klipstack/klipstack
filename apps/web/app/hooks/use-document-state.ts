@@ -40,8 +40,10 @@ function apply(shown: Shown, intent: StateIntent): Shown {
 		case "unshortlist":
 			return { ...shown, shortlisted: intent === "shortlist" }
 		case "archive":
+			return { ...shown, archived: true }
 		case "unarchive":
-			return { ...shown, archived: intent === "archive" }
+			// Back in the library, it is no longer finished (`unarchive` in commands/articles.server.ts).
+			return { ...shown, archived: false, finished: false }
 		case "finish":
 			return { ...shown, finished: true, archived: true }
 		default:
