@@ -37,4 +37,22 @@ describe("a tab's save", () => {
 			failure: { reason: "not_connected" },
 		})
 	})
+
+	it("starts one save at a time", () => {
+		expect(after({ type: "clicked" })).toEqual({ phase: "starting" })
+		const starting = after({ type: "clicked" })
+		expect(transition(starting, { type: "clicked" })).toBe(starting)
+		// A click while sending enters "saving" again, a new object, so its toast shows again.
+		const saving = after({ type: "clicked" }, { type: "sending" })
+		const again = transition(saving, { type: "clicked" })
+		expect(again).toEqual({ phase: "saving" })
+		expect(again).not.toBe(saving)
+		// After an outcome, or while waiting on the sign-in, a click starts a new save.
+		expect(
+			after({ type: "sending" }, { type: "answered", result: saved }, { type: "clicked" }),
+		).toEqual({
+			phase: "starting",
+		})
+		expect(after({ type: "signInNeeded" }, { type: "clicked" })).toEqual({ phase: "starting" })
+	})
 })

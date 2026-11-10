@@ -7,6 +7,8 @@ import type { SaveResult } from "./capture"
  */
 export type TabStatus =
 	| { phase: "idle" }
+	/** Clicked: asking for the server's access, checking the sign-in. */
+	| { phase: "starting" }
 	/** Sending the page or the link to the server. */
 	| { phase: "saving" }
 	/** Waiting for the extension's sign-in, in another tab: the save follows it. */
@@ -26,6 +28,8 @@ export type Failure =
 	| { reason: "refused"; result: SaveResult }
 
 export type TabEvent =
+	/** The reader asked for a save in the tab: the button, the menu, or a sign-in finished. */
+	| { type: "clicked" }
 	/** The save can't start: `failure` says why. */
 	| { type: "refused"; failure: Failure }
 	| { type: "sending" }
@@ -37,9 +41,17 @@ export type TabEvent =
 
 export const IDLE: TabStatus = { phase: "idle" }
 
+/** Whether a save may start in a tab: one at a time, so a second click sends nothing again. */
+export const canStart = (status: TabStatus) =>
+	status.phase !== "starting" && status.phase !== "saving"
+
 /** The status after `event`. The same object when the event changes nothing. */
 export function transition(status: TabStatus, event: TabEvent): TabStatus {
 	switch (event.type) {
+		case "clicked":
+			if (canStart(status)) return { phase: "starting" }
+			// Entered again, so that the reader sees again that it is saving.
+			return status.phase === "saving" ? { phase: "saving" } : status
 		case "refused":
 			return { phase: "failed", failure: event.failure }
 		case "sending":

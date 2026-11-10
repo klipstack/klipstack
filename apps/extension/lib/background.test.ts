@@ -387,3 +387,49 @@ describe("saving with the extension's own sign-in", () => {
 		])
 	})
 })
+
+describe("a second click while a save is under way", () => {
+	it("sends the page once, and says it is still saving", async () => {
+		const bg = await loadBackground({ tokenAuth: false })
+		// A double click: the second comes before the first one's checks are done.
+		bg.click(1)
+		bg.click(1)
+		await settle()
+		// Another click while the page is being sent.
+		bg.click(1)
+		bg.saveLink(1, "https://c.example/linked")
+		await settle()
+		expect(bg.state.captures).toBe(1)
+		expect(bg.server.saves).toHaveLength(1)
+		expect(bg.state.badge.get(1)).toBe("…")
+		expect(bg.toastsOf(1).map((t) => t.title)).toEqual([
+			"toastSaving",
+			"toastSaving",
+			"toastSaving",
+		])
+
+		bg.server.saves[0]!.release(bg.server.saved())
+		await settle()
+		expect(bg.state.badge.get(1)).toBe("✓")
+		// Done: the next click saves again.
+		bg.click(1)
+		await settle()
+		expect(bg.server.saves).toHaveLength(2)
+	})
+
+	it("lets the next click save when the last one broke on the way", async () => {
+		const bg = await loadBackground({ tokenAuth: true })
+		const create = bg.browser.tabs.create
+		bg.browser.tabs.create = async () => {
+			throw new Error("No current window")
+		}
+		bg.click(1)
+		await settle()
+		expect(bg.state.badge.get(1)).toBe("!")
+
+		bg.browser.tabs.create = create
+		bg.click(1)
+		await settle()
+		expect(bg.state.opened).toHaveLength(1)
+	})
+})

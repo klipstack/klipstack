@@ -19,7 +19,7 @@ import {
 	type Tokens,
 	type TokenStore,
 } from "../lib/connect"
-import { IDLE, type TabEvent, type TabStatus, transition } from "../lib/save-flow"
+import { canStart, IDLE, type TabEvent, type TabStatus, transition } from "../lib/save-flow"
 import { showToast, type ToastOptions } from "../lib/toast"
 
 const BADGE_RESET_MS = 2500
@@ -44,8 +44,9 @@ export default defineBackground(() => {
 
 	browser.contextMenus.onClicked.addListener((info, tab) => {
 		if (info.menuItemId === "save-page" && tab) void savePage(tab)
-		if (info.menuItemId === "save-link" && isCapturableUrl(info.linkUrl) && tab?.id !== undefined)
-			void save({ tabId: tab.id, link: info.linkUrl }, info.linkUrl)
+		const link = info.linkUrl
+		if (info.menuItemId === "save-link" && isCapturableUrl(link) && tab?.id !== undefined)
+			void saveLink({ tabId: tab.id, link })
 	})
 
 	// The extension's sign-in ends on a page of the server: read the code from the tab's address.
@@ -58,16 +59,43 @@ export default defineBackground(() => {
 
 /** The page in the tab the reader clicked on. */
 async function savePage(tab: Browser.tabs.Tab) {
-	if (tab.id === undefined) return
+	if (tab.id === undefined || !begin(tab.id)) return
 	if (!isCapturableUrl(tab.url))
 		return dispatch(tab.id, { type: "refused", failure: { reason: "not_capturable" } })
 	await save({ tabId: tab.id }, tab.url)
+}
+
+/** A link from the page in a tab. */
+async function saveLink(request: SaveRequest & { link: string }) {
+	if (begin(request.tabId)) await save(request, request.link)
+}
+
+/**
+ * Starts a save in the tab, unless one is under way there. Before any await: two clicks come
+ * close together, and the first one's status must already turn the second one away.
+ */
+function begin(tabId: number): boolean {
+	const starts = canStart(statuses.get(tabId) ?? IDLE)
+	// Not awaited: the access prompt in save() must come while the click is the reader's gesture.
+	void dispatch(tabId, { type: "clicked" })
+	return starts
 }
 
 /** A save the reader asked for in a tab: its page, or `link` from it. */
 type SaveRequest = { tabId: number; link?: string }
 
 async function save(request: SaveRequest, url: string) {
+	try {
+		await trySave(request, url)
+	} catch (error) {
+		// A browser call that failed on the way (a closed window, storage): the tab must not stay
+		// busy, or no click would save in it again.
+		const result = { ok: false, status: 0, error: error instanceof Error ? error.message : "error" }
+		await dispatch(request.tabId, { type: "answered", result })
+	}
+}
+
+async function trySave(request: SaveRequest, url: string) {
 	const { tabId, link } = request
 	if (!(await serverAccess()))
 		return dispatch(tabId, { type: "refused", failure: { reason: "no_access" } })
@@ -190,7 +218,7 @@ async function finishSignIn(callbackTab: number, url: string) {
 		await browser.tabs.remove(callbackTab).catch(() => {})
 		await browser.tabs.update(pending.tabId, { active: true }).catch(() => {})
 		if (!tokens) return dispatch(pending.tabId, { type: "signInFailed" })
-		if (pending.link) await save({ tabId: pending.tabId, link: pending.link }, pending.link)
+		if (pending.link) await saveLink({ tabId: pending.tabId, link: pending.link })
 		else {
 			const tab = await browser.tabs.get(pending.tabId).catch(() => null)
 			if (tab) await savePage(tab)
@@ -207,12 +235,14 @@ const msg = (key: MessageKey, ...subs: string[]) => browser.i18n.getMessage(key,
 const statuses = new Map<number, TabStatus>()
 /** The pending fade of each tab's outcome. */
 const fades = new Map<number, ReturnType<typeof setTimeout>>()
+/** Each tab's last badge and toast, still being shown: the next waits for it, so they keep order. */
+const showing = new Map<number, Promise<void>>()
 
 /** Moves a tab's save on, and shows where it is now. */
-async function dispatch(tabId: number, event: TabEvent) {
+function dispatch(tabId: number, event: TabEvent): Promise<void> {
 	const status = statuses.get(tabId) ?? IDLE
 	const next = transition(status, event)
-	if (next === status) return
+	if (next === status) return Promise.resolve()
 	if (next.phase === "idle") statuses.delete(tabId)
 	else statuses.set(tabId, next)
 	clearTimeout(fades.get(tabId))
@@ -222,11 +252,17 @@ async function dispatch(tabId: number, event: TabEvent) {
 			tabId,
 			setTimeout(() => void dispatch(tabId, { type: "faded" }), BADGE_RESET_MS),
 		)
-	await show(tabId, next)
+	const shown = (showing.get(tabId) ?? Promise.resolve()).then(() => show(tabId, next))
+	showing.set(tabId, shown)
+	void shown.then(() => {
+		if (showing.get(tabId) === shown) showing.delete(tabId)
+	})
+	return shown
 }
 
 const BADGES: Record<TabStatus["phase"], { text: string; color: string }> = {
 	idle: { text: "", color: "#243f6c" },
+	starting: { text: "…", color: "#243f6c" },
 	saving: { text: "…", color: "#243f6c" },
 	signingIn: { text: "", color: "#243f6c" },
 	saved: { text: "✓", color: "#15803d" },
@@ -249,6 +285,7 @@ async function show(tabId: number, status: TabStatus) {
 function toastFor(status: TabStatus): ToastOptions | null {
 	switch (status.phase) {
 		case "idle":
+		case "starting":
 			return null
 		case "saving":
 			return { kind: "saving", title: msg("toastSaving") }
