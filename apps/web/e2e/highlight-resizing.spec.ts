@@ -619,3 +619,52 @@ test("smallest overlap owns the handles; touch pointers cannot start a custom dr
 	expect((await save).request().postDataJSON().id).toBe(smallId)
 	await expect.poll(() => paint(page)).toContain(text.slice(START, END))
 })
+
+test("after a failed save, no new resize starts until the highlights are fresh", async ({
+	page,
+}) => {
+	await page.route(`**/documents/${docId}/highlights*`, async (route) => {
+		if (route.request().postDataJSON()?.intent !== "resize") return route.continue()
+		await route.fulfill({
+			status: 503,
+			contentType: "application/json",
+			body: JSON.stringify({ ok: false, error: { code: "network", message: "Down." } }),
+		})
+	})
+	// After the save, the page reloads its data twice: once after any action, then the refresh the
+	// failure asks for. That one is held, so the page still has the highlights it had.
+	let release!: () => void
+	const gate = new Promise<void>((resolve) => {
+		release = resolve
+	})
+	let refreshing!: () => void
+	const refreshStarted = new Promise<void>((resolve) => {
+		refreshing = resolve
+	})
+	let loads: number | null = null
+	await page.route(`**/read/${docId}.data*`, async (route) => {
+		if (loads === null || ++loads < 2) return route.continue()
+		refreshing()
+		await gate
+		await route.continue()
+	})
+	await hover(page)
+	const p = await point(page, START + 2)
+	await page.mouse.click(p.x, p.y)
+	await down(page, "end")
+	await moveTo(page, text.indexOf(" echo"))
+	loads = 0
+	await page.mouse.up()
+	await expect(page.getByRole("alert")).toContainText("Could not confirm")
+	await refreshStarted
+	const handles = page.locator("[data-resize-handles]")
+	await handle(page, "start").press("Enter")
+	// Shows that a session did not start: nothing else changes on the page.
+	await page.waitForTimeout(300)
+	await expect(handles).toHaveAttribute("data-resize-state", "idle")
+	await expect(page.getByRole("button", { name: "Retry", exact: true })).toBeDisabled()
+	release()
+	await expect(page.getByRole("button", { name: "Retry", exact: true })).toBeEnabled()
+	await handle(page, "start").press("Enter")
+	await expect(handles).toHaveAttribute("data-resize-state", "keyboard")
+})
