@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import type { ToastOptions } from "./toast"
 
@@ -36,11 +37,19 @@ function fakeBrowser() {
 		closed: [] as number[],
 		/** Tabs the extension brought to the front. */
 		activated: [] as number[],
+		/** Windows the extension brought to the front. */
+		focused: [] as number[],
 		/** The address of each tab the reader clicked on. */
 		urls: new Map<number, string>(),
 		captures: 0,
 	}
 	const browser = {
+		windows: {
+			update: async (windowId: number, props: { focused?: boolean }) => {
+				if (props.focused) state.focused.push(windowId)
+				return {}
+			},
+		},
 		runtime: { onInstalled: on() },
 		contextMenus: { create: () => {}, onClicked: on() },
 		action: {
@@ -59,13 +68,14 @@ function fakeBrowser() {
 				remove: async (key: string) => void delete state.storage[key],
 			},
 		},
-		windows: { update: async () => ({}) },
 		tabs: {
 			onUpdated: on(),
 			onRemoved: on(),
 			create: async ({ url }: { url: string }) => {
 				state.opened.push(url)
-				return { id: 900 + state.opened.length, url }
+				const id = 900 + state.opened.length
+				state.urls.set(id, url)
+				return { id, url }
 			},
 			remove: async (tabId: number) => {
 				state.closed.push(tabId)
@@ -112,7 +122,7 @@ function fakeServer() {
 		release: (res: Response) => void
 	}[] = []
 	const tokenRequests: URLSearchParams[] = []
-	let tokenAnswer = () =>
+	let tokenAnswer: () => Response | Promise<Response> = () =>
 		Response.json({ access_token: "a1", refresh_token: "r1", expires_in: 3600 })
 	const fetchImpl = vi.fn(async (url: string, init?: RequestInit) => {
 		if (url.endsWith("/api/auth/oauth2/token")) {
@@ -133,7 +143,7 @@ function fakeServer() {
 		fetchImpl,
 		saves,
 		tokenRequests,
-		answerTokens(answer: () => Response) {
+		answerTokens(answer: () => Response | Promise<Response>) {
 			tokenAnswer = answer
 		},
 		saved: (id = "11111111-1111-1111-1111-111111111111") =>
@@ -141,17 +151,9 @@ function fakeServer() {
 	}
 }
 
-const realSetTimeout = globalThis.setTimeout
-
-/**
- * Lets the background run until it waits on something the test controls: its awaits between
- * browser calls, and the hashing of a sign-in's verifier, which runs outside the fake clock.
- */
+/** Lets the background run until it waits on something the test controls. */
 async function settle() {
-	for (let round = 0; round < 10; round++) {
-		await new Promise((resolve) => realSetTimeout(resolve, 1))
-		await vi.advanceTimersByTimeAsync(0)
-	}
+	for (let round = 0; round < 10; round++) await vi.advanceTimersByTimeAsync(0)
 }
 
 async function loadBackground({ tokenAuth }: { tokenAuth: boolean }) {
@@ -162,6 +164,14 @@ async function loadBackground({ tokenAuth }: { tokenAuth: boolean }) {
 	vi.stubGlobal("__HOST_PERMISSION__", `${APP}/*`)
 	vi.stubGlobal("__TOKEN_AUTH__", tokenAuth)
 	vi.stubGlobal("fetch", server.fetchImpl)
+	// Web Crypto hashes on another thread, outside the fake clock: a sign-in would start whenever
+	// it is done. Node's hash answers at once, with the same digest.
+	vi.spyOn(crypto.subtle, "digest").mockImplementation(async (_, data) => {
+		const bytes = createHash("sha256")
+			.update(new Uint8Array(data as ArrayBuffer))
+			.digest()
+		return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.length) as ArrayBuffer
+	})
 	vi.doMock("wxt/browser", () => ({ browser }))
 	vi.doMock("wxt/utils/define-background", () => ({ defineBackground: (main: () => void) => main }))
 	const { default: main } = (await import("../entrypoints/background")) as unknown as {
@@ -186,8 +196,10 @@ async function loadBackground({ tokenAuth }: { tokenAuth: boolean }) {
 		saveLink: (tabId: number, linkUrl: string) =>
 			fire(browser.contextMenus.onClicked, { menuItemId: "save-link", linkUrl }, { id: tabId }),
 		/** A tab the extension opened reaches `url` (the sign-in's callback). */
-		navigate: (tabId: number, url: string) =>
-			fire(browser.tabs.onUpdated, tabId, { url }, { id: tabId, url }),
+		navigate: (tabId: number, url: string) => {
+			state.urls.set(tabId, url)
+			fire(browser.tabs.onUpdated, tabId, { url }, { id: tabId, url })
+		},
 		toastsOf: (tabId: number) => state.toasts.filter((t) => t.tabId === tabId).map((t) => t.toast),
 	}
 }
@@ -199,6 +211,7 @@ beforeEach(() => {
 afterEach(() => {
 	vi.useRealTimers()
 	vi.unstubAllGlobals()
+	vi.restoreAllMocks()
 	vi.doUnmock("wxt/browser")
 	vi.doUnmock("wxt/utils/define-background")
 })
@@ -301,6 +314,26 @@ describe("saving with the browser's session", () => {
 		expect(bg.state.badge.get(1)).toBe("…")
 		await vi.advanceTimersByTimeAsync(2000)
 		expect(bg.state.badge.get(1)).toBe("…")
+	})
+})
+
+describe("an outcome's fade", () => {
+	it("fades a newer outcome on its own time, not the last one's", async () => {
+		const bg = await loadBackground({ tokenAuth: false })
+		bg.click(1)
+		await settle()
+		bg.server.saves[0]!.release(bg.server.saved())
+		await settle()
+		await vi.advanceTimersByTimeAsync(1000)
+		bg.click(1)
+		await settle()
+		bg.server.saves[1]!.release(bg.server.saved())
+		await settle()
+		// 2.5 s after the first ✓, 1.5 s after the second.
+		await vi.advanceTimersByTimeAsync(1500)
+		expect(bg.state.badge.get(1)).toBe("✓")
+		await vi.advanceTimersByTimeAsync(1000)
+		expect(bg.state.badge.get(1)).toBe("")
 	})
 })
 
@@ -434,12 +467,69 @@ describe("saving with the extension's own sign-in", () => {
 		expect(bg.toastsOf(2).at(-1)).toMatchObject({ kind: "saved" })
 	})
 
+	it("opens one sign-in when two saves start at once", async () => {
+		const bg = await loadBackground({ tokenAuth: true })
+		bg.click(1)
+		bg.click(2, "https://b.example/other")
+		await settle()
+		expect(bg.state.opened).toHaveLength(1)
+		expect(bg.state.storage.signIn).toMatchObject({ waiting: [{ tabId: 1 }, { tabId: 2 }] })
+	})
+
+	it("keeps the newest save of a tab, and brings its tab to the front when signed in", async () => {
+		const bg = await loadBackground({ tokenAuth: true })
+		bg.click(1)
+		await settle()
+		bg.saveLink(2, "https://c.example/linked")
+		await settle()
+		expect(bg.state.focused).toEqual([1])
+		bg.click(2, "https://b.example/other")
+		await settle()
+
+		const state = new URL(bg.state.opened[0]!).searchParams.get("state")
+		bg.navigate(901, `${APP}/extension/connected?code=c1&state=${state}`)
+		await settle()
+		expect(bg.state.activated.at(-1)).toBe(2)
+		expect(bg.server.saves.map((s) => s.body.url).sort()).toEqual(
+			[PAGE, "https://b.example/other"].sort(),
+		)
+	})
+
+	it("opens a new sign-in when the reader went elsewhere in the last one's tab", async () => {
+		const bg = await loadBackground({ tokenAuth: true })
+		bg.click(1)
+		await settle()
+		bg.navigate(901, "https://news.example/")
+		bg.click(1)
+		await settle()
+		expect(bg.state.opened).toHaveLength(2)
+		expect(bg.state.activated).toEqual([])
+	})
+
+	it("saves, with no new sign-in, a click that comes while the last one's code is exchanged", async () => {
+		const bg = await loadBackground({ tokenAuth: true })
+		bg.click(1)
+		await settle()
+		const tokens = deferred<Response>()
+		bg.server.answerTokens(() => tokens.promise)
+		const state = new URL(bg.state.opened[0]!).searchParams.get("state")
+		bg.navigate(901, `${APP}/extension/connected?code=c1&state=${state}`)
+		await settle()
+		bg.click(2, "https://b.example/other")
+		await settle()
+		tokens.resolve(Response.json({ access_token: "a1", refresh_token: "r1", expires_in: 3600 }))
+		await settle()
+		expect(bg.state.opened).toHaveLength(1)
+		expect(bg.server.saves.map((s) => s.auth)).toEqual(["Bearer a1", "Bearer a1"])
+	})
+
 	it("opens a new sign-in when the reader closed the last one unfinished", async () => {
 		const bg = await loadBackground({ tokenAuth: true })
 		bg.click(1)
 		await settle()
 		bg.closeTab(901)
 		await settle()
+		expect(bg.state.storage.signIn).toBeUndefined()
 		// Nothing more to say: the reader closed it.
 		expect(bg.toastsOf(1)).toEqual([{ kind: "saving", title: "toastConnect", ms: 20000 }])
 		expect(bg.state.badge.get(1)).toBe("")
@@ -451,6 +541,18 @@ describe("saving with the extension's own sign-in", () => {
 		bg.navigate(902, `${APP}/extension/connected?code=c2&state=${state}`)
 		await settle()
 		expect(bg.server.tokenRequests.map((r) => r.get("code"))).toEqual(["c2"])
+		expect(bg.server.saves).toHaveLength(1)
+	})
+})
+
+describe("the saving toast", () => {
+	it("does not hold the save back while a page that loads can't show it", async () => {
+		const bg = await loadBackground({ tokenAuth: false })
+		const inject = bg.browser.scripting.executeScript
+		bg.browser.scripting.executeScript = (async (options: Parameters<typeof inject>[0]) =>
+			options.func.name === "showToast" ? new Promise(() => {}) : inject(options)) as typeof inject
+		bg.saveLink(1, "https://c.example/linked")
+		await settle()
 		expect(bg.server.saves).toHaveLength(1)
 	})
 })

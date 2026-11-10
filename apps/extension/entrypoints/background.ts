@@ -35,6 +35,8 @@ export default defineBackground(() => {
 			title: browser.i18n.getMessage("savePage"),
 			contexts: ["page"],
 		})
+		// Where an earlier version kept its sign-in: an update drops one in progress.
+		if (TOKEN_AUTH) void browser.storage.local.remove("pending")
 	})
 
 	browser.action.onClicked.addListener((tab) => {
@@ -99,20 +101,28 @@ async function trySave(request: SaveRequest, url: string) {
 	const { tabId, link } = request
 	if (!(await serverAccess()))
 		return dispatch(tabId, { type: "refused", failure: { reason: "no_access" } })
-	if (TOKEN_AUTH && !(await tokenStore.get())) return connect(request)
-	// Shown before the capture, which fetches the page again: that can take a few seconds.
-	await dispatch(tabId, { type: "sending" })
+	if (TOKEN_AUTH && !(await tokenStore.get()) && (await connect(request))) return
+	// Shown before the capture, which fetches the page again: that can take a few seconds. Not
+	// awaited: a page still loading holds the toast back, and the save must not wait for it.
+	void dispatch(tabId, { type: "sending" })
 	const captured = link || isServerCapturedUrl(url) ? null : await captureTab(tabId)
 	const payload = captured
 		? { url: captured.url, html: captured.html, servedHtml: captured.servedHtml }
 		: { url }
-	const result = await send((token) =>
-		link
-			? saveToKlipstack(APP_URL, payload, fetch, token)
-			: sendPage(APP_URL, payload, fetch, token),
-	)
+	const sendOnce = () =>
+		send((token) =>
+			link
+				? saveToKlipstack(APP_URL, payload, fetch, token)
+				: sendPage(APP_URL, payload, fetch, token),
+		)
+	let result = await sendOnce()
+	if (!result) {
+		// The sign-in is gone: the save waits for a new one, unless another save's just ended.
+		if (await connect(request)) return
+		result = await sendOnce()
+	}
 	if (result) await dispatch(tabId, { type: "answered", result })
-	else await connect(request)
+	else await dispatch(tabId, { type: "signInFailed" })
 }
 
 type Capture = Awaited<ReturnType<typeof capturePage>>
@@ -199,28 +209,42 @@ function withSignIn<T>(change: () => Promise<T>): Promise<T> {
 
 /**
  * Opens the server's sign-in and consent in a new tab, or brings back the one already open. The
- * save that needed it (the page in `tabId`, or `link`) waits for it.
+ * save that needed it (the page in `tabId`, or `link`) waits for it. False when there is a sign-in
+ * by now (another save's ended while this one waited its turn): the save goes on.
  */
-async function connect(request: SaveRequest) {
-	await withSignIn(async () => {
+async function connect(request: SaveRequest): Promise<boolean> {
+	const waits = await withSignIn(async () => {
+		if (await tokenStore.get()) return false
 		const open = await readSignIn()
 		const tab = open && (await browser.tabs.get(open.tab).catch(() => null))
-		if (open && tab) {
+		// Still the sign-in only while its tab shows the server: the reader may have gone elsewhere
+		// in it (or, after a restart, the id is another tab's).
+		if (open && tab && isOnServer(tab.url)) {
 			// One save per tab, as the badge shows one: the newest.
 			const waiting = [...open.waiting.filter((w) => w.tabId !== request.tabId), request]
 			await browser.storage.local.set({ signIn: { ...open, waiting } })
 			await browser.tabs.update(open.tab, { active: true }).catch(() => {})
 			if (tab.windowId !== undefined)
 				await browser.windows.update(tab.windowId, { focused: true }).catch(() => {})
-			return
+			return true
 		}
 		const { verifier, challenge, state } = await startSignIn()
 		const created = await browser.tabs.create({ url: authorizeUrl(APP_URL, { challenge, state }) })
 		if (created.id === undefined) throw new Error("The sign-in's tab did not open.")
 		const signIn: SignIn = { verifier, state, tab: created.id, waiting: [request] }
 		await browser.storage.local.set({ signIn })
+		return true
 	})
-	await dispatch(request.tabId, { type: "signInNeeded" })
+	if (waits) await dispatch(request.tabId, { type: "signInNeeded" })
+	return waits
+}
+
+const isOnServer = (url: string | undefined) => {
+	try {
+		return new URL(url ?? "").origin === new URL(APP_URL).origin
+	} catch {
+		return false
+	}
 }
 
 /** The reader closed the sign-in's tab unfinished: its saves wait no more. */
@@ -243,20 +267,23 @@ async function finishSignIn(callbackTab: number, url: string) {
 	// Claimed before any await: the tab reports its address twice, and a code works once.
 	finishing.add(callback.state)
 	try {
-		const signIn = await withSignIn(async () => {
+		// The tokens are kept before the next change of the sign-in: a save that waited meanwhile
+		// then finds them, instead of opening another sign-in.
+		const finished = await withSignIn(async () => {
 			const open = await readSignIn()
 			// Another sign-in's end, or one this extension didn't start: never exchange it.
 			if (!open || open.state !== callback.state) return null
 			await browser.storage.local.remove("signIn")
-			return open
+			const tokens = callback.code
+				? await exchangeCode(APP_URL, { code: callback.code, verifier: open.verifier }).catch(
+						() => null,
+					)
+				: null
+			await tokenStore.set(tokens)
+			return { signIn: open, tokens }
 		})
-		if (!signIn) return
-		const tokens = callback.code
-			? await exchangeCode(APP_URL, { code: callback.code, verifier: signIn.verifier }).catch(
-					() => null,
-				)
-			: null
-		await tokenStore.set(tokens)
+		if (!finished) return
+		const { signIn, tokens } = finished
 		await browser.tabs.remove(callbackTab).catch(() => {})
 		const last = signIn.waiting.at(-1)
 		if (last) await browser.tabs.update(last.tabId, { active: true }).catch(() => {})
