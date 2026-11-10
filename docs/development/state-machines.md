@@ -126,9 +126,11 @@ behavior:
 - A failure kept as `ready` (`keep`) leaves its `failureReason` set; the API shows it only for
   `failed`.
 - `translationStatus: failed` stays after "Use original" and new captures; a translation
-  superseded by a newer capture is also recorded as `failed`.
+  superseded by a newer capture is also recorded as `failed` (its credits come back). The reader
+  then shows "The article couldn't be translated" with Retry instead of the offer to translate.
 - Retiring a topic has no status guard in its update. Its callers pick active topics.
 - The web client counts an article as finished on `readAt` alone (the reader's stamp and end, the
   cards' stamp); the server and `isFinished` also count `readingProgress >= 0.95`. An article
   read to the end and kept in the library is "read" in the lists and the API, without the stamp.
-- `noteSkippedAt` is not cleared when an article is read again.
+- `noteSkippedAt` is not cleared when an article is read again: "Nothing to add" is for good
+  (`skipNote` in the SDK: "never asked for a note on it again"), until taken back.
