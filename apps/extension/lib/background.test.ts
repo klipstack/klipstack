@@ -264,6 +264,23 @@ describe("saving with the browser's session", () => {
 		expect(bg.toastsOf(1)).toEqual([{ kind: "error", title: "toastNoAccess", ms: 10000 }])
 		expect(bg.server.saves).toHaveLength(0)
 	})
+
+	it("keeps a new save's badge when the last one's outcome fades", async () => {
+		const bg = await loadBackground({ tokenAuth: false })
+		bg.click(1)
+		await settle()
+		bg.server.saves[0]!.release(bg.server.saved())
+		await settle()
+		expect(bg.state.badge.get(1)).toBe("✓")
+
+		// A second save a second later, still sending when the first one's ✓ would fade.
+		await vi.advanceTimersByTimeAsync(1000)
+		bg.click(1)
+		await settle()
+		expect(bg.state.badge.get(1)).toBe("…")
+		await vi.advanceTimersByTimeAsync(2000)
+		expect(bg.state.badge.get(1)).toBe("…")
+	})
 })
 
 describe("saving with the extension's own sign-in", () => {

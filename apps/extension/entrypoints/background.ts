@@ -269,8 +269,13 @@ async function toast(tabId: number, opts: ToastOptions) {
 	}
 }
 
+/** The pending fade of each tab's last outcome: a newer badge cancels it. */
+const fades = new Map<number, ReturnType<typeof setTimeout>>()
+
 async function setBadge(tabId: number | undefined, text: string, color: string) {
 	if (tabId === undefined) return
+	clearTimeout(fades.get(tabId))
+	fades.delete(tabId)
 	try {
 		await browser.action.setBadgeBackgroundColor({ tabId, color })
 		await browser.action.setBadgeText({ tabId, text })
@@ -281,5 +286,9 @@ async function setBadge(tabId: number | undefined, text: string, color: string) 
 
 async function flash(tabId: number | undefined, text: string, color: string) {
 	await setBadge(tabId, text, color)
-	setTimeout(() => void setBadge(tabId, "", color), BADGE_RESET_MS)
+	if (tabId !== undefined)
+		fades.set(
+			tabId,
+			setTimeout(() => void setBadge(tabId, "", color), BADGE_RESET_MS),
+		)
 }
