@@ -9,6 +9,7 @@ import { handleExtract } from "./jobs/extract"
 import { handleFeedFetch, handleFeedsTick } from "./jobs/feeds"
 import { handleImages } from "./jobs/images"
 import { handleInviteDigest } from "./jobs/invite-digest"
+import { handleKeyCheck } from "./jobs/key-check"
 import { handlePurge } from "./jobs/purge"
 import { handleReportDigest } from "./jobs/report-digest"
 import { handleSweep } from "./jobs/sweep"
@@ -80,6 +81,9 @@ async function main() {
 		const welcomed = await handleWelcomeEmail({ from: welcome })
 		if (welcomed.sent + welcomed.failed > 0) log.info("welcome emails", welcomed)
 	})
+	await boss.work(QUEUES.keyCheck, WORK_OPTIONS, async () => {
+		log.info("key check", await handleKeyCheck())
+	})
 	// Trash retention: once a day, 04:10 UTC. `schedule` upserts, so restarts are harmless.
 	await boss.schedule(QUEUES.purge, "10 4 * * *", {}, { tz: "UTC" })
 	// Feeds: every 5 minutes, queue the ones that are due (each feed keeps its own schedule).
@@ -94,6 +98,9 @@ async function main() {
 	await boss.schedule(QUEUES.welcomeEmail, "* * * * *", {}, { tz: "UTC" })
 	// Topics' month: on the 1st, 00:05 UTC, runs for readers whose sorts waited for it.
 	await boss.schedule(QUEUES.topicsMonth, "5 0 1 * *", {}, { tz: "UTC" })
+	// Service keys: once a day, 07:00 UTC, and now, so a replaced key shows on /admin/system at once.
+	await boss.schedule(QUEUES.keyCheck, "0 7 * * *", {}, { tz: "UTC" })
+	await boss.send(QUEUES.keyCheck, {})
 
 	// Every consumer is registered: from here on the process counts as alive.
 	const stopHeartbeat = startHeartbeat()

@@ -90,9 +90,12 @@ has an `[ai] answer` line with `"status":"failed"`. A missing key leaves the AI 
 
 ## Rotate or turn it off
 
-- Rotate: create a new key, put it in `.env` and your password manager, recreate the web
-  container, then delete the old key in the console.
-- Off for everyone: empty `ANTHROPIC_API_KEY` and recreate the web container. Saved answers stay
+- Rotate: create a new key, put it in `.env` and your password manager, recreate the web and
+  worker containers (`docker compose up -d web worker`), then delete the old key in the console.
+  The service keys card on `/admin/system` shows whether the worker's next check accepted it; the
+  worker checks when it starts. A rejected key also emails the admins
+  ([admin.md](admin.md)).
+- Off for everyone: empty `ANTHROPIC_API_KEY` and recreate the web and worker containers. Saved answers stay
   readable. Off for one account: turn its flag off.
 
 ## What is logged

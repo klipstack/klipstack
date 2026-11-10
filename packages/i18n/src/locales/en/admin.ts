@@ -392,6 +392,32 @@ export default {
 		backupsHint:
 			"Backup status lives in Better Stack. Klipstack does not know when the last backup ran.",
 		links: { uptime: "Uptime monitors", backups: "Backup heartbeats", cloudflare: "Cloudflare" },
+		keys: "Service keys",
+		keyProvider: {
+			anthropic: "Anthropic",
+			typesafe: "TypeSafe",
+			resend: "Resend (email)",
+			storage: "S3/R2 (images)",
+		},
+		keyResult: {
+			working: "Working",
+			rejected: "Rejected",
+			unchecked: "Couldn't check",
+			unset: "Not set",
+			never: "Not checked yet",
+		},
+		keysHint:
+			"The worker asks each service whether it accepts its key, every day at 07:00 UTC and when it starts. Admins get an email when a key is rejected.",
+	},
+	keyCheck: {
+		subject: "A Klipstack key stopped working",
+		body_one:
+			"{{providers}} rejected Klipstack's key. Features that use it fail until the key is replaced in the server's configuration.",
+		body_other:
+			"{{providers}} rejected Klipstack's keys. Features that use them fail until the keys are replaced in the server's configuration.",
+		cta: "Open the system page",
+		footer:
+			"You get this because you are a Klipstack admin. Klipstack writes again only after the key works again and fails once more.",
 	},
 	audit: {
 		title: "Audit",

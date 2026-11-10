@@ -18,6 +18,7 @@ export const QUEUES = {
 	topicsMonth: "topics-month",
 	welcomeEmail: "welcome-email",
 	translate: "translate",
+	keyCheck: "key-check",
 } as const
 
 export type QueueName = (typeof QUEUES)[keyof typeof QUEUES]
@@ -59,6 +60,8 @@ export interface JobPayloads {
 		credits: number
 		month: string
 	}
+	/** Scheduled daily, and sent when the worker starts: asks each provider whether it accepts its key. */
+	"key-check": Record<string, never>
 }
 
 export const QUEUE_OPTIONS: Record<
@@ -101,4 +104,14 @@ export const QUEUE_OPTIONS: Record<
 	// 20 parts of an article, four at a time, each up to a few minutes when the provider is slow.
 	// A retry translates it all again: the reader waits, and pays nothing more.
 	translate: { retryLimit: 2, retryDelay: 30, retryBackoff: true, expireInSeconds: 1800 },
+	// No retries: an unclear answer is recorded as such, and the next check asks again. One check
+	// at a time: two at once (two workers starting) would both email the admins. pg-boss sets a
+	// queue's policy only when it creates the queue.
+	"key-check": {
+		retryLimit: 0,
+		retryDelay: 60,
+		retryBackoff: false,
+		expireInSeconds: 120,
+		policy: "stately",
+	},
 }

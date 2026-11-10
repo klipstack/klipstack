@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto"
-import { db, sql } from "@klipstack/db"
+import { db, keyChecks, sql } from "@klipstack/db"
 import { stopBoss } from "@klipstack/queue"
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest"
 import { authorizeAdmin } from "~/lib/admin.server"
@@ -8,6 +8,7 @@ import { adminFixtures } from "~/test/admin-fixtures"
 import {
 	OPERATIONS_LINKS,
 	overview,
+	readKeyStatus,
 	readWorkerStatus,
 	systemStatus,
 	workerState,
@@ -44,6 +45,29 @@ describe("worker state", () => {
 		const status = await readWorkerStatus()
 		expect(status.state).toBe("recent")
 		expect(status.lastSeenAt).not.toBeNull()
+	})
+})
+
+describe("key status", () => {
+	it("lists every provider in a fixed order, with its last result or none", async () => {
+		// In a transaction rolled back at the end: the worker's tests own this table's rows.
+		const rollback = new Error("rollback")
+		await db
+			.transaction(async (tx) => {
+				await tx.delete(keyChecks)
+				const checkedAt = new Date("2026-11-10T07:00:00Z")
+				await tx.insert(keyChecks).values({ provider: "resend", result: "rejected", checkedAt })
+				expect(await readKeyStatus(tx)).toEqual([
+					{ provider: "anthropic", result: null, checkedAt: null },
+					{ provider: "typesafe", result: null, checkedAt: null },
+					{ provider: "resend", result: "rejected", checkedAt: "2026-11-10T07:00:00.000Z" },
+					{ provider: "storage", result: null, checkedAt: null },
+				])
+				throw rollback
+			})
+			.catch((error) => {
+				if (error !== rollback) throw error
+			})
 	})
 })
 
