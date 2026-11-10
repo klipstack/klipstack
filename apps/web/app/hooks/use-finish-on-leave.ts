@@ -51,14 +51,18 @@ export function useFinishOnLeave({
 	}, [ready, seconds, needed])
 
 	const state = endState({ finished, reachedEnd, seconds, needed, kept })
-	const armed = useRef(false)
+	// Sent once per visit: a finish under way is not sent again by the way out, whatever renders
+	// meanwhile. The reader mounts anew for each article.
+	const sent = useRef(false)
+	const latestState = useRef(state)
 	useLayoutEffect(() => {
-		armed.current = state === "finishing"
+		latestState.current = state
 	})
+	const armed = () => latestState.current === "finishing" && !sent.current
 
 	// Finishes the article and shows the toast with its undo: the toast host outlives the reader.
 	const finishNow = useCallback(async () => {
-		armed.current = false
+		sent.current = true
 		const body = new FormData()
 		body.set("intent", "finish")
 		body.set("ids", documentId)
@@ -80,7 +84,7 @@ export function useFinishOnLeave({
 
 	const blocker = useBlocker(
 		({ currentLocation, nextLocation }) =>
-			armed.current && currentLocation.pathname !== nextLocation.pathname,
+			armed() && currentLocation.pathname !== nextLocation.pathname,
 	)
 	useEffect(() => {
 		if (blocker.state !== "blocked") return
@@ -101,8 +105,8 @@ export function useFinishOnLeave({
 	// Closing the tab (or the phone's browser) leaves too. No toast: there is no page to show it.
 	useEffect(() => {
 		const onHide = () => {
-			if (!armed.current) return
-			armed.current = false
+			if (!armed()) return
+			sent.current = true
 			const body = new FormData()
 			body.set("intent", "finish")
 			navigator.sendBeacon(`/documents/${documentId}/state`, body)

@@ -1099,3 +1099,43 @@ test("a title that could not be saved says so; a rename given up does not close 
 	await page.waitForTimeout(500)
 	await expect(page.getByLabel("Title")).toHaveValue("Second thoughts")
 })
+
+test("marking as finished on the way out finishes once", async ({ page }) => {
+	test.setTimeout(90_000)
+	await signup(page)
+	const { id } = await savedFixture(page)
+	await readSoFar(id, 1)
+	await page.goto("/library")
+	await waitForHydration(page)
+	await page.getByRole("link", { name: "Maker's Schedule, Manager's Schedule" }).click()
+	await waitForHydration(page)
+	const end = await toTheEnd(page)
+	await expect(end).toHaveAttribute("data-state", "finishing")
+
+	// The finish is held, so the reader is still on the page when it renders again.
+	let finishes = 0
+	let release!: () => void
+	const gate = new Promise<void>((resolve) => {
+		release = resolve
+	})
+	await page.route("**/documents/bulk*", async (route) => {
+		// A multipart form: the reader sends it with fetch.
+		if (/name="intent"\r\n\r\nfinish\r\n/.test(route.request().postData() ?? "")) {
+			finishes++
+			await gate
+		}
+		await route.continue()
+	})
+	await page.getByRole("button", { name: "More actions" }).first().click()
+	await page.getByRole("menuitem", { name: "Mark as finished" }).click()
+	await expect.poll(() => finishes).toBe(1)
+	// The reader renders again while the finish is under way: starring it shows at once.
+	await end.getByRole("button", { name: "Star", exact: true }).click()
+	await expect(end.getByRole("button", { name: "Starred" })).toHaveAttribute("aria-pressed", "true")
+	release()
+	await expect(page).toHaveURL(/\/library$/)
+	await expect(page.getByRole("status").filter({ hasText: "Finished and archived" })).toBeVisible()
+	// Shows that leaving did not send the finish a second time.
+	await page.waitForTimeout(1000)
+	expect(finishes).toBe(1)
+})
