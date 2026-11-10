@@ -2,7 +2,13 @@ export default {
 	back: "Back to library",
 	original: "Open original",
 	outline: { label: "Contents", show: "Show contents", hide: "Hide contents" },
-	title: { edit: "Edit title", label: "Title", save: "Save", cancel: "Cancel" },
+	title: {
+		edit: "Edit title",
+		label: "Title",
+		save: "Save",
+		cancel: "Cancel",
+		failed: "The title wasn't saved. Try again.",
+	},
 	link: {
 		label: "Link",
 		openOriginal: "Open original",

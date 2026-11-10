@@ -11,7 +11,7 @@ import {
 	topics,
 	user,
 } from "@klipstack/db"
-import { expect, type Locator, type Page, test } from "@playwright/test"
+import { expect, type Locator, type Page, type Route, test } from "@playwright/test"
 import { sameOrigin, signupUser, waitForHydration } from "./helpers"
 import { insertArticle, urlHash } from "./seed"
 
@@ -1046,3 +1046,56 @@ async function archivedAt(id: string) {
 	const row = await db.query.documents.findFirst({ where: eq(documents.id, id) })
 	return row?.archivedAt ?? null
 }
+
+test("a title that could not be saved says so; a rename given up does not close the next one", async ({
+	page,
+}) => {
+	test.setTimeout(90_000)
+	await signup(page)
+	const { id, stored } = await savedFixture(page)
+	await page.goto(`/read/${id}`)
+	await waitForHydration(page)
+	const title = "Maker's Schedule, Manager's Schedule"
+	const renames = (route: Route) =>
+		new URLSearchParams(route.request().postData() ?? "").get("intent") === "rename"
+
+	// Offline: the field stays open with what was typed, and says it was not saved.
+	await page.route(`**/documents/${id}/state*`, (route) =>
+		renames(route) ? route.abort("internetdisconnected") : route.fallback(),
+	)
+	await page.getByRole("button", { name: "Edit title" }).click()
+	await page.getByLabel("Title").fill("Makers vs managers")
+	await page.getByRole("button", { name: "Save", exact: true }).click()
+	await expect(page.getByRole("alert")).toHaveText("The title wasn't saved. Try again.")
+	await expect(page.getByLabel("Title")).toHaveValue("Makers vs managers")
+	if (process.env.SHOT_DIR)
+		await page.screenshot({ path: `${process.env.SHOT_DIR}/title-failed.png` })
+	await page.getByRole("button", { name: "Cancel" }).click()
+	await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible()
+	await page.unrouteAll()
+
+	// Given up while it was being saved, then edited again: the first answer leaves the new edit open.
+	let release!: () => void
+	const gate = new Promise<void>((resolve) => {
+		release = resolve
+	})
+	await page.route(`**/documents/${id}/state*`, async (route) => {
+		if (!renames(route)) return route.fallback()
+		await gate
+		await route.continue()
+	})
+	await page.getByRole("button", { name: "Edit title" }).click()
+	await expect(page.getByRole("alert")).toHaveCount(0)
+	await page.getByLabel("Title").fill("Makers vs managers")
+	const saved = stateSaved(page, "rename")
+	await page.getByRole("button", { name: "Save", exact: true }).click()
+	await page.getByRole("button", { name: "Cancel" }).click()
+	await page.getByRole("button", { name: "Edit title" }).click()
+	await page.getByLabel("Title").fill("Second thoughts")
+	release()
+	await saved
+	await expect.poll(async () => (await stored())?.title).toBe("Makers vs managers")
+	// Shows that the field did not close on the earlier answer.
+	await page.waitForTimeout(500)
+	await expect(page.getByLabel("Title")).toHaveValue("Second thoughts")
+})
