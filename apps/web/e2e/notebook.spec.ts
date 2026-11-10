@@ -577,3 +577,62 @@ test("a Spanish reader's empty notebook, on a phone", async ({ browser }) => {
 	await shot(page, "notebook-empty-es")
 	await context.close()
 })
+
+test("a note on a card that was not saved comes back; the next save is not taken for it", async ({
+	page,
+}) => {
+	test.setTimeout(90_000)
+	const email = await signupUser(page, "Card Notes")
+	const [owner] = await db.select({ id: user.id }).from(user).where(eq(user.email, email))
+	const id = await insertArticle(owner!.id, "Tides", "<p>Tides</p>")
+	const [doc] = await db
+		.select({ versionId: documents.currentVersionId })
+		.from(documents)
+		.where(eq(documents.id, id))
+	const [quote] = await db
+		.insert(highlights)
+		.values({
+			userId: owner!.id,
+			documentId: id,
+			versionId: doc!.versionId!,
+			startOffset: 0,
+			endOffset: 5,
+			exact: "Tides",
+		})
+		.returning({ id: highlights.id })
+	const note = async () =>
+		(await db.query.highlights.findFirst({ where: eq(highlights.id, quote!.id) }))?.note
+	await page.goto("/notebook?view=stream")
+	await waitForHydration(page)
+	const card = page.getByTestId("quote-card")
+	const editor = page.getByRole("dialog", { name: "Highlight note" })
+
+	// Offline: the draft comes back in the editor, and a toast says it was not saved.
+	await page.route(`**/documents/${id}/highlights*`, (route) => route.abort("internetdisconnected"))
+	await card.hover()
+	await card.getByRole("button", { name: "Add note" }).click()
+	await editor.getByRole("textbox").fill("Worth a second look.")
+	await editor.getByRole("button", { name: "Save" }).click()
+	await expect(editor.getByRole("textbox")).toHaveText("Worth a second look.")
+	await expect(page.getByRole("status").filter({ hasText: "Not saved" })).toHaveCount(1)
+	await page.unrouteAll()
+
+	// Online again, and slow: the next save shows its note while it goes, and is saved.
+	let release!: () => void
+	const gate = new Promise<void>((resolve) => {
+		release = resolve
+	})
+	await page.route(`**/documents/${id}/highlights*`, async (route) => {
+		await gate
+		await route.continue()
+	})
+	await editor.getByRole("textbox").fill("Worth a third look.")
+	await editor.getByRole("button", { name: "Save" }).click()
+	await expect(editor).toBeHidden()
+	await expect(card).toContainText("Worth a third look.")
+	release()
+	await expect.poll(note).toBe("Worth a third look.")
+	// Shows that the editor did not open again on the earlier failure.
+	await page.waitForTimeout(500)
+	await expect(editor).toBeHidden()
+})
