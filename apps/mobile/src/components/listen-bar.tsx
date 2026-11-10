@@ -2,13 +2,9 @@ import { SymbolView, type SymbolViewProps } from "expo-symbols"
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { t } from "@/lib/i18n"
+import type { ListenStatus } from "@/lib/read-aloud-machine"
 import { speedLabel } from "@/lib/speech"
 import type { Colors } from "@/lib/theme"
-import type { SpeechState } from "../../modules/klip-speech"
-
-export type ListenStatus =
-	| { kind: "downloading"; received: number; total: number }
-	| { kind: "speech"; state: SpeechState; progress: number; minutesLeft: number }
 
 /**
  * The player while an article is read aloud: back and forward a sentence, play and pause, the
