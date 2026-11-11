@@ -24,6 +24,11 @@ describe("signing in", () => {
 		expect(signInTransition(busy, { type: "start", kind: "email" })).toBe(busy)
 		// …nor does a check of what was typed: the running request keeps its spinner.
 		expect(signInTransition(busy, { type: "invalid", message: "Enter it" })).toBe(busy)
+		// While nothing runs, it says what to type.
+		expect(run(start, { type: "invalid", message: "Enter it" })).toMatchObject({
+			busy: null,
+			error: "Enter it",
+		})
 	})
 
 	it("clears the last error when something starts, and says the next one", () => {

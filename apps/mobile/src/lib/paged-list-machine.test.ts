@@ -65,6 +65,11 @@ describe("a paged list", () => {
 		const late = page("c9", "old")
 		expect(run(other, { type: "moreLoaded", ticket: asking.ticket, page: late })).toBe(other)
 		expect(run(other, { type: "moreFailed", ticket: asking.ticket, message: "No" })).toBe(other)
+		// …nor does a load of the old query still on its way.
+		const loading = run(shown(), { type: "load" })
+		const changed = run(loading, { type: "asked" })
+		const old = page("c9", "old")
+		expect(run(changed, { type: "loaded", ticket: loading.ticket, page: old })).toBe(changed)
 	})
 
 	it("says when the next page fails", () => {
@@ -116,6 +121,12 @@ describe("a paged list", () => {
 		expect(edited.items).toEqual(items("b"))
 		const late = run(edited, { type: "moreFailed", ticket: asking.ticket, message: "No" })
 		expect(late).toMatchObject({ error: null, more: { status: "idle" }, items: items("b") })
+		const lateMore = run(edited, {
+			type: "moreLoaded",
+			ticket: asking.ticket,
+			page: page("c2", "z"),
+		})
+		expect(lateMore).toMatchObject({ items: items("b"), next: "c1", more: { status: "idle" } })
 	})
 
 	it("shows what was kept offline only while it shows nothing", () => {

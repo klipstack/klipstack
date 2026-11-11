@@ -53,6 +53,10 @@ describe("the public link", () => {
 		const busy = run(shared, { type: "start" })
 		expect(busy).toMatchObject({ busy: true, error: null })
 		expect(publicLinkTransition(busy, { type: "start" })).toBe(busy)
+		// Done, the next change can start.
+		const done = run(busy, { type: "done", share: live })
+		expect(done).toMatchObject({ busy: false, share: live })
+		expect(run(done, { type: "start" }).busy).toBe(true)
 	})
 
 	it("keeps a change made while the link was looked up, over the lookup's older answer", () => {

@@ -67,7 +67,7 @@ export default function DeleteAccount() {
 		try {
 			await accountDeleted()
 		} catch (e) {
-			// Gone on the server, still here: said, and the screen gives way.
+			// Gone on the server, but not forgotten on the phone: said, rather than a spinner for good.
 			setBusy(false)
 			setError({ message: errorMessage(e) })
 			return

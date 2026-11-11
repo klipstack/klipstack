@@ -636,18 +636,18 @@ function usePublicLink(
 			what === "stop"
 				? client.highlights.stopSharing(id).then(() => null)
 				: client.highlights.share(id, what.share).then((answer) => answer.share)
+		// Heard only when it starts or stops being shared, even with the sheet closed: an update
+		// changes neither.
 		run
-			.then((next: HighlightShare) => send({ type: "done", share: next }))
+			.then((next: HighlightShare) => {
+				send({ type: "done", share: next })
+				if (isLive(next) !== wasLive) heard.current(isLive(next))
+			})
 			.catch((e: unknown) => {
 				const code = e instanceof KlipstackApiError ? e.code : null
 				send({ type: "failed", stop: what === "stop", code })
-			})
-			.finally(() => {
-				// Heard only when it starts or stops being shared, even with the sheet closed: an
-				// update changes neither, nor does a link removed by an admin.
-				const { share } = machine.current
-				if (share?.removed) return
-				if (isLive(share) !== wasLive) heard.current(isLive(share))
+				// Stopped elsewhere already: not shared, as asked.
+				if (what === "stop" && code === "not_found" && wasLive) heard.current(false)
 			})
 	}
 	return { share: state.share, busy: state.busy, error: state.error, change }
