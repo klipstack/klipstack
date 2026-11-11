@@ -13,7 +13,7 @@ the state it writes (`to`).
 | Machine | Column | States | Writers |
 | --- | --- | --- | --- |
 | `extractionMachine` | `documents.status` | queued, processing, ready, failed | `packages/queue/src/admission.ts`, `apps/worker/src/jobs/extract.ts`, `apps/worker/src/publish.ts`, `apps/worker/src/jobs/sweep.ts`, `apps/web/app/services/documents.server.ts` |
-| `translationMachine` | `documents.translation_status` | null, pending, failed | `packages/queue/src/translation.ts`, `apps/worker/src/jobs/translate.ts` |
+| `translationMachine` | `documents.translation_status` | null, pending, failed | `packages/queue/src/translation.ts`, `apps/worker/src/jobs/translate.ts`, `apps/worker/src/publish.ts`, `apps/web/app/commands/translation.server.ts` |
 | `topicMachine` | `topics.status` | proposed, active, retired, removed | `apps/worker/src/topics.ts`, `apps/web/app/commands/topics.server.ts` |
 
 ```text
@@ -25,8 +25,10 @@ extraction   save ──► queued ──start──► processing ──publish
                         start also runs from processing, ready or failed (a job run again, or raced by the sweep)
 
 translation  null|failed ──request──► pending ──finish──► null
-                                          └────fail─────► failed
+                                          ├──supersede──► null (a newer capture landed meanwhile)
+                                          └────fail─────► failed ──clear──► null
              null|failed ──reuse──► null (a translation made before, shown again)
+             clear: "Use original", or a new capture read
 
 topic        propose ──► proposed ──confirm──► active ──retire──► retired
                             └──reject──► removed ◄──remove──┘
@@ -131,9 +133,6 @@ behavior:
   check `deletedAt` again.
 - A failure kept as `ready` (`keep`) leaves its `failureReason` set; the API shows it only for
   `failed`.
-- `translationStatus: failed` stays after "Use original" and new captures; a translation
-  superseded by a newer capture is also recorded as `failed` (its credits come back). The reader
-  then shows "The article couldn't be translated" with Retry instead of the offer to translate.
 - Retiring a topic has no status guard in its update. Its callers pick active topics.
 - `noteSkippedAt` is not cleared when an article is read again: "Nothing to add" is for good
   (`skipNote` in the SDK: "never asked for a note on it again"), until taken back.
