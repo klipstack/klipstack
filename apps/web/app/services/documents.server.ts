@@ -21,7 +21,6 @@ import {
 	not,
 	notInArray,
 	notifyDocumentEvent,
-	or,
 	EXTRACTION_PENDING,
 	extractionMachine,
 	type SQL,
@@ -48,7 +47,6 @@ import {
 	type ListSort,
 	LONG_MIN_MINUTES,
 	QUICK_MAX_MINUTES,
-	READ_PROGRESS,
 } from "~/lib/inbox-filters"
 import { type LibraryView, viewFromPath, viewPath } from "~/lib/library-views"
 import { checkStorage, countMonthly } from "~/lib/limits.server"
@@ -295,10 +293,7 @@ export function decodeCursor(value: string | null | undefined): Cursor | null {
  * Finished in this reading, as `isFinished` (lib/inbox-filters.ts) says. Shared with the search
  * operators (`is:finished`, `is:quick`, `is:long`).
  */
-export const finished = or(
-	isNotNull(documents.readAt),
-	gte(documents.readingProgress, READ_PROGRESS),
-) as SQL
+export const finished = isNotNull(documents.readAt)
 const isX = like(documents.sourceUrl, "https://x.com/%")
 
 export const quick = and(

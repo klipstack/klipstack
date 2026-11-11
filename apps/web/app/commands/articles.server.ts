@@ -529,7 +529,7 @@ export async function purgeArticle(userId: string, id: string) {
 
 // ---- reading ----
 
-/** A finished inbox article opened again after this long is being read again, from scratch. */
+/** An inbox article read to the end, opened again after this long, is being read again, from scratch. */
 export const REREAD_AFTER_HOURS = 24
 
 /**

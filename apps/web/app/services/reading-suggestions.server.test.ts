@@ -54,6 +54,7 @@ beforeAll(async () => {
 			createdAt: daysAgo(1),
 		},
 		{ title: "Ten, finished", readingMinutes: 10, readAt: daysAgo(1), createdAt: daysAgo(1) },
+		// Scrolled to the end without a finish date: not finished, so still offered.
 		{ title: "Ten, scrolled", readingMinutes: 10, readingProgress: 0.96, createdAt: daysAgo(1) },
 		{ title: "Ten, a post", type: "post", readingMinutes: 10, createdAt: daysAgo(1) },
 		{ title: "No length", readingMinutes: null, createdAt: daysAgo(1) },
@@ -94,7 +95,6 @@ describe("what Home chooses from", () => {
 		const shown = titles([...all.reading, ...all.recent, ...all.rediscover])
 		for (const title of [
 			"Ten, finished",
-			"Ten, scrolled",
 			"Ten, archived",
 			"Old, archived",
 			"Old, trashed",
@@ -103,6 +103,7 @@ describe("what Home chooses from", () => {
 			"Someone else's",
 		])
 			expect(shown).not.toContain(title)
+		expect(shown).toContain("Ten, scrolled")
 		expect(titles(all.reading)).toEqual(expect.arrayContaining(["Old, opened", "Forty, half read"]))
 	})
 })

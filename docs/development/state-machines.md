@@ -103,13 +103,19 @@ definition, in TypeScript, in SQL, or both; read the state through it rather tha
 | Lifecycle | Columns | Named states | Writes |
 | --- | --- | --- | --- |
 | Inbox, archive, trash | `documents.archivedAt`, `deletedAt` | `ARTICLE_IN` (inbox, archive, trash) in `services/documents.server.ts` | `apps/web/app/commands/articles.server.ts`, `services/documents.server.ts` (restore), `apps/worker/src/jobs/purge.ts` |
-| Reading | `firstOpenedAt`, `readAt`, `lastReadAt`, `readingProgress`, `readingCycle`, `reading_completions` | finished: `isFinished` in `lib/inbox-filters.ts`, `finished` (SQL) in `services/documents.server.ts` | `commands/articles.server.ts` |
+| Reading | `firstOpenedAt`, `readAt`, `lastReadAt`, `readingProgress`, `readingCycle`, `reading_completions` | finished (`readAt` set, nothing else): `isFinished` in `lib/inbox-filters.ts`, `finished` (SQL) in `services/documents.server.ts` | `commands/articles.server.ts`; leaving the reader at the end finishes (`hooks/use-finish-on-leave.ts`) |
 | Editions | `publishedAt`, `republishedAt`, `unpublishedAt`, `removedAt` | `editionState()` (draft, live, unpublished, removed) in `apps/web/app/lib/editions.ts`; `liveEdition` (SQL) in `services/editions.server.ts` | `commands/editions-actions.server.ts`, `services/editions-write.server.ts`, `services/admin-reports.server.ts` |
 | Highlight shares | `published`, `removedAt` | | `commands/highlight-shares.server.ts`, `services/admin-reports.server.ts` |
 | Topic library | `topicLibraries.proposedAt`, `seenAt`, `confirmedAt`, … | `topicLibraryStage()` (proposing, proposed, confirmed) in `packages/db/src/lifecycles.ts` | `commands/topics.server.ts`, `apps/worker/src/topics.ts` (`run`) |
 | Invites | `usedAt`, `expiresAt`, `revokedAt` | `STATUS_SQL` in `services/admin-invites.server.ts`; `findUsableInvite` in `lib/invites.server.ts` | `lib/invites.server.ts`, `services/admin-invites.server.ts` |
 | Feed fetching | `nextFetchAt`, `errorCount`, `lastSuccessAt` | | `apps/worker/src/jobs/feeds.ts` |
 | Images | `documentVersions.imagesDone` | | `packages/queue/src/admission.ts`, `apps/worker/src/jobs/images.ts` |
+
+An article is finished when it has a finish date (`readAt`), and only then. "Mark as finished"
+sets it, and so does leaving the reader after reaching the end, once enough time has passed on the
+page (`secondsToFinish`). How far it was scrolled (`readingProgress`) drives the progress bar and
+records a reading at 95%, but never finishes it: the reader may have jumped to the end, chosen
+"Keep in Library", or undone the finish.
 
 An edition an admin removed is also unpublished: removal sets `unpublishedAt` as well, publishing
 refuses a removed edition, and restoring leaves it unpublished until its author publishes it again.
@@ -129,8 +135,5 @@ behavior:
   superseded by a newer capture is also recorded as `failed` (its credits come back). The reader
   then shows "The article couldn't be translated" with Retry instead of the offer to translate.
 - Retiring a topic has no status guard in its update. Its callers pick active topics.
-- The web client counts an article as finished on `readAt` alone (the reader's stamp and end, the
-  cards' stamp); the server and `isFinished` also count `readingProgress >= 0.95`. An article
-  read to the end and kept in the library is "read" in the lists and the API, without the stamp.
 - `noteSkippedAt` is not cleared when an article is read again: "Nothing to add" is for good
   (`skipNote` in the SDK: "never asked for a note on it again"), until taken back.

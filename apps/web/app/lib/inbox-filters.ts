@@ -42,18 +42,20 @@ export function parseTime(value: string | null): number | null {
 
 /** Long reads take at least this many minutes. */
 export const LONG_MIN_MINUTES = 30
-/** Scrolled this far (0..1), an article counts as read even if never marked finished. */
+/**
+ * Scrolled this far (0..1), the reader reached the end: a reading completion is recorded. It does
+ * not finish the article; leaving the reader after reaching the end does (`useFinishOnLeave`).
+ */
 export const READ_PROGRESS = 0.95
 
 /**
- * Finished in this reading: marked finished, or read to the end (`READ_PROGRESS`). `finished` in
- * services/documents.server.ts is the same in SQL.
+ * Finished in this reading: it has a finish date (`readAt`), set by "Mark as finished" or by leaving
+ * the reader after reaching the end. How far it was scrolled does not count: the reader may have
+ * jumped to the end, or kept it unfinished. `finished` in services/documents.server.ts is the same
+ * in SQL.
  */
-export function isFinished(doc: {
-	readAt: Date | string | null
-	readingProgress: number
-}): boolean {
-	return doc.readAt !== null || doc.readingProgress >= READ_PROGRESS
+export function isFinished(doc: { readAt: Date | string | null }): boolean {
+	return doc.readAt !== null
 }
 
 export function parseFilter(value: string | null, view: FilterableView): ListFilter | null {
