@@ -1,4 +1,13 @@
-import { db, sql } from "@klipstack/db"
+import {
+	type Db,
+	db,
+	type KeyProvider,
+	type KeyResult,
+	keyChecks,
+	keyProviders,
+	sql,
+	type Tx,
+} from "@klipstack/db"
 import { errorLabel } from "@klipstack/log"
 import { type AdminContext, assertAdminContext } from "~/lib/admin.server"
 import { appVersion, env } from "~/lib/env.server"
@@ -78,30 +87,59 @@ export const OPERATIONS_LINKS = {
 	cloudflare: "https://dash.cloudflare.com/",
 }
 
+/** One provider's key as the worker last found it; `result` null: never checked. */
+export interface KeyStatus {
+	provider: KeyProvider
+	result: KeyResult | null
+	checkedAt: string | null
+}
+
+/** Every provider, in a fixed order, whether or not the worker has checked it yet. */
+export async function readKeyStatus(tx: Db | Tx = db): Promise<KeyStatus[]> {
+	const rows = await tx
+		.select({
+			provider: keyChecks.provider,
+			result: keyChecks.result,
+			checkedAt: keyChecks.checkedAt,
+		})
+		.from(keyChecks)
+	return keyProviders.map((provider) => {
+		const row = rows.find((candidate) => candidate.provider === provider)
+		return {
+			provider,
+			result: row?.result ?? null,
+			checkedAt: row ? new Date(row.checkedAt).toISOString() : null,
+		}
+	})
+}
+
 export interface SystemStatus {
 	observedAt: string
 	database: Observed<{ checkedAt: string }>
 	worker: Observed<WorkerStatus>
 	queues: Observed<QueueSummary[]>
+	keys: Observed<KeyStatus[]>
 	deployment: { version: string; storage: "fs" | "s3" }
 	links: typeof OPERATIONS_LINKS
 }
 
 export async function systemStatus(ctx: AdminContext): Promise<SystemStatus> {
 	assertAdminContext(ctx)
-	const [database, worker, queues] = await Promise.all([
+	const [database, worker, queues, keys] = await Promise.all([
 		observe("database", async () => {
 			const result = await db.execute<{ now: Date }>(sql`select now() as now`)
 			return { checkedAt: new Date(result.rows[0]?.now ?? Date.now()).toISOString() }
 		}),
 		observe("worker heartbeat", readWorkerStatus),
 		observe("queues", () => queueSummary(ctx)),
+		observe("key checks", () => readKeyStatus()),
 	])
 	return {
 		observedAt: new Date().toISOString(),
 		database,
 		worker,
 		queues,
+		keys,
 		// The configured mode. It does not show that the bucket is reachable.
 		deployment: { version: appVersion, storage: env.STORAGE_DRIVER },
 		links: OPERATIONS_LINKS,

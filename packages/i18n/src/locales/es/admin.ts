@@ -402,6 +402,32 @@ export default {
 			backups: "Señales de copias",
 			cloudflare: "Cloudflare",
 		},
+		keys: "Claves de servicios",
+		keyProvider: {
+			anthropic: "Anthropic",
+			typesafe: "TypeSafe",
+			resend: "Resend (correo)",
+			storage: "S3/R2 (imágenes)",
+		},
+		keyResult: {
+			working: "Funciona",
+			rejected: "Rechazada",
+			unchecked: "No se pudo comprobar",
+			unset: "Sin configurar",
+			never: "Aún sin comprobar",
+		},
+		keysHint:
+			"El worker pregunta a cada servicio si acepta su clave, cada día a las 07:00 UTC y al arrancar. Los admins reciben un correo cuando se rechaza una clave.",
+	},
+	keyCheck: {
+		subject: "Una clave de Klipstack dejó de funcionar",
+		body_one:
+			"{{providers}} rechazó la clave de Klipstack. Las funciones que la usan fallan hasta que se reemplace la clave en la configuración del servidor.",
+		body_other:
+			"{{providers}} rechazaron las claves de Klipstack. Las funciones que las usan fallan hasta que se reemplacen las claves en la configuración del servidor.",
+		cta: "Abrir la página de sistema",
+		footer:
+			"Recibes esto porque eres admin de Klipstack. Klipstack vuelve a escribir solo si la clave vuelve a funcionar y falla otra vez.",
 	},
 	audit: {
 		title: "Auditoría",

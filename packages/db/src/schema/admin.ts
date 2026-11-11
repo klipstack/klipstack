@@ -45,4 +45,39 @@ export const workerHeartbeats = pgTable(
 	(t) => [index("worker_heartbeats_last_seen_idx").on(t.lastSeenAt.desc())],
 )
 
+/** The outside services whose keys the worker checks every day (`apps/worker/src/jobs/key-check.ts`). */
+export const keyProviders = ["anthropic", "typesafe", "resend", "storage"] as const
+export type KeyProvider = (typeof keyProviders)[number]
+
+/**
+ * `rejected`: the provider refused the key. `unchecked`: no clear answer (a timeout, an outage).
+ * `unset`: the key is not configured, so the feature is off.
+ */
+export const keyResults = ["working", "rejected", "unchecked", "unset"] as const
+export type KeyResult = (typeof keyResults)[number]
+
+/**
+ * The last check of each provider's key. Never any part of the key itself. `alerted_at` is when the
+ * admins were told it is rejected; a working or unset key clears it, so the next rejection alerts.
+ */
+export const keyChecks = pgTable(
+	"key_checks",
+	{
+		provider: text("provider", { enum: keyProviders }).primaryKey(),
+		result: text("result", { enum: keyResults }).notNull(),
+		checkedAt: timestamp("checked_at", { withTimezone: true }).notNull().defaultNow(),
+		alertedAt: timestamp("alerted_at", { withTimezone: true }),
+	},
+	(t) => [
+		check(
+			"key_checks_provider_check",
+			sql`${t.provider} in ('anthropic', 'typesafe', 'resend', 'storage')`,
+		),
+		check(
+			"key_checks_result_check",
+			sql`${t.result} in ('working', 'rejected', 'unchecked', 'unset')`,
+		),
+	],
+)
+
 export type AdminAuditEvent = typeof adminAuditEvents.$inferSelect

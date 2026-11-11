@@ -271,6 +271,9 @@ test("the system page shows a live worker, the build and the storage mode", asyn
 		/^https:\/\/uptime\.betterstack\.com\//,
 	)
 	await expect(page.getByText("Klipstack does not know when the last backup ran.")).toBeVisible()
+	// Every provider's key has a line, checked or not; none shows any part of a key.
+	await expect(page.getByTestId("key-status")).toHaveCount(4)
+	await expect(page.getByText("Resend (email)")).toBeVisible()
 })
 
 test("an admin without two-factor authentication is sent to set it up, then gets in", async ({

@@ -55,6 +55,13 @@ Docker: `pnpm --filter @klipstack/web admin list`.
 - The worker card shows process liveness only (a heartbeat every 30 s; stale after 90 s). The app
   has no last-backup time: backup status stays in your own monitoring. The same heartbeat feeds the
   public `/status` endpoint (see [README.md](README.md#reverse-proxy-and-tls)).
+- The service keys card shows whether Anthropic, TypeSafe, Resend and S3/R2 accept the keys in
+  `.env`: working, rejected, couldn't check (a timeout or an outage) or not set. The worker asks
+  each service once a day at 07:00 UTC and each time it starts, with a request that costs nothing:
+  a model list, the key list, a read of a missing object. When a key is newly rejected, it emails
+  the verified admins once, and again only after the key worked in between. If the rejected key
+  is Resend's, that email can't go out: the card and the worker log's `key check: rejected` line
+  still show it. The page never shows any part of a key.
 - Audit events are kept 90 days; the worker's daily purge (04:10 UTC) drops older ones and
   heartbeat rows of workers gone for 7 days. It also deletes expired sessions (with their IP
   address and browser) and expired sign-in, email-check and OAuth-state tokens.

@@ -23,7 +23,7 @@ export default function AdminSystem({ loaderData }: Route.ComponentProps) {
 	const { t } = useTranslation("admin")
 	const time = useUtcTime()
 	const { stale } = useAutoRefresh(loaderData.observedAt)
-	const { database, worker, queues, deployment, links } = loaderData
+	const { database, worker, queues, keys, deployment, links } = loaderData
 	const age = (seconds: number | null) =>
 		seconds === null ? t("common.none") : t("system.seconds", { count: seconds })
 	return (
@@ -74,6 +74,44 @@ export default function AdminSystem({ loaderData }: Route.ComponentProps) {
 						<Unavailable />
 					)}
 					<p className="mt-2 text-xs text-muted-fg">{t("system.workerHint")}</p>
+				</Card>
+				<Card title={t("system.keys")}>
+					{keys.ok ? (
+						<dl className="grid grid-cols-[10rem_1fr] gap-y-1 text-sm">
+							{keys.value.map((key) => (
+								<div
+									key={key.provider}
+									className="contents"
+									data-testid="key-status"
+									data-provider={key.provider}
+									data-result={key.result ?? "never"}
+								>
+									<dt className="text-muted-fg">{t(`system.keyProvider.${key.provider}`)}</dt>
+									<dd>
+										<Badge
+											tone={
+												key.result === "working"
+													? "good"
+													: key.result === "rejected"
+														? "bad"
+														: key.result === "unchecked"
+															? "warn"
+															: "neutral"
+											}
+										>
+											{t(`system.keyResult.${key.result ?? "never"}`)}
+										</Badge>{" "}
+										{key.checkedAt ? (
+											<span className="text-xs text-muted-fg">{time(key.checkedAt)}</span>
+										) : null}
+									</dd>
+								</div>
+							))}
+						</dl>
+					) : (
+						<Unavailable />
+					)}
+					<p className="mt-2 text-xs text-muted-fg">{t("system.keysHint")}</p>
 				</Card>
 				<Card title={t("system.deployment")}>
 					<dl className="grid grid-cols-[10rem_1fr] gap-y-1 text-sm">

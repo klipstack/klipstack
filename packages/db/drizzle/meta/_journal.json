@@ -407,6 +407,13 @@
 			"when": 1794052380976,
 			"tag": "0057_unknown_dakota_north",
 			"breakpoints": true
+		},
+		{
+			"idx": 58,
+			"version": "7",
+			"when": 1794353419604,
+			"tag": "0058_tense_raider",
+			"breakpoints": true
 		}
 	]
 }
