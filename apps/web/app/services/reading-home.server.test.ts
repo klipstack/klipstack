@@ -40,7 +40,6 @@ beforeAll(async () => {
 		{ archivedAt: new Date() },
 		{ deletedAt: new Date() },
 		{ readAt: new Date(), firstOpenedAt: new Date() },
-		{ readingProgress: 1, firstOpenedAt: new Date() },
 	]) {
 		await db.insert(documents).values({
 			userId,

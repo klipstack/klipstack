@@ -55,12 +55,14 @@ beforeAll(async () => {
 		{ title: "Tagged", createdAt: daysAgo(50) },
 		{ title: "A post", type: "post", createdAt: daysAgo(45) },
 		{ title: "Kept 91 days ago", createdAt: daysAgo(200), keptAt: daysAgo(91) },
+		// Scrolled through (a position saved through the API, never opened) but never finished: in
+		// the review, as one never opened is.
+		{ title: "Scrolled through", createdAt: daysAgo(60), readingProgress: 0.96 },
 		// Too recent, or touched: none of these is in the review.
 		{ title: "Twenty-nine days", createdAt: daysAgo(29) },
 		{ title: "Kept 89 days ago", createdAt: daysAgo(200), keptAt: daysAgo(89) },
 		{ title: "Opened", createdAt: daysAgo(60), firstOpenedAt: daysAgo(59) },
 		{ title: "Finished", createdAt: daysAgo(60), readAt: daysAgo(59) },
-		{ title: "Scrolled through", createdAt: daysAgo(60), readingProgress: 0.96 },
 		{ title: "Starred", createdAt: daysAgo(60), starredAt: daysAgo(59) },
 		{ title: "For an edition", createdAt: daysAgo(60), shortlistedAt: daysAgo(59) },
 		{ title: "With a note", createdAt: daysAgo(60), note: "Read for the chapter on tides" },
@@ -127,7 +129,15 @@ afterAll(async () => {
 	await db.delete(user).where(inArray(user.id, [userId, otherId, fewId, fiveId]))
 })
 
-const inReview = ["A year", "Kept 91 days ago", "Tagged", "A post", "Forty days", "Thirty-one days"]
+const inReview = [
+	"A year",
+	"Kept 91 days ago",
+	"Scrolled through",
+	"Tagged",
+	"A post",
+	"Forty days",
+	"Thirty-one days",
+]
 
 describe("the review of old saves", () => {
 	it("lists the saves from more than a month ago never touched, the oldest first", async () => {

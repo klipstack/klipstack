@@ -92,7 +92,7 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 							state: editionState(edition),
 							changes: hasUnpublishedChanges(edition),
 							publicUrl:
-								edition.publicPath && !edition.unpublishedAt
+								edition.publicPath && editionState(edition) === "live"
 									? `${env.APP_URL}${edition.publicPath}`
 									: null,
 						},
@@ -424,7 +424,8 @@ function PastEditions({ editions, linked }: { editions: LoaderData["past"]; link
 								{t("articles", { count: edition.itemCount })}
 							</p>
 						</div>
-						{edition.state === "unpublished" ? (
+						{/* Removed by an admin, it is down as an unpublished one is. */}
+						{edition.state !== "live" ? (
 							<span className="rounded-md border border-border px-1.5 text-xs text-muted-fg">
 								{t("state.unpublished")}
 							</span>

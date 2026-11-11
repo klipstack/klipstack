@@ -14,6 +14,7 @@ import {
 	isNull,
 	notifyDocumentEvent,
 	showVersion,
+	translationMachine,
 	type Tx,
 	user as userTable,
 } from "@klipstack/db"
@@ -114,8 +115,8 @@ export async function translateArticle(userId: string, input: unknown): Promise<
 
 /**
  * Shows the article's original again, with its title and language: "Use original". The
- * translation stays, with its highlights, and translating again shows it at no cost. An article
- * not translated is left as it is.
+ * translation stays, with its highlights, and translating again shows it at no cost. A failed
+ * translation since is forgotten. An article not translated is left as it is.
  */
 export async function showOriginal(userId: string, input: unknown): Promise<{ changed: boolean }> {
 	const { id } = parseInput(ArticleInput, input)
@@ -125,6 +126,12 @@ export async function showOriginal(userId: string, input: unknown): Promise<{ ch
 			throw new AppError("already_pending", "The article is being translated.")
 		if (!doc.originalVersionId) return false
 		await showVersion(tx, doc.id, doc.originalVersionId, null)
+		// A failed “Translate again” is behind it: the reader offers to translate, not to retry.
+		if (doc.translationStatus === "failed")
+			await tx
+				.update(documents)
+				.set({ translationStatus: translationMachine.transitions.clear.to })
+				.where(eq(documents.id, doc.id))
 		return true
 	})
 	if (changed) await notifyDocumentEvent({ userId, documentId: id, kind: "ready" })

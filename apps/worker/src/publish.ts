@@ -1,4 +1,5 @@
 import {
+	and,
 	desc,
 	type Document,
 	documentRaw,
@@ -8,6 +9,7 @@ import {
 	eq,
 	extractionMachine,
 	sql,
+	translationMachine,
 	storedSearchVector,
 	type Tx,
 } from "@klipstack/db"
@@ -63,6 +65,11 @@ export async function publishExtraction(
 		})
 		.returning({ id: documentVersions.id })
 	if (!version) throw new Error("version insert returned nothing")
+	// A new version to read: a translation that failed before is about an older one.
+	await tx
+		.update(documents)
+		.set({ translationStatus: translationMachine.transitions.clear.to })
+		.where(and(eq(documents.id, doc.id), eq(documents.translationStatus, "failed")))
 
 	if (live.originalVersionId) {
 		// A translation is current: it stays, with its title, language and highlights. The new

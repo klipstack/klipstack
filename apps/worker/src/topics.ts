@@ -39,6 +39,7 @@ import {
 	sql,
 	type Tx,
 	topicLibraries,
+	topicLibraryStage,
 	topicSorts,
 	topicMachine,
 	topics,
@@ -129,10 +130,9 @@ export async function bringTopicsUpToDate(
 	const language: AiLanguage = account?.locale === "es" ? "es" : "en"
 	const run = new Run(userId, library.enabledAt, language, deps)
 	try {
-		if (!library.confirmedAt) {
-			if (library.proposedAt) return { done: "nothing", why: "waiting" }
-			return await run.propose(library.proposedAtCount)
-		}
+		const stage = topicLibraryStage(library)
+		if (stage === "proposed") return { done: "nothing", why: "waiting" }
+		if (stage === "proposing") return await run.propose(library.proposedAtCount)
 		return await run.keepUp(library)
 	} catch (error) {
 		if (error instanceof TopicsOff) return { done: "nothing", why: "off" }

@@ -29,6 +29,7 @@ import {
 	type UndoRecord,
 } from "~/services/article-undo.server"
 import {
+	ARTICLE_IN,
 	getDocument,
 	INBOX_FILTER_WHERE,
 	liveDuplicateOf,
@@ -409,14 +410,7 @@ export async function archiveFinished(
 	const rows = await db
 		.update(documents)
 		.set({ archivedAt: new Date() })
-		.where(
-			and(
-				eq(documents.userId, userId),
-				isNull(documents.deletedAt),
-				isNull(documents.archivedAt),
-				INBOX_FILTER_WHERE.read,
-			),
-		)
+		.where(and(eq(documents.userId, userId), ARTICLE_IN.inbox, INBOX_FILTER_WHERE.read))
 		.returning({ id: documents.id })
 	const archived = rows.map((r) => r.id)
 	return {
@@ -434,7 +428,7 @@ export async function undoArchive(userId: string, ids: string[]): Promise<string
 	const rows = await db
 		.update(documents)
 		.set({ archivedAt: null })
-		.where(and(owned(userId, list), isNull(documents.deletedAt), isNotNull(documents.archivedAt)))
+		.where(and(owned(userId, list), ARTICLE_IN.archive))
 		.returning({ id: documents.id })
 	return rows.map((r) => r.id)
 }
@@ -535,7 +529,7 @@ export async function purgeArticle(userId: string, id: string) {
 
 // ---- reading ----
 
-/** A finished inbox article opened again after this long is being read again, from scratch. */
+/** An inbox article read to the end, opened again after this long, is being read again, from scratch. */
 export const REREAD_AFTER_HOURS = 24
 
 /**

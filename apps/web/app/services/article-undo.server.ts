@@ -5,6 +5,7 @@ import {
 	documentTags,
 	eq,
 	inArray,
+	isNull,
 	or,
 	readingCompletions,
 	sql,
@@ -70,7 +71,31 @@ export async function revertChanges(userId: string, undo: UndoRecord): Promise<s
 		const touched = new Set<string>()
 		// The draft before the articles: the order every change takes its locks in.
 		if (undo.draft) await revertDraftChange(tx, userId, undo.draft, copies)
+		// The user's articles the undo is about, out of the trash. One trashed since stays whole as it
+		// went to the trash, as every change leaves it: its columns, completions and tags.
+		const named = [
+			...undo.docs.map((doc) => doc.id),
+			...undo.tagLinks.map((link) => link.documentId),
+			...(undo.removedLinks ?? []).map((link) => link.documentId),
+		]
+		const live = new Set(
+			named.length === 0
+				? []
+				: (
+						await tx
+							.select({ id: documents.id })
+							.from(documents)
+							.where(
+								and(
+									eq(documents.userId, userId),
+									inArray(documents.id, [...new Set(named)]),
+									isNull(documents.deletedAt),
+								),
+							)
+					).map((row) => row.id),
+		)
 		for (const doc of undo.docs) {
+			if (!live.has(doc.id)) continue
 			const set: Record<string, unknown> = {}
 			for (const column of DATES)
 				if (column in doc)
@@ -91,44 +116,28 @@ export async function revertChanges(userId: string, undo: UndoRecord): Promise<s
 					and(
 						eq(readingCompletions.userId, userId),
 						inArray(readingCompletions.id, undo.completions),
+						inArray(readingCompletions.documentId, [...live]),
 					),
 				)
-		if (undo.tagLinks.length > 0) {
-			const owned = tx
-				.select({ id: documents.id })
-				.from(documents)
-				.where(eq(documents.userId, userId))
-			await tx
-				.delete(documentTags)
-				.where(
-					and(
-						inArray(documentTags.documentId, owned),
-						or(
-							...undo.tagLinks.map((link) =>
-								and(
-									eq(documentTags.documentId, link.documentId),
-									eq(documentTags.tagId, link.tagId),
-								),
-							),
+		const added = undo.tagLinks.filter((link) => live.has(link.documentId))
+		if (added.length > 0) {
+			await tx.delete(documentTags).where(
+				and(
+					inArray(
+						documentTags.documentId,
+						added.map((link) => link.documentId),
+					),
+					or(
+						...added.map((link) =>
+							and(eq(documentTags.documentId, link.documentId), eq(documentTags.tagId, link.tagId)),
 						),
 					),
-				)
-			for (const link of undo.tagLinks) touched.add(link.documentId)
+				),
+			)
+			for (const link of added) touched.add(link.documentId)
 		}
 		// Tags taken off go back on, on the user's articles and tags that are still there.
 		if (undo.removedLinks && undo.removedLinks.length > 0) {
-			const owned = await tx
-				.select({ id: documents.id })
-				.from(documents)
-				.where(
-					and(
-						eq(documents.userId, userId),
-						inArray(
-							documents.id,
-							undo.removedLinks.map((l) => l.documentId),
-						),
-					),
-				)
 			const ownedTags = await tx
 				.select({ id: tags.id })
 				.from(tags)
@@ -141,9 +150,8 @@ export async function revertChanges(userId: string, undo: UndoRecord): Promise<s
 						),
 					),
 				)
-			const docIds = new Set(owned.map((d) => d.id))
 			const tagIds = new Set(ownedTags.map((t) => t.id))
-			const links = undo.removedLinks.filter((l) => docIds.has(l.documentId) && tagIds.has(l.tagId))
+			const links = undo.removedLinks.filter((l) => live.has(l.documentId) && tagIds.has(l.tagId))
 			if (links.length > 0) await tx.insert(documentTags).values(links).onConflictDoNothing()
 			for (const link of links) touched.add(link.documentId)
 		}

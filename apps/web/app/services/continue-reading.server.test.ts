@@ -44,7 +44,8 @@ beforeAll(async () => {
 		},
 		{ title: "Archived", archivedAt: new Date() },
 		{ title: "Finished", readAt: new Date() },
-		{ title: "Scrolled to end", readingProgress: 1 },
+		// Scrolled to the end without finishing (kept, or there too fast): still being read.
+		{ title: "Scrolled to end", readingProgress: 1, readingMinutes: 30 },
 		{ title: "Trashed", deletedAt: new Date() },
 		{ title: "Other owner", userId: otherId },
 		{ title: "Unread", firstOpenedAt: null, readingProgress: 0 },
@@ -89,6 +90,7 @@ describe("continue reading", () => {
 			cursor = page.nextCursor
 		} while (cursor)
 		expect(found).toEqual([
+			ids["Scrolled to end"],
 			ids["Read last"],
 			...[ids["Read just before"], ids["Same instant"]].sort().reverse(),
 			ids["Opened only"],
@@ -110,6 +112,6 @@ describe("continue reading", () => {
 			filter: "progress",
 			sort: "shortest",
 		})
-		expect(shortest.items.map((d) => d.readingMinutes)).toEqual([2, 5, 10, 12, 20])
+		expect(shortest.items.map((d) => d.readingMinutes)).toEqual([2, 5, 10, 12, 20, 30])
 	})
 })

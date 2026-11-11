@@ -4,7 +4,6 @@ import {
 	documents,
 	eq,
 	isNotNull,
-	isNull,
 	lt,
 	lte,
 	not,
@@ -16,6 +15,7 @@ import {
 import { HOME_SHELF } from "~/lib/home-shelves"
 import { REDISCOVER_AFTER_DAYS, TIME_CHOICES } from "~/lib/inbox-filters"
 import {
+	ARTICLE_IN,
 	finished,
 	INBOX_FILTER_WHERE,
 	type LibraryCard,
@@ -50,12 +50,7 @@ const again = and(INBOX_FILTER_WHERE.again, not(finished)) as SQL
 
 /** Ready articles in the reader's library. */
 function suggestable(userId: string) {
-	return and(
-		eq(documents.userId, userId),
-		isNull(documents.deletedAt),
-		isNull(documents.archivedAt),
-		eq(documents.status, "ready"),
-	)
+	return and(eq(documents.userId, userId), ARTICLE_IN.inbox, eq(documents.status, "ready"))
 }
 
 /**

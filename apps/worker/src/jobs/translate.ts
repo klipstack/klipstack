@@ -166,12 +166,19 @@ const ai = () =>
 		fake: process.env.AI_FAKE === "1" || process.env.AI_FAKE === "demo",
 	})
 
-/** Gives a translation's credits back, and marks it failed, when nothing else came after it. */
-async function fail(job: JobPayloads["translate"], userId: string) {
+/**
+ * Gives a translation's credits back, when nothing else came after it, and marks it failed; or,
+ * when a newer capture made it moot (`supersede`), as never asked for, so the reader offers it again.
+ */
+async function fail(
+	job: JobPayloads["translate"],
+	userId: string,
+	end: "fail" | "supersede" = "fail",
+) {
 	await db.transaction(async (tx) => {
 		const [doc] = await tx
 			.update(documents)
-			.set({ translationStatus: translationMachine.transitions.fail.to })
+			.set({ translationStatus: translationMachine.transitions[end].to })
 			.where(and(eq(documents.id, job.documentId), eq(documents.translationStatus, "pending")))
 			.returning({ id: documents.id })
 		if (doc) await addUsage(tx, userId, "translations", -job.credits, job.month)
@@ -271,7 +278,8 @@ export async function handleTranslate(job: JobWithMetadata<JobPayloads["translat
 				.for("update")
 			if (!live || live.translationStatus !== "pending" || live.deletedAt) return null
 			// A new capture landed meanwhile: this translates an original that is no longer the newest.
-			if ((live.originalVersionId ?? live.currentVersionId) !== sourceVersionId) return null
+			if ((live.originalVersionId ?? live.currentVersionId) !== sourceVersionId)
+				return "superseded" as const
 			const [row] = await tx
 				.select({ max: sql<number>`coalesce(max(${documentVersions.version}), 0)` })
 				.from(documentVersions)
@@ -304,9 +312,14 @@ export async function handleTranslate(job: JobWithMetadata<JobPayloads["translat
 			if (!source.imagesDone) await admitImages(tx, version!.id)
 			return version!.id
 		})
+		if (shown === "superseded") {
+			await fail(job.data, doc.userId, "supersede")
+			log.info("translate: superseded", { documentId })
+			return
+		}
 		if (!shown) {
 			await fail(job.data, doc.userId)
-			log.info("translate: superseded", { documentId })
+			log.info("translate: no longer pending, or trashed", { documentId })
 			return
 		}
 		await notifyDocumentEvent({ userId: doc.userId, documentId, kind: "ready" })

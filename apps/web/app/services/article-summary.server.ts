@@ -1,5 +1,5 @@
 import { env } from "~/lib/env.server"
-import { READ_PROGRESS } from "~/lib/inbox-filters"
+import { isFinished } from "~/lib/inbox-filters"
 import type { LibraryCard } from "./documents.server"
 
 /** How adapters (MCP, the HTTP API) describe an article, and where it opens in the app. */
@@ -26,7 +26,7 @@ export function articleSummary(card: LibraryCard) {
 		shortlisted: Boolean(card.shortlistedAt),
 		opened: Boolean(card.firstOpenedAt),
 		progress: Math.round(card.readingProgress * 100) / 100,
-		finished: Boolean(card.readAt) || card.readingProgress >= READ_PROGRESS,
+		finished: isFinished(card),
 		finishedAt: card.readAt?.toISOString() ?? null,
 		readingMinutes: card.readingMinutes,
 		status: card.status,

@@ -13,7 +13,7 @@ the state it writes (`to`).
 | Machine | Column | States | Writers |
 | --- | --- | --- | --- |
 | `extractionMachine` | `documents.status` | queued, processing, ready, failed | `packages/queue/src/admission.ts`, `apps/worker/src/jobs/extract.ts`, `apps/worker/src/publish.ts`, `apps/worker/src/jobs/sweep.ts`, `apps/web/app/services/documents.server.ts` |
-| `translationMachine` | `documents.translation_status` | null, pending, failed | `packages/queue/src/translation.ts`, `apps/worker/src/jobs/translate.ts` |
+| `translationMachine` | `documents.translation_status` | null, pending, failed | `packages/queue/src/translation.ts`, `apps/worker/src/jobs/translate.ts`, `apps/worker/src/publish.ts`, `apps/web/app/commands/translation.server.ts` |
 | `topicMachine` | `topics.status` | proposed, active, retired, removed | `apps/worker/src/topics.ts`, `apps/web/app/commands/topics.server.ts` |
 
 ```text
@@ -25,8 +25,10 @@ extraction   save ──► queued ──start──► processing ──publish
                         start also runs from processing, ready or failed (a job run again, or raced by the sweep)
 
 translation  null|failed ──request──► pending ──finish──► null
-                                          └────fail─────► failed
+                                          ├──supersede──► null (a newer capture landed meanwhile)
+                                          └────fail─────► failed ──clear──► null
              null|failed ──reuse──► null (a translation made before, shown again)
+             clear: "Use original", or a new capture read
 
 topic        propose ──► proposed ──confirm──► active ──retire──► retired
                             └──reject──► removed ◄──remove──┘
@@ -92,23 +94,35 @@ A failed resize starts nothing, neither a retry nor a new resize, until the high
 loaded again: `revalidate()`'s promise says when, not `useRevalidator().state`, which is still
 `idle` in the render that asked for it.
 
-## Lifecycles still implicit
+## Lifecycles kept in timestamps
 
 These are encoded as nullable timestamps, often with more than one column. The timestamps carry
 the time as well as the state, and readers filter on them in SQL. A status column would need a
 migration and would change the API, so they stay as they are. Their rules live in the command
-that writes them.
+that writes them. Where a state is derived from more than one column, it has one named
+definition, in TypeScript, in SQL, or both; read the state through it rather than the columns.
 
-| Lifecycle | Columns | Writes |
-| --- | --- | --- |
-| Inbox, archive, trash | `documents.archivedAt`, `deletedAt` | `apps/web/app/commands/articles.server.ts`, `services/documents.server.ts` (restore), `apps/worker/src/jobs/purge.ts` |
-| Reading | `firstOpenedAt`, `readAt`, `lastReadAt`, `readingProgress`, `readingCycle`, `reading_completions` | `commands/articles.server.ts`; "finished" is `READ_PROGRESS` in `lib/inbox-filters.ts` |
-| Editions | `publishedAt`, `republishedAt`, `unpublishedAt`, `removedAt` | `commands/editions-actions.server.ts`, `services/editions-write.server.ts`, `services/admin-reports.server.ts`; `editionState()` in `apps/web/app/lib/editions.ts` |
-| Highlight shares | `published`, `removedAt` | `commands/highlight-shares.server.ts`, `services/admin-reports.server.ts` |
-| Topic library | `topicLibraries.proposedAt`, `seenAt`, `confirmedAt`, … | `commands/topics.server.ts`, `apps/worker/src/topics.ts` (`run`) |
-| Invites | `usedAt`, `expiresAt`, `revokedAt` | `lib/invites.server.ts`, `services/admin-invites.server.ts` |
-| Feed fetching | `nextFetchAt`, `errorCount`, `lastSuccessAt` | `apps/worker/src/jobs/feeds.ts` |
-| Images | `documentVersions.imagesDone` | `packages/queue/src/admission.ts`, `apps/worker/src/jobs/images.ts` |
+| Lifecycle | Columns | Named states | Writes |
+| --- | --- | --- | --- |
+| Inbox, archive, trash | `documents.archivedAt`, `deletedAt` | `ARTICLE_IN` (inbox, archive, trash) in `services/documents.server.ts` | `apps/web/app/commands/articles.server.ts`, `services/documents.server.ts` (restore), `apps/worker/src/jobs/purge.ts` |
+| Reading | `firstOpenedAt`, `readAt`, `lastReadAt`, `readingProgress`, `readingCycle`, `reading_completions` | finished (`readAt` set, nothing else): `isFinished` in `lib/inbox-filters.ts`, `finished` (SQL) in `services/documents.server.ts` | `commands/articles.server.ts`; leaving the reader at the end finishes (`hooks/use-finish-on-leave.ts`) |
+| Editions | `publishedAt`, `republishedAt`, `unpublishedAt`, `removedAt` | `editionState()` (draft, live, unpublished, removed) in `apps/web/app/lib/editions.ts`; `liveEdition` (SQL) in `services/editions.server.ts` | `commands/editions-actions.server.ts`, `services/editions-write.server.ts`, `services/admin-reports.server.ts` |
+| Highlight shares | `published`, `removedAt` | | `commands/highlight-shares.server.ts`, `services/admin-reports.server.ts` |
+| Topic library | `topicLibraries.proposedAt`, `seenAt`, `confirmedAt`, … | `topicLibraryStage()` (proposing, proposed, confirmed) in `packages/db/src/lifecycles.ts` | `commands/topics.server.ts`, `apps/worker/src/topics.ts` (`run`) |
+| Invites | `usedAt`, `expiresAt`, `revokedAt` | `STATUS_SQL` in `services/admin-invites.server.ts`; `findUsableInvite` in `lib/invites.server.ts` | `lib/invites.server.ts`, `services/admin-invites.server.ts` |
+| Feed fetching | `nextFetchAt`, `errorCount`, `lastSuccessAt` | | `apps/worker/src/jobs/feeds.ts` |
+| Images | `documentVersions.imagesDone` | | `packages/queue/src/admission.ts`, `apps/worker/src/jobs/images.ts` |
+
+An article is finished when it has a finish date (`readAt`), and only then. "Mark as finished"
+sets it, and so does leaving the reader after reaching the end, once enough time has passed on the
+page (`secondsToFinish`). How far it was scrolled (`readingProgress`) drives the progress bar and
+records a reading at 95%, but never finishes it: the reader may have jumped to the end, chosen
+"Keep in Library", or undone the finish.
+
+An edition an admin removed is also unpublished: removal sets `unpublishedAt` as well, publishing
+refuses a removed edition, and restoring leaves it unpublished until its author publishes it again.
+`editionState()` says `removed` first; the editor and the list show it as unpublished, with the
+removal notice.
 
 ## Known gaps
 
@@ -119,10 +133,6 @@ behavior:
   check `deletedAt` again.
 - A failure kept as `ready` (`keep`) leaves its `failureReason` set; the API shows it only for
   `failed`.
-- `translationStatus: failed` stays after "Use original" and new captures; a translation
-  superseded by a newer capture is also recorded as `failed`.
 - Retiring a topic has no status guard in its update. Its callers pick active topics.
-- The web client counts an article as finished on `readAt` alone; the server also counts
-  `readingProgress >= 0.95`.
-- `editionState()` has no `removed` state, and "live edition" is checked three different ways.
-- `noteSkippedAt` is not cleared when an article is read again.
+- `noteSkippedAt` is not cleared when an article is read again: "Nothing to add" is for good
+  (`skipNote` in the SDK: "never asked for a note on it again"), until taken back.

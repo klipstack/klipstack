@@ -16,7 +16,7 @@ async function seed(userId: string) {
 		{ title: "Short new", minutes: 4 },
 		{ title: "Long new", minutes: 35 },
 		{ title: "Medium started", minutes: 15, opened: true, progress: 0.4 },
-		{ title: "Scrolled to the end", minutes: 6, opened: true, progress: 1 },
+		{ title: "Finished", minutes: 6, opened: true, progress: 1, finished: true },
 		{ title: "A post on X", minutes: 1, url: "https://x.com/someone/status/123", post: true },
 		{ title: "An article on X", minutes: 3, url: "https://x.com/someone/status/456" },
 	]
@@ -30,6 +30,7 @@ async function seed(userId: string) {
 			type: d.post ? ("post" as const) : ("article" as const),
 			readingMinutes: d.minutes,
 			readingProgress: d.progress ?? 0,
+			readAt: d.finished ? new Date() : null,
 			firstOpenedAt: d.opened ? new Date() : null,
 			createdAt: new Date(base + i * 1000),
 		})),
@@ -86,7 +87,7 @@ test("inbox filters, sort, and archiving everything read", async ({ page }) => {
 		.toEqual([
 			"Long new",
 			"Medium started",
-			"Scrolled to the end",
+			"Finished",
 			"Short new",
 			"An article on X",
 			"A post on X",
@@ -95,12 +96,12 @@ test("inbox filters, sort, and archiving everything read", async ({ page }) => {
 	// read ones go in one go, and come back with undo
 	await filters.getByRole("link", { name: /^Read/ }).click()
 	await expect(page).toHaveURL(/show=read&sort=longest/)
-	await expect.poll(() => titles(page)).toEqual(["Scrolled to the end"])
+	await expect.poll(() => titles(page)).toEqual(["Finished"])
 	await page.getByRole("button", { name: "Archive all read" }).click()
 	await expect(page.getByText("1 article archived")).toBeVisible()
 	await expect(page.getByText("Nothing here right now.")).toBeVisible()
 	await page.getByRole("button", { name: "Undo" }).click()
-	await expect.poll(() => titles(page)).toEqual(["Scrolled to the end"])
+	await expect.poll(() => titles(page)).toEqual(["Finished"])
 	expect(badgeCalls.every((action) => action === "clear")).toBe(true)
 })
 

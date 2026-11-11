@@ -576,7 +576,7 @@ describe("writes", () => {
 				readingProgress: 0.4,
 			})
 			const done = await article("Done", { firstOpenedAt: now, readAt: now, readingProgress: 1 })
-			// Scrolled to the end counts as read, without "finished".
+			// Scrolled to the end without finishing (kept, or there too fast): still in progress.
 			const scrolled = await article("Scrolled", { firstOpenedAt: now, readingProgress: 0.97 })
 			await article("Archived done", { archivedAt: now, readAt: now, readingProgress: 1 })
 			await article("Archived starred", { archivedAt: now, starredAt: now })
@@ -587,10 +587,10 @@ describe("writes", () => {
 			await db.update(documents).set({ readAt: now }).where(eq(documents.id, theirs))
 
 			expect((await client.articles.counts()).counts).toEqual({
-				progress: 1,
+				progress: 2,
 				unread: 1,
 				again: 0,
-				read: 2,
+				read: 1,
 				quick: 1,
 				long: 1,
 				x: 0,
@@ -616,12 +616,18 @@ describe("writes", () => {
 				code: "not_found",
 			})
 
+			// The API says so too: scrolled to the end, not finished.
+			expect((await client.articles.list()).items.find((a) => a.id === scrolled)).toMatchObject({
+				finished: false,
+				finishedAt: null,
+				progress: 0.97,
+			})
 			const archived = await client.articles.archiveRead()
-			expect(archived.archived.toSorted()).toEqual([done, scrolled].toSorted())
+			expect(archived.archived).toEqual([done])
 			expect(archived.undo).toHaveLength(1)
-			expect((await client.articles.counts()).counts).toMatchObject({ read: 0, progress: 1 })
+			expect((await client.articles.counts()).counts).toMatchObject({ read: 0, progress: 2 })
 			expect((await client.articles.list()).items.map((a) => a.id).toSorted()).toEqual(
-				[unread, started].toSorted(),
+				[unread, started, scrolled].toSorted(),
 			)
 			const [stillTrashed, stillTheirs] = await Promise.all(
 				[trashed, theirs].map((doc) =>
@@ -636,12 +642,9 @@ describe("writes", () => {
 			// Undo puts them back in the library, still read.
 			const undone = await client.articles.undo(archived.undo[0]!)
 			expect(undone.items.map((a) => [a.id, a.location, a.finished]).toSorted()).toEqual(
-				[
-					[done, "inbox", true],
-					[scrolled, "inbox", true],
-				].toSorted(),
+				[[done, "inbox", true]].toSorted(),
 			)
-			expect((await client.articles.counts()).counts).toMatchObject({ read: 2 })
+			expect((await client.articles.counts()).counts).toMatchObject({ read: 1 })
 			expect((await client.articles.archiveRead()).undo).toHaveLength(1)
 			expect(await client.articles.archiveRead()).toEqual({ archived: [], undo: [] })
 

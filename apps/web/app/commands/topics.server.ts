@@ -15,6 +15,7 @@ import {
 	inArray,
 	isNull,
 	topicLibraries,
+	topicLibraryStage,
 	topicMachine,
 	topicSorts,
 	topics,
@@ -173,8 +174,10 @@ export async function confirmTopics(userId: string, input: ConfirmationInput): P
 			.from(topicLibraries)
 			.where(eq(topicLibraries.userId, userId))
 			.for("update")
-		if (!library?.proposedAt) throw notFound("No topics are waiting to be confirmed.")
-		if (library.confirmedAt) throw new AppError("already_done", "The topics are confirmed already.")
+		const stage = library ? topicLibraryStage(library) : null
+		if (!library || stage === "proposing") throw notFound("No topics are waiting to be confirmed.")
+		if (stage === "confirmed")
+			throw new AppError("already_done", "The topics are confirmed already.")
 		const proposed = await tx
 			.select({ id: topics.id, name: topics.name })
 			.from(topics)

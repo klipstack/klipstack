@@ -11,6 +11,7 @@ import { env } from "~/lib/env.server"
 import type { EditionRow, EditionSnapshot } from "~/services/editions.server"
 import { loader as cardLoader } from "./edition.og"
 import { headers, loader, meta } from "./edition.public"
+import { loader as reportLoader } from "./edition.report"
 
 vi.mock("~/lib/i18n.server", async () => {
 	const { createInstance } = await import("i18next")
@@ -140,6 +141,38 @@ describe("the public edition page", () => {
 		expect((await failure(`/e/${live.publicId}/renamed`)).status).toBe(410)
 		await publishEdition(userId, live.id)
 		expect((await load(`/e/${live.publicId}/renamed`)).view.title).toBe("Renamed")
+	})
+
+	it("says so when an admin removed it, on the page and the report form, and the card is gone", async () => {
+		// As the admin's removal and restore write it (services/admin-reports.server.ts).
+		const set = (values: Partial<typeof editions.$inferInsert>) =>
+			db.update(editions).set(values).where(eq(editions.id, live.id))
+		const thrown = (run: Promise<unknown>) =>
+			run.then(
+				() => null,
+				(error: { data?: unknown; init?: { status?: number } }) => ({
+					status: error.init?.status,
+					data: error.data,
+				}),
+			)
+		const report = () => reportLoader({ params: { publicId: live.publicId }, context: {} } as never)
+		try {
+			await set({ removedAt: new Date(), unpublishedAt: new Date() })
+			expect(await thrown(load(`/e/${live.publicId}/x`))).toEqual({
+				status: 410,
+				data: { removed: true },
+			})
+			expect(await thrown(report())).toEqual({ status: 410, data: { removed: true } })
+			expect(
+				(await thrown(cardLoader({ params: { publicId: live.publicId } } as never)))?.status,
+			).toBe(410)
+			// Restored, it stays down as its author left it, until they publish it again.
+			await set({ removedAt: null })
+			expect(await thrown(load(`/e/${live.publicId}/x`))).toEqual({ status: 410, data: null })
+			expect(await thrown(report())).toEqual({ status: 410, data: null })
+		} finally {
+			await set({ removedAt: null, unpublishedAt: null })
+		}
 	})
 
 	it("shows at most 100 words or 600 characters of each note, and keeps the whole for its owner", async () => {

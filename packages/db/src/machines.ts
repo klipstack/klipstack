@@ -9,8 +9,8 @@ import { topicStatus } from "./schema/topics"
  * a literal, so a search for the transition finds every writer (`pnpm lint`:
  * `klipstack/status-through-machine`). A `from` lists where the move can happen in the running
  * system; the writer's own guards (row locks, `where status = …`) are what enforce it, and `can`
- * asks the same question in code. docs/development/state-machines.md lists these machines and the
- * lifecycles still implicit (nullable timestamps, client state).
+ * asks the same question in code. docs/development/state-machines.md lists these machines, and the
+ * lifecycles kept in nullable timestamps (`lifecycles.ts` and others) or in client state.
  */
 export interface Machine<S, E extends string> {
 	readonly states: readonly S[]
@@ -81,8 +81,12 @@ export const translationMachine = machine({
 		reuse: { from: [null, "failed"], to: null },
 		/** The translation is shown. */
 		finish: { from: ["pending"], to: null },
-		/** Out of attempts, superseded by a newer capture, trashed, or its job lost (the sweep). */
+		/** A newer capture landed meanwhile: nothing failed, the reader may ask again. */
+		supersede: { from: ["pending"], to: null },
+		/** Out of attempts, trashed, or its job lost (the sweep). */
 		fail: { from: ["pending"], to: "failed" },
+		/** A failure put behind: the original shown again ("Use original"), or a new capture read. */
+		clear: { from: ["failed"], to: null },
 	},
 })
 

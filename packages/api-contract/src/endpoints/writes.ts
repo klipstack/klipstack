@@ -282,7 +282,7 @@ export const setPosition = defineEndpoint({
 	path: "/articles/:id/position",
 	scope: "write",
 	summary:
-		"Saves where the reader is, 0–1 of the article's height. Progress keeps the furthest point; from 0.95 the article counts as read (not finished). With `cycle`, a save from an earlier reading cycle changes nothing. With `listened`, the article was read aloud to this point: reaching the end counts as listened to.",
+		"Saves where the reader is, 0–1 of the article's height. Progress keeps the furthest point; from 0.95 a reading is recorded, but the article is not finished: only a finish date makes it so (`finished: true`, or leaving the reader at the end). With `cycle`, a save from an earlier reading cycle changes nothing. With `listened`, the article was read aloud to this point: reaching the end counts as listened to.",
 	params,
 	body: z.object({
 		position: z.number().min(0).max(1),

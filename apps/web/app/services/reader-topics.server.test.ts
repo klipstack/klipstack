@@ -142,19 +142,24 @@ describe("an article's topics in the reader", () => {
 		// Finished, archived, trashed, taken out of the topic, or only suggested for it: not on it.
 		for (const state of [
 			{ readAt: new Date() },
-			{ readingProgress: 0.95 },
 			{ archivedAt: new Date() },
 			{ deletedAt: new Date() },
 		])
 			await place(await article("Done", state), [[growth, 0.9]])
 		await place(await article("Taken out"), [[growth, 0.9]], [growth])
 		await place(await article("Nearly"), [[growth, 0.5]])
+		// Scrolled to the end without a finish date: unfinished, so it counts as unread here. As far
+		// as Fourth, to leave the shelf's order alone.
+		await place(await article("Scrolled to the end", { readingProgress: 0.95 }), [
+			[growth, 0.6],
+			[science, 0.95],
+		])
 
 		const { shelf } = await readerTopics(userId, open)
 
 		expect(shelf).toEqual({
 			topic: { id: growth, name: "Personal Growth" },
-			unread: 7,
+			unread: 8,
 			items: [
 				{
 					id: twin,

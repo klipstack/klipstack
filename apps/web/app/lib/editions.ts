@@ -172,14 +172,20 @@ export function nudgeReason(signals: EditionSignals): NudgeReason | null {
 	return null
 }
 
-/** Derived from the dates: a draft until published, then live until unpublished. */
-export type EditionState = "draft" | "live" | "unpublished"
+/**
+ * Derived from the dates: a draft until published, then live until its author unpublishes it or an
+ * admin removes it. Removed wins: removing also unpublishes, and restoring leaves it unpublished.
+ * `liveEdition` (services/editions.server.ts) is the same "live" in SQL.
+ */
+export type EditionState = "draft" | "live" | "unpublished" | "removed"
 
 export function editionState(edition: {
 	publishedAt: Date | null
 	unpublishedAt: Date | null
+	removedAt: Date | null
 }): EditionState {
 	if (!edition.publishedAt) return "draft"
+	if (edition.removedAt) return "removed"
 	return edition.unpublishedAt ? "unpublished" : "live"
 }
 

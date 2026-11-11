@@ -1,5 +1,6 @@
 import { and, count, db, documents, eq, isNull, sql } from "@klipstack/db"
 import { homeShelves, TIME_FILTER_MIN } from "~/lib/home-shelves"
+import { ARTICLE_IN } from "./documents.server"
 import { homeFeedItems } from "./feeds.server"
 import { countUnfinished, homeCandidates } from "./reading-suggestions.server"
 import { reviewSuggested } from "./review.server"
@@ -42,9 +43,9 @@ async function homeEmptyState(userId: string) {
 	const [state] = await db
 		.select({
 			saved: count(),
-			library: sql<number>`count(*) filter (where ${documents.archivedAt} is null)::int`,
-			pending: sql<number>`count(*) filter (where ${documents.archivedAt} is null and ${documents.status} in ('queued', 'processing'))::int`,
-			failed: sql<number>`count(*) filter (where ${documents.archivedAt} is null and ${documents.status} = 'failed')::int`,
+			library: sql<number>`count(*) filter (where ${ARTICLE_IN.inbox})::int`,
+			pending: sql<number>`count(*) filter (where ${ARTICLE_IN.inbox} and ${documents.status} in ('queued', 'processing'))::int`,
+			failed: sql<number>`count(*) filter (where ${ARTICLE_IN.inbox} and ${documents.status} = 'failed')::int`,
 		})
 		.from(documents)
 		.where(and(eq(documents.userId, userId), isNull(documents.deletedAt)))
