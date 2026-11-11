@@ -64,7 +64,14 @@ export default function DeleteAccount() {
 			})
 			return
 		}
-		await accountDeleted()
+		try {
+			await accountDeleted()
+		} catch (e) {
+			// Gone on the server, still here: said, and the screen gives way.
+			setBusy(false)
+			setError({ message: errorMessage(e) })
+			return
+		}
 		Alert.alert(t("account.delete.deletedTitle"), t("account.delete.deletedMessage"))
 	}
 
