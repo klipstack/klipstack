@@ -17,7 +17,6 @@ import Svg, { Path } from "react-native-svg"
 import { errorMessage, t } from "@/lib/i18n"
 import {
 	completeTwoFactor,
-	type PendingSignIn,
 	SignInError,
 	sendSignInCode,
 	signInOptions,
@@ -27,9 +26,10 @@ import {
 	TwoFactorRequired,
 } from "@/lib/oauth"
 import type { Session } from "@/lib/session-store"
+import { type SignIn, type SignInEvent, signInStart, signInTransition } from "@/lib/sign-in-machine"
 import { useColors } from "@/lib/theme"
 
-type Busy = "apple" | "google" | "github" | "email" | "code" | "twoFactor" | null
+type Busy = "apple" | "google" | "github" | "email" | "code" | "twoFactor"
 
 /** Until the server says, the email and password only. */
 const NO_OPTIONS: AppSignInOptions = { providers: [], emailCode: false }
@@ -56,68 +56,61 @@ export function SignInForm({
 	const [email, setEmail] = useState("")
 	const [password, setPassword] = useState("")
 	const [code, setCode] = useState("")
-	// After "Email me a code": the code goes where the password went.
-	const [codeSentTo, setCodeSentTo] = useState<string | null>(null)
-	const [busy, setBusy] = useState<Busy>(null)
-	const [error, setError] = useState<string | null>(null)
-	const passwordField = useRef<TextInputInstance>(null)
-	// Two-factor authentication: a way in checked out, and the sign-in waits for the app's code.
-	const [pending, setPending] = useState<PendingSignIn | null>(null)
 	const [secondCode, setSecondCode] = useState("")
+	const passwordField = useRef<TextInputInstance>(null)
+	const { state, send } = useSignInMachine<Busy>()
+	const { busy, error } = state
 
-	async function run(kind: Exclude<Busy, null>, signIn: () => Promise<Session | null>) {
-		setBusy(kind)
-		setError(null)
+	async function run(kind: Busy, signIn: () => Promise<Session | null>) {
+		if (!send({ type: "start", kind })) return
 		try {
 			const session = await signIn()
 			if (session) await onSession(session)
+			send({ type: "finished" })
 		} catch (e) {
 			if (e instanceof TwoFactorRequired) {
-				setPending(e.pending)
 				setSecondCode("")
+				send({ type: "twoFactorRequired", pending: e.pending })
 			} else if (kind === "twoFactor" && e instanceof SignInError && e.code === "unauthorized") {
 				// A wrong code, not a lost session: the step stays.
-				setError(t("account.signIn.twoFactorWrong"))
+				send({ type: "failed", message: t("account.signIn.twoFactorWrong") })
 			} else if (e instanceof SignInError && e.code === "reauthentication_required") {
 				// Too long, or too many tries: the sign-in is over, and starts again.
-				setPending(null)
-				setError(t("account.signIn.twoFactorEnded"))
+				send({ type: "ended", message: t("account.signIn.twoFactorEnded") })
 			} else {
-				setError(errorMessage(e))
+				send({ type: "failed", message: errorMessage(e) })
 			}
-		} finally {
-			setBusy(null)
 		}
 	}
 
 	function submitSecondCode() {
-		if (!pending || !secondCode.trim() || busy) return
+		if (state.step !== "twoFactor" || !secondCode.trim()) return
+		const { pending } = state
 		void run("twoFactor", () => completeTwoFactor(pending, secondCode))
 	}
 
 	const trimmed = email.trim()
+	const codeSentTo = state.step === "credentials" ? state.codeSentTo : null
 	const withCode = codeSentTo !== null
 	const ready = trimmed.includes("@") && (withCode ? code.length > 0 : password.length > 0)
 
 	function submit() {
-		if (!ready || busy) return
+		if (!ready) return
 		if (withCode)
 			return run("email", () => signInWith(apiUrl, { method: "code", email: trimmed, code }))
 		void run("email", () => signInWith(apiUrl, { method: "password", email: trimmed, password }))
 	}
 
 	async function emailCode() {
-		if (!trimmed.includes("@")) return setError(t("account.signIn.enterEmail"))
-		setBusy("code")
-		setError(null)
+		if (!trimmed.includes("@"))
+			return send({ type: "invalid", message: t("account.signIn.enterEmail") })
+		if (!send({ type: "start", kind: "code" })) return
 		try {
 			await sendSignInCode(apiUrl, trimmed)
-			setCodeSentTo(trimmed)
 			setCode("")
+			send({ type: "codeSent", email: trimmed })
 		} catch (e) {
-			setError(errorMessage(e))
-		} finally {
-			setBusy(null)
+			send({ type: "failed", message: errorMessage(e) })
 		}
 	}
 
@@ -134,7 +127,7 @@ export function SignInForm({
 				contentInsetAdjustmentBehavior="automatic"
 			>
 				{header}
-				{pending ? (
+				{state.step === "twoFactor" ? (
 					<>
 						<Text style={[styles.buttonText, { color: colors.fg }]}>
 							{t("account.signIn.twoFactorTitle")}
@@ -183,10 +176,7 @@ export function SignInForm({
 							<Pressable
 								accessibilityRole="button"
 								disabled={busy !== null}
-								onPress={() => {
-									setPending(null)
-									setError(null)
-								}}
+								onPress={() => send({ type: "back" })}
 								hitSlop={8}
 							>
 								<Text style={[styles.link, { color: colors.accent }]}>
@@ -216,7 +206,7 @@ export function SignInForm({
 							value={email}
 							onChangeText={(text) => {
 								setEmail(text)
-								if (codeSentTo && text.trim() !== codeSentTo) setCodeSentTo(null)
+								send({ type: "emailChanged", email: text })
 							}}
 							placeholder={t("account.signIn.email")}
 							placeholderTextColor={colors.mutedFg}
@@ -313,7 +303,7 @@ export function SignInForm({
 									<Pressable
 										accessibilityRole="button"
 										disabled={busy !== null}
-										onPress={() => setCodeSentTo(null)}
+										onPress={() => send({ type: "usePassword" })}
 										hitSlop={8}
 									>
 										<Text style={[styles.link, { color: colors.accent }]}>
@@ -352,6 +342,24 @@ export function SignInForm({
 			</ScrollView>
 		</KeyboardAvoidingView>
 	)
+}
+
+/**
+ * The sign-in's step, what runs and what went wrong (`sign-in-machine.ts`). `send` is false when
+ * the event changed nothing: a tap while something runs. Read through a ref, as two taps can come
+ * before a render.
+ */
+export function useSignInMachine<K extends string>() {
+	const [state, setState] = useState<SignIn<K>>(signInStart)
+	const machine = useRef(state)
+	function send(event: SignInEvent<K>): boolean {
+		const next = signInTransition(machine.current, event)
+		if (next === machine.current) return false
+		machine.current = next
+		setState(next)
+		return true
+	}
+	return { state, send }
 }
 
 /** The ways in the server at `apiUrl` offers; until it answers, the email and password only. */
