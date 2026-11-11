@@ -5,8 +5,8 @@ packages:
 # found and pulled within days. To take an urgent security fix sooner, list the package below.
 minimumReleaseAge: 10080
 minimumReleaseAgeExclude:
-  # GHSA-7wch-p9px-956x and eight others (published 2026-10-30). Remove once 1.4.2 is a week old (2026-11-03).
-  - node-forge@1.4.2
+  # GHSA-w4xr-hqv8-ch44 and two others (published 2026-11-10). Remove once 1.4.3 is a week old (2026-11-11).
+  - node-forge@1.4.3
 overrides:
   "@esbuild-kit/core-utils>esbuild": "0.25.12"
   "@jimp/core>phin": "3.7.1"
@@ -14,8 +14,8 @@ overrides:
   "@expo/plist@0.0.18>@xmldom/xmldom": "^0.8.15"
   "@bacons/xcode>uuid": "^11.1.1"
   "xcode>uuid": "^11.1.1"
-  # The Expo CLI (and its code signing) allows node-forge 1.4.0, which has advisories fixed in 1.4.1.
-  "node-forge@<1.4.1": "^1.4.2"
+  # The Expo CLI (and its code signing) allows node-forge 1.4.0, which has advisories fixed in 1.4.3.
+  "node-forge@<1.4.3": "^1.4.3"
 auditConfig:
   ignoreGhsas:
     # glob through Expo's config tooling: an aborted walk keeps reading. Expo never passes a signal.
