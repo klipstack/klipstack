@@ -5,16 +5,7 @@ import {
 } from "@klipstack/api-contract/enums"
 import { router, Stack } from "expo-router"
 import { useCallback, useEffect, useMemo, useState } from "react"
-import {
-	ActivityIndicator,
-	Alert,
-	FlatList,
-	Pressable,
-	RefreshControl,
-	StyleSheet,
-	Text,
-	View,
-} from "react-native"
+import { Alert, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native"
 import { useImageHeaders } from "@/components/article-card"
 import { noteLinking } from "@/components/note-field"
 import {
@@ -27,6 +18,7 @@ import {
 } from "@/components/notebook-cards"
 import { NotebookWall } from "@/components/notebook-mini"
 import { usePagedList } from "@/components/paged-list"
+import { PagedListFooter } from "@/components/paged-list-footer"
 import { useShareSheet } from "@/components/share-sheet"
 import { useAuth } from "@/lib/auth"
 import { offerHighlightUndo } from "@/lib/highlight-undo"
@@ -295,9 +287,7 @@ export default function Notebook() {
 
 	// Zoomed out, the wall's cards; built again only when the list or the opened articles change.
 	const tiles = useMemo(() => (zoomed ? zoomTiles(items ?? [], open) : []), [zoomed, items, open])
-	const footer = list.loadingMore ? (
-		<ActivityIndicator style={styles.more} color={colors.mutedFg} />
-	) : null
+	const footer = <PagedListFooter list={list} />
 
 	const empty = blank ? (
 		<View style={styles.blank}>
@@ -547,7 +537,6 @@ const styles = StyleSheet.create({
 	cardGap: { height: 20 },
 	topicGap: { height: 40 },
 	empty: { padding: 32, textAlign: "center", fontSize: 16, lineHeight: 22 },
-	more: { paddingVertical: 20 },
 	blank: { alignItems: "center", gap: 12, paddingTop: 48, paddingHorizontal: 24 },
 	blankTitle: { marginTop: 16, fontSize: 18, fontWeight: "600" },
 	blankText: { fontSize: 15, lineHeight: 21, textAlign: "center" },

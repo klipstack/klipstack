@@ -4,15 +4,7 @@ import type { ArticleSummary } from "@klipstack/sdk"
 import { Stack, useFocusEffect } from "expo-router"
 import type { NativeStackHeaderItem } from "expo-router/native-stack"
 import { useCallback, useMemo, useRef, useState } from "react"
-import {
-	ActivityIndicator,
-	AppState,
-	Pressable,
-	RefreshControl,
-	StyleSheet,
-	Text,
-	View,
-} from "react-native"
+import { AppState, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native"
 import { useArticleActions } from "@/components/article-actions"
 import { ArticleList, type CardMenu, useImageHeaders } from "@/components/article-card"
 import { EmptyDrawing, type EmptyDrawingName } from "@/components/empty-drawing"
@@ -21,6 +13,7 @@ import { listMenuItem, useFilterChoice, useTopicChoice } from "@/components/list
 import { useListMotion } from "@/components/list-motion"
 import { useMultiSelect } from "@/components/multi-select"
 import { usePagedList } from "@/components/paged-list"
+import { PagedListFooter } from "@/components/paged-list-footer"
 import { SELECTION_BAR_SPACE, SelectionBar } from "@/components/selection-bar"
 import { HeaderButtons, HeaderTextButton, SaveLinkButton } from "@/components/tab-stack"
 import { useTagSheet } from "@/components/tag-sheet"
@@ -449,11 +442,7 @@ export function LibraryList({
 						) : null}
 					</>
 				}
-				ListFooterComponent={
-					list.loadingMore ? (
-						<ActivityIndicator style={styles.more} color={colors.mutedFg} />
-					) : undefined
-				}
+				ListFooterComponent={<PagedListFooter list={list} />}
 				ListEmptyComponent={
 					<View style={styles.emptyPage}>
 						{/* The place itself, empty, or for Starred the stars still unused, as the web's. */}
@@ -552,7 +541,6 @@ const styles = StyleSheet.create({
 	empty: { padding: 32, textAlign: "center", fontSize: 16 },
 	// In line with the articles: the list has their margin already.
 	banner: { paddingVertical: 10, fontSize: 14 },
-	more: { paddingVertical: 20 },
 	topic: { paddingTop: 4, paddingBottom: 12, gap: 4 },
 	topicName: { fontSize: 17, fontWeight: "600" },
 	topicText: { fontSize: 15, lineHeight: 20 },
