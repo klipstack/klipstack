@@ -26,8 +26,11 @@ import { fromStored } from "@/lib/note-field"
 import { tiltFor } from "@/lib/post-it"
 import { loadShareTab, saveShareTab, writeShareImage } from "@/lib/reader-files"
 import {
+	LINK_LOOKING,
 	linkErrorMessage,
 	linkStale,
+	type PublicLinkEvent,
+	publicLinkTransition,
 	REMOVED,
 	SHARE_TABS,
 	type ShareTab,
@@ -584,64 +587,73 @@ function Action({
 type LinkChange = { share: { includeNote: boolean; locale: "en" | "es" } } | "stop"
 
 /**
- * The highlight's public link: undefined while it is looked up, then live, removed or null, with
- * what changes it. A failed change leaves the link as it was, and says why.
+ * The highlight's public link (`PublicLink` in share-highlight.ts), with what changes it. A failed
+ * change leaves the link as it was, and says why.
  */
 function usePublicLink(
 	client: KlipstackClient | null,
 	id: string,
 	onShared: (shared: boolean) => void,
 ) {
-	const [share, setShare] = useState<HighlightShare | undefined>(undefined)
-	const [busy, setBusy] = useState(false)
-	const [error, setError] = useState<string | null>(null)
+	// Read and changed through the ref: answers arrive between renders, and after the sheet closed.
+	const machine = useRef(LINK_LOOKING)
+	const [state, setState] = useState(LINK_LOOKING)
+	const mounted = useRef(true)
+	useEffect(() => {
+		mounted.current = true
+		return () => {
+			mounted.current = false
+		}
+	}, [])
 	const heard = useRef(onShared)
 	useEffect(() => {
 		heard.current = onShared
 	})
+	function send(event: PublicLinkEvent): boolean {
+		const next = publicLinkTransition(machine.current, event)
+		if (next === machine.current) return false
+		machine.current = next
+		if (mounted.current) setState(next)
+		return true
+	}
 	useEffect(() => {
 		if (!client) return
 		let live = true
-		client.highlights
-			.getShare(id)
-			.then((answer) => live && setShare(answer.share))
+		client.highlights.getShare(id).then(
+			(answer) => live && send({ type: "found", share: answer.share }),
 			// Unknown: the Link tab offers to create one, and the server says if it can't.
-			.catch(() => live && setShare(null))
+			() => live && send({ type: "found", share: null }),
+		)
 		return () => {
 			live = false
 		}
 	}, [client, id])
 	const change = (what: LinkChange) => {
 		if (!client) return
-		setBusy(true)
-		setError(null)
+		const wasLive = isLive(machine.current.share)
+		if (!send({ type: "start" })) return
 		const run =
 			what === "stop"
 				? client.highlights.stopSharing(id).then(() => null)
 				: client.highlights.share(id, what.share).then((answer) => answer.share)
-		// Heard only when it starts or stops being shared: an update changes neither.
-		const wasLive = !!share && !share.removed
+		// Heard only when it starts or stops being shared, even with the sheet closed: an update
+		// changes neither.
 		run
 			.then((next: HighlightShare) => {
-				setShare(next)
-				const live = next !== null && !next.removed
-				if (live !== wasLive) heard.current(live)
+				send({ type: "done", share: next })
+				if (isLive(next) !== wasLive) heard.current(isLive(next))
 			})
 			.catch((e: unknown) => {
 				const code = e instanceof KlipstackApiError ? e.code : null
-				// Stopped elsewhere already (the web, another phone): it is not shared, as asked.
-				if (what === "stop" && code === "not_found") {
-					setShare(null)
-					if (wasLive) heard.current(false)
-					return
-				}
-				if (code === "share_removed") setShare({ removed: true })
-				setError(code ?? "failed")
+				send({ type: "failed", stop: what === "stop", code })
+				// Stopped elsewhere already: not shared, as asked.
+				if (what === "stop" && code === "not_found" && wasLive) heard.current(false)
 			})
-			.finally(() => setBusy(false))
 	}
-	return { share, busy, error, change }
+	return { share: state.share, busy: state.busy, error: state.error, change }
 }
+
+const isLive = (share: HighlightShare | undefined) => !!share && !share.removed
 
 /**
  * The original address of each article the note links to, by id: shared, its links go there

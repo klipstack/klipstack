@@ -64,7 +64,14 @@ export default function DeleteAccount() {
 			})
 			return
 		}
-		await accountDeleted()
+		try {
+			await accountDeleted()
+		} catch (e) {
+			// Gone on the server, but not forgotten on the phone: said, rather than a spinner for good.
+			setBusy(false)
+			setError({ message: errorMessage(e) })
+			return
+		}
 		Alert.alert(t("account.delete.deletedTitle"), t("account.delete.deletedMessage"))
 	}
 

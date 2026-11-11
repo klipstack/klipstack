@@ -48,3 +48,53 @@ export function linkErrorMessage(code: string | null): string {
 }
 
 export const REMOVED = t("reader.share.removed")
+
+/**
+ * The highlight's public link, in the Share sheet: `share` undefined while it is looked up, then
+ * live, removed or null. `busy` while a change (create, update, stop) runs: one at a time. `changed`
+ * once one was made: the lookup's answer, if it comes after, is older.
+ */
+export type PublicLink = {
+	share: HighlightShare | undefined
+	busy: boolean
+	error: string | null
+	changed: boolean
+}
+
+export const LINK_LOOKING: PublicLink = {
+	share: undefined,
+	busy: false,
+	error: null,
+	changed: false,
+}
+
+export type PublicLinkEvent =
+	/** The lookup answered: null when it failed (the Link tab offers to create one). */
+	| { type: "found"; share: HighlightShare }
+	/** A change starts: refused while another runs. */
+	| { type: "start" }
+	| { type: "done"; share: HighlightShare }
+	/** `stop`: the change was to stop sharing. `code`: the API's error code, if any. */
+	| { type: "failed"; stop: boolean; code: string | null }
+
+/** The next state. Pure; an event that changes nothing returns the same state. */
+export function publicLinkTransition(state: PublicLink, event: PublicLinkEvent): PublicLink {
+	switch (event.type) {
+		case "found":
+			return state.changed ? state : { ...state, share: event.share }
+		case "start":
+			if (state.busy) return state
+			return { ...state, busy: true, error: null, changed: true }
+		case "done":
+			return { ...state, busy: false, share: event.share }
+		case "failed":
+			// Stopped elsewhere already (the web, another phone): it is not shared, as asked.
+			if (event.stop && event.code === "not_found") return { ...state, busy: false, share: null }
+			return {
+				...state,
+				busy: false,
+				share: event.code === "share_removed" ? { removed: true } : state.share,
+				error: event.code ?? "failed",
+			}
+	}
+}

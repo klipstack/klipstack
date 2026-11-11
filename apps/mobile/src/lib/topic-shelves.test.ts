@@ -306,6 +306,6 @@ describe("topicRefusal", () => {
 		expect(topicRefusal(refused("invalid_request"))).toBe("A topic name has 1 to 60 characters.")
 		expect(topicRefusal(refused("already_done"))).toBe("Your topics are confirmed already.")
 		expect(topicRefusal(refused("unavailable"))).toBe("Topics are not set up on this server.")
-		expect(topicRefusal(new Error("Network request failed"))).toBe("Network request failed")
+		expect(topicRefusal(new Error("Something odd"))).toBe("Something odd")
 	})
 })

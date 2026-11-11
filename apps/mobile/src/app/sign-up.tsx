@@ -11,7 +11,12 @@ import {
 	View,
 	type TextInputInstance,
 } from "react-native"
-import { ProviderButtons, styles, useSignInOptions } from "@/components/sign-in-form"
+import {
+	ProviderButtons,
+	styles,
+	useSignInMachine,
+	useSignInOptions,
+} from "@/components/sign-in-form"
 import { useAuth } from "@/lib/auth"
 import { errorMessage, t } from "@/lib/i18n"
 import {
@@ -26,7 +31,7 @@ import type { Session } from "@/lib/session-store"
 import { useColors } from "@/lib/theme"
 import { openOnTheWeb } from "@/lib/web-pages"
 
-type Busy = "apple" | "google" | "github" | "send" | "create" | null
+type Busy = "apple" | "google" | "github" | "send" | "create"
 
 /**
  * Creating an account in the app (`/app/sign-up`): the invite first, unless the server's sign-up
@@ -46,9 +51,10 @@ export default function SignUpScreen() {
 	const [email, setEmail] = useState("")
 	const [password, setPassword] = useState("")
 	const [code, setCode] = useState("")
-	const [codeSentTo, setCodeSentTo] = useState<string | null>(null)
-	const [busy, setBusy] = useState<Busy>(null)
-	const [error, setError] = useState<string | null>(null)
+	// Sign-up has no code step of its own: it stays on `credentials`.
+	const { state, send } = useSignInMachine<Busy>()
+	const { busy, error } = state
+	const codeSentTo = state.step === "credentials" ? state.codeSentTo : null
 	const emailField = useRef<TextInputInstance>(null)
 	const passwordField = useRef<TextInputInstance>(null)
 
@@ -56,18 +62,19 @@ export default function SignUpScreen() {
 	const trimmedEmail = email.trim()
 	const invite: Invite = needsInvite ? { inviteCode: inviteCode.trim() } : {}
 
-	async function run(kind: Exclude<Busy, null>, step: () => Promise<Session | null | undefined>) {
-		if (needsInvite && !inviteCode.trim()) return setError(t("account.signUp.enterInvite"))
-		setBusy(kind)
-		setError(null)
+	async function run(kind: Busy, step: () => Promise<Session | null | undefined>) {
+		if (needsInvite && !inviteCode.trim())
+			return send({ type: "invalid", message: t("account.signUp.enterInvite") })
+		if (!send({ type: "start", kind })) return
 		try {
 			const session = await step()
 			if (session) await signIn(session)
+			send({ type: "finished" })
 		} catch (e) {
 			// Apple's ID belongs to an account with two-factor on: its code step is the sign-in's.
-			setError(e instanceof TwoFactorRequired ? t("account.signUp.twoFactor") : errorMessage(e))
-		} finally {
-			setBusy(null)
+			const message =
+				e instanceof TwoFactorRequired ? t("account.signUp.twoFactor") : errorMessage(e)
+			send({ type: "failed", message })
 		}
 	}
 
@@ -75,19 +82,22 @@ export default function SignUpScreen() {
 	const ready = details && (codeSentTo === null || code.length === APP_SIGN_IN_CODE_LENGTH)
 
 	function sendCode() {
-		if (!details || busy) return
+		if (!details) return
 		if (password.length < MIN_PASSWORD_LENGTH)
-			return setError(t("account.signUp.passwordShort", { min: MIN_PASSWORD_LENGTH }))
+			return send({
+				type: "invalid",
+				message: t("account.signUp.passwordShort", { min: MIN_PASSWORD_LENGTH }),
+			})
 		void run("send", async () => {
 			await sendSignUpCode(apiUrl, trimmedEmail, invite)
-			setCodeSentTo(trimmedEmail)
 			setCode("")
+			send({ type: "codeSent", email: trimmedEmail })
 			return null
 		})
 	}
 
 	function submit() {
-		if (!ready || busy) return
+		if (!ready) return
 		if (codeSentTo === null) return sendCode()
 		void run("create", () =>
 			signUpWith(apiUrl, { ...invite, name: name.trim(), email: trimmedEmail, password, code }),
@@ -172,7 +182,7 @@ export default function SignUpScreen() {
 							value={email}
 							onChangeText={(text) => {
 								setEmail(text)
-								if (codeSentTo && text.trim() !== codeSentTo) setCodeSentTo(null)
+								send({ type: "emailChanged", email: text })
 							}}
 							placeholder={t("account.signIn.email")}
 							placeholderTextColor={colors.mutedFg}

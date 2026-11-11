@@ -31,9 +31,14 @@ describe("the app's language", () => {
 })
 
 describe("errorMessage", () => {
-	it("in English, is the error's own message", async () => {
+	it("in English, is the error's own message, but for a lost connection", async () => {
 		const { errorMessage } = await onPhone("en-GB")
-		expect(errorMessage(new TypeError("Network request failed"))).toBe("Network request failed")
+		// Expo's fetch, then React Native's: the phone's words, not the server's.
+		for (const failure of [
+			new Error("fetch failed: Could not connect to the server."),
+			new TypeError("Network request failed"),
+		])
+			expect(errorMessage(failure)).toBe("Klipstack is not reachable. Check your connection.")
 		expect(errorMessage(new KlipstackApiError(429, "rate_limited", "Slow down."))).toBe(
 			"Slow down.",
 		)

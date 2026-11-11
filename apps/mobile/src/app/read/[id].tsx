@@ -487,6 +487,8 @@ export default function Reader() {
 					stored = kept.stored
 				}
 				if (!live) return
+				// The article as it is now: a failure of a load before it no longer says anything.
+				setError(null)
 				setArticle(details)
 				setTranslation(translated)
 				if (chosen) setLanguages(chosen)
@@ -585,7 +587,7 @@ export default function Reader() {
 		try {
 			const { queued } = await client.articles.readPost(id)
 			if (!queued) return
-			setPage(null)
+			clearPage()
 			await waitForExtraction(client, id)
 		} catch (e) {
 			Alert.alert(t("reader.failed.switchToPost"), errorMessage(e))
@@ -593,12 +595,18 @@ export default function Reader() {
 		setGeneration((n) => n + 1)
 	}
 
+	/** The page goes, to be written anew: nothing is injected until the next one has loaded. */
+	function clearPage() {
+		loaded.current = false
+		setPage(null)
+	}
+
 	/**
 	 * Opens the article again as the server now shows it (translated, or its original back), or
 	 * its original text to read (`showOriginal`). The page is written anew, so it goes first.
 	 */
 	function reopen(showOriginal = false) {
-		setPage(null)
+		clearPage()
 		setOriginal(showOriginal)
 		setGeneration((n) => n + 1)
 	}

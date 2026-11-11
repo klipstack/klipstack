@@ -1,11 +1,16 @@
 import { useFocusEffect } from "expo-router"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useLayoutEffect, useRef, useState } from "react"
 import { AppState } from "react-native"
 import { onChange, settled } from "@/lib/article-changes"
 import { errorMessage } from "@/lib/i18n"
 import { canUseOffline, OFFLINE_NOTE } from "@/lib/offline"
-
-type Page<T> = { items: T[]; nextCursor: string | null }
+import {
+	type Page,
+	type PagedList,
+	type PagedListEvent,
+	pagedListStart,
+	pagedListTransition,
+} from "@/lib/paged-list-machine"
 
 /**
  * A list loaded a page at a time (`fetchPage`, which changes when what it asks for does): the
@@ -19,6 +24,9 @@ type Page<T> = { items: T[]; nextCursor: string | null }
  * `offline`, for a list kept for offline reading (src/lib/offline.ts): `loaded` gets each load's
  * items, to keep, and `kept` gives them back when a load can't reach the server and the list
  * shows nothing yet. Keep it from changing on each render, as `fetchPage`.
+ *
+ * What it shows and what is on its way are in `paged-list-machine.ts`; this hook runs the requests
+ * and feeds their answers back.
  */
 export function usePagedList<T extends { id: string }>(
 	fetchPage: ((limit: number, cursor?: string) => Promise<Page<T>>) | null,
@@ -26,66 +34,53 @@ export function usePagedList<T extends { id: string }>(
 	max = 100,
 	offline?: { loaded: (items: T[]) => void; kept: () => T[] | null },
 ) {
-	const [items, setItems] = useState<T[] | null>(null)
-	const [next, setNext] = useState<string | null>(null)
-	const [error, setError] = useState<string | null>(null)
-	const [refreshing, setRefreshing] = useState(false)
-	const [loadingMore, setLoadingMore] = useState(false)
-	// An answer older than the latest load is dropped.
-	const generation = useRef(0)
+	const [state, setState] = useState<PagedList<T>>(pagedListStart)
+	// Read and changed through the ref: answers and scroll events arrive between renders.
+	const machine = useRef(state)
+	useLayoutEffect(() => {
+		machine.current = state
+	}, [state])
+	/** False when the event changed nothing (a stale answer, a next page already on its way). */
+	const send = useCallback((event: PagedListEvent<T>) => {
+		const next = pagedListTransition(machine.current, event)
+		if (next === machine.current) return false
+		machine.current = next
+		setState(next)
+		return true
+	}, [])
 	// Asking for something else (a filter, a search): the list starts over, empty until it loads.
 	// (Wrapped: `useState` would call a function.)
 	const [asked, setAsked] = useState(() => fetchPage)
 	if (fetchPage !== asked) {
 		setAsked(() => fetchPage)
-		setItems(null)
-		setNext(null)
-		setError(null)
+		setState((now) => pagedListTransition(now, { type: "asked" }))
 	}
 
-	const shown = useRef(0)
-	useEffect(() => {
-		shown.current = items?.length ?? 0
-	}, [items])
 	const load = useCallback(async () => {
 		if (!fetchPage) return
-		const mine = ++generation.current
+		send({ type: "load" })
+		const { ticket } = machine.current
 		try {
 			await settled()
-			const page = await fetchPage(Math.min(max, Math.max(pageSize, shown.current)))
-			if (mine !== generation.current) return
-			setItems(page.items)
-			setNext(page.nextCursor)
-			setError(null)
-			offline?.loaded(page.items)
+			const shown = machine.current.items?.length ?? 0
+			const page = await fetchPage(Math.min(max, Math.max(pageSize, shown)))
+			if (send({ type: "loaded", ticket, page })) offline?.loaded(page.items)
 		} catch (e) {
-			if (mine !== generation.current) return
-			if (offline && canUseOffline(e)) {
-				const kept = offline.kept()
-				if (kept) setItems((shown) => shown ?? kept)
-				setError(OFFLINE_NOTE)
-				return
-			}
-			setError(errorMessage(e))
+			if (offline && canUseOffline(e))
+				send({ type: "loadFailed", ticket, message: OFFLINE_NOTE, kept: offline.kept() })
+			else send({ type: "loadFailed", ticket, message: errorMessage(e) })
 		}
-	}, [fetchPage, pageSize, max, offline])
+	}, [fetchPage, pageSize, max, offline, send])
 
-	async function loadMore() {
-		if (!fetchPage || !next || loadingMore) return
-		const mine = generation.current
-		setLoadingMore(true)
+	/** The next page, near the end of the list; `retry`, by Try Again after it failed. */
+	async function loadMore(retry = false) {
+		if (!fetchPage || !send({ type: retry ? "retryMore" : "more" })) return
+		const { ticket, next } = machine.current
 		try {
-			const page = await fetchPage(pageSize, next)
-			if (mine !== generation.current) return
-			setItems((shown) => {
-				const seen = new Set(shown?.map((a) => a.id))
-				return [...(shown ?? []), ...page.items.filter((a) => !seen.has(a.id))]
-			})
-			setNext(page.nextCursor)
+			const page = await fetchPage(pageSize, next ?? undefined)
+			send({ type: "moreLoaded", ticket, page })
 		} catch (e) {
-			if (mine === generation.current) setError(errorMessage(e))
-		} finally {
-			setLoadingMore(false)
+			send({ type: "moreFailed", ticket, message: errorMessage(e) })
 		}
 	}
 
@@ -103,16 +98,30 @@ export function usePagedList<T extends { id: string }>(
 		}, [load]),
 	)
 
-	const edit = useCallback((change: (shown: T[]) => T[]) => {
-		generation.current++
-		setItems((shown) => shown && change(shown))
-	}, [])
+	const edit = useCallback(
+		(change: (shown: T[]) => T[]) => void send({ type: "edited", change }),
+		[send],
+	)
 
 	async function refresh() {
-		setRefreshing(true)
+		send({ type: "refreshing", on: true })
 		await load()
-		setRefreshing(false)
+		send({ type: "refreshing", on: false })
 	}
 
-	return { items, error, refreshing, loadingMore, load, loadMore, refresh, edit }
+	const { items, error, refreshing } = state
+	const loadingMore = state.more.status === "loading"
+	const moreFailed = state.more.status === "failed"
+	return {
+		items,
+		error,
+		refreshing,
+		loadingMore,
+		moreFailed,
+		load,
+		loadMore: () => loadMore(),
+		retryMore: () => loadMore(true),
+		refresh,
+		edit,
+	}
 }

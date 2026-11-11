@@ -40,18 +40,18 @@ export const dateLocale: string =
 		: (getLocales().find((locale) => locale.languageCode === language)?.languageTag ?? language)
 
 /**
- * What to tell the person about a failure. The server explains in English: in English that is
- * shown as it was; in another language, the failures that need no detail (no connection, signed
- * out, too many requests, the server's own trouble) are said in it, and the rest keep the
- * server's words.
+ * What to tell the person about a failure. No connection is said in our words, in any language:
+ * the phone's own are technical. The server explains in English: in English that is shown as it
+ * was; in another language, the failures that need no detail (signed out, too many requests, the
+ * server's own trouble) are said in it, and the rest keep the server's words.
  */
 export function errorMessage(error: unknown): string {
 	const message = error instanceof Error ? error.message : String(error)
-	if (language === "en") return message
 	// Expo's fetch fails with "fetch failed: …" when the server can't be reached; React Native's
 	// own fetch with "Network request failed".
 	if (error instanceof Error && /^fetch failed|network request failed/i.test(message))
 		return t("common.errors.offline")
+	if (language === "en") return message
 	const code = (error as { code?: unknown } | null)?.code
 	switch (code) {
 		case "rate_limited":
