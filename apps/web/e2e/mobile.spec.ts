@@ -478,3 +478,35 @@ test("phone: list rows show a square of the picture beside the description", asy
 	if (process.env.SHOT_DIR)
 		await page.screenshot({ path: `${process.env.SHOT_DIR}/phone-list-pictures.png` })
 })
+
+test("phone: one pull refreshes the list once", async ({ page }) => {
+	await signup(page)
+	await page.goto("/library")
+	await waitForHydration(page)
+	let loads = 0
+	page.on("request", (r) => {
+		if (r.url().includes("/library.data")) loads++
+	})
+	await page.evaluate(() => {
+		const box = document.querySelector("main")?.parentElement as HTMLElement
+		box.scrollTop = 0
+		const touch = (type: string, y: number) =>
+			box.dispatchEvent(
+				new TouchEvent(type, {
+					bubbles: true,
+					touches:
+						type === "touchend"
+							? []
+							: [new Touch({ identifier: 1, target: box, clientX: 100, clientY: y })],
+				}),
+			)
+		touch("touchstart", 200)
+		touch("touchmove", 300)
+		touch("touchmove", 400)
+		touch("touchend", 400)
+	})
+	const indicator = page.getByTestId("pull-to-refresh")
+	await expect(indicator).toHaveAttribute("data-state", "refreshing")
+	await expect(indicator).toHaveAttribute("data-state", "idle", { timeout: 10_000 })
+	expect(loads).toBe(1)
+})

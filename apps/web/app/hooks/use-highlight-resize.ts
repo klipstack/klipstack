@@ -15,6 +15,14 @@ import {
 	textIndex,
 } from "~/lib/highlight-resize"
 import {
+	canBegin,
+	IDLE,
+	type ResizeEvent,
+	type ResizeFlow,
+	sessionOf,
+	transition,
+} from "~/lib/highlight-resize-flow"
+import {
 	firstRect,
 	highlightsAtPoint,
 	replaceHighlightRange,
@@ -23,7 +31,6 @@ import {
 import type { WebResult } from "~/lib/web-result"
 
 interface Session {
-	mode: "pointer" | "keyboard" | "saving"
 	documentId: string
 	versionId: string
 	original: Highlight
@@ -67,8 +74,9 @@ export function useHighlightResize(props: Props) {
 	})
 	const fetcher = useFetcher<WebResult<{ highlight: Highlight }>>()
 	const revalidator = useRevalidator()
-	const sessionRef = useRef<Session | null>(null)
-	const [session, setSession] = useState<Session | null>(null)
+	// The flow (lib/highlight-resize-flow.ts): the ref for event handlers, the state for rendering.
+	const flowRef = useRef<ResizeFlow<Session>>(IDLE)
+	const [flow, setFlow] = useState<ResizeFlow<Session>>(IDLE)
 	const guard = useRef(false)
 	const suppressClick = useRef(false)
 	const mousePosition = useRef<{ x: number; y: number } | null>(null)
@@ -77,18 +85,17 @@ export function useHighlightResize(props: Props) {
 	const dismissed = useRef<string | null>(null)
 	const hoverTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 	const frame = useRef(0)
-	const retryRef = useRef<Session | null>(null)
-	const [failure, setFailure] = useState<string | null>(null)
+	// What screen readers hear: the quote as it moves, saved, cancelled, failed.
 	const [status, setStatus] = useState("")
-	const busyResponse = useRef<unknown>(null)
-	const needsRefresh = useRef(false)
 
-	const publish = useCallback((next: Session | null) => {
-		sessionRef.current = next
-		guard.current = next !== null
-		setSession(next)
+	const dispatch = useCallback((event: ResizeEvent<Session>) => {
+		const next = transition(flowRef.current, event)
+		if (next === flowRef.current) return
+		flowRef.current = next
+		guard.current = sessionOf(next) !== null
+		setFlow(next)
 	}, [])
-	const paint = useCallback((s: Session, offsets = s.draft) => {
+	const paint = useCallback((s: Session, dragging: boolean, offsets = s.draft) => {
 		const p = latest.current
 		const range = s.index.range(offsets)
 		if (!range || !s.index.root.isConnected) return
@@ -96,9 +103,9 @@ export function useHighlightResize(props: Props) {
 			p.rangesRef.current,
 			p.items.find((h) => h.id === s.original.id) ?? s.original,
 			range,
-			s.mode === "pointer",
+			dragging,
 		)
-		if (s.mode === "pointer") setActiveHighlight(null)
+		if (dragging) setActiveHighlight(null)
 		else if (p.toolbarId === s.original.id) setActiveHighlight(range)
 	}, [])
 	const release = useCallback((s: Session) => {
@@ -112,8 +119,7 @@ export function useHighlightResize(props: Props) {
 			const p = latest.current
 			const item = p.items.find((h) => h.id === s.original.id)
 			if (!item || p.versionId !== s.versionId) return
-			const restored = { ...s, mode: "keyboard" as const }
-			paint(restored, { start: item.startOffset, end: item.endOffset })
+			paint(s, false, { start: item.startOffset, end: item.endOffset })
 			const range = p.rangesRef.current.get(item.id)
 			const rect = range && firstRect(range)
 			if (rect) p.onPosition(item.id, rect)
@@ -121,17 +127,17 @@ export function useHighlightResize(props: Props) {
 		[paint],
 	)
 	const cancel = useCallback(() => {
-		const s = sessionRef.current
-		if (!s || s.mode === "saving") return
+		const f = flowRef.current
+		if (f.phase !== "pointer" && f.phase !== "keyboard") return
 		// Clear ownership before releasing capture: lostpointercapture is also a cancellation.
-		publish(null)
-		release(s)
-		restore(s)
+		dispatch({ type: "cancelled" })
+		release(f.session)
+		restore(f.session)
 		setStatus(t("highlights.resize.cancelled"))
-	}, [publish, release, restore, t])
+	}, [dispatch, release, restore, t])
 	const hover = useCallback((id: string | null) => {
 		clearTimeout(hoverTimer.current)
-		if (sessionRef.current) return
+		if (sessionOf(flowRef.current)) return
 		if (id !== dismissed.current) dismissed.current = null
 		hoverRef.current = id
 		if (id) setHoverId(id === dismissed.current ? null : id)
@@ -148,9 +154,8 @@ export function useHighlightResize(props: Props) {
 		const p = latest.current
 		const root = p.rootRef.current
 		if (
-			sessionRef.current ||
+			!canBegin(flowRef.current) ||
 			p.mutationPending ||
-			needsRefresh.current ||
 			p.editingId ||
 			!root ||
 			item.orphaned ||
@@ -159,7 +164,6 @@ export function useHighlightResize(props: Props) {
 		)
 			return null
 		const s: Session = {
-			mode,
 			documentId: p.documentId,
 			versionId: item.versionId,
 			original: item,
@@ -168,11 +172,8 @@ export function useHighlightResize(props: Props) {
 			index: textIndex(root),
 		}
 		clearTimeout(hoverTimer.current)
-		setFailure(null)
-		retryRef.current = null
-		guard.current = true
 		window.getSelection()?.removeAllRanges()
-		publish(s)
+		dispatch({ type: "begin", mode, session: s })
 		return s
 	}
 	const move = useCallback(
@@ -180,10 +181,10 @@ export function useHighlightResize(props: Props) {
 			const draft = moveBoundary(s.index, s.draft, s.endpoint, value)
 			if (draft === s.draft) return
 			s.draft = draft
-			paint(s)
-			publish({ ...s })
+			paint(s, flowRef.current.phase === "pointer")
+			dispatch({ type: "moved", session: { ...s } })
 		},
-		[paint, publish],
+		[dispatch, paint],
 	)
 	const resolvePointer = useCallback(
 		(s: Session, x: number, y: number) => {
@@ -205,17 +206,16 @@ export function useHighlightResize(props: Props) {
 
 	const send = useCallback(
 		(s: Session) => {
-			if (sessionRef.current?.mode === "saving") return
+			if (flowRef.current.phase === "saving") return
 			release(s)
 			if (sameOffsets(s.draft, { start: s.original.startOffset, end: s.original.endOffset })) {
-				publish(null)
+				dispatch({ type: "cancelled" })
 				restore(s)
 				return
 			}
-			const saving: Session = { ...s, mode: "saving", pointer: undefined }
-			publish(saving)
-			paint(saving)
-			busyResponse.current = fetcher.data
+			const saving: Session = { ...s, pointer: undefined }
+			dispatch({ type: "sent", session: saving, before: fetcher.data })
+			paint(saving, false)
 			setStatus(t("highlights.resize.saving", { quote: s.index.selector(s.draft).exact }))
 			void fetcher.submit(
 				{
@@ -236,20 +236,40 @@ export function useHighlightResize(props: Props) {
 				},
 			)
 		},
-		[fetcher, paint, publish, release, restore, t],
+		[dispatch, fetcher, paint, release, restore, t],
 	)
 
-	useEffect(() => {
-		const s = sessionRef.current
+	// A lost answer (`network`) may hide a save that happened: the refreshed highlights say. Asked
+	// when the refresh settles and when the highlights change, whichever comes last.
+	const reconcile = useCallback(() => {
+		const f = flowRef.current
+		if (f.phase !== "failed" || !f.refreshed || f.error !== "network") return
+		const attempted = f.attempt
+		const confirmed = latest.current.items.find((h) => h.id === attempted.original.id)
 		if (
-			s?.mode !== "saving" ||
+			confirmed &&
+			confirmed.versionId === attempted.versionId &&
+			confirmed.exact === attempted.index.selector(attempted.draft).exact &&
+			sameOffsets(attempted.draft, { start: confirmed.startOffset, end: confirmed.endOffset })
+		) {
+			dispatch({ type: "settled" })
+			setStatus(t("highlights.resize.saved", { quote: confirmed.exact }))
+		}
+	}, [dispatch, t])
+	useEffect(reconcile, [props.items, reconcile])
+
+	useEffect(() => {
+		const f = flowRef.current
+		if (
+			f.phase !== "saving" ||
 			fetcher.state !== "idle" ||
 			!fetcher.data ||
-			fetcher.data === busyResponse.current
+			fetcher.data === f.before
 		)
 			return
+		const s = f.session
 		const result = fetcher.data
-		publish(null)
+		dispatch({ type: "answered", error: result.ok ? null : result.error.code })
 		if (result.ok) {
 			latest.current.onSaved(result.highlight)
 			if (s.position) {
@@ -261,28 +281,28 @@ export function useHighlightResize(props: Props) {
 				hoverRef.current = id
 				setHoverId(id)
 			}
-			const saved = { ...s, mode: "keyboard" as const }
-			paint(saved)
+			paint(s, false)
 			const rect = firstRect(s.index.range(s.draft)!)
 			if (rect) latest.current.onPosition(s.original.id, rect)
 			setStatus(t("highlights.resize.saved", { quote: result.highlight.exact }))
-			retryRef.current = null
-			setFailure(null)
 		} else {
 			restore(s)
-			const error = result.error.code
-			setFailure(error)
 			setStatus(t("highlights.resize.failed"))
-			retryRef.current = s
-			needsRefresh.current = true
-			void revalidator.revalidate()
+			// Neither a retry nor a new resize starts from the highlights the failure may have made
+			// stale: the promise settles once they have loaded again.
+			const refreshed = () => {
+				dispatch({ type: "refreshed", attempt: s })
+				reconcile()
+			}
+			void revalidator.revalidate().then(refreshed, refreshed)
 		}
-	}, [fetcher.state, fetcher.data, paint, publish, restore, revalidator, t])
+	}, [fetcher.state, fetcher.data, dispatch, paint, reconcile, restore, revalidator, t])
 
 	// Repaint a draft after loader updates, but never carry it into another document/version.
 	// Loader changes must repaint the independently owned draft
 	useEffect(() => {
-		const s = sessionRef.current
+		const f = flowRef.current
+		const s = sessionOf(f)
 		if (!s) return
 		const p = latest.current
 		if (
@@ -290,44 +310,26 @@ export function useHighlightResize(props: Props) {
 			p.versionId !== s.versionId ||
 			!p.items.some((h) => h.id === s.original.id && !h.orphaned && !h.deletedAt)
 		) {
-			publish(null)
+			dispatch({ type: "gone" })
 			release(s)
-			setFailure(null)
-			retryRef.current = null
 			return
 		}
-		paint(s)
-	}, [props.items, props.documentId, props.versionId, paint, publish, release])
+		paint(s, f.phase === "pointer")
+	}, [props.items, props.documentId, props.versionId, dispatch, paint, release])
 
-	useEffect(() => {
-		if (revalidator.state !== "idle") return
-		needsRefresh.current = false
-		const attempted = retryRef.current
-		if (failure !== "network" || !attempted) return
-		const confirmed = props.items.find((h) => h.id === attempted.original.id)
-		if (
-			confirmed &&
-			confirmed.versionId === attempted.versionId &&
-			confirmed.exact === attempted.index.selector(attempted.draft).exact &&
-			sameOffsets(attempted.draft, { start: confirmed.startOffset, end: confirmed.endOffset })
-		) {
-			retryRef.current = null
-			setFailure(null)
-			setStatus(t("highlights.resize.saved", { quote: confirmed.exact }))
-		}
-	}, [revalidator.state, props.items, failure, t])
 	const retry = () => {
-		const s = retryRef.current
+		const f = flowRef.current
 		const p = latest.current
-		if (!s || needsRefresh.current || revalidator.state !== "idle" || p.mutationPending) return
+		if (f.phase !== "failed" || !f.refreshed || revalidator.state !== "idle" || p.mutationPending)
+			return
+		const s = f.attempt
 		const current = p.items.find((h) => h.id === s.original.id)
 		if (!current || current.orphaned || p.versionId !== s.versionId) {
-			setFailure("version_changed")
+			dispatch({ type: "refused", error: "version_changed" })
 			return
 		}
 		if (sameOffsets(s.draft, { start: current.startOffset, end: current.endOffset })) {
-			setFailure(null)
-			retryRef.current = null
+			dispatch({ type: "settled" })
 			setStatus(t("highlights.resize.saved", { quote: current.exact }))
 			return
 		}
@@ -336,17 +338,17 @@ export function useHighlightResize(props: Props) {
 			current.endOffset !== s.original.endOffset ||
 			current.exact !== s.original.exact
 		) {
-			setFailure("highlight_changed")
+			dispatch({ type: "refused", error: "highlight_changed" })
 			return
 		}
-		setFailure(null)
-		send({ ...s, original: current, mode: "keyboard" })
+		send({ ...s, original: current })
 	}
 
 	useEffect(() => {
 		const onKey = (event: KeyboardEvent) => {
 			if (event.key !== "Escape") return
-			if (sessionRef.current && sessionRef.current.mode !== "saving") {
+			const phase = flowRef.current.phase
+			if (phase === "pointer" || phase === "keyboard") {
 				event.preventDefault()
 				event.stopImmediatePropagation()
 				cancel()
@@ -381,8 +383,8 @@ export function useHighlightResize(props: Props) {
 	useEffect(
 		() => () => {
 			clearTimeout(hoverTimer.current)
-			const s = sessionRef.current
-			sessionRef.current = null
+			const s = sessionOf(flowRef.current)
+			flowRef.current = IDLE
 			if (s) release(s)
 		},
 		[release],
@@ -417,11 +419,12 @@ export function useHighlightResize(props: Props) {
 		event.currentTarget.setPointerCapture(event.pointerId)
 		suppressClick.current = true
 		document.documentElement.setAttribute("data-highlight-dragging", "")
-		paint(s)
+		paint(s, true)
 		let lastTime = performance.now()
 		const tick = (time: number) => {
-			const current = sessionRef.current
-			if (current?.mode !== "pointer" || !current.pointer) return
+			const f = flowRef.current
+			const current = f.phase === "pointer" ? f.session : null
+			if (!current?.pointer) return
 			const { x, y, moved } = current.pointer
 			const root = current.index.root.getBoundingClientRect()
 			const top = latest.current.headerRef.current?.getBoundingClientRect().bottom ?? 60
@@ -441,13 +444,14 @@ export function useHighlightResize(props: Props) {
 		frame.current = requestAnimationFrame(tick)
 	}
 	const pointerMove = (event: React.PointerEvent) => {
-		const s = sessionRef.current
-		if (s?.mode === "pointer" && s.pointer?.id === event.pointerId)
-			resolvePointer(s, event.clientX, event.clientY)
+		const f = flowRef.current
+		if (f.phase === "pointer" && f.session.pointer?.id === event.pointerId)
+			resolvePointer(f.session, event.clientX, event.clientY)
 	}
 	const pointerUp = (event: React.PointerEvent) => {
-		const s = sessionRef.current
-		if (s?.mode !== "pointer" || s.pointer?.id !== event.pointerId) return
+		const f = flowRef.current
+		if (f.phase !== "pointer" || f.session.pointer?.id !== event.pointerId) return
+		const s = f.session
 		event.preventDefault()
 		resolvePointer(s, event.clientX, event.clientY)
 		// lostpointercapture must not cancel the commit.
@@ -459,21 +463,24 @@ export function useHighlightResize(props: Props) {
 	}
 	const keyDown = (event: React.KeyboardEvent, item: Highlight, endpoint: Endpoint) => {
 		event.stopPropagation()
-		const s = sessionRef.current
+		const f = flowRef.current
+		const s = f.phase === "keyboard" ? f.session : null
 		if (event.key === "Tab") {
-			if (s?.mode === "keyboard") cancel()
+			if (s) cancel()
 			return
 		}
 		if (event.key === "Enter" || event.key === " ") {
 			event.preventDefault()
-			if (s?.mode === "keyboard" && event.key === "Enter") send(s)
-			else if (!s) begin(item, endpoint, "keyboard")
-		} else if (s?.mode === "keyboard" && ["ArrowLeft", "ArrowRight"].includes(event.key)) {
+			if (s && event.key === "Enter") send(s)
+			else if (!sessionOf(f)) begin(item, endpoint, "keyboard")
+		} else if (s && ["ArrowLeft", "ArrowRight"].includes(event.key)) {
 			event.preventDefault()
 			move(s, stepBoundary(s.index, s.draft[endpoint], event.key === "ArrowLeft" ? -1 : 1))
 			setStatus(t("highlights.resize.quote", { quote: s.index.selector(s.draft).exact }))
 		}
 	}
+	const session = sessionOf(flow)
+	const state = session ? (flow.phase as "pointer" | "keyboard" | "saving") : "idle"
 	const ownerId = session?.original.id ?? props.toolbarId ?? hoverId
 	const item = props.items.find(
 		(h) =>
@@ -493,11 +500,11 @@ export function useHighlightResize(props: Props) {
 		pointerUp,
 		cancel,
 		keyDown,
-		failure,
+		failure: flow.phase === "failed" ? flow.error : null,
 		retry,
 		status,
-		refreshing: revalidator.state !== "idle",
-		blocked: (id: string) => sessionRef.current?.original.id === id,
-		state: session?.mode ?? "idle",
+		refreshing: revalidator.state !== "idle" || (flow.phase === "failed" && !flow.refreshed),
+		blocked: (id: string) => sessionOf(flowRef.current)?.original.id === id,
+		state,
 	}
 }

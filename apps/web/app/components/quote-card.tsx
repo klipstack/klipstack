@@ -1,9 +1,10 @@
 import { noteShareText } from "@klipstack/api-contract/highlight-share"
 import { BookOpen, ClipboardPen, Copy, Link2, Share, StickyNote, Trash2 } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link, useFetcher } from "react-router"
 import { iconButton } from "~/components/ui/button"
+import { useFetcherAnswer } from "~/hooks/use-fetcher-answer"
 import { copyRich, copyText } from "~/lib/copy-link"
 import { highlightColor, highlightColorName } from "~/lib/highlight-colors"
 import type { LinkTargets } from "~/lib/note-links"
@@ -68,25 +69,24 @@ export function QuoteCard({
 	const deleting = intent === "delete"
 	// The note as saved, or as being saved: it shows at once.
 	const note = intent === "update" ? String(fetcher.formData?.get("note") ?? "").trim() : h.note
-	// What the last submission was: a note that was not saved says so, and its draft comes back.
-	const [submitted, setSubmitted] = useState<{ intent: string; note?: string } | null>(null)
+	// The note being saved: if its own answer says it was not, it says so, and its draft comes back.
+	// Only a new answer counts; an earlier failure stays in `fetcher.data`.
 	const [draft, setDraft] = useState<string | null>(null)
-	const [failures, setFailures] = useState(0)
-	if (fetcher.state === "idle" && fetcher.data?.ok === false && submitted?.intent === "update") {
-		setDraft(submitted.note ?? "")
+	const sending = useRef<string | null>(null)
+	useFetcherAnswer(fetcher, (answer) => {
+		const sent = sending.current
+		sending.current = null
+		if (sent === null || answer.ok) return
+		setDraft(sent)
 		setEditing(true)
-		setSubmitted(null)
-		setFailures((n) => n + 1)
-	}
-	useEffect(() => {
-		if (failures) showToast({ message: t("highlights.sidebar.noteFailed"), warn: true })
-	}, [failures, t])
+		showToast({ message: t("highlights.sidebar.noteFailed"), warn: true })
+	})
 
 	const saveNote = (text: string) => {
 		setEditing(false)
 		setDraft(null)
 		if (text.trim() === (h.note ?? "").trim()) return
-		setSubmitted({ intent: "update", note: text })
+		sending.current = text
 		void fetcher.submit({ intent: "update", id: h.id, note: text }, { method: "post", action })
 	}
 
@@ -231,7 +231,7 @@ export function QuoteCard({
 					method="post"
 					action={action}
 					onSubmit={() => {
-						setSubmitted({ intent: "delete" })
+						sending.current = null
 						showToast({
 							message: t(note ? "highlights.toast.removedWithNote" : "highlights.toast.removed"),
 							ms: note ? LONG_UNDO_MS : undefined,

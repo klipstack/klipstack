@@ -101,7 +101,7 @@ export function HighlightResizeHandles({
 		onFocused()
 	}, [item, focusId, geometry, articleRef, onFocused])
 	if (!item) return null
-	const dragging = session?.mode === "pointer"
+	const dragging = resize.state === "pointer"
 	return (
 		<div
 			data-resize-handles=""
@@ -123,8 +123,8 @@ export function HighlightResizeHandles({
 						data-resize-handle={endpoint}
 						aria-label={t(`highlights.resize.${endpoint}`)}
 						aria-describedby={descriptionId}
-						aria-disabled={disabled || session?.mode === "saving"}
-						aria-pressed={session?.mode === "keyboard" && session.endpoint === endpoint}
+						aria-disabled={disabled || resize.state === "saving"}
+						aria-pressed={resize.state === "keyboard" && session?.endpoint === endpoint}
 						className="highlight-resize-handle"
 						style={{
 							left: rect?.left ?? 0,
@@ -152,7 +152,7 @@ export function HighlightResizeHandles({
 						onKeyDown={(e) => resize.keyDown(e, item, endpoint)}
 						onFocus={() => onFocus(item.id)}
 						onBlur={() => {
-							if (session?.mode === "keyboard") resize.cancel()
+							if (resize.state === "keyboard") resize.cancel()
 						}}
 						onClick={(e) => {
 							e.preventDefault()

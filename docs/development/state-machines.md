@@ -70,6 +70,28 @@ The sign-in the extension opens (Safari's build) is one at a time, in `storage.l
 its tab, its PKCE verifier and state, and the saves waiting for it.
 `lib/background.test.ts` runs the background through its listeners with a fake browser and server.
 
+## The web client's flows
+
+Some of the web app's interactions are written the same way: a union and a pure `transition`,
+unit-tested beside it, held in a ref for event handlers and in state for rendering.
+
+| Flow | File | States |
+| --- | --- | --- |
+| Resizing a highlight | `apps/web/app/lib/highlight-resize-flow.ts` (`hooks/use-highlight-resize.ts` runs it) | idle, pointer, keyboard, saving, failed (waiting for the refresh, then retryable) |
+| Pull to refresh | `apps/web/app/components/pull-to-refresh.tsx` | idle, pulling, refreshing |
+
+```text
+resize   idle ──begin──► pointer|keyboard ──sent──► saving ──answered──► idle
+                              └──cancelled──► idle          └──(error)──► failed
+         failed ──refreshed──► failed (retryable) ──sent (retry)──► saving
+                                                  ──begin──► pointer|keyboard
+                                                  ──settled──► idle (saved after all, or nothing to retry)
+```
+
+A failed resize starts nothing, neither a retry nor a new resize, until the highlights have
+loaded again: `revalidate()`'s promise says when, not `useRevalidator().state`, which is still
+`idle` in the render that asked for it.
+
 ## Lifecycles still implicit
 
 These are encoded as nullable timestamps, often with more than one column. The timestamps carry
