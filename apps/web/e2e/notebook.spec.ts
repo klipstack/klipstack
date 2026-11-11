@@ -449,6 +449,9 @@ test("notebook: by topic, a tag, notes written on the card, delete and Shuffle",
 	// Its × goes back to the view remembered: See all was a look at one topic, not a choice.
 	await page.getByTestId("topic-chip").click()
 	await expect(page).toHaveURL(/view=topics/)
+	// The URL changes before the page renders, and the stream of Craft has 8 cards too: wait for
+	// the chip to go, or Stream is clicked on the old page and keeps the topic.
+	await expect(page.getByTestId("topic-chip")).toHaveCount(0)
 	await expect(cards).toHaveCount(8)
 	await page.getByRole("link", { name: "Stream" }).click()
 	await expect(cards).toHaveCount(10)
