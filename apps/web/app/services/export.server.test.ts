@@ -11,7 +11,7 @@ import {
 	user,
 } from "@klipstack/db"
 import { strFromU8, unzipSync } from "fflate"
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
+import { afterAll, describe, expect, it, vi } from "vitest"
 import { EXPORT_LIMIT, rateLimit } from "~/lib/rate-limit.server"
 import {
 	buildExport,
@@ -179,26 +179,23 @@ describe("note links in the export", () => {
 })
 
 describe("building the export", () => {
-	const userId = `test-export-${Date.now()}`
-	beforeAll(async () => {
-		await db.insert(user).values({ id: userId, name: "Reader", email: `${userId}@example.com` })
-	})
+	const owners: string[] = []
 	afterAll(async () => {
-		await db.delete(user).where(eq(user.id, userId))
+		for (const id of owners) await db.delete(user).where(eq(user.id, id))
 	})
+	async function account() {
+		const id = `test-export-${crypto.randomUUID()}`
+		owners.push(id)
+		await db.insert(user).values({ id, name: "Reader", email: `${id}@example.com` })
+		return id
+	}
 
-	/** An article with its current version, a tag, a highlight and a post it came through. */
-	async function article(title: string) {
-		const [d] = await db
-			.insert(documents)
-			.values({ userId, sourceUrl: `https://example.com/${title}`, urlHash: newId(), title })
-			.returning()
-		const html = `<p>The body of ${title}.</p>`
+	async function version(documentId: string, html: string, number = 1) {
 		const [v] = await db
 			.insert(documentVersions)
 			.values({
-				documentId: d!.id,
-				version: 1,
+				documentId,
+				version: number,
 				html,
 				text: html,
 				textHash: newId(),
@@ -206,13 +203,23 @@ describe("building the export", () => {
 				extractorVersion: "0",
 			})
 			.returning()
-		await db.update(documents).set({ currentVersionId: v!.id }).where(eq(documents.id, d!.id))
+		await db.update(documents).set({ currentVersionId: v!.id }).where(eq(documents.id, documentId))
+		return v!
+	}
+
+	/** An article with its current version, a tag, a highlight and a post it came through. */
+	async function article(userId: string, title: string) {
+		const [d] = await db
+			.insert(documents)
+			.values({ userId, sourceUrl: `https://example.com/${title}`, urlHash: newId(), title })
+			.returning()
+		const v = await version(d!.id, `<p>The body of ${title}.</p>`)
 		const [tag] = await db.insert(tags).values({ userId, name: title }).returning()
 		await db.insert(documentTags).values({ documentId: d!.id, tagId: tag!.id })
 		await db.insert(highlights).values({
 			documentId: d!.id,
 			userId,
-			versionId: v!.id,
+			versionId: v.id,
 			exact: "body",
 			prefix: "",
 			suffix: "",
@@ -226,10 +233,11 @@ describe("building the export", () => {
 			urlHash: newId(),
 			html: "<p>A post.</p>",
 		})
+		return d!
 	}
 
 	/** Queries `buildExport` sends to the database. */
-	async function queries() {
+	async function queries(userId: string) {
 		const spy = vi.spyOn(db.$client, "query")
 		try {
 			const bundle = await buildExport(userId)
@@ -239,17 +247,39 @@ describe("building the export", () => {
 		}
 	}
 
+	/** How long, at most, `work` held the event loop between two turns of other work. */
+	async function longestHold<T>(work: () => Promise<T>) {
+		let longest = 0
+		let last = performance.now()
+		let running = true
+		const tick = () => {
+			const now = performance.now()
+			longest = Math.max(longest, now - last)
+			last = now
+			if (running) setImmediate(tick)
+		}
+		setImmediate(tick)
+		const started = performance.now()
+		try {
+			const result = await work()
+			return { result, longest, total: performance.now() - started }
+		} finally {
+			running = false
+		}
+	}
+
 	it("sends as many queries for many articles as for one", async () => {
-		await article("first")
-		const one = await queries()
+		const userId = await account()
+		await article(userId, "first")
+		const one = await queries(userId)
 		expect(one.bundle.documents[0]).toMatchObject({
 			markdown: "The body of first.",
 			tags: ["first"],
 			highlights: [{ exact: "body" }],
 			via: [{ markdown: "A post." }],
 		})
-		for (const title of ["second", "third", "fourth"]) await article(title)
-		const four = await queries()
+		for (const title of ["second", "third", "fourth"]) await article(userId, title)
+		const four = await queries(userId)
 		expect(four.bundle.documents.map((d) => d.markdown)).toEqual([
 			"The body of first.",
 			"The body of second.",
@@ -259,7 +289,51 @@ describe("building the export", () => {
 		expect(four.count).toBe(one.count)
 	})
 
-	it("lets other work run while it builds and zips", async () => {
+	it("lets other work run between articles", async () => {
+		const userId = await account()
+		// Enough HTML that turning it into Markdown takes a while.
+		const body =
+			"<p>A paragraph with <em>some</em> <a href='https://example.com'>links</a>.</p>".repeat(2_000)
+		for (let i = 0; i < 20; i++) {
+			const [d] = await db
+				.insert(documents)
+				.values({ userId, sourceUrl: `https://example.com/${i}`, urlHash: newId(), title: `${i}` })
+				.returning()
+			await version(d!.id, body)
+		}
+		const { result, longest, total } = await longestHold(() => buildExport(userId))
+		expect(result.documents).toHaveLength(20)
+		// One article at a time, not all twenty in one go.
+		expect(longest).toBeLessThan(total / 5)
+	})
+
+	it("exports the version an article had when the export began, if it changes meanwhile", async () => {
+		const userId = await account()
+		const d = await article(userId, "before")
+		const original = db.$client.query.bind(db.$client) as (...args: unknown[]) => Promise<unknown>
+		let changed = false
+		// Stands in for an extraction that lands between the article list and the versions query.
+		const spy = vi.spyOn(db.$client, "query").mockImplementation((async (...args: unknown[]) => {
+			const result = await original(...args)
+			if (!changed) {
+				changed = true
+				await version(d.id, "<p>Extracted again.</p>", 2)
+			}
+			return result
+		}) as never)
+		try {
+			expect((await buildExport(userId)).documents[0]?.markdown).toBe("The body of before.")
+		} finally {
+			spy.mockRestore()
+		}
+		expect((await buildExport(userId)).documents[0]?.markdown).toBe("Extracted again.")
+	})
+})
+
+describe("zipping the export", () => {
+	it("lets other work run while it compresses, and keeps every file", async () => {
+		const documents = [doc(), doc({ id: "d2", title: "Second", markdown: "" })]
+		const big = { ...documents[0]!, markdown: "A long body. ".repeat(100_000) }
 		let turns = 0
 		let running = true
 		const count = () => {
@@ -267,20 +341,31 @@ describe("building the export", () => {
 			if (running) setImmediate(count)
 		}
 		setImmediate(count)
-		const bundle = await buildExport(userId)
-		const built = turns
 		const zip = await bundleToZip({
-			...bundle,
-			// Several slices of compression.
-			documents: bundle.documents.map((d) => ({ ...d, markdown: d.markdown.repeat(20_000) })),
+			exportedAt: "2026-09-03T00:00:00.000Z",
+			app: "klipstack",
+			version: 1,
+			tags: [],
+			savedSearches: [],
+			editions: [],
+			documents: [big, documents[1]!],
 		})
 		running = false
-		expect(built).toBeGreaterThan(bundle.documents.length)
-		expect(turns - built).toBeGreaterThan(5)
+		// Over 1 MB of Markdown, twice (its file and the JSON): many 64 KB slices.
+		expect(turns).toBeGreaterThan(20)
 		const files = unzipSync(zip)
-		const names = Object.keys(files)
-		expect(names.slice(0, -3).every((name) => name.startsWith("articles/"))).toBe(true)
-		expect(names.slice(-3)).toEqual(["highlights.md", "klipstack.json", "README.md"])
-		expect(strFromU8(files["klipstack.json"]!)).toContain("The body of first.".repeat(20_000))
+		expect(Object.keys(files)).toEqual([
+			"articles/2026-09-01-an-article.md",
+			"articles/2026-09-01-second.md",
+			"highlights.md",
+			"klipstack.json",
+			"README.md",
+		])
+		expect(strFromU8(files["articles/2026-09-01-an-article.md"]!)).toBe(
+			documentMarkdown(big, (id) =>
+				id === "d1" ? "./2026-09-01-an-article.md" : id === "d2" ? "./2026-09-01-second.md" : null,
+			),
+		)
+		expect(strFromU8(files["highlights.md"]!)).toBe("# Highlights\n\n\n")
 	})
 })

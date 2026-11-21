@@ -166,7 +166,7 @@ export async function buildExport(userId: string): Promise<ExportBundle> {
 		out.push(
 			exportDocument(
 				d,
-				d.currentVersionId ? versions.get(d.currentVersionId) : undefined,
+				await currentVersion(d.currentVersionId, versions),
 				byDoc.get(d.id) ?? [],
 				names,
 				historyByDoc.get(d.id) ?? [],
@@ -195,6 +195,26 @@ interface CurrentVersion {
 /** The current version, for callers that adjust its HTML before it becomes Markdown. */
 export type PrepareHtml = (version: CurrentVersion) => string
 
+/**
+ * The article's current version, from the batch loaded for the export; taken out of it, so its
+ * HTML can be freed. An article re-extracted after the batch was read is looked up on its own.
+ */
+async function currentVersion(
+	id: string | null,
+	batch: Map<string, CurrentVersion>,
+): Promise<CurrentVersion | undefined> {
+	if (!id) return undefined
+	const version = batch.get(id)
+	batch.delete(id)
+	return (
+		version ??
+		db.query.documentVersions.findFirst({
+			where: eq(documentVersions.id, id),
+			columns: { html: true, imagesDone: true },
+		})
+	)
+}
+
 /** Lets pending I/O and other requests run before the next piece of CPU-bound work. */
 const yieldToEventLoop = () => new Promise<void>((resolve) => setImmediate(resolve))
 
@@ -218,15 +238,9 @@ export async function buildDocumentExport(
 		),
 		orderBy: asc(highlights.startOffset),
 	})
-	const version = d.currentVersionId
-		? await db.query.documentVersions.findFirst({
-				where: eq(documentVersions.id, d.currentVersionId),
-				columns: { html: true, imagesDone: true },
-			})
-		: undefined
 	return exportDocument(
 		d,
-		version,
+		await currentVersion(d.currentVersionId, new Map()),
 		hls,
 		await documentTagList(id),
 		await listReadingHistory(userId, id),
