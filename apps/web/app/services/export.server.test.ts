@@ -1,7 +1,20 @@
+import {
+	db,
+	documents,
+	documentTags,
+	documentVersions,
+	documentVia,
+	eq,
+	highlights,
+	newId,
+	tags,
+	user,
+} from "@klipstack/db"
 import { strFromU8, unzipSync } from "fflate"
-import { describe, expect, it } from "vitest"
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { EXPORT_LIMIT, rateLimit } from "~/lib/rate-limit.server"
 import {
+	buildExport,
 	bundleToZip,
 	documentMarkdown,
 	downloadExport,
@@ -90,9 +103,9 @@ describe("article note in the export", () => {
 		expect(documentMarkdown(doc())).not.toContain("## Note")
 	})
 
-	it("lists articles with only a note in highlights.md", () => {
+	it("lists articles with only a note in highlights.md", async () => {
 		const zip = unzipSync(
-			bundleToZip({
+			await bundleToZip({
 				exportedAt: "",
 				app: "klipstack",
 				version: 1,
@@ -120,9 +133,9 @@ const TARGET = "0193a5f1-2c3d-7e4f-8a9b-0c1d2e3f4a5b"
 const GONE = "0193a5f1-2c3d-7e4f-8a9b-0c1d2e3f4a5c"
 
 describe("note links in the export", () => {
-	const zip = () =>
+	const zip = async () =>
 		unzipSync(
-			bundleToZip({
+			await bundleToZip({
 				exportedAt: "",
 				app: "klipstack",
 				version: 1,
@@ -139,8 +152,8 @@ describe("note links in the export", () => {
 			}),
 		)
 
-	it("points an article's note at the sibling file, and highlights.md at articles/", () => {
-		const files = zip()
+	it("points an article's note at the sibling file, and highlights.md at articles/", async () => {
+		const files = await zip()
 		const article = strFromU8(files["articles/2026-09-01-an-article.md"]!)
 		expect(article).toContain("See [Other](./2026-09-02-other.md) and")
 		expect(article).toContain("also [Other](./2026-09-02-other.md)")
@@ -149,18 +162,125 @@ describe("note links in the export", () => {
 		expect(all).toContain("also [Other](articles/2026-09-02-other.md)")
 	})
 
-	it("drops the link, keeping the text, when the export has no file for the target", () => {
-		const article = strFromU8(zip()["articles/2026-09-01-an-article.md"]!)
+	it("drops the link, keeping the text, when the export has no file for the target", async () => {
+		const article = strFromU8((await zip())["articles/2026-09-01-an-article.md"]!)
 		expect(article).toContain("and Gone.")
 		expect(article).not.toContain(GONE)
 	})
 
-	it("keeps the raw note text in the JSON bundle", () => {
-		const bundle = JSON.parse(strFromU8(zip()["klipstack.json"]!)) as {
+	it("keeps the raw note text in the JSON bundle", async () => {
+		const bundle = JSON.parse(strFromU8((await zip())["klipstack.json"]!)) as {
 			documents: Array<{ note: string | null }>
 		}
 		expect(bundle.documents[0]?.note).toBe(
 			`See [Other](/read/${TARGET}) and [Gone](/read/${GONE}).`,
 		)
+	})
+})
+
+describe("building the export", () => {
+	const userId = `test-export-${Date.now()}`
+	beforeAll(async () => {
+		await db.insert(user).values({ id: userId, name: "Reader", email: `${userId}@example.com` })
+	})
+	afterAll(async () => {
+		await db.delete(user).where(eq(user.id, userId))
+	})
+
+	/** An article with its current version, a tag, a highlight and a post it came through. */
+	async function article(title: string) {
+		const [d] = await db
+			.insert(documents)
+			.values({ userId, sourceUrl: `https://example.com/${title}`, urlHash: newId(), title })
+			.returning()
+		const html = `<p>The body of ${title}.</p>`
+		const [v] = await db
+			.insert(documentVersions)
+			.values({
+				documentId: d!.id,
+				version: 1,
+				html,
+				text: html,
+				textHash: newId(),
+				extractor: "test",
+				extractorVersion: "0",
+			})
+			.returning()
+		await db.update(documents).set({ currentVersionId: v!.id }).where(eq(documents.id, d!.id))
+		const [tag] = await db.insert(tags).values({ userId, name: title }).returning()
+		await db.insert(documentTags).values({ documentId: d!.id, tagId: tag!.id })
+		await db.insert(highlights).values({
+			documentId: d!.id,
+			userId,
+			versionId: v!.id,
+			exact: "body",
+			prefix: "",
+			suffix: "",
+			startOffset: 4,
+			endOffset: 8,
+		})
+		await db.insert(documentVia).values({
+			documentId: d!.id,
+			userId,
+			url: `https://social.example/${title}`,
+			urlHash: newId(),
+			html: "<p>A post.</p>",
+		})
+	}
+
+	/** Queries `buildExport` sends to the database. */
+	async function queries() {
+		const spy = vi.spyOn(db.$client, "query")
+		try {
+			const bundle = await buildExport(userId)
+			return { bundle, count: spy.mock.calls.length }
+		} finally {
+			spy.mockRestore()
+		}
+	}
+
+	it("sends as many queries for many articles as for one", async () => {
+		await article("first")
+		const one = await queries()
+		expect(one.bundle.documents[0]).toMatchObject({
+			markdown: "The body of first.",
+			tags: ["first"],
+			highlights: [{ exact: "body" }],
+			via: [{ markdown: "A post." }],
+		})
+		for (const title of ["second", "third", "fourth"]) await article(title)
+		const four = await queries()
+		expect(four.bundle.documents.map((d) => d.markdown)).toEqual([
+			"The body of first.",
+			"The body of second.",
+			"The body of third.",
+			"The body of fourth.",
+		])
+		expect(four.count).toBe(one.count)
+	})
+
+	it("lets other work run while it builds and zips", async () => {
+		let turns = 0
+		let running = true
+		const count = () => {
+			turns++
+			if (running) setImmediate(count)
+		}
+		setImmediate(count)
+		const bundle = await buildExport(userId)
+		const built = turns
+		const zip = await bundleToZip({
+			...bundle,
+			// Several slices of compression.
+			documents: bundle.documents.map((d) => ({ ...d, markdown: d.markdown.repeat(20_000) })),
+		})
+		running = false
+		expect(built).toBeGreaterThan(bundle.documents.length)
+		expect(turns - built).toBeGreaterThan(5)
+		const files = unzipSync(zip)
+		const names = Object.keys(files)
+		expect(names.slice(0, -3).every((name) => name.startsWith("articles/"))).toBe(true)
+		expect(names.slice(-3)).toEqual(["highlights.md", "klipstack.json", "README.md"])
+		expect(strFromU8(files["klipstack.json"]!)).toContain("The body of first.".repeat(20_000))
 	})
 })
