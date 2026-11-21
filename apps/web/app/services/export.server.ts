@@ -17,7 +17,7 @@ import {
 	tags,
 } from "@klipstack/db"
 import { htmlToMarkdown } from "@klipstack/extract"
-import { strToU8, zipSync } from "fflate"
+import { strToU8, Zip, ZipDeflate } from "fflate"
 import { rateLimited } from "~/lib/app-error"
 import { rewriteNoteLinks } from "~/lib/note-links"
 import { EXPORT_LIMIT, rateLimit } from "~/lib/rate-limit.server"
@@ -35,7 +35,7 @@ export async function downloadExport(userId: string, format: "json" | "zip"): Pr
 	if (!limited.ok) throw rateLimited(limited.retryAfterSeconds, "exports")
 	exporting.add(userId)
 	try {
-		return exportFile(await buildExport(userId), format)
+		return await exportFile(await buildExport(userId), format)
 	} finally {
 		exporting.delete(userId)
 	}
@@ -147,19 +147,34 @@ export async function buildExport(userId: string): Promise<ExportBundle> {
 	const viaByDoc = new Map<string, Awaited<ReturnType<typeof viaOf>>>()
 	for (const v of await viaOf(eq(documentVia.userId, userId)))
 		viaByDoc.set(v.documentId, [...(viaByDoc.get(v.documentId) ?? []), v])
+	// Every current version in one query, not one per article.
+	const versions = new Map<string, CurrentVersion>()
+	for (const { id, ...v } of await db
+		.select({
+			id: documentVersions.id,
+			html: documentVersions.html,
+			imagesDone: documentVersions.imagesDone,
+		})
+		.from(documentVersions)
+		.innerJoin(documents, eq(documents.currentVersionId, documentVersions.id))
+		.where(and(eq(documents.userId, userId), isNull(documents.deletedAt))))
+		versions.set(id, v)
 	for (const d of docs) {
 		const own = tagIdsByDoc.get(d.id)
 		// `allTags` is in order already.
 		const names = own ? allTags.filter((t) => own.has(t.id)).map((t) => t.name) : []
 		out.push(
-			await exportDocument(
+			exportDocument(
 				d,
+				await currentVersion(d.currentVersionId, versions),
 				byDoc.get(d.id) ?? [],
 				names,
 				historyByDoc.get(d.id) ?? [],
 				viaByDoc.get(d.id) ?? [],
 			),
 		)
+		// Markdown conversion is CPU work: let other requests run between articles.
+		await yieldToEventLoop()
 	}
 	return {
 		exportedAt: new Date().toISOString(),
@@ -172,8 +187,36 @@ export async function buildExport(userId: string): Promise<ExportBundle> {
 	}
 }
 
+interface CurrentVersion {
+	html: string
+	imagesDone: boolean
+}
+
 /** The current version, for callers that adjust its HTML before it becomes Markdown. */
-export type PrepareHtml = (version: { html: string; imagesDone: boolean }) => string
+export type PrepareHtml = (version: CurrentVersion) => string
+
+/**
+ * The article's current version, from the batch loaded for the export; taken out of it, so its
+ * HTML can be freed. An article re-extracted after the batch was read is looked up on its own.
+ */
+async function currentVersion(
+	id: string | null,
+	batch: Map<string, CurrentVersion>,
+): Promise<CurrentVersion | undefined> {
+	if (!id) return undefined
+	const version = batch.get(id)
+	batch.delete(id)
+	return (
+		version ??
+		db.query.documentVersions.findFirst({
+			where: eq(documentVersions.id, id),
+			columns: { html: true, imagesDone: true },
+		})
+	)
+}
+
+/** Lets pending I/O and other requests run before the next piece of CPU-bound work. */
+const yieldToEventLoop = () => new Promise<void>((resolve) => setImmediate(resolve))
 
 /** One article of the user's, as exported; null when it does not exist or is in the trash. */
 export async function buildDocumentExport(
@@ -197,6 +240,7 @@ export async function buildDocumentExport(
 	})
 	return exportDocument(
 		d,
+		await currentVersion(d.currentVersionId, new Map()),
 		hls,
 		await documentTagList(id),
 		await listReadingHistory(userId, id),
@@ -221,22 +265,16 @@ function viaOf(where: SQL) {
 		.orderBy(asc(documentVia.createdAt))
 }
 
-async function exportDocument(
+function exportDocument(
 	d: Omit<Document, "search" | "noteSearch">,
+	version: CurrentVersion | undefined,
 	hls: Highlight[],
 	tagNames: string[],
 	readingHistory: ReadingHistory,
 	via: Awaited<ReturnType<typeof viaOf>>,
 	prepareHtml?: PrepareHtml,
-): Promise<ExportedDocument> {
-	let markdown = ""
-	if (d.currentVersionId) {
-		const v = await db.query.documentVersions.findFirst({
-			where: eq(documentVersions.id, d.currentVersionId),
-			columns: { html: true, imagesDone: true },
-		})
-		if (v) markdown = htmlToMarkdown(prepareHtml ? prepareHtml(v) : v.html)
-	}
+): ExportedDocument {
+	const markdown = version ? htmlToMarkdown(prepareHtml ? prepareHtml(version) : version.html) : ""
 	return {
 		id: d.id,
 		url: d.sourceUrl,
@@ -348,20 +386,23 @@ export interface ExportFile {
 }
 
 /** The bundle as a download: JSON, or the zip. Built in memory, so it has a length. */
-export function exportFile(bundle: ExportBundle, format: "zip" | "json"): ExportFile {
+export async function exportFile(
+	bundle: ExportBundle,
+	format: "zip" | "json",
+): Promise<ExportFile> {
 	const stamp = bundle.exportedAt.slice(0, 10)
 	return {
 		body:
 			format === "json"
 				? new TextEncoder().encode(JSON.stringify(bundle, null, 2))
-				: bundleToZip(bundle),
+				: await bundleToZip(bundle),
 		contentType: format === "json" ? "application/json; charset=utf-8" : "application/zip",
 		filename: `klipstack-${stamp}.${format}`,
 	}
 }
 
 /** Zip with one Markdown file per article, an all-highlights file, and the JSON bundle. */
-export function bundleToZip(bundle: ExportBundle): Uint8Array {
+export async function bundleToZip(bundle: ExportBundle): Promise<Uint8Array> {
 	const files: Record<string, Uint8Array> = {}
 	// Every article's file name first: a note can link to an article written later in the loop.
 	const names = new Map<string, string>()
@@ -400,5 +441,43 @@ export function bundleToZip(bundle: ExportBundle): Uint8Array {
 	files["README.md"] = strToU8(
 		`# Klipstack export\n\nExported ${bundle.exportedAt}. ${bundle.documents.length} articles.\n\n- articles/: one Markdown file per article, with YAML front matter (its tags too), its note and highlights\n- highlights.md: every article note and highlight, grouped by article\n- klipstack.json: everything, machine-readable\n\nLinks between notes point at the files in articles/.\n`,
 	)
-	return zipSync(files, { level: 6 })
+	return zipFiles(files)
+}
+
+/** Compressed this much at a time, then other requests get a turn. */
+const ZIP_SLICE = 64 * 1024
+
+/**
+ * The zip of `files`, in their order. One synchronous `zipSync` of a large account held the
+ * event loop for the whole archive; this compresses one slice at a time and yields between them.
+ */
+async function zipFiles(files: Record<string, Uint8Array>): Promise<Uint8Array> {
+	const chunks: Uint8Array[] = []
+	let failure: Error | null = null
+	let done = false
+	const zip = new Zip((error, chunk, final) => {
+		if (error) failure = error
+		else chunks.push(chunk)
+		if (final) done = true
+	})
+	for (const [name, data] of Object.entries(files)) {
+		const entry = new ZipDeflate(name, { level: 6 })
+		zip.add(entry)
+		if (data.length === 0) entry.push(data, true)
+		for (let at = 0; at < data.length; at += ZIP_SLICE) {
+			entry.push(data.subarray(at, at + ZIP_SLICE), at + ZIP_SLICE >= data.length)
+			await yieldToEventLoop()
+		}
+		if (failure) throw failure
+	}
+	zip.end()
+	if (failure) throw failure
+	if (!done) throw new Error("zip did not finish")
+	const body = new Uint8Array(chunks.reduce((size, chunk) => size + chunk.length, 0))
+	let offset = 0
+	for (const chunk of chunks) {
+		body.set(chunk, offset)
+		offset += chunk.length
+	}
+	return body
 }
