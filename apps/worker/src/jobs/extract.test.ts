@@ -45,6 +45,29 @@ vi.mock("@klipstack/extract", async (original) => {
 	}
 })
 
+// Parsing runs on this thread here, through the extractCapture above, so a test can hold or fail
+// it. The parse threads have tests of their own (parse.test.ts, thread-pool.test.ts).
+vi.mock("../parse", async (original) => {
+	const real = await original<typeof import("../parse")>()
+	const extract = await import("@klipstack/extract")
+	const parseCapture: typeof real.parseCapture = async (
+		{ body, servedHtml, url, contentType },
+		{ signal } = {},
+	) => {
+		signal?.throwIfAborted()
+		const work =
+			contentType === extract.X_RAW_CONTENT_TYPE
+				? Promise.resolve({ article: extract.extractXPost(body, url), used: "rendered" as const })
+				: extract.extractCapture({ html: body, servedHtml, url })
+		if (!signal) return work
+		const stopped = new Promise<never>((_, reject) =>
+			signal.addEventListener("abort", () => reject(signal.reason), { once: true }),
+		)
+		return Promise.race([work, stopped])
+	}
+	return { ...real, parseCapture }
+})
+
 const { handleExtract } = await import("./extract")
 
 const userId = `extract-${randomUUID()}`
@@ -331,6 +354,26 @@ describe("handleExtract", () => {
 			status: "failed",
 			failureReason: "http_error:503",
 		})
+	})
+
+	it("stops a job past its time limit: a retry, then a failure on the last attempt", async () => {
+		const doc = await saved("Never parses")
+		const stuck = hold(2)
+		const started = Date.now()
+		await expect(handleExtract(job(doc.id), { timeLimitMs: 300 })).rejects.toMatchObject({
+			code: "timeout",
+		})
+		expect(Date.now() - started).toBeLessThan(5_000)
+		expect(await docOf(doc.id)).toMatchObject({ status: "queued", failureReason: "timeout" })
+
+		await handleExtract(job(doc.id, 3), { timeLimitMs: 300 })
+		expect(await docOf(doc.id)).toMatchObject({ status: "failed", failureReason: "timeout" })
+		expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: "failed" }))
+		await stuck.reached
+		stuck.release()
+		// The parses that finish late publish nothing.
+		await new Promise((resolve) => setTimeout(resolve, 200))
+		expect(await versionsOf(doc.id)).toEqual([])
 	})
 
 	it("fails at once on a bot check, whatever status it came with", async () => {

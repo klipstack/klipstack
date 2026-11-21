@@ -16,16 +16,19 @@ export async function writeHeartbeat(instanceId: string): Promise<void> {
 /**
  * Reports process liveness for /admin/system: once now (call it after every consumer is
  * registered), then every 30 seconds. A failed write is logged and tried again on the next tick;
- * it never counts as a report. Returns a function that stops the timer (shutdown).
+ * it never counts as a report. `onBeat` runs after each write that succeeded (the health file);
+ * its failure is logged too. Returns a function that stops the timer (shutdown).
  */
 export function startHeartbeat({
 	instanceId = randomUUID(),
 	intervalMs = HEARTBEAT_INTERVAL_MS,
 	write = writeHeartbeat,
+	onBeat,
 }: {
 	instanceId?: string
 	intervalMs?: number
 	write?: (instanceId: string) => Promise<void>
+	onBeat?: () => Promise<void>
 } = {}): () => void {
 	let busy = false
 	const beat = async () => {
@@ -36,8 +39,14 @@ export function startHeartbeat({
 			await write(instanceId)
 		} catch (error) {
 			log.warn("heartbeat: write failed, will retry", { error })
+			return
 		} finally {
 			busy = false
+		}
+		try {
+			await onBeat?.()
+		} catch (error) {
+			log.warn("heartbeat: health file not renewed", { error })
 		}
 	}
 	void beat()
