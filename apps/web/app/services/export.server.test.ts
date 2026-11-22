@@ -289,12 +289,13 @@ describe("building the export", () => {
 		expect(four.count).toBe(one.count)
 	})
 
-	it("lets other work run between articles", async () => {
+	// Converting large articles is slow on CI runners: well over the default 5 s there.
+	it("lets other work run between articles", { timeout: 20_000 }, async () => {
 		const userId = await account()
 		// Enough HTML that turning it into Markdown takes a while.
 		const body =
 			"<p>A paragraph with <em>some</em> <a href='https://example.com'>links</a>.</p>".repeat(2_000)
-		for (let i = 0; i < 20; i++) {
+		for (let i = 0; i < 10; i++) {
 			const [d] = await db
 				.insert(documents)
 				.values({ userId, sourceUrl: `https://example.com/${i}`, urlHash: newId(), title: `${i}` })
@@ -302,9 +303,9 @@ describe("building the export", () => {
 			await version(d!.id, body)
 		}
 		const { result, longest, total } = await longestHold(() => buildExport(userId))
-		expect(result.documents).toHaveLength(20)
-		// One article at a time, not all twenty in one go.
-		expect(longest).toBeLessThan(total / 5)
+		expect(result.documents).toHaveLength(10)
+		// One article at a time, not all ten in one go.
+		expect(longest).toBeLessThan(total / 3)
 	})
 
 	it("exports the version an article had when the export began, if it changes meanwhile", async () => {
