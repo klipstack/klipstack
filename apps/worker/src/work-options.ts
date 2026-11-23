@@ -1,20 +1,19 @@
 import type { QueueName } from "@klipstack/queue"
 import type { WorkOptions } from "pg-boss"
-import { EXTRACT_CONCURRENCY } from "./parse"
 
 /**
  * Jobs of one queue that run at once in this process. Every queue shares one event loop; the
  * CPU-heavy part of extraction runs on parse threads (./parse.ts), so a slow site or a slow page
  * holds one slot, not the queue.
  *
- * - extract: a job mostly waits on the network (a fetch takes up to 15 s); one more than the
- *   parse threads, so a fetch can run while two pages parse.
+ * - extract: a job mostly waits on the network (a fetch takes up to 15 s), so three run at once.
+ *   Their pages then parse one at a time, on the parse thread (PARSE_THREADS).
  * - images: sharp decodes on its own threads, two at a time across jobs (images.ts), which bounds
  *   their memory however many jobs run.
  * - every other queue: one at a time, as before.
  */
 export const CONCURRENCY: Partial<Record<QueueName, number>> = {
-	extract: EXTRACT_CONCURRENCY + 1,
+	extract: 3,
 	images: 2,
 }
 

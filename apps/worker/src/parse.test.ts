@@ -1,7 +1,14 @@
 import { readFileSync } from "node:fs"
 import { ExtractError, extractCapture } from "@klipstack/extract"
 import { afterAll, describe, expect, it } from "vitest"
-import { closeParsePool, parseCapture } from "./parse"
+import {
+	asExtractError,
+	closeParsePool,
+	PARSE_THREAD_SCRIPT,
+	parseCapture,
+	reviveError,
+} from "./parse"
+import { createThreadPool, ThreadCrashError } from "./thread-pool"
 
 afterAll(closeParsePool)
 
@@ -18,7 +25,8 @@ const block =
 const heavy = (bytes: number) =>
 	`<!doctype html><html><head><title>Heavy</title></head><body><article>${block.repeat(Math.floor(bytes / block.length))}</article></body></html>`
 
-describe("parseCapture", () => {
+// A thread's first page also loads the parser: seconds on a slow runner.
+describe("parseCapture", { timeout: 60_000 }, () => {
 	it("parses on a thread as it would in process", async () => {
 		const { article, used } = await parseCapture(input(fixture))
 		const inProcess = await extractCapture({ html: fixture, url })
@@ -50,11 +58,25 @@ describe("parseCapture", () => {
 		expect((await parseCapture(input(fixture))).article.title).toBeTruthy()
 	})
 
-	it("fails a page that needs more memory than a thread has as too_large, and carries on", async () => {
-		const error = await parseCapture(input(heavy(1024 * 1024))).catch((e: unknown) => e)
-		expect(error).toMatchObject({ code: "too_large", message: expect.stringContaining("memory") })
-		expect((await parseCapture(input(fixture))).article.title).toBeTruthy()
-	}, 60_000)
+	it("fails a page that needs more memory than its thread has, and carries on", async () => {
+		// A small heap, so the page runs out of memory long before any time limit, however slow
+		// the machine. The worker's own pool has PARSE_HEAP_MB.
+		const small = createThreadPool<ReturnType<typeof input>, unknown>({
+			script: PARSE_THREAD_SCRIPT,
+			size: 1,
+			timeoutMs: 120_000,
+			resourceLimits: { maxOldGenerationSizeMb: 48 },
+			reviveError,
+		})
+		try {
+			const error = await small.run(input(heavy(1024 * 1024))).catch((e: unknown) => e)
+			expect(error).toBeInstanceOf(ThreadCrashError)
+			expect(asExtractError(error)).toMatchObject({ code: "too_large" })
+			expect((await parseCapture(input(fixture))).article.title).toBeTruthy()
+		} finally {
+			await small.close()
+		}
+	})
 
 	it("stops when the job's signal aborts", async () => {
 		const signal = AbortSignal.timeout(300)

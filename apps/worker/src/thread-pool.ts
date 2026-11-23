@@ -53,6 +53,8 @@ export interface ThreadPoolOptions {
 	timeoutMs: number
 	/** Heap limits per thread: a page that needs more crashes its thread, not the process. */
 	resourceLimits?: ResourceLimits
+	/** Told of every error that ends a thread, for the log. */
+	onThreadError?: (error: Error) => void
 	/** Turns a task's thrown error back into an error on this side. */
 	reviveError?: (fields: ErrorFields) => Error
 }
@@ -75,6 +77,7 @@ export function createThreadPool<In, Out>({
 	size,
 	timeoutMs,
 	resourceLimits,
+	onThreadError,
 	reviveError = plainError,
 }: ThreadPoolOptions): ThreadPool<In, Out> {
 	if (!Number.isInteger(size) || size < 1) throw new Error(`thread pool size must be >= 1: ${size}`)
@@ -97,6 +100,10 @@ export function createThreadPool<In, Out>({
 			},
 		)
 		all.add(worker)
+		// Always listened to: an error with no listener would end the whole process. An error between
+		// tasks (a timer a parser left behind) ends only the thread, which `exit` then drops; one
+		// during a task also rejects that task (`execute`).
+		worker.on("error", (error) => onThreadError?.(error))
 		worker.once("exit", () => {
 			all.delete(worker)
 			const at = idle.indexOf(worker)

@@ -91,6 +91,13 @@ describe("createThreadPool", () => {
 		expect(await p.run({ kind: "echo", value: "still here" })).toEqual({ value: "still here" })
 	})
 
+	it("survives an error from an idle thread, and replaces the thread", async () => {
+		const p = make(1)
+		expect(await p.run({ kind: "late-throw" })).toEqual({ value: "answered" })
+		await new Promise((resolve) => setTimeout(resolve, 300))
+		expect(await p.run({ kind: "echo", value: "after" })).toEqual({ value: "after" })
+	})
+
 	it("refuses a size below one", () => {
 		expect(() => createThreadPool({ script, size: 0, timeoutMs: 1 })).toThrow()
 	})

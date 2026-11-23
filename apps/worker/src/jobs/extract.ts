@@ -78,7 +78,7 @@ export async function handleExtract(
 	{ timeLimitMs = EXTRACT_TIME_LIMIT_MS }: { timeLimitMs?: number } = {},
 ) {
 	const { documentId } = job.data
-	// pg-boss aborts `job.signal` when it gives up on the job (expiry, shutdown).
+	// pg-boss aborts `job.signal` when it stops (shutdown) or loses the job's claim.
 	const deadline = AbortSignal.timeout(timeLimitMs)
 	const signal = job.signal ? AbortSignal.any([job.signal, deadline]) : deadline
 	const checkTime = () => {
@@ -94,6 +94,8 @@ export async function handleExtract(
 		.set({ status: extractionMachine.transitions.start.to, failureReason: null })
 		.where(eq(documents.id, documentId))
 
+	/** The capture this job read, once known: its failure counts only while that one is newest. */
+	let readRawId: string | null = null
 	try {
 		let raw = await db.query.documentRaw.findFirst({
 			where: eq(documentRaw.documentId, documentId),
@@ -134,6 +136,7 @@ export async function handleExtract(
 			raw = inserted
 		}
 		if (!raw) throw new Error("raw capture missing after insert")
+		readRawId = raw.id
 
 		// `rawHtml` holds the API JSON for posts on X.
 		const body = gunzipSync(raw.rawHtml).toString("utf8")
@@ -187,17 +190,25 @@ export async function handleExtract(
 		const reason = failureReasonFor(error)
 		const exhausted = job.retryCount >= job.retryLimit
 		const final = isPermanentFailure(error) || exhausted
-		// Only while the status is still the one this job set: a capture saved meanwhile was admitted
-		// its own job, which owns the status now (and may have published already). An article with a
-		// readable version stays readable; the failed attempt is only noted.
+		// Only while the status is still the one this job set, and the capture it read is still the
+		// newest (publishExtraction's rule): a capture saved meanwhile was admitted its own job, which
+		// owns the status now, queued, running beside this one, or published already. An article
+		// with a readable version stays readable; the failed attempt is only noted.
 		const { fail, retryLater, keep } = extractionMachine.transitions
+		const newestRaw = sql`(select r.id from ${documentRaw} r where r.document_id = ${documents.id} order by r.fetched_at desc limit 1)`
 		const [after] = await db
 			.update(documents)
 			.set({
 				status: sql`case when ${documents.currentVersionId} is null then ${final ? fail.to : retryLater.to} else ${keep.to} end`,
 				failureReason: reason,
 			})
-			.where(and(eq(documents.id, documentId), eq(documents.status, "processing")))
+			.where(
+				and(
+					eq(documents.id, documentId),
+					eq(documents.status, "processing"),
+					readRawId ? sql`${newestRaw} = ${readRawId}` : sql`${newestRaw} is null`,
+				),
+			)
 			.returning({ status: documents.status })
 		if (final) {
 			log.warn("extract: failed", {

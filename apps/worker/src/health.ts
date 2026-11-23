@@ -21,7 +21,8 @@ export async function markAlive(file = HEALTH_FILE, now = new Date()): Promise<v
 	try {
 		await utimes(file, now, now)
 	} catch {
-		await writeFile(file, "")
+		// `wx`: create only, so a link someone left at this path is never written through.
+		await writeFile(file, "", { flag: "wx" })
 		await utimes(file, now, now)
 	}
 }

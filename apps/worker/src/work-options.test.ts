@@ -51,9 +51,11 @@ describe("workOptions", () => {
 		await expect.poll(() => done.length, { timeout: 5_000 }).toBe(9)
 	}, 30_000)
 
-	it("keeps every other queue at one job at a time", () => {
+	it("runs image jobs two at a time, and every other queue one at a time", () => {
 		expect(workOptions(QUEUES.purge).localConcurrency).toBe(1)
 		expect(workOptions(QUEUES.feedFetch).localConcurrency).toBe(1)
 		expect(workOptions(QUEUES.extract).pollingIntervalSeconds).toBe(0.5)
+		// Image jobs: two at once; their decodes share images.ts's two slots.
+		expect(workOptions(QUEUES.images).localConcurrency).toBe(2)
 	})
 })

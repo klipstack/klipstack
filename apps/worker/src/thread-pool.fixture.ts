@@ -8,6 +8,8 @@ export type FixtureTask =
 	| { kind: "spin" }
 	| { kind: "throw"; code: string }
 	| { kind: "exit" }
+	/** Answers, then throws from a timer: an error while the thread is idle. */
+	| { kind: "late-throw" }
 
 /** A parser stuck in a loop: nothing but terminating the thread stops it. */
 function spin(): never {
@@ -27,6 +29,11 @@ serveTasks(parentPort, async (task: FixtureTask) => {
 			return spin()
 		case "throw":
 			throw Object.assign(new Error("refused"), { code: task.code })
+		case "late-throw":
+			setTimeout(() => {
+				throw new Error("late error in an idle thread")
+			}, 50)
+			return { value: "answered" }
 		case "exit":
 			process.exit(3)
 	}

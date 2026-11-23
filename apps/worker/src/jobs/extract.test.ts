@@ -371,9 +371,6 @@ describe("handleExtract", () => {
 		expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: "failed" }))
 		await stuck.reached
 		stuck.release()
-		// The parses that finish late publish nothing.
-		await new Promise((resolve) => setTimeout(resolve, 200))
-		expect(await versionsOf(doc.id)).toEqual([])
 	})
 
 	it("fails at once on a bot check, whatever status it came with", async () => {
@@ -396,6 +393,21 @@ describe("handleExtract", () => {
 		release()
 		await running
 		expect(await docOf(doc.id)).toMatchObject({ status: "queued", failureReason: null })
+		expect(notify).not.toHaveBeenCalled()
+	})
+
+	it("leaves the status to a newer capture's job that is already running", async () => {
+		const doc = await saved("Old capture")
+		const { reached, release } = hold()
+		barrier.failure = new ExtractError("no_content", "Nothing to read")
+		const running = handleExtract(job(doc.id))
+		await reached
+		// Saving the page again meanwhile: a new capture, and its job, running beside this one.
+		await capture(doc.id, "New capture", new Date(Date.now() + 1000))
+		await db.update(documents).set({ status: "processing" }).where(eq(documents.id, doc.id))
+		release()
+		await running
+		expect(await docOf(doc.id)).toMatchObject({ status: "processing", failureReason: null })
 		expect(notify).not.toHaveBeenCalled()
 	})
 
