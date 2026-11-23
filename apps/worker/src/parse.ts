@@ -92,6 +92,26 @@ export async function parseCapture(
 	}
 }
 
+const WARM_PAGE = `<!doctype html><html><head><title>Warm</title></head><body><article><h1>Warm</h1>${"<p>A paragraph with enough words to read as an article body, repeated.</p>".repeat(12)}</article></body></html>`
+
+/**
+ * Starts the parse thread and parses a small page on it: a new thread loads the parser first,
+ * seconds on a busy machine. The worker calls it before it takes jobs, and does not start when it
+ * fails: a thread that cannot load its code would otherwise fail every page as too_large.
+ */
+export async function warmParsePool(): Promise<void> {
+	const { article } = await parsePool().run(
+		{
+			body: WARM_PAGE,
+			servedHtml: null,
+			url: "https://example.com/warm",
+			contentType: "text/html",
+		},
+		{ timeoutMs: 60_000 },
+	)
+	if (article.title !== "Warm") throw new Error(`parse thread: wrong title ${article.title}`)
+}
+
 /** Stops the parse threads (shutdown, tests). */
 export async function closeParsePool() {
 	const closing = pool

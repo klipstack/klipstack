@@ -17,7 +17,7 @@ import { handleTopics, handleTopicsMonth } from "./jobs/topics"
 import { handleTranslate } from "./jobs/translate"
 import { handleWelcomeEmail } from "./jobs/welcome-email"
 import { log } from "./log"
-import { closeParsePool } from "./parse"
+import { closeParsePool, warmParsePool } from "./parse"
 import { workOptions } from "./work-options"
 
 loadEnv()
@@ -31,6 +31,8 @@ async function main() {
 	// database URL and the pool size are checked when `@klipstack/db` loads.
 	getStorage()
 	const welcome = welcomeFrom(process.env)
+	// The parse thread loads the parser before the first page, not during it.
+	await warmParsePool()
 	const boss = await getBoss()
 	log.info("worker started")
 
