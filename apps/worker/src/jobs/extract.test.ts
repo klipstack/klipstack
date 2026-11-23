@@ -45,6 +45,29 @@ vi.mock("@klipstack/extract", async (original) => {
 	}
 })
 
+// Parsing runs on this thread here, through the extractCapture above, so a test can hold or fail
+// it. The parse threads have tests of their own (parse.test.ts, thread-pool.test.ts).
+vi.mock("../parse", async (original) => {
+	const real = await original<typeof import("../parse")>()
+	const extract = await import("@klipstack/extract")
+	const parseCapture: typeof real.parseCapture = async (
+		{ body, servedHtml, url, contentType },
+		{ signal } = {},
+	) => {
+		signal?.throwIfAborted()
+		const work =
+			contentType === extract.X_RAW_CONTENT_TYPE
+				? Promise.resolve({ article: extract.extractXPost(body, url), used: "rendered" as const })
+				: extract.extractCapture({ html: body, servedHtml, url })
+		if (!signal) return work
+		const stopped = new Promise<never>((_, reject) =>
+			signal.addEventListener("abort", () => reject(signal.reason), { once: true }),
+		)
+		return Promise.race([work, stopped])
+	}
+	return { ...real, parseCapture }
+})
+
 const { handleExtract } = await import("./extract")
 
 const userId = `extract-${randomUUID()}`
@@ -333,6 +356,23 @@ describe("handleExtract", () => {
 		})
 	})
 
+	it("stops a job past its time limit: a retry, then a failure on the last attempt", async () => {
+		const doc = await saved("Never parses")
+		const stuck = hold(2)
+		const started = Date.now()
+		await expect(handleExtract(job(doc.id), { timeLimitMs: 300 })).rejects.toMatchObject({
+			code: "timeout",
+		})
+		expect(Date.now() - started).toBeLessThan(5_000)
+		expect(await docOf(doc.id)).toMatchObject({ status: "queued", failureReason: "timeout" })
+
+		await handleExtract(job(doc.id, 3), { timeLimitMs: 300 })
+		expect(await docOf(doc.id)).toMatchObject({ status: "failed", failureReason: "timeout" })
+		expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: "failed" }))
+		await stuck.reached
+		stuck.release()
+	})
+
 	it("fails at once on a bot check, whatever status it came with", async () => {
 		const doc = await saved("Walled")
 		barrier.failure = new ExtractError("bot_check", "A bot check", { status: 503 })
@@ -353,6 +393,21 @@ describe("handleExtract", () => {
 		release()
 		await running
 		expect(await docOf(doc.id)).toMatchObject({ status: "queued", failureReason: null })
+		expect(notify).not.toHaveBeenCalled()
+	})
+
+	it("leaves the status to a newer capture's job that is already running", async () => {
+		const doc = await saved("Old capture")
+		const { reached, release } = hold()
+		barrier.failure = new ExtractError("no_content", "Nothing to read")
+		const running = handleExtract(job(doc.id))
+		await reached
+		// Saving the page again meanwhile: a new capture, and its job, running beside this one.
+		await capture(doc.id, "New capture", new Date(Date.now() + 1000))
+		await db.update(documents).set({ status: "processing" }).where(eq(documents.id, doc.id))
+		release()
+		await running
+		expect(await docOf(doc.id)).toMatchObject({ status: "processing", failureReason: null })
 		expect(notify).not.toHaveBeenCalled()
 	})
 

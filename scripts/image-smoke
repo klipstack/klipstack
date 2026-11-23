@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Boot a built image the way production runs it, before it is pushed: migrations, the web server
-# (its health check, which queries the database) and the worker (still running after 20 seconds).
+# (its health check, which queries the database) and the worker (still running after 20 seconds,
+# its health check passing, and a page parsed on a parse thread).
 # The Dockerfile copies files one by one and installs production dependencies only; a file or a
 # package missing from the image fails here instead of in production, after the release hook.
 #
@@ -71,4 +72,12 @@ if ! grep -q "worker started" <<<"$worker_logs"; then
   exit 1
 fi
 echo "worker running"
+
+if ! docker exec "$name-worker" node --import tsx src/healthcheck.ts; then
+  echo "The worker's health check failed:" >&2
+  docker logs "$name-worker" 2>&1 | tail -n 40 >&2
+  exit 1
+fi
+echo "worker healthy"
+docker exec "$name-worker" node --import tsx scripts/parse-smoke.ts
 echo "Image smoke test passed"

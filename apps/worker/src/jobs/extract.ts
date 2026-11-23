@@ -13,8 +13,6 @@ import {
 import {
 	ExtractError,
 	type ExtractErrorCode,
-	extractCapture,
-	extractXPost,
 	fetchPage,
 	fetchXPost,
 	parseXStatusUrl,
@@ -23,6 +21,7 @@ import {
 import { admitImages, type JobPayloads } from "@klipstack/queue"
 import type { JobWithMetadata } from "pg-boss"
 import { log } from "../log"
+import { parseCapture } from "../parse"
 import { publishExtraction } from "../publish"
 import { absorbSharedPosts, notifyJoined, saveSharedArticle } from "../shared-via"
 import { queueTopicsAfterSave } from "./topics"
@@ -62,8 +61,29 @@ export function isPermanentFailure(error: unknown): boolean {
 	return false
 }
 
-export async function handleExtract(job: JobWithMetadata<JobPayloads["extract"]>) {
+/**
+ * A job's own time limit, well inside pg-boss's expiry (300 s, packages/queue/src/jobs.ts), so a
+ * job records its outcome before pg-boss would start a retry beside it. Each step has a limit of
+ * its own: the page fetch 15 s, X's thread lookups about a minute, parsing PARSE_TIME_LIMIT_MS.
+ * This bounds them together, and the wait for a parse thread.
+ */
+export const EXTRACT_TIME_LIMIT_MS = 120_000
+
+/** The job ran out of time: a transient failure, retried like a slow site. */
+const outOfTime = () =>
+	new ExtractError("timeout", `Extraction took longer than ${EXTRACT_TIME_LIMIT_MS}ms`)
+
+export async function handleExtract(
+	job: JobWithMetadata<JobPayloads["extract"]>,
+	{ timeLimitMs = EXTRACT_TIME_LIMIT_MS }: { timeLimitMs?: number } = {},
+) {
 	const { documentId } = job.data
+	// pg-boss aborts `job.signal` when it stops (shutdown) or loses the job's claim.
+	const deadline = AbortSignal.timeout(timeLimitMs)
+	const signal = job.signal ? AbortSignal.any([job.signal, deadline]) : deadline
+	const checkTime = () => {
+		if (signal.aborted) throw outOfTime()
+	}
 	const doc = await db.query.documents.findFirst({ where: eq(documents.id, documentId) })
 	if (!doc || doc.deletedAt) {
 		log.warn("extract: document missing or deleted", { documentId })
@@ -74,6 +94,8 @@ export async function handleExtract(job: JobWithMetadata<JobPayloads["extract"]>
 		.set({ status: extractionMachine.transitions.start.to, failureReason: null })
 		.where(eq(documents.id, documentId))
 
+	/** The capture this job read, once known: its failure counts only while that one is newest. */
+	let readRawId: string | null = null
 	try {
 		let raw = await db.query.documentRaw.findFirst({
 			where: eq(documentRaw.documentId, documentId),
@@ -114,18 +136,27 @@ export async function handleExtract(job: JobWithMetadata<JobPayloads["extract"]>
 			raw = inserted
 		}
 		if (!raw) throw new Error("raw capture missing after insert")
+		readRawId = raw.id
 
 		// `rawHtml` holds the API JSON for posts on X.
 		const body = gunzipSync(raw.rawHtml).toString("utf8")
 		const url = raw.finalUrl ?? doc.sourceUrl
 		const servedHtml = raw.servedHtml ? gunzipSync(raw.servedHtml).toString("utf8") : null
-		const { article, used } =
-			raw.contentType === X_RAW_CONTENT_TYPE
-				? { article: extractXPost(body, url), used: "rendered" as const }
-				: await extractCapture({ html: body, servedHtml, url })
+		checkTime()
+		// On a parse thread: a page that hangs the parser or runs it out of memory fails alone, while
+		// the other queues, the heartbeat and pg-boss keep running.
+		const { article, used } = await parseCapture(
+			{ body, servedHtml, url, contentType: raw.contentType },
+			{ signal },
+		).catch((error: unknown) => {
+			if (signal.aborted) throw outOfTime()
+			throw error
+		})
+		checkTime()
 		// A post that only passes a link along: the linked article is saved in its place.
 		if (await saveSharedArticle(doc, raw, article, url)) return
 
+		checkTime()
 		const published = await db.transaction(async (tx) => {
 			const versionId = await publishExtraction(tx, doc, raw.id, article, url)
 			if (!versionId) return null
@@ -159,17 +190,25 @@ export async function handleExtract(job: JobWithMetadata<JobPayloads["extract"]>
 		const reason = failureReasonFor(error)
 		const exhausted = job.retryCount >= job.retryLimit
 		const final = isPermanentFailure(error) || exhausted
-		// Only while the status is still the one this job set: a capture saved meanwhile was admitted
-		// its own job, which owns the status now (and may have published already). An article with a
-		// readable version stays readable; the failed attempt is only noted.
+		// Only while the status is still the one this job set, and the capture it read is still the
+		// newest (publishExtraction's rule): a capture saved meanwhile was admitted its own job, which
+		// owns the status now, queued, running beside this one, or published already. An article
+		// with a readable version stays readable; the failed attempt is only noted.
 		const { fail, retryLater, keep } = extractionMachine.transitions
+		const newestRaw = sql`(select r.id from ${documentRaw} r where r.document_id = ${documents.id} order by r.fetched_at desc limit 1)`
 		const [after] = await db
 			.update(documents)
 			.set({
 				status: sql`case when ${documents.currentVersionId} is null then ${final ? fail.to : retryLater.to} else ${keep.to} end`,
 				failureReason: reason,
 			})
-			.where(and(eq(documents.id, documentId), eq(documents.status, "processing")))
+			.where(
+				and(
+					eq(documents.id, documentId),
+					eq(documents.status, "processing"),
+					readRawId ? sql`${newestRaw} = ${readRawId}` : sql`${newestRaw} is null`,
+				),
+			)
 			.returning({ status: documents.status })
 		if (final) {
 			log.warn("extract: failed", {

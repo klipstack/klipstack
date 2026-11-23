@@ -3,6 +3,7 @@ import { welcomeFrom } from "@klipstack/email"
 import { getBoss, type JobPayloads, QUEUES, stopBoss } from "@klipstack/queue"
 import { getStorage } from "@klipstack/storage"
 import type { JobWithMetadata } from "pg-boss"
+import { markAlive } from "./health"
 import { startHeartbeat } from "./heartbeat"
 import { handleExport } from "./jobs/export"
 import { handleExtract } from "./jobs/extract"
@@ -16,13 +17,12 @@ import { handleTopics, handleTopicsMonth } from "./jobs/topics"
 import { handleTranslate } from "./jobs/translate"
 import { handleWelcomeEmail } from "./jobs/welcome-email"
 import { log } from "./log"
+import { closeParsePool, warmParsePool } from "./parse"
+import { workOptions } from "./work-options"
 
 loadEnv()
 // Jobs (purge, feeds, topics) may run statements longer than a web request's. Before any query.
 setDatabaseProcess("worker")
-
-/** One job at a time per queue; metadata gives handlers retryCount/retryLimit. */
-const WORK_OPTIONS = { batchSize: 1, includeMetadata: true } as const
 
 type Batch<Q extends keyof JobPayloads> = JobWithMetadata<JobPayloads[Q]>[]
 
@@ -31,52 +31,59 @@ async function main() {
 	// database URL and the pool size are checked when `@klipstack/db` loads.
 	getStorage()
 	const welcome = welcomeFrom(process.env)
+	// The parse thread loads the parser before the first page, not during it.
+	await warmParsePool()
 	const boss = await getBoss()
 	log.info("worker started")
 
-	// pg-boss waits a polling interval (2 s by default) after every job, even with more waiting:
-	// a reader who saved ten links would wait 20 s for the last. Half a second is its minimum.
-	const extractOptions = { ...WORK_OPTIONS, pollingIntervalSeconds: 0.5 }
-	await boss.work(QUEUES.extract, extractOptions, async ([job]: Batch<"extract">) => {
+	await boss.work(QUEUES.extract, workOptions(QUEUES.extract), async ([job]: Batch<"extract">) => {
 		if (job) await handleExtract(job)
 	})
-	await boss.work(QUEUES.images, WORK_OPTIONS, async ([job]: Batch<"images">) => {
+	await boss.work(QUEUES.images, workOptions(QUEUES.images), async ([job]: Batch<"images">) => {
 		// The outcome (completed, or skipped and why) becomes the job's output.
 		if (job) return handleImages(job)
 	})
-	await boss.work(QUEUES.export, WORK_OPTIONS, async ([job]: Batch<"export">) => {
+	await boss.work(QUEUES.export, workOptions(QUEUES.export), async ([job]: Batch<"export">) => {
 		if (job) await handleExport(job)
 	})
-	await boss.work(QUEUES.purge, WORK_OPTIONS, async () => {
+	await boss.work(QUEUES.purge, workOptions(QUEUES.purge), async () => {
 		await handlePurge()
 	})
-	await boss.work(QUEUES.feedsTick, WORK_OPTIONS, async () => {
+	await boss.work(QUEUES.feedsTick, workOptions(QUEUES.feedsTick), async () => {
 		await handleFeedsTick()
 	})
-	await boss.work(QUEUES.feedFetch, WORK_OPTIONS, async ([job]: Batch<"feed-fetch">) => {
-		if (job) await handleFeedFetch(job)
-	})
-	await boss.work(QUEUES.sweep, WORK_OPTIONS, async () => {
+	await boss.work(
+		QUEUES.feedFetch,
+		workOptions(QUEUES.feedFetch),
+		async ([job]: Batch<"feed-fetch">) => {
+			if (job) await handleFeedFetch(job)
+		},
+	)
+	await boss.work(QUEUES.sweep, workOptions(QUEUES.sweep), async () => {
 		await handleSweep()
 	})
-	await boss.work(QUEUES.inviteDigest, WORK_OPTIONS, async () => {
+	await boss.work(QUEUES.inviteDigest, workOptions(QUEUES.inviteDigest), async () => {
 		const digest = await handleInviteDigest()
 		if (digest.fresh > 0) log.info("invite digest", digest)
 	})
-	await boss.work(QUEUES.reportDigest, WORK_OPTIONS, async () => {
+	await boss.work(QUEUES.reportDigest, workOptions(QUEUES.reportDigest), async () => {
 		const digest = await handleReportDigest()
 		if (digest.fresh > 0) log.info("report digest", digest)
 	})
-	await boss.work(QUEUES.topics, WORK_OPTIONS, async ([job]: Batch<"topics">) => {
+	await boss.work(QUEUES.topics, workOptions(QUEUES.topics), async ([job]: Batch<"topics">) => {
 		if (job) await handleTopics(job)
 	})
-	await boss.work(QUEUES.translate, WORK_OPTIONS, async ([job]: Batch<"translate">) => {
-		if (job) await handleTranslate(job)
-	})
-	await boss.work(QUEUES.topicsMonth, WORK_OPTIONS, async () => {
+	await boss.work(
+		QUEUES.translate,
+		workOptions(QUEUES.translate),
+		async ([job]: Batch<"translate">) => {
+			if (job) await handleTranslate(job)
+		},
+	)
+	await boss.work(QUEUES.topicsMonth, workOptions(QUEUES.topicsMonth), async () => {
 		log.info("topics: the month's runs", await handleTopicsMonth())
 	})
-	await boss.work(QUEUES.welcomeEmail, WORK_OPTIONS, async () => {
+	await boss.work(QUEUES.welcomeEmail, workOptions(QUEUES.welcomeEmail), async () => {
 		const welcomed = await handleWelcomeEmail({ from: welcome })
 		if (welcomed.sent + welcomed.failed > 0) log.info("welcome emails", welcomed)
 	})
@@ -95,13 +102,15 @@ async function main() {
 	// Topics' month: on the 1st, 00:05 UTC, runs for readers whose sorts waited for it.
 	await boss.schedule(QUEUES.topicsMonth, "5 0 1 * *", {}, { tz: "UTC" })
 
-	// Every consumer is registered: from here on the process counts as alive.
-	const stopHeartbeat = startHeartbeat()
+	// Every consumer is registered: from here on the process counts as alive. Each report that
+	// reaches the database also renews the file the container's health check reads (health.ts).
+	const stopHeartbeat = startHeartbeat({ onBeat: markAlive })
 
 	const shutdown = async (signal: string) => {
 		log.info(`received ${signal}, shutting down`)
 		stopHeartbeat()
 		await stopBoss()
+		await closeParsePool()
 		await pool.end()
 		process.exit(0)
 	}

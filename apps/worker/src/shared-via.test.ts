@@ -45,6 +45,11 @@ vi.mock("@klipstack/extract", async (original) => {
 })
 
 const { handleExtract } = await import("./jobs/extract")
+const { closeParsePool, warmParsePool } = await import("./parse")
+
+// handleExtract parses on a thread: start it before the tests, as the worker does at boot.
+beforeAll(warmParsePool, 60_000)
+afterAll(closeParsePool)
 
 const userId = `shared-${randomUUID()}`
 const ESSAY = "https://www.theatlantic.com/technology/2026/10/openai-safety-resignation/684000/"

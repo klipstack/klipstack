@@ -51,8 +51,17 @@ services:
     command: ["node", "--import", "tsx", "src/main.ts"]
     volumes:
       - storage:/app/storage
-    # Extraction and image processing share this; apps/worker/src/images.ts sizes its work to fit.
+    # Extraction and image processing share this; apps/worker/src/images.ts and parse.ts size
+    # their work to fit.
     mem_limit: 1200m
+    healthcheck:
+      # Healthy while the worker's heartbeat reaches the database: it fails when the worker is
+      # stuck or cut off from PostgreSQL. Docker only reports it; it does not restart the worker.
+      test: ["CMD", "node", "--import", "tsx", "src/healthcheck.ts"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
   # A one-off: `docker compose run --rm migrate`. The profile keeps `up` from starting it.
   migrate:

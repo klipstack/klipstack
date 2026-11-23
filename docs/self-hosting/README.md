@@ -56,7 +56,7 @@ under node directly, so `docker stop` reaches them and they shut down cleanly.
 
 You need a machine with Docker and the Compose plugin, a domain name pointing at it, and ports 80
 and 443 open for the reverse proxy. Give the worker at least 1.2 GB of memory: Compose limits it to
-1200 MB, and image processing is sized to fit in that.
+1200 MB, and image processing and page parsing are sized to fit in that.
 
 1. Make a directory, for example `klipstack/`, and copy [compose.yml](compose.yml) into it.
 2. Create `.env` beside it, readable only by you (`chmod 600 .env`). Start from this; the
@@ -80,7 +80,7 @@ and 443 open for the reverse proxy. Give the worker at least 1.2 GB of memory: C
    docker compose up -d postgres
    docker compose run --rm migrate
    docker compose up -d
-   docker compose ps          # web turns "healthy" within a minute
+   docker compose ps          # web and worker turn "healthy" within a minute or two
    ```
 
 4. Put a reverse proxy with TLS in front of `127.0.0.1:3000` (see [below](#reverse-proxy-and-tls)).
@@ -229,6 +229,9 @@ Two endpoints are for monitoring:
 
 - `/healthcheck` answers `ok` when the web server can query the database. The Compose health
   check uses it.
+- The worker has no web server. Its Compose health check runs `node --import tsx
+  src/healthcheck.ts` inside the container, which passes while the worker's heartbeat reached the
+  database within the last 90 seconds.
 - `/status` answers `ok`, or `degraded` with status 503 when background work stalls: no worker
   has reported recently, or a due job has waited ten minutes while its queue started nothing.
   Point an uptime monitor at it.
@@ -272,7 +275,7 @@ new web and worker start, and with the old ones stopped, so no old code writes d
    docker compose up -d
    ```
 
-3. Check `docker compose ps` (web healthy), `docker compose logs --tail 50 web worker`, and sign in.
+3. Check `docker compose ps` (web and worker healthy), `docker compose logs --tail 50 web worker`, and sign in.
 
 What could go wrong:
 

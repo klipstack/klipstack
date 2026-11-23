@@ -31,6 +31,11 @@ vi.mock("@klipstack/db", async (original) => ({
 }))
 
 const { handleExtract } = await import("./extract")
+const { closeParsePool, warmParsePool } = await import("../parse")
+
+// handleExtract parses on a thread: start it before the tests, as the worker does at boot.
+beforeAll(warmParsePool, 60_000)
+afterAll(closeParsePool)
 const { handleTranslate, sameMarkup, settleStuckTranslations, splitParts } =
 	await import("./translate")
 
